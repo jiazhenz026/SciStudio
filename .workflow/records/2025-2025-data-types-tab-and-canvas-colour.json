@@ -201,6 +201,96 @@
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T13:02:40.786498Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:91ef60d6583fe5b5d3f70ed16ccc055709a136426f4e57127ec0060183a6dcc3",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T13:02:41.884252Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e63c64e08b177b7d2f0225c6b5d5ac64babff02dbb64851aed43a97374062e35",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T13:03:30.648176Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1654800426a4cfc64c41b0ed82af279b0ae66064e3b66f567f37475cadd8e18c",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T13:03:39.792097Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:63eefc83bb00e965507980a1518e129c200b8699fb9071b6f41ca9b7f546e01f",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T13:05:28.289595Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T13:06:35.223349Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0733e5fae211f5b081f2f793f03e9f19a684bbf3ef9696d08bc2187df5f8ecd4",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [
@@ -209,7 +299,13 @@
       "rationale": "tests/api/test_mcp_transport_publish.py x2 (AF_UNIX unavailable on Windows), tests/cli/test_install.py::test_claude_and_codex_share_identical_mcp_env (TOML path escaping), tests/desktop/test_terminal_post_rc.py x2 (no POSIX shell), tests/api/test_filesystem_browse.py::test_overlength_path_returns_400_not_500 (Windows MAX_PATH), tests/qa/test_gate_record_hooks.py x3 (#2011, pre-commit stash needs /bin/sh). This branch's diff is frontend, docs, and CHANGELOG only and contains no Python change, so it cannot reach any of them; 5718 python tests pass. Frontend evidence is the authoritative surface here: 123 files / 1279 tests pass, including the 33 new tests in TypePalette.test.tsx, typeColorSource.test.tsx, typeModel.test.ts and the extended typeColorMap.test.ts. This N/A has no force: python_tests is ci.yml-owned and Linux CI remains authoritative."
     }
   ],
-  "commit": null,
+  "commit": {
+    "sha": "25ce0c18",
+    "shas": [
+      "25ce0c18"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -438,6 +534,279 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:02:13.392540Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:02:13.405717Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:02:13.418964Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:02:13.432608Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "closed": [
+              2025
+            ],
+            "issue_number": 2024
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "issue_link",
+          "git_evidence": null,
+          "id": "issue_link.missing-closing-keyword",
+          "line": null,
+          "message": "PR body must close every delivered gate issue",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "issue_link.missing-closing-keyword",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "issue_link",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-07T13:02:13.445174Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:02:13.458185Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:02:13.471999Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:02:13.484837Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:02:13.498699Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:02:13.518827Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:35.270250Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:35.282732Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:35.295531Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:35.307687Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:35.319994Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:35.333174Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:35.346462Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:35.360200Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:35.374064Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:35.393785Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:58.134711Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:58.149020Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:58.163396Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:58.177950Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:58.192260Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:58.206445Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:58.220844Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:58.235343Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:58.249567Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T13:06:58.273050Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -458,26 +827,60 @@
   "observed_diff": {
     "base": "feat/1995-adr-053-personal-tool-library",
     "base_sha": "48e00032",
-    "changed_files": [],
-    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "changed_files": [
+      ".workflow/records/2025-2025-data-types-tab-and-canvas-colour.json",
+      "CHANGELOG.md",
+      "docs/specs/adr-053-personal-tool-library.md",
+      "docs/specs/frontend-block-palette.md",
+      "frontend/src/App.parts/ProjectWorkspace.tsx",
+      "frontend/src/components/TypePalette.parts/TypeDetailPopover.tsx",
+      "frontend/src/components/TypePalette.parts/TypeTile.tsx",
+      "frontend/src/components/TypePalette.parts/__tests__/fixtures.ts",
+      "frontend/src/components/TypePalette.parts/__tests__/typeModel.test.ts",
+      "frontend/src/components/TypePalette.parts/typeModel.ts",
+      "frontend/src/components/TypePalette.tsx",
+      "frontend/src/components/WorkflowCanvas.tsx",
+      "frontend/src/components/__tests__/TypePalette.test.tsx",
+      "frontend/src/components/__tests__/typeColorSource.test.tsx",
+      "frontend/src/components/nodes/BlockNode.parts/PortHandles.tsx",
+      "frontend/src/components/nodes/__tests__/BlockNode/test-utils.tsx",
+      "frontend/src/config/__tests__/typeColorMap.test.ts",
+      "frontend/src/config/typeColorMap.ts",
+      "frontend/src/lib/api/code.ts",
+      "frontend/src/store/index.ts",
+      "frontend/src/store/types.ts",
+      "frontend/src/store/typesSlice.ts",
+      "frontend/src/store/useTypeCatalog.ts",
+      "frontend/src/testUtils.ts",
+      "frontend/src/types/api.ts"
+    ],
+    "diff_fingerprint": "sha256:86d35bf1a3303a1a462e3f54673df327057338d25b49325418a0c301dcac5e6a",
     "head": "HEAD",
-    "head_sha": "48e00032",
+    "head_sha": "25ce0c18",
     "surfaces": {
-      "docs": 0,
-      "frontend": 0,
+      "docs": 2,
+      "frontend": 21,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 0,
+      "implementation": 21,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 0,
-      "test": 0,
+      "sentrux": 23,
+      "test": 6,
       "workflow_ci": 0
     }
   },
   "owner_directive": "Deliver ADR-053 Spec 1 \u00a712.2 steps 12 and 13: the canvas colour source switch (FR-066, FR-051, FR-052, FR-067) and the Data types tab (FR-039 - FR-043). Complete delivery, no deferred scope. Reuse B3's shared palette helpers and B2's types endpoint; do not open a PR.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2025,
+      2024
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-07T12:51:04.353276Z",
@@ -510,6 +913,42 @@
       "unsatisfied": [
         "checks.python_tests"
       ]
+    },
+    {
+      "at": "2026-08-07T13:02:13.518861Z",
+      "diff_fingerprint": "sha256:86d35bf1a3303a1a462e3f54673df327057338d25b49325418a0c301dcac5e6a",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.architecture_tests",
+        "checks.deferral_discipline",
+        "checks.frontend",
+        "checks.full_audit",
+        "checks.python_tests",
+        "checks.semantic_dup",
+        "guard.issue_link"
+      ]
+    },
+    {
+      "at": "2026-08-07T13:06:35.393819Z",
+      "diff_fingerprint": "sha256:86d35bf1a3303a1a462e3f54673df327057338d25b49325418a0c301dcac5e6a",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-07T13:06:58.273087Z",
+      "diff_fingerprint": "sha256:86d35bf1a3303a1a462e3f54673df327057338d25b49325418a0c301dcac5e6a",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
     }
   ],
   "record_id": "2025-2025-data-types-tab-and-canvas-colour",
@@ -520,6 +959,7 @@
       "architecture_tests",
       "deferral_discipline",
       "format_check",
+      "frontend",
       "full_audit",
       "import_contracts",
       "lint_format",
@@ -527,7 +967,9 @@
       "semantic_dup",
       "type_check"
     ],
-    "docs": [],
+    "docs": [
+      "docs_required_or_na"
+    ],
     "guards": [
       "core_change_guard",
       "docs_landing",
@@ -540,7 +982,9 @@
       "test_engineer_scope_guard",
       "weakened_ci_check"
     ],
-    "tests": []
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
