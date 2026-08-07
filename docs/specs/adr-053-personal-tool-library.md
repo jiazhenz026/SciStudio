@@ -699,6 +699,18 @@ alone next to `Blocks`; the internal key stays `types`.
 chips, and tier sections with core pinned at the top, then `My Library`, then
 `This Project`, then packages A→Z. Empty-state behaviour follows FR-037.
 
+The per-package split is therefore **as granular as FR-026's name allows, and
+no more**. A distribution FR-026 cannot name — one whose `PackageInfo.name` is a
+display string rather than an import-shaped one — reports `null`, and its types
+land in a single lumped `Packages` section rather than a named one. The Blocks
+tab reaches a named section for the same distribution through a frontend
+dotted-prefix heuristic on the block's type name, which has no equivalent on the
+type side and is not worth inventing one for: two tabs naming one distribution
+differently is the drift FR-026 exists to prevent, and less granular is the
+correct failure. Nothing is dropped — those types are still listed. Recorded
+here rather than left implicit, per
+`docs/audit/2026-08-07-adr-053-spec1-track-b.md` (P3-1).
+
 **FR-041.** Each type tile MUST carry a colour swatch — solid fill plus ring —
 resolved through the precedence in FR-051, so a type reads identically in the
 palette and on a canvas port. No new colour table is introduced; the declared
