@@ -105,6 +105,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2021, #2009] Installing a package or switching a branch now re-discovers
+  data types and previewers, not just blocks. The block registry was rebuilt
+  from five places — the branch-switch route and the four package
+  install/update/rollback/delete routes — while the type registry and the
+  previewer registry were rebuilt only on project switch and at startup. So a
+  package that shipped custom types or previewers had its blocks appear in the
+  palette while the rest of it stayed invisible, and a branch that changed
+  `{project}/types/` or `{project}/previewers/` changed only the blocks half of
+  the working tree as far as the running app was concerned. In both cases there
+  was no error and no indication that switching projects was the workaround.
+  All five call sites now go through one `ApiRuntime.refresh_all_registries()`
+  entry point that names the *event* rather than the registries, which is also
+  what a user library write will call once that endpoint exists (#1996), and a
+  regression test rejects any route in `api/routes/` that reaches for a single
+  registry again. Rebuild order is unchanged from the project-switch path:
+  types, then blocks, then previewers. Tests:
+  `tests/api/test_registry_reload_symmetry.py`. (@claude, 2026-08-07, branch:
+  fix/2021-registry-reload-symmetry)
+
 - [#2020] Every process now resolves the same drop-in block and type
   directories. "Which drop-in directories does this process see?" was written
   out four times — the API runtime, the agent runtime, worker-side type

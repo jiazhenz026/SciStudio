@@ -105,12 +105,24 @@ def _refresh_active_project_package_docs(runtime: ApiRuntime) -> None:
         logger.warning("Package docs provisioning failed for active project %s", project_path, exc_info=True)
 
 
+def _after_package_change(runtime: ApiRuntime) -> None:
+    """Re-discover everything an install, update, rollback, or delete moved.
+
+    ADR-053 FR-063 + #2009: a package can ship blocks, types, and previewers,
+    and all four routes below used to refresh only the block registry — so a
+    package's types and previewers stayed invisible until the user switched
+    projects, with no error to explain it.
+    """
+    runtime.refresh_all_registries()
+    _refresh_active_project_package_docs(runtime)
+
+
 @router.post("/local", response_model=LocalPackageInstallResponse)
 async def install_local_package_route(
     body: LocalPackageInstallRequest,
     runtime: RuntimeDep,
 ) -> LocalPackageInstallResponse:
-    """Install a local package and refresh the block registry."""
+    """Install a local package and refresh the block, type, and previewer registries."""
 
     if not _is_bundled_desktop_run():
         raise HTTPException(
@@ -125,8 +137,7 @@ async def install_local_package_route(
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Failed to install package: {exc}") from exc
 
-    runtime.refresh_block_registry()
-    _refresh_active_project_package_docs(runtime)
+    _after_package_change(runtime)
     module_names = set(result.modules)
     blocks_count = 0
     for spec in runtime.block_registry.all_specs().values():
@@ -208,8 +219,7 @@ async def update_package_route(package_name: str, runtime: RuntimeDep) -> Packag
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except (PackageInstallError, OSError) as exc:
         raise HTTPException(status_code=500, detail=f"Failed to update package: {exc}") from exc
-    runtime.refresh_block_registry()
-    _refresh_active_project_package_docs(runtime)
+    _after_package_change(runtime)
     return _action_response(result)
 
 
@@ -223,8 +233,7 @@ async def rollback_package_route(package_name: str, runtime: RuntimeDep) -> Pack
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Failed to roll back package: {exc}") from exc
-    runtime.refresh_block_registry()
-    _refresh_active_project_package_docs(runtime)
+    _after_package_change(runtime)
     return _action_response(result)
 
 
@@ -238,8 +247,7 @@ async def delete_package_route(package_name: str, runtime: RuntimeDep) -> Packag
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Failed to delete package: {exc}") from exc
-    runtime.refresh_block_registry()
-    _refresh_active_project_package_docs(runtime)
+    _after_package_change(runtime)
     return _action_response(result)
 
 
