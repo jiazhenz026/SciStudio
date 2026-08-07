@@ -57,8 +57,11 @@ only its own diff.
 |---|---|---|
 | Spec §13 OQ-1 (FR-016): type filename shadowing an importable top-level module | **Reject the file and report an error** — registration is refused, not merely warned | A3 (#2022) |
 | PR structure | Stacked: PR B based on PR A | manager |
-| `admin-approved:core-change` for `src/scistudio/core/types/base.py` (FR-053) | **Authorized**; owner applies the label to PR B | B2 (#2023) |
+| `admin-approved:core-change` for `src/scistudio/core/types/base.py` (FR-053) | **Authorized** for PR B | B2 (#2023) |
 | `#2009` previewer registry refresh | **Included in PR A** alongside `#2021` | A2 |
+| `admin-approved:core-change` for **PR A** as well | **Authorized.** Raised after manager review found `PROTECTED_CORE_PATTERNS` covers `src/scistudio/{core,engine,blocks,workflow,utils}/**`, so PR A needs the label too — broader than spec §12.1, which flagged only `base.py` | A1, A3, manager |
+| Track B backend sequencing | Owner: dispatch B1/B2 **after** the Track A audit, not in parallel | manager |
+| Standing authorization | Owner delegated all remaining decisions to the manager and went offline. Manager proceeds autonomously; every decision taken under this delegation is recorded in §9 | manager |
 
 ## 2. Scope
 
@@ -139,9 +142,10 @@ Agents MUST NOT edit files owned by the spec 2 track and MUST NOT rebase onto
 
 ## 5. Local Gate Hook Bypass Evidence
 
-- Authorized bypass label: `admin-approved:core-change` (PR B only, narrow protected-core authorization — not a gate bypass)
+- Authorized bypass label: `admin-approved:core-change` (**PR A and PR B**, narrow protected-core authorization — not a gate bypass)
 - Owner authorization source: `owner chat, 2026-08-07 — "Authorized — I will apply it"`
-- Reason: `FR-053 — src/scistudio/core/types/base.py gains two optional colour class attributes on DataObject. The label authorizes the protected path only; it does not bypass scope, docs, issue linkage, or check obligations.`
+- Reason: `PROTECTED_CORE_PATTERNS (src/scistudio/qa/governance/gate_record/surfaces.py:73) covers src/scistudio/{core,engine,blocks,workflow,utils}/**. PR A lands the shared provisioning helper and the drop-in scan fix there; PR B additionally adds two optional colour class attributes to DataObject (FR-053). The label authorizes the protected paths only; it does not bypass scope, docs, issue linkage, or check obligations.`
+- Manager note: `The manager cannot self-authorize. CI verifies label actor provenance. The owner authorized both PRs in chat on 2026-08-07 and delegated application of the label to the manager along with all remaining decisions.`
 
 No broad bypass label (`admin-approved:bypass`, `human-authored`) is authorized for
 this dispatch. Standard gate validation applies to every agent and to both final PRs.
@@ -150,7 +154,7 @@ this dispatch. Standard gate validation applies to every agent and to both final
 |---|---|---|---|---|
 | Pre-commit | `gate_record check --mode pre-commit` | `N/A` | `[ ]` | `<ledger event>` |
 | Commit message | `gate_record check --mode commit-msg` | `N/A` | `[ ]` | `<ledger event>` |
-| Pre-PR reconcile (PR A) | `gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `N/A` | `[ ]` | `<ledger reconcile event>` |
+| Pre-PR reconcile (PR A) | `gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `admin-approved:core-change` | `[ ]` | `<ledger reconcile event>` |
 | Pre-PR reconcile (PR B) | `gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `admin-approved:core-change` | `[ ]` | `<ledger reconcile event>` |
 
 ## 5.1 Docs Impact Check
@@ -254,13 +258,15 @@ through the same helper so there is exactly one answer to "where does the user t
 
 ### 7.3 Implementation
 
-- [ ] `A1` shared provisioning helper + four consumers (FR-057 – FR-060) -> `<commit>`
-- [ ] `A1` scan-order reconciled or documented at both call sites (FR-061) -> `<commit>`
-- [ ] `A1` provisioning parity test -> `tests/api/test_registry_provisioning_parity.py`
-- [ ] `A2` package install/uninstall refreshes type registry (FR-063) -> `<commit>`
-- [ ] `A2` branch switch refreshes type registry (FR-064) -> `<commit>`
-- [ ] `A2` previewer registry refreshed at the same sites (#2009) -> `<commit>`
-- [ ] `A2` reload symmetry test -> `tests/api/test_registry_reload_symmetry.py`
+- [x] `A1` shared provisioning helper + four consumers (FR-057 – FR-060) -> `src/scistudio/core/dropins.py`, commit `24a1426a`
+- [~] `A1` scan-order kept separate, rationale recorded on the **type** side only (FR-061) -> `core/types/registry.py` module docstring, commit `24a1426a`. **Block-side back-pointer missing**; reassigned to A3 (prompt item 7a), since A3 owns `blocks/registry/**`.
+- [x] `A1` provisioning parity test, 12 tests -> `tests/api/test_registry_provisioning_parity.py`
+- [x] `A2` package install/uninstall refreshes type registry (FR-063) -> `_after_package_change`, commit `329f8737`
+- [x] `A2` branch switch refreshes type registry (FR-064) -> `routes/git.py`, commit `329f8737`
+- [x] `A2` previewer registry refreshed at the same sites (#2009) -> `refresh_all_registries`, commit `329f8737`. `src/scistudio/previewers/**` needed no change: `refresh_preview_service` already existed and #2009 was purely a call-site defect.
+- [x] `A2` FR-062 audit found **seven** invalidation sites, not the five the issue listed — `open_project` and `_configure_static_registries` were unlisted. The latter is deliberately left alone: the preview service is built lazily, so unifying it there would eagerly build it at construction.
+- [x] `A2` reload symmetry test, 8 tests, all 8 fail on base -> `tests/api/test_registry_reload_symmetry.py`
+- [!] `A2` FR-065 cross-process refresh **partially** delivered. In-process is covered (`_RuntimeAdapter` reads registries through by property). The standalone `scistudio mcp-bridge` builds registries once in `make_mcp_runtime` with no invalidation channel; adding one needs IPC in `ai/agent/mcp/**` and has no trigger until the #1996 write endpoint exists. **Sequenced into B1**, recorded in §9 and in B1's prompt — not deferred.
 - [ ] `A3` types dirs on `sys.path` for drop-in execution (FR-012) -> `<commit>`
 - [ ] `A3` worker parity via `runtime_import_roots` (FR-013) -> `<commit>`
 - [ ] `A3` project types shadow user types (FR-014) -> `<commit>`
@@ -371,6 +377,12 @@ Append only.
 |---|---|---|---|---|
 | `2026-08-07` | `manager` | `Spec §12.1 lists no home for the shared provisioning helper; core cannot import blocks.` | `Frozen contract §6.2 places it at src/scistudio/core/dropins.py and requires import-linter to pass.` | `N/A` |
 | `2026-08-07` | `manager` | `#2009 (previewer reload) is outside the spec's declared scope.` | `Owner authorized inclusion in PR A (§1.2).` | `N/A` |
+| `2026-08-07` | `manager` | `PROTECTED_CORE_PATTERNS covers src/scistudio/{core,engine,blocks,workflow,utils}/**, so PR A needs admin-approved:core-change too. Spec §12.1 flagged only base.py (FR-053).` | `Verified independently by running gate_record check --mode pre-commit on the integration branch. Owner authorized the label for PR A (§1.2).` | `N/A` |
+| `2026-08-07` | `A1` | `FR-061 requires the divergent-scan-order rationale at BOTH call sites. A1 recorded it thoroughly on the type side; BlockRegistry.scan() got no back-pointer.` | `Not reopened with A1. Reassigned to A3, which owns blocks/registry/**, as prompt item 7a.` | `Verified by AUDIT-A` |
+| `2026-08-07` | `A2` | `Edited tests/api/test_packages.py, outside its declared write set. The route tests' _Runtime double only stubbed refresh_block_registry, so the unified entry point broke every package-route test.` | `Accepted. Unavoidable and correctly amended into A2's ledger before the edit. Touching the file also surfaced 8 pre-existing mypy errors (CI only runs mypy over src/), fixed as mechanical annotations.` | `N/A` |
+| `2026-08-07` | `A2` | `FR-065 cross-process refresh cannot land in Track A: the standalone mcp-bridge builds registries once and has no invalidation channel, and there is no trigger until the #1996 write endpoint exists.` | `Sequenced into B1 rather than deferred. Recorded in B1's dispatch prompt and in §7.3.` | `B1 (#1996)` |
+| `2026-08-07` | `owner` | `Owner delegated all remaining decisions to the manager and went offline mid-dispatch.` | `Manager proceeds autonomously. Every subsequent decision is recorded in this log with its rationale so the owner can audit them on return.` | `N/A` |
+| `2026-08-07` | `manager` | `B3 was dispatched before the owner's "wait for the Track A audit" answer arrived. B3 is frontend-only, cut from origin/main, and shares no file with Track A.` | `Left running. The owner's constraint targeted the backend agents B1/B2, which depend on A1's helper; B3 does not.` | `N/A` |
 
 ## 10. Final Readiness
 
