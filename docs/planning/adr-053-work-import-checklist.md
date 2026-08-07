@@ -975,3 +975,10 @@ no deferrals. Out of scope and untouched: spec §4.6, `docs/adr/ADR-053.md`,
 - `aggregate_state` — a provider that cannot run a *session* is still a
   legitimately available *agent*, so the shared aggregate is unchanged and only
   consumers that start sessions filter on the new capability.
+- **`#2014`** — the same defect on the AI Block surface, from the same cause:
+  `AIBlock.config_schema` derives its `provider` enum from `agent_keys()` and
+  therefore advertises a provider `AIBlock.validate_config` rejects. That issue's
+  own first suggested fix is a shared provider capability, which is exactly what
+  `session_unsupported_reason` is — so adopting it there is now a small change,
+  but it is out of scope here and stays tracked on `#2014`. Named in that
+  function's docstring so a reader of either lands on the other.

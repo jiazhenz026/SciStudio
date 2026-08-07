@@ -175,6 +175,21 @@
       "tool_versions": {
         "mypy": "2.1.0"
       }
+    },
+    {
+      "at": "2026-08-07T08:49:01.138442Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:b66709e23db1d33063b55fc209d2ee993b2e7842dc8644efc6e3f37398c50fa5",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -209,6 +224,14 @@
     },
     {
       "at": "2026-08-07T08:30:22.170588Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-work-import-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:50:43.193008Z",
       "class": null,
       "kind": "path",
       "path": "docs/planning/adr-053-work-import-checklist.md",
@@ -359,6 +382,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:49:01.198768Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:49:01.213552Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:49:01.229537Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:49:01.244765Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:49:01.260558Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:49:01.276089Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:49:01.291527Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:49:01.307654Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:49:01.322267Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:49:01.344432Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -408,9 +513,9 @@
       "tests/api/test_agent_availability.py",
       "tests/api/test_work_import_session.py"
     ],
-    "diff_fingerprint": "sha256:ff14e6359203e1cd1a3444c71cfd561a697be973fdd4ea7a4e1c87ee2039f925",
+    "diff_fingerprint": "sha256:7161d79f6e18b1b102476252efc4f781878f1d091e8352c0b8bec3557e688d8e",
     "head": "HEAD",
-    "head_sha": "a879458e",
+    "head_sha": "0f979301",
     "surfaces": {
       "docs": 2,
       "frontend": 9,
@@ -439,6 +544,16 @@
     {
       "at": "2026-08-07T08:42:22.519329Z",
       "diff_fingerprint": "sha256:ff14e6359203e1cd1a3444c71cfd561a697be973fdd4ea7a4e1c87ee2039f925",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-07T08:49:01.344460Z",
+      "diff_fingerprint": "sha256:7161d79f6e18b1b102476252efc4f781878f1d091e8352c0b8bec3557e688d8e",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 2,
@@ -532,6 +647,14 @@
       "kind": "path",
       "path": "frontend/src/lib/api/__tests__/agentAvailability.test.ts",
       "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:50:43.193028Z",
+      "class": "docs-only",
+      "kind": "na",
+      "path": null,
+      "rationale": "docstring cross-reference to an open issue; no behaviour changed, and the capability it documents is already pinned by tests/api/test_agent_availability.py::test_the_session_capability_is_derived_from_the_registry",
       "verified_in_diff": null
     }
   ]

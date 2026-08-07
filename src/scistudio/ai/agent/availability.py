@@ -714,6 +714,15 @@ def session_unsupported_reason(descriptor: ProviderDescriptor) -> str | None:
     answer because availability is already the shared report every
     agent-dependent surface reads (FR-036), and a surface that must not offer a
     provider it cannot launch needs this at the same moment it needs the grade.
+
+    **The AI Block has the same defect and is not fixed here.** ``#2014`` (open,
+    P2) records that ``AIBlock.config_schema`` derives its ``provider`` enum
+    from ``agent_keys()`` and therefore advertises a provider that
+    ``AIBlock.validate_config`` will reject — the identical shape of bug this
+    function exists to close on the work-import surface, from the identical
+    cause. Its own first suggested fix is a shared provider capability, which is
+    what this is; adopting it there is out of scope for this change and stays
+    tracked on that issue.
     """
     if descriptor.prompt_argv_prefix is not None:
         return None
