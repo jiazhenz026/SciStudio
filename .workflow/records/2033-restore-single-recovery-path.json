@@ -1,0 +1,536 @@
+{
+  "branch": "fix/2033-restore-single-recovery-path",
+  "check_events": [
+    {
+      "at": "2026-08-07T07:55:49.403803Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0deac04405434cdca6d65dc3c51f5b5938ddb201f6adf484ce98451ad607e155",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T07:55:50.552046Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:102f4fec721ebfc465e7a0ebf36ba896c75f73ca64a3d872407303e84c235e40",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T07:55:50.637067Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-07T07:56:03.219714Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T07:56:03.697547Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:179b1cba851dd153ae0ab07e4f5ff8b2a735cc2c3d6d4494d3c0100847360442",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T07:56:03.737448Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-07T07:59:08.313869Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T08:00:40.165274Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5ac7578af148e57a4742501901771a4c319b77ff7347e618e434955b34cad860",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T08:00:48.809132Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e94394e48009cd8fbd5108426e57662cdd3e4d99e817a3b4494b7e53776b5c37",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-07T07:19:31.269248Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-038.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T07:19:31.269254Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-050.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T07:19:31.269256Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/history-and-branches.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T07:19:31.269258Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-08-07T08:00:48.842171Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:00:48.854910Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:00:48.868081Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:00:48.880975Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:00:48.894027Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:00:48.907187Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:00:48.919774Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:00:48.933471Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:00:48.946517Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T08:00:48.960043Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2033,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "main",
+    "base_sha": "b485e293",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "b485e293",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Make Restore the single recovery path: refresh the block registry after restore/merge/cherry-pick, rename Run history's Restore workflow to Restore and give it the full-tree git path, implement the never-built environment drift check and run it before a restore, retire Re-run's remaining user surface, and drop the node toolbar's Restart button which is a byte-identical duplicate of Run. Owner directed one issue covering all of it; keep parent_run_id read paths, remove only user-reachable actions.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-08-07T08:00:48.960086Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    }
+  ],
+  "record_id": "2033-restore-single-recovery-path",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "architecture_tests",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-07T07:19:31.269200Z",
+      "pattern": "src/scistudio/api/routes/git.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T07:19:31.269218Z",
+      "pattern": "src/scistudio/api/routes/runs.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T07:19:31.269222Z",
+      "pattern": "src/scistudio/core/lineage/",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T07:19:31.269224Z",
+      "pattern": "frontend/src/components/Lineage/",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T07:19:31.269226Z",
+      "pattern": "frontend/src/components/Git/",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T07:19:31.269227Z",
+      "pattern": "frontend/src/components/nodes/",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T07:19:31.269229Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T07:19:31.269230Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.parts/flowNodeBuilder.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T07:19:31.269232Z",
+      "pattern": "frontend/src/App.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T07:19:31.269233Z",
+      "pattern": "frontend/src/App.parts/",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T07:19:31.269235Z",
+      "pattern": "frontend/src/lib/api/lineage.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T07:19:31.269236Z",
+      "pattern": "frontend/src/store/lineageSlice.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T07:19:31.269238Z",
+      "pattern": "frontend/src/store/types.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T07:19:31.269239Z",
+      "pattern": "frontend/src/types/lineage.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T08:21:23.309162Z",
+      "pattern": "docs/adr/ADR-038.md",
+      "reason": "ADR-038/ADR-050 addenda record the contract changes this issue makes (withdrawing Re-run, widening Restore, adding the registry-refresh requirement); CHANGELOG is the required user-facing note. Both were declared as docs-updated at plan time but not as scope includes."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T08:21:23.309179Z",
+      "pattern": "docs/adr/ADR-050.md",
+      "reason": "ADR-038/ADR-050 addenda record the contract changes this issue makes (withdrawing Re-run, widening Restore, adding the registry-refresh requirement); CHANGELOG is the required user-facing note. Both were declared as docs-updated at plan time but not as scope includes."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T08:21:23.309182Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "ADR-038/ADR-050 addenda record the contract changes this issue makes (withdrawing Re-run, widening Restore, adding the registry-refresh requirement); CHANGELOG is the required user-facing note. Both were declared as docs-updated at plan time but not as scope includes."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T08:21:33.072420Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.parts/useFlowCallbacks.ts",
+      "reason": "Removing the node toolbar's duplicate Restart button (ADR-050 Addendum 1) means unthreading the onRestart prop chain end to end; these two canvas helpers are links in that chain and cannot be left holding a dangling callback."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T08:21:33.072438Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.parts/useFlowNodes.ts",
+      "reason": "Removing the node toolbar's duplicate Restart button (ADR-050 Addendum 1) means unthreading the onRestart prop chain end to end; these two canvas helpers are links in that chain and cannot be left holding a dangling callback."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T08:23:03.385594Z",
+      "pattern": "frontend/src/lib/api/__tests__/api-surface.test.ts",
+      "reason": "Retiring Re-run and the duplicate Restart button reaches their remaining references: the api-surface and lineageSlice tests asserted the removed client methods and store actions, types/ui.ts carried the onRestart prop, and the user-guide index pages pointed at 'Re-run past work' as the way back to a previous run."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T08:23:03.385611Z",
+      "pattern": "frontend/src/store/__tests__/lineageSlice.test.ts",
+      "reason": "Retiring Re-run and the duplicate Restart button reaches their remaining references: the api-surface and lineageSlice tests asserted the removed client methods and store actions, types/ui.ts carried the onRestart prop, and the user-guide index pages pointed at 'Re-run past work' as the way back to a previous run."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T08:23:03.385614Z",
+      "pattern": "frontend/src/types/ui.ts",
+      "reason": "Retiring Re-run and the duplicate Restart button reaches their remaining references: the api-surface and lineageSlice tests asserted the removed client methods and store actions, types/ui.ts carried the onRestart prop, and the user-guide index pages pointed at 'Re-run past work' as the way back to a previous run."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T08:23:03.385615Z",
+      "pattern": "src/scistudio/_user_guide/**",
+      "reason": "Retiring Re-run and the duplicate Restart button reaches their remaining references: the api-surface and lineageSlice tests asserted the removed client methods and store actions, types/ui.ts carried the onRestart prop, and the user-guide index pages pointed at 'Re-run past work' as the way back to a previous run."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T08:24:21.903833Z",
+      "pattern": "src/scistudio/api/runtime/_runs.py",
+      "reason": "start_workflow's parent_run_id docstring named the removed rerun endpoint as its caller and had to be corrected; the two API test files carry this issue's backend coverage and are the same paths already declared as test-paths."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T08:24:21.903851Z",
+      "pattern": "tests/api/test_git_endpoints.py",
+      "reason": "start_workflow's parent_run_id docstring named the removed rerun endpoint as its caller and had to be corrected; the two API test files carry this issue's backend coverage and are the same paths already declared as test-paths."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T08:24:21.903853Z",
+      "pattern": "tests/api/test_runs_routes.py",
+      "reason": "start_workflow's parent_run_id docstring named the removed rerun endpoint as its caller and had to be corrected; the two API test files carry this issue's backend coverage and are the same paths already declared as test-paths."
+    }
+  ],
+  "session_id": "4703ff34-8046-490b-b24e-abd648916cae",
+  "strictness_tier": 1,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-08-07T07:19:31.269262Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T07:19:31.269265Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/Lineage/__tests__/",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T07:19:31.269267Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/nodes/__tests__/",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:21:33.358188Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_git_endpoints.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:21:33.358205Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runs_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

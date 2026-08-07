@@ -18,12 +18,11 @@ import type {
   LineageGetRunsParams,
   LineageGetRunsResponse,
   LineageMethodsResponse,
-  LineageRerunResponse,
-  LineageRerunValidation,
   LineageRunDetail,
   LineageRunSummary,
+  RestorePreflight,
 } from "../../types/lineage";
-import { apiFetch, ApiError, JSON_HEADERS } from "./core";
+import { apiFetch, ApiError } from "./core";
 
 // ---------------------------------------------------------------------------
 // Lineage response adapters
@@ -237,31 +236,21 @@ export const lineageApi = {
     },
 
     /**
-     * Re-run validation is an ADR-038 §3.6 follow-up; the backend route
-     * does not exist as of D38-2.4a. We return an empty-warnings stub so
-     * the RerunDialog renders the "no drift detected" clean banner. When
-     * the route ships, replace this with a real fetch call.
-     */
-    validateRerun: async (_runId: string): Promise<LineageRerunValidation> => {
-      return { input_warnings: [], env_warnings: [] };
-    },
-
-    /**
-     * POST /api/runs/{run_id}/rerun
+     * GET /api/runs/validate-restore?commit_sha=…
      *
-     * Backend returns {rerun_of, workflow_id, execute_from_block_id,
-     * result} — the new run_id is not surfaced. RerunDialog refreshes
-     * the runs list after a successful rerun; the new row will appear
-     * at the top. We return new_run_id="" as a placeholder so callers
-     * don't break.
+     * ADR-038 §3.6 checks, relocated onto Restore by Addendum 1 (#2033).
+     *
+     * This replaces a stub that returned a hardcoded empty-warnings object
+     * without contacting the backend — the route it was waiting for never
+     * shipped, so the dialog reported "No drift detected" unconditionally for
+     * two years. Errors are deliberately NOT swallowed into an empty result
+     * here: a failed check is not a clean check, and the caller renders the
+     * difference.
      */
-    rerunRun: async (runId: string): Promise<LineageRerunResponse> => {
-      await apiFetch<unknown>(`/api/runs/${encodeURIComponent(runId)}/rerun`, {
-        method: "POST",
-        headers: JSON_HEADERS,
-        body: JSON.stringify({}),
-      });
-      return { new_run_id: "" };
+    validateRestore: async (commitSha: string): Promise<RestorePreflight> => {
+      return apiFetch<RestorePreflight>(
+        `/api/runs/validate-restore?commit_sha=${encodeURIComponent(commitSha)}`,
+      );
     },
   },
 };

@@ -11,8 +11,8 @@
  *   - `parts/format.ts`              — `formatLocalDateTime`, `formatDuration`
  *   - `parts/RunDetailHeader.tsx`    — metadata header + parent-run link
  *   - `parts/PartialRerunBanner.tsx` — ADR-038 §3.6a banner
- *   - `parts/restore.tsx`            — `RestoreWorkflowButton`, `runRestoreWorkflow`,
- *                                      `workflowYamlPathForRun`, `RunRecordForRestore`
+ *   - `parts/restore.tsx`            — `RestoreRunButton`, `restoreTargetLabel`,
+ *                                      `RunRecordForRestore`
  *
  * The named exports below are re-exports from `parts/restore.tsx` so the
  * Phase 3.5 integration test (`RunDetail.restore.test.tsx`) continues to
@@ -25,18 +25,14 @@ import { api } from "../../lib/api";
 import { useAppStore } from "../../store";
 import { BlockExecutionCard } from "./BlockExecutionCard";
 import { PartialRerunBanner } from "./RunDetail.parts/PartialRerunBanner";
-import { RestoreWorkflowButton } from "./RunDetail.parts/restore";
+import { RestoreRunButton } from "./RunDetail.parts/restore";
 import { RunDetailHeader } from "./RunDetail.parts/RunDetailHeader";
 
-// Re-exports for the ADR-039 Restore helpers. `RunDetail.restore.test.tsx`
-// imports these names directly from `./RunDetail`; keeping the re-export
-// avoids touching the test file's import paths post-split.
+// Re-exports for the Restore helpers. `RunDetail.restore.test.tsx` imports
+// these names directly from `./RunDetail`; keeping the re-export avoids
+// touching the test file's import paths post-split.
 export type { RunRecordForRestore } from "./RunDetail.parts/restore";
-export {
-  RestoreWorkflowButton,
-  runRestoreWorkflow,
-  workflowYamlPathForRun,
-} from "./RunDetail.parts/restore";
+export { RestoreRunButton, restoreTargetLabel } from "./RunDetail.parts/restore";
 
 export function RunDetail(): ReactElement {
   const selectedRunId = useAppStore((s) => s.selectedRunId);
@@ -118,13 +114,14 @@ export function RunDetail(): ReactElement {
         data-testid="run-detail-actions"
       >
         {/*
-         * ADR-039 §6 Phase 4 — Restore this run's workflow. Owner UX
-         * (#1721): Restore is the primary action and comes first; the
-         * Re-run button was removed from this footer. The button issues a
-         * ``gitRestore`` call scoped to the run's workflow YAML at the
-         * captured ``workflow_git_commit`` SHA (ADR-038 §3.8 / ADR-039 §6
-         * Phase 4). Disabled when ``workflow_git_commit`` is null
-         * (degraded-mode run).
+         * ADR-039 §6 Phase 4, rewritten by ADR-038 Addendum 1 §11.1
+         * (#2033). Restore is the only action in this footer — the Re-run
+         * button went in #1721 and the rest of that feature in #2033. The
+         * button opens `RestoreDialog`, which runs the §3.6 preflight and
+         * then restores the FULL TREE at the run's `workflow_git_commit`.
+         * It used to restore only `workflows/<id>.yaml`, which could not
+         * recover a broken custom block — the defect #2033 fixes.
+         * Disabled when `workflow_git_commit` is null (degraded-mode run).
          *
          * #1400 hotfix: the parent wires ``onRestored`` so the canvas
          * refreshes after the YAML is rewritten on disk — the WS
@@ -133,7 +130,7 @@ export function RunDetail(): ReactElement {
          * currently open we refetch and replace its slice in place;
          * otherwise we openTab so the user sees the just-restored state.
          */}
-        <RestoreWorkflowButton
+        <RestoreRunButton
           run={run}
           onRestored={() => {
             void (async () => {

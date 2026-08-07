@@ -63,7 +63,6 @@ export interface BlockNodeData extends Record<string, unknown> {
    */
   highlighted?: boolean;
   onRun?: () => void;
-  onRestart?: () => void;
   onDelete?: () => void;
   /** Kept on the type for BottomPanel/test compatibility, but the square node
    *  body MUST NOT render any config editor (ADR-050 §2.3 / FR-003). */

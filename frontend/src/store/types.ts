@@ -853,7 +853,10 @@ export interface LineageSlice {
   expandedBlockExecutionIds: string[];
   // dialogs (UI-only)
   methodsDialogRunId: string | null;
-  rerunDialogRunId: string | null;
+  // ADR-038 Addendum 1 (#2033): `rerunDialogRunId` / `openRerunDialog` /
+  // `closeRerunDialog` are gone with the Re-run affordance. The restore
+  // dialog is owned locally by whichever tab opened it, so it needs no
+  // store state.
   // actions
   fetchRuns: (opts?: { workflowId?: string; limit?: number }) => Promise<void>;
   fetchRunDetail: (runId: string) => Promise<void>;
@@ -861,8 +864,6 @@ export interface LineageSlice {
   toggleBlockExecutionExpanded: (blockExecutionId: string) => void;
   openMethodsDialog: (runId: string) => void;
   closeMethodsDialog: () => void;
-  openRerunDialog: (runId: string) => void;
-  closeRerunDialog: () => void;
   clearLineage: () => void;
 }
 

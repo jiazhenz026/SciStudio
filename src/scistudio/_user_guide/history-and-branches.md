@@ -28,18 +28,41 @@ result, but the settings and data that produced it.
 
 This is the point of keeping history: you can return to any past run.
 
-- **Restore workflow.** Restores the workflow to exactly how it was when that run
-  executed — the graph and every block's parameters. Use it when a later change
-  made things worse and you want to get back to a version that worked.
-- **Re-run.** Creates a fresh run from a past run's recorded workflow and
-  parameters. Before it does, SciStudio checks whether anything has drifted — an
-  input file that changed on disk, or a different package version in your
-  environment — and warns you, so you know whether the re-run will reproduce the
-  original result. The new run is linked to the one it came from.
+**Restore** puts your project back to how it was when that run executed. Use it
+when a later change made things worse and you want to get back to a version that
+worked. Then press Run.
 
-Note what is and is not restored: the **workflow and its parameters** are
-restored from the record; your **input data files** are whatever is on disk now
-(SciStudio checks them and warns if they changed, but does not roll them back).
+Restore covers everything that makes up your pipeline: the workflow graph, every
+block's parameters, your **custom blocks and scripts**, and your project notes.
+That last part matters — if what broke was the code inside a block you wrote,
+restoring the workflow alone would not have fixed it, so Restore brings the code
+back too.
+
+Before it does anything, SciStudio checks the version you picked against your
+current setup and tells you what has moved since:
+
+- an **input file** that changed size or was edited after that run,
+- a **package version** — including SciStudio's own — that is different now.
+
+These are warnings, not blockers; you decide whether to go ahead. If you picked
+a version you saved yourself rather than one a run produced, there is no run
+record to compare against, and SciStudio says so instead of pretending
+everything matches.
+
+Your current work is not lost. SciStudio commits it first, and tells you the
+version it saved it as, so you can come back to it from History.
+
+Two things Restore does **not** touch:
+
+- **Your data files.** They are whatever is on disk now. SciStudio warns you if
+  they changed, but does not roll them back.
+- **Your software environment.** SciStudio itself, installed packages, and
+  Python live outside your project folder. If a run stopped working because a
+  package was updated, restoring the files will not fix it — which is exactly
+  why the check above tells you when that is what happened.
+
+The same **Restore** is available in the Git tab against any version in your
+history, not only the ones a run produced. It behaves identically.
 
 ### Export methods
 
@@ -89,7 +112,7 @@ smoothing setting and an extra normalization block.
 1. Create a branch `batch-2` and switch to it.
 2. On `batch-2`, raise the smoothing parameter and add the normalization block.
 3. Run it. Now `main` has the batch-1 pipeline and `batch-2` has the batch-2
-   pipeline; switch between them anytime to compare or re-run either.
+   pipeline; switch between them anytime to compare or run either.
 4. If batch-2's changes turn out to be the better default, *merge into current*
    to bring them back to `main`.
 

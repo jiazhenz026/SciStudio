@@ -7,15 +7,16 @@ These tests:
 2. Seed lineage rows directly through the runtime's
    :attr:`ApiRuntime.lineage_store` handle (the routes don't expose a
    write endpoint — writes go through ``LineageRecorder``).
-3. Hit the four routes and assert on shape + status code.
+3. Hit the routes and assert on shape + status code.
 
-The ``POST /rerun`` test patches :meth:`ApiRuntime.start_workflow` to a
-no-op stub so we don't spin up the scheduler / worker pool inside the
-test. The routes layer is what's under test here, not the engine.
+ADR-038 Addendum 1 (#2033) removed ``POST /rerun`` and added
+``GET /validate-restore``; the rerun tests are replaced by the preflight
+tests at the bottom of this file plus a guard asserting the route is gone.
 """
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -35,7 +36,7 @@ from scistudio.core.lineage.record import (
 
 
 def _make_run(run_id: str, workflow_id: str = "image_pipeline", **overrides: Any) -> RunRecord:
-    base = dict(
+    base: dict[str, Any] = dict(
         run_id=run_id,
         workflow_id=workflow_id,
         workflow_yaml_snapshot=f"id: {workflow_id}\n",
@@ -51,7 +52,7 @@ def _make_run(run_id: str, workflow_id: str = "image_pipeline", **overrides: Any
 @pytest.fixture()
 def seeded_project(client: TestClient, opened_project: Path) -> dict[str, Any]:
     """Open a project and seed one run + one block_execution into the lineage store."""
-    runtime = client.app.state.runtime
+    runtime = client.app.state.runtime  # type: ignore[attr-defined]
     store = runtime.lineage_store
     assert store is not None, "lineage store should be initialised on project open"
 
@@ -224,176 +225,156 @@ class TestGetRunMethods:
 
 
 # ---------------------------------------------------------------------------
-# POST /api/runs/{run_id}/rerun — queue new run
+# GET /api/runs/validate-restore — ADR-038 §3.6 preflight (Addendum 1 §11.3)
 # ---------------------------------------------------------------------------
 
 
-class TestRerunRun:
-    @pytest.fixture(autouse=True)
-    def patch_start_workflow(self, monkeypatch: pytest.MonkeyPatch, seeded_project: dict[str, Any]) -> dict[str, Any]:
-        """Replace ``ApiRuntime.start_workflow`` with a deterministic stub.
+@pytest.fixture()
+def anchored_run(client: TestClient, opened_project: Path) -> dict[str, Any]:
+    """Seed a run anchored to a git commit, with one boundary input on disk.
 
-        The route delegates to ``runtime.start_workflow``; we want to verify
-        the route correctly threads ``execute_from_block_id`` through and
-        surfaces the result, not actually spin up the scheduler.
-        """
-        calls: list[dict[str, Any]] = []
-        runtime = seeded_project["runtime"]
+    Boundary input = consumed by the run but produced outside it
+    (``produced_by_execution`` is NULL), which is what §3.6 Check 1 compares.
+    The file is written for real so ``stat()`` has something to read; tests
+    that need drift mutate it afterwards.
+    """
+    runtime = client.app.state.runtime  # type: ignore[attr-defined]
+    store = runtime.lineage_store
+    assert store is not None
 
-        def _fake_start(
-            self: Any,
-            workflow_id: str,
-            *,
-            execute_from: str | None = None,
-            parent_run_id: str | None = None,
-        ) -> dict[str, Any]:
-            calls.append(
-                {
-                    "workflow_id": workflow_id,
-                    "execute_from": execute_from,
-                    "parent_run_id": parent_run_id,
-                }
-            )
-            return {
-                "workflow_id": workflow_id,
-                "status": "started",
-                "message": "stubbed",
-                "reused_blocks": [],
-                "reset_blocks": [],
-            }
+    input_file = opened_project / "data" / "input.csv"
+    input_file.parent.mkdir(parents=True, exist_ok=True)
+    input_file.write_text("a,b\n1,2\n", encoding="utf-8")
+    # Record the file's real mtime so the "unchanged" case is genuinely
+    # unchanged. A hardcoded past timestamp would make every input look
+    # modified, and the mtime branch would then mask the size branch below.
+    recorded_mtime = datetime.fromtimestamp(input_file.stat().st_mtime, tz=UTC).isoformat()
 
-        monkeypatch.setattr(type(runtime), "start_workflow", _fake_start)
-        return {"calls": calls}
+    store.insert_run(
+        _make_run(
+            "run-anchored",
+            workflow_git_commit="a" * 40,
+            environment_snapshot={
+                "python_version": "3.13.0 (main, Oct  1 2025) [MSC v.1940]",
+                "platform": "Windows-11",
+                "key_packages": {"scistudio": "0.1.0-recorded"},
+            },
+        )
+    )
+    store.insert_block_execution(
+        BlockExecutionRecord(
+            block_execution_id="be-anchored-1",
+            run_id="run-anchored",
+            block_id="loader",
+            block_type="proc",
+            block_version="0.1.0",
+            block_config_resolved={},
+            started_at="2026-05-15T14:30:01Z",
+            finished_at="2026-05-15T14:30:05Z",
+            duration_ms=4000,
+            termination="completed",
+        )
+    )
+    store.upsert_data_object(
+        DataObjectRow(
+            object_id="obj-boundary",
+            type_name="DataFrame",
+            wire_payload={"backend": "csv", "path": str(input_file)},
+            created_at="2026-05-15T14:30:00Z",
+            storage_path=str(input_file),
+            size_bytes=input_file.stat().st_size,
+            mtime_at_write=recorded_mtime,
+            produced_by_execution=None,
+        )
+    )
+    store.insert_block_io(
+        BlockIORow(
+            block_execution_id="be-anchored-1",
+            direction="input",
+            port_name="data",
+            object_id="obj-boundary",
+            position=0,
+        )
+    )
+    return {"store": store, "input_file": input_file, "commit": "a" * 40}
 
-    def test_returns_started_envelope(
-        self, client: TestClient, seeded_project: dict[str, Any], patch_start_workflow: dict[str, Any]
+
+class TestValidateRestore:
+    def test_commit_with_no_run_reports_unknown_not_clean(
+        self, client: TestClient, seeded_project: dict[str, Any]
     ) -> None:
-        r = client.post("/api/runs/run-A/rerun", json={})
+        """The regression this endpoint exists to prevent.
+
+        A manual commit (or an ``auto: pre-restore`` one) has no recorded run.
+        The response must say so via ``run_id: null`` so the UI can distinguish
+        "nothing to compare" from "compared and clean". The pre-#2033 client
+        stub returned empty warning lists unconditionally and the dialog
+        rendered them as "No drift detected".
+        """
+        r = client.get("/api/runs/validate-restore", params={"commit_sha": "f" * 40})
         assert r.status_code == 200, r.text
         body = r.json()
-        assert body["rerun_of"] == "run-A"
-        assert body["workflow_id"] == "image_pipeline"
-        assert body["execute_from_block_id"] is None
-        assert body["result"]["status"] == "started"
-        # D38-3.2: rerun route stamps the historical run_id as the new
-        # run's parent_run_id (closes D38-3.1a P2 / D38-3.1b P2-4).
-        assert patch_start_workflow["calls"] == [
-            {"workflow_id": "image_pipeline", "execute_from": None, "parent_run_id": "run-A"}
-        ]
+        assert body["run_id"] is None
+        assert body["input_warnings"] == []
+        assert body["env_warnings"] == []
 
-    def test_threads_execute_from_block_id(
-        self, client: TestClient, seeded_project: dict[str, Any], patch_start_workflow: dict[str, Any]
-    ) -> None:
-        r = client.post(
-            "/api/runs/run-A/rerun",
-            json={"execute_from_block_id": "preprocess"},
-        )
+    def test_resolves_commit_to_its_run(self, client: TestClient, anchored_run: dict[str, Any]) -> None:
+        r = client.get("/api/runs/validate-restore", params={"commit_sha": anchored_run["commit"]})
         assert r.status_code == 200, r.text
-        assert patch_start_workflow["calls"] == [
-            {"workflow_id": "image_pipeline", "execute_from": "preprocess", "parent_run_id": "run-A"}
-        ]
+        assert r.json()["run_id"] == "run-anchored"
 
-    def test_unknown_run_returns_404(
-        self, client: TestClient, seeded_project: dict[str, Any], patch_start_workflow: dict[str, Any]
+    def test_reports_recorded_package_version_drift(self, client: TestClient, anchored_run: dict[str, Any]) -> None:
+        """``scistudio`` is recorded as a version that is certainly not installed."""
+        r = client.get("/api/runs/validate-restore", params={"commit_sha": anchored_run["commit"]})
+        env = {w["package"]: w for w in r.json()["env_warnings"]}
+        assert "scistudio" in env
+        assert env["scistudio"]["old"] == "0.1.0-recorded"
+
+    def test_reports_python_version_drift(self, client: TestClient, anchored_run: dict[str, Any]) -> None:
+        """Python is compared alongside packages; the seed records 3.13.0."""
+        r = client.get("/api/runs/validate-restore", params={"commit_sha": anchored_run["commit"]})
+        packages = {w["package"] for w in r.json()["env_warnings"]}
+        # The seeded interpreter string only matches if the test host happens to
+        # run exactly 3.13.0; assert on the pairing rather than the outcome.
+        body = r.json()
+        if "Python" in packages:
+            entry = next(w for w in body["env_warnings"] if w["package"] == "Python")
+            assert entry["old"] == "3.13.0"
+            assert " " not in entry["new"], "the build tag must be stripped before comparing"
+
+    def test_reports_missing_input_file(self, client: TestClient, anchored_run: dict[str, Any]) -> None:
+        anchored_run["input_file"].unlink()
+        r = client.get("/api/runs/validate-restore", params={"commit_sha": anchored_run["commit"]})
+        warnings = r.json()["input_warnings"]
+        assert len(warnings) == 1
+        assert "no longer exists" in warnings[0]["reason"]
+
+    def test_reports_resized_input_file(self, client: TestClient, anchored_run: dict[str, Any]) -> None:
+        anchored_run["input_file"].write_text("a,b\n1,2\n3,4\n5,6\n", encoding="utf-8")
+        r = client.get("/api/runs/validate-restore", params={"commit_sha": anchored_run["commit"]})
+        warnings = r.json()["input_warnings"]
+        assert len(warnings) == 1
+        assert "size changed" in warnings[0]["reason"]
+
+    def test_unchanged_input_produces_no_warning(self, client: TestClient, anchored_run: dict[str, Any]) -> None:
+        """Both branches stay quiet when the file on disk is the recorded one."""
+        r = client.get("/api/runs/validate-restore", params={"commit_sha": anchored_run["commit"]})
+        assert r.json()["input_warnings"] == []
+
+    def test_run_outputs_are_not_treated_as_boundary_inputs(
+        self, client: TestClient, seeded_project: dict[str, Any]
     ) -> None:
-        r = client.post("/api/runs/no-such/rerun", json={})
-        assert r.status_code == 404
+        """``obj-1`` in the shared fixture is an output of its own run.
 
-    def test_route_runs_on_event_loop(
-        self,
-        client: TestClient,
-        seeded_project: dict[str, Any],
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """Regression: the rerun handler must run on the asyncio event loop.
-
-        ``ApiRuntime.start_workflow`` schedules the run via
-        :func:`asyncio.create_task`, which requires a running loop. If the
-        route were a sync ``def`` handler, FastAPI would dispatch it onto a
-        threadpool worker where ``get_running_loop`` raises and the lineage
-        ``runs`` row is left stranded in ``running`` state (the row is
-        inserted before ``create_task`` is reached).
+        Intermediates a run produced are regenerated on the next execution, so
+        they are not part of Check 1 even though they are rows in the same
+        tables. ``run-A`` has no git anchor, so this also covers the ordinary
+        "run exists but was not anchored" case.
         """
-        import asyncio
+        store = seeded_project["store"]
+        assert store.workflow_boundary_inputs("run-A") == []
 
-        runtime = seeded_project["runtime"]
-        observed: dict[str, Any] = {"on_loop": None}
-
-        def _check_loop(
-            self: Any,
-            workflow_id: str,
-            *,
-            execute_from: str | None = None,
-            parent_run_id: str | None = None,
-        ) -> dict[str, Any]:
-            try:
-                asyncio.get_running_loop()
-                observed["on_loop"] = True
-            except RuntimeError:
-                observed["on_loop"] = False
-            return {
-                "workflow_id": workflow_id,
-                "status": "started",
-                "message": "stubbed",
-                "reused_blocks": [],
-                "reset_blocks": [],
-            }
-
-        monkeypatch.setattr(type(runtime), "start_workflow", _check_loop)
+    def test_rerun_route_is_gone(self, client: TestClient, seeded_project: dict[str, Any]) -> None:
+        """ADR-038 Addendum 1 §11.1 — Re-run is withdrawn, not merely hidden."""
         r = client.post("/api/runs/run-A/rerun", json={})
-        assert r.status_code == 200, r.text
-        assert observed["on_loop"] is True, (
-            "rerun handler executed in threadpool (sync def) — asyncio.create_task "
-            "in start_workflow would raise 'no running event loop' here"
-        )
-
-    def test_value_error_surfaces_as_400(
-        self,
-        client: TestClient,
-        seeded_project: dict[str, Any],
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """``ApiRuntime.start_workflow`` raises ``ValueError`` when execute_from has no checkpoint."""
-        runtime = seeded_project["runtime"]
-
-        def _raises(
-            self: Any,
-            workflow_id: str,
-            *,
-            execute_from: str | None = None,
-            parent_run_id: str | None = None,
-        ) -> dict[str, Any]:
-            raise ValueError("Run the full workflow at least once before using 'Run from here'")
-
-        monkeypatch.setattr(type(runtime), "start_workflow", _raises)
-        r = client.post("/api/runs/run-A/rerun", json={"execute_from_block_id": "B"})
-        assert r.status_code == 400
-        assert "Run from here" in r.json()["detail"]
-
-    def test_missing_workflow_yaml_returns_404(
-        self,
-        client: TestClient,
-        seeded_project: dict[str, Any],
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        runtime = seeded_project["runtime"]
-
-        def _raises(
-            self: Any,
-            workflow_id: str,
-            *,
-            execute_from: str | None = None,
-            parent_run_id: str | None = None,
-        ) -> dict[str, Any]:
-            raise FileNotFoundError(f"workflow {workflow_id} not found")
-
-        monkeypatch.setattr(type(runtime), "start_workflow", _raises)
-        r = client.post("/api/runs/run-A/rerun", json={})
-        assert r.status_code == 404
-
-    def test_rejects_invalid_body_type(
-        self, client: TestClient, seeded_project: dict[str, Any], patch_start_workflow: dict[str, Any]
-    ) -> None:
-        """Non-string ``execute_from_block_id`` is rejected by pydantic."""
-        r = client.post("/api/runs/run-A/rerun", json={"execute_from_block_id": 12345})
-        assert r.status_code == 422
+        assert r.status_code in (404, 405), r.text

@@ -34,7 +34,6 @@ export interface WorkflowExecutionActions {
   cancelWorkflow: () => Promise<void>;
   startFromSelected: () => Promise<void>;
   handleRunBlock: (blockId: string) => Promise<void>;
-  handleRestartBlock: (blockId: string) => Promise<void>;
 }
 
 function surfaceExecutionError(
@@ -189,23 +188,12 @@ export function useWorkflowExecutionActions(deps: WorkflowExecutionDeps): Workfl
     }
   }, [blockSchemas, saveWorkflow, selectedNodeId, setLastError, workflowId, workflowNodes]);
 
+  // The canvas node toolbar's Run button. ADR-050 Addendum 1 §8.2 (#2033)
+  // removed `handleRestartBlock`, which sat directly below this and had a
+  // byte-identical body — same `executeFrom`, same arguments, same dependency
+  // array. The toolbar rendered both as separate buttons with separate icons
+  // and tooltips ("Run block" / "Restart block") for one behaviour.
   const handleRunBlock = useCallback(
-    async (blockId: string) => {
-      if (!workflowId) return;
-      try {
-        await saveWorkflow();
-        const overwriteNodeIds = await confirmOverwriteNodes(workflowNodes, blockSchemas);
-        if (overwriteNodeIds.includes("__cancel__")) return;
-        await api.executeFrom(workflowId, blockId, { overwriteNodeIds });
-        setLastError(null);
-      } catch (error) {
-        surfaceExecutionError(setLastError, error);
-      }
-    },
-    [blockSchemas, saveWorkflow, setLastError, workflowId, workflowNodes],
-  );
-
-  const handleRestartBlock = useCallback(
     async (blockId: string) => {
       if (!workflowId) return;
       try {
@@ -228,6 +216,5 @@ export function useWorkflowExecutionActions(deps: WorkflowExecutionDeps): Workfl
     cancelWorkflow,
     startFromSelected,
     handleRunBlock,
-    handleRestartBlock,
   };
 }

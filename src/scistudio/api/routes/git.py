@@ -274,6 +274,38 @@ def _auto_commit_if_dirty(engine: GitEngine, message: str) -> str | None:
         raise
 
 
+def _refresh_registries_after_worktree_write(runtime: Any, op: str) -> None:
+    """Rebuild the in-process block registry after a git op rewrote the tree.
+
+    ADR-038 Addendum 1 §11.1 (#2033). Per-project custom blocks live under
+    ``<project>/blocks/`` (ADR-039 §3.5b "blocks alongside git"), so every git
+    operation that rewrites the working tree can change a block's source. The
+    registry holds the parsed spec — ports, config schema, and the definitions
+    ``start_workflow`` validates against — and is otherwise rebuilt only on
+    project open and package operations.
+
+    Without this call the registry keeps serving the *pre-op* block definitions
+    while the execution subprocess (which reloads source from disk per ADR-017)
+    runs the *post-op* code. A restore that correctly recovered a block's file
+    could then still be rejected by validation citing a definition that no
+    longer exists on disk, with no indication that the cause is a stale cache.
+
+    ``branch_switch`` has called this since the Phase 3.5 integration audit
+    (P2-2); ADR-038 Addendum 1 extends it to every other worktree-rewriting
+    endpoint. Call it after the git operation succeeds and before the
+    ``workflow.changed`` emit, so the frontend's reload reads fresh specs.
+
+    Best-effort by design: the git operation has already landed on disk and a
+    failed refresh must not roll it back. Failures are logged; the registry
+    then stays stale until the next project open or restart, which is the
+    pre-#2033 behaviour rather than a regression.
+    """
+    try:
+        runtime.refresh_block_registry()
+    except Exception:
+        logger.warning("%s: refresh_block_registry failed (non-fatal)", op, exc_info=True)
+
+
 def _iso_ts_now() -> str:
     """Return the current UTC time as an ISO-8601 string (no microseconds)."""
     return datetime.now(UTC).replace(microsecond=0).isoformat()
@@ -411,6 +443,9 @@ async def restore(request: Request, body: RestoreRequest) -> dict[str, Any]:
         engine.restore(body.commit_sha, files=body.files)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
+    # ADR-038 Addendum 1 §11.1 (#2033) — the restore may have rewritten a
+    # custom block's source; rebuild the registry before the canvas reloads.
+    _refresh_registries_after_worktree_write(runtime, "restore")
     # Hotfix #988 / ADR-045 §5.1 #5: emit per-file workflow.changed so the
     # canvas reloads, deriving the affected set from git rather than a hash diff.
     await _emit_workflow_diff(runtime, project_dir, engine, before_ref, source="gitRestore", source_id=body.commit_sha)
@@ -488,14 +523,9 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
     # ADR-039 §3.5b — refresh project-scoped block registry after the
-    # working tree changes.
-    try:
-        runtime.refresh_block_registry()
-    except Exception:
-        logger.warning(
-            "branch_switch: refresh_block_registry failed (non-fatal)",
-            exc_info=True,
-        )
+    # working tree changes. Shared with every other worktree-rewriting
+    # endpoint since ADR-038 Addendum 1 §11.1 (#2033).
+    _refresh_registries_after_worktree_write(runtime, "branch_switch")
     # Hotfix #988 / ADR-045 §5.1 #5: emit per-file workflow.changed so the
     # canvas reloads each workflow YAML the branch switch rewrote. The affected
     # set is derived from git (committed-range + working-tree diff) rather than
@@ -627,6 +657,10 @@ async def merge(request: Request, body: MergeRequest) -> dict[str, Any]:
         result = engine.merge(body.source_branch)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
+    # ADR-038 Addendum 1 §11.1 (#2033) — a merge brings in the source branch's
+    # block sources; refresh even when conflicted, since the non-conflicted
+    # half of the merge already landed in the working tree.
+    _refresh_registries_after_worktree_write(runtime, "merge")
     # Hotfix #988 / ADR-045 §5.1 #5: FF / clean merges rewrite workflow YAMLs;
     # emit per-file workflow.changed even when conflicted_files is non-empty so
     # the user sees both the conflict UI AND the canvas reflecting the
@@ -648,6 +682,8 @@ async def cherry_pick(request: Request, body: CherryPickRequest) -> dict[str, An
         result = engine.cherry_pick(body.commit_sha)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
+    # ADR-038 Addendum 1 §11.1 (#2033).
+    _refresh_registries_after_worktree_write(runtime, "cherry_pick")
     await _emit_workflow_diff(runtime, project_dir, engine, before_ref, source="gitRestore", source_id=body.commit_sha)
     return result
 
@@ -681,6 +717,9 @@ async def merge_complete(request: Request) -> dict[str, str]:
         sha = engine.merge_complete()
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
+    # ADR-038 Addendum 1 §11.1 (#2033) — the resolved conflict content is the
+    # working tree now, and a resolved block file is a changed block file.
+    _refresh_registries_after_worktree_write(runtime, "merge_complete")
     # Merge-complete is the final write in a conflict-resolution flow:
     # the staged conflict resolutions become the working tree. Emit so
     # the canvas reflects the resolved YAML.
@@ -699,6 +738,9 @@ async def merge_abort(request: Request) -> dict[str, str]:
         engine.merge_abort()
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
+    # ADR-038 Addendum 1 §11.1 (#2033) — an abort rewinds the whole tree, so
+    # any block source the merge had already written reverts with it.
+    _refresh_registries_after_worktree_write(runtime, "merge_abort")
     # Abort rewinds the working tree to the pre-merge state — workflow
     # YAML files revert too.
     await _emit_workflow_diff(runtime, project_dir, engine, before_ref, source="gitRestore", source_id="merge-abort")

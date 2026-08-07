@@ -21,7 +21,7 @@ from an empty project to your first run in five steps.
 | [how-scistudio-works.md](how-scistudio-works.md) | The short architecture map: data, blocks, lineage, AI agents, plots, and extensions |
 | [using-the-gui.md](using-the-gui.md) | The canvas in depth: building workflows, running them, previewing data |
 | [built-in-blocks.md](built-in-blocks.md) | Every block that ships with SciStudio and what it does |
-| [history-and-branches.md](history-and-branches.md) | Re-run past work; keep pipeline variants on branches |
+| [history-and-branches.md](history-and-branches.md) | Go back to past work; keep pipeline variants on branches |
 | [ai-assistant.md](ai-assistant.md) | What the AI assistant can do for you |
 
 **Making your own**

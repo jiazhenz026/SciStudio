@@ -130,7 +130,6 @@ export function computeUpstreamOmeFields(opts: UpstreamOmeOpts): string[] | unde
 
 export interface BlockNodeCallbacks {
   onRun: () => void;
-  onRestart: () => void;
   onDelete: () => void;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
   onErrorClick: () => void;
@@ -258,7 +257,6 @@ export function buildBlockNode(opts: BlockOpts): Node {
       selected: selectedNodeId === node.id,
       highlighted: highlighted ?? false,
       onRun: callbacks.onRun,
-      onRestart: callbacks.onRestart,
       onDelete: callbacks.onDelete,
       onUpdateConfig: callbacks.onUpdateConfig,
       onErrorClick: callbacks.onErrorClick,
