@@ -150,6 +150,45 @@ def _build_settings_json(hooks_dir_rel: str, project_dir_var: str = _CLAUDE_PROJ
     }
 
 
+#: Marker identifying a hook script as SciStudio's own, shipped from a template
+#: in this package. Present in every version SciStudio has ever written — the
+#: scripts all cite the ADR that defines them — so it is a reliable test for
+#: "this file is ours" against copies already on disk in the field.
+_HOOK_PROVENANCE_MARKER = "ADR-040"
+
+
+def _hook_script_needs_refresh(dest: Path, template_body: str) -> bool:
+    """Whether an existing hook script should be rewritten from its template.
+
+    Hook scripts were previously written **once and never again**: the loop
+    below skipped any file that already existed. That is how the owner's
+    project kept running hooks whose payload reader crashed on a missing stdin
+    long after the template was fixed — the repaired code never reached the file
+    the CLI actually executes, so re-provisioning changed nothing (#1994).
+
+    The Codex config already had a repair path for exactly this reason. The
+    scripts it points at did not, which made the config path a half-fix.
+
+    Refresh is limited to files that still carry SciStudio's provenance marker
+    and whose content has drifted from the shipped template. A user who has
+    replaced a script wholesale with their own is left alone; a stale SciStudio
+    copy — every copy in the field today — is repaired. This deliberately
+    narrows TODO(#1860)'s blanket deferral of content-aware refresh for these
+    seven files only: they are enforcement code SciStudio ships, not a user
+    extension point (``settings.json`` is), and a silently stale one disables
+    the protection it exists to provide.
+    """
+    try:
+        current = dest.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        # Unreadable: leave it. Overwriting a file we cannot inspect risks
+        # destroying something that is not ours.
+        return False
+    if current == template_body:
+        return False
+    return _HOOK_PROVENANCE_MARKER in current
+
+
 def hook_interpreter() -> str:
     """Absolute path of the interpreter that should run the hook scripts.
 
@@ -380,9 +419,9 @@ def write_hooks(
     for template_name, dest_name in _HOOK_FILES:
         dest = hooks_dir / dest_name
         rel_path = f"{_HOOKS_DIR_REL}/{dest_name}"
-        if dest.exists() and not force:
-            continue
         body = _load_template(template_name)
+        if dest.exists() and not force and not _hook_script_needs_refresh(dest, body):
+            continue
         dest.write_text(body, encoding="utf-8")
         if os.name == "posix":
             try:

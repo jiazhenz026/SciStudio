@@ -438,6 +438,57 @@ the application's own runtime — which it does in a packaged build — rather t
 under a scratch venv, and that is an owner-level decision about how
 provisioning is invoked, not something the writer can correct.
 
+**Provisioned hook scripts were written once and never refreshed.** This is why
+two rounds of template fixes changed nothing for the owner. `write_hooks`
+skipped any script that already existed, so a project provisioned by any earlier
+SciStudio kept its original scripts permanently and re-provisioning was a no-op
+on exactly the projects that needed repair. The Codex *config* had an upgrade
+path; the scripts it points at did not, which made that a half-fix. Scripts that
+still carry SciStudio's provenance marker and have drifted from the shipped
+template are now rewritten on provisioning; a script the user replaced wholesale
+is left alone. This narrows TODO(#1860)'s blanket deferral of content-aware
+refresh to these seven files, on the grounds that they are enforcement code
+SciStudio ships rather than a user extension point.
+
+**How to verify the fix reaches disk.** No directory needs deleting. Project
+provisioning runs on every project open (`install_project_agent_assets(...,
+force=False)` from the open and create paths), and the
+`.claude/.scistudio-provision-version` marker is *written* but never read as a
+gate, so a current marker does not suppress the repair. Opening a project in a
+build containing this change rewrites any drifted SciStudio hook script in
+place; `ProvisionResult.written` lists each one it repaired. Confirmed against a
+project holding a pre-fix script and an up-to-date marker: the script was
+refreshed on a plain re-open and then blocked a `scistudio` call with exit 2.
+
+Note that a test showing the *command* failing proves nothing about the hook —
+`scistudio --version` fails on its own in both observed environments, with
+"command not found" on the shipped app and a uv trampoline error in the dev
+tree, for reasons unrelated to hooks. Only SciStudio's interception text
+("use mcp__scistudio__* tools instead") demonstrates that a hook ran and
+enforced.
+
+**Recommendation — a protection hook that cannot read its payload should
+block, not allow (owner decision).** Today every hook fails open: an unreadable
+payload degrades to `{}`, the matcher does not fire, and the tool call proceeds.
+The owner's run shows the consequence plainly — no interception text, and
+`scistudio --version` executed, with `deny_scistudio_cli` installed precisely to
+stop it. That is a **design defect, not an implementation detail**: a guard whose
+failure mode is "permit silently" provides no guarantee, because its protection
+disappears exactly when something is wrong, and nothing in the UI says so.
+
+The counter-argument is real and is why this is not being changed unilaterally:
+`PreToolUse` covers `Bash`, `Edit`, `Write` and `apply_patch`, so blocking on an
+unreadable payload would stop the agent doing anything at all under a CLI that
+never supplies one — the failure would be total rather than silent. That is a
+worse first-run experience but an honest one, and it is the owner's call.
+
+A middle option worth considering: block only for the two hooks whose job is
+*protection* (`deny_scistudio_cli`, `protect_data_dir`) and keep the advisory
+hooks (`remind_poll_status`, `mark_list_blocks_called`) failing open, so a
+missing payload cannot silently expose the data directory while still leaving
+the agent usable. Whichever is chosen, the current uniform fail-open should be a
+stated posture rather than an accident of one `except` clause.
+
 **What remains unverified.** Every fix above is verified at the interface Codex
 uses — the generated command, run through the real interpreter with a
 `PreToolUse` payload, blocks a `scistudio` call with exit 2 in `cmd.exe`,
