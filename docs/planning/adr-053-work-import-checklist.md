@@ -924,73 +924,54 @@ would have to cover, beyond the tutorial and palette entries it lists today:
 
 ## 14. Final Readiness
 
-- [ ] All dispatched agents have final outputs.
-- [ ] Manager reviewed every changed file.
-- [ ] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux
+- [x] All dispatched agents have final outputs.
+      -> A1 #2000, A2 #2002, A3 and A4 #2001, AU1 and AU2 audits, and the fix
+      track. Seven branches, all reviewed and merged into the umbrella.
+- [x] Manager reviewed every changed file.
+      -> Reviewed by diff, not by agent summary. Independently re-verified the
+      claims most likely to be wrong: §4.6 byte-identity by sha256 at both ends,
+      the widened join predicate in the ADR-034-frozen route line by line, the
+      P1 reproduction against the real endpoint before and after, the six
+      post-merge assertions on the A2/A4 spec collision, and the recorded
+      ledger commits against actual history.
+- [x] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux
       evidence when needed, commit, and PR evidence.
-- [ ] PR closes every issue fixed by the dispatch (`#2000`, `#2001`, `#2002`).
-- [ ] CI passed.
-- [ ] Checklist final state matches PR and gate record.
+      -> `.workflow/records/2000-adr-053-work-import.json`; Sentrux recorded as
+      unavailable with the reason (§4), pre-PR and post-PR finalize both run.
+- [x] PR closes every issue fixed by the dispatch (`#2000`, `#2001`, `#2002`).
+      -> PR #2028 body carries all three closing keywords.
+- [!] CI passed.
+      -> **Not yet run against the final head.** The local tier-selected suite is
+      5705 passed / 6 failed, and all six reproduce at `origin/main` with none of
+      this code present (#2030). CI runs on Linux and is the authoritative
+      evaluator.
+- [x] Checklist final state matches PR and gate record.
 
-## 15. Fix Track: Audit Findings (#2000, #2001, #2002)
+### 14.1 What The Manager Did Not Do, And Why
 
-Branch `fix/2001-work-import-audit-findings`, worktree
-`SciStudio-wt-wi-fix`, task kind `bugfix`, persona `implementer`. Ledger:
-`.workflow/records/2001-fix-2001-work-import-audit-findings.json`. Base is the
-integrated umbrella head, not `origin/main`.
+Three actions were available and were not taken, because each needs owner
+authorisation that was not given:
 
-### 15.1 Scope
+- **Merging to `main`.** No AI agent merges without explicit administrator
+  authorisation (`docs/ai-developer/rules.md` §3).
+- **Applying a bypass label.** `admin-approved:bypass` would have let the PR
+  wrapper past `checks.python_tests`. The owner authorised neither the label nor
+  the bypass, and `SCISTUDIO_SKIP_PREFLIGHT` was never set.
+- **Committing another session's uncommitted `#2030` fix.** A fix for those nine
+  failures exists as uncommitted work in `SciStudio-wt-2028` on branch
+  `test/2030-windows-test-failures`. It is not this dispatch's work and taking it
+  would overwrite a parallel session.
 
-The findings the owner selected from
-`docs/audit/2026-08-07-adr-053-work-import-with-context.md` and
-`docs/audit/2026-08-07-adr-053-work-import-no-context.md`. Complete delivery,
-no deferrals. Out of scope and untouched: spec §4.6, `docs/adr/ADR-053.md`,
-`pyproject.toml`, `docs/ai-developer/**`, `ProviderPicker.tsx`,
-`PermissionModePicker.tsx`.
+PR #2028 was converted from the `[DO NOT MERGE]` umbrella PR into the final
+review PR rather than opened as a second PR: GitHub permits one open PR per
+branch pair, and the umbrella branch is the final PR's head.
 
-### 15.2 Findings And Where Each Is Now Covered
+### 14.2 Open For The Owner
 
-| Finding | Fix | Test that fails if it regresses |
-|---|---|---|
-| **P1** — a `kimi-code` session 500s and orphans its brief (no-context P1-1) | Refused at three levels: the endpoint returns 400 with the registry's own sentence before the brief is composed; the availability report carries `session_unsupported_reason` so the dialog never offers such a provider and FR-043 cannot auto-select it; the docstrings in `work_import.py` and `engine.py` that claimed identical behaviour across all five providers now say what delivery still requires | `t_sess::test_a_provider_with_no_positional_prompt_is_refused_before_anything_is_written`, `…::test_the_spawn_path_agrees_that_such_a_provider_cannot_be_launched`, `…::test_the_opening_message_reaches_the_command_line_for_every_provider`, `t_avail::test_a_provider_that_cannot_take_an_opening_prompt_says_so`, `t_dlg` "a provider that cannot run a session is never offered" ×4 |
-| **P1 test defect** — the FR-029 parametrisation named five providers and exercised the failing path for none | Split by `prompt_argv_prefix`, read off the registry rather than listed; the deliverable half additionally drives the real `spawn_agent` argv assembly with only `PtyProcess` stubbed | `t_sess::test_the_opening_message_reaches_the_command_line_for_every_provider`, guarded by `…::test_the_registry_still_contains_a_provider_that_cannot_take_a_prompt` |
-| **P2** — availability guidance named no action (both audits) | Per-provider `next_step` composed in `availability.py` from the registry: the executable and every directory searched for `not_installed`, a verified sign-in command for `not_authenticated`. No invented install commands, per ADR-034 FR-014's recorded reasoning | `t_avail::test_the_install_hint_names_the_executable_and_where_it_was_sought`, `…::test_the_login_hint_names_a_command_or_the_file_that_decides_it`, `…::test_every_registry_agent_has_a_login_row`, `t_dlg` "names the executable to install and where SciStudio looked", "names the sign-in command for the detected provider" |
-| **P2** — `call_failed` copy contradicted the implementation and invited a retry with no control | Copy no longer asserts the user's setup is fine; a **Check again** control calls `refresh=true`, bypassing the 60 s memoisation. FR-034 intact — no reinstall guidance | `t_dlg` "does not tell a user whose call failed that their setup is fine", "offers a retry that re-probes with refresh=true", "…never suggests reinstalling" |
-| **P2** — client probe cap (10 s) below the server budget (20 s) | `PROBE_TIMEOUT_MS` is now derived from `SERVER_REPORT_BUDGET_MS`, so it cannot structurally fall below it, and the mirror is pinned against the Python constant | `t_avail::test_the_client_probe_cap_is_longer_than_the_servers_own_budget` |
-| **P2** — the kimi probe ran unrestricted while the docstring claimed otherwise | `--agent-file` with an empty `tools` allowlist, verified against kimi 0.33.0; the invariant is stated once, accurately, per mechanism; the test now partitions `MINIMAL_CALLS` | `t_avail::test_every_probe_states_what_bounds_it`, `…::test_an_agent_file_bounded_probe_declares_an_empty_tool_allowlist`, `…::test_an_agent_file_probe_writes_its_restriction_before_calling` |
-| **P2** — SC-006 stated a distinction the design does not make | Reworded to FR-021's real distinction: "did not answer" versus "answered in the negative". Spec only; FR-021 unchanged | already covered by `t_brief::test_blank_answer_is_conveyed_as_skipped` and `…::test_skipped_question_renders_as_explicitly_skipped` |
-| **P2** — spec `governs` / `tests` did not describe the change | Both expanded to the real surface. `status` left `Draft` — see §13.1 | `full_audit` (`doc-drift`, `closure`) |
-| **P3** — preset labels unpinned across the Python/TypeScript boundary | A Python test reads `copy.ts` and asserts the eight options, in order, equal the brief's and appear in spec §4.6 | `t_brief::test_the_dialogs_preset_labels_are_the_ones_the_brief_reproduces`, `…::test_each_preset_label_appears_in_spec_section_4_6` |
-| **P3** — gate ledger commit bookkeeping | `#2002` corrected from the orphaned `bc9572d5` to `ba1a49ba`; `#2001` dialog finalized from `commit: null` to `ce431fd0`. Both via `gate_record`, both ancestors of the umbrella head, both with an `amend` event recording why | `git merge-base --is-ancestor` on both shas |
-| **P3** — empty registry rendered neither guidance nor a start action | `emptyReportGuidance` falls back to the aggregate `state` when `providers` is empty | `t_dlg` "explains itself when the report names no providers at all" |
-
-### 15.3 Verification
-
-| Check | Status | Evidence |
-|---|---|---|
-| `pytest tests/ai/test_work_import_brief.py tests/api/test_agent_availability.py tests/api/test_work_import_session.py` | `[x]` | 186 passed (was 143 before this track) |
-| `pytest tests/api -k "pty or ai_pty"` | `[x]` | 109 passed, 698 deselected |
-| `pytest tests/architecture tests/ai tests/api` | `[x]` | 1750 passed, 3 failed — all three pre-existing `#2030`, all reproducing at `origin/main` per the no-context audit §6 |
-| `npx vitest run` in `frontend/` | `[x]` | 123 files, 1235 passed (was 1226) |
-| `gate_record check --mode pre-pr --base origin/track/adr-053-work-import --head HEAD` | `[!]` | tier 2, all 8 inferred checks run; `checks.python_tests` the sole unsatisfied obligation (`#2030`) |
-| `npm run typecheck` / `lint` / `format:check` | `[x]` | clean / 0 errors, 40 pre-existing warnings / clean |
-| `ruff check` / `ruff format --check` / `mypy src` | `[x]` | clean / 780 formatted / 347 files, no issues |
-| `full_audit` | `[x]` | `pass`, 0 findings on any file this track touched |
-| Kimi tool-restriction verification | `[x]` | `kimi --help` at 0.33.0 lists no tool or sandbox flag; `--plan` is refused with `-p`; `--agent` conflicts with `--agent-file`; the probe's agent file is accepted and a malformed one is rejected by name |
-
-### 15.4 Deliberately Not Changed
-
-- `docs/specs/adr-053-work-import.md` §4.6 — byte-identical to `origin/main`.
-- `docs/adr/ADR-053.md` — `agent_editable: false`. The spec's `status` flip
-  depends on an owner edit here; recorded in §13.1 as an owner action.
-- `pyproject.toml` — untouched, per `#2032`.
-- `aggregate_state` — a provider that cannot run a *session* is still a
-  legitimately available *agent*, so the shared aggregate is unchanged and only
-  consumers that start sessions filter on the new capability.
-- **`#2014`** — the same defect on the AI Block surface, from the same cause:
-  `AIBlock.config_schema` derives its `provider` enum from `agent_keys()` and
-  therefore advertises a provider `AIBlock.validate_config` rejects. That issue's
-  own first suggested fix is a shared provider capability, which is exactly what
-  `session_unsupported_reason` is — so adopting it there is now a small change,
-  but it is out of scope here and stays tracked on `#2014`. Named in that
-  function's docstring so a reader of either lands on the other.
+| Item | Why it needs the owner |
+|---|---|
+| `#2030` | Blocks the local pre-PR gate only. CI is Linux and these nine pass there. Read §2.2 first: three of the nine are a stale editable install, not test defects, so patching the shipped hook would compensate in product code for one workstation's broken venv. |
+| Merge authorisation | Policy: no AI merge without explicit administrator authorisation. |
+| Spec `status` flip | Owner-directed to stay `Draft`. Flipping it needs `docs/adr/ADR-053.md` to govern ~20 paths; that ADR declares `agent_editable: false`. The exact list is in §13.1. |
+| `#2032` | Packaging hardening split out of this PR to keep a `governance_touch` declaration off a feature PR. |
+| SC-001's agent-outcome half | Needs a live session against a configured agent. Not run. See §12.1. |
