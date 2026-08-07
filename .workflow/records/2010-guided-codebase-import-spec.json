@@ -216,6 +216,36 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T04:08:37.411092Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2fde5279b24108929e346ccbb74d1837fee9be7e5c715f81dbc19fdbe1e126f0",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T04:09:50.894112Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:743ebf6bd9f5d28ffbef600ac714d9f689941be5ae1accbe28c29ea55f193f8e",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -252,6 +282,11 @@
       "at": "2026-08-07T03:18:56.998149Z",
       "owner_directive": "The brief opens by telling the agent it is helping the user migrate a body of work and outlines the workflow, then the checklist, then the delivery standard, then the working method, then the user's answers. Delivery: types for the user's common data kinds with IO blocks for formats core lacks; blocks decomposing one or two workflows with at least one interactive block; app blocks for named software; one block per step with user-facing metadata; a demo workflow (optional); at least one previewer with interaction designed for the data. Before implementing, the agent presents its plan in the user's own terms - your data kind becomes a type, your steps become blocks, this step can pause for you, this needs a viewer - then asks for the user's view.",
       "reason": "Owner specified the brief's structure, delivery standard, and working method"
+    },
+    {
+      "at": "2026-08-07T04:11:10.320139Z",
+      "owner_directive": "We only handled the case where no provider is available. If the user has several usable providers we never let them choose. Add provider selection and the permission choice to the dialog's first page, below the source and destination fields, matching what the AI chat setup screen in PR #2003 offers.",
+      "reason": "Owner spotted that multiple usable providers were unhandled; dialog gains provider and permission controls"
     }
   ],
   "docs_events": [
@@ -885,6 +920,170 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:09:50.929474Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:09:50.942218Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:09:50.956002Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:09:50.970068Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:09:50.984228Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:09:51.003823Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:09:51.019793Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:09:51.034527Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:09:51.048990Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:09:51.068986Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:11:10.871599Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:11:10.883310Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:11:10.894980Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:11:10.906616Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:11:10.918854Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:11:10.930875Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:11:10.942343Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:11:10.955152Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:11:10.968380Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T04:11:10.985818Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -904,9 +1103,9 @@
       "docs/adr/ADR-053.md",
       "docs/specs/adr-053-work-import.md"
     ],
-    "diff_fingerprint": "sha256:d4ab218bd97521b5fda31f390af0bf4498c4e86184025f84d3bce5f3681ddd26",
+    "diff_fingerprint": "sha256:90c81024fe7101b1e241032d74091aba7172c4b9185c7a359f4fad1b2aac4fd4",
     "head": "HEAD",
-    "head_sha": "fe086d9a",
+    "head_sha": "11464715",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -985,6 +1184,22 @@
     {
       "at": "2026-08-07T03:20:12.851571Z",
       "diff_fingerprint": "sha256:d4ab218bd97521b5fda31f390af0bf4498c4e86184025f84d3bce5f3681ddd26",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-07T04:09:51.069028Z",
+      "diff_fingerprint": "sha256:90c81024fe7101b1e241032d74091aba7172c4b9185c7a359f4fad1b2aac4fd4",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-07T04:11:10.985854Z",
+      "diff_fingerprint": "sha256:90c81024fe7101b1e241032d74091aba7172c4b9185c7a359f4fad1b2aac4fd4",
       "mode": "local",
       "result": "pass",
       "tier": 2,
