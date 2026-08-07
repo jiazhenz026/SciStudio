@@ -171,6 +171,21 @@
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T06:25:10.968436Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:4e3f63804905de085e89eb5caf19d4bcb558b022c84483ac8c436cf0ec2dca0f",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -622,6 +637,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T06:25:11.031646Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T06:25:11.049606Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T06:25:11.064518Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T06:25:11.082132Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T06:25:11.099707Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T06:25:11.118880Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T06:25:11.134795Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T06:25:11.151663Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T06:25:11.170604Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T06:25:11.195627Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -645,9 +742,9 @@
       "src/scistudio/api/routes/ai.py",
       "tests/api/test_agent_availability.py"
     ],
-    "diff_fingerprint": "sha256:67d12e2984e15ed71ff753718246c4b09f660e2aa90105ba18d184620b3233fe",
+    "diff_fingerprint": "sha256:08d184717817132ddb3bf634e43b785d43251167e4bd36aad2c2809b56f763b0",
     "head": "HEAD",
-    "head_sha": "73bdbdf1",
+    "head_sha": "59786a0f",
     "surfaces": {
       "docs": 1,
       "frontend": 2,
@@ -718,6 +815,16 @@
     {
       "at": "2026-08-07T06:18:31.784277Z",
       "diff_fingerprint": "sha256:67d12e2984e15ed71ff753718246c4b09f660e2aa90105ba18d184620b3233fe",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-07T06:25:11.195651Z",
+      "diff_fingerprint": "sha256:08d184717817132ddb3bf634e43b785d43251167e4bd36aad2c2809b56f763b0",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 1,
