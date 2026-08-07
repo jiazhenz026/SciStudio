@@ -1,0 +1,610 @@
+{
+  "branch": "fix/2019-new-project-mcp-deadlock",
+  "check_events": [
+    {
+      "at": "2026-08-07T05:07:16.072294Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-07T05:07:25.550678Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T05:07:25.625356Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-07T05:08:09.148068Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-07T05:08:09.190390Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-07T05:08:19.791946Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-07T05:09:58.685911Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [
+    {
+      "name": "format_check",
+      "rationale": "Gate parity venv installs an unpinned ruff that disagrees with CI (tracked by open issue #1981). It flags 54 pre-existing files (markdown code blocks under src/scistudio/_user_guide/** and others) that this branch does not touch; the repo-pinned ruff 0.15.15 reports the clean baseline and every file in this diff as already formatted. Owner directed proceeding; CI runs its own pinned ruff and is authoritative."
+    }
+  ],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/App.tsx",
+      "src/scistudio/ai/agent/mcp/server.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-07T04:54:25.302028Z",
+      "owner_directive": "Fix MCPServer.stop() by actively closing live client connections plus a bounded timeout backstop (not a bare timeout, not stdlib-version-dependent). Additionally harden the frontend so a hung backend request cannot lock the UI permanently: add a request timeout and/or keep the project dialog cancellable while busy.",
+      "reason": "owner chose the deadlock fix approach and expanded scope to frontend hardening"
+    },
+    {
+      "at": "2026-08-07T05:06:45.796492Z",
+      "owner_directive": "Fix the Working indicator layering and the new-project deadlock; harden the frontend against a hung backend request.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-08-07T05:09:52.173805Z",
+      "owner_directive": "This is a ruff version problem, just push the PR.",
+      "reason": "local format_check fails only on 54 pre-existing files this branch does not touch; owner directed proceeding to PR"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-07T05:06:45.796601Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:06:45.796613Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "bug fix restoring intended teardown behavior; no architectural decision changes",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:06:45.796618Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "no contract, schema, storage, or API-shape change; the routes and MCP wire protocol are untouched",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-08-07T05:07:25.669693Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:07:25.682429Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:07:25.694849Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:07:25.707447Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:07:25.719844Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:07:25.732947Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:07:25.746142Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:07:25.758656Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:07:25.771577Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:07:25.784011Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:09.227023Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:09.247282Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:09.260215Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:09.272612Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:09.285444Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:09.298458Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:09.311524Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:09.324335Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:09.336805Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:09.349531Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:19.837020Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:19.849885Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:19.862448Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:19.875613Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:19.888046Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:19.908515Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:19.921859Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:19.934562Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:19.947020Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:08:19.959143Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:09:58.734267Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:09:58.749094Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:09:58.763472Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:09:58.777780Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:09:58.792039Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:09:58.806482Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:09:58.821584Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:09:58.836267Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:09:58.851378Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T05:09:58.874148Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2019,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "b485e293",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "6579d9ce",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Fix two things together in a live session: (1) the bottom-right Working indicator must always render on top of everything, at any time; (2) investigate why creating a New project freezes the app when a project is already open.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-08-07T05:07:25.784049Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check",
+        "checks.lint_format"
+      ]
+    },
+    {
+      "at": "2026-08-07T05:08:09.349573Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check"
+      ]
+    },
+    {
+      "at": "2026-08-07T05:08:19.959181Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check"
+      ]
+    },
+    {
+      "at": "2026-08-07T05:09:58.874190Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check"
+      ]
+    }
+  ],
+  "record_id": "2019-fix-2019-new-project-mcp-deadlock",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-07T04:54:25.302048Z",
+      "pattern": "frontend/src/App.parts/useProjectActions.ts",
+      "reason": "owner chose the deadlock fix approach and expanded scope to frontend hardening"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T04:54:25.302055Z",
+      "pattern": "frontend/src/components/ProjectDialog.tsx",
+      "reason": "owner chose the deadlock fix approach and expanded scope to frontend hardening"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T04:54:25.302057Z",
+      "pattern": "frontend/src/lib/api/**",
+      "reason": "owner chose the deadlock fix approach and expanded scope to frontend hardening"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T04:54:25.302059Z",
+      "pattern": "tests/**",
+      "reason": "owner chose the deadlock fix approach and expanded scope to frontend hardening"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T04:54:25.302060Z",
+      "pattern": "frontend/src/**/__tests__/**",
+      "reason": "owner chose the deadlock fix approach and expanded scope to frontend hardening"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T04:54:25.302062Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "owner chose the deadlock fix approach and expanded scope to frontend hardening"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:00:41.124278Z",
+      "pattern": "frontend/src/App.parts/AppDialogs.tsx",
+      "reason": "threading the busy flag into the project dialog to block double-submit while a create/open is in flight requires the dialog wiring file and the api barrel re-export"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:00:41.124295Z",
+      "pattern": "frontend/src/lib/api.ts",
+      "reason": "threading the busy flag into the project dialog to block double-submit while a create/open is in flight requires the dialog wiring file and the api barrel re-export"
+    }
+  ],
+  "session_id": "e86df149-a4d5-4b79-913f-85fee4c3fe8e",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-08-07T05:06:45.796622Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_server_stop.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:06:45.796627Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/api/__tests__/timeout.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:06:45.796628Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.busyIndicator.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:06:45.796630Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/ProjectDialog.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

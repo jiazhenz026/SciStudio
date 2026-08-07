@@ -105,6 +105,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2019] Creating or opening a project while another project was already open
+  could hang the app indefinitely: the project dialog stayed up, the bottom-right
+  `Working…` pill sat blurred underneath it, and nothing ever completed. Both
+  routes rebind the MCP transport to the new project directory, which first
+  stops the outgoing server — and `MCPServer.stop()` did `close()` followed by
+  `wait_closed()`. `close()` only retires the listener; connections already
+  established keep running, and since Python 3.12 `wait_closed()` does not
+  return until every connection handler has finished. Because the per-client
+  loop blocks on `readline()` until its peer disconnects, any attached MCP
+  client (an AI Chat session holding the project's transport, for instance)
+  pinned that coroutine forever, so the HTTP request never returned and the
+  frontend `finally` that clears the busy flag and closes the dialog never ran.
+  `stop()` now hangs up on live client transports before waiting, and bounds the
+  wait so a wedged handler degrades to a logged warning instead of a hang. Two
+  supporting changes make the failure mode non-fatal in general: `apiFetch`
+  gained an opt-in `timeoutMs` that aborts the request and rejects with
+  `ApiTimeoutError` (applied to the two project-switch calls, which are the ones
+  gating a modal), so the promise always settles; and the project dialog now
+  reports progress on its submit button and refuses a second submit while a
+  switch is in flight, rather than racing two project switches. Separately, the
+  global busy indicator had no `z-index` at all while every modal overlay is
+  `z-50` or `z-[9999]` with a backdrop blur — the one affordance saying "still
+  working" rendered blurred underneath the dialog waiting on that work; it now
+  sits above the topmost modal layer and no longer intercepts clicks. Tests:
+  `tests/ai/test_mcp_server_stop.py`,
+  `frontend/src/lib/api/__tests__/timeout.test.ts`,
+  `frontend/src/App.busyIndicator.test.tsx`,
+  `frontend/src/components/ProjectDialog.test.tsx`. (@claude, 2026-08-07,
+  branch: fix/2019-new-project-mcp-deadlock)
+
 - [#1986] The desktop app now remembers which port its backend bound and prefers
   that port on the next launch, so the renderer keeps a stable
   `http://127.0.0.1:<port>` origin across restarts. Previously the backend was

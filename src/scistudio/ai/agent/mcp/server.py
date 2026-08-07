@@ -63,6 +63,12 @@ _INVALID_PARAMS = -32602
 _INTERNAL_ERROR = -32603
 _POSIX_SOCKET_PATH_LIMIT_BYTES = 100
 
+# Issue #2019 — upper bound on how long ``MCPServer.stop()`` waits for the
+# accept loop and the per-client handlers to unwind after their transports
+# have been closed. ``stop()`` runs inline on the request that rebinds the
+# server to a newly created/opened project, so it must always return.
+_STOP_GRACE_SECONDS = 5.0
+
 
 # ---------------------------------------------------------------------------
 # MCPServer lifecycle wrapper — preserved name + shape from ADR-033 era.
@@ -104,6 +110,13 @@ class MCPServer:
         self.project_dir = project_dir
         self._server: asyncio.AbstractServer | None = None
         self._port: int | None = None
+        # Issue #2019 — live client transports, so ``stop()`` can hang up on
+        # them. ``AbstractServer.close()`` only retires the listener; it leaves
+        # established connections running, and since Python 3.12
+        # ``wait_closed()`` blocks until every handler task has returned. With
+        # ``_handle_client`` looping on ``readline()`` until the peer goes away,
+        # an attached client would otherwise make ``stop()`` wait forever.
+        self._clients: set[asyncio.StreamWriter] = set()
 
     async def start(self) -> None:
         """Bind the transport and start accepting JSON-RPC requests.
@@ -148,14 +161,38 @@ class MCPServer:
         )
 
     async def stop(self) -> None:
-        """Stop accepting connections and tear down the transport."""
+        """Stop accepting connections and tear down the transport.
+
+        Retires the listener, hangs up on every still-attached client, then
+        waits — with a bounded grace period — for the handler tasks to unwind.
+
+        Issue #2019: closing the listener alone is not enough. Established
+        connections survive ``close()``, and from Python 3.12 on
+        ``wait_closed()`` does not return until each handler task has finished.
+        Because ``_handle_client`` blocks on ``readline()`` until its peer
+        disconnects, an attached client (an AI Chat session holding the
+        project's MCP transport, say) used to pin this coroutine forever —
+        which stalled the ``POST /api/projects/`` request that rebinds the
+        server and left the GUI wedged behind its modal. Dropping the client
+        transports makes those handlers observe EOF and return; the timeout is
+        a backstop so a wedged handler degrades to a warning instead of a hang.
+        """
         if self._server is None:
             return
         self._server.close()
+        for writer in list(self._clients):
+            with contextlib.suppress(Exception):
+                writer.close()
         try:
-            await self._server.wait_closed()
+            await asyncio.wait_for(self._server.wait_closed(), timeout=_STOP_GRACE_SECONDS)
+        except TimeoutError:
+            logger.warning(
+                "MCPServer.stop: client handlers still running after %.1fs; abandoning them",
+                _STOP_GRACE_SECONDS,
+            )
         except Exception:  # pragma: no cover - defensive
             logger.warning("MCPServer.stop: wait_closed raised", exc_info=True)
+        self._clients.clear()
         if sys.platform != "win32":
             actual_socket_path = self.socket_path
             requested_socket_path = self._requested_socket_path
@@ -205,6 +242,9 @@ class MCPServer:
         """Read line-delimited JSON-RPC frames and write responses."""
         peer = writer.get_extra_info("peername") or writer.get_extra_info("sockname")
         logger.debug("MCPServer: client connected: %s", peer)
+        # Issue #2019 — register the transport so ``stop()`` can hang up on a
+        # client that is idle mid-``readline()`` rather than waiting on it.
+        self._clients.add(writer)
         try:
             while True:
                 line = await reader.readline()
@@ -227,6 +267,7 @@ class MCPServer:
         except Exception:
             logger.exception("MCPServer: per-client loop crashed")
         finally:
+            self._clients.discard(writer)
             try:
                 writer.close()
                 await writer.wait_closed()
