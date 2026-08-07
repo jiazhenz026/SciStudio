@@ -21,7 +21,7 @@ scope:
     - Support for users with no codebase at all - spreadsheet and GUI-software workflows - as a first-class path rather than a degraded one.
     - Transcribing from other languages into SciStudio's Python blocks, with the added uncertainty that carries surfaced to the user.
     - Spawning a chat session whose task brief is written to a file under .scistudio/ and referenced by a single visible line, so no provider shows the user a wall of instructions.
-    - The system prompt's instruction set - what the agent is told to do, ask, write, and report - including how verification differs with and without an original implementation.
+    - The task brief's instruction set - its structure, the workflow checklist, the delivery standard, and the working method the agent follows with the user.
     - The caveat copy shown in the import surface stating that the agent can make mistakes, that a check is requested, that equivalence is not guaranteed, and that the user must review the result.
     - Graded agent availability - four states derived from the provider registry plus a live minimal call, with per-state guidance.
     - The entry point contract the Learning Center milestone unlock routes to.
@@ -505,11 +505,131 @@ matches is not verification and MUST NOT be reported as though it were.
 
 **FR-042.** Checks MUST be saved inside the project directory. Their value is that
 they can be rerun by hand later, which requires the user to be able to find them.
+[NEEDS CLARIFICATION: whether a conventional subdirectory is fixed, and whether
+the agent or the product chooses the filename.]
 
 **FR-043.** With no codebase the caveat in FR-033 is more load-bearing, not less.
 There is no original implementation to disagree with, so the only check on the
 agent's understanding is the user's own review. The caveat copy MUST NOT be
 weakened or hidden in that case on the grounds that no transcription took place.
+
+#### The brief's structure
+
+**FR-049.** [NEEDS CLARIFICATION: the sixth section's content — guidance for
+situations that arise, such as when to ask rather than assume and when to check
+in rather than continue — is not yet decided.] The brief MUST be organised into
+six sections in this order: the
+agent's role and an outline of the session's workflow; the detailed checklist;
+the delivery standard; the working method; the user's answers; and guidance for
+handling situations that arise. Requirements are stated before the user's
+specifics so the agent reads what is being asked of it before it reads what this
+particular user said, and the situational guidance comes last so it is closest to
+the work.
+
+**FR-050.** The role section MUST open by telling the agent what it is doing
+today — helping this user carry a body of existing work into SciStudio — and
+summarising the workflow in a sentence or two before the checklist expands it.
+
+**FR-051.** The workflow the checklist expands is: read the user's answers; read
+their codebase if there is one; establish how their code actually runs; infer
+what they need; design an implementation plan; take that plan to the user and
+discuss it; implement; verify; and close with concrete suggestions and next
+steps.
+
+**FR-052.** Establishing how the user's code runs MUST come early, before
+implementation rather than before verification. Discovering late that the
+original cannot be executed — an uninstalled language runtime, an unavailable
+environment — changes how verification can work at all (FR-040, FR-041), and the
+user should learn that at the start rather than at the end.
+
+#### The delivery standard
+
+**FR-053.** The brief MUST state what a complete session delivers:
+
+1. **Types** for the kinds of data the user works with most.
+2. **IO blocks** for the file formats those types need, where core does not
+   already handle them.
+3. **Blocks** decomposing the user's one or two most common workflows step by
+   step, generalised rather than transcribed literally.
+4. **At least one interactive block**, where the user's work has a step that
+   warrants one.
+5. **App blocks** wrapping external software the user named.
+6. **At least one previewer**, where a type the user works with benefits from
+   one.
+7. **A demo workflow** assembling the delivered blocks into one of the user's
+   real analyses. Optional.
+8. **The verification checks** written during the session, saved in the project.
+
+**FR-054.** The brief MUST state that quantities are ceilings, not quotas, and
+that core types are checked first. Core already provides `Array`, `DataFrame`,
+`Series`, `Text`, `Artifact`, and `CompositeData`; a user working with tables
+needs no new type, and a target of "about three types" will otherwise produce
+empty wrappers authored to meet a number. Producing fewer than the target,
+with a reason, is a correct outcome.
+
+**FR-055.** For the same reason, "at least one interactive block" and "at least
+one previewer" MUST be conditional on the user's work warranting them. Where it
+does not, the agent says why rather than delivering something nobody asked for.
+
+**FR-056.** The brief MUST tell the agent that **previewers have no user-level
+tier**. Blocks and types can be written to the personal library; previewers are
+discovered only from core, packages, and the project. A previewer written into
+the user library is silently never loaded. When the user chose the personal
+library as their destination, the agent delivers types and blocks there and
+keeps previewers in the project, and says so.
+
+**FR-057.** Every delivered type and block MUST carry the user-facing metadata
+that makes it usable from the palette and canvas: a colour, a description, and
+for blocks an icon, named input and output ports, and configurable parameters
+exposed as config rather than hardcoded.
+
+**FR-058.** Each block MUST perform a single step. Bundling several processing
+stages into one block reproduces the coarse-block pattern ADR-053 §3 identifies
+as the reason nothing accumulates, which would make this feature import the
+problem rather than solve it.
+
+**FR-059.** Where the user's work involves data large enough to need streaming or
+chunked handling, the agent MUST confirm the scale with the user and MUST consult
+SciStudio's existing mechanisms for large data before designing its own.
+
+**FR-060.** The brief MUST state that the delivery standard describes the whole
+session's output, not a single hand-off. The agent shows each piece as it is
+finished rather than accumulating everything and presenting it at the end.
+
+#### The working method
+
+**FR-061.** Before implementing, the agent MUST present its plan to the user and
+MUST wait for a response before proceeding.
+
+**FR-062.** That plan MUST explain SciStudio's abstractions **in terms of the
+user's own work** — that the kind of data they handle becomes a type, that each
+step of their analysis becomes a block, that a step where they currently make a
+judgement can pause for them, that a thing they need to look at can have its own
+viewer. This is the feature's most effective teaching moment: ADR-053 §1 records
+that observed users had never heard of interactive blocks, custom previewers, or
+custom data types, and an explanation grounded in the user's own data lands where
+documentation and tips do not. **A future editor trimming this as unnecessary
+product exposition would remove the mechanism, not the padding.**
+
+**FR-063.** The plan MUST give reasons for the decomposition it proposes, not
+just its result — why a step was split out, and what reusing it later would look
+like. Reasons teach the granularity FR-058 requires and give the user something
+to disagree with; a bare list can only be accepted.
+
+**FR-064.** When the user rejects or corrects the plan, the agent MUST revise its
+understanding and re-present, rather than patching the original around the
+objection.
+
+**FR-065.** The agent MUST work in small batches — a couple of blocks, shown and
+confirmed, before continuing. Left unsaid, an agent's default is to finish
+everything it can see, which produces more generated code than the user can
+evaluate at exactly the moment they have least reason to trust it.
+
+**FR-066.** When a verification check fails, the agent MUST treat the
+transcription as the suspect. It MUST NOT relax the check to make it pass. If the
+original itself is at fault, it says so; if it cannot resolve the failure, it
+reports the failure. This is the counterpart to FR-041: that one forbids
+overstating what was verified, this one forbids concealing that it was not.
 
 **FR-044.** Transcription from other languages into Python blocks is in scope.
 The prompt MUST require the agent to say when it has translated across languages
@@ -636,6 +756,12 @@ settled by a single review (see §4.5).
 | Verification framing | The composed brief instructs the agent to find data to verify against, to ask when it finds none, and to accept a refusal (FR-040) |
 | Claim strength | The brief requires the agent to state what it checked against and forbids reporting a read-through as verification (FR-041) |
 | Cross-language | The brief requires the agent to flag language translation and its semantic risk points (FR-044) |
+| Brief structure | The composed brief contains the six sections in the specified order (FR-049) |
+| Ceilings not quotas | The delivery standard states that targets are upper bounds and that core types are checked first (FR-054, FR-055) |
+| Previewer tier | The brief states that previewers cannot go to the personal library (FR-056) |
+| Plan before implementation | The brief requires presenting a plan and waiting for a response (FR-061) |
+| Plan explains abstractions | The brief requires the plan to explain types, blocks, interaction, and previewers in the user's own terms (FR-062) |
+| Failure honesty | The brief forbids relaxing a failing check to make it pass (FR-066) |
 
 Lint, type, and docs checks run through the standard gate. This PR is docs-only;
 the tests above land with the implementing tasks.
@@ -673,6 +799,13 @@ no automatic check that would catch it either.
 
 **The dependency is unmerged.** T-002 builds on #2003.
 
+**The implementation issues describe a superseded design.** #2000, #2001, and
+#2002 were written against the scan-then-transcribe flow that ADR-053 §4.1 no
+longer describes. #2001's static-scan scope does not exist any more, none of the
+three covers the no-codebase path, and none reflects the delivery standard in
+FR-053. They need rewriting before implementation starts, or an implementer will
+build from them rather than from this spec.
+
 **Rollback**: every element is additive — a toolbar entry, a dialog, a prompt
 template, and a probe. Removing the toolbar entry disables the feature without
 affecting anything else; blocks and checks already written into projects are
@@ -708,6 +841,18 @@ and the resulting brief distinguishes skipped questions from unanswered ones.
 **SC-008.** Starting a session displays at most one line of instruction text to
 the user, on every supported provider.
 
+**SC-009.** A session that produces no new type, no interactive block, or no
+previewer because the user's work did not warrant one is a passing outcome, and
+the brief's wording makes that explicit rather than implying a shortfall.
+
+**SC-010.** No delivered block performs more than one processing step, and every
+delivered block and type carries a colour, a description, and — for blocks — an
+icon, named ports, and configurable parameters.
+
+**SC-011.** The plan presented before implementation explains what a type, a
+block, an interactive step, and a previewer are, using the user's own data and
+workflow as the examples.
+
 **SC-007.** The composed brief contains no restatement of block authoring,
 workflow construction, plotting, inspection, or debugging guidance, all of which
 are already provisioned as skills. Measured by review at each prompt change.
@@ -727,6 +872,9 @@ are already provisioned as skills. Measured by review at each prompt change.
 | Verification is a flexible agent-led conversation rather than a fixed rule, and the user may decline to supply data | owner |
 | Transcribing from other languages is in scope | owner |
 | The brief is delivered as a file under `.scistudio/` with a one-line pointer, so the user is not shown a wall of instructions | owner |
+| The brief is organised as role, checklist, delivery standard, working method, user answers, situational guidance | owner |
+| The delivery standard covers types, IO blocks, workflow blocks, an interactive block, app blocks, a previewer, an optional demo workflow, and the verification checks | owner |
+| The agent presents its plan in the user's own terms before implementing, and waits | owner |
 | `.scistudio/` is gitignored in projects, so a brief written there stays out of version history | existing-system |
 | The Learning Center unlock only routes to this entry point | owner |
 | Environment investigation is delegated to the agent rather than asked of the user | owner |

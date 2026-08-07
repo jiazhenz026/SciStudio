@@ -186,6 +186,36 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T03:19:06.797458Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:67f8d1d1045a9ccea90d7dba2fac04df6b707eb1602d14f377f0b19719fe53a6",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T03:20:12.692932Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f156ccdbed82a1bfdeff8550ac870b0f23d90c3bea5f9d4a123d194742cec2c7",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -217,6 +247,11 @@
       "at": "2026-08-07T02:46:08.364481Z",
       "owner_directive": "The task instructions must not flood the user's terminal. Since most providers are AMBIENT and cannot take a hidden per-session prompt, unify: after the dialog is answered, write the assembled brief to a hidden location under .scistudio/, and let the only visible message be one line saying the task is described at that path, for the agent to read itself.",
       "reason": "Owner chose file-based brief delivery so behaviour is uniform across providers and the terminal is not flooded"
+    },
+    {
+      "at": "2026-08-07T03:18:56.998149Z",
+      "owner_directive": "The brief opens by telling the agent it is helping the user migrate a body of work and outlines the workflow, then the checklist, then the delivery standard, then the working method, then the user's answers. Delivery: types for the user's common data kinds with IO blocks for formats core lacks; blocks decomposing one or two workflows with at least one interactive block; app blocks for named software; one block per step with user-facing metadata; a demo workflow (optional); at least one previewer with interaction designed for the data. Before implementing, the agent presents its plan in the user's own terms - your data kind becomes a type, your steps become blocks, this step can pause for you, this needs a viewer - then asks for the user's view.",
+      "reason": "Owner specified the brief's structure, delivery standard, and working method"
     }
   ],
   "docs_events": [
@@ -768,6 +803,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T03:20:12.730908Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T03:20:12.743960Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T03:20:12.757128Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T03:20:12.770312Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T03:20:12.782627Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T03:20:12.795524Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T03:20:12.808618Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T03:20:12.821763Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T03:20:12.834444Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T03:20:12.851533Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -787,9 +904,9 @@
       "docs/adr/ADR-053.md",
       "docs/specs/adr-053-work-import.md"
     ],
-    "diff_fingerprint": "sha256:e8dd9d4ca317e8abbd033e9f4175d3aa354031e9f94c68becd2b9d7d228c39fd",
+    "diff_fingerprint": "sha256:d4ab218bd97521b5fda31f390af0bf4498c4e86184025f84d3bce5f3681ddd26",
     "head": "HEAD",
-    "head_sha": "570aeba7",
+    "head_sha": "fe086d9a",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -860,6 +977,14 @@
     {
       "at": "2026-08-07T02:47:25.969251Z",
       "diff_fingerprint": "sha256:e8dd9d4ca317e8abbd033e9f4175d3aa354031e9f94c68becd2b9d7d228c39fd",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-07T03:20:12.851571Z",
+      "diff_fingerprint": "sha256:d4ab218bd97521b5fda31f390af0bf4498c4e86184025f84d3bce5f3681ddd26",
       "mode": "local",
       "result": "pass",
       "tier": 2,
