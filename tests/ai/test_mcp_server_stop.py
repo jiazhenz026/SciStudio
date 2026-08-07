@@ -19,6 +19,7 @@ Async tests use ``asyncio.run`` to match the convention in
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import sys
 import time
 from collections.abc import Coroutine
@@ -35,6 +36,18 @@ _T = TypeVar("_T")
 
 def _run(coro: Coroutine[Any, Any, _T]) -> _T:
     return asyncio.run(coro)
+
+
+async def _aclose(writer: asyncio.StreamWriter) -> None:
+    """Close a client transport and wait for it, rather than leaving it to GC.
+
+    A transport finalized by the collector emits a ResourceWarning, and a
+    server-attached one reaped after its server cleared the waiter list raises
+    out of ``__del__``. Draining here keeps each test self-contained.
+    """
+    writer.close()
+    with contextlib.suppress(Exception):
+        await writer.wait_closed()
 
 
 async def _connect(server: MCPServer) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
@@ -65,7 +78,7 @@ def test_stop_returns_while_a_client_is_still_attached(tmp_path: Path) -> None:
         try:
             await asyncio.wait_for(server.stop(), timeout=_HANG_GUARD_SECONDS)
         finally:
-            writer.close()
+            await _aclose(writer)
         return time.monotonic() - started
 
     elapsed = _run(scenario())
@@ -91,7 +104,7 @@ def test_stop_disconnects_the_client(tmp_path: Path) -> None:
         except ConnectionError:
             return b""
         finally:
-            writer.close()
+            await _aclose(writer)
 
     assert _run(scenario()) == b""
 
@@ -104,7 +117,7 @@ def test_stop_clears_client_registry(tmp_path: Path) -> None:
         _, writer = await _connect(server)
         await asyncio.sleep(0.05)
         await asyncio.wait_for(server.stop(), timeout=_HANG_GUARD_SECONDS)
-        writer.close()
+        await _aclose(writer)
         return server._clients
 
     assert _run(scenario()) == set()
@@ -135,13 +148,13 @@ def test_server_can_rebind_after_stopping_with_a_client_attached(tmp_path: Path)
         _, writer = await _connect(server_a)
         await asyncio.sleep(0.05)
         await asyncio.wait_for(server_a.stop(), timeout=_HANG_GUARD_SECONDS)
-        writer.close()
+        await _aclose(writer)
 
         server_b = MCPServer(socket_path=project_b / ".scistudio" / "mcp.sock", project_dir=project_b)
         await server_b.start()
         try:
             _, writer_b = await _connect(server_b)
-            writer_b.close()
+            await _aclose(writer_b)
             return True
         finally:
             await asyncio.wait_for(server_b.stop(), timeout=_HANG_GUARD_SECONDS)

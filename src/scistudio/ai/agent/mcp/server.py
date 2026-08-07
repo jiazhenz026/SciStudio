@@ -176,15 +176,34 @@ class MCPServer:
         server and left the GUI wedged behind its modal. Dropping the client
         transports makes those handlers observe EOF and return; the timeout is
         a backstop so a wedged handler degrades to a warning instead of a hang.
+
+        The drain below is load-bearing, not tidiness. ``writer.close()`` only
+        *schedules* a transport teardown. Returning before those transports have
+        actually finished leaves them to be finalized by the garbage collector,
+        and on Python 3.13 a server-attached transport reaped after
+        ``wait_closed()`` has already cleared the server's waiter list raises
+        ``TypeError: 'NoneType' object is not iterable`` out of
+        ``_SelectorTransport.__del__`` — an unraisable exception that surfaces
+        against whatever unrelated code happens to be running at collection
+        time. Awaiting each transport keeps the teardown inside this coroutine,
+        where the grace period still bounds it.
         """
         if self._server is None:
             return
         self._server.close()
-        for writer in list(self._clients):
+        clients = list(self._clients)
+        for writer in clients:
             with contextlib.suppress(Exception):
                 writer.close()
+
+        async def _drain() -> None:
+            for writer in clients:
+                with contextlib.suppress(Exception):
+                    await writer.wait_closed()
+            await self._server.wait_closed()  # type: ignore[union-attr]
+
         try:
-            await asyncio.wait_for(self._server.wait_closed(), timeout=_STOP_GRACE_SECONDS)
+            await asyncio.wait_for(_drain(), timeout=_STOP_GRACE_SECONDS)
         except TimeoutError:
             logger.warning(
                 "MCPServer.stop: client handlers still running after %.1fs; abandoning them",
