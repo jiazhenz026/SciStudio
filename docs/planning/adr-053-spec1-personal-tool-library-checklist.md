@@ -389,14 +389,18 @@ Spec §2.5 was reproduced independently by the audit: `False` before at `b485e29
 
 ### 8.3 Implementation
 
-- [ ] `B1` shared origin resolver + block origin split + fallback (FR-001 – FR-004) -> `<commit>`
-- [ ] `B1` user library write endpoint, inverse path constraint, no silent overwrite (FR-006 – FR-009) -> `<commit>`
-- [ ] `B1` registry refresh after write (FR-010) -> `<commit>`
-- [ ] `B1` MCP promotion tool (FR-011) -> `<commit>`
-- [ ] `B2` `DataObject` colour attributes (FR-049) -> `<commit>` **[protected core]**
-- [ ] `B2` registry colour collection + invalid-colour fallthrough (FR-050, FR-052) -> `<commit>`
-- [ ] `B2` per-type load/save extensions from `FormatCapability` (FR-054 – FR-056) -> `<commit>`
-- [ ] `B2` types listing + type template endpoints (FR-026 – FR-028, FR-005) -> `<commit>`
+- [x] `B1` shared origin resolver + block origin split + fallback (FR-001 – FR-004) -> commit `19e31a10`. One `resolve_origin(surface, ...)` with `BLOCK_SURFACE` / `TYPE_SURFACE`; containment uses `os.path.realpath` + `Path.is_relative_to`, never string prefixes.
+- [x] `B1` user library write endpoint, inverse path constraint, no silent overwrite (FR-006 – FR-009) -> `PUT /api/user-library/file?target=blocks|types&filename=…`; 409 on collision, `overwrite:true` the only replace path; 400/403/413/415/422 rejection matrix.
+- [x] `B1` existence probe (FR-031) -> `GET /api/user-library/file` with the same 200/404 shape as the project endpoint, so B5's probe is a one-line analogue.
+- [x] `B1` registry refresh after write (FR-010) -> `refresh_all_registries()`
+- [x] `B1` MCP promotion tool (FR-011) -> `promote_to_user_library`; catalogue 35 → 36 tools
+- [x] `B1` **FR-065 cross-process refresh, which A2 could not reach** -> `StandaloneMCPRuntime` exposes its registries as properties that first call `sync_dropins()`, comparing a `dropin_revision()` signature (path, size, `st_mtime_ns` per `.py` across both tiers). The shared directory *is* the channel, so it works both ways with no IPC.
+- [x] `B2` `DataObject` colour attributes (FR-049) -> commit `3a65d12f` **[protected core]**. Manager verified the diff is **purely additive**: two optional `ClassVar[str | None] = None` and their docstrings, zero deletions, no behavioural code touched.
+- [x] `B2` registry colour collection + invalid-colour fallthrough (FR-050, FR-052) -> validated at collection time, not render time; short forms expand, output lowercased; anything unparseable is dropped with a warning naming class, attribute and value, and arrives at the frontend as `null` rather than a bad string.
+- [x] `B2` per-type load/save extensions from `FormatCapability` (FR-054 – FR-056) -> reported separately; `Series` really does save `.json` without loading it, which is the FR-055 asymmetry the spec wanted visible.
+- [x] `B2` types listing + type template endpoints (FR-026 – FR-028, FR-005) -> `GET /api/types/` and `GET /api/types/template`; template shape byte-identical to the block template so FR-033 can share steps.
+- [x] `B2` **FR-066 guard** -> `TypeHierarchyEntry.ui_ring_color` left dead, with a test asserting it stays unpopulated so the rejected second colour supply point cannot be reintroduced by someone who finds the field and assumes it was an oversight.
+- [x] `B2` consumed B1's shared resolver rather than writing a second path comparison (FR-003), pinned by `test_the_origin_adapter_delegates_the_whole_vocabulary`.
 - [x] `B3` origin-first grouping in `buildPaletteSections` (FR-038) -> commit `9d50bf00`. `derivePackage`'s `CUSTOM_PACKAGE` branch removed so no dead `Custom` section can reappear.
 - [x] `B3` Blocks tab, My Library / This Project sections, empty states (FR-034 – FR-037) -> commit `9d50bf00`. FR-034 note: the **tab** already read `Blocks` on `origin/main`; what disagreed was the panel heading `Palette`, renamed so panel and tab agree and `Data types` reads as a peer.
 - [x] `B3` shared palette helpers extracted (§10.1, FR-047) -> `frontend/src/components/palette/{sections,hoverPopover}.ts`, `{PaletteTile,FilterChips,DetailPopover}.tsx`. Manager verified `buildSections<T>` carries no block knowledge, so FR-047 holds. §10.2 respected: `derivePackage`, the io predicates, `CATEGORY_KEYS`, `portSignature` stayed block-side.
