@@ -1,0 +1,132 @@
+{
+  "branch": "fix/2020-adr-053-registry-runtime-defects",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/**",
+      "tests/**",
+      "CHANGELOG.md",
+      "docs/specs/adr-053-personal-tool-library.md",
+      "docs/audit/**",
+      "docs/planning/adr-053-spec1-personal-tool-library-checklist.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-07T08:19:13.928414Z",
+      "owner_directive": "Owner authorized admin-approved:core-change for PR A in chat on 2026-08-07 ('\u4e5f\u6388\u6743 PR A'). The label authorizes the protected-core paths only; CI verifies actor provenance.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-07T08:19:13.928438Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:19:13.928445Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-personal-tool-library.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:19:13.928447Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-spec1-personal-tool-library-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2020,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2021,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2009,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2022,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "PR A of the ADR-053 Spec 1 two-PR delivery: pre-existing registry runtime defects. Manager-integrated from A1 (#2020 shared provisioning helper), A2 (#2021 + #2009 reload symmetry), A3 (#2022 drop-in type import). Owner authorized admin-approved:core-change for PR A in chat on 2026-08-07 after manager review found PROTECTED_CORE_PATTERNS covers all of src/scistudio/{core,engine,blocks,workflow,utils}/**. Owner also resolved spec section 13 OQ-1 as reject-with-error.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2020-adr-053-spec1-track-a-runtime-defects",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "dad3afc6-2898-4223-a08c-4def42d72b3a",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-08-07T08:19:13.928452Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_registry_provisioning_parity.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:19:13.928456Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_registry_reload_symmetry.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T08:19:13.928458Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_dropin_type_import.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
