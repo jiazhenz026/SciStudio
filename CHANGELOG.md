@@ -97,6 +97,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [#1915] Load/save native file dialogs now default to the active project root instead of the user home directory. The backend `native_file_dialog` route resolves the start directory through a new pure helper `_resolve_dialog_start_dir` (project-scope: valid `initial_dir` → `runtime.project_dir` → session last-used → home; home-scope → last-used → home). A `prefer_home` request flag is the only per-caller opt-out, used by the create/open-project dialog (picks a project *location*) and the diagnostic-bundle export (a machine artifact, not a project file); every other load/save caller now defaults to the project root with no code change. Tests: `tests/api/test_native_dialog.py` (`_resolve_dialog_start_dir` matrix), `frontend/src/lib/api/__tests__/filesystem.test.ts`, `frontend/src/lib/__tests__/logger.test.ts`. (@claude, 2026-07-02, branch: guided/1915-dialog-project-root)
 ### Added
 
+- [#2023][#2024] A data type can now say how it looks and what files it reads,
+  and there is an endpoint that answers both. Type information used to reach the
+  frontend only as `type_hierarchy` riding on the block *schema* response, so
+  the only way to draw types was to ask for blocks; it carried no origin tier
+  and no file path, and its `ui_ring_color` field was populated by nothing,
+  which meant every type colour in the product was decided frontend-side from a
+  hand-written table plus a hash of the type name. A type could not influence
+  its own colour even though a block already could. `DataObject` now carries
+  optional `ui_color` / `ui_ring_color` class attributes, mirroring the block
+  precedent, and the type registry collects and validates them at registration
+  time: all four CSS hex forms are accepted and normalised to `#rrggbb` /
+  `#rrggbbaa`, and a value that is not a hex colour is dropped with a warning so
+  the type falls back to the appearance it would have had anyway — a typo in a
+  file in your own library costs you your chosen colour and nothing else. Both
+  attributes default to `None`, so every existing type renders exactly as
+  before. New `GET /api/types/` returns, per registered type, its name, base
+  type, description, origin tier (`core` / `user` / `project` / `package`, with
+  `custom` as the unresolvable-path fallback), the file it came from, the
+  declared colours, and the file extensions it can be **loaded from** and
+  **saved to** as two separate lists — a type readable from a format it cannot
+  be written back to is a real asymmetry, and merging the directions would
+  report `Series` as round-trippable through JSON when it is not. A type with no
+  format capability reports empty lists rather than omitting the field, because
+  "no file formats registered" is information. The endpoint is independent of
+  the block listing, so the Data types tab neither waits for a palette fetch nor
+  triggers one; `type_hierarchy` is left exactly as it was, including its dead
+  colour field, which is deliberately not revived — one fact supplied from two
+  places is the drift this work exists to remove. Origin resolution goes through
+  the same shared resolver the block palette uses, so a type's tier and a
+  block's tier cannot disagree. New `GET /api/types/template` returns a starter
+  data-type file in the same response shape as the block template, with the
+  colour attributes shown as commented-out lines so an author discovers the
+  capability exists. Tests: `tests/core/test_type_colour.py`,
+  `tests/api/test_types_routes.py`. (@claude, 2026-08-07, branch:
+  feat/2023-type-colour-and-types-api)
+
 - [#1995][#1996] The personal tool library is now a place the product can see
   and write to. The block palette's single `custom` origin covered two different
   directories — `~/.scistudio/blocks/` and `{project}/blocks/` — so the
