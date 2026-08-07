@@ -229,15 +229,35 @@ export const REQUIRED_MARKER = "Required";
 
 export const AVAILABILITY_PROBING = "Checking which agents are available on this computer…";
 
+/**
+ * FR-031's guidance column for `not_installed` and `not_authenticated` reads
+ * "Installation instructions" and "Login instructions for the detected
+ * provider"; SC-002 requires guidance "naming a specific next action"; US3's
+ * title is "A user without a working agent learns EXACTLY what to do".
+ *
+ * These two bodies are therefore a frame, not the guidance. The instruction is
+ * per provider and it comes from the backend, in `next_step` on each provider
+ * row — the executable to install and the directories SciStudio searched, or the
+ * command that signs that CLI in. Those facts belong to the ADR-034 registry,
+ * and a second copy of them in this file would be wrong the first time a
+ * provider is added. `AvailabilityGuidance` renders one line per provider; what
+ * these strings do is say what the list beneath them is.
+ *
+ * The earlier wording ("Set one of the supported agents up", "Sign in the way
+ * that agent expects") named no action at all — and "the way that agent
+ * expects" is precisely what a user in this state does not know. Both audits on
+ * 2026-08-07 found it independently.
+ */
 export const NOT_INSTALLED_HEADING = "No coding agent found";
 export const NOT_INSTALLED_BODY =
-  "Bring in my work runs a coding-agent CLI that you set up on your own computer. " +
-  "Set one of the supported agents up, then open this dialog again.";
+  "Bring in my work runs a coding-agent CLI that you install on your own computer. " +
+  "Here is what SciStudio looked for, and where:";
+export const NOT_INSTALLED_FOOTER = "Install any one of them, then open this dialog again.";
 
 export const NOT_AUTHENTICATED_HEADING = "Your agent needs signing in";
 export const NOT_AUTHENTICATED_BODY =
-  "These agents are present but have no valid sign-in. Sign in the way that agent " +
-  "expects, then open this dialog again.";
+  "These agents are installed but have no valid sign-in. Here is how to sign each one in:";
+export const NOT_AUTHENTICATED_FOOTER = "Sign in to any one of them, then open this dialog again.";
 
 /**
  * FR-034 — `call_failed` reports the underlying cause and MUST NOT suggest
@@ -245,12 +265,53 @@ export const NOT_AUTHENTICATED_BODY =
  * are already running sends them to fix something that is not broken. This
  * branch therefore never uses the word "install" at all, and the test asserts
  * that.
+ *
+ * What it also must not do is assert the opposite. The earlier wording said
+ * "Nothing on your computer needs changing … Your setup is fine as it is",
+ * which FR-034 does not license and which this feature's own measurements
+ * contradict: the observed `kimi-code` failure is "No model configured", a
+ * local configuration problem the user has to fix on their computer. Not
+ * naming a fix is honest; asserting there is nothing to fix is not.
+ *
+ * "Try again" is likewise only sayable because there is now a control that
+ * does it: `CHECK_AGAIN_LABEL` re-probes with `refresh=true`, bypassing the
+ * 60-second server-side memoisation that would otherwise re-serve the same
+ * failure to a user who had just fixed it.
  */
 export const CALL_FAILED_HEADING = "Your agent answered, but the call failed";
 export const CALL_FAILED_BODY =
-  "Nothing on your computer needs changing — the agent is present and signed in. " +
-  "The call itself did not go through:";
-export const CALL_FAILED_FOOTER = "Try again once that is resolved. Your setup is fine as it is.";
+  "The agent is installed and signed in, so this is not a setup problem SciStudio " +
+  "can see. This is what it reported:";
+export const CALL_FAILED_FOOTER =
+  "If that is something you can resolve — a quota, a network, a model setting — " +
+  "resolve it and check again.";
+
+export const CHECK_AGAIN_LABEL = "Check again";
+export const CHECKING_AGAIN_LABEL = "Checking…";
+
+/**
+ * The fourth reason a provider is not usable here, and the only one that is not
+ * an availability state.
+ *
+ * A CLI whose first positional argument is parsed as a subcommand cannot be
+ * handed the one line that points a session at its brief (FR-029), so it cannot
+ * run a session however healthy it is. Saying so plainly matters more than it
+ * looks: the agent works, the user has it set up correctly, and the failure is
+ * a limitation of that CLI's command line rather than anything they did. The
+ * per-provider reason comes from the registry itself, which is where that
+ * limitation is recorded.
+ */
+export const SESSION_UNSUPPORTED_HEADING = "That agent cannot run this kind of session";
+export const SESSION_UNSUPPORTED_BODY =
+  "These agents are set up correctly and work fine as a chat tab. They just cannot " +
+  "be handed a task to start with, which is how this session begins:";
+export const SESSION_UNSUPPORTED_FOOTER =
+  "Use one of the other supported agents for this, then open this dialog again.";
+
+/** Guidance for a report naming no providers at all (contract C1's empty registry). */
+export const NO_PROVIDERS_BODY =
+  "SciStudio has no agent providers registered, so there is nothing to check. This " +
+  "is a fault in this build rather than anything on your computer — please report it.";
 
 /** Shown next to a usable provider list when some providers are not usable (FR-005). */
 export const PARTIAL_AVAILABILITY_NOTE =

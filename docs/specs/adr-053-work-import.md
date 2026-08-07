@@ -33,13 +33,40 @@ scope:
     - Learning Center progress, thresholds, and when the unlock fires, which belong to the Learning Center system spec.
     - Promotion of blocks into the user library after the fact, governed by the ADR-053 personal tool library spec.
 governs:
-  modules: []
-  contracts: []
-  entry_points: []
+  modules:
+    - scistudio.ai.agent.availability
+    - scistudio.ai.work_import
+    - scistudio.api.routes.work_import
+  contracts:
+    - scistudio.ai.agent.availability.AvailabilityReport
+    - scistudio.ai.agent.availability.AvailabilityState
+    - scistudio.ai.agent.availability.ProviderAvailability
+    - scistudio.ai.work_import.context.ImportSessionContext
+  entry_points:
+    - GET /api/ai/availability
+    - POST /api/work-import/sessions
   files:
     - docs/specs/adr-053-work-import.md
     - docs/adr/ADR-053.md
+    - src/scistudio/ai/agent/availability.py
+    - src/scistudio/ai/work_import/__init__.py
+    - src/scistudio/ai/work_import/brief.py
+    - src/scistudio/ai/work_import/brief_template.md
+    - src/scistudio/ai/work_import/context.py
+    - src/scistudio/api/routes/work_import.py
     - frontend/src/components/BringInMyWorkDialog.tsx
+    - frontend/src/components/BringInMyWorkDialog.parts/AgentSetup.tsx
+    - frontend/src/components/BringInMyWorkDialog.parts/AvailabilityGuidance.tsx
+    - frontend/src/components/BringInMyWorkDialog.parts/CorrectnessCaveat.tsx
+    - frontend/src/components/BringInMyWorkDialog.parts/DataKindsQuestion.tsx
+    - frontend/src/components/BringInMyWorkDialog.parts/FreeTextQuestion.tsx
+    - frontend/src/components/BringInMyWorkDialog.parts/SourceAndDestination.tsx
+    - frontend/src/components/BringInMyWorkDialog.parts/availability.ts
+    - frontend/src/components/BringInMyWorkDialog.parts/copy.ts
+    - frontend/src/components/BringInMyWorkDialog.parts/formState.ts
+    - frontend/src/components/BringInMyWorkDialog.parts/useAgentAvailability.ts
+    - frontend/src/lib/api/agentAvailability.ts
+    - frontend/src/lib/api/workImport.ts
   excludes:
     - docs/user/reference/**
     - docs/user/llms.txt
@@ -50,8 +77,14 @@ planned_governs:
   files: []
   excludes: []
 tests:
+  - tests/ai/test_work_import_brief.py
   - tests/api/test_agent_availability.py
+  - tests/api/test_work_import_session.py
   - frontend/src/components/__tests__/BringInMyWorkDialog.test.tsx
+  - frontend/src/components/__tests__/BringInMyWorkToolbarEntry.test.tsx
+  - frontend/src/components/__tests__/workImport.test.ts
+  - frontend/src/lib/api/__tests__/agentAvailability.test.ts
+  - frontend/src/store/__tests__/terminalTabsSlice.workImport.test.ts
 acceptance_source: adr
 language_source: en
 ---
@@ -1072,7 +1105,9 @@ the original run on real data, the user's stated expectation, or neither — so
 claims of different strength are never presented as equivalent.
 
 **SC-006.** A user who skips every skippable question can still start a session,
-and the resulting brief distinguishes skipped questions from unanswered ones.
+and the resulting brief distinguishes a question the user did not answer from
+one they answered in the negative — so the agent knows to ask about the first
+and not to ask about the second.
 
 **SC-008.** Starting a session displays at most one line of instruction text to
 the user, on every supported provider.

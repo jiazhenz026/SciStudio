@@ -191,8 +191,18 @@ def open_work_import_tab(
     capability (FR-029). Only ``claude-code`` is ``FLAG_FILE`` in the
     ADR-034 registry; ``codex``, ``kimi-code`` and both Qoder channels
     are ``AMBIENT`` and have no per-session prompt channel at all, so
-    routing the brief through a file plus this pointer is the only
-    delivery that behaves identically across all five.
+    routing the brief through a file plus this pointer is what makes
+    that difference invisible.
+
+    It does **not** make every provider equivalent. Being a positional
+    argument, the pointer cannot reach a CLI that parses its first
+    positional as a subcommand; ``kimi-code`` does, and the registry
+    records it as ``prompt_argv_prefix is None``. ``spawn_agent`` raises
+    ``ValueError`` for those rather than launching an agent with no
+    instructions, so callers must refuse such a provider before they get
+    here — ``POST /api/work-import/sessions`` does, via
+    :func:`~scistudio.ai.agent.availability.session_unsupported_reason`,
+    and the AI Block does the same at config time.
 
     Args:
         provider: A registry agent key (ADR-034 FR-010).

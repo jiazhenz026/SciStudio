@@ -17,9 +17,20 @@ agent providers in the ADR-034 registry only ``claude-code`` is
 ``FLAG_FILE`` and can carry a hidden per-session prompt; ``codex``,
 ``kimi-code`` and both Qoder channels are ``AMBIENT`` and have no
 per-session channel at all. A file plus a one-line pointer is the only
-delivery that behaves identically on all five, and a provider added
+delivery that does not vary with that difference, and a provider added
 later needs nothing of this module beyond reading a file it is told to
 read (FR-029).
+
+**The one thing delivery still requires of a provider.** The pointer
+itself is a positional command-line argument, so a CLI that parses its
+first positional as a *subcommand* cannot receive it — Kimi Code is the
+observed case and the registry records it as
+``prompt_argv_prefix is None``. FR-029 removes the *system-prompt*
+difference between providers; it does not remove that one. Such a
+provider is refused up front by
+:func:`~scistudio.ai.agent.availability.session_unsupported_reason`,
+with the registry's own explanation and before anything is written, so a
+session that cannot start leaves nothing behind.
 
 **Why one file per session.** Two sessions started in one project must
 not overwrite each other's instructions, and a brief that outlives its
@@ -43,7 +54,9 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from scistudio.ai.agent.availability import session_unsupported_reason
 from scistudio.ai.agent.providers_registry import agent_keys
+from scistudio.ai.agent.providers_registry import get as get_descriptor
 from scistudio.ai.work_import.brief import compose_brief
 from scistudio.ai.work_import.context import ImportSessionContext
 from scistudio.api.routes.ai_pty import engine as _engine
@@ -195,6 +208,29 @@ def create_work_import_session(request: WorkImportSessionRequest) -> WorkImportS
         raise HTTPException(
             status_code=400,
             detail=f"Unknown provider {request.provider!r}; expected one of {sorted(accepted)}.",
+        )
+
+    # A registry agent is not automatically a provider that can *run* a session.
+    # The opening message is delivered as a positional command-line argument
+    # (FR-029), and Kimi Code parses its first positional as a subcommand, so
+    # the spawn raises rather than launching an agent with no instructions.
+    # Unhandled, that reached the user as a bare 500 with the registry's own
+    # explanation lost, plus a brief on disk for a session that never started.
+    #
+    # Refused here, before the brief is composed or written, for the reason
+    # ``AIBlock.validate_config`` refuses the same providers at config time
+    # (``scistudio.blocks.ai.ai_block``): a limitation the registry already
+    # knows about should surface as the registry's own sentence at the moment
+    # the user chose the provider, not as an opaque failure several layers down.
+    # The dialog additionally filters these providers out of the picker, so a
+    # user should never get here — this is the guard for a caller that is not
+    # the dialog, and for a future provider whose limitation nobody carried
+    # through to the frontend.
+    unsupported = session_unsupported_reason(get_descriptor(request.provider))
+    if unsupported is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=(f"Provider {request.provider!r} cannot run a Bring In My Work session. {unsupported}"),
         )
 
     # ``ImportSessionContext`` owns the answer-shape rules (contract C2): a
