@@ -140,6 +140,12 @@
       "at": "2026-08-07T06:22:20.532640Z",
       "pattern": "docs/specs/adr-053-work-import.md",
       "reason": "Scope expanded by one frontmatter migration in docs/specs/adr-053-work-import.md, under the manager's directive to fix any unsatisfied gate obligation other than python_tests. Creating frontend/src/components/BringInMyWorkDialog.tsx makes the spec's planned_governs.files entry resolve, which full_audit raises as doc-drift.planned-file-is-resolved and closure.planned-file-is-resolved at ERROR severity, blocking every commit in this worktree. The edit is exactly the ADR-042 lifecycle step the audit names: move that one path from planned_governs.files to governs.files and leave planned_governs.files empty. No FR text, no body prose, and nothing in section 4.6 is touched, so it cannot conflict with A2's assigned spec corrections. full_audit now passes with status=pass and zero errors across all nine children. Flagged to the manager for review since docs/specs/** was out of A4's original write set."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T06:47:09.052645Z",
+      "pattern": "docs/planning/adr-053-work-import-dispatch-prompts.md",
+      "reason": "Base-branch artifact, not an A4 edit. This branch is stacked on track/adr-053-work-import, and the commit-msg gate diffs against origin/main, so its observed diff necessarily carries every file the umbrella base already committed - the manager's dispatch prompts, A1's availability module, and the manager's own gate records. A4 has never modified docs/planning/adr-053-work-import-dispatch-prompts.md: 'git log origin/track/adr-053-work-import..HEAD -- docs/planning/adr-053-work-import-dispatch-prompts.md' is empty, and 'git diff --name-only origin/track/adr-053-work-import...HEAD' lists only A4's own files. Declaring it keeps the observed diff honest rather than leaving a base-branch file looking like undeclared drift; ownership stays with the manager."
     }
   ],
   "session_id": "3e511d29-6800-41ba-8569-ff3d65282993",

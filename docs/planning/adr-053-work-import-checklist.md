@@ -596,11 +596,16 @@ whole report so a wedged child cannot hold the response.
       no FR text, no body prose, nothing in §4.6. Recorded as a gate-ledger
       amendment. **Manager review requested**: `docs/specs/**` was outside A4's
       original write set.
-- [!] Integration dependency — `frontend/src/lib/api/agentAvailability.ts`
-      (contract C1, owned by `A1`) does not exist on this branch, so this
-      branch alone does not typecheck in CI. The dialog consumes C1 through the
-      single seam `BringInMyWorkDialog.parts/useAgentAvailability.ts`. Resolved
-      when A1's module lands on `track/adr-053-work-import`.
+- [x] Contract C1 integration — resolved. This branch is rebased onto
+      `origin/track/adr-053-work-import` at `49d801e0`, which carries A1's real
+      `frontend/src/lib/api/agentAvailability.ts`. The dialog consumes C1
+      through the single seam
+      `BringInMyWorkDialog.parts/useAgentAvailability.ts` and typechecks and
+      tests green against A1's module, not a local double: `tsc --noEmit`
+      clean, and `vitest run BringInMyWorkDialog Toolbar workImport
+      agentAvailability terminalTabsSlice.workImport` → 6 files / 87 tests
+      passing. A1's optional `{ refresh?: boolean }` argument is
+      backward-compatible with the zero-argument call this seam makes.
 
 ### 11.4 Audit
 
