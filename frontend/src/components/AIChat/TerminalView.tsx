@@ -61,6 +61,7 @@ import type { TerminalProvider } from "../../store/types";
 import { usePtyWebSocket } from "./hooks/usePtyWebSocket";
 import { TerminalContextMenu } from "./TerminalView.parts/TerminalContextMenu";
 import { useTerminalClipboard } from "./TerminalView.parts/useTerminalClipboard";
+import { useTerminalScrollHint } from "./TerminalView.parts/useTerminalScrollHint";
 
 // Idle delay after the last ResizeObserver callback before we refit + notify the
 // PTY. Long enough that dragging the bottom-panel splitter does not refit on
@@ -169,6 +170,15 @@ export function TerminalView({
   const handleTerminalKeyEventRef = useRef(handleTerminalKeyEvent);
   handleTerminalKeyEventRef.current = handleTerminalKeyEvent;
 
+  // --- scrolled-up hint (#1994) ---------------------------------------------
+  // Surfaces the ↓ recovery for the intermittent missing-input-box defect. The
+  // ↓ key itself is deliberately NOT intercepted — xterm already scrolls to the
+  // bottom on user input and still delivers the key to the PTY, and that
+  // delivery is what repaints the CLI. See useTerminalScrollHint.
+  const { scrolledUp, attachScrollHint } = useTerminalScrollHint();
+  const attachScrollHintRef = useRef(attachScrollHint);
+  attachScrollHintRef.current = attachScrollHint;
+
   // Mount xterm.js on first render; tear it down on unmount.
   useEffect(() => {
     const container = containerRef.current;
@@ -189,6 +199,7 @@ export function TerminalView({
     } | null = null;
     let onDataDisposable: { dispose: () => void } | null = null;
     let onScrollDisposable: { dispose: () => void } | null = null;
+    let detachScrollHint: (() => void) | null = null;
     let resizeObserver: ResizeObserver | null = null;
     let intersectionObserver: IntersectionObserver | null = null;
     // Debounce handle that freezes the terminal while the bottom-panel splitter
@@ -327,6 +338,9 @@ export function TerminalView({
         }
       });
 
+      // Track whether the viewport is showing history, to drive the ↓ hint.
+      detachScrollHint = attachScrollHintRef.current(term!);
+
       // Refit to the settled container size, then notify the PTY. fit() reflows
       // the DOM renderer; the TUI repaints itself in response to the SIGWINCH.
       // No refresh() here — at this instant the buffer is mid-update.
@@ -406,6 +420,11 @@ export function TerminalView({
       }
       try {
         onScrollDisposable?.dispose();
+      } catch {
+        /* ignore */
+      }
+      try {
+        detachScrollHint?.();
       } catch {
         /* ignore */
       }
@@ -491,6 +510,20 @@ export function TerminalView({
         // bordered corners.
         style={{ padding: 4 }}
       />
+      {/* Scrolled-up hint (#1994). Bottom-RIGHT so it never collides with the
+          bottom-centre clipboard toast or the top-right refresh button, and
+          pointer-events-none so it can never swallow a click meant for the
+          terminal. Purely instructional: the recovery is the ↓ keystroke
+          reaching the CLI, which a click here could not reproduce honestly. */}
+      {scrolledUp ? (
+        <div
+          role="status"
+          data-testid={`terminal-scroll-hint-${tabId}`}
+          className="pointer-events-none absolute bottom-2 right-3 z-40 rounded-md border border-white/10 bg-black/70 px-2.5 py-1 text-xs text-stone-200 shadow-lg"
+        >
+          Press ↓ to jump to the latest output
+        </div>
+      ) : null}
       {clipboardHint ? (
         <div
           role="status"

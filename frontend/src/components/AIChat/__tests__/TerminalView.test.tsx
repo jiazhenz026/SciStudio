@@ -1,228 +1,37 @@
 /**
- * Tests for TerminalView. We replace @xterm/xterm and addons with vi.mock so
- * the test does not depend on canvas / DOM measurement in jsdom.
+ * Tests for TerminalView: xterm lifecycle, PTY WebSocket wiring, resize /
+ * repaint policy and the #1994 clipboard UX. The scrolled-up hint has its own
+ * suite in TerminalView.scrollHint.test.tsx; the shared doubles live in
+ * terminalViewHarness.tsx.
+ *
+ * @xterm/xterm and its addons are replaced with vi.mock so these tests do not
+ * depend on canvas / DOM measurement in jsdom.
  */
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { TerminalView } from "../TerminalView";
-
-// --- xterm.js mock state ----------------------------------------------------
-const xtermState: {
-  lastInstance: FakeTerm | null;
-  loadedAddons: unknown[];
-  written: string[];
-  onDataCb: ((s: string) => void) | null;
-  onScrollCb: ((ydisp: number) => void) | null;
-  keyHandler: ((ev: KeyboardEvent) => boolean) | null;
-} = {
-  lastInstance: null,
-  loadedAddons: [],
-  written: [],
-  onDataCb: null,
-  onScrollCb: null,
-  keyHandler: null,
-};
-
-class FakeTerm {
-  cols = 80;
-  rows = 24;
-  refreshCount = 0;
-  /** Current buffer selection, set by the clipboard tests. */
-  selection = "";
-  constructor(public opts: unknown) {
-    xtermState.lastInstance = this;
-  }
-  loadAddon(addon: unknown) {
-    xtermState.loadedAddons.push(addon);
-  }
-  open(_el: HTMLElement) {
-    void _el;
-  }
-  write(s: string) {
-    xtermState.written.push(s);
-  }
-  onData(cb: (s: string) => void) {
-    xtermState.onDataCb = cb;
-    return { dispose: () => {} };
-  }
-  onScroll(cb: (ydisp: number) => void) {
-    xtermState.onScrollCb = cb;
-    return { dispose: () => {} };
-  }
-  refresh(_start: number, _end: number) {
-    void _start;
-    void _end;
-    this.refreshCount += 1;
-  }
-  attachCustomKeyEventHandler(handler: (ev: KeyboardEvent) => boolean) {
-    xtermState.keyHandler = handler;
-  }
-  getSelection() {
-    return this.selection;
-  }
-  hasSelection() {
-    return this.selection.length > 0;
-  }
-  /** Real xterm routes paste() into the onData stream; so does the fake. */
-  paste(data: string) {
-    xtermState.onDataCb?.(data);
-  }
-  dispose() {}
-}
-
-// --- clipboard fake ---------------------------------------------------------
-// jsdom ships no navigator.clipboard, so each test installs its own.
-interface FakeClipboard {
-  writeText?: (text: string) => Promise<void>;
-  readText?: () => Promise<string>;
-}
-
-function installClipboard(clipboard: FakeClipboard | null) {
-  Object.defineProperty(navigator, "clipboard", {
-    value: clipboard ?? undefined,
-    configurable: true,
-    writable: true,
-  });
-}
-
-/** Build a plain object good enough for the custom key-event handler. */
-function keyEvent(key: string, extra: Partial<KeyboardEvent> = {}) {
-  const preventDefault = vi.fn();
-  const ev = {
-    type: "keydown",
-    key,
-    ctrlKey: true,
-    metaKey: false,
-    altKey: false,
-    shiftKey: false,
-    preventDefault,
-    ...extra,
-  };
-  return { ev: ev as unknown as KeyboardEvent, preventDefault };
-}
+import {
+  FakeFitAddon,
+  FakeIntersectionObserver,
+  FakeResizeObserver,
+  FakeTerm,
+  FakeWebSocket,
+  fireScroll,
+  fitState,
+  installClipboard,
+  installHarnessLifecycle,
+  keyEvent,
+  waitForDebounce,
+  xtermState,
+} from "./terminalViewHarness";
 
 vi.mock("@xterm/xterm", () => ({ Terminal: FakeTerm }));
-// Count fit() calls so the resize tests can assert refit timing.
-const fitState = { fitCalls: 0 };
-vi.mock("@xterm/addon-fit", () => ({
-  FitAddon: class {
-    fit() {
-      fitState.fitCalls += 1;
-    }
-  },
-}));
-vi.mock("@xterm/addon-search", () => ({
-  SearchAddon: class {},
-}));
-vi.mock("@xterm/addon-web-links", () => ({
-  WebLinksAddon: class {},
-}));
+vi.mock("@xterm/addon-fit", () => ({ FitAddon: FakeFitAddon }));
+vi.mock("@xterm/addon-search", () => ({ SearchAddon: class {} }));
+vi.mock("@xterm/addon-web-links", () => ({ WebLinksAddon: class {} }));
 
-// --- WebSocket fake ---------------------------------------------------------
-class FakeWebSocket {
-  static OPEN = 1;
-  static CLOSED = 3;
-  static instances: FakeWebSocket[] = [];
-
-  url: string;
-  readyState = 0;
-  sent: string[] = [];
-  onopen: (() => void) | null = null;
-  onmessage: ((ev: MessageEvent) => void) | null = null;
-  onerror: (() => void) | null = null;
-  onclose: ((ev: CloseEvent) => void) | null = null;
-  constructor(url: string) {
-    this.url = url;
-    FakeWebSocket.instances.push(this);
-  }
-  open() {
-    this.readyState = FakeWebSocket.OPEN;
-    this.onopen?.();
-  }
-  message(data: string) {
-    this.onmessage?.({ data } as MessageEvent);
-  }
-  send(s: string) {
-    this.sent.push(s);
-  }
-  close() {
-    this.readyState = FakeWebSocket.CLOSED;
-  }
-  failClose(code = 1006, reason = "") {
-    this.readyState = FakeWebSocket.CLOSED;
-    this.onclose?.({ code, reason } as CloseEvent);
-  }
-}
-
-const originalWs = global.WebSocket;
-
-// --- ResizeObserver + IntersectionObserver fakes ----------------------------
-// jsdom ships neither, so we stub both with manually-fired callbacks.
-class FakeResizeObserver {
-  static instances: FakeResizeObserver[] = [];
-  cb: ResizeObserverCallback;
-  constructor(cb: ResizeObserverCallback) {
-    this.cb = cb;
-    FakeResizeObserver.instances.push(this);
-  }
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-  trigger() {
-    this.cb([], this as unknown as ResizeObserver);
-  }
-}
-
-class FakeIntersectionObserver {
-  static instances: FakeIntersectionObserver[] = [];
-  cb: IntersectionObserverCallback;
-  constructor(cb: IntersectionObserverCallback) {
-    this.cb = cb;
-    FakeIntersectionObserver.instances.push(this);
-  }
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-  trigger(isIntersecting: boolean) {
-    this.cb(
-      [{ isIntersecting } as IntersectionObserverEntry],
-      this as unknown as IntersectionObserver,
-    );
-  }
-}
-
-// The component freezes the terminal during a drag and refits via setTimeout
-// once it settles (RESIZE_DEBOUNCE_MS=100). Tests use real timers and wait just
-// past that window for the deferred fit.
-const RESIZE_DEBOUNCE_WAIT_MS = 180;
-function waitForDebounce(): Promise<void> {
-  return new Promise((resolve) => globalThis.setTimeout(resolve, RESIZE_DEBOUNCE_WAIT_MS));
-}
-
-beforeEach(() => {
-  xtermState.lastInstance = null;
-  xtermState.loadedAddons = [];
-  xtermState.written = [];
-  xtermState.onDataCb = null;
-  xtermState.onScrollCb = null;
-  xtermState.keyHandler = null;
-  FakeWebSocket.instances = [];
-  fitState.fitCalls = 0;
-  FakeResizeObserver.instances = [];
-  FakeIntersectionObserver.instances = [];
-  (global as unknown as { WebSocket: typeof FakeWebSocket }).WebSocket = FakeWebSocket;
-  vi.stubGlobal("ResizeObserver", FakeResizeObserver);
-  vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
-});
-
-afterEach(() => {
-  cleanup();
-  (global as unknown as { WebSocket: typeof WebSocket }).WebSocket = originalWs;
-  installClipboard(null);
-  vi.unstubAllGlobals();
-  vi.restoreAllMocks();
-});
+installHarnessLifecycle();
 
 describe("TerminalView", () => {
   async function waitForTerm() {
@@ -547,11 +356,11 @@ describe("TerminalView", () => {
       />,
     );
     await waitForTerm();
-    await waitFor(() => expect(xtermState.onScrollCb).not.toBeNull());
+    await waitFor(() => expect(xtermState.onScrollCbs.length).toBeGreaterThan(0));
     const term = xtermState.lastInstance!;
     const refreshesBefore = term.refreshCount;
 
-    xtermState.onScrollCb?.(5);
+    fireScroll(5);
 
     expect(term.refreshCount).toBe(refreshesBefore + 1);
   });
