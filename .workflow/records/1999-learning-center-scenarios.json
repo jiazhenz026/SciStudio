@@ -1,0 +1,46 @@
+{
+  "branch": "guided/learning-center-scenarios",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/planning/learning-center-scenarios.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1999,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner-directed design session for ADR-053: design the six core Learning Center tutorial levels as scenarios, decide the Learning Center infrastructure form, and save the draft to the repo.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1999-learning-center-scenarios",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "6dc64796-0ea8-4207-8b64-93841a2ad93c",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}
