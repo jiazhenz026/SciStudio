@@ -1,0 +1,71 @@
+{
+  "branch": "audit/adr-053-spec1-track-a",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-08-07-adr-053-spec1-track-a.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-07T09:08:25.444733Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-08-07-adr-053-spec1-track-a.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2020,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Audit the integrated ADR-053 Spec 1 Track A branch (A1+A2+A3) against the spec, the checklist, the code, and the tests; write docs/audit/2026-08-07-adr-053-spec1-track-a.md",
+  "persona": "audit_reviewer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2020-adr-053-spec1-track-a-audit",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-07T09:08:25.444706Z",
+      "pattern": "docs/audit/2026-08-07-adr-053-spec1-track-a.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "76fd8c0d-fe6a-4fbe-b7d6-a7a5b5919648",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-08-07T09:08:25.444746Z",
+      "class": "audit",
+      "kind": "na",
+      "path": null,
+      "rationale": "Audit report only; no product code or tooling changed. Verification evidence is the pytest, import-linter, ruff, mypy and gate_record check runs recorded in the report.",
+      "verified_in_diff": null
+    }
+  ]
+}
