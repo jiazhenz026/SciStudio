@@ -754,8 +754,9 @@ whole report so a wedged child cannot hold the response.
       `.workflow/records/2001-audit-2001-work-import-with-context.json`
 - [x] Audit report file path assigned.
       -> `docs/audit/2026-08-07-adr-053-work-import-with-context.md`
-- [x] Audit report committed. -> `audit/2001-work-import-with-context`, pushed;
-      not opened as a PR (pre-flight blocked by `#2030`; manager integrates).
+- [x] Audit report committed. -> `66175df1` on
+      `audit/2001-work-import-with-context`, pushed to `origin`; not opened as a
+      PR (pre-flight blocked by `#2030`; manager integrates).
 - [ ] Audit report merged into final PR evidence path.
 - [x] Findings recorded. Track D findings: **P2-1** (availability guidance copy —
       shared with Track A), **P2-4** (SC-001's "at least one working block" half
