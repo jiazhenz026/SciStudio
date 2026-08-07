@@ -199,10 +199,23 @@ export function TerminalTabs({ surface = "mixed", active = true }: TerminalTabsP
     setRenameDraft("");
   }, []);
 
-  const startRename = useCallback((id: string, title: string) => {
-    setRenamingId(id);
-    setRenameDraft(title);
-  }, []);
+  // #1994 — every rename entry point (the pencil affordance and the legacy
+  // double-click) first makes the target tab the active one. Renaming a
+  // background tab is technically coherent, but it would mean a click near a
+  // tab's right edge does something completely different from a click a few
+  // pixels to its left, on a tab the user has not selected, with the rename
+  // input appearing over content they are not looking at. Selecting first
+  // means a mis-aimed click still does the thing the user was almost certainly
+  // reaching for (switch to this tab); the rename is then in front of them,
+  // obvious, and dismissable with Escape.
+  const startRename = useCallback(
+    (id: string, title: string) => {
+      setActiveTerminalTab(id);
+      setRenamingId(id);
+      setRenameDraft(title);
+    },
+    [setActiveTerminalTab],
+  );
 
   const handleConfirmClose = useCallback(
     (tabId: string, blockRunId: string | undefined, isAiBlock: boolean) => {

@@ -1,6 +1,13 @@
 import type { StateCreator } from "zustand";
 
-import type { AiBlockStatus, AppStore, TerminalTab, TerminalTabsSlice } from "./types";
+import { isUserTerminalProvider, USER_TERMINAL_PROVIDER } from "./types";
+import type {
+  AiBlockStatus,
+  AppStore,
+  TerminalProvider,
+  TerminalTab,
+  TerminalTabsSlice,
+} from "./types";
 
 /**
  * Generate a short random tab id without pulling in `nanoid` as a new dep.
@@ -77,7 +84,7 @@ export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTab
       const tab: TerminalTab = {
         id,
         title,
-        provider: "user-terminal",
+        provider: USER_TERMINAL_PROVIDER,
         permissionMode: "safe",
         state: "running",
         source: "user",
@@ -150,7 +157,7 @@ export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTab
         t.id === id
           ? {
               ...t,
-              state: t.provider === "user-terminal" ? "running" : "setup",
+              state: isUserTerminalProvider(t.provider) ? "running" : "setup",
               exitCode: undefined,
               errorMessage: undefined,
             }
@@ -163,13 +170,19 @@ export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTab
   // ADR-035 §3.10 — engine-initiated AI Block tab.
   // The engine has already spawned the PTY before sending block_pty_opened,
   // so we skip the SetupScreen and go straight to "running".
-  addAiBlockTerminalTab: ({ tabId, title, blockRunId, permissionMode }) =>
+  //
+  // ADR-034 FR-022: the provider is supplied by the caller, which forwarded it
+  // from the `block_pty_opened` frame. This used to be a hardcoded
+  // `"claude-code"`, which mislabelled every engine-initiated tab spawned with
+  // any other provider. There is no default here on purpose — the last link
+  // must not be able to reintroduce the bug.
+  addAiBlockTerminalTab: ({ tabId, title, blockRunId, permissionMode, provider }) =>
     set((state) => {
       const existing = state.terminalTabs.findIndex((t) => t.id === tabId);
       const tab: TerminalTab = {
         id: tabId,
         title,
-        provider: "claude-code", // engine spawns claude (codex equivalent in I35b)
+        provider,
         permissionMode,
         state: "running",
         source: "ai-block",
@@ -216,9 +229,9 @@ export function rehydrateTerminalTabs(tabs: TerminalTab[]): TerminalTab[] {
     .filter(
       (t) =>
         !(
-          t.provider === "user-terminal" &&
+          isUserTerminalProvider(t.provider) &&
           t.state === "closed" &&
-          t.errorMessage?.includes("Invalid provider 'user-terminal'")
+          t.errorMessage?.includes(`Invalid provider '${USER_TERMINAL_PROVIDER}'`)
         ),
     )
     .map((t) => {
@@ -236,7 +249,7 @@ export function rehydrateTerminalTabs(tabs: TerminalTab[]): TerminalTab[] {
 }
 
 // Re-export for convenience.
-export type { TerminalTab, TerminalTabsSlice };
+export type { TerminalProvider, TerminalTab, TerminalTabsSlice };
 
 // Re-export internal helper for tests.
 export { newTabId, nextDefaultTitle, nextDefaultUserTerminalTitle };

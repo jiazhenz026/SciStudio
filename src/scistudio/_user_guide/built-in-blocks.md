@@ -60,15 +60,29 @@ See [examples/app-fiji/](examples/app-fiji/).
 
 ### AI Agent
 
-Runs an **AI step inside the workflow**: it spawns an assistant (claude-code or
-codex) with a prompt and your inputs, and waits for it to produce the declared
-outputs. Use it for judgement tasks that are hard to write as fixed code —
-classifying, extracting, inferring.
+Runs an **AI step inside the workflow**: it spawns an assistant with a prompt and
+your inputs, and waits for it to produce the declared outputs. Use it for
+judgement tasks that are hard to write as fixed code — classifying, extracting,
+inferring.
 
 - **Ports:** you declare them (each output names where the agent writes its
   result).
 - **Settings:** the **user prompt**, the **provider**, and the **permission
-  mode** (Ask / Bypass).
+  mode** (Manual Approve / Bypass Permission).
+
+**Provider** accepts `claude-code`, `codex`, `qoder`, or `qoder-cn`.
+
+`kimi-code` is **not** available as an AI Agent block provider, even though it
+works in the chat. The block rejects it with an error naming Kimi Code and
+explaining why, rather than failing at run time. The reason is in the CLI
+itself: `kimi` takes no task as a plain argument, so the block has no way
+to hand it the job — and its one prompt option answers once and exits rather than
+holding the session the block needs. Use Kimi Code for chat and pick one of the
+other four here.
+
+**Permission mode** is **Manual Approve** (the agent asks you before doing
+anything sensitive) or **Bypass Permission** (it runs unattended with full access
+and never asks).
 
 See [ai-assistant.md](ai-assistant.md) for a worked metadata-inference example.
 

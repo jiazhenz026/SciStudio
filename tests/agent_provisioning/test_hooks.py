@@ -51,7 +51,11 @@ def test_write_hooks_creates_settings_json(tmp_project_dir: Path) -> None:
     # Every entry references a python interpreter and a hook script path.
     for entry in pre + post:
         cmd = entry["hooks"][0]["command"]
-        assert sys.executable in cmd
+        # #1994: the pinned interpreter is now hook_interpreter(), not
+        # sys.executable. They differ when provisioning runs inside a
+        # virtualenv, which is precisely the case that shipped a dead
+        # command pointing into a disposable scratch venv.
+        assert hook_interpreter() in cmd
         assert "$CLAUDE_PROJECT_DIR" in cmd
         assert ".claude/hooks/" in cmd
 
@@ -184,7 +188,9 @@ def test_write_hooks_upgrades_legacy_python_commands(tmp_project_dir: Path) -> N
     assert ".claude/settings.json" in written
     data = json.loads(settings_path.read_text(encoding="utf-8"))
     cmd = data["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
-    assert cmd.startswith(f'"{sys.executable}" ')
+    # #1994: pinned to the stable base interpreter rather than whichever
+    # one happened to run provisioning.
+    assert cmd.startswith(f'"{hook_interpreter()}" ')
     assert 'python "$CLAUDE_PROJECT_DIR' not in cmd
     assert data["hooks"]["_custom"] == "user-added"
 
@@ -625,3 +631,302 @@ def test_hook_enforce_concrete_port_types_non_literal_accepted_types_silent(
     # MUST NOT flag — runtime value is opaque
     assert "DataObject" not in proc.stderr, f"False generic-port warning on non-literal accepted_types:\n{proc.stderr}"
     assert "empty" not in proc.stderr.lower(), f"False 'empty' warning on non-literal accepted_types:\n{proc.stderr}"
+
+
+# ---------------------------------------------------------------------------
+# #1994 finding 3 — Qoder hook parity.
+#
+# The owner found that SciStudio's data-protection and tool-use hooks did not
+# take effect for Qoder. They were not merely misconfigured: nothing was ever
+# written for Qoder at all. Every fact these tests encode was established by
+# running the installed CLI at 1.1.15, not read off documentation:
+#
+#   * ``qoderclicn hooks migrate --from-claude``, run in a project SciStudio
+#     had just provisioned, wrote ``<project>/.qoder/settings.json`` holding
+#     our seven entries with ``$CLAUDE_PROJECT_DIR`` rewritten to
+#     ``$QODER_PROJECT_DIR``. That is where Qoder looks and what it expects.
+#   * ``.qoder`` — not ``.qoder-cn`` — is the project scope for *both*
+#     channels: the observation above was made with the China-channel binary,
+#     whose user config root is ``~/.qoder-cn``.
+#   * A blocking hook placed in that file and run through ``qoderclicn``
+#     stopped the Bash tool call and surfaced the hook's stderr, so exit-code-2
+#     blocking works exactly as it does for Claude Code.
+# ---------------------------------------------------------------------------
+
+
+def test_write_hooks_creates_qoder_settings(tmp_project_dir: Path) -> None:
+    """Qoder gets the same hook set in the file Qoder actually reads."""
+    written = write_hooks(tmp_project_dir, force=False)
+    assert ".qoder/settings.json" in written
+
+    data = json.loads((tmp_project_dir / ".qoder" / "settings.json").read_text(encoding="utf-8"))
+    assert len(data["hooks"]["PreToolUse"]) == 4
+    assert len(data["hooks"]["PostToolUse"]) == 3
+
+
+def test_qoder_hooks_expand_qoders_own_project_dir_variable(tmp_project_dir: Path) -> None:
+    """``$CLAUDE_PROJECT_DIR`` is not a variable Qoder sets.
+
+    Copying the Claude Code file verbatim would leave every command pointing at
+    an empty path, so the hooks would "exist" and silently never run — the same
+    user-visible outcome as not provisioning them.
+    """
+    write_hooks(tmp_project_dir, force=False)
+    raw = (tmp_project_dir / ".qoder" / "settings.json").read_text(encoding="utf-8")
+
+    assert "$QODER_PROJECT_DIR" in raw
+    assert "$CLAUDE_PROJECT_DIR" not in raw
+
+
+def test_qoder_hooks_reuse_the_shared_hook_scripts(tmp_project_dir: Path) -> None:
+    """One set of scripts serves every provider, as Qoder's own migration does."""
+    write_hooks(tmp_project_dir, force=False)
+    raw = (tmp_project_dir / ".qoder" / "settings.json").read_text(encoding="utf-8")
+
+    for name in _HOOK_NAMES:
+        assert f".claude/hooks/{name}" in raw
+        assert (tmp_project_dir / ".claude" / "hooks" / name).is_file()
+
+
+def test_qoder_and_claude_hook_coverage_cannot_drift(tmp_project_dir: Path) -> None:
+    """The two files declare the same matchers against the same scripts.
+
+    Both are rendered by one builder precisely so a hook added for Claude Code
+    cannot quietly skip Qoder. Comparing them after normalising the project-dir
+    variable is what holds that guarantee in place.
+    """
+    write_hooks(tmp_project_dir, force=False)
+    claude = (tmp_project_dir / ".claude" / "settings.json").read_text(encoding="utf-8")
+    qoder = (tmp_project_dir / ".qoder" / "settings.json").read_text(encoding="utf-8")
+
+    assert qoder.replace("$QODER_PROJECT_DIR", "$CLAUDE_PROJECT_DIR") == claude
+
+
+def test_existing_qoder_settings_are_topped_up_not_clobbered(tmp_project_dir: Path) -> None:
+    """A user-authored Qoder hook survives; missing canonical ones are added."""
+    qoder_settings = tmp_project_dir / ".qoder" / "settings.json"
+    qoder_settings.parent.mkdir(parents=True, exist_ok=True)
+    qoder_settings.write_text(
+        json.dumps(
+            {"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "my-own-hook"}]}]}}
+        ),
+        encoding="utf-8",
+    )
+
+    write_hooks(tmp_project_dir, force=False)
+    raw = qoder_settings.read_text(encoding="utf-8")
+
+    assert "my-own-hook" in raw
+    for name in _HOOK_NAMES:
+        assert name in raw
+
+
+# ---------------------------------------------------------------------------
+# #1994 — the hook must RUN, not merely be well-formed.
+#
+# After the command-line fix Codex finally invoked the hooks, and all three
+# died with `hook exited with code 1` before evaluating anything. Two separate
+# causes, both invisible to a test that only inspects strings:
+#
+#   1. Every hook read stdin through a `_read_payload` that guarded only
+#      OSError. A CLI that starts a hook with no usable stdin leaves
+#      `sys.stdin is None`, so `sys.stdin.read()` raised AttributeError and the
+#      process exited 1. A failed PreToolUse hook does not block, so the guard
+#      silently stopped guarding.
+#   2. The interpreter was captured from `sys.executable` at provisioning time,
+#      which on the owner's machine was the gate's disposable parity venv.
+# ---------------------------------------------------------------------------
+
+from scistudio.agent_provisioning.hooks import hook_interpreter  # noqa: E402
+
+_BLOCKING_PAYLOAD = json.dumps(
+    {"session_id": "t", "cwd": ".", "tool_name": "Bash", "tool_input": {"command": "scistudio run wf.yaml"}}
+)
+
+
+def _deny_hook(project_dir: Path) -> Path:
+    return project_dir / ".claude" / "hooks" / "deny_scistudio_cli.py"
+
+
+def test_hook_interpreter_exists_and_is_executable(tmp_project_dir: Path) -> None:
+    """The interpreter baked into every hook command must actually run.
+
+    A path that merely looks plausible is what shipped: it pointed into a
+    scratch venv. Executing it is the only assertion that can tell the
+    difference.
+    """
+    interpreter = hook_interpreter()
+
+    assert Path(interpreter).is_file(), f"hook interpreter does not exist: {interpreter}"
+    result = subprocess.run([interpreter, "-c", "print('ok')"], capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, f"hook interpreter failed to run: {interpreter}\n{result.stderr}"
+
+
+def test_hook_interpreter_is_not_a_disposable_virtualenv() -> None:
+    """Prefer the base installation the venv was built from.
+
+    The hook scripts import only the standard library, so a venv buys them
+    nothing, while the venv itself is the part that gets deleted — the owner's
+    was ``.workflow/local/venv``, created by the gate and built to be thrown
+    away.
+    """
+    if sys.prefix == sys.base_prefix:
+        pytest.skip("not running inside a virtualenv; sys.executable is already the stable choice")
+
+    assert hook_interpreter() != sys.executable
+    assert Path(hook_interpreter()).is_file()
+
+
+def test_generated_hook_blocks_a_scistudio_call(tmp_project_dir: Path) -> None:
+    """End-to-end through the real interpreter: a blocked call exits 2.
+
+    Exercises interpreter, script and payload together, which is what the
+    reported defect broke and what no string comparison could have caught.
+    """
+    write_hooks(tmp_project_dir, force=True)
+
+    result = subprocess.run(
+        [hook_interpreter(), str(_deny_hook(tmp_project_dir))],
+        input=_BLOCKING_PAYLOAD,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    assert result.returncode == 2, f"expected the hook to block (exit 2), got {result.returncode}: {result.stderr}"
+    assert "mcp__scistudio__" in result.stderr
+
+
+@pytest.mark.parametrize("script", _HOOK_NAMES)
+def test_hook_never_exits_one_when_stdin_is_unusable(script: str, tmp_project_dir: Path) -> None:
+    """No hook may crash because its payload could not be read.
+
+    ``stdin=DEVNULL`` stands in for the condition the owner hit: the hook is
+    started without a readable payload stream. Before the fix every one of the
+    seven raised ``AttributeError`` on ``sys.stdin.read()`` and exited 1, which
+    the CLI surfaced as a failed hook and then ignored — so the protection was
+    silently absent rather than loudly broken.
+
+    Exit 1 is the specific assertion: 0 (allow) and 2 (block) are both
+    legitimate answers, and 1 means the hook never reached an answer at all.
+    """
+    write_hooks(tmp_project_dir, force=True)
+    target = tmp_project_dir / ".claude" / "hooks" / script
+
+    # ``stdin=DEVNULL`` is NOT the failing condition: that still hands the hook
+    # a real stream which simply reads EOF, and the old code coped with it. The
+    # condition the owner hit is a *missing* stdin handle, where Python sets
+    # ``sys.stdin`` to None — reproduced here by running the script with stdin
+    # set to None, which is what makes this test fail on the pre-fix templates.
+    driver = "import sys, runpy; sys.stdin = None; runpy.run_path(sys.argv[1], run_name='__main__')"
+    result = subprocess.run(
+        [hook_interpreter(), "-c", driver, str(target)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    assert result.returncode != 1, (
+        f"{script} crashed instead of degrading when stdin was unusable: exit 1\n{result.stderr}"
+    )
+    assert "AttributeError" not in result.stderr, f"{script} raised on a missing stdin:\n{result.stderr}"
+
+
+# ---------------------------------------------------------------------------
+# #1994 — provisioned hook SCRIPTS must be refreshed, not written once.
+#
+# The templates were fixed and the owner's Codex hooks kept failing identically,
+# because `write_hooks` skipped any script that already existed. The repaired
+# code never reached the file the CLI executes: re-provisioning was a no-op on
+# every project that had ever been provisioned before. The Codex *config* had a
+# repair path; the scripts it points at did not, which made that a half-fix.
+# ---------------------------------------------------------------------------
+
+
+def _stale_hook_body() -> str:
+    """A prior-generation script: SciStudio's, but with the crashing reader."""
+    return (
+        "#!/usr/bin/env python\n"
+        '"""hook_deny_scistudio_cli.py — PreToolUse / Bash matcher (ADR-040 §3.6)."""\n\n'
+        "import json\nimport sys\n\n\n"
+        "def _read_payload() -> dict:\n"
+        "    try:\n"
+        "        raw = sys.stdin.read()\n"
+        "    except OSError:\n"
+        "        return {}\n"
+        "    return json.loads(raw) if raw.strip() else {}\n\n\n"
+        # Calls the reader, so this body genuinely reproduces the exit-1 crash
+        # on a missing stdin. A stub that merely *contained* the old reader
+        # would let the companion behaviour test pass without the fix.
+        "_read_payload()\n"
+        "sys.exit(0)\n"
+    )
+
+
+def test_stale_provisioned_hook_script_is_refreshed(tmp_project_dir: Path) -> None:
+    """Re-provisioning repairs a SciStudio hook script left over from before.
+
+    Without this, a project provisioned by any earlier SciStudio keeps its
+    original scripts forever and no template fix can ever reach it.
+    """
+    write_hooks(tmp_project_dir, force=False)
+    target = tmp_project_dir / ".claude" / "hooks" / "deny_scistudio_cli.py"
+    target.write_text(_stale_hook_body(), encoding="utf-8")
+
+    written = write_hooks(tmp_project_dir, force=False)
+
+    assert ".claude/hooks/deny_scistudio_cli.py" in written
+    refreshed = target.read_text(encoding="utf-8")
+    assert refreshed != _stale_hook_body()
+    assert "stream = sys.stdin" in refreshed, "the repaired payload reader did not reach the provisioned script"
+
+
+def test_refreshed_script_survives_the_condition_that_broke_it(tmp_project_dir: Path) -> None:
+    """The repaired script no longer exits 1 when stdin is unusable.
+
+    Ties the refresh to the behaviour it exists to restore, so a refresh that
+    delivered the wrong content would still fail here.
+    """
+    write_hooks(tmp_project_dir, force=False)
+    target = tmp_project_dir / ".claude" / "hooks" / "deny_scistudio_cli.py"
+    target.write_text(_stale_hook_body(), encoding="utf-8")
+    write_hooks(tmp_project_dir, force=False)
+
+    driver = "import sys, runpy; sys.stdin = None; runpy.run_path(sys.argv[1], run_name='__main__')"
+    result = subprocess.run(
+        [hook_interpreter(), "-c", driver, str(target)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    assert result.returncode != 1, f"refreshed script still crashes on a missing stdin:\n{result.stderr}"
+
+
+def test_user_authored_hook_script_is_not_clobbered(tmp_project_dir: Path) -> None:
+    """A script the user replaced wholesale stays theirs.
+
+    The refresh is keyed on SciStudio's own provenance marker precisely so that
+    repairing our stale copies cannot destroy someone else's file.
+    """
+    write_hooks(tmp_project_dir, force=False)
+    target = tmp_project_dir / ".claude" / "hooks" / "protect_data_dir.py"
+    mine = "# entirely my own hook\nimport sys\n\nsys.exit(0)\n"
+    target.write_text(mine, encoding="utf-8")
+
+    write_hooks(tmp_project_dir, force=False)
+
+    assert target.read_text(encoding="utf-8") == mine
+
+
+def test_unchanged_scripts_are_not_rewritten(tmp_project_dir: Path) -> None:
+    """A project already holding current scripts reports no churn.
+
+    Keeps the refresh honest: it must repair drift, not rewrite every file on
+    every project open and report phantom changes.
+    """
+    write_hooks(tmp_project_dir, force=False)
+
+    written = write_hooks(tmp_project_dir, force=False)
+
+    assert not [path for path in written if path.startswith(".claude/hooks/")]

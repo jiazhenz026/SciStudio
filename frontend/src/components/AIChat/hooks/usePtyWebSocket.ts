@@ -4,8 +4,12 @@
  * Protocol (LOCKED — backend uses the same spec):
  *   URL: ws://host/api/ai/pty/{tab_id}
  *          ?project_dir=<urlencoded_abs_path>
- *          &provider=<claude-code|codex|user-terminal>
+ *          &provider=<agent provider key | user-terminal>
  *          &dangerous=<true|false>
+ *
+ *   ADR-034 FR-020a: the agent provider keys accepted here come from the
+ *   backend provider registry and are validated server-side against it. The
+ *   frontend does not enumerate them.
  *
  *   Client -> Server (JSON, one frame per WS message):
  *     {type: "stdin", data: "<utf-8 string>"}
@@ -21,6 +25,8 @@
  */
 import { useCallback, useEffect, useRef } from "react";
 
+import type { TerminalProvider } from "../../../store/types";
+
 export type PtyClientFrame =
   | { type: "stdin"; data: string }
   | { type: "resize"; cols: number; rows: number };
@@ -33,7 +39,8 @@ export type PtyServerFrame =
 export interface UsePtyWebSocketParams {
   tabId: string;
   projectDir: string | null;
-  provider: "claude-code" | "codex" | "user-terminal";
+  /** ADR-034 FR-020 — imported from the single source; not redeclared here. */
+  provider: TerminalProvider;
   dangerous: boolean;
   /** Delay launch until the terminal has enough layout state to spawn cleanly. */
   enabled?: boolean;

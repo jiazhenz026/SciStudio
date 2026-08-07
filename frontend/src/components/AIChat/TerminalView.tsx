@@ -36,6 +36,22 @@
  *
  * UTF-8 strings flow over the WS in both directions (xterm.js write() and
  * onData() use strings, never Buffers — confirmed by xterm docs).
+ *
+ * Clipboard UX (#1994, owner decision): SciStudio's terminal users are
+ * scientists, not CLI users. Ctrl+C used to reach the PTY as SIGINT and kill
+ * their agent mid-conversation while they thought they were copying. The owner
+ * decided Ctrl+C means COPY and Ctrl+V means PASTE here, accepting that the
+ * terminal loses its interrupt gesture — a session is ended with the tab's X
+ * button instead. Right-click offers the same two actions.
+ *
+ * Interception layer: xterm's `attachCustomKeyEventHandler`. It is the
+ * sanctioned hook that runs before xterm translates a key into PTY bytes, so
+ * returning false there means the interrupt is never generated in the first
+ * place — as opposed to a DOM listener, which would race xterm's own handler
+ * and still let \x03 through on some paths. The window-level Ctrl+T / Ctrl+W /
+ * Ctrl+1..9 handler in TerminalTabs.tsx runs in the CAPTURE phase and calls
+ * stopPropagation, so those keys never reach xterm and the two handlers do not
+ * compete; this one only ever claims Ctrl/Cmd+C and Ctrl/Cmd+V.
  */
 import "@xterm/xterm/css/xterm.css";
 
@@ -43,6 +59,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { TerminalProvider } from "../../store/types";
 import { usePtyWebSocket } from "./hooks/usePtyWebSocket";
+import { TerminalContextMenu } from "./TerminalView.parts/TerminalContextMenu";
+import { useTerminalClipboard } from "./TerminalView.parts/useTerminalClipboard";
+import { useTerminalScrollHint } from "./TerminalView.parts/useTerminalScrollHint";
 
 // Idle delay after the last ResizeObserver callback before we refit + notify the
 // PTY. Long enough that dragging the bottom-panel splitter does not refit on
@@ -67,6 +86,8 @@ export function TerminalView({
   onError,
 }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // Outer frame; the context menu is positioned relative to it.
+  const frameRef = useRef<HTMLDivElement | null>(null);
   // Keep mutable refs to the xterm objects + addons so the WS-message handler
   // closure can reach them without re-rendering.
   const termRef = useRef<unknown>(null);
@@ -131,6 +152,33 @@ export function TerminalView({
     },
   });
 
+  // --- clipboard UX (#1994) -------------------------------------------------
+  // Copy/paste semantics, the transient hint and the right-click menu state all
+  // live in this hook; `handleTerminalKeyEvent` is stable and installed into
+  // xterm once from the mount effect below.
+  const {
+    clipboardHint,
+    contextMenu,
+    handleContextMenu,
+    closeContextMenu,
+    handleMenuCopy,
+    handleMenuPaste,
+    handleTerminalKeyEvent,
+  } = useTerminalClipboard({ termRef, frameRef, send });
+  // The mount effect below runs once with empty deps; reach the handler through
+  // a ref so the effect never has to depend on it.
+  const handleTerminalKeyEventRef = useRef(handleTerminalKeyEvent);
+  handleTerminalKeyEventRef.current = handleTerminalKeyEvent;
+
+  // --- scrolled-up hint (#1994) ---------------------------------------------
+  // Surfaces the ↓ recovery for the intermittent missing-input-box defect. The
+  // ↓ key itself is deliberately NOT intercepted — xterm already scrolls to the
+  // bottom on user input and still delivers the key to the PTY, and that
+  // delivery is what repaints the CLI. See useTerminalScrollHint.
+  const { scrolledUp, attachScrollHint } = useTerminalScrollHint();
+  const attachScrollHintRef = useRef(attachScrollHint);
+  attachScrollHintRef.current = attachScrollHint;
+
   // Mount xterm.js on first render; tear it down on unmount.
   useEffect(() => {
     const container = containerRef.current;
@@ -145,11 +193,13 @@ export function TerminalView({
       dispose: () => void;
       loadAddon: (a: unknown) => void;
       refresh: (start: number, end: number) => void;
+      attachCustomKeyEventHandler?: (handler: (ev: KeyboardEvent) => boolean) => void;
       cols: number;
       rows: number;
     } | null = null;
     let onDataDisposable: { dispose: () => void } | null = null;
     let onScrollDisposable: { dispose: () => void } | null = null;
+    let detachScrollHint: (() => void) | null = null;
     let resizeObserver: ResizeObserver | null = null;
     let intersectionObserver: IntersectionObserver | null = null;
     // Debounce handle that freezes the terminal while the bottom-panel splitter
@@ -231,6 +281,15 @@ export function TerminalView({
       termRef.current = term;
       fitRef.current = fit;
 
+      // #1994 — claim Ctrl/Cmd+C and Ctrl/Cmd+V before xterm turns them into
+      // PTY bytes. Returning false tells xterm to skip the key entirely, which
+      // is what stops Ctrl+C from ever being encoded as \x03 (SIGINT) — the
+      // whole point of the fix. Every other key returns true and behaves as
+      // before. Rationale and the exact predicate live in useTerminalClipboard.
+      term!.attachCustomKeyEventHandler?.((ev: KeyboardEvent) =>
+        handleTerminalKeyEventRef.current(ev),
+      );
+
       term!.loadAddon(fit);
       term!.loadAddon(search);
       term!.loadAddon(links);
@@ -278,6 +337,9 @@ export function TerminalView({
           run();
         }
       });
+
+      // Track whether the viewport is showing history, to drive the ↓ hint.
+      detachScrollHint = attachScrollHintRef.current(term!);
 
       // Refit to the settled container size, then notify the PTY. fit() reflows
       // the DOM renderer; the TUI repaints itself in response to the SIGWINCH.
@@ -362,6 +424,11 @@ export function TerminalView({
         /* ignore */
       }
       try {
+        detachScrollHint?.();
+      } catch {
+        /* ignore */
+      }
+      try {
         resizeObserver?.disconnect();
       } catch {
         /* ignore */
@@ -418,8 +485,10 @@ export function TerminalView({
 
   return (
     <div
+      ref={frameRef}
       className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-stone-200 bg-[#1e1e1e]"
       data-testid={`terminal-view-${tabId}`}
+      onContextMenu={handleContextMenu}
     >
       <button
         type="button"
@@ -431,6 +500,9 @@ export function TerminalView({
       >
         ↻
       </button>
+      {/* The xterm host itself is untouched: same element, same position in the
+          tree, so the terminal is never remounted and the PTY subprocess (and
+          the user's agent conversation) survives every render below. */}
       <div
         ref={containerRef}
         className="flex-1 overflow-hidden"
@@ -438,6 +510,40 @@ export function TerminalView({
         // bordered corners.
         style={{ padding: 4 }}
       />
+      {/* Scrolled-up hint (#1994). Bottom-RIGHT so it never collides with the
+          bottom-centre clipboard toast or the top-right refresh button, and
+          pointer-events-none so it can never swallow a click meant for the
+          terminal. Purely instructional: the recovery is the ↓ keystroke
+          reaching the CLI, which a click here could not reproduce honestly. */}
+      {scrolledUp ? (
+        <div
+          role="status"
+          data-testid={`terminal-scroll-hint-${tabId}`}
+          className="pointer-events-none absolute bottom-2 right-3 z-40 rounded-md border border-white/10 bg-black/70 px-2.5 py-1 text-xs text-stone-200 shadow-lg"
+        >
+          Press ↓ to jump to the latest output
+        </div>
+      ) : null}
+      {clipboardHint ? (
+        <div
+          role="status"
+          data-testid={`terminal-clipboard-hint-${tabId}`}
+          className="pointer-events-none absolute bottom-2 left-1/2 z-50 -translate-x-1/2 rounded-md border border-white/10 bg-black/70 px-2.5 py-1 text-xs text-stone-200 shadow-lg"
+        >
+          {clipboardHint}
+        </div>
+      ) : null}
+      {contextMenu ? (
+        <TerminalContextMenu
+          tabId={tabId}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          canCopy={contextMenu.canCopy}
+          onCopy={handleMenuCopy}
+          onPaste={handleMenuPaste}
+          onClose={closeContextMenu}
+        />
+      ) : null}
     </div>
   );
 }

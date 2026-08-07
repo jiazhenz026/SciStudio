@@ -1,4 +1,4 @@
-"""AIBlock — run a coding agent (claude or codex) as a workflow step.
+"""AIBlock — run a coding agent CLI as a workflow step.
 
 This block hands a slice of your workflow's data to an AI coding agent
 running in a visible terminal tab, lets the agent work on it on its own,
@@ -18,7 +18,6 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
-import shutil
 import time
 import uuid
 from typing import TYPE_CHECKING, Any, ClassVar, cast
@@ -36,16 +35,18 @@ from scistudio.blocks.base.state import ExecutionMode
 from scistudio.core.types.base import DataObject
 
 if TYPE_CHECKING:
+    from scistudio.ai.agent.providers_registry import ProviderDescriptor
     from scistudio.core.types.collection import Collection
 
 logger = logging.getLogger(__name__)
 
 
-# Provider-specific spelling of bypass-permissions flag (ADR-035 §3.7).
-_BYPASS_FLAG = {
-    "claude-code": ["--permission-mode", "bypassPermissions"],
-    "codex": ["--dangerously-bypass-approvals-and-sandbox"],
-}
+# ADR-034 FR-012: this module used to hold a ``_BYPASS_FLAG`` table and a
+# ``_build_spawn_argv`` method that composed a full provider command line.
+# Both are gone. The block states a provider key and the engine's
+# descriptor-driven spawn owns every argv element, including each
+# provider's own bypass-flag spelling, which now lives in exactly one
+# place: ``ProviderDescriptor.bypass_argv`` in the provider registry.
 
 # Mapping from ``expected_type`` (DataObject subclass name in the manifest)
 # to the ``core_type`` enum string accepted by ``LoadData`` (ADR-028 Add 1
@@ -61,34 +62,65 @@ _LOADER_CORE_TYPE = {
 }
 
 
-def _discover_provider(provider: str) -> str | None:
-    """Return absolute path to the provider binary or ``None`` if missing.
+# ADR-034 note on import style: every reference to the provider registry
+# below is a *function-local* import. ``src/scistudio/blocks/`` may not
+# import ``scistudio.ai`` at module level — ``tests/architecture/
+# test_layer_deps.py`` enforces that, and this file already used the same
+# deferred-import pattern for ``scistudio.ai.agent.terminal``. The registry
+# is deliberately dependency-free of both ``scistudio.api`` and
+# ``scistudio.blocks`` (spec §4.1) precisely so both layers can reach it,
+# but the layering rule still governs *how*.
 
-    ADR-035 §3.8 references ``scistudio.ai.agent.claude_code.discover`` —
-    that module does not yet exist (it is implied by ADR-034). For now
-    we use ``shutil.which`` against a known executable name. The discover
-    module can replace this lookup without changing the call site.
+
+def _agent_provider_keys() -> list[str]:
+    """Registry agent provider keys, in registry order."""
+    from scistudio.ai.agent.providers_registry import agent_keys
+
+    return list(agent_keys())
+
+
+def _resolve_provider_descriptor(provider: str) -> ProviderDescriptor:
+    """Return the registry descriptor for *provider* or raise ``ValueError``.
+
+    ADR-034 FR-014: the accepted set is the registry's agent keys, so a
+    provider added to the registry is immediately valid here with no edit
+    to this module.
     """
-    candidates = {
-        "claude-code": ["claude"],
-        "codex": ["codex"],
-    }
-    for name in candidates.get(provider, []):
-        path = shutil.which(name)
-        if path:
-            return path
-    return None
+    from scistudio.ai.agent.providers_registry import get as _registry_get
+
+    accepted = _agent_provider_keys()
+    if provider not in accepted:
+        raise ValueError(f"AIBlock: unknown provider {provider!r}; expected one of {sorted(accepted)}.")
+    return _registry_get(provider)
+
+
+def _discover_provider_binary(descriptor: ProviderDescriptor) -> Any:
+    """Return the resolved provider binary path, or ``None`` if absent.
+
+    ADR-034 FR-005: this delegates to the registry resolver rather than
+    calling ``shutil.which`` directly, so the AI Block path and the chat
+    path cannot disagree about whether a provider is installed. The
+    previous ``shutil.which`` lookup missed Kimi Code and both Qoder
+    channels entirely — none of them is on PATH — so the block would have
+    reported them uninstalled while the chat Setup screen offered them.
+
+    Kept as a module-level indirection so tests can substitute a resolver
+    without depending on which CLIs the developer has installed.
+    """
+    from scistudio.ai.agent.providers_registry import resolve_binary
+
+    return resolve_binary(descriptor)
 
 
 # Agent commit convention: AIBlock does not commit on its own. When the spawned
-# claude/codex agent makes a commit on the user's behalf in its terminal shell,
+# agent makes a commit on the user's behalf in its terminal shell,
 # that commit should be prefixed with ``agent: `` so the History "Manual
 # milestones" filter can classify it. There is no in-tree path the agent can
 # call to apply the prefix automatically; it is enforced through the agent's
 # system prompt. If a direct commit path is ever added inside this module, it
 # must pass ``prefix="agent"`` to keep that filter working.
 class AIBlock(Block):
-    """Workflow step that runs a claude or codex agent in a terminal tab.
+    """Workflow step that runs an agent CLI in a terminal tab.
 
     Hands the agent the step's inputs plus a written task, lets it work on
     its own in a visible terminal, then loads the files it produces back into
@@ -111,11 +143,11 @@ class AIBlock(Block):
 
     Config:
         ``user_prompt`` (required) is the natural-language task. ``provider``
-        selects ``"claude-code"`` (default) or ``"codex"``. ``permission_mode``
-        is ``"safe"`` (the agent asks before sensitive tool use, default) or
-        ``"bypass"`` (full filesystem access). ``input_ports`` / ``output_ports``
-        declare the named ports and, for outputs, the file path where each
-        result is expected.
+        selects any agent CLI in the provider registry — ``"claude-code"`` is
+        the default. ``permission_mode`` is ``"safe"`` (the agent asks before
+        sensitive tool use, default) or ``"bypass"`` (full filesystem access).
+        ``input_ports`` / ``output_ports`` declare the named ports and, for
+        outputs, the file path where each result is expected.
 
     A run finishes on the first of three signals: the agent calls its
     ``finish`` tool, every declared output file appears and stops changing, or
@@ -144,7 +176,7 @@ class AIBlock(Block):
     name: ClassVar[str] = "AI Agent"
     """Human-readable name shown in the block library and on the node."""
 
-    description: ClassVar[str] = "Spawn a claude/codex agent in a PTY tab to process inputs into typed outputs."
+    description: ClassVar[str] = "Spawn an agent CLI in a PTY tab to process inputs into typed outputs."
     """One-line description shown in the block library."""
 
     subcategory: ClassVar[str] = "ai"
@@ -221,9 +253,15 @@ class AIBlock(Block):
                 "ui_widget": "textarea",
                 "ui_priority": 1,
             },
+            # ADR-034 FR-015: the enum is derived from the provider
+            # registry's agent keys rather than a hand-maintained literal,
+            # so adding a sixth provider is a registry-only change. Enum
+            # widening is backward compatible: a workflow saved with
+            # ``provider: claude-code`` still validates, and the default is
+            # deliberately unchanged.
             "provider": {
                 "type": "string",
-                "enum": ["claude-code", "codex"],
+                "enum": _agent_provider_keys(),
                 "default": "claude-code",
                 "title": "Provider",
                 "ui_priority": 2,
@@ -232,15 +270,20 @@ class AIBlock(Block):
                 "type": "string",
                 "enum": ["safe", "bypass"],
                 # Display labels are unified with the ADR-034 AI chat
-                # PermissionModePicker (value ``safe`` shows as "Ask", ``bypass``
-                # shows as "Bypass"). The stored enum values stay ``safe``/
-                # ``bypass`` because the spawn argv logic keys on them.
-                "ui_enum_labels": {"safe": "Ask", "bypass": "Bypass"},
+                # PermissionModePicker (FR-021e), which now reads
+                # "Manual Approve" / "Bypass Permission" in plain language
+                # with no CLI flag names. It is the same choice presented on
+                # the canvas, so it reads the same way in both places. The
+                # stored enum values stay ``safe``/``bypass``: this is a
+                # presentation change only (FR-021f) and the engine keys its
+                # descriptor-driven bypass argv on them.
+                "ui_enum_labels": {"safe": "Manual Approve", "bypass": "Bypass Permission"},
                 "default": "safe",
                 "title": "Permission mode",
                 "description": (
-                    "Ask = agent prompts for sensitive tool use (default); "
-                    "Bypass = full filesystem access (no prompts)."
+                    "Manual Approve = the agent asks you before sensitive tool "
+                    "use (default); Bypass Permission = the agent runs "
+                    "unattended with full filesystem access."
                 ),
                 "ui_priority": 3,
             },
@@ -455,8 +498,13 @@ class AIBlock(Block):
         # finish tool / user "Mark done").
         _clear_expected_outputs(output_specs, project_dir)
 
-        # 5. Build spawn argv.
-        spawn_argv = self._build_spawn_argv(config, str(manifest_path))
+        # 5. Resolve the provider key. ADR-034 FR-012: the worker states the
+        #    provider and composes nothing — no argv, no system-prompt file,
+        #    no MCP config. The engine's descriptor-driven spawn owns all of
+        #    that, which is what keeps a block-launched tab byte-identical to
+        #    a hand-launched one and removes the orphaned temp file.
+        provider = str(config.get("provider", "claude-code"))
+        _resolve_provider_descriptor(provider)  # fail fast on an unknown key
 
         # 6. Ask engine to open a PTY tab.
         from scistudio.engine import pty_control as _pty_control
@@ -464,11 +512,11 @@ class AIBlock(Block):
         permission_mode = str(config.get("permission_mode", "safe"))
         spec = _pty_control.PtyTabSpec(
             title=f"AI: {block_name}",
-            spawn_argv=spawn_argv,
+            provider=provider,
             cwd=str(project_dir),
             # #1789: ``initial_stdin`` carries the composed prompt. The engine
-            # delivers it to claude/codex as a positional CLI argument at spawn
-            # (see open_engine_initiated_tab → _spawn → spawn_claude/spawn_codex),
+            # delivers it to the agent as a positional CLI argument at spawn
+            # (see open_engine_initiated_tab → _spawn → the registry-driven spawn),
             # not by typing it into the TUI — a raw-mode TUI ignored the trailing
             # carriage return, so the prompt sat unsubmitted.
             initial_stdin=_compose_initial_stdin(str(config.get("user_prompt", "")), str(manifest_path)),
@@ -536,88 +584,55 @@ class AIBlock(Block):
             config: The block's config to check.
 
         Raises:
-            ValueError: the provider is unknown, the chosen provider's
-                command-line tool is not installed, or ``user_prompt`` is
-                missing or blank. The message includes how to install a
-                missing provider.
+            ValueError: the provider is not a registry agent key, the
+                chosen provider's command-line tool is not installed, or
+                ``user_prompt`` is missing or blank. The missing-binary
+                message names the provider and the executable that was
+                looked for.
         """
         provider = str(config.get("provider", "claude-code"))
-        if provider not in _BYPASS_FLAG:
-            raise ValueError(f"AIBlock: unknown provider {provider!r}; expected one of {sorted(_BYPASS_FLAG.keys())}.")
-        binary = _discover_provider(provider)
+        descriptor = _resolve_provider_descriptor(provider)
+        binary = _discover_provider_binary(descriptor)
         if binary is None:
-            install_hint = "scistudio install --target " + ("claude-code" if provider == "claude-code" else "codex")
+            # ADR-034 FR-014: deliberately no `scistudio install` hint. That
+            # command wires SciStudio's MCP server and skills into a CLI the
+            # user already has; it cannot install the CLI, so following the
+            # old hint left discovery failing — and `--target claude-code`
+            # was rejected by the install CLI outright. Name the provider and
+            # the executable instead, which is the fact the user needs, and
+            # suggest no command SciStudio cannot make corrective.
+            expected = " or ".join(repr(name) for name in descriptor.binary_candidates) or "its CLI"
             raise ValueError(
-                f"AIBlock: provider {provider!r} is not installed. "
-                f"Run `{install_hint}` to install it, or change the block's "
-                f"provider config to a different provider."
+                f"AIBlock: provider {provider!r} ({descriptor.label}) is not installed — "
+                f"no {expected} executable was found on PATH or in its known install "
+                f"directories. Install the {descriptor.label} CLI yourself, or change "
+                f"the block's provider config to an installed provider."
+            )
+        if descriptor.prompt_argv_prefix is None:
+            # #1994 finding 5: an AI Block delivers its task as the agent's
+            # positional prompt argument. A CLI with no positional prompt — Kimi
+            # Code parses its first positional as a subcommand — exits 1 before
+            # painting anything, which is what the owner saw. Refuse at config
+            # time with the registry's own explanation rather than at spawn
+            # time with an opaque PTY exit code, and never launch a task-less
+            # agent that looks healthy and does nothing.
+            raise ValueError(
+                f"AIBlock: provider {provider!r} ({descriptor.label}) cannot run as an AI Block. "
+                f"{descriptor.prompt_unsupported_reason}"
             )
         prompt = config.get("user_prompt")
         if not isinstance(prompt, str) or not prompt.strip():
             raise ValueError("AIBlock: 'user_prompt' must be a non-empty string.")
 
-    def _build_spawn_argv(self, config: BlockConfig, manifest_path: str) -> list[str]:
-        """Compose the agent spawn argv (ADR-035 §3.2 step 4, §3.7).
-
-        Argv shape mirrors the ADR-034 hand-launched tab plus the
-        permission-mode flag. The initial prompt is delivered via stdin
-        (see :func:`_compose_initial_stdin`); we do not put it on the
-        command line.
-
-        Raises:
-            ValueError: provider unrecognised or binary not discoverable.
-                (Caller has typically already run :meth:`validate_config`;
-                this is defense-in-depth.)
-        """
-        provider = str(config.get("provider", "claude-code"))
-        if provider not in _BYPASS_FLAG:
-            raise ValueError(f"AIBlock: unknown provider {provider!r}.")
-        binary = _discover_provider(provider)
-        if binary is None:
-            raise ValueError(f"AIBlock: provider {provider!r} not discoverable on PATH at spawn time.")
-
-        argv: list[str] = [binary]
-
-        # Provider-specific extra args. Matches the existing
-        # spawn_claude/spawn_codex argv shape (see
-        # src/scistudio/ai/agent/terminal.py) so a hand-launched tab and a
-        # block-launched tab look identical from the agent's perspective.
-        permission_mode = str(config.get("permission_mode", "safe"))
-        if provider == "claude-code":
-            project_dir = _to_path(config.get("project_dir") or os.getcwd())
-            from scistudio.ai.agent.terminal import _ensure_mcp_config, _write_system_prompt_tempfile
-
-            try:
-                prompt_file = _write_system_prompt_tempfile(project_dir)
-                mcp_config = _ensure_mcp_config(project_dir)
-            except Exception as exc:
-                # Audit P1-A (Codex #862-1): silently degrading argv produced a
-                # `claude` invocation without --append-system-prompt /
-                # --mcp-config so the worker could not call finish_ai_block and
-                # the user saw a hung block. Re-raise so AIBlock.run()
-                # transitions to ERROR with an actionable message.
-                logger.exception("AIBlock: failed to compose system prompt / MCP config")
-                raise RuntimeError(
-                    f"AIBlock bootstrap failed: cannot write system prompt or MCP config: {exc}"
-                ) from exc
-            argv.extend(
-                [
-                    "--append-system-prompt",
-                    f"@{prompt_file}",
-                    "--mcp-config",
-                    str(mcp_config),
-                ]
-            )
-            if permission_mode == "bypass":
-                # Match ADR-035 §3.7: claude uses --permission-mode bypassPermissions.
-                argv.extend(_BYPASS_FLAG["claude-code"])
-            # safe mode: no flag — claude defaults to interactive prompts.
-        elif provider == "codex":
-            if permission_mode == "bypass":
-                argv.extend(_BYPASS_FLAG["codex"])
-            # codex auto-reads ~/.codex/config.toml for MCP, no --mcp-config flag.
-
-        return argv
+    # ADR-034 FR-012 / FR-013: ``_build_spawn_argv`` used to live here. It
+    # composed a provider command line that the engine then discarded —
+    # ``open_engine_initiated_tab`` read only ``argv[0]``, and the real
+    # spawn re-derived every argument, writing its own system-prompt file.
+    # The worker's copy of that file, under ``<project>/.scistudio/.tmp/``,
+    # was therefore orphaned on every single run: its path went nowhere, so
+    # the PtyProcess cleanup that deletes the spawn's own file never saw it
+    # and nothing else did either. Deleting the method removes the leak at
+    # its source rather than adding a second cleanup path.
 
     # -- helpers ---------------------------------------------------------------
 

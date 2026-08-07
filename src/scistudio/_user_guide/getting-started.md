@@ -5,8 +5,9 @@ wire together **blocks** — load, process, analyze, save — on a canvas, run t
 and inspect the results, with an AI assistant on hand the whole time. This page
 takes you from an empty project to your first run.
 
-> **Want the AI assistant?** Install a provider (Claude Code or Codex) first —
-> see [Install a provider](ai-assistant.md#before-you-start-install-a-provider).
+> **Want the AI assistant?** Install a provider first — Claude Code, Codex, Kimi
+> Code, Qoder CLI, or Qoder CLI (China). You only need one. See
+> [Install a provider](ai-assistant.md#before-you-start-install-a-provider).
 
 ## 1. Create a project
 

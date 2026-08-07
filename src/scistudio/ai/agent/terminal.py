@@ -37,6 +37,13 @@ Spike findings applied here (see Phase 1.1 spike report on issue #816):
   prompt to a temp file under ``<project>/.scistudio/.tmp/`` and pass
   the absolute path via the ``@``-indirection.
 
+ADR-034 multi-provider (issue #1994): every per-CLI fact above now lives in
+:mod:`scistudio.ai.agent.providers_registry` instead of in per-provider spawn
+functions. This module keeps :class:`PtyProcess` unchanged and exposes one
+descriptor-driven :func:`spawn_agent` covering Claude Code, Codex, Kimi Code,
+and both Qoder channels, plus :func:`spawn_user_terminal` for the shell
+pseudo-provider. There is deliberately no ``if provider == …`` chain left here.
+
 macOS notes (verified separately by user):
 
 * NFD vs NFC unicode: macOS HFS+/APFS normalises filenames to NFD; tests
@@ -58,15 +65,23 @@ import contextlib
 import json
 import logging
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 import threading
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
+
+from scistudio.ai.agent.providers_registry import (
+    McpStrategy,
+    ProviderDescriptor,
+    ProviderKind,
+    SystemPromptStrategy,
+    resolve_binary,
+    resolve_executable,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,56 +89,64 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "PtyProcess",
     "resolve_windows_executable",
-    "spawn_claude",
-    "spawn_codex",
+    "spawn_agent",
     "spawn_user_terminal",
 ]
 
-_WINDOWS_EXECUTABLE_SUFFIXES = (".cmd", ".bat", ".exe")
-_PTY_BLOCKED_ENV_VARS = frozenset({"ELECTRON_RUN_AS_NODE"})
+#: Environment variables never handed to a PTY-hosted agent CLI.
+#:
+#: ``ELECTRON_RUN_AS_NODE`` is the original entry: inherited from the desktop
+#: shell it would make a Node-based CLI re-exec as a bare Node process.
+#:
+#: The rest are **agent-session markers** (#1994 finding 1). SciStudio inherits
+#: the environment of whatever launched it, and when the backend is started
+#: from inside an agent CLI session — a developer running it from a Claude Code
+#: or Codex terminal — that parent session's private markers are still in the
+#: environment and get copied wholesale into the CLI we spawn. The child then
+#: believes it is a nested invocation of its own parent and silently degrades:
+#: the owner saw Claude Code announce ``Transcript saving is off — inherited
+#: CLAUDE_CODE_CHILD_SESSION marker``, meaning the spawned agent's conversation
+#: was not being recorded at all.
+#:
+#: The list is explicit rather than a ``CLAUDE_*`` / ``CODEX_*`` prefix sweep,
+#: because those namespaces also hold deliberate user configuration —
+#: ``CLAUDE_CONFIG_DIR`` and ``ANTHROPIC_*`` credentials among them — that the
+#: spawned CLI needs. Only per-session identity and nesting markers belong
+#: here; add a name when a CLI is observed to change behaviour because of it.
+_PTY_BLOCKED_ENV_VARS = frozenset(
+    {
+        "ELECTRON_RUN_AS_NODE",
+        # Claude Code session identity / nesting markers.
+        "CLAUDECODE",
+        "CLAUDE_CODE_CHILD_SESSION",
+        "CLAUDE_CODE_ENTRYPOINT",
+        "CLAUDE_CODE_EXECPATH",
+        "CLAUDE_CODE_SESSION_ID",
+        "CLAUDE_CODE_SSE_PORT",
+        "CLAUDE_AGENT_SDK_VERSION",
+        "CLAUDE_PID",
+        "CLAUDE_PLUGIN_DATA",
+        # Codex session identity / sandbox markers.
+        "CODEX_COMPANION_SESSION_ID",
+        "CODEX_SANDBOX",
+        "CODEX_SANDBOX_NETWORK_DISABLED",
+    }
+)
 
-
-def resolve_windows_executable(name: str, *, which: Callable[[str], str | None] | None = None) -> str | None:
-    """Resolve an agent CLI to a concrete Windows executable when needed.
-
-    npm global installs on Windows commonly place both ``codex`` (a Unix
-    shell wrapper) and ``codex.cmd`` on PATH. Python 3.12.0 can return the
-    bare wrapper from :func:`shutil.which`, and pywinpty's CreateProcess
-    spawn path cannot execute it reliably. Prefer extensioned Windows
-    launchers while preserving normal ``shutil.which`` behavior elsewhere.
-    """
-    which = shutil.which if which is None else which
-    resolved = which(name)
-    if sys.platform != "win32":
-        return resolved
-
-    extensioned: list[str] = []
-    for suffix in _WINDOWS_EXECUTABLE_SUFFIXES:
-        candidate = which(name + suffix)
-        if candidate:
-            extensioned.append(candidate)
-    for directory in _windows_user_cli_dirs():
-        for suffix in _WINDOWS_EXECUTABLE_SUFFIXES:
-            candidate_path = directory / f"{name}{suffix}"
-            if candidate_path.is_file():
-                extensioned.append(str(candidate_path))
-
-    if extensioned:
-        if resolved and Path(resolved).suffix.lower() in _WINDOWS_EXECUTABLE_SUFFIXES:
-            return resolved
-        return extensioned[0]
-    return resolved
-
-
-def _windows_user_cli_dirs() -> list[Path]:
-    """Common per-user CLI install dirs missing from Explorer-launched PATH."""
-    if sys.platform != "win32":
-        return []
-    home = Path.home()
-    return [
-        home / ".local" / "bin",
-        home / "AppData" / "Roaming" / "npm",
-    ]
+# ADR-034 multi-provider (FR-004): the by-name executable resolver moved into
+# ``providers_registry`` so ``resolve_binary`` can call it without importing
+# this module (which would be an import cycle — ``terminal`` already imports the
+# registry). It is re-exported here unchanged, rather than wrapped, because
+# ``scistudio.api.routes.ai`` and the spec's ``governs.contracts`` both address
+# the name at this location, and a delegating wrapper would be pure duplication.
+#
+# The signature gained a keyword-only ``well_known_dirs``: the well-known
+# install directories are now supplied per provider by the registry descriptor
+# instead of read from a module-level constant list. Callers holding a
+# descriptor should prefer ``providers_registry.resolve_binary``, which passes
+# ``descriptor.well_known_directories()`` for them; this name stays for callers
+# that only have a binary name.
+resolve_windows_executable = resolve_executable
 
 
 def _build_child_env(extra_env: dict[str, str] | None = None) -> dict[str, str]:
@@ -151,9 +174,9 @@ class PtyProcess:
     backend-specific handle (a :class:`winpty.PtyProcess` on Windows,
     or a master file descriptor + :class:`subprocess.Popen` on POSIX).
 
-    Lifecycle: callers spawn via :func:`spawn_claude` /
-    :func:`spawn_codex`, then read / write / resize until the subprocess
-    exits or :meth:`kill_tree` is invoked.
+    Lifecycle: callers spawn via :func:`spawn_agent` (any registered agent
+    CLI) or :func:`spawn_user_terminal`, then read / write / resize until the
+    subprocess exits or :meth:`kill_tree` is invoked.
 
     Parameters
     ----------
@@ -502,15 +525,142 @@ def _ensure_mcp_config(project_dir: Path) -> Path:
     ``scistudio mcp-bridge`` so the embedded TUI sees SciStudio's tools.
     Idempotent: rewrites the file each call so a stale path / renamed
     project picks up the current ``project_dir`` automatically.
-    """
-    import json
 
+    Whole-file replacement is correct **only** here: ``.scistudio/`` is
+    SciStudio's own directory and no other tool writes into it. It is
+    forbidden for provider-owned config files — see
+    :func:`_merge_provider_mcp_config` (FR-017a).
+    """
     from scistudio.cli.install import MCP_SERVER_NAME, _mcp_entry_payload
 
     config_path = project_dir / ".scistudio" / "mcp.json"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"mcpServers": {MCP_SERVER_NAME: _mcp_entry_payload(project_dir)}}
     config_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return config_path
+
+
+def _read_text_with_retry(path: Path) -> str:
+    """``path.read_text``, retrying briefly while the file is busy.
+
+    This is the read half of the same Windows defect that
+    :func:`scistudio.cli.install._replace_with_retry` fixes from the write side,
+    and it is one mechanism seen from both ends: ``os.replace`` briefly makes
+    the destination unopenable, and Python's ``open()`` does not pass
+    ``FILE_SHARE_DELETE``, so a concurrent *reader* gets ``PermissionError``
+    even though nothing is wrong with the file.
+
+    Measured on Windows with 240 overlapping :func:`_merge_provider_mcp_config`
+    calls against one config file, after the rename fix had landed: 27, 16 and
+    21 failures across three runs, **every one of them raised here** and none in
+    the rename.
+
+    The user-visible effect is milder than the lost write that motivated the
+    write-side fix — the launch fails loudly instead of silently starting an
+    agent with no SciStudio tools — but it is still a spurious failure from a
+    transient, self-clearing condition, so it gets the same treatment: spend a
+    bounded budget, then let the real error surface.
+
+    The delay schedule is imported from :mod:`scistudio.cli.install` rather than
+    restated, so the two halves of one defect cannot drift to different budgets.
+    Only ``PermissionError`` is retried: a missing file is already excluded by
+    the caller's ``is_file()`` guard, and every other ``OSError`` (a directory
+    where a file was expected, a real I/O error) is permanent and is raised on
+    the first attempt rather than after a pointless wait.
+    """
+    from scistudio.cli.install import _REPLACE_RETRY_DELAYS
+
+    for delay in _REPLACE_RETRY_DELAYS:
+        try:
+            return path.read_text(encoding="utf-8")
+        except PermissionError:
+            time.sleep(delay)
+    # Budget spent. Unguarded on purpose: a file that is still unreadable is a
+    # real failure and must surface carrying the OS's own message, never be
+    # swallowed into a silent partial launch.
+    return path.read_text(encoding="utf-8")
+
+
+def _merge_provider_mcp_config(descriptor: ProviderDescriptor, project_dir: Path) -> Path:
+    """Merge the SciStudio MCP entry into a **provider-owned** config file.
+
+    Used by the :attr:`~...McpStrategy.PROJECT_FILE` strategy, currently only
+    Kimi Code (``<project>/.kimi-code/mcp.json``). That path belongs to Kimi,
+    not to SciStudio, and the user may have registered their own MCP servers
+    there, so :func:`_ensure_mcp_config`'s whole-file rewrite would silently
+    destroy configuration with no recovery path.
+
+    This function therefore reads, merges only the SciStudio server entry, and
+    atomically replaces the file (FR-017a), following the merge-preserving
+    precedent in :mod:`scistudio.cli.install` rather than the clobbering
+    helper. A zero-byte or whitespace-only file carries no user content to
+    preserve and is treated as absent.
+
+    Three shapes raise instead of being overwritten (FR-017b), because each
+    would otherwise destroy content SciStudio does not own and the user cannot
+    recover: a document that does not parse as JSON, a document that parses to
+    something other than an object, and an ``mcpServers`` key whose value is
+    not an object. The last one is the quietest of the three — coercing it to
+    a fresh ``{}`` would change a key outside the SciStudio entry with no
+    error and no trace — so it is rejected on the same terms as the others.
+
+    The written payload is the provider-agnostic
+    :func:`~scistudio.cli.install._mcp_entry_payload` used by every other
+    strategy (FR-018); only the location differs.
+
+    Both file operations tolerate a concurrent SciStudio process working on the
+    same file: the read through :func:`_read_text_with_retry`, the write through
+    ``_atomic_write_json``'s unique staging name and retrying rename. A
+    transient busy file and a corrupt one stay firmly separate — the first is
+    retried and then raises the OS error, the second raises immediately and is
+    never retried, because waiting cannot make malformed JSON parse.
+    """
+    from scistudio.cli.install import MCP_SERVER_NAME, _atomic_write_json, _mcp_entry_payload
+
+    config_path = descriptor.mcp.project_file_path(project_dir)
+    if config_path is None:  # pragma: no cover - guarded by descriptor validation
+        raise ValueError(f"provider {descriptor.key!r} declares no project-scope MCP file")
+
+    data: dict[str, object] = {}
+    if config_path.is_file():
+        # Retried while busy: a concurrent writer's ``os.replace`` makes this
+        # file transiently unopenable on Windows. See _read_text_with_retry.
+        raw = _read_text_with_retry(config_path)
+        if raw.strip():
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise RuntimeError(
+                    f"refusing to overwrite malformed JSON at {config_path}: {exc}. "
+                    f"This file belongs to {descriptor.label}, not to SciStudio. "
+                    "Fix or move it, then relaunch so SciStudio can register its "
+                    "MCP server without discarding your own entries."
+                ) from exc
+            if not isinstance(parsed, dict):
+                raise RuntimeError(
+                    f"refusing to overwrite non-object JSON at {config_path}. "
+                    f"This file belongs to {descriptor.label}, not to SciStudio."
+                )
+            data = parsed
+
+    servers = data.get("mcpServers")
+    if servers is None:
+        servers = {}
+    elif not isinstance(servers, dict):
+        # Parseable JSON whose ``mcpServers`` is a string, list, or number.
+        # Replacing it with a fresh object would silently discard a key
+        # SciStudio does not own — exactly the destruction FR-017a exists to
+        # prevent, which permits changing only the SciStudio server entry.
+        raise RuntimeError(
+            f"refusing to replace the non-object 'mcpServers' value at {config_path} "
+            f"(found {type(servers).__name__}). This file belongs to {descriptor.label}, "
+            "not to SciStudio. Fix or move it, then relaunch so SciStudio can register "
+            "its MCP server without discarding your own entries."
+        )
+    data["mcpServers"] = servers
+    servers[MCP_SERVER_NAME] = _mcp_entry_payload(project_dir)
+
+    _atomic_write_json(config_path, data)
     return config_path
 
 
@@ -539,7 +689,8 @@ def _write_system_prompt_tempfile(project_dir: Path) -> Path:
     return Path(name)
 
 
-def spawn_claude(
+def spawn_agent(
+    descriptor: ProviderDescriptor,
     *,
     project_dir: Path,
     dangerous: bool,
@@ -549,134 +700,232 @@ def spawn_claude(
     prompt: str = "",
     _spawn_argv: list[str] | None = None,
 ) -> PtyProcess:
-    """Spawn ``claude`` inside a PTY, anchored at ``project_dir``.
+    """Spawn any registered agent CLI inside a PTY, anchored at ``project_dir``.
 
-    Argv:
-        ``["claude", "--append-system-prompt", "@<prompt_file>",
-            "--mcp-config", "<project>/.scistudio/mcp.json"]``
-        plus ``--dangerously-skip-permissions`` when ``dangerous``.
+    This is the **single** spawn function for every agent provider (FR-007).
+    It contains no ``if provider == …`` chain: every per-CLI difference — the
+    binary name and where to find it, the system-prompt mechanism, the MCP
+    injection mechanism, and the bypass-permission flag spelling — is read off
+    ``descriptor``. Adding a sixth provider adds a registry row, not a branch.
 
-    The system prompt file is composed via
-    :func:`scistudio.ai.agent.system_prompt.compose_system_prompt` and
-    deleted automatically on PTY teardown.
+    Argv is assembled in a fixed order::
+
+        <binary> [<system-prompt flag> @<file>] [<mcp argv>]
+                 [<bypass argv> | <manual argv>] [-- <prompt>]
+
+    The ``--`` end-of-options separator before an AI Block prompt is required,
+    not cosmetic (#1789): ``--mcp-config`` is variadic, so without it Claude
+    Code swallows the trailing prompt as another MCP config path ("Invalid MCP
+    configuration") and exits. Ordering it after the MCP argv is what makes
+    ask mode work, not only bypass mode where the bypass flag happened to
+    separate them.
+
+    #1994 changed two things about the tail of that line:
+
+    * The permission fragment is now a *choice*, never an omission. Safe mode
+      appends ``descriptor.manual_argv`` instead of appending nothing, so the
+      CLI cannot fall back to a persisted auto-accept mode behind a user who
+      asked to approve every action.
+    * The prompt fragment is skipped entirely for a provider whose
+      ``prompt_argv_prefix`` is ``None``. Kimi Code has no positional prompt
+      argument, so appending one made it exit 1 before the TUI ever painted.
 
     Parameters
     ----------
+    descriptor
+        Registry descriptor for the provider to launch. Must be
+        :attr:`~...ProviderKind.AGENT` kind; the ``user-terminal``
+        pseudo-provider is spawned by :func:`spawn_user_terminal`.
     project_dir
-        Absolute project root.  Becomes the PTY's working directory and
-        anchors the MCP config path lookup.
+        Absolute project root. Becomes the PTY's working directory and anchors
+        every MCP config path.
     dangerous
-        When ``True`` adds ``--dangerously-skip-permissions``.  Must be
-        a deliberate user opt-in upstream.
+        When ``True`` appends ``descriptor.bypass_argv``; when ``False``
+        appends ``descriptor.manual_argv``. Must be a deliberate user opt-in
+        upstream.
     cols, rows
         Initial viewport.
+    extra_env
+        Per-invocation environment additions (e.g.
+        ``SCISTUDIO_AI_BLOCK_RUN_DIR`` from ``open_engine_initiated_tab``).
+    prompt
+        AI Block prompt delivered as the agent's positional argument.
     _spawn_argv
-        Test seam — when set, replaces the real argv (used by the WS
-        integration tests to spawn a tiny echo subprocess instead of
-        the real claude binary).  Production callers leave it ``None``.
+        Test seam — when set, replaces the resolved argv (used by the WS
+        integration tests to spawn a tiny echo subprocess instead of a real
+        agent binary). Production callers leave it ``None``. Side effects that
+        the provider needs regardless of argv — the system-prompt temp file and
+        the MCP config write — still run, matching the previous behaviour.
     """
-    prompt_path = _write_system_prompt_tempfile(project_dir)
-    mcp_config = _ensure_mcp_config(project_dir)
+    if descriptor.kind is not ProviderKind.AGENT:
+        raise ValueError(f"spawn_agent requires an agent provider; {descriptor.key!r} is {descriptor.kind.value}")
+
+    cleanup_paths: list[Path] = []
+    prompt_argv: list[str] = []
+    if descriptor.system_prompt.strategy is SystemPromptStrategy.FLAG_FILE:
+        # Only a flag with ``@<file>`` indirection may carry the composed
+        # prompt; a literal-text flag would put an unbounded string on the
+        # command line (spec §4.1), so those providers stay ambient.
+        flag = descriptor.system_prompt.flag
+        if not flag:  # pragma: no cover - guarded by registry completeness tests
+            raise ValueError(f"provider {descriptor.key!r} declares FLAG_FILE with no flag")
+        prompt_path = _write_system_prompt_tempfile(project_dir)
+        cleanup_paths.append(prompt_path)
+        prompt_argv = [flag, f"@{prompt_path}"]
+
+    mcp_argv = _mcp_argv(descriptor, project_dir)
 
     if _spawn_argv is not None:
         argv = list(_spawn_argv)
     else:
-        claude_binary = resolve_windows_executable("claude") or "claude"
-        argv = [
-            claude_binary,
-            "--append-system-prompt",
-            f"@{prompt_path}",
-            "--mcp-config",
-            str(mcp_config),
-        ]
-        if dangerous:
-            argv.append("--dangerously-skip-permissions")
+        argv = [_resolve_agent_binary(descriptor), *prompt_argv, *mcp_argv]
+        # #1994 finding 2: state the permission mode in both directions. The
+        # previous ``if dangerous:`` left safe mode flagless, which reads as
+        # "no opinion" to every one of these CLIs and lets a persisted
+        # auto-accept mode win over the user's Manual Approve selection.
+        argv.extend(descriptor.bypass_argv if dangerous else descriptor.manual_argv)
 
-    # #1789: deliver the AI Block prompt as claude's positional ``[prompt]`` arg
-    # so the agent starts already running it (typing it into the TUI over stdin
-    # never submitted — a raw-mode TUI ignores the trailing carriage return).
-    # The ``--`` end-of-options separator is REQUIRED: ``--mcp-config`` is
-    # variadic, so without it claude swallows the trailing prompt as another MCP
-    # config path ("Invalid MCP configuration") and exits. In bypass mode the
-    # ``--dangerously-skip-permissions`` flag happened to separate them, which is
-    # why bypass worked but ask mode did not.
     if prompt:
-        argv.extend(["--", prompt])
+        argv.extend(_initial_prompt_argv(descriptor, prompt, argv[0] if argv else ""))
 
     return PtyProcess(
         argv,
         cwd=project_dir,
         cols=cols,
         rows=rows,
-        cleanup_paths=[prompt_path],
+        cleanup_paths=cleanup_paths,
         extra_env=extra_env,
     )
 
 
-def spawn_codex(
-    *,
-    project_dir: Path,
-    dangerous: bool,
-    cols: int = 120,
-    rows: int = 30,
-    extra_env: dict[str, str] | None = None,
-    prompt: str = "",
-    _spawn_argv: list[str] | None = None,
-) -> PtyProcess:
-    """Spawn ``codex`` inside a PTY, anchored at ``project_dir``.
+#: Windows launcher extensions that are *batch scripts*, not real executables.
+#: ``CreateProcess`` cannot run these directly; it silently re-launches them
+#: through ``cmd.exe``, whose command-line parser ends the command at the first
+#: line feed. Anything after it is discarded before the target program is
+#: reached, so an argument containing a newline arrives truncated.
+_BATCH_LAUNCHER_SUFFIXES = frozenset({".cmd", ".bat"})
 
-    Argv:
-        ``["codex", "-c", "mcp_servers.scistudio...."]`` plus
-        ``--dangerously-bypass-approvals-and-sandbox`` when
-        ``dangerous``.
 
-    Note that codex does **not** accept ``--mcp-config`` — per spike
-    finding 6, it walks from project root to cwd loading every
-    ``.codex/config.toml`` plus ``~/.codex/config.toml``. ADR-040 §3.7
-    auto-provisions ``<project>/.codex/config.toml`` with the SciStudio MCP
-    server entry; the user's ``scistudio install --target codex`` populates
-    the user-scope ``~/.codex/config.toml`` as a fallback. The embedded GUI
-    path also injects the same ``mcp_servers.scistudio`` values via Codex
-    ``-c`` overrides so stale user config or project-scope loading drift
-    cannot select the wrong bridge.
+def _is_batch_launcher(binary: str) -> bool:
+    """Whether *binary* is a Windows batch launcher rather than a real exe.
 
-    Codex also does not accept ``--append-system-prompt``; the SciStudio
-    skill is picked up via the project-scope ``.agents/skills/scistudio/``
-    tree (auto-provisioned per ADR-040 §3.5 + §3.8) and falls back to
-    ``~/.agents/skills/scistudio/`` (registered by ``scistudio install``).
-
-    Parameters
-    ----------
-    project_dir, dangerous, cols, rows
-        See :func:`spawn_claude`.
-    _spawn_argv
-        Test seam (same semantics as :func:`spawn_claude`).
+    Deliberately not gated on ``sys.platform``: a ``.cmd`` argv[0] only ever
+    occurs on Windows, and keying off the resolved name instead of the host
+    keeps the behaviour reproducible on a Linux CI runner.
     """
-    if _spawn_argv is not None:
-        argv = list(_spawn_argv)
-    else:
-        argv = [
-            resolve_windows_executable("codex") or "codex",
-            *_codex_mcp_config_overrides(project_dir),
-        ]
-        if dangerous:
-            argv.append("--dangerously-bypass-approvals-and-sandbox")
+    return Path(binary).suffix.lower() in _BATCH_LAUNCHER_SUFFIXES
 
-    # #1789: deliver the AI Block prompt as codex's positional ``[PROMPT]`` arg
-    # so the session starts already running it (stdin typing did not submit). The
-    # ``--`` end-of-options separator keeps the prompt from being parsed as a flag
-    # value — uniform with spawn_claude (where it is required for ``--mcp-config``).
-    if prompt:
-        argv.extend(["--", prompt])
 
-    return PtyProcess(
-        argv,
-        cwd=project_dir,
-        cols=cols,
-        rows=rows,
-        cleanup_paths=[],
-        extra_env=extra_env,
-    )
+def _initial_prompt_argv(descriptor: ProviderDescriptor, prompt: str, binary: str) -> list[str]:
+    """Render the trailing ``[-- <prompt>]`` fragment for *descriptor*.
+
+    Two #1994 live-test failures are handled here, both of which produced a
+    launch that looked like SciStudio's fault but was really a mismatch between
+    one fixed argv shape and two very different CLI surfaces.
+
+    **No positional prompt at all.** ``prompt_argv_prefix is None`` means the
+    CLI parses its first positional as a subcommand. Kimi Code does, so
+    ``kimi -- "<task>"`` exits 1 with ``unknown command`` before painting
+    anything. Appending nothing would launch a task-less agent that looks
+    healthy and does nothing, which is worse than the crash, so this raises
+    instead and lets the AI Block surface the descriptor's own explanation.
+
+    **Newline truncation through a batch launcher.** ``codex`` installs from
+    npm as ``codex.cmd``; there is no ``codex.exe`` on PATH (the real binary
+    lives under a hashed ``node_modules`` path). ``CreateProcess`` therefore
+    runs it via ``cmd.exe``, which terminates its command line at the first line
+    feed — so the AI Block's multi-line prompt reached codex cut off after its
+    first line, exactly the ``manifest at:`` cut the owner observed. Claude Code
+    resolves to ``claude.exe`` and was never affected, which is why this looked
+    codex-specific.
+
+    Collapsing the newlines is the only fix available at this layer: cmd.exe has
+    no escape for a literal line feed in a command line, and the real
+    ``codex.exe`` is not at a stable, registry-nameable path. Collapsing keeps
+    every word of the prompt — only the line structure is lost — where the
+    status quo silently dropped most of the text. Providers that resolve to a
+    real executable keep their exact multi-line prompt, so this changes nothing
+    for them.
+    """
+    prefix = descriptor.prompt_argv_prefix
+    if prefix is None:
+        raise ValueError(
+            f"provider {descriptor.key!r} cannot receive an initial prompt on its command line: "
+            f"{descriptor.prompt_unsupported_reason or 'no positional prompt argument.'}"
+        )
+    return [*prefix, _flatten_for_batch_launcher(prompt) if _is_batch_launcher(binary) else prompt]
+
+
+def _flatten_for_batch_launcher(prompt: str) -> str:
+    """Collapse newlines so a ``cmd.exe``-mediated spawn keeps the whole text.
+
+    Every run of CR/LF becomes a single space. Blank-line paragraph breaks and
+    indentation therefore disappear, which is a real loss of readability, and a
+    smaller one than the current behaviour of losing every line but the first.
+
+    ``str.splitlines`` is the splitter on purpose: it covers ``\\r\\n``, bare
+    ``\\r`` and the other control characters a command line cannot carry, so no
+    line terminator survives to reach ``cmd.exe``.
+    """
+    return " ".join(segment.strip() for segment in prompt.splitlines() if segment.strip())
+
+
+def _resolve_agent_binary(descriptor: ProviderDescriptor) -> str:
+    """Resolve ``descriptor``'s binary, falling back to the bare name.
+
+    The bare-name fallback keeps the failure inside the PTY (where the user
+    sees the OS's own "not found" message in the terminal they opened) rather
+    than raising out of the spawn call, which is the pre-existing behaviour.
+    """
+    resolved = resolve_binary(descriptor)
+    if resolved is not None:
+        return str(resolved)
+    return descriptor.binary_candidates[0]
+
+
+def _mcp_argv(descriptor: ProviderDescriptor, project_dir: Path) -> list[str]:
+    """Apply ``descriptor``'s MCP injection strategy and return its argv share.
+
+    Three observed shapes, all carrying the same provider-agnostic payload
+    (FR-018):
+
+    ``FLAG``
+        Pass ``--mcp-config <project>/.scistudio/mcp.json``. SciStudio owns
+        that file, so it is rewritten wholesale each launch and a renamed
+        project picks up the new path automatically.
+    ``CODEX_OVERRIDES``
+        Codex has no ``--mcp-config``; it walks project-scope and user-scope
+        ``config.toml``. The embedded chat owns the spawn, so it passes the
+        current entry explicitly via ``-c`` overrides rather than trusting
+        discovery to find a non-stale file.
+    ``PROJECT_FILE``
+        Write the entry into the provider's own project-scope discovery
+        location before the process starts (FR-017), merge-preserving because
+        the file is provider-owned.
+    """
+    strategy = descriptor.mcp.strategy
+    if strategy is McpStrategy.FLAG:
+        flag = descriptor.mcp.flag
+        if not flag:  # pragma: no cover - guarded by registry completeness tests
+            raise ValueError(f"provider {descriptor.key!r} declares an MCP flag strategy with no flag")
+        return [flag, str(_ensure_mcp_config(project_dir))]
+    if strategy is McpStrategy.CODEX_OVERRIDES:
+        return _codex_mcp_config_overrides(project_dir)
+    if strategy is McpStrategy.PROJECT_FILE:
+        _merge_provider_mcp_config(descriptor, project_dir)
+        return []
+    return []
+
+
+# There is deliberately no ``spawn_provider(key, …)`` convenience wrapper: it
+# would only re-forward every keyword argument, which is byte-for-byte the
+# duplication this change exists to remove. A caller holding a provider key
+# builds its own spawner map straight off the registry, e.g.
+#
+#     {d.key: (spawn_user_terminal if d.kind is ProviderKind.TERMINAL
+#              else functools.partial(spawn_agent, d)) for d in REGISTRY}
+#
+# which stays registry-derived and needs no edit for a sixth provider (FR-006).
 
 
 def spawn_user_terminal(
@@ -742,8 +991,8 @@ def _codex_mcp_config_overrides(project_dir: Path) -> list[str]:
     Codex project-scope config loading has changed across 2026 CLI builds,
     and stale user-scope config can point at the wrong Python interpreter.
     The embedded SciStudio chat owns the process spawn, so pass the current
-    project MCP entry explicitly just like ``spawn_claude`` passes
-    ``--mcp-config``.
+    project MCP entry explicitly, just as the :attr:`McpStrategy.FLAG`
+    providers pass ``--mcp-config``.
     """
     from scistudio.cli.install import MCP_SERVER_NAME, _mcp_entry_payload
 

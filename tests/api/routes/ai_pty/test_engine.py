@@ -4,7 +4,8 @@ Focused on the small surface of ``_engine`` that the larger
 test_ai_pty_engine_spawn.py integration tests do not cover with a
 single, easily-traceable assertion:
 
-* ``_provider_from_argv`` provider-detection edge cases.
+* Explicit-provider validation against the registry (ADR-034 FR-010,
+  FR-011) — the module no longer infers a provider from argv.
 * Late-bound ``MAX_ACTIVE_PTYS`` / ``_spawn`` lookup on the package
   (so the existing monkeypatch contract survives the refactor).
 * ``get_run_dir_for_block_run`` / ``get_block_run_id_for_tab`` lookup
@@ -17,8 +18,9 @@ from pathlib import Path
 
 import pytest
 
+from scistudio.ai.agent.providers_registry import agent_keys
 from scistudio.api.routes import ai_pty
-from scistudio.api.routes.ai_pty.engine import _provider_from_argv
+from scistudio.api.routes.ai_pty import engine as engine_module
 
 
 @pytest.fixture(autouse=True)
@@ -33,23 +35,42 @@ def _reset_engine_state() -> None:
     ai_pty._engine_run_to_run_dir.clear()
 
 
-def test_provider_from_argv_picks_codex_when_named() -> None:
-    """``codex`` binary anywhere in argv[0] selects the codex provider."""
-    assert _provider_from_argv(["codex"]) == "codex"
-    assert _provider_from_argv(["/usr/local/bin/codex"]) == "codex"
-    assert _provider_from_argv([r"C:\Program Files\codex.exe"]) == "codex"
+def test_provider_from_argv_is_gone() -> None:
+    """FR-011: no code path may infer a provider from an argv basename."""
+    assert not hasattr(engine_module, "_provider_from_argv")
 
 
-def test_provider_from_argv_defaults_to_claude_code() -> None:
-    """Non-codex argv[0] defaults to the claude-code provider."""
-    assert _provider_from_argv(["claude"]) == "claude-code"
-    assert _provider_from_argv(["/usr/local/bin/claude"]) == "claude-code"
+def test_open_engine_initiated_tab_rejects_unknown_provider(tmp_path: Path) -> None:
+    """FR-010: an unknown key errors instead of defaulting to claude-code.
+
+    The deleted ``_provider_from_argv`` returned ``claude-code`` for
+    anything it did not recognise, so a typo spawned the wrong agent
+    silently. The rejection enumerates the registry-derived accepted set.
+    """
+    with pytest.raises(RuntimeError, match="unknown provider") as excinfo:
+        ai_pty.open_engine_initiated_tab(
+            title="t",
+            provider="claude",  # binary name, not a provider key
+            cwd=str(tmp_path),
+            initial_stdin="",
+            block_run_id="rid-unknown",
+            permission_mode="safe",
+        )
+    for key in agent_keys():
+        assert key in str(excinfo.value)
 
 
-def test_provider_from_argv_rejects_empty_argv() -> None:
-    """Empty argv is a programming error — fail loudly."""
-    with pytest.raises(RuntimeError, match="spawn_argv is empty"):
-        _provider_from_argv([])
+def test_open_engine_initiated_tab_rejects_empty_provider(tmp_path: Path) -> None:
+    """An absent provider on the IPC wire is an error, not a default."""
+    with pytest.raises(RuntimeError, match="unknown provider"):
+        ai_pty.open_engine_initiated_tab(
+            title="t",
+            provider="",
+            cwd=str(tmp_path),
+            initial_stdin="",
+            block_run_id="rid-empty",
+            permission_mode="safe",
+        )
 
 
 def test_open_engine_initiated_tab_rejects_invalid_permission_mode(tmp_path: Path) -> None:
@@ -57,7 +78,7 @@ def test_open_engine_initiated_tab_rejects_invalid_permission_mode(tmp_path: Pat
     with pytest.raises(RuntimeError, match="permission_mode must be"):
         ai_pty.open_engine_initiated_tab(
             title="t",
-            spawn_argv=["claude"],
+            provider="claude-code",
             cwd=str(tmp_path),
             initial_stdin="",
             block_run_id="rid-perm",
@@ -70,7 +91,7 @@ def test_open_engine_initiated_tab_rejects_relative_cwd() -> None:
     with pytest.raises(RuntimeError, match="cwd must be an existing"):
         ai_pty.open_engine_initiated_tab(
             title="t",
-            spawn_argv=["claude"],
+            provider="claude-code",
             cwd="relative/path",  # not absolute
             initial_stdin="",
             block_run_id="rid-cwd",
@@ -92,7 +113,7 @@ def test_open_engine_initiated_tab_honours_monkeypatched_cap(
     with pytest.raises(RuntimeError, match="PTY cap"):
         ai_pty.open_engine_initiated_tab(
             title="t",
-            spawn_argv=["claude"],
+            provider="claude-code",
             cwd=str(tmp_path),
             initial_stdin="",
             block_run_id="rid-cap",

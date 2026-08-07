@@ -1,13 +1,34 @@
+"""ADR-034 provider binary discovery tests (issue #1994, spec T-002).
+
+Two families:
+
+* **PATH resolution** — the original ``.cmd``-over-bare-npm-wrapper behaviour
+  that pywinpty's CreateProcess spawn path depends on.
+* **Off-PATH discovery** — Kimi Code and both Qoder channels are absent from
+  PATH on every platform, so they are found only in registry-declared
+  well-known directories (FR-004, FR-005). Every one of those tests drives a
+  **fake home**, so results never depend on which CLIs happen to be installed
+  on the machine running the suite.
+
+The off-PATH tests run under both simulated platforms. The well-known-directory
+scan is deliberately not Windows-only: Kimi and Qoder are off PATH everywhere,
+and FR-005 requires the chat path and the AI Block path to agree on every OS.
+"""
+
 from __future__ import annotations
 
 import json
-import subprocess
+import shutil
 import sys
+from functools import partial
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
+import pytest
+
+from scistudio.ai.agent import providers_registry as registry
 from scistudio.ai.agent import terminal
-from scistudio.api.routes import ai as ai_route
+from scistudio.ai.agent.providers_registry import ProviderKind, resolve_binary
 from scistudio.desktop import paths as desktop_paths
 
 
@@ -21,235 +42,322 @@ def _npm_shim_which(name: str) -> str | None:
     return shims.get(name.lower())
 
 
+def _nothing_on_path(_name: str) -> str | None:
+    """``which`` stub for a machine where the CLI is not on PATH at all."""
+    return None
+
+
+@pytest.fixture(params=["win32", "linux"])
+def platform(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> str:
+    """Run a test body once per simulated platform."""
+    monkeypatch.setattr(sys, "platform", request.param)
+    return str(request.param)
+
+
+def _install_binary(directory: Path, name: str, platform: str) -> Path:
+    """Create a fake installed CLI at ``directory/<name>[.exe]``."""
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / (f"{name}.exe" if platform == "win32" else name)
+    path.write_text("", encoding="utf-8")
+    return path
+
+
+# ---------------------------------------------------------------------------
+# PATH resolution
+# ---------------------------------------------------------------------------
+
+
 def test_resolve_windows_executable_prefers_cmd_over_bare_npm_wrapper(monkeypatch: Any) -> None:
-    monkeypatch.setattr(terminal.sys, "platform", "win32")
-    monkeypatch.setattr(terminal.shutil, "which", _npm_shim_which)
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(shutil, "which", _npm_shim_which)
 
     assert terminal.resolve_windows_executable("codex") == "C:/Users/dev/AppData/Roaming/npm/codex.cmd"
 
 
 def test_resolve_windows_executable_preserves_non_windows_which(monkeypatch: Any) -> None:
-    monkeypatch.setattr(terminal.sys, "platform", "linux")
-    monkeypatch.setattr(terminal.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(shutil, "which", lambda name: f"/usr/bin/{name}")
 
     assert terminal.resolve_windows_executable("codex") == "/usr/bin/codex"
 
 
-def test_binary_status_uses_cmd_when_windows_which_finds_bare_wrapper(monkeypatch: Any) -> None:
-    calls: list[list[str]] = []
+def test_path_hit_wins_over_a_well_known_directory_copy(tmp_path: Path, platform: str) -> None:
+    """A CLI genuinely on PATH is what the user's shell would run."""
+    fake_home = tmp_path / "home"
+    _install_binary(fake_home / ".local" / "bin", "claude", platform)
+    on_path = "C:/tools/claude.cmd" if platform == "win32" else "/usr/bin/claude"
 
-    def fake_run(argv: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
-        calls.append(argv)
-        return subprocess.CompletedProcess(argv, 0, stdout="codex 0.1.0\n", stderr="")
-
-    monkeypatch.setattr(terminal.sys, "platform", "win32")
-    monkeypatch.setattr(terminal.shutil, "which", _npm_shim_which)
-    monkeypatch.setattr(ai_route.subprocess, "run", fake_run)
-
-    assert ai_route._binary_status("codex") == (
-        "C:/Users/dev/AppData/Roaming/npm/codex.cmd",
-        True,
-        "codex 0.1.0",
+    resolved = resolve_binary(
+        registry.get("claude-code"),
+        which=lambda name: on_path if name in {"claude", "claude.cmd"} else None,
+        home=fake_home,
+        env={},
     )
-    assert calls == [["C:/Users/dev/AppData/Roaming/npm/codex.cmd", "--version"]]
+    assert resolved == Path(on_path)
 
 
-def test_spawn_codex_uses_cmd_when_windows_which_finds_bare_wrapper(
+# ---------------------------------------------------------------------------
+# FR-004 / FR-005: off-PATH discovery in a fake home
+# ---------------------------------------------------------------------------
+
+
+def test_off_path_discovery_finds_kimi_and_both_qoder_channels(tmp_path: Path, platform: str) -> None:
+    """None of the three new CLIs is on PATH; all must still be discovered."""
+    fake_home = tmp_path / "home"
+    kimi = _install_binary(fake_home / ".kimi-code" / "bin", "kimi", platform)
+    qoder = _install_binary(fake_home / ".qoder" / "bin" / "qodercli", "qodercli", platform)
+    qoder_cn = _install_binary(fake_home / ".qoder-cn" / "bin" / "qoderclicn", "qoderclicn", platform)
+
+    def resolve(key: str) -> Path | None:
+        return resolve_binary(registry.get(key), which=_nothing_on_path, home=fake_home, env={})
+
+    assert resolve("kimi-code") == kimi
+    assert resolve("qoder") == qoder
+    assert resolve("qoder-cn") == qoder_cn
+
+
+def test_absent_provider_resolves_to_none(tmp_path: Path, platform: str) -> None:
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    for key in registry.agent_keys():
+        assert resolve_binary(registry.get(key), which=_nothing_on_path, home=fake_home, env={}) is None
+
+
+def test_kimi_discovery_honours_kimi_code_home(tmp_path: Path, platform: str) -> None:
+    """Kimi's own docs instruct callers never to assume ``~/.kimi-code``."""
+    fake_home = tmp_path / "home"
+    override_root = tmp_path / "opt" / "kimi-code"
+    installed = _install_binary(override_root / "bin", "kimi", platform)
+    # A decoy at the default location proves the override is actually read.
+    decoy = _install_binary(fake_home / ".kimi-code" / "bin", "kimi", platform)
+
+    resolved = resolve_binary(
+        registry.get("kimi-code"),
+        which=_nothing_on_path,
+        home=fake_home,
+        env={"KIMI_CODE_HOME": str(override_root)},
+    )
+    assert resolved == installed
+    assert resolved != decoy
+
+
+# ---------------------------------------------------------------------------
+# FR-027: sidecar rejection
+# ---------------------------------------------------------------------------
+
+
+def test_qoder_security_scan_sidecar_is_not_discovered_off_path(tmp_path: Path, platform: str) -> None:
+    """``~/.qodersec/bin/qodercli.exe`` is the scanner's pinned internal copy.
+
+    It is stale relative to the real install and unauthenticated. This covers
+    the *discovery* half: matching exact names inside registered directories,
+    with no globbing under the home directory, means the sidecar is never
+    found. Its companion below covers the case this rule does not reach.
+    """
+    fake_home = tmp_path / "home"
+    sidecar = _install_binary(fake_home / ".qodersec" / "bin", "qodercli", platform)
+    _install_binary(fake_home / ".qodersec" / "bin", "qodersec", platform)
+    assert sidecar.is_file()
+
+    for key in ("qoder", "qoder-cn"):
+        resolved = resolve_binary(registry.get(key), which=_nothing_on_path, home=fake_home, env={})
+        assert resolved is None, f"{key} resolved to the security-scan sidecar: {resolved}"
+
+
+def test_qoder_security_scan_sidecar_is_rejected_even_when_it_is_on_path(
+    tmp_path: Path,
+    platform: str,
+) -> None:
+    """FR-027 is unconditional, and PATH is where the previous rule ran out.
+
+    The no-globbing rule constrains only the well-known-directory scan.
+    ``which`` searches whatever the user put on PATH, so a user with
+    ``~/.qodersec/bin`` on PATH was handed the scanner's stale, unauthenticated
+    copy — and the sibling test above could never catch it, because it drives
+    ``which`` to return ``None``. FR-027 and its acceptance scenario carve out
+    no on-PATH case, so the descriptor excludes the subtree outright.
+    """
+    fake_home = tmp_path / "home"
+    sidecar_dir = fake_home / ".qodersec" / "bin"
+    sidecar = _install_binary(sidecar_dir, "qodercli", platform)
+    _install_binary(sidecar_dir, "qoderclicn", platform)
+    # No real Qoder install anywhere: the sidecar is the only candidate.
+
+    def sidecar_on_path(name: str) -> str | None:
+        candidate = sidecar_dir / name
+        return str(candidate) if candidate.is_file() else None
+
+    assert sidecar_on_path(sidecar.name) is not None, "the probe must really put the sidecar on PATH"
+
+    for key in ("qoder", "qoder-cn"):
+        resolved = resolve_binary(registry.get(key), which=sidecar_on_path, home=fake_home, env={})
+        assert resolved is None, f"{key} resolved to the on-PATH security-scan sidecar: {resolved}"
+
+
+def test_an_excluded_subtree_is_rejected_at_any_depth(tmp_path: Path, platform: str) -> None:
+    """The exclusion names ``~/.qodersec``, not every directory beneath it."""
+    fake_home = tmp_path / "home"
+    nested = fake_home / ".qodersec" / "vendor" / "1.1.12" / "bin"
+    _install_binary(nested, "qodercli", platform)
+
+    resolved = resolve_binary(
+        registry.get("qoder"),
+        which=lambda name: str(nested / name) if (nested / name).is_file() else None,
+        home=fake_home,
+        env={},
+    )
+    assert resolved is None
+
+
+def test_sidecar_directory_is_excluded_data_not_a_registered_well_known_dir() -> None:
+    """Guards the data, not just the behaviour.
+
+    Two halves, and the second is what stops the exclusion silently lapsing:
+    no descriptor may *register* the sidecar directory, and both Qoder channels
+    must actually *exclude* it.
+    """
+    for descriptor in registry.REGISTRY:
+        for segments in descriptor.well_known_dirs:
+            assert ".qodersec" not in segments
+
+    for key in ("qoder", "qoder-cn"):
+        assert (".qodersec",) in registry.get(key).excluded_dirs, f"{key} stopped excluding the sidecar subtree"
+
+
+# ---------------------------------------------------------------------------
+# FR-026: channel isolation
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("installed", "missing", "binary", "install_dir"),
+    [
+        ("qoder", "qoder-cn", "qodercli", (".qoder", "bin", "qodercli")),
+        ("qoder-cn", "qoder", "qoderclicn", (".qoder-cn", "bin", "qoderclicn")),
+    ],
+)
+def test_a_missing_qoder_channel_never_resolves_to_its_sibling(
+    tmp_path: Path,
+    platform: str,
+    installed: str,
+    missing: str,
+    binary: str,
+    install_dir: tuple[str, ...],
+) -> None:
+    fake_home = tmp_path / "home"
+    installed_path = _install_binary(fake_home.joinpath(*install_dir), binary, platform)
+
+    assert resolve_binary(registry.get(installed), which=_nothing_on_path, home=fake_home, env={}) == installed_path
+    assert resolve_binary(registry.get(missing), which=_nothing_on_path, home=fake_home, env={}) is None
+
+
+def test_channels_resolve_independently_when_both_are_installed(tmp_path: Path, platform: str) -> None:
+    fake_home = tmp_path / "home"
+    intl = _install_binary(fake_home / ".qoder" / "bin" / "qodercli", "qodercli", platform)
+    china = _install_binary(fake_home / ".qoder-cn" / "bin" / "qoderclicn", "qoderclicn", platform)
+
+    assert resolve_binary(registry.get("qoder"), which=_nothing_on_path, home=fake_home, env={}) == intl
+    assert resolve_binary(registry.get("qoder-cn"), which=_nothing_on_path, home=fake_home, env={}) == china
+    assert intl != china
+
+
+# ---------------------------------------------------------------------------
+# Spawn-side binary resolution
+# ---------------------------------------------------------------------------
+
+
+class _FakePtyProcess:
+    def __init__(self, argv: list[str], *args: Any, **kwargs: Any) -> None:
+        _FakePtyProcess.spawned = {"argv": argv, "args": args, "kwargs": kwargs}
+
+    spawned: ClassVar[dict[str, Any]] = {}
+
+
+def test_spawn_agent_uses_cmd_when_windows_which_finds_bare_wrapper(
     monkeypatch: Any,
     tmp_path: Path,
 ) -> None:
-    spawned: dict[str, Any] = {}
-
-    class FakePtyProcess:
-        def __init__(self, argv: list[str], *args: Any, **kwargs: Any) -> None:
-            spawned["argv"] = argv
-            spawned["args"] = args
-            spawned["kwargs"] = kwargs
-
-    monkeypatch.setattr(terminal.sys, "platform", "win32")
-    monkeypatch.setattr(terminal.shutil, "which", _npm_shim_which)
-    monkeypatch.setattr(terminal, "PtyProcess", FakePtyProcess)
+    """The pywinpty CreateProcess path cannot execute the bare npm wrapper."""
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(shutil, "which", _npm_shim_which)
+    monkeypatch.setattr(terminal, "PtyProcess", _FakePtyProcess)
     monkeypatch.setattr(
         terminal,
         "_codex_mcp_config_overrides",
         lambda project_dir: [
             "-c",
             f"mcp_servers.scistudio.command={json.dumps(sys.executable)}",
-            "-c",
-            'mcp_servers.scistudio.args=["-m", "scistudio", "mcp-bridge"]',
-            "-c",
-            f"mcp_servers.scistudio.env={{SCISTUDIO_PROJECT_DIR={json.dumps(str(project_dir))}}}",
         ],
     )
 
-    terminal.spawn_codex(project_dir=tmp_path, dangerous=True)
+    terminal.spawn_agent(registry.get("codex"), project_dir=tmp_path, dangerous=True)
 
-    argv = spawned["argv"]
-    assert argv[0] == "C:/Users/dev/AppData/Roaming/npm/codex.cmd"
+    argv = _FakePtyProcess.spawned["argv"]
+    # ``resolve_binary`` returns a ``Path`` (frozen registry contract), so the
+    # spawned argv carries the platform-native separator spelling.
+    assert argv[0] == str(Path("C:/Users/dev/AppData/Roaming/npm/codex.cmd"))
     assert "--dangerously-bypass-approvals-and-sandbox" in argv
-    assert any(arg.startswith("mcp_servers.scistudio.command=") for arg in argv)
-    assert any(arg == 'mcp_servers.scistudio.args=["-m", "scistudio", "mcp-bridge"]' for arg in argv)
-    assert any(arg.startswith("mcp_servers.scistudio.env={SCISTUDIO_PROJECT_DIR=") for arg in argv)
 
 
-def test_spawn_claude_uses_cmd_when_windows_which_finds_bare_wrapper(
-    monkeypatch: Any,
-    tmp_path: Path,
-) -> None:
-    spawned: dict[str, Any] = {}
-    prompt_path = tmp_path / "prompt.md"
-    mcp_config = tmp_path / ".scistudio" / "mcp.json"
+def test_spawn_agent_falls_back_to_the_bare_binary_name(monkeypatch: Any, tmp_path: Path) -> None:
+    """An unresolved binary must fail inside the PTY the user opened.
 
-    class FakePtyProcess:
-        def __init__(self, argv: list[str], *args: Any, **kwargs: Any) -> None:
-            spawned["argv"] = argv
-            spawned["args"] = args
-            spawned["kwargs"] = kwargs
-
-    monkeypatch.setattr(terminal.sys, "platform", "win32")
-    monkeypatch.setattr(terminal.shutil, "which", _npm_shim_which)
-    monkeypatch.setattr(terminal, "PtyProcess", FakePtyProcess)
-    monkeypatch.setattr(terminal, "_write_system_prompt_tempfile", lambda project_dir: prompt_path)
-    monkeypatch.setattr(terminal, "_ensure_mcp_config", lambda project_dir: mcp_config)
-
-    terminal.spawn_claude(project_dir=tmp_path, dangerous=False)
-
-    assert spawned["argv"] == [
-        "C:/Users/dev/AppData/Roaming/npm/claude.cmd",
-        "--append-system-prompt",
-        f"@{prompt_path}",
-        "--mcp-config",
-        str(mcp_config),
-    ]
-
-
-def test_spawn_argv_seam_bypasses_windows_resolution(monkeypatch: Any, tmp_path: Path) -> None:
-    spawned: dict[str, Any] = {}
-
-    class FakePtyProcess:
-        def __init__(self, argv: list[str], *args: Any, **kwargs: Any) -> None:
-            spawned["argv"] = argv
-            spawned["args"] = args
-            spawned["kwargs"] = kwargs
-
-    monkeypatch.setattr(terminal.sys, "platform", "win32")
-    monkeypatch.setattr(terminal.shutil, "which", _npm_shim_which)
-    monkeypatch.setattr(terminal, "PtyProcess", FakePtyProcess)
-
-    terminal.spawn_codex(project_dir=tmp_path, dangerous=True, _spawn_argv=[sys.executable, "-c", "pass"])
-
-    assert spawned["argv"] == [sys.executable, "-c", "pass"]
-
-
-def test_spawn_codex_injects_project_mcp_config_overrides(monkeypatch: Any, tmp_path: Path) -> None:
-    """Embedded Codex tabs must not depend on project/global config discovery."""
-    spawned: dict[str, Any] = {}
-
-    class FakePtyProcess:
-        def __init__(self, argv: list[str], *args: Any, **kwargs: Any) -> None:
-            spawned["argv"] = argv
-            spawned["args"] = args
-            spawned["kwargs"] = kwargs
-
-    monkeypatch.setattr(terminal, "PtyProcess", FakePtyProcess)
-    monkeypatch.setattr(terminal, "resolve_windows_executable", lambda name: name)
-
-    terminal.spawn_codex(project_dir=tmp_path, dangerous=False)
-
-    argv = spawned["argv"]
-    # command + args overrides are exact.
-    assert argv[:6] == [
-        "codex",
-        "-c",
-        f"mcp_servers.scistudio.command={json.dumps(sys.executable)}",
-        "-c",
-        'mcp_servers.scistudio.args=["-m", "scistudio", "mcp-bridge"]',
-        "-c",
-    ]
-    # The env override pins the project dir and also injects PYTHONPATH (#1889)
-    # so codex's stripped launch environment can still import scistudio.
-    env_override = argv[6]
-    assert env_override.startswith("mcp_servers.scistudio.env={")
-    assert f"SCISTUDIO_PROJECT_DIR={json.dumps(str(tmp_path))}" in env_override
-    assert "PYTHONPATH=" in env_override
-
-
-def test_spawn_claude_appends_prompt_after_dashdash(monkeypatch: Any, tmp_path: Path) -> None:
-    """#1789: the prompt is the agent's positional arg, separated by ``--``.
-
-    ``--mcp-config`` is variadic, so without the ``--`` end-of-options separator
-    claude swallows the trailing prompt as another MCP config path and exits
-    ("Invalid MCP configuration"). The ``--`` must therefore sit *after* the
-    ``--mcp-config`` value and immediately before the prompt.
+    Raising out of the spawn call instead would replace the OS's own
+    "not found" message with a stack trace in the server log.
     """
-    spawned: dict[str, Any] = {}
-    prompt_path = tmp_path / "prompt.md"
-    mcp_config = tmp_path / ".scistudio" / "mcp.json"
+    monkeypatch.setattr(terminal, "PtyProcess", _FakePtyProcess)
+    monkeypatch.setattr(terminal, "resolve_binary", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(terminal, "_merge_provider_mcp_config", lambda descriptor, project_dir: None)
 
-    class FakePtyProcess:
-        def __init__(self, argv: list[str], *args: Any, **kwargs: Any) -> None:
-            spawned["argv"] = argv
+    terminal.spawn_agent(registry.get("kimi-code"), project_dir=tmp_path, dangerous=False)
 
-    monkeypatch.setattr(terminal, "PtyProcess", FakePtyProcess)
-    monkeypatch.setattr(terminal, "resolve_windows_executable", lambda name: name)
-    monkeypatch.setattr(terminal, "_write_system_prompt_tempfile", lambda project_dir: prompt_path)
-    monkeypatch.setattr(terminal, "_ensure_mcp_config", lambda project_dir: mcp_config)
-
-    terminal.spawn_claude(project_dir=tmp_path, dangerous=False, prompt="do the task")
-
-    argv = spawned["argv"]
-    assert argv[-2:] == ["--", "do the task"]
-    # The separator must come after --mcp-config's value, not before it.
-    assert argv.index("--mcp-config") < argv.index("--")
+    assert _FakePtyProcess.spawned["argv"][0] == "kimi"
 
 
-def test_spawn_codex_appends_prompt_after_dashdash(monkeypatch: Any, tmp_path: Path) -> None:
-    """#1789: codex receives the prompt as its positional arg, after ``--``."""
-    spawned: dict[str, Any] = {}
+def test_spawn_argv_seam_bypasses_binary_resolution(monkeypatch: Any, tmp_path: Path) -> None:
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(shutil, "which", _npm_shim_which)
+    monkeypatch.setattr(terminal, "PtyProcess", _FakePtyProcess)
 
-    class FakePtyProcess:
-        def __init__(self, argv: list[str], *args: Any, **kwargs: Any) -> None:
-            spawned["argv"] = argv
+    terminal.spawn_agent(
+        registry.get("codex"),
+        project_dir=tmp_path,
+        dangerous=True,
+        _spawn_argv=[sys.executable, "-c", "pass"],
+    )
 
-    monkeypatch.setattr(terminal, "PtyProcess", FakePtyProcess)
-    monkeypatch.setattr(terminal, "resolve_windows_executable", lambda name: name)
-    monkeypatch.setattr(terminal, "_codex_mcp_config_overrides", lambda project_dir: [])
-
-    terminal.spawn_codex(project_dir=tmp_path, dangerous=False, prompt="do the task")
-
-    assert spawned["argv"][-2:] == ["--", "do the task"]
+    assert _FakePtyProcess.spawned["argv"] == [sys.executable, "-c", "pass"]
 
 
-def test_spawn_claude_omits_prompt_separator_when_no_prompt(monkeypatch: Any, tmp_path: Path) -> None:
-    """No prompt (e.g. a hand-launched tab) means no trailing ``--``."""
-    spawned: dict[str, Any] = {}
-    prompt_path = tmp_path / "prompt.md"
-    mcp_config = tmp_path / ".scistudio" / "mcp.json"
+def test_a_registry_derived_spawner_map_covers_every_provider(monkeypatch: Any, tmp_path: Path) -> None:
+    """FR-006: the spawner map is built off the registry, not hand-maintained.
 
-    class FakePtyProcess:
-        def __init__(self, argv: list[str], *args: Any, **kwargs: Any) -> None:
-            spawned["argv"] = argv
+    This is the shape ``_PROVIDER_SPAWNERS`` takes: dispatch on descriptor
+    *kind*, never on a provider key, so a sixth agent CLI needs no edit here.
+    """
+    monkeypatch.setattr(terminal, "PtyProcess", _FakePtyProcess)
+    monkeypatch.setattr(terminal, "_user_shell_argv", lambda: ["shell"])
+    monkeypatch.setattr(terminal, "resolve_binary", lambda desc, **_k: Path(desc.binary_candidates[0]))
 
-    monkeypatch.setattr(terminal, "PtyProcess", FakePtyProcess)
-    monkeypatch.setattr(terminal, "resolve_windows_executable", lambda name: name)
-    monkeypatch.setattr(terminal, "_write_system_prompt_tempfile", lambda project_dir: prompt_path)
-    monkeypatch.setattr(terminal, "_ensure_mcp_config", lambda project_dir: mcp_config)
+    spawners = {
+        descriptor.key: (
+            terminal.spawn_user_terminal
+            if descriptor.kind is ProviderKind.TERMINAL
+            else partial(terminal.spawn_agent, descriptor)
+        )
+        for descriptor in registry.REGISTRY
+    }
+    assert set(spawners) == set(registry.provider_keys())
 
-    terminal.spawn_claude(project_dir=tmp_path, dangerous=False)
+    spawners["user-terminal"](project_dir=tmp_path, dangerous=False)
+    assert _FakePtyProcess.spawned["argv"][0] == "shell"
 
-    assert "--" not in spawned["argv"]
+    spawners["qoder-cn"](project_dir=tmp_path, dangerous=False)
+    assert _FakePtyProcess.spawned["argv"][0] == "qoderclicn"
 
 
 def test_spawn_user_terminal_uses_user_dependency_env(monkeypatch: Any, tmp_path: Path) -> None:
-    spawned: dict[str, Any] = {}
-
-    class FakePtyProcess:
-        def __init__(self, argv: list[str], *args: Any, **kwargs: Any) -> None:
-            spawned["argv"] = argv
-            spawned["args"] = args
-            spawned["kwargs"] = kwargs
-
-    monkeypatch.setattr(terminal, "PtyProcess", FakePtyProcess)
+    monkeypatch.setattr(terminal, "PtyProcess", _FakePtyProcess)
     monkeypatch.setattr(terminal, "_user_shell_argv", lambda: ["shell"])
     monkeypatch.setattr(
         desktop_paths,
@@ -262,7 +370,58 @@ def test_spawn_user_terminal_uses_user_dependency_env(monkeypatch: Any, tmp_path
 
     terminal.spawn_user_terminal(project_dir=tmp_path, dangerous=False, extra_env={"EXTRA": "1"})
 
+    spawned = _FakePtyProcess.spawned
     assert spawned["argv"] == ["shell"]
     assert spawned["kwargs"]["extra_env"]["SCISTUDIO_PYTHON"] == sys.executable
     assert spawned["kwargs"]["extra_env"]["SCISTUDIO_USER_PYTHON_SITE"] == str(tmp_path / "deps")
     assert spawned["kwargs"]["extra_env"]["EXTRA"] == "1"
+
+
+# ---------------------------------------------------------------------------
+# Each descriptor spawns its own binary and no other's
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("descriptor", registry.agent_descriptors(), ids=lambda d: d.key)
+def test_spawn_agent_uses_only_its_own_descriptors_binary(
+    monkeypatch: Any,
+    tmp_path: Path,
+    descriptor: Any,
+) -> None:
+    """argv[0] is the descriptor's own declared binary, and no sibling's appears.
+
+    This replaces ``test_legacy_spawn_aliases_are_registry_lookups``, which
+    parametrised over the ``spawn_claude`` / ``spawn_codex`` shims deleted in
+    #1994 once A2's ``_PROVIDER_SPAWNERS`` became registry-derived. That test
+    asserted two things. The first — that a second, independently written call
+    path produced argv byte-identical to ``spawn_agent`` — was a property *of
+    the shims*: with no second call path left there is nothing to compare, so
+    it is not coverage that moved elsewhere, it is coverage of code that no
+    longer exists. The second — that a descriptor's declared binary reaches
+    argv[0] — is real provider-agnostic behaviour and is preserved here, and
+    widened from the two ex-alias providers to every agent in the registry, so
+    a sixth provider is covered the moment it is added.
+
+    The stub resolver deliberately returns ``binary_candidates[0]`` rather than
+    a fabricated path, keeping the original test's link between descriptor data
+    and spawned argv. The "no sibling binary" half is the argv-level companion
+    to :func:`test_a_missing_qoder_channel_never_resolves_to_its_sibling`: FR-026
+    is about resolution, this is about what actually gets executed.
+    """
+    monkeypatch.setattr(terminal, "PtyProcess", _FakePtyProcess)
+    monkeypatch.setattr(terminal, "resolve_binary", lambda desc, **_k: Path(desc.binary_candidates[0]))
+    monkeypatch.setattr(terminal, "_write_system_prompt_tempfile", lambda pd: pd / "prompt.md")
+
+    terminal.spawn_agent(descriptor, project_dir=tmp_path, dangerous=True)
+    argv = _FakePtyProcess.spawned["argv"]
+
+    assert argv[0] == descriptor.binary_candidates[0]
+
+    foreign_binaries = {
+        name
+        for other in registry.agent_descriptors()
+        if other.key != descriptor.key
+        for name in other.binary_candidates
+    } - set(descriptor.binary_candidates)
+    assert foreign_binaries, "the test would be vacuous if every provider shared a binary name"
+    assert not foreign_binaries & set(argv), f"{descriptor.key} argv names another provider's binary"

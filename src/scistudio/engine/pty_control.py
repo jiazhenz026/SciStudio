@@ -5,7 +5,7 @@ ADR-035 §3.10 introduces two control events that flow from the AI Block
 ``scistudio.engine.runners.worker``) **back to the engine process**:
 
   1. :func:`request_pty_tab` — worker asks the engine to open a new
-     PTY tab with a specific spawn argv. Engine allocates the tab,
+     PTY tab for a named provider. Engine allocates the tab,
      emits ``block_pty_opened`` over the workflow WS, returns ``tab_id``.
   2. :func:`notify_block_pty_event` — worker tells the engine that a
      completion / cancellation event happened so the engine can update
@@ -71,15 +71,23 @@ logger = logging.getLogger(__name__)
 class PtyTabSpec:
     """Spec for the PTY tab the engine should allocate (ADR-035 §3.10).
 
-    Mirrors the existing ADR-034 spawn-argv shape — see
-    ``scistudio.ai.agent.terminal.spawn_claude/spawn_codex``.
+    ADR-034 multi-provider (FR-010): the spec carries the **provider key**
+    explicitly. It previously carried a fully composed ``spawn_argv`` that
+    the engine used only to guess the provider from ``argv[0]``; every
+    other element was discarded because the engine's spawn factories
+    re-derive their own argv. Carrying the key removes that guess (FR-011)
+    and, with it, the worker-side argv composition whose system-prompt
+    temp file nothing ever deleted (FR-013).
 
     Attributes
     ----------
     title
         Tab title shown in the AIChat panel header (e.g. ``"🤖 extract_metadata"``).
-    spawn_argv
-        Full argv list. Built by :meth:`AIBlock._build_spawn_argv`.
+    provider
+        Registry provider key the engine must spawn — one of
+        ``scistudio.ai.agent.providers_registry.agent_keys()``. The engine
+        does not infer it from anything else, and no layer substitutes a
+        default for it.
     cwd
         Project directory; the agent runs with this as its cwd. No
         ``--add-dir`` restriction — full filesystem reach per ADR-035 §3.7.
@@ -90,8 +98,9 @@ class PtyTabSpec:
         Opaque ID linking this tab back to the AI Block run for lineage
         and for routing completion events back to the right worker.
     permission_mode
-        ``"safe"`` or ``"bypass"``. Already encoded in ``spawn_argv``;
-        kept here for the engine to label the tab UI badge.
+        ``"safe"`` or ``"bypass"``. The engine's descriptor-driven spawn
+        translates this into the provider's own bypass flag spelling, and
+        labels the tab UI badge with it.
     run_dir_path
         Absolute path to the AI Block run dir under
         ``{project}/.scistudio/ai-block-runs/{run_id}/``. Optional for
@@ -103,7 +112,7 @@ class PtyTabSpec:
     """
 
     title: str
-    spawn_argv: list[str]
+    provider: str
     cwd: str
     initial_stdin: str
     block_run_id: str
@@ -147,7 +156,7 @@ def get_in_process_handler() -> Callable[[dict[str, Any]], dict[str, Any]] | Non
 
 
 _DEFAULT_REQUEST_TIMEOUT_S = 30.0
-"""Spawn timeout — claude/codex startup can take several seconds."""
+"""Spawn timeout — agent CLI startup can take several seconds."""
 
 _DEFAULT_NOTIFY_TIMEOUT_S = 5.0
 """Notify is fire-and-forget but we still cap the connect timeout."""

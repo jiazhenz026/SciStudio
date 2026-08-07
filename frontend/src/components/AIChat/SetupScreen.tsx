@@ -8,17 +8,18 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useAppStore } from "../../store";
+import { NoProvidersNotice } from "./SetupScreen.parts/NoProvidersNotice";
 import { PermissionModePicker } from "./SetupScreen.parts/PermissionModePicker";
 import { ProviderPicker } from "./SetupScreen.parts/ProviderPicker";
 import type {
   AiStatusResponse,
   PermissionMode,
-  ProviderName,
   ProviderStatus,
+  TerminalProvider,
 } from "./SetupScreen.parts/types";
 
 export interface SetupLaunchConfig {
-  provider: ProviderName;
+  provider: TerminalProvider;
   dangerous: boolean;
 }
 
@@ -101,21 +102,28 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
   const projectPath = currentProject?.path ?? null;
 
   const { status, statusError, statusLoading } = useSetupStatus();
-  const [provider, setProvider] = useState<ProviderName | null>(null);
+  const [provider, setProvider] = useState<TerminalProvider | null>(null);
   const [permissionMode, setPermissionMode] = useState<PermissionMode | null>(null);
 
-  const providersByName = useMemo(() => {
-    const map: Partial<Record<ProviderName, ProviderStatus>> = {};
-    for (const p of status?.providers ?? []) map[p.name] = p;
-    return map;
-  }, [status]);
+  const providers: ProviderStatus[] = useMemo(() => status?.providers ?? [], [status]);
 
-  const selectedProviderStatus = provider ? providersByName[provider] : undefined;
+  /**
+   * ADR-034 FR-021d — the three status branches SetupScreen already
+   * distinguishes. `statusLoaded` is true only once the payload actually
+   * arrived, so "unknown availability" (in flight or failed) can never be
+   * mistaken for "confirmed absence" and no new state is needed.
+   */
+  const statusLoaded = !statusLoading && statusError === null && status !== null;
+  /** FR-021c — the loaded-and-all-unavailable branch, and only that branch. */
+  const noProvidersAvailable = statusLoaded && providers.every((p) => !p.available);
+
+  const selectedProviderStatus = providers.find((p) => p.name === provider);
   const launchDisabled =
     !provider ||
     !permissionMode ||
     !projectPath ||
-    (selectedProviderStatus !== undefined && !selectedProviderStatus.available);
+    selectedProviderStatus === undefined ||
+    !selectedProviderStatus.available;
 
   return (
     <div
@@ -136,14 +144,17 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
           </div>
         ) : null}
 
-        <ProviderPicker
-          tabId={tabId}
-          claudeStatus={providersByName["claude-code"]}
-          codexStatus={providersByName["codex"]}
-          statusLoading={statusLoading}
-          provider={provider}
-          onChange={setProvider}
-        />
+        {noProvidersAvailable ? (
+          <NoProvidersNotice providers={providers} />
+        ) : (
+          <ProviderPicker
+            tabId={tabId}
+            providers={providers}
+            statusLoading={statusLoading}
+            provider={provider}
+            onChange={setProvider}
+          />
+        )}
 
         {/* #1859: Codex asks the user to trust this project's hooks on first
             launch. Non-technical users may not know what hooks are; if they

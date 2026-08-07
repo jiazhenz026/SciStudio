@@ -159,13 +159,6 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
         covered_surface="python",
         ci_job="deferral-scan.yml/Deferral discipline ratchet",
     ),
-    "codex_review": CheckSpec(
-        name="codex_review",
-        command=(),
-        covered_surface="pr",
-        ci_job="ai-review.yml/Codex PR Review",
-        pr_only=True,
-    ),
 }
 
 

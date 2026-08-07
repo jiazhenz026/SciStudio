@@ -11,8 +11,9 @@ from pathlib import Path
 
 import pytest
 
+from scistudio.ai.agent import providers_registry
+from scistudio.ai.agent.providers_registry import agent_keys
 from scistudio.blocks.ai.ai_block import (
-    _BYPASS_FLAG,
     REUSE_LAST_OUTPUT_KEY,
     AIBlock,
     _output_path_overrides,
@@ -56,7 +57,7 @@ def test_ai_block_config_schema_has_required_fields() -> None:
 
 
 # ---------------------------------------------------------------------------
-# _build_spawn_argv
+# FR-012: the worker composes no provider argv at all
 # ---------------------------------------------------------------------------
 
 
@@ -64,66 +65,50 @@ def _config(**kwargs: object) -> BlockConfig:
     return BlockConfig(params=dict(kwargs))
 
 
-def test_build_argv_claude_safe_mode(project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    # Patch discovery so we don't need claude installed.
+def test_ai_block_no_longer_composes_spawn_argv() -> None:
+    """ADR-034 FR-012: the argv builder and its flag table are gone.
+
+    ``_build_spawn_argv`` composed a command line the engine discarded (it
+    read only ``argv[0]``), and ``_BYPASS_FLAG`` was a second copy of
+    per-provider knowledge that now lives only in the registry. Either
+    name reappearing means the duplication is back, and with it the
+    orphaned system-prompt file of FR-013.
+    """
     from scistudio.blocks.ai import ai_block as mod
 
-    monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/claude")
-    block = AIBlock()
-    cfg = _config(
-        provider="claude-code",
-        permission_mode="safe",
-        user_prompt="hi",
-        project_dir=str(project_dir),
-    )
-    argv = block._build_spawn_argv(cfg, "manifest.json")
-    assert argv[0] == "/fake/claude"
-    # Safe mode: no bypass flag.
-    assert "bypassPermissions" not in argv
-    assert "--permission-mode" not in argv or "bypassPermissions" not in argv
+    assert not hasattr(AIBlock, "_build_spawn_argv")
+    assert not hasattr(mod, "_BYPASS_FLAG")
+    assert not hasattr(mod, "_discover_provider")
 
 
-def test_build_argv_claude_bypass_uses_bypass_permissions(project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ai_block_discovery_uses_the_registry_resolver(monkeypatch: pytest.MonkeyPatch) -> None:
+    """FR-005: the block path and the chat path share one resolver.
+
+    The old ``shutil.which`` lookup could never find Kimi Code or either
+    Qoder channel — none of them is on PATH — so the block would call a
+    provider uninstalled while the chat Setup screen offered it.
+    """
     from scistudio.blocks.ai import ai_block as mod
 
-    monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/claude")
-    block = AIBlock()
-    cfg = _config(
-        provider="claude-code",
-        permission_mode="bypass",
-        user_prompt="hi",
-        project_dir=str(project_dir),
-    )
-    argv = block._build_spawn_argv(cfg, "manifest.json")
-    assert "--permission-mode" in argv
-    assert "bypassPermissions" in argv
+    seen: list[str] = []
 
+    def spy(descriptor: object, **_kw: object) -> Path:
+        seen.append(descriptor.key)  # type: ignore[attr-defined]
+        return Path("/fake/bin/agent")
 
-def test_build_argv_codex_bypass_uses_dangerously_bypass(project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from scistudio.blocks.ai import ai_block as mod
-
-    monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/codex")
-    block = AIBlock()
-    cfg = _config(provider="codex", permission_mode="bypass", user_prompt="hi")
-    argv = block._build_spawn_argv(cfg, "manifest.json")
-    assert "--dangerously-bypass-approvals-and-sandbox" in argv
-
-
-def test_build_argv_unknown_provider_raises(monkeypatch: pytest.MonkeyPatch) -> None:
-    block = AIBlock()
-    cfg = _config(provider="grok", user_prompt="hi")
-    with pytest.raises(ValueError, match="unknown provider"):
-        block._build_spawn_argv(cfg, "m.json")
-
-
-def test_build_argv_missing_binary_raises(monkeypatch: pytest.MonkeyPatch) -> None:
-    from scistudio.blocks.ai import ai_block as mod
-
-    monkeypatch.setattr(mod, "_discover_provider", lambda _p: None)
-    block = AIBlock()
-    cfg = _config(provider="claude-code", user_prompt="hi")
-    with pytest.raises(ValueError, match="not discoverable"):
-        block._build_spawn_argv(cfg, "m.json")
+    # Patch the registry's own resolver, not a local copy: the assertion is
+    # that the block reaches *that* function, so a same-named local stub
+    # would prove nothing.
+    monkeypatch.setattr(providers_registry, "resolve_binary", spy)
+    # #1994: kimi-code is rejected later in validate_config (it has no
+    # positional prompt, so it cannot run as an AI Block at all) — but the
+    # discovery call this test is about happens first, so the spy still records
+    # it. Asserting through the raise keeps the original claim intact.
+    with pytest.raises(ValueError, match="cannot run as an AI Block"):
+        AIBlock().validate_config(_config(provider="kimi-code", user_prompt="hi"))
+    assert seen == ["kimi-code"]
+    assert mod._discover_provider_binary(providers_registry.get("qoder-cn")) == Path("/fake/bin/agent")
+    assert seen == ["kimi-code", "qoder-cn"]
 
 
 def test_clear_expected_outputs_removes_stale_files(project_dir: Path) -> None:
@@ -150,34 +135,83 @@ def test_clear_expected_outputs_tolerates_missing_file(project_dir: Path) -> Non
 # ---------------------------------------------------------------------------
 
 
-def test_validate_succeeds_when_provider_installed(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+@pytest.fixture()
+def _provider_installed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make every registry provider resolve, so tests need no real CLI."""
     from scistudio.blocks.ai import ai_block as mod
 
-    monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/claude")
-    block = AIBlock()
-    block.validate_config(_config(provider="claude-code", user_prompt="hi"))
+    monkeypatch.setattr(mod, "_discover_provider_binary", lambda _d: Path("/fake/bin/agent"))
 
 
-def test_validate_fails_with_install_hint_when_missing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+@pytest.fixture()
+def _provider_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make every registry provider resolve to nothing."""
     from scistudio.blocks.ai import ai_block as mod
 
-    monkeypatch.setattr(mod, "_discover_provider", lambda _p: None)
-    block = AIBlock()
-    with pytest.raises(ValueError, match="scistudio install"):
-        block.validate_config(_config(provider="claude-code", user_prompt="hi"))
+    monkeypatch.setattr(mod, "_discover_provider_binary", lambda _d: None)
 
 
-def test_validate_rejects_empty_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
-    from scistudio.blocks.ai import ai_block as mod
+@pytest.mark.parametrize("provider", agent_keys())
+def test_validate_succeeds_for_every_registry_provider(provider: str, _provider_installed: None) -> None:
+    """FR-014: every agent key in the registry is an accepted provider.
 
-    monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/claude")
-    block = AIBlock()
+    #1994 added one qualifier. Being in the registry still means the key is
+    recognised, but a provider whose CLI has no positional prompt cannot carry
+    an AI Block task and is refused here — with its own explanation — rather
+    than spawned into a PTY that exits 1.
+    """
+    from scistudio.ai.agent.providers_registry import get as registry_get
+
+    descriptor = registry_get(provider)
+    if descriptor.prompt_argv_prefix is None:
+        with pytest.raises(ValueError, match="cannot run as an AI Block") as excinfo:
+            AIBlock().validate_config(_config(provider=provider, user_prompt="hi"))
+        assert "unknown provider" not in str(excinfo.value)
+        return
+    AIBlock().validate_config(_config(provider=provider, user_prompt="hi"))
+
+
+def test_validate_rejects_provider_outside_the_registry(_provider_installed: None) -> None:
+    """FR-014: an unknown key is rejected and the accepted set is named."""
+    with pytest.raises(ValueError, match="unknown provider") as excinfo:
+        AIBlock().validate_config(_config(provider="grok", user_prompt="hi"))
+    for key in agent_keys():
+        assert key in str(excinfo.value)
+
+
+@pytest.mark.parametrize("provider", agent_keys())
+def test_validate_missing_binary_names_provider_and_binary(provider: str, _provider_missing: None) -> None:
+    """FR-014: the error carries the two facts the user can act on."""
+    from scistudio.ai.agent.providers_registry import get as registry_get
+
+    descriptor = registry_get(provider)
+    with pytest.raises(ValueError) as excinfo:
+        AIBlock().validate_config(_config(provider=provider, user_prompt="hi"))
+    message = str(excinfo.value)
+    assert provider in message
+    assert descriptor.label in message
+    for candidate in descriptor.binary_candidates:
+        assert candidate in message
+
+
+@pytest.mark.parametrize("provider", agent_keys())
+def test_validate_missing_binary_suggests_no_scistudio_install(provider: str, _provider_missing: None) -> None:
+    """FR-014: no `scistudio install` hint, in any spelling.
+
+    That command wires SciStudio's MCP server and skills into a CLI the
+    user already has — it cannot install the CLI — so following it left
+    discovery failing. The old message emitted
+    ``scistudio install --target claude-code``, which the install CLI
+    rejects outright, so the user got a command that failed twice over.
+    """
+    with pytest.raises(ValueError) as excinfo:
+        AIBlock().validate_config(_config(provider=provider, user_prompt="hi"))
+    assert "scistudio install" not in str(excinfo.value)
+
+
+def test_validate_rejects_empty_prompt(_provider_installed: None) -> None:
     with pytest.raises(ValueError, match="non-empty"):
-        block.validate_config(_config(provider="claude-code", user_prompt="   "))
+        AIBlock().validate_config(_config(provider="claude-code", user_prompt="   "))
 
 
 # NOTE: ``test_validate_rejects_negative_timeout`` removed — AIBlock no longer
@@ -253,7 +287,7 @@ def test_run_request_pty_tab_with_safe_permission(project_dir: Path, stub_agent:
     assert len(stub_agent.request_calls) == 1
     spec = stub_agent.request_calls[0]
     assert spec.permission_mode == "safe"
-    assert "bypassPermissions" not in spec.spawn_argv
+    assert spec.provider == "claude-code"
 
 
 def test_run_request_pty_tab_with_bypass_permission(project_dir: Path, stub_agent: StubAgent) -> None:
@@ -269,7 +303,58 @@ def test_run_request_pty_tab_with_bypass_permission(project_dir: Path, stub_agen
     block.run(inputs={}, config=cfg)
     spec = stub_agent.request_calls[0]
     assert spec.permission_mode == "bypass"
-    assert "bypassPermissions" in spec.spawn_argv
+    assert spec.provider == "claude-code"
+
+
+@pytest.mark.parametrize("provider", agent_keys())
+def test_run_carries_the_configured_provider_to_the_engine(
+    provider: str,
+    project_dir: Path,
+    stub_agent: StubAgent,
+) -> None:
+    """FR-010: the block states its provider; nothing downstream guesses it.
+
+    Parametrised over every registry key because the deleted argv
+    inference defaulted anything it did not recognise to ``claude-code``,
+    so a per-provider assertion is the only shape that catches a
+    regression for the three newly added CLIs.
+    """
+    stub_agent.outputs = {"out": ("out.csv", "x\n")}
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
+    cfg = _config(
+        user_prompt="hi",
+        provider=provider,
+        project_dir=str(project_dir),
+    )
+    block.run(inputs={}, config=cfg)
+    assert stub_agent.request_calls[0].provider == provider
+
+
+def test_run_rejects_a_provider_outside_the_registry(project_dir: Path, stub_agent: StubAgent) -> None:
+    """An unknown provider fails the run rather than spawning claude-code."""
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
+    cfg = _config(user_prompt="hi", provider="grok", project_dir=str(project_dir))
+    with pytest.raises(ValueError, match="unknown provider"):
+        block.run(inputs={}, config=cfg)
+
+
+def test_run_leaves_no_orphaned_temp_file(project_dir: Path, stub_agent: StubAgent) -> None:
+    """ADR-034 FR-013: an AI Block run creates no file nobody deletes.
+
+    ``_build_spawn_argv`` called ``_write_system_prompt_tempfile`` and put
+    the path into an argv the engine discarded, so the file under
+    ``<project>/.scistudio/.tmp/`` was orphaned on every run: the real
+    spawn wrote its own file and ``PtyProcess.kill_tree`` only ever knew
+    about that one. Nothing in the system could delete the worker's copy.
+    """
+    tmp_dir = project_dir / ".scistudio" / ".tmp"
+    stub_agent.outputs = {"out": ("out.csv", "x\n")}
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
+    cfg = _config(user_prompt="hi", provider="claude-code", project_dir=str(project_dir))
+    block.run(inputs={}, config=cfg)
+
+    leftovers = sorted(p.name for p in tmp_dir.glob("*")) if tmp_dir.exists() else []
+    assert leftovers == [], f"AI Block run left orphaned temp files: {leftovers}"
 
 
 def test_run_completion_via_mcp_finish_ai_block(project_dir: Path, stub_agent: StubAgent) -> None:
@@ -409,11 +494,44 @@ def test_output_path_overrides_extracts_correctly() -> None:
     assert overrides == {"a": "./a.csv"}
 
 
-def test_bypass_flag_table_per_provider() -> None:
-    assert "claude-code" in _BYPASS_FLAG
-    assert "codex" in _BYPASS_FLAG
-    assert "bypassPermissions" in _BYPASS_FLAG["claude-code"]
-    assert "--dangerously-bypass-approvals-and-sandbox" in _BYPASS_FLAG["codex"]
+# ---------------------------------------------------------------------------
+# T-009 / FR-015 — registry-derived provider enum
+# ---------------------------------------------------------------------------
+
+
+def test_config_schema_provider_enum_is_registry_derived() -> None:
+    """FR-015: the enum is exactly the registry's agent keys, in order.
+
+    Equality rather than containment: a hand-maintained literal that
+    happened to include the registry keys plus a stale extra would pass a
+    containment check, and User Story 7 requires that adding a sixth
+    provider needs no edit here.
+    """
+    enum = AIBlock.config_schema["properties"]["provider"]["enum"]
+    assert enum == list(agent_keys())
+
+
+def test_config_schema_provider_enum_lists_all_five_agents() -> None:
+    """The three added providers are selectable on the block, not just in chat."""
+    enum = AIBlock.config_schema["properties"]["provider"]["enum"]
+    assert set(enum) == {"claude-code", "codex", "kimi-code", "qoder", "qoder-cn"}
+    assert "user-terminal" not in enum
+
+
+def test_config_schema_provider_default_is_still_claude_code() -> None:
+    """FR-015: widening the enum must not move the default."""
+    assert AIBlock.config_schema["properties"]["provider"]["default"] == "claude-code"
+
+
+def test_existing_claude_code_workflow_config_still_validates(_provider_installed: None) -> None:
+    """Enum widening is backward compatible for workflows saved before it.
+
+    A workflow YAML carrying ``provider: claude-code`` — the only value
+    most saved workflows have — must load and validate unchanged.
+    """
+    enum = AIBlock.config_schema["properties"]["provider"]["enum"]
+    assert "claude-code" in enum
+    AIBlock().validate_config(_config(provider="claude-code", user_prompt="do the thing"))
 
 
 # ---------------------------------------------------------------------------
