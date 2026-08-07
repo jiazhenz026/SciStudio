@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import tomllib
 from pathlib import Path
 from unittest.mock import patch
 
@@ -199,10 +200,17 @@ def test_claude_and_codex_share_identical_mcp_env(tmp_path: Path) -> None:
     codex_block = _render_codex_block(tmp_path)
     claude_env = claude_entry["env"]
     assert isinstance(claude_env, dict)
-    pythonpath = claude_env["PYTHONPATH"]
-    # The same PYTHONPATH the claude mcp.json carries appears in the codex TOML.
-    assert pythonpath in codex_block
-    assert claude_env["SCISTUDIO_PROJECT_DIR"] in codex_block
+
+    # #2030: decode the TOML rather than substring-matching its source text. A
+    # TOML basic string escapes backslashes, so on Windows the rendered block
+    # spells the path `C:\\Users\\...` while the claude JSON carries the raw
+    # `C:\Users\...` — the old `pythonpath in codex_block` check could only ever
+    # hold on POSIX. Comparing decoded values tests what this test is actually
+    # about (one env builder feeds both providers) on every platform.
+    codex_env = tomllib.loads(codex_block)["mcp_servers"][MCP_SERVER_NAME]["env"]
+
+    assert codex_env["PYTHONPATH"] == claude_env["PYTHONPATH"]
+    assert codex_env["SCISTUDIO_PROJECT_DIR"] == claude_env["SCISTUDIO_PROJECT_DIR"]
 
 
 def test_render_codex_block_includes_pythonpath_env(tmp_path: Path) -> None:
