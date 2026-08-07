@@ -830,3 +830,103 @@ def test_hook_never_exits_one_when_stdin_is_unusable(script: str, tmp_project_di
         f"{script} crashed instead of degrading when stdin was unusable: exit 1\n{result.stderr}"
     )
     assert "AttributeError" not in result.stderr, f"{script} raised on a missing stdin:\n{result.stderr}"
+
+
+# ---------------------------------------------------------------------------
+# #1994 — provisioned hook SCRIPTS must be refreshed, not written once.
+#
+# The templates were fixed and the owner's Codex hooks kept failing identically,
+# because `write_hooks` skipped any script that already existed. The repaired
+# code never reached the file the CLI executes: re-provisioning was a no-op on
+# every project that had ever been provisioned before. The Codex *config* had a
+# repair path; the scripts it points at did not, which made that a half-fix.
+# ---------------------------------------------------------------------------
+
+
+def _stale_hook_body() -> str:
+    """A prior-generation script: SciStudio's, but with the crashing reader."""
+    return (
+        "#!/usr/bin/env python\n"
+        '"""hook_deny_scistudio_cli.py — PreToolUse / Bash matcher (ADR-040 §3.6)."""\n\n'
+        "import json\nimport sys\n\n\n"
+        "def _read_payload() -> dict:\n"
+        "    try:\n"
+        "        raw = sys.stdin.read()\n"
+        "    except OSError:\n"
+        "        return {}\n"
+        "    return json.loads(raw) if raw.strip() else {}\n\n\n"
+        # Calls the reader, so this body genuinely reproduces the exit-1 crash
+        # on a missing stdin. A stub that merely *contained* the old reader
+        # would let the companion behaviour test pass without the fix.
+        "_read_payload()\n"
+        "sys.exit(0)\n"
+    )
+
+
+def test_stale_provisioned_hook_script_is_refreshed(tmp_project_dir: Path) -> None:
+    """Re-provisioning repairs a SciStudio hook script left over from before.
+
+    Without this, a project provisioned by any earlier SciStudio keeps its
+    original scripts forever and no template fix can ever reach it.
+    """
+    write_hooks(tmp_project_dir, force=False)
+    target = tmp_project_dir / ".claude" / "hooks" / "deny_scistudio_cli.py"
+    target.write_text(_stale_hook_body(), encoding="utf-8")
+
+    written = write_hooks(tmp_project_dir, force=False)
+
+    assert ".claude/hooks/deny_scistudio_cli.py" in written
+    refreshed = target.read_text(encoding="utf-8")
+    assert refreshed != _stale_hook_body()
+    assert "stream = sys.stdin" in refreshed, "the repaired payload reader did not reach the provisioned script"
+
+
+def test_refreshed_script_survives_the_condition_that_broke_it(tmp_project_dir: Path) -> None:
+    """The repaired script no longer exits 1 when stdin is unusable.
+
+    Ties the refresh to the behaviour it exists to restore, so a refresh that
+    delivered the wrong content would still fail here.
+    """
+    write_hooks(tmp_project_dir, force=False)
+    target = tmp_project_dir / ".claude" / "hooks" / "deny_scistudio_cli.py"
+    target.write_text(_stale_hook_body(), encoding="utf-8")
+    write_hooks(tmp_project_dir, force=False)
+
+    driver = "import sys, runpy; sys.stdin = None; runpy.run_path(sys.argv[1], run_name='__main__')"
+    result = subprocess.run(
+        [hook_interpreter(), "-c", driver, str(target)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    assert result.returncode != 1, f"refreshed script still crashes on a missing stdin:\n{result.stderr}"
+
+
+def test_user_authored_hook_script_is_not_clobbered(tmp_project_dir: Path) -> None:
+    """A script the user replaced wholesale stays theirs.
+
+    The refresh is keyed on SciStudio's own provenance marker precisely so that
+    repairing our stale copies cannot destroy someone else's file.
+    """
+    write_hooks(tmp_project_dir, force=False)
+    target = tmp_project_dir / ".claude" / "hooks" / "protect_data_dir.py"
+    mine = "# entirely my own hook\nimport sys\n\nsys.exit(0)\n"
+    target.write_text(mine, encoding="utf-8")
+
+    write_hooks(tmp_project_dir, force=False)
+
+    assert target.read_text(encoding="utf-8") == mine
+
+
+def test_unchanged_scripts_are_not_rewritten(tmp_project_dir: Path) -> None:
+    """A project already holding current scripts reports no churn.
+
+    Keeps the refresh honest: it must repair drift, not rewrite every file on
+    every project open and report phantom changes.
+    """
+    write_hooks(tmp_project_dir, force=False)
+
+    written = write_hooks(tmp_project_dir, force=False)
+
+    assert not [path for path in written if path.startswith(".claude/hooks/")]
