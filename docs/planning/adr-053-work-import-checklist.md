@@ -943,10 +943,17 @@ would have to cover, beyond the tutorial and palette entries it lists today:
 - [x] PR closes every issue fixed by the dispatch (`#2000`, `#2001`, `#2002`).
       -> PR #2028 body carries all three closing keywords.
 - [!] CI passed.
-      -> **Not yet run against the final head.** The local tier-selected suite is
-      5705 passed / 6 failed, and all six reproduce at `origin/main` with none of
-      this code present (#2030). CI runs on Linux and is the authoritative
-      evaluator.
+      -> **15 of 16 checks pass. One is red: `CodeQL`.** Passing:
+      `Test (Python 3.11)`, `Test (Python 3.13)`, `Frontend`, `Full Audit`,
+      `Type Check`, `Import Contracts`, `Architecture Tests`, `Lint & Format`,
+      `Wheel Release Smoke`, `Verify Workflow Compliance`, `Deferral discipline
+      ratchet`, `Semantic duplication ratchet`, and all three CodeQL `Analyze`
+      jobs. Both Python test jobs passing settles #2030: those six failures are
+      Windows-only. The red `CodeQL` check is five `py/path-injection` alerts,
+      three pre-existing and two new, analysed in §13 — accept-or-harden is an
+      owner decision because dismissing an alert needs repository-admin rights.
+      CI also caught the deferral ratchet, which the local tier-selected set did
+      not include for this diff; fixed and now green.
 - [x] Checklist final state matches PR and gate record.
 
 ### 14.1 What The Manager Did Not Do, And Why
