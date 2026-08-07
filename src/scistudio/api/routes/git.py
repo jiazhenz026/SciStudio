@@ -487,13 +487,15 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
         engine.branch_switch(body.branch_name)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
-    # ADR-039 §3.5b — refresh project-scoped block registry after the
-    # working tree changes.
+    # ADR-039 §3.5b — refresh the project-scoped registries after the working
+    # tree changes. ADR-053 FR-064 + #2009: a branch can rewrite
+    # ``<project>/types/`` and ``<project>/previewers/`` exactly as it rewrites
+    # ``<project>/blocks/``, and until #2021 only the blocks half was picked up.
     try:
-        runtime.refresh_block_registry()
+        runtime.refresh_all_registries()
     except Exception:
         logger.warning(
-            "branch_switch: refresh_block_registry failed (non-fatal)",
+            "branch_switch: refresh_all_registries failed (non-fatal)",
             exc_info=True,
         )
     # Hotfix #988 / ADR-045 §5.1 #5: emit per-file workflow.changed so the

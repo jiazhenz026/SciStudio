@@ -90,6 +90,25 @@ def refresh_type_registry(self: ApiRuntime) -> None:
     self.type_registry = registry
 
 
+def refresh_all_registries(self: ApiRuntime) -> None:
+    """Rebuild every registry a drop-in, package, or branch change invalidates.
+
+    ADR-053 FR-062 to FR-065 and #2009/#2021. Each invalidation event used to
+    pick its own subset: branch switch and the four package
+    install/update/rollback/delete routes rebuilt blocks alone, so a package
+    that ships types or previewers had them stay undiscovered until the user
+    happened to switch projects. Callers now name the event rather than the
+    registries, which is what stops the set drifting apart again — and is the
+    entry point to call after a user library write (FR-010 / FR-065).
+
+    The order is the one the project-switch path already used: types, then
+    blocks, then previewers.
+    """
+    self.refresh_type_registry()
+    self.refresh_block_registry()
+    self.refresh_preview_service()
+
+
 def _init_lineage_store(self: ApiRuntime, project_path: Path) -> None:
     """Open the unified ADR-038 lineage store for the active project.
 
@@ -313,11 +332,10 @@ def open_project(self: ApiRuntime, project_id_or_path: str) -> KnownProject:
     self._save_known_projects()
     self.active_project = candidate
     self.data_catalog = {}
-    self.refresh_type_registry()
-    self.refresh_block_registry()
-    # ADR-048 SPEC 1: rebuild the previewer service so project-local
-    # previewers and default declarations track the active project (FR-002).
-    self.refresh_preview_service()
+    # ADR-053 FR-062: a project switch invalidates all three registries —
+    # blocks and types from ``<project>/`` and, per ADR-048 SPEC 1 FR-002,
+    # project-local previewers and their default declarations.
+    self.refresh_all_registries()
     self._init_metadata_store(Path(candidate.path))
     self._init_lineage_store(Path(candidate.path))
     self.reset_version_state_for_project(Path(candidate.path))
