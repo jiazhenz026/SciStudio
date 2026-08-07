@@ -40,8 +40,8 @@ export interface RestoreDialogProps {
    *
    * Several runs can share a commit — the pre-run auto-commit is skipped on an
    * already-clean tree — so without this the preflight compares against the
-   * newest run at that SHA, which may be a later failure rather than the run
-   * the user chose.
+   * newest run at that SHA, which may be a subsequent failure rather than the
+   * run the user chose.
    */
   runId?: string;
   onClose: () => void;

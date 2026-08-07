@@ -236,7 +236,7 @@ def evaluate_restore_target(
             workflow all anchor to the same SHA — and resolving by commit alone
             would then answer with the newest of them regardless of outcome. A
             user restoring the run that *worked* would be compared against a
-            later run at the same commit that failed after an input or
+            subsequent run at the same commit that failed after an input or
             environment change, which can report the present state as clean
             precisely when it is the drift they are looking for.
 
