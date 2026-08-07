@@ -10,7 +10,7 @@
  *
  * That makes this file load-bearing: it is the evidence for a decision not to
  * write code. If an xterm upgrade or an options change breaks the assumption,
- * these tests fail and the decision gets revisited instead of silently rotting.
+ * these tests fail loudly instead of the assumption silently rotting.
  *
  * Unlike TerminalView.test.tsx this suite uses the REAL xterm build, so it must
  * not sit in a file that vi.mock()s the module.
