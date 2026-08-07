@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { PtyClientFrame } from "../hooks/usePtyWebSocket";
 import {
-  canReadClipboard,
+  classifyClipboardKey,
   copyHint,
   copyTextToClipboard,
   pasteHint,
@@ -111,6 +111,12 @@ export function useTerminalClipboard({
     showHint(copyHint(status));
   }, [readSelection, showHint]);
 
+  /**
+   * Right-click Paste. Unlike Ctrl+V this has no browser paste gesture behind
+   * it, so the Clipboard API is the only option — and it needs `clipboard-read`
+   * to have been granted. When it is not, the hint sends the user to Ctrl+V,
+   * which always works.
+   */
   const pasteFromClipboard = useCallback(async () => {
     const { status, text } = await readTextFromClipboard();
     if (status === "ok") {
@@ -132,37 +138,40 @@ export function useTerminalClipboard({
   // The key handler is installed into xterm once, so it reads the current
   // callbacks through refs instead of capturing them.
   const copySelectionRef = useRef(copySelection);
-  const pasteFromClipboardRef = useRef(pasteFromClipboard);
   copySelectionRef.current = copySelection;
-  pasteFromClipboardRef.current = pasteFromClipboard;
 
   const handleTerminalKeyEvent = useCallback((ev: KeyboardEvent): boolean => {
-    // xterm calls this for keydown/keypress/keyup; act once, on keydown.
-    if (ev.type !== "keydown") return true;
-    // Ctrl+Shift+C / Ctrl+Shift+V keep their conventional terminal meaning, and
-    // Ctrl+T / Ctrl+W / Ctrl+1..9 belong to the TerminalTabs window-level
-    // listener (which runs in the capture phase, so they never get here).
-    if (!(ev.ctrlKey || ev.metaKey) || ev.altKey || ev.shiftKey) return true;
-    const key = ev.key?.toLowerCase();
-    if (key === "c") {
+    // The predicate lives in clipboard.ts, free of React and xterm, so the very
+    // same function can be driven against a real browser + real xterm rather
+    // than a re-implementation that might drift from what ships.
+    const action = classifyClipboardKey(ev);
+    if (action === "copy") {
       // preventDefault() suppresses the browser's own copy so the clipboard is
       // written exactly once, by us, from the xterm buffer selection.
       ev.preventDefault();
       void copySelectionRef.current();
       return false;
     }
-    if (key === "v") {
-      // Where the page cannot read the clipboard (Firefox, insecure origins),
-      // stand aside: the browser's native paste is then the only working path,
-      // and xterm already forwards it to stdin via its paste event. Claiming
-      // the key here would take paste away entirely.
-      if (!canReadClipboard()) return true;
-      // preventDefault() suppresses that same native paste event — without it
-      // the text would arrive twice, once from the browser and once from us.
-      ev.preventDefault();
-      void pasteFromClipboardRef.current();
+    if (action === "paste") {
+      // Claim the key so xterm does not encode it as  (Ctrl+V is SYN in a
+      // terminal), but deliberately do NOT preventDefault: the browser then
+      // performs its own paste, which fires a `paste` event that xterm already
+      // listens for on its textarea and element. xterm converts that into the
+      // same data event a keystroke produces - bracketed-paste framing and all.
+      //
+      // This is the ONLY permission-free paste path. The Clipboard API's
+      // readText() needs the `clipboard-read` permission, which is "prompt" by
+      // default and rejects until granted (and has no prompt UI in Electron),
+      // whereas writeText() only needs transient user activation. That is
+      // exactly why copy worked and paste silently did nothing: the previous
+      // implementation called preventDefault - killing the native paste - and
+      // then relied on readText(), which rejected. Verified against real
+      // Chromium and pinned by __tests__/xtermPasteContract.test.ts.
       return false;
     }
+    // Ctrl+Shift+C / Ctrl+Shift+V keep their conventional terminal meaning, and
+    // Ctrl+T / Ctrl+W / Ctrl+1..9 belong to the TerminalTabs window-level
+    // listener (which runs in the capture phase, so they never get here).
     return true;
   }, []);
 

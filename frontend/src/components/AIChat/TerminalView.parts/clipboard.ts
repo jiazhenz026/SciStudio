@@ -31,6 +31,35 @@
  */
 export type ClipboardStatus = "ok" | "empty" | "denied" | "unavailable";
 
+/**
+ * What the terminal should do with a key event, decided without touching React
+ * or xterm so the same predicate can be exercised in a real browser.
+ *
+ *   "copy"   — Ctrl/Cmd+C: claim it, cancel the default, copy the selection.
+ *   "paste"  — Ctrl/Cmd+V: claim it so xterm does not encode \x16, but leave
+ *              the default alone so the browser's own (permission-free) paste
+ *              runs and xterm's paste listener forwards it to the PTY.
+ *   "ignore" — everything else, including Ctrl+Shift+C/V and the tab shortcuts.
+ */
+export type ClipboardKeyAction = "copy" | "paste" | "ignore";
+
+export function classifyClipboardKey(ev: {
+  type: string;
+  key?: string;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  altKey?: boolean;
+  shiftKey?: boolean;
+}): ClipboardKeyAction {
+  // xterm calls the custom handler for keydown/keypress/keyup; act once.
+  if (ev.type !== "keydown") return "ignore";
+  if (!(ev.ctrlKey || ev.metaKey) || ev.altKey || ev.shiftKey) return "ignore";
+  const key = ev.key?.toLowerCase();
+  if (key === "c") return "copy";
+  if (key === "v") return "paste";
+  return "ignore";
+}
+
 export interface ClipboardReadResult {
   status: ClipboardStatus;
   text: string;
@@ -61,19 +90,17 @@ export async function copyTextToClipboard(text: string): Promise<ClipboardStatus
 }
 
 /**
- * True when the browser lets page script READ the clipboard.
+ * Read the system clipboard, classifying denial / absence instead of throwing.
  *
- * Firefox deliberately exposes `readText()` to extensions only, and any
- * insecure origin has no Clipboard API at all. Where we cannot read, we must
- * NOT claim the Ctrl+V keystroke: the browser's own paste (which xterm turns
- * into stdin through its paste event) is the only path that still works, and
- * calling preventDefault would remove it and leave the user unable to paste.
+ * Only the right-click Paste item uses this. Ctrl+V does NOT: a menu click is
+ * not a paste gesture, so the menu has no alternative, whereas Ctrl+V can ride
+ * the browser's own permission-free paste event. See useTerminalClipboard.
+ *
+ * `readText()` is far more restricted than `writeText()`: writing is allowed on
+ * transient user activation, but reading needs the `clipboard-read` permission,
+ * which is "prompt" by default and simply rejects until granted. That asymmetry
+ * is why copy worked while paste did not (#1994 follow-up).
  */
-export function canReadClipboard(): boolean {
-  return typeof clipboardApi()?.readText === "function";
-}
-
-/** Read the system clipboard, classifying denial / absence instead of throwing. */
 export async function readTextFromClipboard(): Promise<ClipboardReadResult> {
   const clipboard = clipboardApi();
   if (typeof clipboard?.readText !== "function") return { status: "unavailable", text: "" };
@@ -107,10 +134,14 @@ export function copyHint(status: ClipboardStatus): string | null {
 }
 
 /**
- * Hint shown after a paste attempt.
+ * Hint shown after a right-click Paste attempt.
  *
  * A successful paste needs no hint: the pasted characters are their own
  * feedback, and a toast on every paste would be noise.
+ *
+ * The failure hints point at Ctrl+V rather than just apologising. Ctrl+V does
+ * not go through the Clipboard API at all, so it still works when reading is
+ * denied — that makes it a real instruction, not a consolation.
  */
 export function pasteHint(status: ClipboardStatus): string | null {
   switch (status) {
@@ -119,8 +150,8 @@ export function pasteHint(status: ClipboardStatus): string | null {
     case "empty":
       return "Clipboard is empty — nothing to paste.";
     case "denied":
-      return "Clipboard permission denied — could not paste.";
+      return "Clipboard read not permitted here — press Ctrl+V to paste instead.";
     case "unavailable":
-      return "Clipboard is unavailable here (needs a secure page).";
+      return "Clipboard read is unavailable here — press Ctrl+V to paste instead.";
   }
 }

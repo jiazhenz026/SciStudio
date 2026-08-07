@@ -381,6 +381,81 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T00:34:46.474582Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1b5b05657d053d07397d39b11da20d830f7421c34bf911beba67559e35c302fb",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T00:35:56.073038Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ddd517807535ff6bd6f4952d7c2d8e415d5da92616976266d04b513221c5840e",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T00:36:10.718049Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a0109ed376cc46c829806fd628e68c9a02207e796974f416ebbb56264f3a9160",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T00:38:26.457213Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T00:39:38.256084Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:98366e97d83eaaefd3a304522115ea14e61fc4d98d9061fd3fa4fb6b95411774",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -767,6 +842,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:39:38.297473Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:39:38.310554Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:39:38.323708Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:39:38.337754Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:39:38.351136Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:39:38.365165Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:39:38.378933Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:39:38.392504Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:39:38.405432Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:39:38.421983Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -780,28 +937,29 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "track/adr-034-multi-provider",
-    "base_sha": "2aad93aa",
+    "base_sha": "1cafdcc0",
     "changed_files": [
-      ".workflow/records/1994-terminal-clipboard-ux.json",
-      "frontend/src/components/AIChat/TerminalView.parts/useTerminalScrollHint.ts",
-      "frontend/src/components/AIChat/TerminalView.tsx",
-      "frontend/src/components/AIChat/__tests__/TerminalView.scrollHint.test.tsx",
+      "frontend/src/components/AIChat/TerminalView.parts/TerminalContextMenu.tsx",
+      "frontend/src/components/AIChat/TerminalView.parts/clipboard.ts",
+      "frontend/src/components/AIChat/TerminalView.parts/menuPlacement.ts",
+      "frontend/src/components/AIChat/TerminalView.parts/useTerminalClipboard.ts",
+      "frontend/src/components/AIChat/__tests__/TerminalContextMenu.test.tsx",
       "frontend/src/components/AIChat/__tests__/TerminalView.test.tsx",
-      "frontend/src/components/AIChat/__tests__/terminalViewHarness.tsx",
-      "frontend/src/components/AIChat/__tests__/xtermScrollContract.test.ts"
+      "frontend/src/components/AIChat/__tests__/menuPlacement.test.ts",
+      "frontend/src/components/AIChat/__tests__/xtermPasteContract.test.ts"
     ],
-    "diff_fingerprint": "sha256:c26a2b59fc6a9c86b7bd0d0bc9c6c92193de824509d995fe52e21ad5e868efa9",
+    "diff_fingerprint": "sha256:ee4d9f202df4bdaea2d9f9e6a683cf9cc823f18cce0d63d8e67904bdfec91092",
     "head": "HEAD",
-    "head_sha": "df7a534c",
+    "head_sha": "55e4f87c",
     "surfaces": {
       "docs": 0,
-      "frontend": 6,
+      "frontend": 8,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 6,
+      "implementation": 8,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 6,
+      "sentrux": 8,
       "test": 4,
       "workflow_ci": 0
     }
@@ -856,6 +1014,17 @@
     {
       "at": "2026-08-07T00:05:21.405288Z",
       "diff_fingerprint": "sha256:c26a2b59fc6a9c86b7bd0d0bc9c6c92193de824509d995fe52e21ad5e868efa9",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
+        "scope.out-of-scope"
+      ]
+    },
+    {
+      "at": "2026-08-07T00:39:38.422025Z",
+      "diff_fingerprint": "sha256:ee4d9f202df4bdaea2d9f9e6a683cf9cc823f18cce0d63d8e67904bdfec91092",
       "mode": "local",
       "result": "fail",
       "tier": 1,
@@ -932,6 +1101,12 @@
       "at": "2026-08-06T23:51:01.026009Z",
       "pattern": "frontend/src/components/AIChat/TerminalView.parts/useTerminalScrollHint.ts",
       "reason": "owner: the missing-input-box repaint defect still occurs intermittently; surface the recovery instead of leaving the user to discover it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T00:34:11.032678Z",
+      "pattern": "frontend/src/components/AIChat/TerminalView.parts/menuPlacement.ts",
+      "reason": "owner hand-test: Ctrl+V and right-click paste both did nothing (readText needs clipboard-read, which is denied by default; the previous preventDefault also killed the native paste), and the context menu overflowed the bottom edge unclickable"
     }
   ],
   "session_id": "2b6e921e-bdac-4795-bc2a-796c41cded9f",
@@ -967,6 +1142,30 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/AIChat/__tests__/xtermScrollContract.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T00:34:11.032700Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/xtermPasteContract.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T00:34:11.032705Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/menuPlacement.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T00:34:11.032707Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/TerminalContextMenu.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }
