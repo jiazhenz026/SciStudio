@@ -55,13 +55,31 @@ export function restoreTargetLabel(run: RunRecordForRestore): string {
   return `run ${run.run_id.slice(0, 8)}`;
 }
 
+/**
+ * The recovery hint shown after a restore that had to commit dirty work first.
+ *
+ * ADR-039 Addendum 1 (#1354): the backend auto-commits uncommitted changes
+ * before overlaying the historical content, so "restore" never means "lose
+ * what I was doing". Naming the commit is what makes that legible.
+ *
+ * Exported and rendered by the caller rather than by `RestoreRunButton`: the
+ * button sits in a `flex items-center` row, and a full sentence inside that
+ * row stretches the flex item and shoves the next button far to the right. A
+ * notice belongs on its own line.
+ */
+export function restoreAutoCommitHint(autoCommitSha: string): string {
+  return `Your unsaved changes were committed as ${autoCommitSha.slice(0, 7)} before the restore — see History to get back to them.`;
+}
+
 interface RestoreRunButtonProps {
   run: RunRecordForRestore;
   /**
    * Fired after a successful restore so the parent (LineageTab / RunDetail
-   * consumer) can refresh the canvas + the GitStatusBadge. No-op by default.
+   * consumer) can refresh the canvas + the GitStatusBadge, and surface the
+   * recovery hint. ``autoCommitSha`` is null when the tree was already clean
+   * and nothing needed committing.
    */
-  onRestored?: () => void;
+  onRestored?: (autoCommitSha: string | null) => void;
 }
 
 /**
@@ -71,10 +89,6 @@ interface RestoreRunButtonProps {
  */
 export function RestoreRunButton({ run, onRestored }: RestoreRunButtonProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
-  // ADR-039 Addendum 1 (#1354): the backend auto-commits dirty working-tree
-  // state before the restore and returns its SHA. Surfacing it is what keeps
-  // "restore" from reading as "lose my current work".
-  const [autoCommitHint, setAutoCommitHint] = useState<string | null>(null);
 
   const commitSha = run.workflow_git_commit;
 
@@ -85,10 +99,7 @@ export function RestoreRunButton({ run, onRestored }: RestoreRunButtonProps) {
         className="rounded-full bg-ink px-4 py-2 text-sm text-white disabled:bg-stone-400"
         data-testid="run-detail-restore-button"
         disabled={!commitSha}
-        onClick={() => {
-          setAutoCommitHint(null);
-          setDialogOpen(true);
-        }}
+        onClick={() => setDialogOpen(true)}
         title={
           commitSha
             ? `Restore the project to how it was at commit ${commitSha.slice(0, 7)}`
@@ -97,29 +108,13 @@ export function RestoreRunButton({ run, onRestored }: RestoreRunButtonProps) {
       >
         Restore
       </button>
-      {autoCommitHint && (
-        <div
-          className="run-detail__restore-auto-commit-hint mt-1 text-xs text-stone-600"
-          role="status"
-          data-testid="run-detail-restore-auto-commit-hint"
-        >
-          {autoCommitHint}
-        </div>
-      )}
       {dialogOpen && commitSha && (
         <RestoreDialog
           commitSha={commitSha}
           targetLabel={restoreTargetLabel(run)}
           runId={run.run_id}
           onClose={() => setDialogOpen(false)}
-          onRestored={(autoCommitSha) => {
-            if (autoCommitSha) {
-              setAutoCommitHint(
-                `Your unsaved changes were committed as ${autoCommitSha.slice(0, 7)} before the restore — see History to get back to them.`,
-              );
-            }
-            onRestored?.();
-          }}
+          onRestored={(autoCommitSha) => onRestored?.(autoCommitSha)}
         />
       )}
     </div>

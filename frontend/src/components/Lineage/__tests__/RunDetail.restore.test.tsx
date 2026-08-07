@@ -15,12 +15,13 @@
  *   - the ADR-038 §3.6 preflight runs against the run's commit;
  *   - the degraded-run guard (`workflow_git_commit === null` → disabled)
  *     survives the rewrite;
- *   - the auto-commit recovery hint still surfaces (ADR-039 Addendum 1 / #1354).
+ *   - the auto-commit SHA reaches the caller so RunDetail can render the
+ *     recovery hint on its own footer line (ADR-039 Addendum 1 / #1354).
  */
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { RestoreRunButton, restoreTargetLabel } from "../RunDetail";
+import { RestoreRunButton, restoreAutoCommitHint, restoreTargetLabel } from "../RunDetail";
 
 vi.mock("../../../lib/api", () => ({
   api: {
@@ -52,13 +53,21 @@ const ANCHORED = {
   started_at: "2026-05-15T14:30:00Z",
 };
 
-async function openDialog(run = ANCHORED, onRestored?: () => void) {
+async function openDialog(run = ANCHORED, onRestored?: (sha: string | null) => void) {
   render(<RestoreRunButton run={run} onRestored={onRestored} />);
   fireEvent.click(screen.getByTestId("run-detail-restore-button"));
   await waitFor(() => {
     expect(screen.getByTestId("restore-dialog")).toBeInTheDocument();
   });
 }
+
+describe("restoreAutoCommitHint", () => {
+  it("names the commit in short form and avoids stash language", () => {
+    const text = restoreAutoCommitHint("ab12345deadbeef" + "0".repeat(25));
+    expect(text).toMatch(/committed as ab12345 before the restore/);
+    expect(text).not.toMatch(/stash/i);
+  });
+});
 
 describe("restoreTargetLabel", () => {
   it("prefers the run's start time", () => {
@@ -124,28 +133,32 @@ describe("RestoreRunButton", () => {
     expect(api.gitRestore).not.toHaveBeenCalled();
   });
 
-  it("surfaces the auto-commit recovery hint, with no stash language", async () => {
+  it("hands the auto-commit SHA to onRestored so the caller can render the hint", async () => {
+    // The hint itself lives in RunDetail's footer, on its own line — inside
+    // this button it was a child of a `flex items-center` item and a full
+    // sentence shoved the neighbouring "Export methods" button far right.
     (
       api.gitRestore as unknown as { mockResolvedValueOnce: (v: unknown) => void }
     ).mockResolvedValueOnce({
       status: "ok",
       auto_commit_sha: "ab12345deadbeef" + "0".repeat(25),
     });
-    await openDialog();
+    const onRestored = vi.fn();
+    await openDialog(ANCHORED, onRestored);
     fireEvent.click(screen.getByTestId("restore-dialog-confirm"));
     await waitFor(() => {
-      const hint = screen.getByTestId("run-detail-restore-auto-commit-hint");
-      expect(hint.textContent ?? "").toMatch(/committed as ab12345 before the restore/);
-      expect(hint.textContent ?? "").not.toMatch(/stash/i);
+      expect(onRestored).toHaveBeenCalledWith("ab12345deadbeef" + "0".repeat(25));
     });
+    // The button renders no hint of its own.
+    expect(screen.queryByTestId("run-detail-restore-auto-commit-hint")).toBeNull();
   });
 
-  it("renders no hint when the tree was already clean", async () => {
-    await openDialog();
+  it("reports a null SHA when the tree was already clean", async () => {
+    const onRestored = vi.fn();
+    await openDialog(ANCHORED, onRestored);
     fireEvent.click(screen.getByTestId("restore-dialog-confirm"));
     await waitFor(() => {
-      expect(api.gitRestore).toHaveBeenCalled();
+      expect(onRestored).toHaveBeenCalledWith(null);
     });
-    expect(screen.queryByTestId("run-detail-restore-auto-commit-hint")).toBeNull();
   });
 });
