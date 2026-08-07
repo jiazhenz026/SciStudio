@@ -8,22 +8,36 @@ offer — for instance right after it authors a block the user runs successfully
 Promotion **copies** (FR-017). The originating project keeps working exactly as
 before; the copy is what becomes reusable across projects.
 
-Three refusals, and each is a real case rather than defensiveness:
+**FR-019 is one condition, not a list of cases.** Promotion is offered when
+the block's *resolved origin tier* is ``project`` and refused for every other
+value in the vocabulary — ``builtin``, ``package``, ``user``, and the FR-002
+``custom`` fallback. That is literally the condition E1, E2 and E5 apply
+(``isPromotableOrigin(origin) => origin === "project"`` in
+``frontend/src/components/promotion/promotable.ts``), because both sides now
+read the same resolver.
 
-* A block with no source file is built-in or packaged. It already lives in a
-  library, so promoting it is meaningless (FR-019).
-* A block whose file already resolves inside ``~/.scistudio/blocks/`` is
-  already at the destination. Copying it onto itself would raise a collision
-  prompt about a file the user just promoted (FR-019 again).
-* An existing destination file is reported rather than overwritten, and
-  overwriting requires ``overwrite=True`` (FR-008/FR-018). ``new_name`` is the
-  save-as-new-name half of the same prompt.
+They did not always. This tool used to ask two narrower questions of its own —
+"is there a file path" and "is the file's parent the library root" — because
+:func:`~scistudio.core.origins.resolve_origin` lived in ``scistudio.api`` and
+the "AI must not depend on api" import-linter contract put it out of reach. The
+result was the divergence FR-003 exists to prevent: a block whose file resolved
+under neither tier root (a symlinked drop-in escaping the project, a differing
+Windows drive) was **hidden by the three frontend entry points and accepted
+here**. The resolver moved to :mod:`scistudio.core.origins`, which both layers
+may import, and this tool now calls
+:func:`~scistudio.core.origins.map_block_origin` — the same function
+``GET /api/blocks/`` calls to fill the ``origin`` field the frontend condition
+reads. See ``docs/audit/2026-08-07-adr-053-spec1-track-b.md`` (P2-2).
+
+The remaining refusal is FR-008/FR-018's: an existing destination file is
+reported rather than overwritten, and overwriting requires ``overwrite=True``.
+``new_name`` is the save-as-new-name half of the same prompt.
 
 Layering: this module sits in the AI layer, which must not import
-``scistudio.api`` (the import-linter contract "AI must not depend on api"), so
-it reaches the user library through :mod:`scistudio.core.dropins` — the same
-single answer to "where does the user tier live" the HTTP endpoint uses
-(FR-058) — and it never spells out ``~/.scistudio`` itself.
+``scistudio.api``, so it reaches the user library through
+:mod:`scistudio.core.dropins` — the same single answer to "where does the user
+tier live" the HTTP endpoint uses (FR-058) — and it never spells out
+``~/.scistudio`` itself.
 """
 
 from __future__ import annotations
@@ -40,10 +54,36 @@ from scistudio.ai.agent.mcp._context import _safe_under, get_context
 from scistudio.ai.agent.mcp._reload import broadcast_blocks_reloaded, refresh_context_registries
 from scistudio.ai.agent.mcp.server import mcp
 from scistudio.core.dropins import user_blocks_dir
+from scistudio.core.origins import PROJECT_ORIGIN, map_block_origin
 
 logger = logging.getLogger(__name__)
 
 _ALLOWED_SUFFIX = ".py"
+
+#: FR-019, per resolved origin tier: why this block is not promotable. Keyed by
+#: every non-``project`` value :data:`~scistudio.core.origins.BLOCK_SURFACE`
+#: can return, so a new tier cannot be added without this table noticing —
+#: ``_refusal_for`` raises rather than guessing when a key is missing.
+_REFUSAL_BY_ORIGIN = {
+    "builtin": (
+        "is a built-in block, so it already lives in a library and cannot be promoted. "
+        "Only blocks in the current project's blocks/ directory are promotable."
+    ),
+    "package": (
+        "comes from an installed plugin package, so it already lives in a library and "
+        "cannot be promoted. Only blocks in the current project's blocks/ directory are "
+        "promotable."
+    ),
+    "user": (
+        "is already in the user library. Nothing to promote — tell the user it is available in every project already."
+    ),
+    "custom": (
+        "is a drop-in whose source file resolves outside both the current project's "
+        "blocks/ directory and the user library, so there is no project copy to promote. "
+        "This is what the palette shows as an unresolvable custom block; ask the user to "
+        "move the file into the project before promoting it."
+    ),
+}
 
 
 class PromoteToUserLibraryResult(BaseModel):
@@ -98,6 +138,18 @@ def _library_filename(name: str) -> str:
     return candidate
 
 
+def _refusal_for(origin: str) -> str:
+    """Return the agent-facing reason a block with *origin* is not promotable.
+
+    Raises ``KeyError`` for an origin the table does not cover, which is a
+    programming error rather than a user-facing case: the table is keyed by
+    :attr:`~scistudio.core.origins.OriginSurface.vocabulary` minus ``project``,
+    and a new tier must arrive here deliberately rather than fall through to a
+    vague message.
+    """
+    return _REFUSAL_BY_ORIGIN[origin]
+
+
 @mcp.tool(name="promote_to_user_library", tags={"category:library", "write"})
 async def promote_to_user_library(
     block_type: Annotated[
@@ -133,15 +185,19 @@ async def promote_to_user_library(
       - The user asks to save, keep, or reuse a block across projects.
 
     Do NOT use to:
-      - Promote a built-in or packaged block; those already live in a library
-        and the call is refused.
+      - Promote anything whose resolved origin is not ``project``: a built-in
+        or packaged block already lives in a library, one already in the user
+        library has nowhere to go, and one whose file resolves under neither
+        tier root has no project copy to promote. All four are refused, which
+        is exactly what the palette, the canvas node and the editor toolbar do
+        by hiding the action.
       - Move a block — this copies, and the project keeps its own file.
       - Write arbitrary files into the user's home directory; only a registered
         block's own source is copied, and only into the library blocks
         directory.
 
     Raises ``KeyError`` for an unregistered type, ``RuntimeError`` when the
-    block has no promotable source file or is already in the library,
+    block's resolved origin is not ``project``,
     ``FileExistsError`` on a collision without ``overwrite``, ``ValueError``
     for an invalid ``new_name``, and ``PermissionError`` if a name somehow
     resolves outside the library.
@@ -151,12 +207,13 @@ async def promote_to_user_library(
     if spec is None:
         raise KeyError(f"Block type '{block_type}' is not registered")
 
+    # FR-019 / FR-003: one condition, resolved by the function that fills the
+    # ``origin`` field E1, E2 and E5 read. Anything but ``project`` is refused.
+    origin = map_block_origin(spec, project_dir=ctx.project_dir)
+    if origin != PROJECT_ORIGIN:
+        raise RuntimeError(f"'{block_type}' {_refusal_for(origin)}")
+
     raw_source = getattr(spec, "file_path", None)
-    if not raw_source:
-        raise RuntimeError(
-            f"'{block_type}' is a built-in or packaged block, so it already lives in a library "
-            "and cannot be promoted. Only drop-in blocks with a source file are promotable."
-        )
     source = Path(os.path.realpath(str(raw_source)))
     if not source.is_file():
         raise FileNotFoundError(f"Block source file not found: {source}")
@@ -164,11 +221,6 @@ async def promote_to_user_library(
     library = user_blocks_dir()
     library.mkdir(parents=True, exist_ok=True)
     library_root = Path(os.path.realpath(str(library)))
-    if source.parent == library_root:
-        raise RuntimeError(
-            f"'{block_type}' is already in the user library at {source}. "
-            "Nothing to promote — tell the user it is available in every project already."
-        )
 
     filename = _library_filename(new_name or source.name)
     destination = _safe_under(library_root, Path(filename))

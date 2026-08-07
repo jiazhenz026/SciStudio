@@ -330,6 +330,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-07, branch:
   fix/1996-track-b-audit-findings)
 
+- [#1996] The agent now refuses exactly the blocks the palette refuses. ADR-053
+  FR-019 offers **Save to My Library** only for a block whose resolved origin is
+  `project`, and the code editor, the canvas node and both palette tabs apply
+  that one condition. The agent's `promote_to_user_library` MCP tool asked two
+  narrower questions of its own instead — "is there a source file" and "is that
+  file's parent the library root" — so a drop-in block whose file resolved
+  under neither the project tier nor the user tier (the FR-002 `custom`
+  fallback: a symlinked drop-in escaping the project, a file on a different
+  Windows drive) was hidden by all three frontend entry points and accepted by
+  the agent. FR-003 asks for one origin implementation precisely so the two
+  cannot say different things, and this is the divergence it was written to
+  prevent.
+  The cause was layering rather than carelessness: the resolver lived in
+  `scistudio.api`, and the import-linter contract "AI must not depend on api"
+  put it out of the tool's reach. It now lives in `scistudio.core.origins`,
+  which both layers may import — the same reason `scistudio.core.dropins` sits
+  where it does — and `scistudio.api._block_source` re-exports every name, so
+  no API-side call site changed. The tool calls `map_block_origin`, the same
+  function that fills the `origin` field the frontend condition reads, and each
+  refused tier now has its own message telling the agent what to do next. All
+  13 import-linter contracts stay kept.
+  The FR-025 correspondence table in `promoteToUserLibrary.ts` is rewritten
+  around the resolved origin and now lists the `custom` row it omitted, and a
+  new test walks the entire origin vocabulary asserting the tool's accept set
+  is the frontend predicate's — reading the vocabulary out of
+  `frontend/src/types/api.ts` so neither side can add a value alone. The FR-003
+  anti-drift test, which asserted only that two constants carried the expected
+  labels, now asserts that every surface resolves through the same function
+  object. Found by the with-context Track B audit,
+  `docs/audit/2026-08-07-adr-053-spec1-track-b.md` (P2-2, P3-6). Tests:
+  `tests/ai/test_mcp_tools_library.py`, `tests/api/test_block_origin_tiers.py`.
+  (@claude, 2026-08-07, branch: fix/1996-track-b-audit-findings)
+
 - [#2021, #2009] Installing a package or switching a branch now re-discovers
   data types and previewers, not just blocks. The block registry was rebuilt
   from five places — the branch-switch route and the four package

@@ -204,17 +204,48 @@ def test_one_resolver_serves_the_type_surface(tmp_path: Path, monkeypatch: pytes
     assert type_origin(module_path="_scistudio_type_dropin_x_1_2", is_dropin=True) == "custom"
 
 
-def test_the_two_surfaces_are_the_same_function() -> None:
-    """FR-003 is a claim about implementation, so assert on the implementation.
-
-    ``map_block_origin`` holds no rule of its own: it reads a block spec's
-    fields and delegates. If a second path comparison is ever added for types,
-    this stops being true.
-    """
+def test_the_two_surfaces_carry_the_expected_labels_and_directories() -> None:
+    """The two :class:`OriginSurface` instances are the whole per-surface diff."""
     assert BLOCK_SURFACE.installed_origin == "builtin"
     assert TYPE_SURFACE.installed_origin == "core"
     assert BLOCK_SURFACE.user_dir() == user_blocks_dir()
     assert TYPE_SURFACE.user_dir() == user_types_dir()
+    assert BLOCK_SURFACE.vocabulary == ("builtin", "user", "project", "package", "custom")
+    assert TYPE_SURFACE.vocabulary == ("core", "user", "project", "package", "custom")
+
+
+def test_every_surface_resolves_through_the_one_shared_function() -> None:
+    """FR-003 is a claim about implementation, so assert on the implementation.
+
+    The test this replaces asserted only that the two ``OriginSurface``
+    constants carried the expected labels and directories, while its docstring
+    claimed *"if a second path comparison is ever added for types, this stops
+    being true"*. It would not have: a second comparison added anywhere left it
+    green, and one **was** added — the agent's promotion tool could not import
+    the resolver across the layer boundary and wrote its own narrower rule
+    (``docs/audit/2026-08-07-adr-053-spec1-track-b.md`` P3-6 and P2-2).
+
+    What actually holds FR-003 is that every consumer resolves through the same
+    function *object*. Identity is checkable, and it breaks the moment a
+    surface grows a local copy and rebinds the name to it — which is how the
+    divergence would reappear.
+    """
+    from scistudio.ai.agent.mcp import tools_library
+    from scistudio.api import _block_source
+    from scistudio.api.routes import blocks as blocks_routes
+    from scistudio.api.routes import types as types_routes
+    from scistudio.core import origins
+
+    assert _block_source.resolve_origin is origins.resolve_origin
+    assert _block_source.map_block_origin is origins.map_block_origin
+    assert _block_source.BLOCK_SURFACE is origins.BLOCK_SURFACE
+    assert _block_source.TYPE_SURFACE is origins.TYPE_SURFACE
+
+    # The block palette, the types listing, and the agent's promotion tool.
+    assert blocks_routes.map_block_origin is origins.map_block_origin
+    assert types_routes.resolve_origin is origins.resolve_origin
+    assert types_routes.TYPE_SURFACE is origins.TYPE_SURFACE
+    assert tools_library.map_block_origin is origins.map_block_origin
 
 
 # ---------------------------------------------------------------------------
