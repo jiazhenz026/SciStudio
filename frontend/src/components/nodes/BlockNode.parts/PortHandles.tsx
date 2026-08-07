@@ -9,9 +9,18 @@
 //     the square; rails MAY extend below the square for many ports but the
 //     body stays fixed (ADR-050 §2.4). The handles hang just OUTSIDE the body
 //     edge (`left: -7` / `right: -7`).
-//   - Port colour is resolved from `accepted_types` + `typeHierarchy` via
-//     the shared `resolveTypeColor` helpers; "Any"-typed ports get a
-//     dashed grey ring.
+//   - Port colour is resolved from `accepted_types` via the shared
+//     `resolveTypeColor` helpers; "Any"-typed ports get a dashed grey ring.
+//     ADR-053 FR-066: the *declared* colour comes from the types listing
+//     (`useDeclaredTypeColors`), not from `type_hierarchy` — that payload has
+//     no fill-colour field at all, so resolving colour from it would render a
+//     type in its declared colour in the palette and a hash-derived one here.
+//     `typeHierarchy` is still passed, for `base_type` lookups only.
+//     FR-067: the hook returns `undefined` until the listing lands and the
+//     resolvers read that as "declares nothing", so a port renders the
+//     pre-ADR-053 colour during the window. Colour is paint-only — port Y
+//     comes from `portRailOffset` — so the moment it lands nothing re-layouts,
+//     and an undeclared type resolves to the same string either side of it.
 //   - For variadic blocks (ADR-029 D2), a "+" button at the end of the
 //     port column appends a new port and a per-port "×" button (revealed
 //     on hover) removes one. min/max enforcement comes from the schema
@@ -28,7 +37,9 @@ import {
   primaryTypeName,
   resolveRingColor,
   resolveTypeColor,
+  type DeclaredTypeColors,
 } from "../../../config/typeColorMap";
+import { useDeclaredTypeColors } from "../../../store/useTypeCatalog";
 import type { BlockPortResponse, BlockSchemaResponse } from "../../../types/api";
 import type { BlockNodeData } from "../../../types/ui";
 import {
@@ -54,9 +65,10 @@ interface PortStyle {
 function computePortStyle(
   port: BlockPortResponse,
   typeHierarchy: BlockSchemaResponse["type_hierarchy"] | undefined,
+  declared: DeclaredTypeColors | undefined,
 ): PortStyle {
-  const fillColor = resolveTypeColor(port.accepted_types, typeHierarchy);
-  const ringColor = resolveRingColor(port.accepted_types, typeHierarchy);
+  const fillColor = resolveTypeColor(port.accepted_types, typeHierarchy, declared);
+  const ringColor = resolveRingColor(port.accepted_types, typeHierarchy, declared);
   const anyType = isAnyType(port.accepted_types);
   const typeName = primaryTypeName(port.accepted_types);
   const borderColor = ringColor ?? (anyType ? "#d1d5db" : fillColor);
@@ -69,6 +81,8 @@ interface PortRowProps {
   /** Total ports on this rail — drives `portRailOffset` centring. */
   portCount: number;
   typeHierarchy: BlockSchemaResponse["type_hierarchy"] | undefined;
+  /** FR-066 declared colours; `undefined` during the FR-067 loading window. */
+  declared: DeclaredTypeColors | undefined;
   direction: Direction;
   handleType: HandleType;
   position: Position;
@@ -81,13 +95,18 @@ function PortRow({
   index,
   portCount,
   typeHierarchy,
+  declared,
   direction,
   handleType,
   position,
   showRemoveButton,
   onRemove,
 }: PortRowProps) {
-  const { fillColor, borderColor, anyType, typeName } = computePortStyle(port, typeHierarchy);
+  const { fillColor, borderColor, anyType, typeName } = computePortStyle(
+    port,
+    typeHierarchy,
+    declared,
+  );
   // ADR-050 §2.4 — Y comes from the square's port-rail geometry, not from a
   // measured inline-config row (the inline config strip no longer exists).
   const portTop = portRailOffset(index, portCount);
@@ -185,6 +204,9 @@ export function PortHandles({
   canRemoveOutput,
 }: PortHandlesProps) {
   const typeHierarchy = data.schema?.type_hierarchy;
+  // FR-066/FR-067 — declared type colour from the types listing, or
+  // `undefined` while it is still in flight.
+  const declared = useDeclaredTypeColors();
   const edges = useEdges();
   const { deleteElements } = useReactFlow();
 
@@ -308,6 +330,7 @@ export function PortHandles({
           index={index}
           portCount={effectiveInputPorts.length}
           typeHierarchy={typeHierarchy}
+          declared={declared}
           direction="input"
           handleType="target"
           position={Position.Left}
@@ -329,6 +352,7 @@ export function PortHandles({
           index={index}
           portCount={effectiveOutputPorts.length}
           typeHierarchy={typeHierarchy}
+          declared={declared}
           direction="output"
           handleType="source"
           position={Position.Right}

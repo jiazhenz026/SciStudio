@@ -10,11 +10,13 @@ import type {
   PreviewTarget,
   ProjectResponse,
   ResolvedSubworkflowPorts,
+  TypeSummary,
   WorkflowEdge,
   WorkflowEventMessage,
   WorkflowNode,
   WorkflowResponse,
 } from "../types/api";
+import type { DeclaredTypeColors } from "../config/typeColorMap";
 import type { LineageRunDetail, LineageRunSummary } from "../types/lineage";
 import type { BottomTab } from "../types/ui";
 
@@ -379,6 +381,28 @@ export interface PaletteSlice {
   setBlocks: (blocks: BlockSummary[]) => void;
   setBlockSchema: (schema: BlockSchemaResponse) => void;
   setPaletteSearch: (search: string) => void;
+}
+
+/**
+ * ADR-053 §7 — the registered data type catalogue.
+ *
+ * Separate from `PaletteSlice` because FR-027 makes the types listing
+ * independent of the block listing: the Data types tab must not have to fetch
+ * blocks to draw types, and refreshing types must not mean refreshing the
+ * palette. Loading is driven by `store/useTypeCatalog.ts`.
+ */
+export interface TypesSlice {
+  types: TypeSummary[];
+  /** True once `GET /api/types/` has landed at least once. */
+  typesLoaded: boolean;
+  /**
+   * FR-051 step 1 — `name → declared colours`, derived from `types` at set
+   * time. `undefined` until the listing lands (FR-067), which the colour
+   * resolvers read as "declares nothing" and answer with the pre-ADR-053
+   * fallback.
+   */
+  declaredTypeColors: DeclaredTypeColors | undefined;
+  setTypes: (types: TypeSummary[]) => void;
 }
 
 /**
@@ -873,6 +897,8 @@ export type AppStore = ProjectSlice &
   UISlice &
   PreviewSlice &
   PaletteSlice &
+  // ADR-053 §7 — the registered data type catalogue.
+  TypesSlice &
   TabSlice &
   TerminalTabsSlice &
   // ADR-038 §3.8 — Lineage tab client state.

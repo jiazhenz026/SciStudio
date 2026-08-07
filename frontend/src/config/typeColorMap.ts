@@ -1,3 +1,20 @@
+// Type colour resolution — one precedence, one source, two surfaces.
+//
+// Spec: docs/specs/adr-053-personal-tool-library.md
+//   §7.1 FR-051 (precedence: type-declared colour → `typeColorMap` →
+//   `hashTypeName`), FR-052 (an invalid declaration is ignored with a warning
+//   and falls through), FR-066 (the types listing is the single source of type
+//   colour; `type_hierarchy` keeps serving hierarchy and stops being a colour
+//   transport), FR-067 (the resolvers must answer deterministically while the
+//   types listing is still in flight).
+//
+// FR-067 is why `declared` is the *last* parameter and optional everywhere: a
+// caller that has not received the types listing yet passes nothing and gets
+// exactly the pre-ADR-053 answer, so the loading window renders the fallback
+// rather than a placeholder. Every type that declares nothing — which is every
+// type in the product today — therefore resolves byte-identically before and
+// after the listing lands, and nothing flashes.
+
 import type { TypeHierarchyEntry } from "../types/api";
 
 // ---------------------------------------------------------------------------
@@ -72,8 +89,114 @@ export function hashTypeName(name: string): number {
   return hash;
 }
 
+// ---------------------------------------------------------------------------
+// Type-declared colour (ADR-053 FR-049 – FR-052, FR-066)
+// ---------------------------------------------------------------------------
+
+/** The colours one type declared, already validated. */
+export interface DeclaredTypeColor {
+  /** Validated fill, or absent when the type declared none/an unusable one. */
+  fill?: string;
+  /** Validated ring, or absent. */
+  ring?: string;
+}
+
+/**
+ * `type name → declared colours`, built from the types listing (FR-050).
+ *
+ * `undefined` at a call site means "the listing has not arrived" (FR-067), not
+ * "nothing is declared"; an arrived-but-empty map means the latter. Both
+ * resolve the same way, which is exactly what makes the loading window
+ * invisible.
+ */
+export type DeclaredTypeColors = ReadonlyMap<string, DeclaredTypeColor>;
+
+/** The shape `buildDeclaredTypeColors` needs — a subset of `TypeSummary`. */
+export interface DeclaredTypeColorInput {
+  name: string;
+  ui_color?: string | null;
+  ui_ring_color?: string | null;
+}
+
+/** `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa` — the CSS hex forms the backend emits. */
+const HEX_COLOUR_RE = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
+/**
+ * Values already reported as unusable, so FR-052's warning is emitted once per
+ * offending declaration rather than once per render. Canvas ports re-resolve
+ * their colour on every render; without this a single typo in a user's type
+ * file would flood the console.
+ */
+const warnedDeclarations = new Set<string>();
+
+/**
+ * Validate and normalise one declared colour, or return `undefined`.
+ *
+ * FR-052. The backend validates and normalises at collection time and sends
+ * `null` for anything unusable, so this should never fire in practice — which
+ * is precisely why it is here: a malformed hex string reaching the palette or
+ * the canvas must degrade to the next precedence level, not break either
+ * surface, whatever produced it.
+ */
+export function normalizeDeclaredColor(
+  value: string | null | undefined,
+  context: string,
+): string | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (!HEX_COLOUR_RE.test(trimmed)) {
+    const key = `${context}=${String(value)}`;
+    if (!warnedDeclarations.has(key)) {
+      warnedDeclarations.add(key);
+      console.warn(
+        `[typeColorMap] ignoring declared colour ${context}=${JSON.stringify(value)} — expected a CSS hex colour such as "#4f8ef7"; falling back to the default resolution`,
+      );
+    }
+    return undefined;
+  }
+  const digits = trimmed.slice(1).toLowerCase();
+  return digits.length <= 4
+    ? `#${[...digits].map((digit) => digit + digit).join("")}`
+    : `#${digits}`;
+}
+
+/**
+ * Build the declared-colour lookup from a types listing response (FR-050).
+ *
+ * Derived once where the listing is stored rather than per render, so both
+ * surfaces read one referentially stable map and neither re-derives colour on
+ * every paint.
+ */
+export function buildDeclaredTypeColors(
+  types: readonly DeclaredTypeColorInput[],
+): DeclaredTypeColors {
+  const declared = new Map<string, DeclaredTypeColor>();
+  for (const type of types) {
+    const fill = normalizeDeclaredColor(type.ui_color, `${type.name}.ui_color`);
+    const ring = normalizeDeclaredColor(type.ui_ring_color, `${type.name}.ui_ring_color`);
+    if (fill === undefined && ring === undefined) {
+      continue;
+    }
+    const entry: DeclaredTypeColor = {};
+    if (fill !== undefined) entry.fill = fill;
+    if (ring !== undefined) entry.ring = ring;
+    declared.set(type.name, entry);
+  }
+  return declared;
+}
+
+/** Test seam — forget which bad declarations have already been warned about. */
+export function resetDeclaredColorWarnings(): void {
+  warnedDeclarations.clear();
+}
+
 /**
  * Darken a hex color by a given amount (0-1) for ring color derivation.
+ *
+ * Accepts `#rrggbb` and `#rrggbbaa`; the alpha channel is dropped, which is
+ * what a ring wants anyway.
  */
 function darkenHex(hex: string, amount: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -87,14 +210,31 @@ function darkenHex(hex: string, amount: number): string {
 }
 
 /**
- * Resolve the fill color for a port given its accepted_types list and
- * optional type hierarchy from the schema.
+ * Resolve the fill color for a port or a palette tile.
+ *
+ * FR-051 precedence, applied per accepted type in order:
+ *   1. the colour the type itself declared, from the types listing (`declared`),
+ *   2. the existing `typeColorMap` entry — directly, or through the type's
+ *      `base_type` in the schema hierarchy,
+ *   3. the deterministic `hashTypeName` fallback (#543).
+ *
+ * `declared` omitted (the FR-067 loading window) or empty leaves steps 2 and 3
+ * exactly as they were before ADR-053, so an undeclared type is unchanged.
+ *
+ * `typeHierarchy` is consulted for `base_type` only. FR-066: it keeps serving
+ * type hierarchy and is no longer a colour transport, because two supply points
+ * for one fact are the drift this work exists to remove.
  */
 export function resolveTypeColor(
   typeNames: string[],
   typeHierarchy?: TypeHierarchyEntry[],
+  declared?: DeclaredTypeColors,
 ): string {
   for (const name of typeNames) {
+    const own = declared?.get(name)?.fill;
+    if (own) {
+      return own;
+    }
     if (typeColorMap[name]) {
       return typeColorMap[name];
     }
@@ -114,24 +254,39 @@ export function resolveTypeColor(
 }
 
 /**
- * Resolve the ring (border) color for a subtype port. Returns `undefined`
- * for base types that should not have a contrasting ring.
+ * Resolve the ring (border) color for a port or a palette tile. Returns
+ * `undefined` for base types that should not have a contrasting ring — those
+ * render solid, their border taking the fill colour.
+ *
+ * FR-051 precedence, per accepted type:
+ *   1. the ring the type itself declared,
+ *   2. the existing `subtypeRingColorMap` entry,
+ *   3. a ring derived from the type's *declared* fill, so a type that declared
+ *      only a fill still gets the solid-plus-ring treatment (FR-041) and gets
+ *      it from its own colour rather than from a hash entry it no longer uses.
+ *
+ * Then the pre-existing hash-derived ring for unknown/plugin types (#543).
+ *
+ * `type_hierarchy.ui_ring_color` is deliberately not consulted. The field was
+ * declared and never populated (spec §2.8) and FR-066 leaves it dead rather
+ * than reviving it: the types listing is the single source of declared colour.
  */
 export function resolveRingColor(
   typeNames: string[],
   typeHierarchy?: TypeHierarchyEntry[],
+  declared?: DeclaredTypeColors,
 ): string | undefined {
   for (const name of typeNames) {
+    const own = declared?.get(name);
+    if (own?.ring) {
+      return own.ring;
+    }
     // Check explicit ring colors first
     if (subtypeRingColorMap[name]) {
       return subtypeRingColorMap[name];
     }
-    // Check backend-supplied ui_ring_color
-    if (typeHierarchy) {
-      const entry = typeHierarchy.find((t) => t.name === name);
-      if (entry?.ui_ring_color) {
-        return entry.ui_ring_color;
-      }
+    if (own?.fill) {
+      return darkenHex(own.fill, 0.3);
     }
   }
   // Auto-derive ring color for types not in the manual maps (#543)

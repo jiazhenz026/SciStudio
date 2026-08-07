@@ -36,5 +36,10 @@ export function resetAppStore() {
     blocks: [],
     blockSchemas: {},
     paletteSearch: "",
+    // ADR-053 §7 — the type catalogue starts unloaded, which is the FR-067
+    // loading window every colour consumer must render correctly.
+    types: [],
+    typesLoaded: false,
+    declaredTypeColors: undefined,
   });
 }

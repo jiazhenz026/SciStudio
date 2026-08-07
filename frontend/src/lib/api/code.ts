@@ -6,6 +6,8 @@
  * ADR-045 version-vector source-id headers added during main-merge (#1410).
  */
 
+import type { TypeListResponse, TypeTemplateResponse } from "../../types/api";
+
 import { apiFetch, JSON_HEADERS } from "./core";
 import {
   createClientSourceId,
@@ -46,6 +48,17 @@ export const codeApi = {
     apiFetch<{ kind: string; content: string; suggested_filename: string }>(
       `/api/blocks/template?kind=${encodeURIComponent(kind)}`,
     ),
+  // ADR-053 FR-026 — the registered data type listing. The single source of
+  // type colour for the product (FR-050): both the Data types tab and canvas
+  // port colour read declared colours from here, so the two surfaces cannot
+  // disagree (FR-066). Independent of the block listing (FR-027) — refreshing
+  // types never means refreshing the palette.
+  listTypes: () => apiFetch<TypeListResponse>("/api/types/"),
+  // ADR-053 FR-028 — data type template scaffold, byte-identical in shape to
+  // `getBlockTemplate` so the new-block and new-data-type flows share their
+  // fetch/write/open steps (FR-033).
+  getTypeTemplate: (kind: string = "basic") =>
+    apiFetch<TypeTemplateResponse>(`/api/types/template?kind=${encodeURIComponent(kind)}`),
   // ADR-036 §3.3 — server-side ruff lint endpoint.
   lintPython: (content: string, filename: string) =>
     apiFetch<{

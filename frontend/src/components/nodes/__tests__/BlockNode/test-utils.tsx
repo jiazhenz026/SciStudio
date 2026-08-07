@@ -7,6 +7,7 @@ import { render } from "@testing-library/react";
 import { vi } from "vitest";
 import { ReactFlowProvider } from "@xyflow/react";
 
+import type * as LibApi from "../../../../lib/api";
 import { BlockNode } from "../../BlockNode";
 import type {
   BlockPortResponse,
@@ -20,22 +21,26 @@ import type { BlockNodeData } from "../../../../types/ui";
 // tests. `openNativeDialog` is a `vi.fn()` so individual tests can stub it
 // per-case. Tests that need the mock import `openNativeDialogMock` from
 // here and call `.mockReset()` in their own afterEach.
+//
+// ADR-053 FR-066: the port handles now read declared type colour from the
+// app store, which pulls `store/workflowSlice` — and that module calls
+// `setWorkflowWriteStartedListener` from this same barrel at slice-creation
+// time. A wholesale replacement therefore breaks store construction, so the
+// mock is partial: every real export is kept and only `api.openNativeDialog`
+// is swapped.
 export const openNativeDialogMock = vi.fn();
-vi.mock("../../../../lib/api", () => ({
-  api: {
-    get openNativeDialog() {
-      return openNativeDialogMock;
+vi.mock("../../../../lib/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof LibApi>();
+  return {
+    ...actual,
+    api: {
+      ...actual.api,
+      get openNativeDialog() {
+        return openNativeDialogMock;
+      },
     },
-  },
-  ApiError: class ApiError extends Error {
-    status: number;
-    constructor(message: string, status: number) {
-      super(message);
-      this.name = "ApiError";
-      this.status = status;
-    }
-  },
-}));
+  };
+});
 
 export function makePort(
   name: string,

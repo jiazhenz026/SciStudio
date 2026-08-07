@@ -26,6 +26,7 @@ import { CodeEditor } from "../components/CodeEditor";
 import { DataPreview } from "../components/DataPreview";
 import { ProjectTree } from "../components/ProjectTree";
 import { TabBar } from "../components/TabBar";
+import { TypePalette } from "../components/TypePalette";
 import { WorkflowCanvas } from "../components/WorkflowCanvas";
 import { resolveVariadicPorts } from "../components/WorkflowCanvas.parts/flowNodeBuilder";
 import { buildScopedBlockOutputs } from "../components/WorkflowCanvas.parts/subworkflowRunView";
@@ -152,6 +153,16 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
         >
           Blocks
         </button>
+        {/* ADR-053 FR-039 — the third tab sits between `Blocks` and `Project`.
+            The user-facing label is `Data types`; `Types` is too abstract
+            standing alone next to `Blocks`. The internal key stays `types`. */}
+        <button
+          className={`flex-1 px-3 py-2 text-xs font-medium transition ${leftTab === "types" ? "border-b-2 border-ember text-ink" : "text-stone-400 hover:text-stone-600"}`}
+          onClick={() => onLeftTabChange("types")}
+          type="button"
+        >
+          Data types
+        </button>
         <button
           className={`flex-1 px-3 py-2 text-xs font-medium transition ${leftTab === "project" ? "border-b-2 border-ember text-ink" : "text-stone-400 hover:text-stone-600"}`}
           onClick={() => onLeftTabChange("project")}
@@ -161,12 +172,12 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
         </button>
       </div>
       <div className="min-h-0 flex-1">
-        {/* TODO(#2025): the `Data types` tab button and its pane land with
-            #2025 (ADR-053 spec §9.2, FR-039 – FR-043). The `types` key exists
-            in the union ahead of them so both tab surfaces share one type and
-            #2025 only adds rendering.
-            Followup: https://github.com/jiazhenz026/SciStudio/issues/2025 */}
-        {leftTab === "types" ? null : leftTab === "blocks" ? (
+        {/* FR-027 — the Data types pane takes no props: it reads the type
+            catalogue directly, so opening it neither waits for nor
+            re-triggers a blocks fetch. */}
+        {leftTab === "types" ? (
+          <TypePalette />
+        ) : leftTab === "blocks" ? (
           <BlockPalette
             blocks={blocks}
             collapsed={false}
