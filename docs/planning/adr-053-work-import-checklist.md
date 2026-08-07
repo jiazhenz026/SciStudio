@@ -168,7 +168,12 @@ harmless.
 - [x] Dispatch checklist copied from the template and committed.
 - [x] Dispatch prompts created from the correct prompt template and linked
       below. -> `docs/planning/adr-053-work-import-dispatch-prompts.md`
-- [ ] Sentrux baseline recorded, or N/A reason recorded.
+- [x] Sentrux baseline recorded, or N/A reason recorded.
+      -> **N/A — unavailable.** No Sentrux MCP server is connected to any runtime
+      in this dispatch and no `sentrux` binary is on PATH, so neither the MCP
+      calls nor the CLI fallback could run. Recorded as unavailable in every
+      agent ledger rather than claimed. The `sentrux_gate` guard itself ran
+      inside `gate_record check` and passed with one advisory info finding.
 
 ## 5. Local Gate Hook Bypass Evidence
 
@@ -178,10 +183,10 @@ harmless.
 
 | Hook | Command | Bypass label | Status | Evidence |
 |---|---|---|---|---|
-| Pre-commit | `python -m scistudio.qa.governance.gate_record check --mode pre-commit` | `N/A` | `[ ]` | |
-| Commit message | `python -m scistudio.qa.governance.gate_record check --mode commit-msg` | `N/A` | `[ ]` | |
-| Pre-push | `python -m scistudio.qa.governance.gate_record check --mode pre-push` | `N/A` | `[ ]` | |
-| Pre-PR reconcile | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `N/A` | `[ ]` | |
+| Pre-commit | `python -m scistudio.qa.governance.gate_record check --mode pre-commit` | `N/A` | `[x]` | Ran on every commit in this dispatch. No bypass label used. It blocked three times and each block was resolved by fixing the cause, never by bypassing: `guard.mod_guard` on `pyproject.toml` (resolved by dropping the edit), `docs.docs_required_or_na` (resolved by recording docs), and `scope.out-of-scope` on track-stacked branches (resolved with `SCISTUDIO_GATE_BASE`) |
+| Commit message | `python -m scistudio.qa.governance.gate_record check --mode commit-msg` | `N/A` | `[x]` | Passed on every commit. Rejected one merge subject that used a non-conventional type (`merge(...)`), which was rewritten rather than bypassed |
+| Pre-push | `python -m scistudio.qa.governance.gate_record check --mode pre-push` | `N/A` | `[x]` | The installed pre-push hook is the fast allow shim per ADR-042 Addendum 6; `pre-pr` is the hard checkpoint and is recorded below |
+| Pre-PR reconcile | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `N/A` | `[!]` | Blocked by `checks.python_tests` (#2030) — the sole unsatisfied obligation. **No bypass label was requested or used.** `SCISTUDIO_SKIP_PREFLIGHT` was not set |
 
 ## 5.1 Docs Impact Check
 
@@ -398,10 +403,11 @@ whole report so a wedged child cannot hold the response.
 
 ### 8.5 Integration
 
-- [ ] Agent output reviewed by manager.
-- [ ] Scope compliance verified.
-- [ ] Conflicts resolved intentionally.
-- [ ] Track merged or integrated.
+- [x] Agent output reviewed by manager.
+- [x] Scope compliance verified.
+- [x] Conflicts resolved intentionally.
+- [x] Track merged or integrated.
+      -> merge `49d801e0`. `GET /api/ai/availability` reviewed against contract C1; `/status` behaviour unchanged, the probe factored into `_status_rows()` so both endpoints share one discovery. Write set respected exactly; `frontend/src/store/types.ts` untouched as instructed.
 
 ## 9. Track B: Brief Template And Composition (#2002)
 
@@ -506,10 +512,11 @@ whole report so a wedged child cannot hold the response.
 
 ### 9.5 Integration
 
-- [ ] Agent output reviewed by manager.
-- [ ] Scope compliance verified.
-- [ ] Conflicts resolved intentionally.
-- [ ] Track merged or integrated.
+- [x] Agent output reviewed by manager.
+- [x] Scope compliance verified.
+- [x] Conflicts resolved intentionally.
+- [x] Track merged or integrated.
+      -> merge `e379089d`. §4.6 byte-identity verified by the manager independently of A2's report: sha256 identical between `origin/main` and the branch. Six post-merge assertions run after the auto-merge to confirm A2's corrections survived alongside A4's identical frontmatter edit. `pyproject.toml` confirmed absent from the diff.
 
 ## 10. Track C: Session Endpoint And Spawn (#2001 backend)
 
@@ -625,10 +632,11 @@ whole report so a wedged child cannot hold the response.
 
 ### 10.5 Integration
 
-- [ ] Agent output reviewed by manager.
-- [ ] Scope compliance verified.
-- [ ] Conflicts resolved intentionally.
-- [ ] Track merged or integrated.
+- [x] Agent output reviewed by manager.
+- [x] Scope compliance verified.
+- [x] Conflicts resolved intentionally.
+- [x] Track merged or integrated.
+      -> merge `d328f29a`. The one widened join predicate in the ADR-034-frozen route reviewed line by line; the original `_engine_block_run_id` clause is kept and a work-import tab registers in no block-run map. 108 PTY tests pass on the integrated tree. Merge order A2-before-A3 observed, as A3 required.
 
 ## 11. Track D: Toolbar Entry And Dialog (#2001 frontend)
 
@@ -794,10 +802,11 @@ connected in this session**; the ledger's own `sentrux_gate` ran under `check`.
 
 ### 11.5 Integration
 
-- [ ] Agent output reviewed by manager.
-- [ ] Scope compliance verified.
-- [ ] Conflicts resolved intentionally.
-- [ ] Track merged or integrated.
+- [x] Agent output reviewed by manager.
+- [x] Scope compliance verified.
+- [x] Conflicts resolved intentionally.
+- [x] Track merged or integrated.
+      -> merge `2c705ceb`. Spec frontmatter conflict with A2 resolved deliberately, not by picking a side: both blocks measured byte-identical and A4's spec body identical to base, so A2's file was taken as a strict superset. `ProviderPicker`/`PermissionModePicker` confirmed absent from the diff (FR-042).
 
 ## 12. Verification Evidence
 
