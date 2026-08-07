@@ -1,0 +1,85 @@
+{
+  "branch": "feat/2000-work-import-availability",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/availability.py",
+      "src/scistudio/api/routes/ai.py",
+      "tests/api/test_agent_availability.py",
+      "frontend/src/lib/api/agentAvailability.ts",
+      "frontend/src/lib/api/__tests__/agentAvailability.test.ts",
+      "docs/planning/adr-053-work-import-checklist.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-07T05:45:30.048446Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-work-import-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:45:30.048468Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "N/A - docs/specs/adr-053-work-import.md already specifies FR-031 to FR-036 and docs/planning/adr-053-work-import-checklist.md section 7.1 already fixes contract C1; implementing them changes no documented contract. A2 owns the only permitted spec edits in this dispatch.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2000,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-053 spec 2 'Bring in my work' FR-031 to FR-036: the graded agent availability probe. Four states over the ADR-034 provider registry plus a live minimal call, non-blocking, shared module, GET /api/ai/availability per checklist contract C1. Complete delivery, no deferred tasks.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2000-feat-2000-work-import-availability",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "9fd851ac-5e45-4940-80a2-d013131a2b89",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-08-07T05:45:30.048475Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_agent_availability.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:45:30.048479Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/api/__tests__/agentAvailability.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
