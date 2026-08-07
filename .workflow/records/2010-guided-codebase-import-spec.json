@@ -66,6 +66,36 @@
       "tool_versions": {
         "ruff": "0.15.15"
       }
+    },
+    {
+      "at": "2026-08-07T02:02:59.474615Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5268e7ee26c2d0df1a774d2be8618c3a79f9f291c89071241e1c86a97f287c34",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T02:04:17.168048Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1aedd666de4c89fddf665122e7fc550a9a096e651ddbf3e4c7ed8db6ecebdb2c",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -82,6 +112,11 @@
       "at": "2026-08-07T00:49:28.764975Z",
       "owner_directive": "Capture the decisions from the live discussion into the spec before continuing",
       "reason": "plan"
+    },
+    {
+      "at": "2026-08-07T02:11:33.653857Z",
+      "owner_directive": "Users may have no codebase at all \u2014 pure spreadsheet or GUI-software workflows. Add an 'I have no codebase' option to the source choice, make the workflow-description question required in that mode, and generalise the whole feature so people who do not process data with code can use it. Name the entry 'Bring in my work'.",
+      "reason": "Owner generalised the feature to users with no codebase and renamed it"
     }
   ],
   "docs_events": [
@@ -223,6 +258,170 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:04:17.202430Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:04:17.215094Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:04:17.227845Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:04:17.241119Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:04:17.253756Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:04:17.266367Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:04:17.278874Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:04:17.298116Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:04:17.311343Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:04:17.327377Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:11:34.154263Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:11:34.167377Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:11:34.179754Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:11:34.191799Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:11:34.203788Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:11:34.215959Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:11:34.228653Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:11:34.241423Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:11:34.260879Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T02:11:34.276503Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -237,19 +436,23 @@
   "observed_diff": {
     "base": "origin/main",
     "base_sha": "6579d9ce",
-    "changed_files": [],
-    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "changed_files": [
+      ".workflow/records/2010-guided-codebase-import-spec.json",
+      "docs/adr/ADR-053.md",
+      "docs/specs/adr-053-codebase-import.md"
+    ],
+    "diff_fingerprint": "sha256:86b81e432feabe0864196cc13825aa623541e86e024b39febff837e778223b82",
     "head": "HEAD",
-    "head_sha": "6579d9ce",
+    "head_sha": "a65d744c",
     "surfaces": {
-      "docs": 0,
+      "docs": 2,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
       "implementation": 0,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 0,
+      "sentrux": 2,
       "test": 0,
       "workflow_ci": 0
     }
@@ -275,6 +478,22 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-08-07T02:04:17.327412Z",
+      "diff_fingerprint": "sha256:86b81e432feabe0864196cc13825aa623541e86e024b39febff837e778223b82",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-07T02:11:34.276535Z",
+      "diff_fingerprint": "sha256:86b81e432feabe0864196cc13825aa623541e86e024b39febff837e778223b82",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
     }
   ],
   "record_id": "2010-guided-codebase-import-spec",
@@ -284,7 +503,8 @@
     "checks": [
       "format_check",
       "full_audit",
-      "lint_format"
+      "lint_format",
+      "semantic_dup"
     ],
     "docs": [],
     "guards": [
@@ -315,6 +535,12 @@
       "at": "2026-08-07T00:49:28.765005Z",
       "pattern": "docs/adr/ADR-053.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T02:11:33.653872Z",
+      "pattern": "docs/specs/adr-053-work-import.md",
+      "reason": "Owner generalised the feature to users with no codebase and renamed it"
     }
   ],
   "session_id": "76e6e302-33a1-4a96-a285-f41a9a8fbdc2",
