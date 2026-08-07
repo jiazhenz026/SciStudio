@@ -374,12 +374,26 @@ whole report so a wedged child cannot hold the response.
 
 ### 8.4 Audit
 
-- [ ] Audit agent assigned, or manager audit completed.
-- [ ] Audit report file path assigned.
-- [ ] Audit report committed.
+- [x] Audit agent assigned, or manager audit completed. -> `AU1`, with-context
+- [x] Audit report file path assigned.
+      -> `docs/audit/2026-08-07-adr-053-work-import-with-context.md`
+- [x] Audit report committed. -> see §11.4 for the commit.
 - [ ] Audit report merged into final PR evidence path.
-- [ ] Findings recorded.
-- [ ] P1 findings fixed before integration.
+- [x] Findings recorded. Track A findings: **P2-1** (`not_installed` /
+      `not_authenticated` guidance names the providers but gives no command,
+      URL or step — FR-031 asks for instructions, SC-002 for a specific next
+      action), **P2-3** (`kimi-code`'s minimal call carries no tool restriction
+      and no sandbox, against the module docstring's stated safety invariant;
+      `test_the_probe_never_grants_the_cli_tools` asserts a universal but loops
+      over four of five providers), **P3-1** (an empty provider registry — the
+      case contract C1 names explicitly — renders no guidance and no start
+      action, because the frontend derives guidance from provider rows and
+      ignores the aggregate `state`). Verified: four states resolve correctly,
+      `ready` is reachable only through a live call that exits 0 *and* prints,
+      `call_failed` copy contains no "install" and `_REINSTALL_GUIDANCE` strips
+      it from provider error text, a wedged provider degrades on wall-clock
+      time. `pytest tests/api/test_agent_availability.py` -> 40 passed.
+- [x] P1 findings fixed before integration. -> none found.
 - [ ] P2/P3 findings fixed or tracked with owner-approved rationale.
 
 ### 8.5 Integration
@@ -465,12 +479,29 @@ whole report so a wedged child cannot hold the response.
 
 ### 9.4 Audit
 
-- [ ] Audit agent assigned, or manager audit completed.
-- [ ] Audit report file path assigned.
-- [ ] Audit report committed.
+- [x] Audit agent assigned, or manager audit completed. -> `AU1`, with-context
+- [x] Audit report file path assigned.
+      -> `docs/audit/2026-08-07-adr-053-work-import-with-context.md`
+- [x] Audit report committed. -> see §11.4 for the commit.
 - [ ] Audit report merged into final PR evidence path.
-- [ ] Findings recorded.
-- [ ] P1 findings fixed before integration.
+- [x] Findings recorded. Track B findings: **P2-2** (SC-006's "distinguishes
+      skipped questions from unanswered ones" does not hold and cannot — the
+      design deliberately collapses blank into skipped, which is what FR-021
+      actually asks for; the fix is a spec correction, not a code change),
+      **P3-2** (the eight preset labels and the four question texts exist as
+      independent copies in `copy.ts` and `brief_template.md` with no test
+      crossing the boundary, although `copy.ts:131-133` claims they are the same
+      strings), **P3-5** (spec:563-564 still says `#2003`'s concrete paths are
+      "left unresolved"; `status:` is still `Draft`; the `tests:` frontmatter
+      lists 2 of the 6 test files). Verified **independently, not from the
+      reported sha256**: `diff` and `cmp` of spec lines 672-1047 against
+      `brief_template.md` -> byte-identical; §4.6 at `origin/main` vs branch head
+      -> byte-identical (`sha256 fcbfc3d7…5766a0` both sides); 12 of the ~17 FR
+      cross-reference corrections spot-checked against the requirements they now
+      name, all correct; every remaining FR/SC citation outside §4.6 re-read, no
+      surviving mis-citation. `pytest tests/ai/test_work_import_brief.py`
+      -> 62 passed.
+- [x] P1 findings fixed before integration. -> none found.
 - [ ] P2/P3 findings fixed or tracked with owner-approved rationale.
 
 ### 9.5 Integration
@@ -566,13 +597,31 @@ whole report so a wedged child cannot hold the response.
 
 ### 10.4 Audit
 
-- [ ] Audit agent assigned, or manager audit completed.
-- [ ] Audit report file path assigned.
-- [ ] Audit report committed.
+- [x] Audit agent assigned, or manager audit completed. -> `AU1`, with-context
+- [x] Audit report file path assigned.
+      -> `docs/audit/2026-08-07-adr-053-work-import-with-context.md`
+- [x] Audit report committed. -> see §11.4 for the commit.
 - [ ] Audit report merged into final PR evidence path.
-- [ ] Findings recorded.
-- [ ] P1 findings fixed before integration.
-- [ ] P2/P3 findings fixed or tracked with owner-approved rationale.
+- [x] Findings recorded. **No Track C findings.** The two claims that carry the
+      most weight both hold, verified by running the check rather than reading
+      it. FR-024: `test_brief_is_complete_on_disk_before_the_agent_is_spawned`
+      genuinely proves *ordering* — the recorder reads the file named in the
+      opening message from *inside* the `_spawn` call and compares it against an
+      independently composed brief, so a spawn racing the write sees no file and
+      one racing the close sees a prefix. The frozen ADR-034 user-launched route
+      is unchanged: the whole `websocket.py` delta is the join predicate plus
+      comments; query-parameter contract, spawn call and its error frames, cap
+      check and its frame, registration, both pumps and teardown are untouched;
+      `_engine_prespawned` is stamped *before* the `_active_ptys` insert, closing
+      the spawn-a-second-agent window; `test_open_engine_initiated_tab_signature_unchanged`
+      and the four `test_engine.py` rejection tests still pass because their
+      `match=` patterns survive the message-prefix rename. A work-import tab
+      registers in no block-run map. `pytest tests/api -k "pty or ai_pty"`
+      -> 108 passed; `pytest tests/api/test_work_import_session.py` -> 41 passed.
+      No personal-library write path or endpoint exists anywhere in the diff.
+- [x] P1 findings fixed before integration. -> none found.
+- [x] P2/P3 findings fixed or tracked with owner-approved rationale.
+      -> N/A, no Track C findings.
 
 ### 10.5 Integration
 
@@ -700,13 +749,48 @@ whole report so a wedged child cannot hold the response.
 
 ### 11.4 Audit
 
-- [ ] Audit agent assigned, or manager audit completed.
-- [ ] Audit report file path assigned.
-- [ ] Audit report committed.
+- [x] Audit agent assigned, or manager audit completed. -> `AU1`, with-context,
+      branch `audit/2001-work-import-with-context`, gate ledger
+      `.workflow/records/2001-audit-2001-work-import-with-context.json`
+- [x] Audit report file path assigned.
+      -> `docs/audit/2026-08-07-adr-053-work-import-with-context.md`
+- [x] Audit report committed. -> `66175df1` on
+      `audit/2001-work-import-with-context`, pushed to `origin`; not opened as a
+      PR (pre-flight blocked by `#2030`; manager integrates).
 - [ ] Audit report merged into final PR evidence path.
-- [ ] Findings recorded.
-- [ ] P1 findings fixed before integration.
+- [x] Findings recorded. Track D findings: **P2-1** (availability guidance copy —
+      shared with Track A), **P2-4** (SC-001's "at least one working block" half
+      is unverified; §12 carries no evidence and no e2e session was run, while
+      `#2020`/`#2022` sit directly in that clause's path), **P3-1** (empty
+      registry renders no guidance and no start action). Verified: the caveat has
+      no dismiss control, no disclosure element and no `aria-hidden`, renders in
+      the dialog's non-scrolling footer immediately above the start button so it
+      is on screen whenever the button is, and is not conditioned on
+      `hasNoCodebase`; `ProviderPicker` and `PermissionModePicker` are imported
+      unchanged and neither file appears in the diff; the `"dangerous"` ->
+      `"bypass"` mapping happens once at the request boundary and is pinned on
+      both sides, with the backend rejecting the frontend spelling; presets route
+      nothing — the only reads of `data_kinds` are a `", ".join` into the brief
+      and one emptiness check; no question requires SciStudio or
+      software-development knowledge. `npx vitest run` -> 123 files / 1226
+      tests passed; `tsc --noEmit` clean; `eslint .` 0 errors; `prettier
+      --check` clean.
+- [x] P1 findings fixed before integration. -> none found across all four tracks.
 - [ ] P2/P3 findings fixed or tracked with owner-approved rationale.
+
+**Overall audit recommendation: pass-with-fixes.** No P1. Four P2 (P2-1
+guidance copy, P2-2 SC-006 is a spec defect needing a spec correction not a code
+change, P2-3 the untracked `kimi-code` unbounded probe, P2-4 SC-001 unverified
+end to end) and five P3. Cross-cutting evidence: `full_audit` **pass**, 0 errors,
+**0 findings on any file this dispatch touched**; import-linter **13 kept, 0
+broken** including "AI must not depend on api"; `ruff`, `ruff format`, `mypy src`
+all clean; the whole Python suite produces **exactly the six pre-existing
+`#2030` failures and nothing else**; spec §4.6 **byte-identical** to
+`origin/main` and to `brief_template.md`; `pyproject.toml` absent from the diff.
+Scope: A1/A2/A3 wrote exactly their §6 write sets; A4 also wrote
+`docs/specs/**` frontmatter, which §11.3 declares and §13 contradicts (see the
+audit report's P3-3). Sentrux: **N/A — no CLI on `PATH` and no MCP server
+connected in this session**; the ledger's own `sentrux_gate` ran under `check`.
 
 ### 11.5 Integration
 
