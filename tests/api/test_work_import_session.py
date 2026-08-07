@@ -500,17 +500,75 @@ def test_missing_project_dir_is_rejected(client: TestClient, opened_project: Pat
     assert spawn.calls == []
 
 
-def test_unknown_skipped_question_is_rejected(client: TestClient, opened_project: Path, spawn: _SpawnRecorder) -> None:
-    """FR-021: a skip marker that no question owns would be dropped silently.
-
-    The brief would then render an explicitly-skipped question as merely
-    unanswered, which is the exact distinction the skip marker exists to
-    preserve.
-    """
-    resp = client.post("/api/work-import/sessions", json=_payload(opened_project, skipped=["destination_tier"]))
+def test_unknown_destination_tier_is_rejected(client: TestClient, opened_project: Path, spawn: _SpawnRecorder) -> None:
+    """The destination is a closed set; the wire shape rejects anything else."""
+    resp = client.post("/api/work-import/sessions", json=_payload(opened_project, destination_tier="somewhere-else"))
 
     assert resp.status_code == 422
     assert spawn.calls == []
+
+
+# ---------------------------------------------------------------------------
+# Contract C2 answer-shape rules
+#
+# ``ImportSessionContext.__post_init__`` owns them and signals a violation with
+# ``ValueError``. Each one describes a dialog state the user cannot actually
+# produce, so it is a bad request: the endpoint must answer 4xx with the
+# dataclass's own message, never 500. A 500 here would read as "SciStudio
+# broke" for what is a caller bug, and would bury the message that says which
+# rule was violated.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected_fragment"),
+    [
+        pytest.param({"skipped": ["destination_tier"]}, "skipped may only name", id="unskippable-question-skipped"),
+        pytest.param({"has_no_codebase": True}, "source_location must be empty", id="source-and-no-codebase"),
+        pytest.param(
+            {"source_location": None, "has_no_codebase": False},
+            "source location is required",
+            id="neither-source-nor-no-codebase",
+        ),
+        pytest.param({"skipped": ["interaction_wishes"]}, "carries an answer", id="skipped-but-answered"),
+        pytest.param({"provider": "   "}, "provider", id="blank-provider"),
+    ],
+)
+def test_answer_shape_violations_are_4xx_with_a_usable_message(
+    overrides: dict[str, Any],
+    expected_fragment: str,
+    client: TestClient,
+    opened_project: Path,
+    spawn: _SpawnRecorder,
+) -> None:
+    """Every contract-C2 ``ValueError`` reaches the caller as a 4xx, not a 500."""
+    resp = client.post("/api/work-import/sessions", json=_payload(opened_project, **overrides))
+
+    assert 400 <= resp.status_code < 500, f"expected 4xx, got {resp.status_code}: {resp.text}"
+    assert expected_fragment in resp.text, f"response does not say what was wrong: {resp.text}"
+    assert spawn.calls == []
+    assert not (opened_project / ".scistudio" / "work-import").exists()
+
+
+def test_a_blank_answer_is_a_valid_session_not_an_error(
+    client: TestClient, opened_project: Path, spawn: _SpawnRecorder
+) -> None:
+    """FR-021: a blank optional answer renders as skipped rather than failing.
+
+    The dialog lets a user tab past a question without pressing skip. That
+    has to start a session, not return an error, and the brief has to say the
+    user did not answer rather than pretend they said nothing applies.
+    """
+    body, data = _start(
+        client,
+        opened_project,
+        interaction_wishes="   ",
+        other_software=None,
+        skipped=[],
+    )
+
+    assert spawn.calls[0]["brief_text_at_spawn"] == _expected_brief(body)
+    assert (opened_project / data["brief_path"]).is_file()
 
 
 def test_no_codebase_session_is_a_first_class_path(

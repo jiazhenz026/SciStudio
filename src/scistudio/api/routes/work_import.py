@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 from scistudio.ai.agent.providers_registry import agent_keys
 from scistudio.ai.work_import.brief import compose_brief
@@ -61,12 +61,6 @@ SESSION_TITLE = "Bring in my work"
 #: Project-relative directory holding session briefs. Under ``.scistudio/``
 #: so the default project ``.gitignore`` excludes it (FR-027).
 BRIEF_DIR_PARTS = (".scistudio", "work-import")
-
-#: The optional questions a user may explicitly skip (contract C2). A
-#: skipped question reaches the brief marked as skipped rather than
-#: omitted, so the agent can tell "the user did not say" from "the user
-#: said nothing applies" (FR-021).
-SKIPPABLE_QUESTIONS = frozenset({"workflow_description", "interaction_wishes", "other_software"})
 
 
 def _new_brief_filename() -> str:
@@ -142,22 +136,6 @@ class WorkImportSessionRequest(BaseModel):
         ),
     )
 
-    @field_validator("skipped")
-    @classmethod
-    def _skipped_names_are_known(cls, value: list[str]) -> list[str]:
-        """Reject a skip marker for a question that cannot be skipped.
-
-        An unrecognised name would otherwise be dropped silently and the
-        brief would render an explicitly-skipped question as unanswered —
-        exactly the distinction FR-021 exists to preserve.
-        """
-        unknown = sorted(set(value) - SKIPPABLE_QUESTIONS)
-        if unknown:
-            raise ValueError(
-                f"unknown skippable question(s) {unknown}; expected a subset of {sorted(SKIPPABLE_QUESTIONS)}"
-            )
-        return value
-
 
 class WorkImportSessionResponse(BaseModel):
     """Response body for ``POST /api/work-import/sessions``.
@@ -219,19 +197,30 @@ def create_work_import_session(request: WorkImportSessionRequest) -> WorkImportS
             detail=f"Unknown provider {request.provider!r}; expected one of {sorted(accepted)}.",
         )
 
-    context = ImportSessionContext(
-        source_location=request.source_location,
-        has_no_codebase=request.has_no_codebase,
-        destination_tier=request.destination_tier,
-        data_kinds=tuple(request.data_kinds),
-        data_kinds_other=request.data_kinds_other,
-        workflow_description=request.workflow_description,
-        interaction_wishes=request.interaction_wishes,
-        other_software=request.other_software,
-        skipped=frozenset(request.skipped),
-        provider=request.provider,
-        permission_mode=request.permission_mode,
-    )
+    # ``ImportSessionContext`` owns the answer-shape rules (contract C2): a
+    # source location supplied alongside "I don't have a codebase", neither
+    # supplied, a skip marker for a question that is not skippable, or a
+    # question marked skipped that nevertheless carries an answer. Those are
+    # bad requests, not server faults, so each one becomes a 400 carrying the
+    # dataclass's own message rather than a 500 with a stack trace. The rules
+    # are not restated here: two copies of the same rule drift.
+    try:
+        context = ImportSessionContext(
+            source_location=request.source_location,
+            has_no_codebase=request.has_no_codebase,
+            destination_tier=request.destination_tier,
+            data_kinds=tuple(request.data_kinds),
+            data_kinds_other=request.data_kinds_other,
+            workflow_description=request.workflow_description,
+            interaction_wishes=request.interaction_wishes,
+            other_software=request.other_software,
+            skipped=frozenset(request.skipped),
+            provider=request.provider,
+            permission_mode=request.permission_mode,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid session context: {exc}") from exc
+
     brief_text = compose_brief(context)
 
     try:
