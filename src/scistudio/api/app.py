@@ -26,6 +26,7 @@ from scistudio.api.routes import (
     projects,
     runs,
     tutorials,
+    types,
     user_library,
     workflows,
 )
@@ -267,6 +268,11 @@ def create_app() -> FastAPI:
 
     app.include_router(workflows.router)
     app.include_router(blocks.router)
+    # ADR-053 §7 — the registered data type listing and the data-type template.
+    # Registered beside the block router rather than under it: FR-027 makes the
+    # Data types tab independent of the block listing, and a router nested in
+    # ``/api/blocks`` would contradict that in the URL if not in the code.
+    app.include_router(types.router)
     app.include_router(data.router)
     # ADR-048 SPEC 1: routed previewer session API (additive to data.router).
     app.include_router(data.previews_router)

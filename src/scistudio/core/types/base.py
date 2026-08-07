@@ -228,6 +228,28 @@ class DataObject:
     instance of that model to the constructor.
     """
 
+    # ADR-053 FR-049: a type may declare how it looks, the way a block already
+    # can through ``Block.ui_color`` / ``Block.ui_icon`` (#1839). Both default
+    # to ``None``, and the resolution precedence (FR-051) reads the declared
+    # value first and otherwise behaves exactly as before, so a type that
+    # declares neither renders byte-identically to today. Values are validated
+    # once, where the type registry collects them; an unusable value is dropped
+    # with a warning rather than carried to the frontend (FR-052).
+    ui_color: ClassVar[str | None] = None
+    """The fill colour this type asks for, as a CSS hex string, or ``None``.
+
+    Used for the type's palette tile and for the canvas ports that carry it.
+    ``None`` (the default) leaves the colour to the frontend's existing
+    per-type table and hash fallback.
+    """
+
+    ui_ring_color: ClassVar[str | None] = None
+    """The ring colour this type asks for, as a CSS hex string, or ``None``.
+
+    ``None`` (the default) leaves the ring to be derived from the fill, which
+    is what every type does today.
+    """
+
     @stable(since="0.3.1")
     def __init__(
         self,

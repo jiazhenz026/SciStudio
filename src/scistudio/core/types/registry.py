@@ -34,6 +34,27 @@ Each core base class carries per-base ``reconstruct_extra_kwargs`` /
 the worker subprocess call site wires them. Both rely on the resolver and
 the validation hook added here.
 
+Declared colour and the single spec-construction site
+-----------------------------------------------------
+
+ADR-053 FR-050. A type may declare its own appearance
+(:attr:`scistudio.core.types.base.DataObject.ui_color` /
+``ui_ring_color``, FR-049), and this registry is where those declarations are
+read off the class and validated. Reading them here rather than at render time
+is FR-052: the types listing endpoint is the single source of type colour for
+the product, so a malformed value must be dropped before it reaches that
+endpoint, not after each consumer has had a chance to choke on it.
+
+Collecting a new per-type fact used to mean editing four places. ``TypeSpec``
+was built inline in :meth:`TypeRegistry.scan_builtins`, in
+:meth:`TypeRegistry._scan_entrypoint_types`, and in
+:meth:`TypeRegistry.register_class` (which the source-package and drop-in
+passes share), each repeating the same ``__mro__``/``__doc__`` derivation. The
+three now route through :func:`_spec_for_class`, so origin, file path, and
+colour are populated for every tier at once and a tier cannot silently miss a
+field. The passes still differ in what they do about a bad class — builtins
+raise, plugins log and skip — because that difference is real.
+
 Scan order versus BlockRegistry
 -------------------------------
 
@@ -80,7 +101,9 @@ import hashlib
 import importlib
 import importlib.metadata
 import importlib.util
+import inspect
 import logging
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -98,6 +121,20 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+#: Module-name prefix the drop-in pass registers file-loaded type modules
+#: under. It is also the marker that identifies a drop-in :class:`TypeSpec`
+#: afterwards: a drop-in belongs to no distribution, so a spec carrying this
+#: prefix must resolve to the ADR-053 FR-002 ``custom`` fallback rather than to
+#: ``package``. Named here because the same string is written by
+#: :meth:`TypeRegistry._scan_filesystem_dirs` and read back by
+#: :func:`_spec_for_class`.
+DROPIN_MODULE_PREFIX = "_scistudio_type_dropin_"
+
+#: The CSS hex forms ADR-053 FR-049 accepts for a declared colour: ``#RGB``,
+#: ``#RGBA``, ``#RRGGBB``, ``#RRGGBBAA``. Short forms are expanded on
+#: collection so every value that reaches a consumer is the long form.
+_HEX_COLOUR_RE = re.compile(r"#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})")
+
 
 @dataclass
 class TypeSpec:
@@ -112,6 +149,91 @@ class TypeSpec:
     class_name: str = ""
     base_type: str = ""
     description: str = ""
+    file_path: str = ""
+    """The ``.py`` file the class is defined in, or ``""`` when unresolvable.
+
+    ADR-053 FR-026: the types listing reports this so a drop-in type can be
+    opened and promoted. Recorded for every tier, not only drop-ins — a core
+    or plugin type has a real file too, and the origin split reads
+    :attr:`is_dropin` rather than the presence of a path.
+    """
+
+    is_dropin: bool = False
+    """Whether this type came from a drop-in file rather than an installed one.
+
+    The one thing :func:`scistudio.api._block_source.resolve_origin` cannot
+    infer for a type: a drop-in registers under a synthetic
+    :data:`DROPIN_MODULE_PREFIX` module name, which is not an import path and
+    so would otherwise read as a plugin distribution.
+    """
+
+    ui_color: str | None = None
+    """The fill colour the class declared, validated, or ``None`` (FR-049)."""
+
+    ui_ring_color: str | None = None
+    """The ring colour the class declared, validated, or ``None`` (FR-049)."""
+
+
+def _class_file(cls: type) -> str:
+    """Return the file *cls* is defined in, or ``""`` when there is none."""
+    try:
+        return inspect.getfile(cls)
+    except (OSError, TypeError):  # dynamically built or C-defined class
+        return ""
+
+
+def _declared_colour(cls: type, attribute: str) -> str | None:
+    """Return the CSS hex colour *cls* declares on *attribute*, else ``None``.
+
+    ADR-053 FR-052 is the whole point of this function existing at collection
+    time rather than at render time: a hand-edited type file in the user
+    library is an ordinary place for a typo, and one typo must not be able to
+    reach the palette or the canvas. An unusable value is logged and dropped,
+    which puts the type back on the FR-051 fallback it would have used had it
+    declared nothing.
+
+    Short hex forms are expanded to their long equivalent so every consumer
+    receives ``#rrggbb`` or ``#rrggbbaa`` and none of them has to parse two
+    shapes.
+    """
+    raw = getattr(cls, attribute, None)
+    if raw is None:
+        return None
+    value = raw.strip() if isinstance(raw, str) else ""
+    if not _HEX_COLOUR_RE.fullmatch(value):
+        logger.warning(
+            "TypeRegistry: ignoring %s.%s=%r — expected a CSS hex colour such as '#4f8ef7'",
+            cls.__name__,
+            attribute,
+            raw,
+        )
+        return None
+    digits = value[1:].lower()
+    if len(digits) in (3, 4):
+        digits = "".join(digit * 2 for digit in digits)
+    return f"#{digits}"
+
+
+def _spec_for_class(cls: type) -> TypeSpec:
+    """Describe *cls* as a :class:`TypeSpec`.
+
+    The single construction site. Every discovery pass — builtins,
+    entry-points, source packages, drop-ins — routes through here, so a field
+    added to :class:`TypeSpec` is populated for all four tiers at once instead
+    of for whichever pass the author happened to be editing.
+    """
+    module_path = getattr(cls, "__module__", "") or ""
+    return TypeSpec(
+        name=cls.__name__,
+        module_path=module_path,
+        class_name=cls.__name__,
+        base_type=cls.__mro__[1].__name__ if len(cls.__mro__) > 2 else "",
+        description=cls.__doc__.split("\n")[0] if cls.__doc__ else "",
+        file_path=_class_file(cls),
+        is_dropin=module_path.startswith(DROPIN_MODULE_PREFIX),
+        ui_color=_declared_colour(cls, "ui_color"),
+        ui_ring_color=_declared_colour(cls, "ui_ring_color"),
+    )
 
 
 class TypeRegistry:
@@ -179,15 +301,7 @@ class TypeRegistry:
         registry.
         """
         self._validate_meta_class(cls)
-        base = cls.__mro__[1].__name__ if len(cls.__mro__) > 2 else ""
-        spec = TypeSpec(
-            name=cls.__name__,
-            module_path=cls.__module__,
-            class_name=cls.__name__,
-            base_type=base,
-            description=cls.__doc__.split("\n")[0] if cls.__doc__ else "",
-        )
-        self.register(cls.__name__, spec)
+        self.register(cls.__name__, _spec_for_class(cls))
 
     # -- resolve: overloaded on argument type -------------------------------
 
@@ -409,19 +523,11 @@ class TypeRegistry:
             CompositeData,
         ]
         for cls in builtins:
-            # ADR-027 Addendum 1 §3: reject broken Meta declarations.
-            self._validate_meta_class(cls)
-            base = cls.__mro__[1].__name__ if len(cls.__mro__) > 2 else ""
-            self.register(
-                cls.__name__,
-                TypeSpec(
-                    name=cls.__name__,
-                    module_path=cls.__module__,
-                    class_name=cls.__name__,
-                    base_type=base,
-                    description=cls.__doc__.split("\n")[0] if cls.__doc__ else "",
-                ),
-            )
+            # ADR-027 Addendum 1 §3: reject broken Meta declarations. A core
+            # type with a broken ``Meta`` is a SciStudio bug, so this pass
+            # keeps letting the ValueError out rather than logging and
+            # skipping the way the plugin passes do.
+            self.register_class(cls)
 
     def _scan_entrypoint_types(self) -> None:
         """Discover and register DataObject subtypes from ``scistudio.types`` entry-points.
@@ -480,7 +586,7 @@ class TypeRegistry:
                 # Meta with a warning (log + skip) instead of raising so
                 # one bad plugin does not take down the whole registry.
                 try:
-                    self._validate_meta_class(cls)
+                    self.register_class(cls)
                 except ValueError:
                     logger.warning(
                         "Entry-point '%s' type %r has a Meta class that violates ADR-027 Addendum 1 §3; skipping",
@@ -490,17 +596,6 @@ class TypeRegistry:
                     )
                     continue
 
-                base = cls.__mro__[1].__name__ if len(cls.__mro__) > 2 else ""
-                self.register(
-                    cls.__name__,
-                    TypeSpec(
-                        name=cls.__name__,
-                        module_path=cls.__module__,
-                        class_name=cls.__name__,
-                        base_type=base,
-                        description=cls.__doc__.split("\n")[0] if cls.__doc__ else "",
-                    ),
-                )
                 logger.info("Registered external type '%s' from entry-point '%s'", cls.__name__, ep.name)
 
     def scan_all(self) -> None:
@@ -661,7 +756,7 @@ class TypeRegistry:
                     # collisions when two scan dirs contain files with the same
                     # stem and the same mtime (issue #1374).
                     path_hash = hashlib.sha256(str(py_file.resolve()).encode()).hexdigest()[:8]
-                    mod_name = f"_scistudio_type_dropin_{py_file.stem}_{int(mtime)}_{path_hash}"
+                    mod_name = f"{DROPIN_MODULE_PREFIX}{py_file.stem}_{int(mtime)}_{path_hash}"
                     spec = importlib.util.spec_from_file_location(mod_name, py_file)
                     if spec is None or spec.loader is None:
                         continue

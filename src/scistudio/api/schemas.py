@@ -223,6 +223,66 @@ class BlockListResponse(BaseModel):
     dropin_failures: list[DropinFailureResponse] = Field(default_factory=list)
 
 
+class TypeSummary(BaseModel):
+    """One registered ``DataObject`` type, as the Data types tab sees it.
+
+    ADR-053 FR-026. Deliberately not an extension of :class:`TypeHierarchyEntry`
+    on the block response: FR-027 makes the types listing independent of the
+    block listing, so the Data types tab neither waits for nor re-triggers a
+    palette fetch.
+    """
+
+    name: str = Field(description="Registered type name, e.g. 'DataFrame'.")
+    base_type: str = Field(default="", description="Immediate parent type name, or '' for DataObject itself.")
+    description: str = Field(default="", description="First line of the class docstring.")
+    origin: str = Field(
+        description=(
+            "ADR-053 FR-005 resolved origin tier: 'core' | 'user' | 'project' | "
+            "'package' | 'custom', where 'custom' is the unresolvable-path fallback."
+        )
+    )
+    file_path: str | None = Field(
+        default=None,
+        description="Absolute path of the file defining the type, or null when unresolvable.",
+    )
+    # ADR-053 FR-049/FR-050: the colours the type itself declared, already
+    # validated and normalised to long-form CSS hex by the registry (FR-052),
+    # so an unusable value arrives here as null rather than as a string no
+    # consumer can parse. Null means "this type declared nothing" and the
+    # frontend applies the rest of the FR-051 precedence.
+    ui_color: str | None = Field(default=None, description="Type-declared fill colour, or null.")
+    ui_ring_color: str | None = Field(default=None, description="Type-declared ring colour, or null.")
+    # ADR-053 FR-054/FR-055/FR-056: always present, possibly empty. An empty
+    # list means "no format capability registered for this direction", which
+    # the popover states outright — absence of IO support is information.
+    load_extensions: list[str] = Field(
+        default_factory=list,
+        description="File extensions this type can be loaded from, sorted. Empty when none.",
+    )
+    save_extensions: list[str] = Field(
+        default_factory=list,
+        description="File extensions this type can be saved to, sorted. Empty when none.",
+    )
+
+
+class TypeListResponse(BaseModel):
+    """Response body for the registered data type listing (ADR-053 FR-026)."""
+
+    types: list[TypeSummary] = Field(default_factory=list)
+
+
+class TypeTemplateResponse(BaseModel):
+    """Response shape for ``GET /api/types/template`` (ADR-053 FR-028).
+
+    Identical in shape to ``BlockTemplateResponse`` so the new-block and
+    new-data-type flows can share their fetch-write-open steps (FR-033).
+    """
+
+    kind: str
+    content: str
+    suggested_filename: str
+
+
 class BlockSourceResponse(BaseModel):
     """Read-only source code backing a registered block type (#1758)."""
 
