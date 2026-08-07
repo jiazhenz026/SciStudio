@@ -171,6 +171,96 @@
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T07:33:30.412030Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b5b53465f03381cb24fb18d55c63c7716d1181e1d6228a0198bff48b0b4897ea",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T07:33:31.510061Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f33b67797875d397de6a30dd4d56d527e0443fb44fc963d58134cb0fac9ebaf6",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T07:34:19.775517Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0540991bcc2672cadbbdec0408a68d929e391999c83f659ea3cba30de9483924",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T07:34:29.910454Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:07023878e2c57a648a0de6ad660c8603754253276627c358d89567716a57048d",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T07:36:17.903365Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T07:37:27.251617Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1bff9ba8a48356dd31e876ff617f529dbaef06d64be0b06923920a2648942155",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [
@@ -179,7 +269,13 @@
       "rationale": "This diff contains no Python file (frontend sources, frontend tests, one spec and CHANGELOG only), so no Python surface changed. The local Windows host produces 9 deterministic failures that are present on the base commit and independent of this change: POSIX unix-socket MCP publish (2 tests), POSIX zsh/bash rc handling (2), a Windows overlength-path browse returning 404 where POSIX returns 400 (1, the test comment scopes itself to Linux and macOS), a CLI MCP env assertion sensitive to TOML backslash escaping on Windows (1), and the worktree write-guard hook shelling out to an interpreter that cannot import the package (3, the known Windows /bin/sh guard issue #2011). All other tier-1 checks pass locally, including semantic_dup. CI on Linux is authoritative for this check."
     }
   ],
-  "commit": null,
+  "commit": {
+    "sha": "9d50bf00",
+    "shas": [
+      "9d50bf00"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -478,6 +574,170 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:27.301628Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:27.316877Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:27.332466Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:27.347670Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:27.363667Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:27.378739Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:27.393495Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:27.409989Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:27.424973Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:27.447240Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:40.534405Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:40.547514Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:40.560810Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:40.573987Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:40.586865Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:40.600129Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:40.621718Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:40.634983Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:40.648538Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T07:37:40.668253Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -498,26 +758,55 @@
   "observed_diff": {
     "base": "origin/main",
     "base_sha": "b485e293",
-    "changed_files": [],
-    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "changed_files": [
+      ".workflow/records/1995-1995-palette-tiers-and-popover.json",
+      "CHANGELOG.md",
+      "docs/specs/frontend-block-palette.md",
+      "frontend/src/App.parts/ProjectWorkspace.tsx",
+      "frontend/src/App.tsx",
+      "frontend/src/components/BlockDetailPopover.tsx",
+      "frontend/src/components/BlockPalette.parts/BlockTile.tsx",
+      "frontend/src/components/BlockPalette.parts/CategoryChips.tsx",
+      "frontend/src/components/BlockPalette.parts/__tests__/paletteModel.test.ts",
+      "frontend/src/components/BlockPalette.parts/paletteModel.ts",
+      "frontend/src/components/BlockPalette.test.tsx",
+      "frontend/src/components/BlockPalette.tsx",
+      "frontend/src/components/palette/DetailPopover.tsx",
+      "frontend/src/components/palette/FilterChips.tsx",
+      "frontend/src/components/palette/PaletteTile.tsx",
+      "frontend/src/components/palette/__tests__/sections.test.ts",
+      "frontend/src/components/palette/__tests__/useHoverPopover.test.tsx",
+      "frontend/src/components/palette/hoverPopover.ts",
+      "frontend/src/components/palette/sections.ts",
+      "frontend/src/types/api.ts"
+    ],
+    "diff_fingerprint": "sha256:1241abdf3931ec448e7fea8df6845031761c87f1b77d3a368965f1fb690851f4",
     "head": "HEAD",
-    "head_sha": "b485e293",
+    "head_sha": "9d50bf00",
     "surfaces": {
-      "docs": 0,
-      "frontend": 0,
+      "docs": 1,
+      "frontend": 17,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 0,
+      "implementation": 17,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 0,
-      "test": 0,
+      "sentrux": 18,
+      "test": 4,
       "workflow_ci": 0
     }
   },
   "owner_directive": "ADR-053 Spec 1 slice B3 (manager dispatch docs/planning/adr-053-spec1-dispatch-prompts/b3-palette-tiers-and-popover.md): spec 12.2 steps 9-11 - origin-tier-first palette grouping (FR-038), My Library / This Project tier sections with load-bearing empty states (FR-035 - FR-037), Blocks tab rename (FR-034), shared palette helpers (FR-047, section 10.1), and the interactive hover popover (FR-044 - FR-046). Frontend only; no PR - manager integrates.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1995,
+      2025
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-07T07:24:54.842674Z",
@@ -556,6 +845,26 @@
       "unsatisfied": [
         "checks.python_tests"
       ]
+    },
+    {
+      "at": "2026-08-07T07:37:27.447265Z",
+      "diff_fingerprint": "sha256:1241abdf3931ec448e7fea8df6845031761c87f1b77d3a368965f1fb690851f4",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-07T07:37:40.668275Z",
+      "diff_fingerprint": "sha256:1241abdf3931ec448e7fea8df6845031761c87f1b77d3a368965f1fb690851f4",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
     }
   ],
   "record_id": "1995-1995-palette-tiers-and-popover",
@@ -566,6 +875,7 @@
       "architecture_tests",
       "deferral_discipline",
       "format_check",
+      "frontend",
       "full_audit",
       "import_contracts",
       "lint_format",
@@ -573,7 +883,9 @@
       "semantic_dup",
       "type_check"
     ],
-    "docs": [],
+    "docs": [
+      "docs_required_or_na"
+    ],
     "guards": [
       "core_change_guard",
       "docs_landing",
@@ -586,7 +898,9 @@
       "test_engineer_scope_guard",
       "weakened_ci_check"
     ],
-    "tests": []
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
