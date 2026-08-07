@@ -110,6 +110,7 @@ export function RestoreRunButton({ run, onRestored }: RestoreRunButtonProps) {
         <RestoreDialog
           commitSha={commitSha}
           targetLabel={restoreTargetLabel(run)}
+          runId={run.run_id}
           onClose={() => setDialogOpen(false)}
           onRestored={(autoCommitSha) => {
             if (autoCommitSha) {

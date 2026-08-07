@@ -65,6 +65,27 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+describe("RestoreDialog preflight target", () => {
+  it("passes the run id through when the caller has one", async () => {
+    render(
+      <RestoreDialog
+        commitSha="abc1234"
+        targetLabel="15 May 2026, 14:30"
+        runId="run-1"
+        onClose={vi.fn()}
+      />,
+    );
+    await waitFor(() => {
+      expect(api.lineage.validateRestore).toHaveBeenCalledWith("abc1234", "run-1");
+    });
+  });
+
+  it("omits it for a bare commit (the Git tab has no run)", async () => {
+    await renderDialog();
+    expect(api.lineage.validateRestore).toHaveBeenCalledWith("abc1234", undefined);
+  });
+});
+
 describe("RestoreDialog scope disclosure", () => {
   it("states that the whole project is restored, not just the workflow", async () => {
     await renderDialog();

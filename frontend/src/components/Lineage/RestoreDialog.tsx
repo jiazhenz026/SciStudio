@@ -34,6 +34,16 @@ export interface RestoreDialogProps {
    * a commit subject from the Git tab, or a run's start time from Run history.
    */
   targetLabel: string;
+  /**
+   * The run this restore was launched from, when there is one. Run history
+   * passes it; the Git tab restores an arbitrary commit and has none.
+   *
+   * Several runs can share a commit — the pre-run auto-commit is skipped on an
+   * already-clean tree — so without this the preflight compares against the
+   * newest run at that SHA, which may be a later failure rather than the run
+   * the user chose.
+   */
+  runId?: string;
   onClose: () => void;
   /**
    * Fired after a successful restore with the auto-commit SHA the backend
@@ -46,12 +56,13 @@ export interface RestoreDialogProps {
 export function RestoreDialog({
   commitSha,
   targetLabel,
+  runId,
   onClose,
   onRestored,
 }: RestoreDialogProps): ReactElement {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const { preflight, loading, error } = useRestorePreflight(commitSha, onClose);
+  const { preflight, loading, error } = useRestorePreflight(commitSha, onClose, runId);
 
   async function handleConfirm(): Promise<void> {
     setSubmitting(true);

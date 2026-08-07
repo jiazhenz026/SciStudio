@@ -103,28 +103,35 @@ def list_runs(
 @router.get("/validate-restore")
 def validate_restore(
     commit_sha: str = Query(description="Full SHA of the commit the user is about to restore to."),
+    run_id: str | None = Query(
+        default=None,
+        description="The run the restore was launched from, when the caller has one (Run history does; the Git tab does not).",
+    ),
     store: Any = _LineageStoreDep,
 ) -> dict[str, Any]:
     """Return the advisory checks for restoring to ``commit_sha``.
 
-    ADR-038 §3.6 + Addendum 1 §11.3 (#2033). Resolves the commit to the newest
-    run recorded at it, then compares that run's boundary inputs against what
-    is on disk now and its ``environment_snapshot`` against the live
-    environment. Both checks are advisory: this endpoint never blocks a
-    restore, and a caller is free to ignore the response entirely.
+    ADR-038 §3.6 + Addendum 1 §11.3 (#2033). Compares the anchoring run's
+    boundary inputs against what is on disk now, and its
+    ``environment_snapshot`` against the live environment. Both checks are
+    advisory: this endpoint never blocks a restore, and a caller is free to
+    ignore the response entirely.
 
-    Keyed on the commit rather than a run id because that is what Restore
-    operates on -- the Git tab restores an arbitrary commit, and the Run
-    history tab restores the commit a run recorded.
+    Keyed on the commit because that is what Restore operates on. ``run_id`` is
+    an optional refinement, not a duplicate of it: several runs can share one
+    commit (the pre-run auto-commit is skipped on an already-clean tree), so
+    resolving by commit alone answers with the newest of them whatever its
+    outcome. Run history knows which run the user picked and passes it; the Git
+    tab restores an arbitrary commit and has nothing to pass.
 
-    A commit with no associated run returns ``run_id: null`` with both warning
+    A target with no resolvable run returns ``run_id: null`` with both warning
     lists empty. That is **not** a clean bill of health, and clients must not
-    render it as one: it means no recorded run describes this commit, so
+    render it as one: it means no recorded run describes this target, so
     nothing could be compared. Conflating the two is the defect Addendum 1
     exists to remove -- the previous UI showed "No drift detected" for a
     comparison that never ran.
     """
-    return evaluate_restore_target(store, commit_sha)
+    return evaluate_restore_target(store, commit_sha, run_id=run_id)
 
 
 # ---------------------------------------------------------------------------

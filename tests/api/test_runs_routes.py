@@ -16,7 +16,9 @@ tests at the bottom of this file plus a guard asserting the route is gone.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import os
+import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -245,10 +247,6 @@ def anchored_run(client: TestClient, opened_project: Path) -> dict[str, Any]:
     input_file = opened_project / "data" / "input.csv"
     input_file.parent.mkdir(parents=True, exist_ok=True)
     input_file.write_text("a,b\n1,2\n", encoding="utf-8")
-    # Record the file's real mtime so the "unchanged" case is genuinely
-    # unchanged. A hardcoded past timestamp would make every input look
-    # modified, and the mtime branch would then mask the size branch below.
-    recorded_mtime = datetime.fromtimestamp(input_file.stat().st_mtime, tz=UTC).isoformat()
 
     store.insert_run(
         _make_run(
@@ -275,6 +273,10 @@ def anchored_run(client: TestClient, opened_project: Path) -> dict[str, Any]:
             termination="completed",
         )
     )
+    # Deliberately leave size_bytes / mtime_at_write unset so `upsert_data_object`
+    # fills them the way the recorder does in production. That writer stores the
+    # mtime as `str(path.stat().st_mtime)` — a bare epoch float, not ISO — and a
+    # fixture that hands it a tidy ISO string would test a format no real row has.
     store.upsert_data_object(
         DataObjectRow(
             object_id="obj-boundary",
@@ -282,8 +284,6 @@ def anchored_run(client: TestClient, opened_project: Path) -> dict[str, Any]:
             wire_payload={"backend": "csv", "path": str(input_file)},
             created_at="2026-05-15T14:30:00Z",
             storage_path=str(input_file),
-            size_bytes=input_file.stat().st_size,
-            mtime_at_write=recorded_mtime,
             produced_by_execution=None,
         )
     )
@@ -373,6 +373,130 @@ class TestValidateRestore:
         """
         store = seeded_project["store"]
         assert store.workflow_boundary_inputs("run-A") == []
+
+    def test_reads_the_epoch_mtime_the_store_actually_writes(
+        self, client: TestClient, anchored_run: dict[str, Any]
+    ) -> None:
+        """Codex P2 on PR #2034 — the two persisted mtime formats.
+
+        `upsert_data_object` fills a missing `mtime_at_write` with
+        `str(path.stat().st_mtime)`, so every row the recorder produces holds a
+        bare epoch float. ADR-038 §3.6's pseudocode assumes ISO. Reading only
+        ISO made the mtime branch dead code against real rows: the parse fails,
+        the comparison returns False, and an input modified after its run is
+        reported as clean.
+
+        This asserts both halves — that the stored value really is epoch, and
+        that a same-size edit to it now warns.
+        """
+        stored = anchored_run["store"].workflow_boundary_inputs("run-anchored")
+        assert len(stored) == 1
+        raw = stored[0]["mtime_at_write"]
+        float(raw)  # epoch, not ISO — raises if the writer ever changes shape
+        with pytest.raises(ValueError):
+            datetime.fromisoformat(raw)
+
+        # Same byte count, later mtime: only the mtime branch can catch this.
+        path = anchored_run["input_file"]
+        original_size = path.stat().st_size
+        os.utime(path, (time.time() + 120, time.time() + 120))
+        assert path.stat().st_size == original_size
+
+        r = client.get("/api/runs/validate-restore", params={"commit_sha": anchored_run["commit"]})
+        warnings = r.json()["input_warnings"]
+        assert len(warnings) == 1, warnings
+        assert "modified after the run" in warnings[0]["reason"]
+
+    def test_reads_an_iso_mtime_too(self, client: TestClient, anchored_run: dict[str, Any]) -> None:
+        """A caller that supplies its own `mtime_at_write` may use ISO.
+
+        The column is TEXT with no format stated on the field, so both shapes
+        have to parse; this is the one the §3.6 pseudocode assumed.
+        """
+        store = anchored_run["store"]
+        past_iso = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+        store.upsert_data_object(
+            DataObjectRow(
+                object_id="obj-iso",
+                type_name="DataFrame",
+                wire_payload={"backend": "csv", "path": str(anchored_run["input_file"])},
+                created_at="2026-05-15T14:30:00Z",
+                storage_path=str(anchored_run["input_file"]),
+                size_bytes=anchored_run["input_file"].stat().st_size,
+                mtime_at_write=past_iso,
+                produced_by_execution=None,
+            )
+        )
+        store.insert_block_io(
+            BlockIORow(
+                block_execution_id="be-anchored-1",
+                direction="input",
+                port_name="second",
+                object_id="obj-iso",
+                position=0,
+            )
+        )
+        r = client.get("/api/runs/validate-restore", params={"commit_sha": anchored_run["commit"]})
+        reasons = [w["reason"] for w in r.json()["input_warnings"]]
+        assert any("modified after the run" in reason for reason in reasons), reasons
+
+    def test_unparseable_mtime_stays_quiet(self, client: TestClient, anchored_run: dict[str, Any]) -> None:
+        """Garbage in the column is not evidence the file changed."""
+        store = anchored_run["store"]
+        # Reaching into the private connection: there is no public setter for a
+        # single column, and the point is to plant a value no writer produces.
+        with store._connect() as conn:
+            conn.execute(
+                "UPDATE data_objects SET mtime_at_write = ? WHERE object_id = ?",
+                ("not-a-timestamp", "obj-boundary"),
+            )
+        r = client.get("/api/runs/validate-restore", params={"commit_sha": anchored_run["commit"]})
+        assert r.json()["input_warnings"] == []
+
+    def test_run_id_selects_the_run_the_user_picked(self, client: TestClient, anchored_run: dict[str, Any]) -> None:
+        """Codex P2 on PR #2034 — several runs can share one commit.
+
+        The pre-run auto-commit is skipped when the tree is already clean, so
+        consecutive runs of an unedited workflow all anchor to the same SHA.
+        Resolving by commit alone answers with the newest of them whatever its
+        outcome, so a user restoring the run that *worked* would be compared
+        against a later run at the same commit — exactly inverting the question
+        they asked. Passing the selected `run_id` pins the right baseline.
+        """
+        store = anchored_run["store"]
+        # A later run at the same commit, recorded with a matching environment
+        # so it produces no env warnings of its own.
+        store.insert_run(
+            _make_run(
+                "run-later",
+                started_at="2027-01-01T00:00:00Z",
+                status="failed",
+                workflow_git_commit=anchored_run["commit"],
+                environment_snapshot={"key_packages": {}},
+            )
+        )
+
+        by_commit = client.get("/api/runs/validate-restore", params={"commit_sha": anchored_run["commit"]}).json()
+        assert by_commit["run_id"] == "run-later", "newest row wins without an explicit run_id"
+
+        by_run = client.get(
+            "/api/runs/validate-restore",
+            params={"commit_sha": anchored_run["commit"], "run_id": "run-anchored"},
+        ).json()
+        assert by_run["run_id"] == "run-anchored"
+        # The selected run recorded a scistudio version that is not installed;
+        # the newer run recorded no packages at all. Only the former can drift.
+        assert any(w["package"] == "scistudio" for w in by_run["env_warnings"])
+        assert by_commit["env_warnings"] == []
+
+    def test_unknown_run_id_falls_back_to_the_commit(self, client: TestClient, anchored_run: dict[str, Any]) -> None:
+        """A stale run_id (retention swept it) must not break the preflight."""
+        r = client.get(
+            "/api/runs/validate-restore",
+            params={"commit_sha": anchored_run["commit"], "run_id": "gone"},
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["run_id"] == "run-anchored"
 
     def test_rerun_route_is_gone(self, client: TestClient, seeded_project: dict[str, Any]) -> None:
         """ADR-038 Addendum 1 §11.1 — Re-run is withdrawn, not merely hidden."""

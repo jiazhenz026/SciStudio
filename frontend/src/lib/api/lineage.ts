@@ -236,21 +236,25 @@ export const lineageApi = {
     },
 
     /**
-     * GET /api/runs/validate-restore?commit_sha=…
+     * GET /api/runs/validate-restore?commit_sha=…[&run_id=…]
      *
      * ADR-038 §3.6 checks, relocated onto Restore by Addendum 1 (#2033).
      *
      * This replaces a stub that returned a hardcoded empty-warnings object
      * without contacting the backend — the route it was waiting for never
-     * shipped, so the dialog reported "No drift detected" unconditionally for
-     * two years. Errors are deliberately NOT swallowed into an empty result
-     * here: a failed check is not a clean check, and the caller renders the
-     * difference.
+     * shipped, so the dialog reported "No drift detected" unconditionally.
+     * Errors are deliberately NOT swallowed into an empty result here: a
+     * failed check is not a clean check, and the caller renders the difference.
+     *
+     * Pass `runId` whenever the restore was launched from a specific run.
+     * Several runs can share one commit — the pre-run auto-commit is skipped
+     * on an already-clean tree — so without it the backend compares against
+     * the newest run at that SHA, which may not be the one the user chose.
      */
-    validateRestore: async (commitSha: string): Promise<RestorePreflight> => {
-      return apiFetch<RestorePreflight>(
-        `/api/runs/validate-restore?commit_sha=${encodeURIComponent(commitSha)}`,
-      );
+    validateRestore: async (commitSha: string, runId?: string): Promise<RestorePreflight> => {
+      const params = new URLSearchParams({ commit_sha: commitSha });
+      if (runId) params.set("run_id", runId);
+      return apiFetch<RestorePreflight>(`/api/runs/validate-restore?${params.toString()}`);
     },
   },
 };

@@ -92,9 +92,13 @@ describe("RestoreRunButton", () => {
     expect(api.gitRestore).not.toHaveBeenCalled();
   });
 
-  it("runs the ADR-038 §3.6 preflight against the run's commit", async () => {
+  it("runs the ADR-038 §3.6 preflight against the run's commit AND its run id", async () => {
+    // Codex P2 on PR #2034: several runs can share one commit — the pre-run
+    // auto-commit is skipped on an already-clean tree — so passing only the
+    // SHA lets the backend compare against the newest run at it, which may be
+    // a later failure rather than the run the user picked.
     await openDialog();
-    expect(api.lineage.validateRestore).toHaveBeenCalledWith("deadbeef1234");
+    expect(api.lineage.validateRestore).toHaveBeenCalledWith("deadbeef1234", "r1");
   });
 
   it("confirming restores the FULL TREE — no `files` scope", async () => {

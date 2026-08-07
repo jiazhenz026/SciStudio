@@ -25,6 +25,7 @@ export interface UseRestorePreflightResult {
 export function useRestorePreflight(
   commitSha: string,
   onClose: () => void,
+  runId?: string,
 ): UseRestorePreflightResult {
   const [preflight, setPreflight] = useState<RestorePreflight | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +37,7 @@ export function useRestorePreflight(
     setPreflight(null);
     setError(null);
     api.lineage
-      .validateRestore(commitSha)
+      .validateRestore(commitSha, runId)
       .then((res) => {
         if (cancelled) return;
         setPreflight(res);
@@ -50,7 +51,7 @@ export function useRestorePreflight(
     return () => {
       cancelled = true;
     };
-  }, [commitSha]);
+  }, [commitSha, runId]);
 
   // Esc closes the dialog.
   useEffect(() => {

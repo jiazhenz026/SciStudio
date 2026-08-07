@@ -25,6 +25,7 @@ import json
 import logging
 import platform as platform_mod
 import sys
+from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -101,23 +102,47 @@ def _input_warnings(store: LineageStore, run_id: str) -> list[dict[str, str]]:
     return warnings
 
 
-def _mtime_is_newer(current_epoch: float, recorded_iso: str) -> bool:
-    """Return True when *current_epoch* postdates the recorded ISO stamp.
+def _parse_recorded_mtime(recorded: str) -> datetime | None:
+    """Return *recorded* as an aware datetime, or ``None`` if unreadable.
 
-    Returns ``False`` on an unparseable stamp: an unreadable record is not
-    evidence that the file changed, and a false "modified" warning on every
+    ``data_objects.mtime_at_write`` holds **two** formats and both are live.
+    :meth:`LineageStore.upsert_data_object` fills a missing value with
+    ``str(path.stat().st_mtime)`` — a bare epoch float like ``"1786092443.98"``
+    — and that is the only writer, so every row the recorder produces is in
+    epoch form. ADR-038 §3.6's pseudocode assumes ISO, and the column's type is
+    TEXT with no format stated on the field, so an ISO value from a caller that
+    supplies its own is equally valid.
+
+    Reading only ISO would make the mtime branch dead code against real lineage
+    rows: ``fromisoformat`` rejects the epoch string, the comparison returns
+    False, and an input modified after its run reaches the user as a clean
+    result. That is the same class of defect this module exists to remove, so
+    both forms are parsed here rather than migrating the writer — historical
+    rows are already epoch and a writer change cannot reach them.
+    """
+    text = recorded.strip()
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        try:
+            return datetime.fromtimestamp(float(text), tz=UTC)
+        except (ValueError, OSError, OverflowError):
+            logger.debug("restore preflight: unparseable mtime_at_write %r", recorded)
+            return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
+def _mtime_is_newer(current_epoch: float, recorded: str) -> bool:
+    """Return True when *current_epoch* postdates the recorded stamp.
+
+    Returns ``False`` on an unreadable stamp: a record that cannot be parsed is
+    not evidence that the file changed, and a false "modified" warning on every
     input would train users to ignore the panel.
     """
-    from datetime import UTC, datetime
-
-    try:
-        recorded = datetime.fromisoformat(recorded_iso)
-    except ValueError:
-        logger.debug("restore preflight: unparseable mtime_at_write %r", recorded_iso)
+    recorded_dt = _parse_recorded_mtime(recorded)
+    if recorded_dt is None:
         return False
-    if recorded.tzinfo is None:
-        recorded = recorded.replace(tzinfo=UTC)
-    return datetime.fromtimestamp(current_epoch, tz=UTC) > recorded
+    return datetime.fromtimestamp(current_epoch, tz=UTC) > recorded_dt
 
 
 def _env_warnings(recorded_env: dict[str, Any]) -> list[dict[str, str]]:
@@ -188,29 +213,50 @@ def _python_base(version_string: str) -> str:
     return version_string.strip().split()[0] if version_string.strip() else version_string
 
 
-def evaluate_restore_target(store: LineageStore, commit_sha: str) -> dict[str, Any]:
+def evaluate_restore_target(
+    store: LineageStore,
+    commit_sha: str,
+    *,
+    run_id: str | None = None,
+) -> dict[str, Any]:
     """Return the advisory preflight for restoring to *commit_sha*.
 
-    Resolves the commit to the newest run recorded at it, then applies the two
-    ADR-038 §3.6 checks against that run's record.
+    Applies the two ADR-038 §3.6 checks against the record of the run this
+    restore is anchored to.
 
     Args:
         store: The active project's lineage store.
         commit_sha: Full SHA the user is about to restore to.
+        run_id: The run the user selected, when the caller has one. Run history
+            restores start from a specific run and MUST pass it; the Git tab
+            restores an arbitrary commit and cannot.
+
+            This is not a redundant hint. The pre-run auto-commit is skipped
+            when the tree is already clean, so consecutive runs of an unedited
+            workflow all anchor to the same SHA — and resolving by commit alone
+            would then answer with the newest of them regardless of outcome. A
+            user restoring the run that *worked* would be compared against a
+            later run at the same commit that failed after an input or
+            environment change, which can report the present state as clean
+            precisely when it is the drift they are looking for.
 
     Returns:
         A dict with ``commit_sha``, ``run_id``, ``run_started_at``,
         ``input_warnings`` (``{path, reason}``) and ``env_warnings``
         (``{package, old, new}``).
 
-        ``run_id`` is ``None`` when no run references this commit — the normal
-        case for a manual commit or an ``auto: pre-restore`` commit. Callers
-        MUST render that as "no run recorded here, so nothing could be
-        checked", never as a clean result: reporting "no drift detected" for a
-        comparison that never happened is the exact defect Addendum 1 exists to
-        remove.
+        ``run_id`` is ``None`` when no run could be resolved — the normal case
+        for a manual commit or an ``auto: pre-restore`` commit. Callers MUST
+        render that as "no run recorded here, so nothing could be checked",
+        never as a clean result: reporting "no drift detected" for a comparison
+        that never happened is the exact defect Addendum 1 exists to remove.
     """
-    run = store.latest_run_for_git_commit(commit_sha)
+    run = store.get_run(run_id) if run_id else None
+    if run is None:
+        # Either no run was named, or the named row is gone (a retention sweep,
+        # a hand-edited db). Fall back to the commit, which is all the Git tab
+        # ever has.
+        run = store.latest_run_for_git_commit(commit_sha)
     if run is None:
         return {
             "commit_sha": commit_sha,
