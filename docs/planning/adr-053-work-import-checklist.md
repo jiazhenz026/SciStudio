@@ -528,11 +528,41 @@ whole report so a wedged child cannot hold the response.
 
 ### 10.3 Implementation
 
-- [ ] `POST /api/work-import/sessions` -> `<artifact>`
-- [ ] Brief write-before-spawn ordering -> `<artifact>`
-- [ ] Per-session brief file naming -> `<artifact>`
-- [ ] PTY spawn and join for a work-import tab -> `<artifact>`
-- [ ] `tests/api/test_work_import_session.py` -> `<artifact>`
+- [x] `POST /api/work-import/sessions` ->
+      `src/scistudio/api/routes/work_import.py`, routed in
+      `src/scistudio/api/app.py`. Response is contract C3 verbatim.
+- [x] Brief write-before-spawn ordering ->
+      `work_import.create_work_import_session` validates, composes, writes
+      (`_write_brief` flushes and `os.fsync`s before the handle closes), then
+      spawns. Proved by
+      `test_brief_is_complete_on_disk_before_the_agent_is_spawned`, which reads
+      the brief from *inside* the spawn call, and by
+      `test_no_agent_is_spawned_when_the_brief_cannot_be_written`.
+- [x] Per-session brief file naming -> `work_import._new_brief_filename`
+      (`<UTC timestamp>-<uuid8>.md` under `.scistudio/work-import/`), opened
+      with mode `"x"` so a collision fails loudly instead of overwriting a
+      concurrent session's instructions.
+- [x] PTY spawn and join for a work-import tab ->
+      `ai_pty/engine.py`: the AI Block body was extracted into the shared
+      `_open_prespawned_tab`, and `open_work_import_tab` calls it with no
+      `block_run_id`, so no AI Block control maps are populated.
+      `ai_pty/websocket.py`: the join predicate now also recognises the
+      provider-neutral `_engine_prespawned` marker; the user-launched spawn
+      contract (query params, spawn semantics, error frames, cap) is unchanged
+      and pinned by six regression tests in the new file.
+- [x] Contract C2 error mapping -> `ImportSessionContext.__post_init__` raises
+      `ValueError` for every answer-shape violation; the endpoint turns each
+      into a `400` carrying the dataclass's own message rather than a `500`.
+      The endpoint's duplicate skipped-question validator was removed so the
+      rule has one owner. Covered by
+      `test_answer_shape_violations_are_4xx_with_a_usable_message` (5 cases)
+      and `test_a_blank_answer_is_a_valid_session_not_an_error`.
+- [x] `tests/api/test_work_import_session.py` -> 41 tests covering FR-022,
+      FR-024, FR-027 to FR-030, contract C2 error mapping, contract C3, the
+      §7.4 permission-mode trap, and the frozen user-launched route.
+      `PYTHONPATH=<worktree>/src python -m pytest tests/api/test_work_import_session.py`
+      -> 41 passed. `pytest tests/api -k "pty or ai_pty"` -> 107 passed.
+      `pytest tests/api/routes/ai_pty` -> 45 passed.
 
 ### 10.4 Audit
 
