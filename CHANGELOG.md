@@ -151,6 +151,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-07, branch:
   fix/2022-dropin-type-import)
 
+- [#2022] The refusal of a shadowing type file is now a refusal everywhere.
+  An independent audit of the fix above found it announced in one process and
+  enforced in none of the others. A `{project}/types/sample_dep.py` colliding
+  with an installed `sample_dep` was reported on the palette surface and the
+  installed module kept winning in the API — but the **worker subprocess**
+  put the same type roots on its own `sys.path` without binding anything
+  first, so the very block that imported the installed package during the
+  palette scan imported the type file when it ran. That is the scan-time
+  versus run-time divergence the drop-in fix exists to eliminate, reappearing
+  inside the fix, and it was new: before these directories joined `sys.path`
+  it could not happen. Separately, the file the user was told to rename kept
+  **registering its type**: `JsonBlob` from a rejected `json.py` stayed
+  resolvable and loadable, so the product said one thing and did another.
+  Both are closed by moving the collision rule and the pre-binding into one
+  shared function in `scistudio.core.dropins`, called by every site that puts
+  those roots on `sys.path` — the palette scan, in-process instantiation, and
+  the worker — and by giving the type registry's drop-in pass the *same*
+  predicate, so a refused file is skipped rather than registered. The
+  detection also covers a `types/<name>/__init__.py` package, which shadows
+  just as effectively and was missed by a `*.py` glob, and the shadowed module
+  is bound once per process rather than re-imported on every palette refresh
+  (a `tensorflow.py` collision no longer re-imports TensorFlow each time).
+  Tests: `tests/blocks/test_dropin_type_import.py`, including a real worker
+  subprocess and the first `TypeRegistry` coverage of the refusal. (@claude,
+  2026-08-07, branch: fix/2022-audit-p1-shadowing-and-registration)
+
+- [#2021, #2009] Reload now means reload for types too, not only for blocks.
+  The reload-symmetry fix above enumerated `refresh_block_registry` call sites,
+  but three events invalidate the registry through `BlockRegistry.hot_reload()`
+  instead and were never evaluated against the type and previewer registries:
+  the palette **Reload** button, the editor's **save hook**, and the agent's
+  MCP **`reload_blocks`** tool. The most visible consequence was that saving a
+  file under `{project}/types/` refreshed *nothing at all* — the hook's gate
+  named only `{project}/blocks` — so a user could edit a data type, save it,
+  press Reload, and still be looking at the old one with no error anywhere.
+  The two routes now call the same `refresh_all_registries()` entry point the
+  other five events use, and the save hook treats `{project}/types` as the
+  drop-in tier it is. The MCP tool holds a context whose registries are
+  read-only views of the live runtime, so it refreshes both in place instead,
+  via a new `TypeRegistry.rescan()` that clears before scanning — a bare
+  re-scan is additive and would keep an edited type's first definition
+  forever. Previewers stay outside the agent's reach, which the tool now says.
+  The old regression test asserted this coverage by grepping route sources for
+  three method names and structurally could not see `hot_reload()`; its
+  docstring is corrected to claim only what it checks, and the events are
+  pinned behaviourally — write a type, trigger the event, resolve the type.
+  Tests: `tests/api/test_registry_reload_symmetry.py`,
+  `tests/api/test_reload_on_save.py`. (@claude, 2026-08-07, branch:
+  fix/2022-audit-p1-shadowing-and-registration)
+
 - [#2020] Every process now resolves the same drop-in block and type
   directories. "Which drop-in directories does this process see?" was written
   out four times — the API runtime, the agent runtime, worker-side type

@@ -86,6 +86,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, overload
 
+from scistudio.core.dropins import guard_dropin_type_roots
 from scistudio.desktop.paths import (
     candidate_package_dirs,
     iter_source_package_module_candidates,
@@ -520,6 +521,27 @@ class TypeRegistry:
         self._scan_package_src_dirs()
         self._scan_filesystem_dirs()
 
+    def rescan(self) -> None:
+        """Rebuild this registry's contents in place (ADR-053 FR-062).
+
+        The type-side counterpart of
+        :meth:`scistudio.blocks.registry.BlockRegistry.hot_reload`. A bare
+        :meth:`scan_all` on a populated registry is additive — every later pass
+        skips names already present — so an *edited* or *deleted* drop-in type
+        would keep its first definition forever. Clearing first is what makes a
+        type edit behave the way a block edit already does.
+
+        Holders of an :class:`~scistudio.api.runtime.ApiRuntime` should call
+        ``refresh_all_registries()`` instead: it also rebuilds the block and
+        previewer registries, and it can swap in a fresh instance. This method
+        exists for a caller that holds only the registry — the MCP
+        ``reload_blocks`` tool receives an ``MCPContext`` whose registries are
+        read-only properties over the live runtime, so refreshing in place is
+        the only way it can reach them.
+        """
+        self._registry.clear()
+        self.scan_all()
+
     def _scan_package_src_dirs(self) -> None:
         """Discover desktop source-package types through conventional ``get_types()``."""
         # Issue #1885: scan candidate_package_dirs() unconditionally — matching
@@ -597,11 +619,28 @@ class TypeRegistry:
           warnings; the offending file is skipped and scanning
           continues. A single broken drop-in must never kill the
           registry.
+        - A file rejected under ADR-053 FR-016 for shadowing an installed
+          top-level module is skipped entirely. Spec §13 OQ-1 resolved that
+          case as "registration is refused, not merely warned": telling the
+          user the file is rejected and must be renamed while the type it
+          declares keeps resolving and loading leaves the product saying one
+          thing and doing another, and nothing else reconciles the two — the
+          refusal is recorded on the *block* registry and the registration
+          happens here, and ``refresh_all_registries`` builds the two
+          independently. The predicate is
+          :func:`scistudio.core.dropins.guard_dropin_type_roots`, the same one
+          the block scan reports and the worker binds against, so the two sides
+          cannot drift into disagreeing about which files are refused. It is
+          asked with ``bind=False``: this pass loads drop-in types by file path
+          rather than through ``sys.path``, so it needs the verdict and not the
+          mitigation.
         """
         if not self._scan_dirs:
             return
 
         from scistudio.core.types.base import DataObject
+
+        refused = {collision.path for collision in guard_dropin_type_roots(self._scan_dirs, bind=False)}
 
         for scan_dir in self._scan_dirs:
             if not scan_dir.is_dir():
@@ -609,6 +648,12 @@ class TypeRegistry:
                 continue
             for py_file in scan_dir.glob("*.py"):
                 if py_file.name.startswith("_"):
+                    continue
+                if py_file in refused:
+                    logger.warning(
+                        "TypeRegistry: refusing %s — ADR-053 FR-016 name collision with an installed module",
+                        py_file,
+                    )
                     continue
                 try:
                     mtime = py_file.stat().st_mtime

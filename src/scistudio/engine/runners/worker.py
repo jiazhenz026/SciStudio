@@ -94,7 +94,16 @@ def _emit_envelope(payload: dict[str, Any]) -> None:
 
 
 def _prepend_runtime_import_roots(raw_roots: Any) -> tuple[str, ...]:
-    """Prepend block-local import roots after worker core startup."""
+    """Prepend block-local import roots after worker core startup.
+
+    ADR-053 FR-013/FR-016: the drop-in type tiers among these roots go on
+    ``sys.path`` permanently for the life of this process, so the collision
+    guard has to run here as well as during the palette scan. Without it a
+    block importing a name a ``{project}/types/<name>.py`` also claims gets
+    the installed module in the API process and the type file here — the
+    scan-time-versus-run-time divergence FR-013 exists to eliminate, and the
+    one FR-016 says the rejection closes.
+    """
     if not isinstance(raw_roots, list):
         return ()
 
@@ -111,6 +120,10 @@ def _prepend_runtime_import_roots(raw_roots: Any) -> tuple[str, ...]:
             continue
         seen.add(key)
         resolved.append(key)
+
+    from scistudio.core.dropins import guard_dropin_type_roots
+
+    guard_dropin_type_roots(resolved)
 
     for path in reversed(resolved):
         if path in sys.path:

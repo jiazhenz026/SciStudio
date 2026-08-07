@@ -1,12 +1,21 @@
-"""ADR-036 §3.5 (I36c) — reload-on-save hook for blocks/*.py.
+"""ADR-036 §3.5 (I36c) — reload-on-save hook for blocks/*.py and types/*.py.
 
 Covers the contract:
-  - Saving a clean ``blocks/foo.py`` triggers ``BlockRegistry.hot_reload()``
+  - Saving a clean ``blocks/foo.py`` triggers ``refresh_all_registries()``
     and emits a ``blocks.reloaded`` engine event.
   - Saving a syntactically broken ``blocks/foo.py`` saves the file but
     does NOT trigger reload (lint diagnostics non-empty).
-  - Saving a non-Python file (or a ``.py`` outside ``blocks/``) is a no-op
-    for the hook.
+  - Saving a non-Python file (or a ``.py`` outside the drop-in tiers) is a
+    no-op for the hook.
+
+ADR-053 FR-062 / #2022 widened the hook twice: ``{project}/types`` is a
+drop-in tier exactly as ``{project}/blocks`` is, so a save there now reaches
+the hook at all; and the reload is the unified ``refresh_all_registries()``
+rather than ``block_registry.hot_reload()``, so a type or previewer change is
+picked up the way a block change is. The behavioural half of that is pinned in
+``tests/api/test_registry_reload_symmetry.py``; these tests pin the hook's own
+gating, which is why they moved from spying on ``hot_reload`` to spying on the
+entry point that replaced it.
 """
 
 from __future__ import annotations
@@ -27,7 +36,7 @@ def _open(client: TestClient, project_path: Path) -> str:
         json={"name": "T", "description": "", "path": str(project_path)},
     )
     assert response.status_code == 200, response.text
-    project_id = response.json()["id"]
+    project_id = str(response.json()["id"])
     client.get(f"/api/projects/{project_id}")
     return project_id
 
@@ -66,20 +75,20 @@ def test_clean_block_save_triggers_reload_and_event(
     captured_events: list[dict],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Clean blocks/<name>.py PUT -> hot_reload + blocks.reloaded event."""
+    """Clean blocks/<name>.py PUT -> refresh_all_registries + blocks.reloaded."""
     pid = _open(client, project_parent / "p_clean")
     _ensure_blocks_dir(client, pid)
 
     runtime = client.app.state.runtime
     reload_calls = {"count": 0}
 
-    original_hot_reload = runtime.block_registry.hot_reload
+    original_refresh = runtime.refresh_all_registries
 
-    def _spy_hot_reload() -> None:
+    def _spy_refresh() -> None:
         reload_calls["count"] += 1
-        original_hot_reload()
+        original_refresh()
 
-    monkeypatch.setattr(runtime.block_registry, "hot_reload", _spy_hot_reload)
+    monkeypatch.setattr(runtime, "refresh_all_registries", _spy_refresh)
 
     clean_source = "x = 1\n"
     r = client.put(
@@ -91,7 +100,7 @@ def test_clean_block_save_triggers_reload_and_event(
     assert saved["state_version"] > 0
     assert saved["entity_id"] == "blocks/clean_block.py"
 
-    assert reload_calls["count"] == 1, "hot_reload was not called for a clean blocks/*.py save"
+    assert reload_calls["count"] == 1, "refresh_all_registries was not called for a clean blocks/*.py save"
 
     file_changed = [evt for evt in captured_events if evt["type"] == projects_module.FILE_CHANGED_EVENT_TYPE]
     assert len(file_changed) == 1
@@ -129,10 +138,10 @@ def test_broken_block_save_does_not_reload_or_emit(
     runtime = client.app.state.runtime
     reload_calls = {"count": 0}
 
-    def _spy_hot_reload() -> None:
+    def _spy_refresh() -> None:
         reload_calls["count"] += 1
 
-    monkeypatch.setattr(runtime.block_registry, "hot_reload", _spy_hot_reload)
+    monkeypatch.setattr(runtime, "refresh_all_registries", _spy_refresh)
 
     # SyntaxError on purpose. ruff catches this as E999.
     broken_source = "def oops(:\n    pass\n"
@@ -145,7 +154,7 @@ def test_broken_block_save_does_not_reload_or_emit(
     assert saved["state_version"] > 0
     assert saved["entity_id"] == "blocks/broken_block.py"
 
-    assert reload_calls["count"] == 0, "hot_reload should not run when lint reports diagnostics"
+    assert reload_calls["count"] == 0, "the reload must not run when lint reports diagnostics"
 
     file_changed = [evt for evt in captured_events if evt["type"] == projects_module.FILE_CHANGED_EVENT_TYPE]
     assert len(file_changed) == 1
@@ -162,14 +171,14 @@ def test_non_blocks_py_does_not_reload(
     captured_events: list[dict],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A clean ``.py`` outside ``blocks/`` is a no-op for the hook."""
+    """A clean ``.py`` outside the drop-in tiers is a no-op for the hook."""
     pid = _open(client, project_parent / "p_outside")
 
     runtime = client.app.state.runtime
     reload_calls = {"count": 0}
     monkeypatch.setattr(
-        runtime.block_registry,
-        "hot_reload",
+        runtime,
+        "refresh_all_registries",
         lambda: reload_calls.__setitem__("count", reload_calls["count"] + 1),
     )
 
@@ -201,3 +210,16 @@ def test_is_under_project_blocks_dir_helper(tmp_path: Path) -> None:
 
     # None project_root short-circuits.
     assert projects_module._is_under_project_blocks_dir(None, yes) is False
+
+
+def test_project_dropin_dir_helper_classifies_both_tiers(tmp_path: Path) -> None:
+    """ADR-053 FR-062 / #2022: ``types/`` reaches the hook, ``docs/`` does not."""
+    project_root = tmp_path / "proj"
+    (project_root / "types").mkdir(parents=True)
+    (project_root / "docs").mkdir()
+
+    assert projects_module._project_dropin_dir(project_root, project_root / "blocks" / "foo.py") == "blocks"
+    assert projects_module._project_dropin_dir(project_root, project_root / "types" / "foo.py") == "types"
+    assert projects_module._project_dropin_dir(project_root, project_root / "docs" / "foo.py") is None
+    assert projects_module._project_dropin_dir(project_root, project_root / "types" / "notes.md") is None
+    assert projects_module._project_dropin_dir(None, project_root / "types" / "foo.py") is None
