@@ -53,6 +53,21 @@ each registry keeps its own discovery pass ordering. See
 :meth:`scistudio.core.types.registry.TypeRegistry.scan_all` for the FR-061
 record of why the two orders stay separate.
 
+One consumer holds block scan directories rather than a project directory.
+:class:`scistudio.blocks.registry.BlockRegistry` is handed its directories
+through :func:`register_block_scan_dirs` and never learns the project root, but
+FR-012 requires the drop-in blocks it executes to import drop-in types by file
+name. Every tier is ``<root>/<child>`` (:func:`_tier_dirs`), so a block
+directory's tier root is its parent, and
+:func:`dropin_type_roots_for_block_dirs` / :func:`dropin_import_roots_for_block_dirs`
+turn a set of block directories back into the type directories and import roots
+of the same tiers, first occurrence winning so the project tier stays ahead of
+the user tier (FR-014). Deriving the roots from the directories the registry was
+given — rather than from an environment variable — is what makes the answer
+identical in the API, agent, worker, and IO dispatch processes (FR-057): none of
+them sets ``SCISTUDIO_PROJECT_DIR`` for the API server, but all four register
+their scan directories through this module.
+
 Layering: this module lives in ``scistudio.core`` because
 :mod:`scistudio.core.types.serialization` is one of the four consumers and the
 ``Core must not depend on blocks, engine, api, ai, or workflow`` import-linter
@@ -66,6 +81,7 @@ contract). ``core -> desktop.paths`` is an established edge
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Protocol
 
@@ -79,6 +95,8 @@ __all__ = [
     "SupportsScanDirs",
     "block_scan_dirs",
     "dropin_import_roots",
+    "dropin_import_roots_for_block_dirs",
+    "dropin_type_roots_for_block_dirs",
     "project_blocks_dir",
     "project_dir_from_env",
     "project_types_dir",
@@ -186,6 +204,21 @@ def dropin_import_roots(project_dir: str | Path | None = None) -> tuple[Path, ..
     shadows a user-library type of the same module name.
     """
     return (*type_scan_dirs(project_dir), *user_python_import_roots())
+
+
+def dropin_type_roots_for_block_dirs(block_dirs: Iterable[str | Path]) -> tuple[Path, ...]:
+    """Return the type dirs of the tiers *block_dirs* belong to (FR-012/FR-014).
+
+    An empty input yields no type roots, so a registry that was given no scan
+    directory stays inert rather than reaching into the user's home.
+    """
+    roots = [root for block_dir in block_dirs for root in type_scan_dirs(Path(block_dir).parent)]
+    return tuple(dict.fromkeys(roots))
+
+
+def dropin_import_roots_for_block_dirs(block_dirs: Iterable[str | Path]) -> tuple[Path, ...]:
+    """Return :func:`dropin_import_roots` for a caller that holds block dirs."""
+    return (*dropin_type_roots_for_block_dirs(block_dirs), *user_python_import_roots())
 
 
 def _register(registry: SupportsScanDirs, dirs: tuple[Path, ...]) -> tuple[Path, ...]:

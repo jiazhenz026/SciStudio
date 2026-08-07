@@ -10,6 +10,8 @@ Owns:
   AIBlock, SubWorkflowBlock).
 - ``_scan_tier1`` — discover blocks from ``.py`` files under configured
   scan directories.
+- ``_dropin_type_name_collisions`` — ADR-053 FR-016 / §13 OQ-1: reject a
+  drop-in type file whose stem would shadow an installed top-level module.
 - ``_scan_tier2`` — discover blocks via ``scistudio.blocks`` entry points
   (ADR-025 callable protocol).
 - ``_scan_package_src_dirs`` — Tier 3 scan of hard-installed/bundled
@@ -33,6 +35,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from scistudio.blocks.io.capabilities import FormatCapability
+from scistudio.core.dropins import (
+    dropin_import_roots_for_block_dirs,
+    dropin_type_roots_for_block_dirs,
+)
 from scistudio.core.types.base import DataObject
 from scistudio.desktop.paths import (
     candidate_package_dirs,
@@ -146,6 +152,70 @@ def _scan_builtins(registry: BlockRegistry) -> None:
         _register_spec(registry, _spec_from_class(cls, source="builtin"))
 
 
+def _record_dropin_failure(registry: BlockRegistry, py_file: Path, error_type: str, message: str) -> None:
+    """Record one refused drop-in file on the registry (ADR-053 FR-015)."""
+    from scistudio.blocks.registry import DropinFailure
+
+    registry._dropin_failures.append(DropinFailure(file_path=str(py_file), error_type=error_type, message=message))
+
+
+def _shadowed_top_level_module(stem: str, type_roots: tuple[Path, ...]) -> str | None:
+    """Return where an installed top-level module named *stem* lives, else ``None``.
+
+    ADR-053 FR-016. The lookup runs against a ``sys.path`` with the drop-in type
+    roots removed, and a hit whose origin is itself inside one of those roots is
+    discarded, so a type file can never report itself as a collision — including
+    on a re-scan, where an earlier drop-in import may have left the file's own
+    module in ``sys.modules``.
+    """
+    excluded = {str(root) for root in type_roots} | {str(root.resolve()) for root in type_roots}
+    original = list(sys.path)
+    sys.path[:] = [entry for entry in original if entry not in excluded]
+    try:
+        found = importlib.util.find_spec(stem)
+    except Exception:
+        return None
+    finally:
+        sys.path[:] = original
+    if found is None:
+        return None
+    origin = found.origin
+    if origin and origin not in {"built-in", "frozen"}:
+        with suppress(OSError, ValueError):
+            if str(Path(origin).parent.resolve()) in excluded:
+                return None
+    return origin or "built-in"
+
+
+def _reject_shadowing_type_files(registry: BlockRegistry, type_roots: tuple[Path, ...]) -> None:
+    """Refuse drop-in type files that would shadow installed modules (FR-016).
+
+    Spec §13 OQ-1 is resolved as reject-with-error rather than warn-and-load: a
+    ``json.py`` or ``numpy.py`` under a types directory is reported on the
+    FR-015 surface, and the module it collides with is bound in ``sys.modules``
+    before any drop-in executes so the installed package keeps winning while the
+    user renames the file.
+    """
+    for root in type_roots:
+        if not root.is_dir():
+            continue
+        for py_file in sorted(root.glob("*.py")):
+            if py_file.name.startswith("_"):
+                continue
+            origin = _shadowed_top_level_module(py_file.stem, type_roots)
+            if origin is None:
+                continue
+            with suppress(Exception):
+                importlib.import_module(py_file.stem)
+            message = (
+                f"{py_file.name} is rejected: the name {py_file.stem!r} already belongs to an "
+                f"importable module ({origin}), which this file would shadow once the types "
+                f"directory joins sys.path. Rename it to a name no installed module uses."
+            )
+            logger.error("ADR-053 FR-016: rejected drop-in type file %s — %s", py_file, message)
+            _record_dropin_failure(registry, py_file, "DropinTypeNameCollision", message)
+
+
 def _scan_tier1(registry: BlockRegistry) -> None:
     """Tier 1: scan configured directories for ``.py`` files containing Block subclasses.
 
@@ -156,12 +226,28 @@ def _scan_tier1(registry: BlockRegistry) -> None:
     isolated by the try/except below — a failing module is logged as a
     warning and skipped without crashing the palette refresh.
 
+    ADR-053 FR-012/FR-014: the drop-in type directories of the same tiers join
+    ``sys.path`` for the duration of drop-in execution, project tier first, so
+    ``from spectrum import SpectrumData`` resolves ``<project>/types/spectrum.py``
+    and a project type shadows a user-library type of the same file name. Which
+    directories those are is decided by :mod:`scistudio.core.dropins`, not here.
+    FR-013: the same roots are stamped on every Tier-1 spec so the worker
+    subprocess reconstructs the block against an identical import path.
+
+    FR-015: every refusal — a module that raised on import, and every FR-016
+    type-name collision — is recorded on the registry and returned by
+    ``GET /api/blocks/``, so a drop-in block no longer disappears in silence.
+
     TODO(#1531): a full subprocess-sandbox for drop-in execution is deferred.
       Out of scope per issue #1531 (contained hardening only for this PR).
       Followup: https://github.com/zjzcpj/SciStudio/issues/1531
     """
     from scistudio.blocks.base.block import Block
     from scistudio.blocks.registry._spec import _spec_from_class
+
+    registry._dropin_failures = []
+    import_roots = dropin_import_roots_for_block_dirs(registry._scan_dirs)
+    _reject_shadowing_type_files(registry, dropin_type_roots_for_block_dirs(registry._scan_dirs))
 
     for scan_dir in registry._scan_dirs:
         if not scan_dir.is_dir():
@@ -186,9 +272,9 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                 # Issue #1531: wrap exec_module in its own try/except so a
                 # failing or hostile drop-in cannot crash the palette refresh.
                 try:
-                    with prepended_sys_paths(_desktop_user_python_import_roots()):
+                    with prepended_sys_paths(import_roots):
                         spec.loader.exec_module(module)
-                except Exception:
+                except Exception as exc:
                     # #1531: skip-don't-crash on a failing/hostile drop-in.
                     # Keep the historical "Failed to import block from" wording
                     # (asserted by the registry-logging contract test) so the
@@ -199,6 +285,7 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                         py_file,
                         exc_info=True,
                     )
+                    _record_dropin_failure(registry, py_file, type(exc).__name__, str(exc) or type(exc).__name__)
                     continue
 
                 for attr_name in dir(module):
@@ -235,14 +322,15 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                         block_spec.file_path = str(py_file)
                         block_spec.file_mtime = mtime
                         block_spec.module_path = mod_name
-                        block_spec.runtime_import_roots = [str(path) for path in _desktop_user_python_import_roots()]
+                        block_spec.runtime_import_roots = [str(path) for path in import_roots]
                         _register_spec(registry, block_spec)
-            except Exception:
+            except Exception as exc:
                 logger.warning(
                     "Failed to import block from %s",
                     py_file,
                     exc_info=True,
                 )
+                _record_dropin_failure(registry, py_file, type(exc).__name__, str(exc) or type(exc).__name__)
                 continue
 
 
