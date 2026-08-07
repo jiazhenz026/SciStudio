@@ -306,6 +306,134 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2022] The drop-in type name-collision guard now looks at private names too.
+  ADR-053 FR-016 refuses a file in `{project}/types/` or `~/.scistudio/types/`
+  whose name would shadow an installed top-level module, because those
+  directories join `sys.path`. The implementation skipped every entry whose
+  name began with `_`, on the stated premise that private files are not
+  importable by name. They are: the underscore is a convention about what a
+  registry *registers*, not about what `import` can find. The exemption
+  therefore covered the names most worth protecting, because several of the
+  standard library's private modules are imported lazily by ordinary calls long
+  after any scan has run — so a file a user meant as a private helper could
+  quietly take a standard-library module's place for the rest of the API and
+  worker process lifetime, with no palette error, no log line, and no recorded
+  failure. The guard now asks the collision question of every entry the
+  directory makes importable, excluding only the two that structurally are not
+  importable by name, `__init__.py` and `__pycache__`. The registries keep
+  skipping `_` files for the separate question of which files declare types, so
+  a private helper whose name is free is still not refused. A test asserted the
+  exemption was correct and has been replaced by tests that assert the refusal,
+  for both the file and the package shape. Found by the independent no-context
+  write-path audit; the finding and its reproduction are in
+  `docs/audit/2026-08-07-adr-053-spec1-write-path.md` (P1-1). Tests:
+  `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-07, branch:
+  fix/1996-track-b-audit-findings)
+
+- [#1996] The agent now refuses exactly the blocks the palette refuses. ADR-053
+  FR-019 offers **Save to My Library** only for a block whose resolved origin is
+  `project`, and the code editor, the canvas node and both palette tabs apply
+  that one condition. The agent's `promote_to_user_library` MCP tool asked two
+  narrower questions of its own instead — "is there a source file" and "is that
+  file's parent the library root" — so a drop-in block whose file resolved
+  under neither the project tier nor the user tier (the FR-002 `custom`
+  fallback: a symlinked drop-in escaping the project, a file on a different
+  Windows drive) was hidden by all three frontend entry points and accepted by
+  the agent. FR-003 asks for one origin implementation precisely so the two
+  cannot say different things, and this is the divergence it was written to
+  prevent.
+  The cause was layering rather than carelessness: the resolver lived in
+  `scistudio.api`, and the import-linter contract "AI must not depend on api"
+  put it out of the tool's reach. It now lives in `scistudio.core.origins`,
+  which both layers may import — the same reason `scistudio.core.dropins` sits
+  where it does — and `scistudio.api._block_source` re-exports every name, so
+  no API-side call site changed. The tool calls `map_block_origin`, the same
+  function that fills the `origin` field the frontend condition reads, and each
+  refused tier now has its own message telling the agent what to do next. All
+  13 import-linter contracts stay kept.
+  The FR-025 correspondence table in `promoteToUserLibrary.ts` is rewritten
+  around the resolved origin and now lists the `custom` row it omitted, and a
+  new test walks the entire origin vocabulary asserting the tool's accept set
+  is the frontend predicate's — reading the vocabulary out of
+  `frontend/src/types/api.ts` so neither side can add a value alone. The FR-003
+  anti-drift test, which asserted only that two constants carried the expected
+  labels, now asserts that every surface resolves through the same function
+  object. Found by the with-context Track B audit,
+  `docs/audit/2026-08-07-adr-053-spec1-track-b.md` (P2-2, P3-6). Tests:
+  `tests/ai/test_mcp_tools_library.py`, `tests/api/test_block_origin_tiers.py`.
+  (@claude, 2026-08-07, branch: fix/1996-track-b-audit-findings)
+
+- [#2024] The FR-066 dead-field guard can now fail. ADR-053 rejected supplying
+  type colour from a second place, so `TypeHierarchyEntry.ui_ring_color` on the
+  block schema response stays `None` while the types listing carries the
+  declared value. The test written to stop that decision being quietly reversed
+  ran against a fixture whose only registered types are the six core bases, and
+  none of those declares a colour — so the field was already `None` for reasons
+  that had nothing to do with the contract, and reintroducing the rejected
+  design would have left the test green. It now registers a type that really
+  does declare `ui_color` and `ui_ring_color`, asserts the listing carries them,
+  and only then asserts the hierarchy entry for that same type is still `None`.
+  Verified by reintroducing the rejected line: the new guard fails, the old one
+  passes. Found by the with-context Track B audit,
+  `docs/audit/2026-08-07-adr-053-spec1-track-b.md` (P2-1). Tests:
+  `tests/api/test_types_routes.py`. (@claude, 2026-08-07, branch:
+  fix/1996-track-b-audit-findings)
+
+- [#1996, #2022] Hardening across the drop-in write path and the drop-in scan,
+  from the independent no-context write-path audit
+  (`docs/audit/2026-08-07-adr-053-spec1-write-path.md`). Its verdict on the new
+  endpoint's containment was that it held against every escape the auditor could
+  execute — traversal, absolute, UNC, extended-length, device-namespace,
+  drive-relative, cross-drive, trailing-separator, and reparse-point — so what
+  follows is the edges around it rather than the rule itself.
+  **A drop-in that exits no longer takes the scan with it.** The scan isolated
+  `Exception` but not `SystemExit`, so a script turned into a block that kept
+  its `sys.exit(main())` or its `argparse` error path killed the palette refresh
+  on every startup, recorded no failure, and left the user no way to find the
+  file — the palette that would have shown the error is what died. Both drop-in
+  passes now record it and carry on. Two things stay outside that boundary and
+  are now said so plainly instead of being covered by a claim of isolation:
+  `os._exit()`, which no handler can intercept, and a module that never returns
+  from import. Both need the out-of-process sandbox deferred at #1531.
+  **The atomic write's temp file is no longer a drop-in.** It has to share the
+  destination directory for the rename to be atomic, and that directory is
+  scanned for `*.py` and executed — so a save concurrent with a palette refresh
+  could import a half-written temp file, and a failed write could leave one
+  behind for good. It now carries a `.tmp` suffix, and cleanup catches
+  everything the write can raise rather than only `OSError`.
+  **The filename rule refuses four more things that are never what the user
+  meant**: control characters (an embedded NUL passed every path check and then
+  broke the write), a leading dot (a live drop-in that most file listings hide),
+  a Windows reserved device stem, and an uppercase `.PY` (a live drop-in on
+  Windows and dead on POSIX). The basename test now asks both path flavours, so
+  the same rule holds whichever operating system opens the library.
+  **The two `sys.path` windows undo their own edits** instead of restoring a
+  snapshot taken on entry, which discarded anything the body added and, when two
+  windows overlapped, both lost the inner roots and leaked them.
+  The standalone bridge's change detector now sees package-shaped drop-ins and
+  uppercase suffixes; a collision with a namespace package no longer reports its
+  origin as `built-in`; and `_safe_under`'s refusal no longer says "outside
+  project root" for a path that has nothing to do with a project. Four
+  containment rules with no test that would fail if they were deleted now have
+  one each. Tests: `tests/api/test_user_library_write.py`,
+  `tests/blocks/test_dropin_type_import.py`, `tests/ai/test_mcp_tools_library.py`.
+  (@claude, 2026-08-07, branch: fix/1996-track-b-audit-findings)
+
+- [#1996] Three follow-ups from the with-context Track B audit
+  (`docs/audit/2026-08-07-adr-053-spec1-track-b.md`), none of them behaviour
+  changes. The Data types popover now walks all three non-promotable origins
+  when asserting FR-019 hides the action, matching the Blocks side, which had
+  the full sweep while the type side tested only `core` (P3-5).
+  `resolveRingColor`'s `typeHierarchy` parameter, unread since FR-066 removed
+  the branch that read it and kept only for positional parity with
+  `resolveTypeColor`, is renamed to `_typeHierarchy` so the signature says so
+  (P3-4). And the editor-toolbar entry point records, where it infers `project`
+  from a tab's path shape, that this is a claim about the path rather than the
+  backend's resolved answer, the one case where the two can differ, and why the
+  inference is not replaced by a lookup (P3-2). Tests:
+  `frontend/src/components/promotion/__tests__/entryPoints.test.tsx`.
+  (@claude, 2026-08-07, branch: fix/1996-track-b-audit-findings)
+
 - [#2021, #2009] Installing a package or switching a branch now re-discovers
   data types and previewers, not just blocks. The block registry was rebuilt
   from five places — the branch-switch route and the four package

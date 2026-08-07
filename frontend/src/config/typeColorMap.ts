@@ -270,10 +270,16 @@ export function resolveTypeColor(
  * `type_hierarchy.ui_ring_color` is deliberately not consulted. The field was
  * declared and never populated (spec §2.8) and FR-066 leaves it dead rather
  * than reviving it: the types listing is the single source of declared colour.
+ *
+ * `_typeHierarchy` is consequently **unread**, and kept only so the signature
+ * stays positionally parallel to `resolveTypeColor`, which does read it — every
+ * call site passes the same three arguments to both. The underscore is what
+ * says so from the signature, rather than leaving a reader to grep the body
+ * (`docs/audit/2026-08-07-adr-053-spec1-track-b.md` P3-4).
  */
 export function resolveRingColor(
   typeNames: string[],
-  typeHierarchy?: TypeHierarchyEntry[],
+  _typeHierarchy?: TypeHierarchyEntry[],
   declared?: DeclaredTypeColors,
 ): string | undefined {
   for (const name of typeNames) {

@@ -52,6 +52,7 @@ from scistudio.core.dropins import (
     type_scan_dirs,
 )
 from scistudio.core.types.registry import TypeRegistry
+from scistudio.desktop.paths import prepended_sys_paths
 from scistudio.engine.runners.process_handle import build_worker_payload
 
 # ---------------------------------------------------------------------------
@@ -190,7 +191,7 @@ def _shared_type(tier: str) -> str:
 
 #: Top-level names a drop-in type import binds in ``sys.modules``. They are the
 #: file stems, so they would leak into unrelated tests in the same session.
-_DROPIN_MODULE_NAMES = ("spectrum", "shared_type", "sample_dep")
+_DROPIN_MODULE_NAMES = ("spectrum", "shared_type", "sample_dep", "_sample_dep")
 
 
 @pytest.fixture(autouse=True)
@@ -414,6 +415,48 @@ class TestFailureSurfacing:
 
         assert len(registry.dropin_failures()) == 1
 
+    # -- AUDIT-SEC P2-1: a drop-in that exits is a failure, not the end --------
+
+    @pytest.mark.parametrize(
+        ("body", "error_type"),
+        [
+            ("import sys\n\nsys.exit(1)\n", "SystemExit"),
+            ("raise SystemExit('argparse would do this')\n", "SystemExit"),
+            ("raise GeneratorExit\n", "GeneratorExit"),
+        ],
+    )
+    def test_a_dropin_that_raises_outside_exception_is_recorded_not_fatal(
+        self, home: Path, project: Path, body: str, error_type: str
+    ) -> None:
+        """``except Exception`` did not cover ``SystemExit``, and it must.
+
+        The accident is ordinary: a script turned into a block keeps its
+        ``sys.exit(main())`` or its ``argparse`` error path. Under the narrower
+        handler that file killed the palette refresh on every startup, recorded
+        no ``DropinFailure``, and left no in-product way to find it — the
+        palette that would have shown the error is what died
+        (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P2-1).
+        """
+        (project / "types" / "spectrum.py").write_text(SPECTRUM_TYPE, encoding="utf-8")
+        (project / "blocks" / "uses_spectrum.py").write_text(USES_SPECTRUM_BLOCK, encoding="utf-8")
+        (project / "blocks" / "aa_exits.py").write_text(body, encoding="utf-8")
+
+        registry = _scanned_registry(project)
+
+        assert [failure.error_type for failure in registry.dropin_failures()] == [error_type]
+        assert registry.get_spec("uses_spectrum") is not None, "the healthy neighbour must still register"
+
+    def test_a_type_dropin_that_exits_does_not_take_the_type_scan_down(self, home: Path, project: Path) -> None:
+        """The same rule in the other registry's drop-in pass."""
+        (project / "types" / "aa_exits.py").write_text("import sys\n\nsys.exit(1)\n", encoding="utf-8")
+        (project / "types" / "spectrum.py").write_text(SPECTRUM_TYPE, encoding="utf-8")
+
+        registry = TypeRegistry()
+        register_type_scan_dirs(registry, project)
+        registry.scan_all()
+
+        assert "SpectrumData" in registry.all_types(), "the healthy neighbour must still register"
+
 
 # ---------------------------------------------------------------------------
 # FR-016 / §13 OQ-1 — reject a type file that shadows an installed module
@@ -423,10 +466,17 @@ class TestFailureSurfacing:
 class TestTypeNameCollisionIsRejected:
     @pytest.fixture
     def installed_dep(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-        """An importable top-level ``sample_dep`` module outside the type dirs."""
+        """Importable top-level modules outside the type dirs.
+
+        ``sample_dep`` stands in for an ordinary installed dependency and
+        ``_sample_dep`` for a private one — the class the collision guard used
+        to exempt (AUDIT-SEC P1-1). Both are needed because the two questions
+        the guard answers about them are the same question.
+        """
         site = tmp_path / "site"
         site.mkdir()
         (site / "sample_dep.py").write_text('ORIGIN = "installed"\n', encoding="utf-8")
+        (site / "_sample_dep.py").write_text('ORIGIN = "installed"\n', encoding="utf-8")
         monkeypatch.syspath_prepend(str(site))
         return site
 
@@ -493,9 +543,87 @@ class TestTypeNameCollisionIsRejected:
         assert registry.dropin_failures() == []
         assert registry.get_spec("uses_spectrum") is not None
 
-    def test_underscore_prefixed_type_files_are_ignored(self, home: Path, project: Path, installed_dep: Path) -> None:
-        """Private files are not importable by name, so they cannot collide."""
+    # -- AUDIT-SEC P1-1: a leading underscore is not an exemption -------------
+
+    def test_an_underscore_prefixed_type_file_that_takes_a_taken_name_is_refused(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """A ``_``-prefixed ``.py`` file on ``sys.path`` *is* importable by name.
+
+        This test replaces one that asserted the opposite, on the stated
+        premise that "private files are not importable by name, so they cannot
+        collide". That premise is false, and it was the reason the exemption
+        survived review. ``_`` is a convention meaning "do not register me",
+        which the two registries honour for the *registration* question; the
+        *collision* question is about which names the directory claims on the
+        top-level module namespace, and the underscore does not change that
+        answer. See ``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P1-1.
+        """
         (project / "types" / "_sample_dep.py").write_text(SPECTRUM_TYPE, encoding="utf-8")
+
+        failures = _scanned_registry(project).dropin_failures()
+
+        assert [failure.error_type for failure in failures] == ["DropinTypeNameCollision"]
+        assert failures[0].file_path == str(project / "types" / "_sample_dep.py")
+        assert "_sample_dep" in failures[0].message
+
+    def test_a_lazily_imported_private_stdlib_module_is_refused(self, home: Path, project: Path) -> None:
+        """The concrete accident: ``types/_strptime.py``.
+
+        No fixture stands in for the installed module here, because the point
+        is that the exempted class was the standard library's own private
+        modules — imported lazily, long after any scan, by ordinary calls
+        (``datetime.strptime`` loads ``_strptime`` on first use). A guard that
+        only looks at public names never sees them.
+        """
+        (project / "types" / "_strptime.py").write_text(SPECTRUM_TYPE, encoding="utf-8")
+
+        failures = _scanned_registry(project).dropin_failures()
+
+        assert [failure.error_type for failure in failures] == ["DropinTypeNameCollision"]
+        assert "_strptime" in failures[0].message
+
+    def test_an_underscore_prefixed_package_that_takes_a_taken_name_is_refused(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """The package shape was exempted by the same bug and closed by the same rule."""
+        package_dir = project / "types" / "_sample_dep"
+        package_dir.mkdir()
+        (package_dir / "__init__.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+
+        failures = _scanned_registry(project).dropin_failures()
+
+        assert [failure.error_type for failure in failures] == ["DropinTypeNameCollision"]
+        assert failures[0].file_path == str(package_dir)
+
+    def test_a_private_helper_whose_name_is_free_is_not_refused(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """The rule is "this name is already taken", not "this name is private".
+
+        A user writing an ordinary private helper next to their types must not
+        be refused — widening the guard to every importable name must not
+        widen it to every underscore name.
+        """
+        (project / "types" / "_project_helpers.py").write_text(SPECTRUM_TYPE, encoding="utf-8")
+
+        assert _scanned_registry(project).dropin_failures() == []
+
+    def test_the_entries_that_name_no_top_level_module_are_not_reported(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """``__init__.py`` and ``__pycache__`` stay out of the collision question.
+
+        They are the only entries a directory on ``sys.path`` structurally does
+        not make importable *by name*: ``__init__.py`` names the directory
+        rather than a top-level module, and ``__pycache__`` holds compiled
+        artefacts. Pinning them keeps the widened rule from drifting into
+        "report everything in the directory".
+        """
+        (project / "types" / "__init__.py").write_text("", encoding="utf-8")
+        cache_dir = project / "types" / "__pycache__"
+        cache_dir.mkdir()
+        (cache_dir / "__init__.py").write_text("", encoding="utf-8")
 
         assert _scanned_registry(project).dropin_failures() == []
 
@@ -666,3 +794,122 @@ class TestTypeRootDerivation:
 
     def test_the_round_trip_holds_with_no_project_open(self, home: Path) -> None:
         assert dropin_type_roots_for_block_dirs(block_scan_dirs(None)) == type_scan_dirs(None)
+
+
+# ---------------------------------------------------------------------------
+# The two ``sys.path`` windows, under interleaving (AUDIT-SEC P3-1)
+# ---------------------------------------------------------------------------
+
+
+class TestSysPathWindowsAreNotSnapshots:
+    """Both windows must undo their own edits, not restore an entry snapshot.
+
+    A snapshot is wrong the moment two windows overlap, and both failure modes
+    are real: the inner window's exit restores the outer window's ``sys.path``,
+    so the inner user silently loses its roots mid-window, and the outer exit
+    then restores a snapshot predating the inner one, leaking the inner roots
+    for the rest of the process
+    (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P3-1).
+
+    Driven as a deterministic A-enter / B-enter / A-exit / B-exit interleaving
+    rather than with threads, because the defect is about ordering rather than
+    about concurrency — the two scans run on one event loop today, which is
+    exactly why this is latent rather than live.
+    """
+
+    def test_overlapping_prepend_windows_neither_lose_nor_leak(self, tmp_path: Path) -> None:
+        root_a = tmp_path / "root_a"
+        root_b = tmp_path / "root_b"
+        root_a.mkdir()
+        root_b.mkdir()
+        baseline = list(sys.path)
+
+        window_a = prepended_sys_paths([root_a])
+        window_b = prepended_sys_paths([root_b])
+        window_a.__enter__()
+        try:
+            window_b.__enter__()
+            try:
+                assert str(root_a) in sys.path
+                assert str(root_b) in sys.path
+            finally:
+                window_a.__exit__(None, None, None)
+            assert str(root_b) in sys.path, "B's root must survive A's exit, inside B's own window"
+        finally:
+            window_b.__exit__(None, None, None)
+
+        assert str(root_a) not in sys.path, "A's root must not leak past both windows"
+        assert str(root_b) not in sys.path
+        assert sys.path == baseline
+
+    def test_a_prepend_window_keeps_what_the_body_added(self, tmp_path: Path) -> None:
+        """Restoring a snapshot also discarded anything the body itself added."""
+        root = tmp_path / "root"
+        root.mkdir()
+        added = str(tmp_path / "added_by_the_body")
+
+        with prepended_sys_paths([root]):
+            sys.path.append(added)
+        try:
+            assert added in sys.path
+            assert str(root) not in sys.path
+        finally:
+            sys.path.remove(added)
+
+    def test_the_guard_window_does_not_clobber_an_enclosing_prepend(self, tmp_path: Path) -> None:
+        """``_sys_path_without`` has the same shape and the same obligation.
+
+        A scan holding its import roots on ``sys.path`` while the FR-016 guard
+        strips the type roots to ask its question must get those roots back —
+        and must not lose the unrelated ones. This nesting is what the product
+        actually does today, so it is a regression pin rather than a
+        reproduction; the failure the rewrite removes needs two windows opened
+        by different threads, which this suite deliberately does not spawn.
+        """
+        types_root = tmp_path / "tier" / "types"
+        types_root.mkdir(parents=True)
+        unrelated = tmp_path / "unrelated"
+        unrelated.mkdir()
+        baseline = list(sys.path)
+
+        outer = prepended_sys_paths([unrelated])
+        outer.__enter__()
+        try:
+            with dropins_module._sys_path_without((types_root,)):
+                assert str(unrelated) in sys.path, "an unrelated window's root must survive"
+            assert str(unrelated) in sys.path
+        finally:
+            outer.__exit__(None, None, None)
+
+        assert sys.path == baseline
+
+
+# ---------------------------------------------------------------------------
+# What the collision report names as the origin (AUDIT-SEC P3-10)
+# ---------------------------------------------------------------------------
+
+
+def test_a_namespace_package_collision_does_not_report_itself_as_built_in(
+    home: Path, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``find_spec().origin`` is ``None`` for a namespace package too.
+
+    Reporting the collision is right — a regular module does displace a
+    namespace portion — but ``origin or "built-in"`` told the user a directory
+    on disk was a built-in module, which sends them looking in the wrong place
+    (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P3-10).
+    """
+    site = tmp_path / "site"
+    (site / "namespace_dep").mkdir(parents=True)
+    monkeypatch.syspath_prepend(str(site))
+    (project / "types" / "namespace_dep.py").write_text(SPECTRUM_TYPE, encoding="utf-8")
+
+    try:
+        failures = _scanned_registry(project).dropin_failures()
+
+        assert [failure.error_type for failure in failures] == ["DropinTypeNameCollision"]
+        assert "built-in" not in failures[0].message
+        assert "namespace package" in failures[0].message
+        assert str(site / "namespace_dep") in failures[0].message
+    finally:
+        sys.modules.pop("namespace_dep", None)

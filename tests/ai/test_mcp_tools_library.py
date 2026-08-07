@@ -26,6 +26,8 @@ too.
 from __future__ import annotations
 
 import asyncio
+import os
+import re
 from collections.abc import Coroutine, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -34,9 +36,10 @@ from typing import Any, TypeVar
 import pytest
 
 from scistudio.ai.agent.mcp import _context, tools_library
-from scistudio.ai.agent.mcp.runtime import make_mcp_runtime
+from scistudio.ai.agent.mcp.runtime import dropin_revision, make_mcp_runtime
 from scistudio.blocks.registry import BlockRegistry
-from scistudio.core.dropins import register_block_scan_dirs, user_blocks_dir
+from scistudio.core.dropins import register_block_scan_dirs, user_blocks_dir, user_types_dir
+from scistudio.core.origins import BLOCK_SURFACE, map_block_origin
 from scistudio.core.types.registry import TypeRegistry
 
 _T = TypeVar("_T")
@@ -225,6 +228,120 @@ def test_an_unregistered_block_type_raises(ctx: _StubRuntime) -> None:
         _run(tools_library.promote_to_user_library(block_type="test.does_not_exist"))
 
 
+# ---------------------------------------------------------------------------
+# FR-003 / FR-019 / FR-025 — E3 and the frontend entry points refuse the same set
+# ---------------------------------------------------------------------------
+#
+# The FR-025 claim in ``promoteToUserLibrary.ts`` and in CHANGELOG.md is that
+# this tool matches E1/E2/E5 "refusal for refusal". It did not: the frontend
+# condition is ``origin === "project"``, which refuses five origins, while this
+# tool asked two narrower questions of its own and accepted the FR-002
+# ``custom`` case (``docs/audit/2026-08-07-adr-053-spec1-track-b.md`` P2-2).
+# These tests walk the **whole** origin vocabulary, ``custom`` included, so the
+# claim is pinned rather than asserted.
+
+
+@dataclass(frozen=True)
+class _OriginSpec:
+    """The three fields ``map_block_origin`` reads off a ``BlockSpec``."""
+
+    file_path: str | None = None
+    module_path: str = ""
+    source: str = ""
+
+
+def _spec_for_origin(origin: str, *, project: Path, tmp_path: Path) -> _OriginSpec:
+    """Return a spec whose resolved origin is *origin*.
+
+    Every drop-in case points at a file that really exists, so a refusal can
+    only be about the tier and never about a missing file.
+    """
+    if origin == "builtin":
+        return _OriginSpec(module_path="scistudio.blocks.io.load_data", source="builtin")
+    if origin == "package":
+        return _OriginSpec(module_path="scistudio_blocks_imaging.segment", source="entry_point")
+    if origin == "user":
+        return _OriginSpec(file_path=str(_write_block(user_blocks_dir(), "in_library")), source="tier1")
+    if origin == "project":
+        return _OriginSpec(file_path=str(project / "blocks" / "promotable.py"), source="tier1")
+    if origin == "custom":
+        # FR-002: a drop-in whose file resolves under neither tier root. A
+        # directory outside both stands in for the symlink-escape and
+        # other-drive cases the spec names, neither of which this host can
+        # create.
+        return _OriginSpec(file_path=str(_write_block(tmp_path / "outside", "stray")), source="tier1")
+    raise AssertionError(f"no spec shape for origin {origin!r}")
+
+
+def _frontend_block_origin_vocabulary() -> tuple[str, ...]:
+    """Return the ``BlockOrigin`` union declared in ``frontend/src/types/api.ts``.
+
+    Read from the frontend source rather than restated here, because the whole
+    point of this section is that the two sides of the wire must not be able to
+    drift. A value added on either side alone fails this.
+    """
+    api_types = Path(__file__).resolve().parents[2] / "frontend" / "src" / "types" / "api.ts"
+    declaration = re.search(r"export type BlockOrigin\s*=\s*([^;]+);", api_types.read_text(encoding="utf-8"))
+    assert declaration is not None, "BlockOrigin is no longer declared in frontend/src/types/api.ts"
+    return tuple(re.findall(r'"([^"]+)"', declaration.group(1)))
+
+
+def test_the_two_sides_of_the_wire_agree_on_the_origin_vocabulary() -> None:
+    """The parity tests below are only meaningful if neither side has extra values."""
+    assert set(_frontend_block_origin_vocabulary()) == set(BLOCK_SURFACE.vocabulary)
+    assert "custom" in BLOCK_SURFACE.vocabulary, "the FR-002 fallback is the case E3 used to accept"
+
+
+@pytest.mark.parametrize("origin", BLOCK_SURFACE.vocabulary)
+def test_e3_promotes_exactly_the_origins_the_frontend_offers(
+    ctx: _StubRuntime, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, origin: str
+) -> None:
+    """FR-025: E3's accept set is ``isPromotableOrigin``'s, across the vocabulary.
+
+    ``isPromotableOrigin(origin) => origin === "project"``
+    (``frontend/src/components/promotion/promotable.ts``) is the condition E1,
+    E2 and E5 apply, so the expected answer here is that one line and nothing
+    else. Before the shared resolver moved into ``scistudio.core.origins``,
+    ``custom`` was the row that disagreed.
+    """
+    spec = _spec_for_origin(origin, project=project, tmp_path=tmp_path)
+    assert map_block_origin(spec, project_dir=project) == origin, "precondition: the fixture builds this tier"
+    monkeypatch.setattr(ctx.block_registry, "get_spec", lambda _name: spec)
+
+    frontend_offers_it = origin == "project"
+
+    if frontend_offers_it:
+        result = _run(tools_library.promote_to_user_library(block_type="test.promotable"))
+        assert Path(result.path) == user_blocks_dir() / "promotable.py"
+    else:
+        with pytest.raises(RuntimeError):
+            _run(tools_library.promote_to_user_library(block_type="test.promotable"))
+
+
+def test_a_dropin_outside_both_tiers_is_refused_with_a_reason_the_agent_can_act_on(
+    ctx: _StubRuntime, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The ``custom`` row, stated once in full rather than only parametrised.
+
+    This is the refusal the tool did not have. The message has to tell the
+    agent what to do next, because ``custom`` is not a word the user ever sees.
+    """
+    spec = _spec_for_origin("custom", project=project, tmp_path=tmp_path)
+    monkeypatch.setattr(ctx.block_registry, "get_spec", lambda _name: spec)
+
+    with pytest.raises(RuntimeError, match="resolves outside both"):
+        _run(tools_library.promote_to_user_library(block_type="test.stray"))
+
+    assert list(user_blocks_dir().glob("*.py")) == [], "a refused promotion writes nothing"
+
+
+def test_every_non_project_origin_has_its_own_refusal_message() -> None:
+    """A new tier cannot fall through to a vague message — or to acceptance."""
+    refused = {origin for origin in BLOCK_SURFACE.vocabulary if origin != "project"}
+    assert set(tools_library._REFUSAL_BY_ORIGIN) == refused
+    assert len({tools_library._refusal_for(origin) for origin in refused}) == len(refused)
+
+
 @pytest.mark.parametrize(
     "new_name",
     ["../escaped.py", "sub/nested.py", "sub\\nested.py", "C:evil.py", "/etc/passwd.py", "notes.txt", "   "],
@@ -301,3 +418,55 @@ def test_promotion_through_a_standalone_bridge_is_immediately_visible(home: Path
         assert elsewhere.get_spec("test.bridge_promotable") is not None
     finally:
         _context.set_context(None)
+
+
+# ---------------------------------------------------------------------------
+# FR-065 — what the change detector can see (AUDIT-SEC P3-9, P3-2)
+# ---------------------------------------------------------------------------
+
+
+def test_the_change_detector_sees_a_package_shaped_dropin(home: Path, project: Path) -> None:
+    """``<name>/__init__.py`` is a drop-in the FR-016 guard already governs.
+
+    It was invisible to ``dropin_revision``, which stats only ``*.py`` entries
+    directly under each scan dir — so editing a package-shaped drop-in type
+    never moved the signature and the standalone bridge never re-scanned
+    (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P3-9).
+    """
+    package = user_types_dir() / "package_shaped"
+    package.mkdir(parents=True)
+    init = package / "__init__.py"
+    init.write_text("VALUE = 1\n", encoding="utf-8")
+
+    before = dropin_revision([user_types_dir()])
+    assert before, "the package must contribute to the signature at all"
+
+    init.write_text("VALUE = 2\n", encoding="utf-8")
+    os.utime(init, (1_700_000_000, 1_700_000_000))
+
+    assert dropin_revision([user_types_dir()]) != before
+
+
+def test_the_change_detector_sees_an_uppercase_suffix(home: Path, project: Path) -> None:
+    """Windows ``glob("*.py")`` is case-insensitive, so ``.PY`` is a live drop-in.
+
+    The write endpoints refuse to create one, but a user can still place one by
+    hand, and a case-sensitive comparison here meant editing it never moved the
+    signature (P3-2).
+    """
+    shouty = user_blocks_dir() / "SHOUT.PY"
+    shouty.write_text("VALUE = 1\n", encoding="utf-8")
+
+    before = dropin_revision([user_blocks_dir()])
+    assert before
+
+    shouty.write_text("VALUE = 22\n", encoding="utf-8")
+
+    assert dropin_revision([user_blocks_dir()]) != before
+
+
+def test_a_directory_without_an_init_contributes_nothing(home: Path, project: Path) -> None:
+    """A plain subdirectory is not importable, so it is not a drop-in."""
+    (user_types_dir() / "not_a_package").mkdir(parents=True)
+
+    assert dropin_revision([user_types_dir()]) == ()

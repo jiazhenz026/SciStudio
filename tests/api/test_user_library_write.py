@@ -18,6 +18,7 @@ one is still shut.
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -223,6 +224,186 @@ def test_a_linked_subdirectory_cannot_smuggle_a_nested_write(client: TestClient,
     _link_to_directory(root / "linked.py", outside)
     assert _put(client, target="blocks", filename="linked.py", overwrite=True).status_code == 403
     assert not (outside / "linked.py").exists()
+
+
+# ---------------------------------------------------------------------------
+# FR-007 — the containment rules that had no test that would fail without them
+# ---------------------------------------------------------------------------
+#
+# A coverage run over ``routes/user_library.py`` found four containment rules
+# with zero executed lines: deleting any of them would have failed nothing
+# (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P2-5). Rule 4 in
+# particular *works* — the audit executed it by hand — but nothing in the suite
+# reached it, because every input the other tests supply is caught by an
+# earlier rule. These reach each one directly.
+
+
+def test_a_link_to_a_deeper_directory_inside_the_root_is_refused(client: TestClient) -> None:
+    """Rule 4: the file must land *directly* in the root, not merely inside it.
+
+    This is the one case that passes the ``commonpath`` containment check and
+    must still be refused — a link whose own name is a bare filename and whose
+    resolution is a directory nested deeper *within* the same root. The
+    existing linked-directory test escapes the root and exits at the earlier
+    comparison, so it never reaches this rule.
+    """
+    root = user_blocks_dir()
+    inner = root / "inner" / "sub"
+    inner.mkdir(parents=True, exist_ok=True)
+    _link_to_directory(root / "deep.py", inner)
+
+    response = _put(client, target="blocks", filename="deep.py", overwrite=True)
+    assert response.status_code == 403, response.text
+    assert "directly in the target directory" in response.json()["detail"]
+    assert list(inner.glob("*.py")) == []
+
+
+def test_a_containment_comparison_that_cannot_be_made_is_treated_as_an_escape(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``commonpath`` raises rather than returning for paths on different drives.
+
+    The module docstring names that case, but no request can reach it: an
+    absolute or drive-qualified filename is refused several rules earlier, so
+    the branch is unreachable from the endpoint's own inputs. Driving it
+    directly is the only way to assert that a comparison which *cannot be made*
+    is refused rather than surfacing as a 500.
+    """
+
+    def _raise(_paths: object) -> str:
+        raise ValueError("paths don't have the same drive")
+
+    monkeypatch.setattr("os.path.commonpath", _raise)
+
+    response = _put(client, target="blocks", filename="ordinary.py")
+    assert response.status_code == 403, response.text
+    assert "escapes the user library root" in response.json()["detail"]
+
+
+@pytest.mark.parametrize("filename", [".", ".."])
+def test_a_bare_dot_filename_is_refused_as_traversal(client: TestClient, filename: str) -> None:
+    """``..`` alone carries no separator, so it needs its own rule."""
+    response = _put(client, target="blocks", filename=filename)
+    assert response.status_code == 403, response.text
+    assert "traversal" in response.json()["detail"].lower()
+
+
+@pytest.mark.parametrize("filename", ["ev\x00il.py", "evil\n.py", "evil\tx.py"])
+def test_control_characters_in_a_filename_are_refused(client: TestClient, filename: str) -> None:
+    """An embedded NUL passed every path rule and then broke the write.
+
+    ``os.replace`` raises ``ValueError`` for it — not ``OSError`` — so it
+    escaped the cleanup handler, left the temp file behind permanently, and
+    surfaced as an unhandled 500 (P2-2). Refusing control characters up front
+    is the rule; the broadened cleanup below is the belt.
+    """
+    response = _put(client, target="blocks", filename=filename)
+    assert response.status_code in (400, 403), response.text
+    # Refused before any filesystem access, so the root is not even created.
+    assert not user_blocks_dir().exists() or list(user_blocks_dir().iterdir()) == []
+
+
+@pytest.mark.parametrize("filename", ["NUL.py", "CON.py", "com1.py", "LPT3.py", "aux.py"])
+def test_a_windows_reserved_device_name_is_refused(client: TestClient, filename: str) -> None:
+    """Whether Win32 resolves ``NUL.py`` to the device is build-dependent (P3-3).
+
+    Refused on every platform, so a library written on POSIX does not become
+    unusable — or a device write — when the same directory is opened on
+    Windows.
+    """
+    response = _put(client, target="blocks", filename=filename)
+    assert response.status_code == 403, response.text
+    assert "reserved device name" in response.json()["detail"]
+
+
+@pytest.mark.parametrize("filename", ["SHOUT.PY", "mixed.Py"])
+def test_an_uppercase_python_extension_is_refused(client: TestClient, filename: str) -> None:
+    """A ``.PY`` file means two different things on two platforms (P3-2).
+
+    Windows ``glob("*.py")`` matches it, so it is a live drop-in there and dead
+    on POSIX. The product declines to create one rather than creating a file
+    whose behaviour depends on the host.
+    """
+    assert _put(client, target="blocks", filename=filename).status_code == 415
+
+
+def test_a_dot_leading_filename_is_refused(client: TestClient) -> None:
+    """A hidden drop-in is one the user cannot find in order to delete it."""
+    response = _put(client, target="blocks", filename=".hidden.py")
+    assert response.status_code == 403, response.text
+    assert "start with a dot" in response.json()["detail"]
+
+
+def test_content_over_the_editor_cap_is_refused(client: TestClient) -> None:
+    """The 413 rule, which nothing exercised."""
+    from scistudio.api.routes.projects import ADR036_FILE_SIZE_CAP_BYTES
+
+    oversized = "x" * (ADR036_FILE_SIZE_CAP_BYTES + 1)
+    response = _put(client, target="blocks", filename="huge.py", content=oversized)
+    assert response.status_code == 413, response.text
+    assert not (user_blocks_dir() / "huge.py").exists()
+
+
+def test_a_directory_standing_where_the_file_would_go_is_refused(client: TestClient) -> None:
+    """The 400 rule, on both the read and the write half."""
+    (user_blocks_dir() / "adir.py").mkdir(parents=True, exist_ok=True)
+
+    write = _put(client, target="blocks", filename="adir.py", overwrite=True)
+    assert write.status_code == 400, write.text
+    assert "directory" in write.json()["detail"]
+
+    read = _get(client, target="blocks", filename="adir.py")
+    assert read.status_code == 400, read.text
+
+
+# ---------------------------------------------------------------------------
+# FR-007 — the temp file the atomic write goes through
+# ---------------------------------------------------------------------------
+
+
+def test_the_write_temp_file_is_not_itself_a_dropin(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Atomicity of the destination name is not enough on its own.
+
+    The temp file has to share the destination directory for ``os.replace`` to
+    be atomic, and that directory is globbed for ``*.py`` and executed on every
+    scan — so a ``.py`` temp file is a second drop-in that a palette refresh
+    concurrent with a save can import half-written, and a real
+    ``BlockRegistry.scan()`` was shown to execute one (P2-2). Asserted from
+    inside the write, which is the only moment the file exists.
+    """
+    seen: list[list[str]] = []
+    real_replace = os.replace
+
+    def _spy(src: str, dst: str) -> None:
+        seen.append(sorted(entry.name for entry in user_blocks_dir().glob("*.py")))
+        real_replace(src, dst)
+
+    monkeypatch.setattr("scistudio.api.routes.user_library.os.replace", _spy)
+
+    assert _put(client, target="blocks", filename="atomic.py", content=PROBE_BLOCK).status_code == 200
+
+    assert seen == [[]], "no .py file may exist in the scanned directory while the write is in flight"
+    assert sorted(entry.name for entry in user_blocks_dir().glob("*.py")) == ["atomic.py"]
+
+
+def test_a_write_that_fails_outside_oserror_leaves_nothing_behind(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The cleanup used to be ``except OSError`` and leaked on anything else.
+
+    A leaked temp file is caller-controlled content sitting in a directory the
+    scan reads, under a name the user can find in neither the palette nor the
+    product's own file listing.
+    """
+
+    def _raise(_src: str, _dst: str) -> None:
+        raise ValueError("embedded null character in dst")
+
+    monkeypatch.setattr("scistudio.api.routes.user_library.os.replace", _raise)
+
+    response = _put(client, target="blocks", filename="doomed.py", content=PROBE_BLOCK)
+    assert response.status_code == 500, response.text
+    assert list(user_blocks_dir().iterdir()) == [], "the temp file must not survive the failure"
 
 
 # ---------------------------------------------------------------------------

@@ -118,9 +118,25 @@ const DROPIN_DIRS: ReadonlyArray<{ prefix: string; target: UserLibraryTarget }> 
  *    origin comes from the registered summary, because the tab's own path is
  *    an absolute module path that may resolve anywhere.
  *  - A **project file tab** under `blocks/` or `types/` — the file the user
- *    opened from the project tree and is editing. Its origin is `project` by
- *    construction: the path is project-relative and inside the project's own
- *    drop-in directory, which is the definition of the project tier.
+ *    opened from the project tree and is editing. Its origin is inferred as
+ *    `project` from the *shape of the path*: project-relative, and directly
+ *    inside the project's own drop-in directory.
+ *
+ * That inference is a claim about the path, not the backend's answer, and the
+ * two can disagree in exactly one case — FR-002's `custom` fallback, where a
+ * file inside `blocks/` resolves, through a symlink or onto a different Windows
+ * drive, to somewhere outside the project root. The backend calls that
+ * `custom`, so the palette and the canvas node hide the action while this tab
+ * still offers it (`docs/audit/2026-08-07-adr-053-spec1-track-b.md` P3-2).
+ *
+ * It stays an inference rather than becoming a lookup because there is nothing
+ * to look up: `BlockSummary` deliberately carries no file path — the palette
+ * listing does not publish an absolute path for every registered block — so the
+ * editor cannot join a project-relative tab path back to a registered summary.
+ * Publishing one to close a case the user reaches only by hand-making a symlink
+ * inside their own project, whose worst outcome is copying their own file into
+ * their own library, is not a trade worth making. The block source tab, which
+ * *does* have a summary, uses the resolved origin rather than any inference.
  */
 export function promotableFileTab(
   tab: FileTab | null,

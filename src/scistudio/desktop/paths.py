@@ -240,18 +240,41 @@ def iter_source_package_module_candidates(
 
 @contextlib.contextmanager
 def prepended_sys_paths(paths: Iterable[str | Path]) -> Iterator[None]:
-    """Prepend existing import roots to ``sys.path`` inside this context."""
-    original = list(sys.path)
+    """Prepend existing import roots to ``sys.path`` inside this context.
+
+    Undoes **exactly its own edits** rather than restoring a snapshot taken on
+    entry. A snapshot is wrong the moment two of these windows overlap, and
+    both of its failure modes are real: an inner window's exit restored the
+    outer window's `sys.path`, so the inner user silently lost its roots
+    mid-window, and the outer window's exit then restored a snapshot predating
+    the inner one, leaking the inner roots for the rest of the process
+    (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P3-1). It also
+    discarded any entry the body itself added.
+
+    Today the scans that use this run on the API event loop and in a
+    single-threaded worker, so the hazard is latent rather than live — but it
+    is one ``asyncio.to_thread`` away from being real, and undoing one's own
+    edits costs nothing.
+    """
+    inserted: list[str] = []
+    displaced: list[tuple[int, str]] = []
     for path in reversed(_resolve_existing_dirs(paths)):
         path_str = str(path)
         if path_str in sys.path:
+            displaced.append((sys.path.index(path_str), path_str))
             sys.path.remove(path_str)
         sys.path.insert(0, path_str)
+        inserted.append(path_str)
     try:
         importlib.invalidate_caches()
         yield
     finally:
-        sys.path[:] = original
+        for path_str in inserted:
+            with contextlib.suppress(ValueError):
+                sys.path.remove(path_str)
+        for index, path_str in reversed(displaced):
+            if path_str not in sys.path:
+                sys.path.insert(min(index, len(sys.path)), path_str)
         importlib.invalidate_caches()
 
 

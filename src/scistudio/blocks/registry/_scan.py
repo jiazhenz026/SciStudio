@@ -179,9 +179,30 @@ def _scan_tier1(registry: BlockRegistry) -> None:
     Security boundary (issue #1531): drop-in files are executed as Python
     modules in the server process.  Only files from trusted project- or
     user-controlled directories should be registered via
-    :meth:`BlockRegistry.add_scan_dir`.  Hostile or corrupt drop-ins are
-    isolated by the try/except below — a failing module is logged as a
-    warning and skipped without crashing the palette refresh.
+    :meth:`BlockRegistry.add_scan_dir`.
+
+    **What the try/except below does and does not isolate.** It catches
+    ``BaseException``, not ``Exception``, so a drop-in that raises
+    ``SystemExit`` is recorded as a failure and skipped like any other. That is
+    not an exotic case: a script converted into a block keeps its
+    ``sys.exit(main())`` idiom or its ``argparse`` error path, and under the
+    narrower ``except Exception`` such a file killed the palette refresh on
+    every startup, recorded no ``DropinFailure`` — so FR-015's "silent
+    disappearance ends" was not met for that class — and left the user no
+    in-product way to find the file, because the palette they would have used
+    to find it is what died
+    (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P2-1).
+    ``KeyboardInterrupt`` is re-raised: it is the operator's own signal, and
+    swallowing it would make the server un-interruptible during a scan.
+
+    Two failure modes remain outside this boundary and cannot be brought inside
+    it in-process: ``os._exit()``, which no handler can intercept, and a module
+    that never returns from import, which needs a wall clock this process does
+    not control. Both belong to the out-of-process sandbox the ``TODO(#1531)``
+    below defers — a thread-based bound would change where every well-behaved
+    drop-in executes, and an asynchronous interrupt would land in whichever
+    thread happens to be the main one. This paragraph states the boundary
+    rather than claiming isolation the code does not provide.
 
     ADR-053 FR-012/FR-014: the drop-in type directories of the same tiers join
     ``sys.path`` for the duration of drop-in execution, project tier first, so
@@ -231,8 +252,15 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                 try:
                     with prepended_sys_paths(import_roots):
                         spec.loader.exec_module(module)
-                except Exception as exc:
+                except KeyboardInterrupt:
+                    # The operator's own signal, not the drop-in's failure.
+                    raise
+                except BaseException as exc:
                     # #1531: skip-don't-crash on a failing/hostile drop-in.
+                    # ``BaseException`` rather than ``Exception`` so a
+                    # ``sys.exit()`` carried over from a script — the common
+                    # accident — is recorded and skipped instead of killing the
+                    # refresh with no trace (P2-1, see the module docstring).
                     # Keep the historical "Failed to import block from" wording
                     # (asserted by the registry-logging contract test) so the
                     # hardening does not change the observable error log.

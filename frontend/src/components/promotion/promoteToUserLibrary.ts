@@ -11,17 +11,31 @@
 //
 // E3 — the agent's `promote_to_user_library` MCP tool — is the fourth caller
 // and lives on the backend, so FR-025's "one implementation" is one *per
-// process*: this module is the frontend's, and its semantics are deliberately
-// the same contract as the tool's, refusal for refusal:
+// process*: this module is the frontend's, and its semantics are the same
+// contract as the tool's, refusal for refusal. The two refusal halves agree
+// because they are now the *same condition* rather than two readings of it:
+// `isPromotableOrigin` tests the resolved origin, and the tool tests the same
+// origin resolved by the same function — `map_block_origin` in
+// `scistudio.core.origins`, which is also what fills `BlockSummary.origin`.
 //
-//   | E3 (`tools_library.py`)                     | here                        |
-//   |---------------------------------------------|-----------------------------|
-//   | no source file → built-in/packaged, refused  | FR-019 hides the action     |
-//   | already under `~/.scistudio/blocks` → refused| FR-019 hides the action     |
-//   | existing destination → `FileExistsError`     | 409 → FR-018 prompt         |
-//   | `overwrite=True`                             | "Overwrite"                 |
-//   | `new_name='<other>.py'`                      | "Save as new name"          |
-//   | copies; the project keeps its file           | copies (FR-017)             |
+//   | E3 (`tools_library.py`)                      | here                       |
+//   |----------------------------------------------|----------------------------|
+//   | resolved origin `builtin` → refused          | FR-019 hides the action    |
+//   | resolved origin `package` → refused          | FR-019 hides the action    |
+//   | resolved origin `user` → refused             | FR-019 hides the action    |
+//   | resolved origin `custom` → refused           | FR-019 hides the action    |
+//   | existing destination → `FileExistsError`     | 409 → FR-018 prompt        |
+//   | `overwrite=True`                             | "Overwrite"                |
+//   | `new_name='<other>.py'`                      | "Save as new name"         |
+//   | copies; the project keeps its file           | copies (FR-017)            |
+//
+// The `custom` row is the one that used to be missing on the E3 side: the tool
+// could not import the shared resolver across the layer boundary and asked two
+// narrower questions instead, so a drop-in whose file resolved under neither
+// tier root was hidden here and accepted there
+// (`docs/audit/2026-08-07-adr-053-spec1-track-b.md` P2-2). The whole table is
+// walked by `test_e3_promotes_exactly_the_origins_the_frontend_offers` in
+// `tests/ai/test_mcp_tools_library.py`.
 //
 // Everything above the transport is shared by all three frontend entry points:
 // they differ only in how they build the `PromotableItem` they pass in

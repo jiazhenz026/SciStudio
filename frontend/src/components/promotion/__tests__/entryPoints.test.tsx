@@ -56,6 +56,16 @@ const projectTypeSummary = makeType({
   file_path: "/home/dev/proj/types/spectrum.py",
 });
 const coreTypeSummary = makeType({ name: "Array", origin: "core" });
+const libraryTypeSummary = makeType({
+  name: "MyType",
+  origin: "user",
+  file_path: "/home/dev/.scistudio/types/my_type.py",
+});
+const packagedTypeSummary = makeType({
+  name: "Mask",
+  origin: "package",
+  file_path: "/site-packages/scistudio_blocks_imaging/types.py",
+});
 
 function actions(): HTMLElement[] {
   return screen.queryAllByTestId("promote-to-library-action");
@@ -278,11 +288,20 @@ describe("E5 — palette hover popovers", () => {
     );
   });
 
-  it("hides the type action row for a core type (FR-019)", () => {
-    renderTypes([coreTypeSummary]);
+  // The block side walks all three non-promotable origins; the type side used
+  // to walk only `core`, so `user` and `package` reached `isPromotableOrigin`
+  // solely as pure units and never through the popover that renders the
+  // decision (`docs/audit/2026-08-07-adr-053-spec1-track-b.md` P3-5).
+  it.each([
+    ["core", coreTypeSummary],
+    ["already in the library", libraryTypeSummary],
+    ["packaged", packagedTypeSummary],
+  ])("hides the type action row entirely for a %s type (FR-019)", (_label, type) => {
+    renderTypes([type]);
     hoverFirstTile("palette-type-tile");
     expect(screen.getByTestId("type-detail-popover")).toBeInTheDocument();
     expect(actions()).toHaveLength(0);
+    expect(screen.queryByTestId("palette-popover-actions")).not.toBeInTheDocument();
   });
 });
 
