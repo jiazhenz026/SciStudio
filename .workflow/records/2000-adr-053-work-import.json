@@ -144,7 +144,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "d70619c6ee4d3255e7627436a08d94f331274a81",
+    "shas": [
+      "d70619c6ee4d3255e7627436a08d94f331274a81"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -484,6 +490,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:21:11.481736Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:21:11.495026Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:21:11.507908Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:21:11.522046Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:21:11.534850Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:21:11.548633Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:21:11.562304Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:21:11.575870Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:21:11.588512Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T09:21:11.640303Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -561,9 +649,9 @@
       "tests/api/test_agent_availability.py",
       "tests/api/test_work_import_session.py"
     ],
-    "diff_fingerprint": "sha256:46d4a9ea9c1ccf4b6ca653265a2bb8e66ea81a2f43dbe7daa9252ac75c6690f2",
+    "diff_fingerprint": "sha256:30cb4271f93259e25b3d14f2b8234d34f640a8dded572d98cbf9c53c9b42e7a2",
     "head": "HEAD",
-    "head_sha": "46de7b64",
+    "head_sha": "d70619c6",
     "surfaces": {
       "docs": 5,
       "frontend": 22,
@@ -579,7 +667,16 @@
   },
   "owner_directive": "Manage the full implementation of ADR-053 spec 2 (docs/specs/adr-053-work-import.md, 'Bring in my work'): dispatch implementation and audit agents and produce one reviewable final PR.",
   "persona": "manager",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2000,
+      2001,
+      2002
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-07T05:36:08.109949Z",
@@ -610,6 +707,16 @@
     {
       "at": "2026-08-07T09:20:43.941611Z",
       "diff_fingerprint": "sha256:46d4a9ea9c1ccf4b6ca653265a2bb8e66ea81a2f43dbe7daa9252ac75c6690f2",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-07T09:21:11.640325Z",
+      "diff_fingerprint": "sha256:30cb4271f93259e25b3d14f2b8234d34f640a8dded572d98cbf9c53c9b42e7a2",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 3,
