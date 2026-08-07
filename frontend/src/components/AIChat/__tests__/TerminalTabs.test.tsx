@@ -124,8 +124,13 @@ describe("TerminalTabs", () => {
   });
 
   // #1994 — rename used to be double-click only and therefore undiscoverable.
-  // Hover now highlights the tab and reveals a pencil; the pencil is the only
-  // pointer target that renames, and clicking the tab body must still switch.
+  // Hovering the focused tab now reveals a pencil; the pencil is the only
+  // pointer target that renames, and clicking a tab body must still switch.
+  //
+  // The affordance must also cost nothing in layout: it is absent from the DOM
+  // until revealed (so it reserves no space) and absolutely positioned when
+  // present (so it cannot displace the close button). Both halves are asserted
+  // below — dropping either one reintroduces a bug the owner already reported.
   describe("#1994 — hover rename affordance", () => {
     /** Render two tabs and return their ids; tab 2 ends up active. */
     async function renderTwoTabs() {
@@ -135,164 +140,218 @@ describe("TerminalTabs", () => {
       const tabs = useAppStore.getState().terminalTabs;
       expect(tabs.length).toBe(2);
       expect(useAppStore.getState().activeTerminalTabId).toBe(tabs[1].id);
-      return { first: tabs[0].id, second: tabs[1].id };
+      return { background: tabs[0].id, focused: tabs[1].id };
     }
 
-    it("hovering a tab highlights it and reveals the rename affordance", async () => {
-      const { first } = await renderTwoTabs();
-      const row = screen.getByTestId(`terminal-tab-${first}`);
-      const pencil = screen.getByTestId(`terminal-tab-rename-btn-${first}`);
+    /** Children that actually participate in the flex flow of a tab row. */
+    function inFlowChildren(rowTestId: string): (string | null)[] {
+      return Array.from(screen.getByTestId(rowTestId).children)
+        .filter((c) => !c.className.includes("absolute"))
+        .map((c) => c.getAttribute("data-testid"));
+    }
 
-      // Before hover: present in the DOM (so the layout never shifts) but not
-      // shown, and no hover highlight on the row.
+    it("hovering the focused tab reveals the rename affordance", async () => {
+      const { focused } = await renderTwoTabs();
+      const row = screen.getByTestId(`terminal-tab-${focused}`);
+
+      // Absent from the DOM before hover — that is what "reserves no space" means.
       expect(row.dataset.hovered).toBe("false");
-      expect(pencil.dataset.revealed).toBe("false");
-      expect(pencil.className).toContain("opacity-0");
-      expect(row.className).not.toContain("bg-stone-200/70");
+      expect(screen.queryByTestId(`terminal-tab-rename-btn-${focused}`)).toBeNull();
 
       act(() => fireEvent.mouseOver(row));
 
-      expect(row.dataset.hovered).toBe("true");
-      expect(row.className).toContain("bg-stone-200/70");
-      expect(screen.getByTestId(`terminal-tab-rename-btn-${first}`).dataset.revealed).toBe("true");
-      expect(screen.getByTestId(`terminal-tab-rename-btn-${first}`).className).toContain(
-        "opacity-100",
-      );
+      expect(screen.getByTestId(`terminal-tab-${focused}`).dataset.hovered).toBe("true");
+      expect(screen.getByTestId(`terminal-tab-rename-btn-${focused}`)).toBeInTheDocument();
 
       // ...and it goes away again when the pointer leaves.
       act(() => fireEvent.mouseOut(row));
-      expect(screen.getByTestId(`terminal-tab-${first}`).dataset.hovered).toBe("false");
-      expect(screen.getByTestId(`terminal-tab-rename-btn-${first}`).dataset.revealed).toBe("false");
+      expect(screen.queryByTestId(`terminal-tab-rename-btn-${focused}`)).toBeNull();
     });
 
-    it("only the hovered tab reveals its affordance", async () => {
-      const { first, second } = await renderTwoTabs();
-      act(() => fireEvent.mouseOver(screen.getByTestId(`terminal-tab-${first}`)));
-      expect(screen.getByTestId(`terminal-tab-rename-btn-${first}`).dataset.revealed).toBe("true");
-      expect(screen.getByTestId(`terminal-tab-rename-btn-${second}`).dataset.revealed).toBe(
-        "false",
+    it("hovering highlights the tab background", async () => {
+      const { background } = await renderTwoTabs();
+      const row = screen.getByTestId(`terminal-tab-${background}`);
+      expect(row.className).not.toContain("bg-stone-200/70");
+      act(() => fireEvent.mouseOver(row));
+      expect(screen.getByTestId(`terminal-tab-${background}`).className).toContain(
+        "bg-stone-200/70",
       );
     });
 
-    it("clicking the rename affordance starts an inline rename on that tab", async () => {
-      const { second } = await renderTwoTabs();
-      const row = screen.getByTestId(`terminal-tab-${second}`);
-      act(() => fireEvent.mouseOver(row));
-      act(() => fireEvent.click(screen.getByTestId(`terminal-tab-rename-btn-${second}`)));
+    it("an unfocused tab never shows the affordance, hovered or not", async () => {
+      const { background, focused } = await renderTwoTabs();
+      expect(screen.queryByTestId(`terminal-tab-rename-btn-${background}`)).toBeNull();
 
-      const input = screen.getByTestId(`terminal-tab-rename-input-${second}`);
+      act(() => fireEvent.mouseOver(screen.getByTestId(`terminal-tab-${background}`)));
+
+      // Hovered, highlighted, still no pencil: a tab you are not on offers
+      // exactly one pointer target — "switch to me".
+      expect(screen.getByTestId(`terminal-tab-${background}`).dataset.hovered).toBe("true");
+      expect(screen.queryByTestId(`terminal-tab-rename-btn-${background}`)).toBeNull();
+      expect(screen.queryByTestId(`terminal-tab-rename-btn-${focused}`)).toBeNull();
+
+      // It appears only once that tab becomes the focused one.
+      act(() => fireEvent.click(screen.getByTestId(`terminal-tab-title-${background}`)));
+      expect(useAppStore.getState().activeTerminalTabId).toBe(background);
+      expect(screen.getByTestId(`terminal-tab-rename-btn-${background}`)).toBeInTheDocument();
+    });
+
+    it("clicking the rename affordance starts an inline rename on that tab", async () => {
+      const { background, focused } = await renderTwoTabs();
+      act(() => fireEvent.mouseOver(screen.getByTestId(`terminal-tab-${focused}`)));
+      act(() => fireEvent.click(screen.getByTestId(`terminal-tab-rename-btn-${focused}`)));
+
+      const input = screen.getByTestId(`terminal-tab-rename-input-${focused}`);
       fireEvent.change(input, { target: { value: "Spectra run" } });
       fireEvent.keyDown(input, { key: "Enter" });
 
       await waitFor(() => {
         const tabs = useAppStore.getState().terminalTabs;
-        expect(tabs.find((t) => t.id === second)?.title).toBe("Spectra run");
+        expect(tabs.find((t) => t.id === focused)?.title).toBe("Spectra run");
       });
       // The other tab is untouched.
-      expect(useAppStore.getState().terminalTabs[0].title).toBe("Chat 1");
+      expect(useAppStore.getState().terminalTabs.find((t) => t.id === background)?.title).toBe(
+        "Chat 1",
+      );
     });
 
     it("clicking the tab body switches tabs and does NOT start a rename", async () => {
-      const { first, second } = await renderTwoTabs();
-      expect(useAppStore.getState().activeTerminalTabId).toBe(second);
+      const { background, focused } = await renderTwoTabs();
+      expect(useAppStore.getState().activeTerminalTabId).toBe(focused);
       const titleBefore = useAppStore.getState().terminalTabs[0].title;
 
       // Hover first (as a real pointer must), then click the tab body.
-      act(() => fireEvent.mouseOver(screen.getByTestId(`terminal-tab-${first}`)));
-      act(() => fireEvent.click(screen.getByTestId(`terminal-tab-title-${first}`)));
+      act(() => fireEvent.mouseOver(screen.getByTestId(`terminal-tab-${background}`)));
+      act(() => fireEvent.click(screen.getByTestId(`terminal-tab-title-${background}`)));
 
       // Half one: it switched.
-      expect(useAppStore.getState().activeTerminalTabId).toBe(first);
+      expect(useAppStore.getState().activeTerminalTabId).toBe(background);
       // Half two: no rename was started, and no title changed.
-      expect(screen.queryByTestId(`terminal-tab-rename-input-${first}`)).toBeNull();
-      expect(screen.queryByTestId(`terminal-tab-rename-input-${second}`)).toBeNull();
+      expect(screen.queryByTestId(`terminal-tab-rename-input-${background}`)).toBeNull();
+      expect(screen.queryByTestId(`terminal-tab-rename-input-${focused}`)).toBeNull();
       expect(useAppStore.getState().terminalTabs[0].title).toBe(titleBefore);
-      expect(screen.getByTestId(`terminal-tab-title-${first}`)).toBeInTheDocument();
+      expect(screen.getByTestId(`terminal-tab-title-${background}`)).toBeInTheDocument();
 
       // Clicking the body of the tab you are *already* on is likewise a
-      // no-op, not a shortcut into rename.
-      act(() => fireEvent.click(screen.getByTestId(`terminal-tab-title-${first}`)));
-      expect(useAppStore.getState().activeTerminalTabId).toBe(first);
-      expect(screen.queryByTestId(`terminal-tab-rename-input-${first}`)).toBeNull();
+      // no-op, not a shortcut into rename — even though the pencil is now
+      // showing on it.
+      expect(screen.getByTestId(`terminal-tab-rename-btn-${background}`)).toBeInTheDocument();
+      act(() => fireEvent.click(screen.getByTestId(`terminal-tab-title-${background}`)));
+      expect(useAppStore.getState().activeTerminalTabId).toBe(background);
+      expect(screen.queryByTestId(`terminal-tab-rename-input-${background}`)).toBeNull();
       expect(useAppStore.getState().terminalTabs[0].title).toBe(titleBefore);
     });
 
-    it("the affordance on a background tab switches to it first, then renames it", async () => {
-      // Deliberate choice: rename always targets the tab the user is looking
-      // at, so a mis-aimed click can only ever switch — never silently rename
-      // a tab in the background.
-      const { first, second } = await renderTwoTabs();
-      expect(useAppStore.getState().activeTerminalTabId).toBe(second);
+    it("rename always targets the tab the user is looking at", async () => {
+      // The pencil can no longer reach a background tab, but double-click
+      // still can, so `startRename` keeps selecting the target first. Holding
+      // this invariant at the container means no future entry point can open
+      // a rename over content the user is not looking at.
+      const { background, focused } = await renderTwoTabs();
+      expect(useAppStore.getState().activeTerminalTabId).toBe(focused);
 
-      act(() => fireEvent.mouseOver(screen.getByTestId(`terminal-tab-${first}`)));
-      act(() => fireEvent.click(screen.getByTestId(`terminal-tab-rename-btn-${first}`)));
+      act(() => fireEvent.doubleClick(screen.getByTestId(`terminal-tab-title-${background}`)));
 
       // Switched to the background tab...
-      expect(useAppStore.getState().activeTerminalTabId).toBe(first);
-      // ...and the rename input is on that same tab, not the previously active one.
-      expect(screen.getByTestId(`terminal-tab-rename-input-${first}`)).toBeInTheDocument();
-      expect(screen.queryByTestId(`terminal-tab-rename-input-${second}`)).toBeNull();
+      expect(useAppStore.getState().activeTerminalTabId).toBe(background);
+      // ...and the rename input is on that same tab, not the previously focused one.
+      expect(screen.getByTestId(`terminal-tab-rename-input-${background}`)).toBeInTheDocument();
+      expect(screen.queryByTestId(`terminal-tab-rename-input-${focused}`)).toBeNull();
 
       // Escape backs out with nothing renamed — the mis-click escape hatch.
-      fireEvent.keyDown(screen.getByTestId(`terminal-tab-rename-input-${first}`), {
+      fireEvent.keyDown(screen.getByTestId(`terminal-tab-rename-input-${background}`), {
         key: "Escape",
       });
       await waitFor(() =>
-        expect(screen.queryByTestId(`terminal-tab-rename-input-${first}`)).toBeNull(),
+        expect(screen.queryByTestId(`terminal-tab-rename-input-${background}`)).toBeNull(),
       );
       expect(useAppStore.getState().terminalTabs[0].title).toBe("Chat 1");
-      expect(useAppStore.getState().activeTerminalTabId).toBe(first);
+      expect(useAppStore.getState().activeTerminalTabId).toBe(background);
     });
 
     it("double-click on the tab body still renames", async () => {
-      const { first } = await renderTwoTabs();
-      act(() => fireEvent.doubleClick(screen.getByTestId(`terminal-tab-title-${first}`)));
-      const input = screen.getByTestId(`terminal-tab-rename-input-${first}`);
+      const { background } = await renderTwoTabs();
+      act(() => fireEvent.doubleClick(screen.getByTestId(`terminal-tab-title-${background}`)));
+      const input = screen.getByTestId(`terminal-tab-rename-input-${background}`);
       fireEvent.change(input, { target: { value: "Old habit" } });
       fireEvent.keyDown(input, { key: "Enter" });
       await waitFor(() => expect(useAppStore.getState().terminalTabs[0].title).toBe("Old habit"));
     });
 
     it("keyboard focus reveals the affordance so rename is not pointer-only", async () => {
-      const { first } = await renderTwoTabs();
-      act(() => fireEvent.focus(screen.getByTestId(`terminal-tab-title-${first}`)));
-      expect(screen.getByTestId(`terminal-tab-rename-btn-${first}`).dataset.revealed).toBe("true");
+      const { focused } = await renderTwoTabs();
+      expect(screen.queryByTestId(`terminal-tab-rename-btn-${focused}`)).toBeNull();
+      act(() => fireEvent.focus(screen.getByTestId(`terminal-tab-title-${focused}`)));
+      // Focusing anything in the row mounts the pencil, so it is reachable by
+      // continuing to Tab forward — rename is not mouse-only.
+      expect(screen.getByTestId(`terminal-tab-rename-btn-${focused}`)).toBeInTheDocument();
     });
 
-    it("the close button keeps working and is not displaced by the affordance", async () => {
-      const { first, second } = await renderTwoTabs();
-      const row = screen.getByTestId(`terminal-tab-${first}`);
-      const closeBtn = screen.getByTestId(`terminal-tab-close-btn-${first}`);
+    it("the affordance reserves no space and never displaces the close button", async () => {
+      const { focused } = await renderTwoTabs();
+      const rowTestId = `terminal-tab-${focused}`;
+      const closeClassBefore = screen.getByTestId(`terminal-tab-close-btn-${focused}`).className;
+      const rowClassBefore = screen.getByTestId(rowTestId).className;
+      const flowBefore = inFlowChildren(rowTestId);
 
-      // The pencil is mounted before hover, so revealing it cannot reflow the
-      // row and slide the close button under the pointer: the children order
-      // and count are identical hovered and un-hovered.
-      const childrenBefore = Array.from(row.children).map((c) => c.getAttribute("data-testid"));
-      act(() => fireEvent.mouseOver(row));
-      const childrenAfter = Array.from(screen.getByTestId(`terminal-tab-${first}`).children).map(
-        (c) => c.getAttribute("data-testid"),
-      );
-      expect(childrenAfter).toEqual(childrenBefore);
-      // Close stays the last (outermost) control; the pencil sits inboard of it.
-      expect(childrenAfter).toEqual([
-        `terminal-tab-title-${first}`,
-        `terminal-tab-rename-btn-${first}`,
-        `terminal-tab-close-btn-${first}`,
-      ]);
+      act(() => fireEvent.mouseOver(screen.getByTestId(rowTestId)));
+
+      const pencil = screen.getByTestId(`terminal-tab-rename-btn-${focused}`);
+      // Out of the flex flow: mounting it cannot contribute width or shift a
+      // sibling. This is the whole reason it is safe to mount on hover.
+      expect(pencil.className).toContain("absolute");
+      // The close button is pinned to the row's right edge, so its position is
+      // a function of the row alone — unchanged, hovered or not.
+      const closeAfter = screen.getByTestId(`terminal-tab-close-btn-${focused}`);
+      expect(closeAfter.className).toContain("absolute");
+      expect(closeAfter.className).toBe(closeClassBefore);
+      // Nothing in the flow changed, and the row's own box (padding included)
+      // is identical — the tab did not get wider.
+      expect(inFlowChildren(rowTestId)).toEqual(flowBefore);
+      expect(screen.getByTestId(rowTestId).className).toBe(rowClassBefore);
 
       // And close still closes, without renaming anything.
-      act(() => fireEvent.click(closeBtn));
-      expect(useAppStore.getState().terminalTabs.map((t) => t.id)).toEqual([second]);
-      expect(screen.queryByTestId(`terminal-tab-rename-input-${first}`)).toBeNull();
+      act(() => fireEvent.click(closeAfter));
+      expect(useAppStore.getState().terminalTabs.map((t) => t.id)).toEqual([
+        useAppStore.getState().terminalTabs[0].id,
+      ]);
+      expect(screen.queryByTestId(`terminal-tab-rename-input-${focused}`)).toBeNull();
     });
 
     it("the affordance is hidden while a rename is in progress", async () => {
-      const { first } = await renderTwoTabs();
-      act(() => fireEvent.mouseOver(screen.getByTestId(`terminal-tab-${first}`)));
-      act(() => fireEvent.click(screen.getByTestId(`terminal-tab-rename-btn-${first}`)));
-      expect(screen.queryByTestId(`terminal-tab-rename-btn-${first}`)).toBeNull();
+      const { focused } = await renderTwoTabs();
+      act(() => fireEvent.mouseOver(screen.getByTestId(`terminal-tab-${focused}`)));
+      act(() => fireEvent.click(screen.getByTestId(`terminal-tab-rename-btn-${focused}`)));
+      expect(screen.queryByTestId(`terminal-tab-rename-btn-${focused}`)).toBeNull();
       // The close button survives so the user is never trapped in rename.
-      expect(screen.getByTestId(`terminal-tab-close-btn-${first}`)).toBeInTheDocument();
+      expect(screen.getByTestId(`terminal-tab-close-btn-${focused}`)).toBeInTheDocument();
+    });
+
+    it("the title truncates and never clips the status decorations", async () => {
+      const { focused } = await renderTwoTabs();
+      act(() => useAppStore.getState().launchTerminalTab(focused, "claude-code", "safe"));
+
+      // Short title: label truncates within a bounded width, running dot lives
+      // outside the truncating span so it cannot be clipped or ellipsised.
+      const shortLabel = screen.getByTestId(`terminal-tab-label-${focused}`);
+      expect(shortLabel.textContent).toBe("Chat 2");
+      expect(shortLabel.className).toContain("truncate");
+      expect(shortLabel.className).toContain("max-w-[10rem]");
+      const status = screen.getByTestId(`terminal-tab-status-${focused}`);
+      expect(status).toBeInTheDocument();
+      expect(status.contains(shortLabel)).toBe(false);
+      expect(shortLabel.contains(status)).toBe(false);
+
+      // Long title: same bounded, truncating span; status is still its sibling
+      // on the leading edge, which is also why the overlaid pencil on the
+      // trailing edge can never cover it.
+      const long = "Raman baseline correction for the 2026-06 cryostat run, attempt 4";
+      act(() => useAppStore.getState().renameTerminalTab(focused, long));
+      const longLabel = screen.getByTestId(`terminal-tab-label-${focused}`);
+      expect(longLabel.textContent).toBe(long);
+      expect(longLabel.className).toContain("truncate");
+      expect(longLabel.className).toContain("max-w-[10rem]");
+      expect(screen.getByTestId(`terminal-tab-status-${focused}`).contains(longLabel)).toBe(false);
     });
   });
 

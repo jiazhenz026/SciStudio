@@ -171,6 +171,111 @@
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T00:27:54.081993Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:102f4fec721ebfc465e7a0ebf36ba896c75f73ca64a3d872407303e84c235e40",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T00:30:15.303568Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T00:35:39.052270Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bddfe4a0191dc410451680535aeb287a64a9085400f0a94a97b86df7b86562f8",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T00:36:35.636643Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e69703b3b8d41fba1ee62a14abeb302a4b7e0f2f0cf7ec5a4d493f417ec137ba",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T00:36:57.641755Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d98e7afa660ebdf4d73c9d1273e73a74658680b3c3e08a669fa558344d24d943",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T00:39:40.069287Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T00:40:48.775184Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0debe210e227a242aa9247e82d4e9101920ff2001aa26c03515fccb73e341124",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -179,8 +284,23 @@
     "exclude": [],
     "include": []
   },
-  "directive_events": [],
-  "docs_events": [],
+  "directive_events": [
+    {
+      "at": "2026-08-07T00:27:46.194044Z",
+      "owner_directive": "owner: \u4e0d\u662ffocus\u7684tab\u5c31\u522b\u51fa\u8fd9\u4e2a\u6539\u540d\u6309\u952e\uff1b\u6539\u540d\u6309\u952e\u4e0d\u8981\u6491\u5f00tab\u7684\u7a7a\u767d\u533a\u57df\uff0c\u6539\u6210\u60ac\u6d6e\u624d\u51fa\u73b0",
+      "reason": "owner review of the shipped affordance: restrict the pencil to the focused tab and stop it reserving layout space (it visibly widened every tab with an empty gap). Reworked as an absolutely-positioned overlay so no space is reserved and the close button, now pinned with absolute right-2, still cannot be displaced under the pointer; status decorations moved to the tab's leading edge so the overlay can never cover a running dot; title label bounded and truncating."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-07T00:41:32.090459Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "UI affordance change inside an existing ADR-034 surface; no contract, schema, API or plugin behavior changes. The one doc line that needs updating (ADR-034 L213, 'Double-click tab title to rename') is under docs/**, which this agent is explicitly scoped out of; handed to the PR's docs owner.",
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
   "guard_events": [
     {
@@ -302,6 +422,175 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:30:15.345236Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:30:15.357475Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:30:15.369857Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:30:15.382449Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:30:15.395175Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:30:15.407579Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:30:15.419902Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:30:15.431932Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:30:15.445097Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:30:15.457388Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:40:48.810219Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:40:48.823512Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "frontend/src/components/AIChat/TerminalTabs.parts/TabStripItem.tsx",
+              "frontend/src/components/AIChat/__tests__/TerminalTabs.test.tsx"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-07T00:40:48.836396Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:40:48.849449Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:40:48.862327Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:40:48.875892Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:40:48.889060Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:40:48.901959Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:40:48.914783Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:40:48.931728Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -314,22 +603,26 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "track/adr-034-multi-provider",
-    "base_sha": "e81a05db",
-    "changed_files": [],
-    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "base": "origin/track/adr-034-multi-provider",
+    "base_sha": "1cafdcc0",
+    "changed_files": [
+      ".workflow/records/1994-tab-rename-affordance.json",
+      "frontend/src/components/AIChat/TerminalTabs.parts/TabStripItem.tsx",
+      "frontend/src/components/AIChat/__tests__/TerminalTabs.test.tsx"
+    ],
+    "diff_fingerprint": "sha256:5ca2a7102618b7eff38c96276d98558b5213953b6573b555bf90e02e5672c8a9",
     "head": "HEAD",
-    "head_sha": "e81a05db",
+    "head_sha": "2a8c068e",
     "surfaces": {
       "docs": 0,
-      "frontend": 0,
+      "frontend": 2,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 0,
+      "implementation": 2,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 0,
-      "test": 0,
+      "sentrux": 2,
+      "test": 1,
       "workflow_ci": 0
     }
   },
@@ -358,6 +651,29 @@
         "checks.deferral_discipline",
         "checks.python_tests"
       ]
+    },
+    {
+      "at": "2026-08-07T00:30:15.457423Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-07T00:40:48.931784Z",
+      "diff_fingerprint": "sha256:5ca2a7102618b7eff38c96276d98558b5213953b6573b555bf90e02e5672c8a9",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "scope.out-of-scope"
+      ]
     }
   ],
   "record_id": "1994-tab-rename-affordance",
@@ -368,6 +684,7 @@
       "architecture_tests",
       "deferral_discipline",
       "format_check",
+      "frontend",
       "full_audit",
       "import_contracts",
       "lint_format",
@@ -375,7 +692,9 @@
       "semantic_dup",
       "type_check"
     ],
-    "docs": [],
+    "docs": [
+      "docs_required_or_na"
+    ],
     "guards": [
       "core_change_guard",
       "docs_landing",
@@ -388,7 +707,9 @@
       "test_engineer_scope_guard",
       "weakened_ci_check"
     ],
-    "tests": []
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
@@ -404,6 +725,18 @@
       "at": "2026-08-06T23:45:03.350289Z",
       "pattern": "frontend/src/components/AIChat/TerminalTabs.tsx",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T00:27:46.194061Z",
+      "pattern": "frontend/src/components/AIChat/TerminalTabs.parts/TabStripItem.tsx",
+      "reason": "owner review of the shipped affordance: restrict the pencil to the focused tab and stop it reserving layout space (it visibly widened every tab with an empty gap). Reworked as an absolutely-positioned overlay so no space is reserved and the close button, now pinned with absolute right-2, still cannot be displaced under the pointer; status decorations moved to the tab's leading edge so the overlay can never cover a running dot; title label bounded and truncating."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T00:41:32.090434Z",
+      "pattern": "frontend/src/components/AIChat/__tests__/TerminalTabs.test.tsx",
+      "reason": "declare the tab-strip test file in scope (it is the test surface for this change) and record the docs N/A: docs/** is assigned to another agent in this PR, and ADR-034 line 213 ('Double-click tab title to rename') needs the pencil affordance added \u2014 reported to the manager for the docs owner rather than edited here."
     }
   ],
   "session_id": "d2417f6e-1c8a-42c9-a4f5-9f71dad21fd9",
@@ -412,6 +745,14 @@
   "test_events": [
     {
       "at": "2026-08-06T23:45:03.350299Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/TerminalTabs.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T00:27:46.194071Z",
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/AIChat/__tests__/TerminalTabs.test.tsx",
