@@ -3,9 +3,22 @@
 from __future__ import annotations
 
 import socket
+import sys
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
+
+# #2030: the two route-level tests below exercise the POSIX transport
+# specifically — they connect over ``AF_UNIX`` to a ``.scistudio/mcp.sock``
+# file. On Windows ``MCPServer`` binds TCP loopback and never creates that
+# socket file, so there is nothing to connect to. The Windows transport is
+# covered by ``test_open_project_publishes_tcp_mcp_port``, whose docstring
+# calls TCP "the preferred Windows path".
+_POSIX_SOCKET_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX AF_UNIX socket transport only; Windows publishes a TCP port",
+)
 
 
 def _make_project(root: Path) -> Path:
@@ -70,6 +83,7 @@ def _mcp_connect_path(project: Path) -> Path:
     return socket_path
 
 
+@_POSIX_SOCKET_ONLY
 def test_project_open_route_starts_project_mcp_socket(client: TestClient, project_parent: Path) -> None:
     """Packaged desktop opens a project after startup; MCP must bind there."""
     response = client.post(
@@ -82,7 +96,12 @@ def test_project_open_route_starts_project_mcp_socket(client: TestClient, projec
 
     assert connect_path.exists()
 
-    client_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    # ``AF_UNIX`` is absent from the Windows socket stubs. The skip marker keeps
+    # this body from ever running there, but mypy still type-checks it, and it
+    # resolves stub attributes against the platform it runs on — so a Windows
+    # run reports the attribute missing. The project does not set
+    # ``warn_unused_ignores``, so this stays quiet on Linux/CI too.
+    client_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)  # type: ignore[attr-defined]
     try:
         client_sock.settimeout(2.0)
         client_sock.connect(str(connect_path))
@@ -90,6 +109,7 @@ def test_project_open_route_starts_project_mcp_socket(client: TestClient, projec
         client_sock.close()
 
 
+@_POSIX_SOCKET_ONLY
 def test_project_open_route_rebinds_missing_project_mcp_socket(client: TestClient, project_parent: Path) -> None:
     """If a stale process unlinks the socket path, reopening repairs it."""
     response = client.post(

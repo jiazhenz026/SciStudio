@@ -105,6 +105,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2030] The worktree write guard no longer fails open on Windows. The hook
+  script prepends `$REPO_ROOT/src` to whatever `PYTHONPATH` it inherits, and
+  joined the two with a hardcoded `:`. On Windows the interpreter it invokes
+  splits `PYTHONPATH` on `;`, so that join collapsed into a single unusable
+  entry, `import scistudio` failed, and the guard exited 1 — which a PreToolUse
+  hook treats as a *non-blocking* error. The guard therefore stopped guarding
+  altogether: an agent that forgot to create a worktree could write into the
+  main checkout unchallenged. It only bit when the caller had already exported
+  `PYTHONPATH`, which is routine here because `pip install -e .` is forbidden
+  and callers point `PYTHONPATH` at `./src`. The script now selects the
+  separator per platform. Alongside this, the Windows test suite was brought to
+  green: five tests that assert genuinely POSIX-only behaviour (the zsh
+  `ZDOTDIR` / bash `--rcfile` terminal shims, which `user_terminal_post_rc_invocation`
+  deliberately skips on Windows; the two `AF_UNIX` MCP socket route tests, whose
+  Windows TCP counterpart is already covered; and the `NAME_MAX`/`ENAMETOOLONG`
+  browse test, where Windows correctly answers 404 rather than the 500 that
+  regression guards against) now carry explicit `skipif` markers with reasons,
+  while `test_claude_and_codex_share_identical_mcp_env` was repaired rather than
+  skipped — it substring-matched a raw path against TOML-escaped output and so
+  could only ever hold on POSIX; it now decodes the TOML and compares values.
+  Tests: `tests/qa/test_gate_record_hooks.py`, `tests/cli/test_install.py`.
+  (@claude, 2026-08-07, branch: test/2030-windows-test-failures)
 - [#2019] Creating or opening a project while another project was already open
   could hang the app indefinitely: the project dialog stayed up, the bottom-right
   `Working…` pill sat blurred underneath it, and nothing ever completed. Both
