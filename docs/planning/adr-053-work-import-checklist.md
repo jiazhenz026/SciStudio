@@ -883,6 +883,8 @@ Append only.
 | 2026-08-07 | manager | The spec's `status: Draft` understates a fully implemented feature, but flipping it activates `_active_governance` in `closure.py`/`doc_drift.py`, which would require `docs/adr/ADR-053.md`'s `governs.files` to cover the dialog path. ADR-053 declares `agent_editable: false`, so no agent may make that edit. | **Owner directive 2026-08-07: leave it at Draft — it does not affect the implementation.** The spec's `governs.files` and `tests:` are still expanded to describe the change; only the status flip is deferred to the owner. | owner |
 | 2026-08-07 | manager | Owner directed the manager to carry the dispatch through to the final PR without further check-ins, while `#2030` and the merge decision remain open. | Completing every step the manager is authorised to take: fixes, integration, verification, gate evidence, and the final PR body with closing keywords. Not taken: merging to `main`, applying a bypass label, and touching another session's uncommitted `#2030` work — all three need owner authorisation. | `#2030` |
 
+| 2026-08-07 | manager | CI's CodeQL check reports five `py/path-injection` alerts. **Three are pre-existing** — `validation.py:44`, `validation.py:47`, and `engine.py`, all first seen 2026-05-22; the first two files are untouched by this PR and the third only moved line numbers under A3's refactor. **Two are new**: `work_import.py` where the brief directory is created and the brief written. | `project_dir` reaches those lines only through `_validate_project_dir`, the same validator the frozen PTY route uses, whose own docstring records that CodeQL flags it regardless and that the alert is accepted given the allowlist check. Every appended segment is a module constant or generated filename. The rationale is now recorded at the two new sites, with the one honest difference stated: the PTY route only makes the directory a subprocess `cwd`, this one creates directories and writes a file under it. **Not silently accepted — dismissing a CodeQL alert needs repository-admin rights the manager does not have, so this is an owner decision.** No project-marker hardening was invented: no such helper exists in the repository, and adding one would change endpoint behaviour on a security path without an audit round. | owner |
+
 ## 13.1 Dormant Preconditions
 
 Recorded because they are invisible today and will fire later.
@@ -970,6 +972,7 @@ branch pair, and the umbrella branch is the final PR's head.
 
 | Item | Why it needs the owner |
 |---|---|
+| CodeQL: 2 new `py/path-injection` alerts | Only a repository admin can accept or dismiss a code-scanning alert. Analysis and the pre-existing/new split are in §13. This is the one CI check still red. |
 | `#2030` | Blocks the local pre-PR gate only. CI is Linux and these nine pass there. Read §2.2 first: three of the nine are a stale editable install, not test defects, so patching the shipped hook would compensate in product code for one workstation's broken venv. |
 | Merge authorisation | Policy: no AI merge without explicit administrator authorisation. |
 | Spec `status` flip | Owner-directed to stay `Draft`. Flipping it needs `docs/adr/ADR-053.md` to govern ~20 paths; that ADR declares `agent_editable: false`. The exact list is in §13.1. |

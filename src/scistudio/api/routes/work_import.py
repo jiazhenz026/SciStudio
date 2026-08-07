@@ -175,6 +175,24 @@ def _write_brief(project_dir: Path, text: str) -> Path:
     pointed at is complete on disk and not merely complete in a buffer
     (FR-024).
     """
+    # ``project_dir`` reaches here only through
+    # :func:`~scistudio.api.routes.ai_pty.validation._validate_project_dir`,
+    # the same validator the PTY route uses: absolute, ``resolve(strict=True)``
+    # canonicalised, confirmed to be an existing directory, and — when an MCP
+    # context with an active project is installed — refused if it resolves
+    # outside that project root. Every path segment appended below is a
+    # module constant or a generated filename; none is user-supplied.
+    #
+    # CodeQL still reports ``py/path-injection`` on the two lines below, for
+    # the reason its docstring records at the validator itself: the primitive
+    # ``Path`` operations stay user-tainted whatever the allowlist check
+    # proves. The alert is accepted here on the same basis, with one
+    # difference from the PTY route worth stating plainly — that route only
+    # makes this directory a subprocess ``cwd``, whereas this one creates
+    # directories and writes a file under it, so the residual exposure when no
+    # MCP context is installed is a brief written beneath an existing
+    # directory of the caller's choosing rather than merely a working
+    # directory set to it.
     brief_dir = project_dir.joinpath(*BRIEF_DIR_PARTS)
     brief_dir.mkdir(parents=True, exist_ok=True)
     brief_path = brief_dir / _new_brief_filename()
