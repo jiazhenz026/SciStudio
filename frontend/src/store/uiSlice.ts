@@ -53,6 +53,15 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
       highlightedNodeId: null,
     }),
   closePlotPicker: () => set({ plotPicker: null, highlightedNodeId: null }),
+  // ADR-053 spec 2 (#2001) — expand the bottom panel and select a tab in one
+  // action. Starting a work-import session with the panel collapsed would
+  // otherwise look, from the user's side, like nothing happened. Selection is
+  // delegated to `setActiveBottomTab` rather than reimplemented, so the
+  // unread-logs side effect it owns cannot drift out of sync here.
+  openBottomTab: (tab) => {
+    get().setActiveBottomTab(tab);
+    set({ bottomPanelCollapsed: false });
+  },
   // ADR-050 §3.1 — enter/exit focus mode. Pure view state: these actions never
   // touch workflow nodes, edges, config, or the dirty flag (FR-018).
   enterFocusMode: (selectedIds, depth) =>
