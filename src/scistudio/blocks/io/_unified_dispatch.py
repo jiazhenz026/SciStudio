@@ -7,26 +7,41 @@ owning block while preserving the stable core block surface in workflow YAML.
 
 from __future__ import annotations
 
-import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
 
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.io.capabilities import FormatCapability
+from scistudio.core.dropins import (
+    project_dir_from_env,
+    register_block_scan_dirs,
+    register_type_scan_dirs,
+)
 from scistudio.core.types.base import DataObject
 
 
 def _scan_runtime_registry(
-    registry: Any, *, project_child: str, home_child: str, scan_method: str, always_home: bool
+    registry: Any,
+    register_scan_dirs: Callable[[Any, Path | None], tuple[Path, ...]],
+    scan_method: str,
 ) -> Any:
-    """Apply runtime project/user scan paths and execute the requested scan."""
-    project_dir = os.environ.get("SCISTUDIO_PROJECT_DIR")
-    if project_dir:
-        registry.add_scan_dir(Path(project_dir) / project_child)
-    if always_home or project_dir:
-        registry.add_scan_dir(Path.home() / ".scistudio" / home_child)
+    """Apply the shared drop-in scan directories and execute the scan.
+
+    ADR-053 FR-057: the directories come from :mod:`scistudio.core.dropins`,
+    so IO dispatch sees exactly what the API runtime, the agent runtime, and
+    worker-side type reconstruction see. The dispatch path's only input is
+    whether a project context exists, which it reads from
+    ``SCISTUDIO_PROJECT_DIR``.
+
+    FR-060 deleted the former ``always_home`` parameter. It was ``False`` for
+    blocks and ``True`` for types, which made the user block library invisible
+    to a worker running outside a project while the user type library stayed
+    visible. The user tier is now unconditional for both, so there is no
+    decision left for a caller to make.
+    """
+    register_scan_dirs(registry, project_dir_from_env())
     getattr(registry, scan_method)()
     return registry
 
@@ -35,18 +50,14 @@ def runtime_block_registry() -> Any:
     """Build a registry that mirrors API/worker project scan locations."""
     from scistudio.blocks.registry import BlockRegistry
 
-    return _scan_runtime_registry(
-        BlockRegistry(), project_child="blocks", home_child="blocks", scan_method="scan", always_home=False
-    )
+    return _scan_runtime_registry(BlockRegistry(), register_block_scan_dirs, "scan")
 
 
 def runtime_type_registry() -> Any:
     """Build a type registry that includes core, package, and custom types."""
     from scistudio.core.types.registry import TypeRegistry
 
-    return _scan_runtime_registry(
-        TypeRegistry(), project_child="types", home_child="types", scan_method="scan_all", always_home=True
-    )
+    return _scan_runtime_registry(TypeRegistry(), register_type_scan_dirs, "scan_all")
 
 
 def resolve_type_class(type_name: str) -> type[DataObject] | None:

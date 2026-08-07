@@ -105,6 +105,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2020] Every process now resolves the same drop-in block and type
+  directories. "Which drop-in directories does this process see?" was written
+  out four times — the API runtime, the agent runtime, worker-side type
+  reconstruction, and IO dispatch — and no two answers agreed; the only thing
+  keeping them in step was a comment. A shared helper
+  (`scistudio.core.dropins`) is now the single answer, and all four sites call
+  it. Two user-visible defects fall out of the consolidation. **The AI agent
+  could not see custom data types at all**: the agent runtime built its type
+  registry with no scan directory registered, so neither `{project}/types/` nor
+  `~/.scistudio/types/` existed as far as the agent was concerned, while it saw
+  both block tiers — and `make_mcp_runtime`'s docstring claimed the coverage it
+  did not have. **The user block library was gated on having a project open**:
+  with no project selected, `~/.scistudio/types/` loaded and
+  `~/.scistudio/blocks/` did not, an asymmetry that came from where two
+  `add_scan_dir` calls happened to be written rather than from a decision. User-
+  tier discovery is now unconditional everywhere, for blocks and types alike;
+  project-tier discovery still requires a project, since without one there is no
+  project directory to scan. The now-meaningless `always_home` parameter on the
+  IO dispatch helper is deleted rather than left inert. The two registries keep
+  their opposite scan orders on purpose — a drop-in block may replace a built-in
+  of the same name, a drop-in type may not shadow a core type that persisted
+  artifacts deserialise through — and that reason is now recorded at the call
+  site instead of being inferred from the code. Tests:
+  `tests/api/test_registry_provisioning_parity.py`. (@claude, 2026-08-07,
+  branch: fix/2020-dropin-provisioning-helper)
+
 - [#1986] The desktop app now remembers which port its backend bound and prefers
   that port on the next launch, so the renderer keeps a stable
   `http://127.0.0.1:<port>` origin across restarts. Previously the backend was

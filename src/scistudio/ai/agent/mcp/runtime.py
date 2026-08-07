@@ -9,7 +9,8 @@ external CLIs like ``claude`` and ``codex``) both need to:
    active project (plus the user-wide ``~/.scistudio/blocks`` and
    entry-point plugin packages).
 2. Build a :class:`scistudio.core.types.registry.TypeRegistry` populated
-   with builtins (and plugins).
+   with builtins, entry-point plugins, and the same project/user drop-in
+   type dirs (ADR-053 FR-059; before that it saw no drop-in type at all).
 3. Install a :class:`MCPContext` against ``_context.set_context`` so the
    26 MCP tools can reach those registries plus the project root.
 4. Stand up an :class:`MCPServer` (FastMCP-backed per ADR-040 §3.1)
@@ -99,22 +100,26 @@ class StandaloneMCPRuntime:
 
 
 def _build_block_registry(project_dir: Path | None) -> BlockRegistry:
-    """Scan project-local + user-wide blocks plus entry-point plugins."""
+    """Scan project + user blocks plus plugins; dirs from ``core.dropins``."""
     from scistudio.blocks.registry import BlockRegistry
+    from scistudio.core.dropins import register_block_scan_dirs
 
     registry = BlockRegistry()
-    if project_dir is not None:
-        registry.add_scan_dir(project_dir / "blocks")
-    registry.add_scan_dir(Path.home() / ".scistudio" / "blocks")
+    register_block_scan_dirs(registry, project_dir)
     registry.scan()
     return registry
 
 
-def _build_type_registry() -> TypeRegistry:
-    """Scan builtin + entry-point plugin types."""
+def _build_type_registry(project_dir: Path | None) -> TypeRegistry:
+    """Scan project + user types plus plugins; dirs from ``core.dropins``.
+
+    ADR-053 FR-059: this used to register no scan directory at all.
+    """
+    from scistudio.core.dropins import register_type_scan_dirs
     from scistudio.core.types.registry import TypeRegistry
 
     registry = TypeRegistry()
+    register_type_scan_dirs(registry, project_dir)
     registry.scan_all()
     return registry
 
@@ -122,10 +127,13 @@ def _build_type_registry() -> TypeRegistry:
 def make_mcp_runtime(project_dir: Path | None) -> StandaloneMCPRuntime:
     """Build a populated :class:`StandaloneMCPRuntime`.
 
-    Equivalent to the inline setup the FastAPI lifespan performs (block
-    + type registry scans over builtins, entry-point plugins, and
-    project/user drop-in dirs). Does *not* install the global context —
-    callers are responsible for that so they can also tear it down.
+    Equivalent to the setup the FastAPI lifespan performs: both registries
+    scan builtins, entry-point plugins, and the project/user drop-in dirs
+    resolved by :mod:`scistudio.core.dropins` (ADR-053 FR-057). Before ADR-053
+    this docstring claimed drop-in coverage for both registries while
+    :func:`_build_type_registry` registered no directory at all (FR-059).
+    Does *not* install the global context — callers are responsible for that
+    so they can also tear it down.
 
     Parameters
     ----------
@@ -133,7 +141,9 @@ def make_mcp_runtime(project_dir: Path | None) -> StandaloneMCPRuntime:
         Active project root, or ``None`` when no project is open. When
         ``None``, project-scoped MCP tools (most of them) will fail
         with a clear "no project open" error from
-        :func:`scistudio.ai.agent.mcp._context._resolve_project_root`.
+        :func:`scistudio.ai.agent.mcp._context._resolve_project_root`. The
+        user tier (``~/.scistudio/blocks`` and ``~/.scistudio/types``) is
+        scanned either way (FR-060).
 
     Returns
     -------
@@ -141,7 +151,7 @@ def make_mcp_runtime(project_dir: Path | None) -> StandaloneMCPRuntime:
         A runtime ready to be passed to ``_context.set_context``.
     """
     block_registry = _build_block_registry(project_dir)
-    type_registry = _build_type_registry()
+    type_registry = _build_type_registry(project_dir)
     return StandaloneMCPRuntime(
         block_registry=block_registry,
         type_registry=type_registry,

@@ -21,6 +21,7 @@ from uuid import uuid4
 import yaml
 
 from scistudio.blocks.registry import BlockRegistry
+from scistudio.core.dropins import register_block_scan_dirs, register_type_scan_dirs
 from scistudio.core.types.registry import TypeRegistry
 from scistudio.workflow.definition import WorkflowDefinition
 from scistudio.workflow.serializer import save_yaml
@@ -58,10 +59,14 @@ def _save_known_projects(self: ApiRuntime) -> None:
 
 
 def refresh_block_registry(self: ApiRuntime) -> None:
+    """Rebuild the BlockRegistry for the active project.
+
+    ADR-053 FR-057/FR-060: scan dirs come from :mod:`scistudio.core.dropins`,
+    so the user tier no longer needs an open project to be seen.
+    """
+    project_dir = None if self.active_project is None else Path(self.active_project.path)
     registry = BlockRegistry()
-    if self.active_project is not None:
-        registry.add_scan_dir(Path(self.active_project.path) / "blocks")
-        registry.add_scan_dir(Path.home() / ".scistudio" / "blocks")
+    register_block_scan_dirs(registry, project_dir)
     registry.scan()
     self.block_registry = registry
 
@@ -75,11 +80,12 @@ def refresh_type_registry(self: ApiRuntime) -> None:
     user-wide ``~/.scistudio/types`` dir. Always rebuilds from scratch
     so a switch from project A to project B does not leak project A's
     types into project B.
+
+    ADR-053 FR-057/FR-058: same tier definition as the block registry.
     """
+    project_dir = None if self.active_project is None else Path(self.active_project.path)
     registry = TypeRegistry()
-    if self.active_project is not None:
-        registry.add_scan_dir(Path(self.active_project.path) / "types")
-    registry.add_scan_dir(Path.home() / ".scistudio" / "types")
+    register_type_scan_dirs(registry, project_dir)
     registry.scan_all()
     self.type_registry = registry
 

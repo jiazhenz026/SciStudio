@@ -64,19 +64,23 @@ def _get_type_registry() -> TypeRegistry:
     declared in this section. Subsequent calls return the same
     instance.
 
-    Scan-directory wiring (#1365): the worker subprocess does not
-    own an :class:`~scistudio.api.runtime.ApiRuntime`, so the
-    ``<project>/types`` + ``~/.scistudio/types`` scan dirs that
-    :meth:`ApiRuntime.refresh_type_registry` wires for the API path
-    must be re-wired here too. The worker discovers the active
-    project root via the ``SCISTUDIO_PROJECT_DIR`` environment
-    variable (the same contract used by
-    :mod:`scistudio.cli.mcp_bridge` and the agent provisioning
+    Scan-directory wiring (#1365, ADR-053 FR-057): the worker
+    subprocess does not own an
+    :class:`~scistudio.api.runtime.ApiRuntime`, so the drop-in type
+    directories the API path wires must be wired here too. They are
+    not restated here — both call
+    :func:`scistudio.core.dropins.register_type_scan_dirs`, which is
+    the single answer to which directories the tier comprises. This
+    used to be a hand-maintained copy kept in step by a comment,
+    which is the drift ADR-053 §2.6 exists to remove.
+
+    The worker discovers the active project root via the
+    ``SCISTUDIO_PROJECT_DIR`` environment variable (the same contract
+    used by :mod:`scistudio.cli.mcp_bridge` and the agent provisioning
     layer); :class:`~scistudio.engine.runners.local.LocalRunner`
     propagates that env var to the worker subprocess. When the env
-    var is unset (CLI standalone runs, tests) we still attempt the
-    user-wide dir under :func:`pathlib.Path.home`; no error if it
-    does not exist.
+    var is unset (CLI standalone runs, tests) the user-wide tier is
+    still scanned (FR-060); no error if it does not exist.
 
     Entry-point and drop-in scanning are wrapped in best-effort
     try/except: a broken plugin or unparseable drop-in must not
@@ -95,21 +99,19 @@ def _get_type_registry() -> TypeRegistry:
     ``_registry_instance`` to ``None``; the next call will re-scan.
     """
     import contextlib
-    import os
-    from pathlib import Path
 
+    from scistudio.core.dropins import project_dir_from_env, register_type_scan_dirs
     from scistudio.core.types.registry import TypeRegistry
 
     global _registry_instance
     if _registry_instance is None:
         registry = TypeRegistry()
-        # #1365: register the same scan dirs ApiRuntime.refresh_type_registry
-        # wires for the API path, so worker subprocess reconstruction sees
-        # project-local + user-wide drop-in DataObject subclasses.
-        project_dir_env = os.environ.get("SCISTUDIO_PROJECT_DIR", "").strip()
-        if project_dir_env:
-            registry.add_scan_dir(Path(project_dir_env) / "types")
-        registry.add_scan_dir(Path.home() / ".scistudio" / "types")
+        # #1365 / ADR-053 FR-057: register the drop-in type directories the
+        # shared helper resolves, so worker subprocess reconstruction sees the
+        # same project-local + user-wide DataObject subclasses every other
+        # process does. The worker's only input is whether a project context
+        # exists, which it reads from SCISTUDIO_PROJECT_DIR.
+        register_type_scan_dirs(registry, project_dir_from_env())
         # Built-in registration MUST be guaranteed: if scan_builtins()
         # raises (import/registration error inside core), there is no
         # silent fall-back to base DataObject — fail fast so the bug
