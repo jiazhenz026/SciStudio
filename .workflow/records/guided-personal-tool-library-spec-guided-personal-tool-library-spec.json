@@ -190,13 +190,43 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T00:31:20.901588Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:898d58b9d27040f54e38689eef0d7b032d3c0b0182fa11d9ef6c27dec17102bf",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-07T00:32:48.736138Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:56b6de765f88c6bfacbfcea0b04a8fc4a8f11c485193c1b758872143c8c0df8b",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
   "commit": {
-    "sha": "7d44799fa0336057ac92b57b9b192b146f4eda7f",
+    "sha": "b55412681ec0565dae1ed79963c6e9a43fd29f2a",
     "shas": [
-      "7d44799fa0336057ac92b57b9b192b146f4eda7f"
+      "b55412681ec0565dae1ed79963c6e9a43fd29f2a"
     ],
     "trailers": []
   },
@@ -236,6 +266,11 @@
       "at": "2026-08-06T22:57:23.549640Z",
       "owner_directive": "Investigate whether block and type registration, consumption, loading and saving paths are fully consistent under the new spec, and fold the findings into this spec rather than opening a separate one.",
       "reason": "Investigation found three uncovered asymmetries between block and type lifecycles; owner directed folding them into this spec"
+    },
+    {
+      "at": "2026-08-07T00:30:50.508095Z",
+      "owner_directive": "Address the Codex audit on PR #2008: restrict promotion to project-origin items; route canvas port colour through the types endpoint so type colour has a single source (option B); lock FR-060 to unconditional user-tier discovery for both blocks and types.",
+      "reason": "Codex review on PR #2008 found three spec defects; recording the owner decisions that resolve them"
     }
   ],
   "docs_events": [
@@ -1211,6 +1246,170 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:48.784974Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:48.800871Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:48.823116Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:48.839434Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:48.855163Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:48.877385Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:48.893374Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:48.909157Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:48.924373Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:48.953899Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:56.156225Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:56.170202Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:56.184691Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:56.199864Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:56.214857Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:56.229617Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:56.243702Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:56.258612Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:56.272867Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-07T00:32:56.295056Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1226,12 +1425,13 @@
     "base": "6579d9ce222a927767c93781422de2d8f83a92b2",
     "base_sha": "6579d9ce",
     "changed_files": [
+      ".workflow/records/2007-guided-personal-tool-library-spec.json",
       ".workflow/records/guided-personal-tool-library-spec-guided-personal-tool-library-spec.json",
       "docs/specs/adr-053-personal-tool-library.md"
     ],
-    "diff_fingerprint": "sha256:844cf2208fdb225e85c6c6e32e3667653acb300d86b82eb1d3e533d09093620c",
+    "diff_fingerprint": "sha256:5063e367203b6230c6373deaaaa443cad24f444285c6caa4958a4770d8606e8c",
     "head": "HEAD",
-    "head_sha": "7d44799f",
+    "head_sha": "b5541268",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -1365,6 +1565,22 @@
     {
       "at": "2026-08-06T23:08:49.310936Z",
       "diff_fingerprint": "sha256:844cf2208fdb225e85c6c6e32e3667653acb300d86b82eb1d3e533d09093620c",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-07T00:32:48.953933Z",
+      "diff_fingerprint": "sha256:5063e367203b6230c6373deaaaa443cad24f444285c6caa4958a4770d8606e8c",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-07T00:32:56.295089Z",
+      "diff_fingerprint": "sha256:5063e367203b6230c6373deaaaa443cad24f444285c6caa4958a4770d8606e8c",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
