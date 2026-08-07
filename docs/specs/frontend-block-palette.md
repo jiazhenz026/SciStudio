@@ -9,15 +9,19 @@ owners:
   - "@jiazhenz026"
 related_adrs:
   - 50
-related_specs: []
+  - 53
+related_specs:
+  - adr-053-personal-tool-library
 scope:
   in:
     - Left BlockPalette switches from tall full-width cards to a 2-column grid of compact mini-node tiles.
     - Each tile reuses the canvas per-category visual language (macaron swatch + lucide icon) via getCategoryVisual().
     - A pinned "Data I/O" section (core Load source + Save sink) renders at the top, never collapsed, lifted out of package grouping.
     - Top-of-panel category filter chips (io / process / code / app / ai / subworkflow) toggle a category filter.
-    - Section ordering — Data I/O, then Built-in (core), then Custom, then plugin packages A→Z.
-    - A hover detail popover anchored to the right of a tile showing icon, name, full description, and typed port signature.
+    - Section ordering — Data I/O, then Built-in (core), then My Library (user tier), then This Project (project tier), then plugin packages A→Z, grouped by origin tier first and package second (ADR-053 §9.1).
+    - My Library and This Project render even when empty, each with one line stating what the section is for (ADR-053 FR-037).
+    - A hover detail popover anchored to the right of a tile showing icon, name, full description, and typed port signature; interactive in the palette so it can hold an action row (ADR-053 §9.3).
+    - A shared section/filter/tile/chip/popover helper set the Data types tab reuses (ADR-053 §10.1).
     - The category sub-grouping layer, the always-on description line, and the "X in / Y out" text line are removed from the tile.
     - A one-shot opacity blink confirming a completed Reload, via a shared `useReloadFlash` hook also wired to the project tree Refresh.
   out:
@@ -35,6 +39,8 @@ governs:
     - docs/specs/frontend-block-palette.md
     - frontend/src/components/BlockPalette.tsx
     - frontend/src/components/BlockPalette.parts
+    - frontend/src/components/BlockDetailPopover.tsx
+    - frontend/src/components/palette
     - frontend/src/hooks/useReloadFlash.ts
     - frontend/src/components/ProjectTree.tsx
   excludes:
@@ -42,6 +48,8 @@ governs:
 tests:
   - frontend/src/components/BlockPalette.test.tsx
   - frontend/src/components/BlockPalette.parts/__tests__/paletteModel.test.ts
+  - frontend/src/components/palette/__tests__/sections.test.ts
+  - frontend/src/components/palette/__tests__/useHoverPopover.test.tsx
   - frontend/src/hooks/__tests__/useReloadFlash.test.ts
 acceptance_source: issue
 language_source: en
@@ -101,21 +109,87 @@ minimal behavior and does not render the grid/chips/popover.
 ## 4. Sections And Ordering
 
 The three-level package → category → block tree is replaced by a flat,
-category-free ordering. Top to bottom:
+category-free ordering. The panel is titled **Blocks**, matching its left-panel
+tab (ADR-053 FR-034), and its sections run top to bottom:
 
 1. **Data I/O** — pinned, never collapsed. Contains the core Load (io source,
    `input_ports.length === 0`) and Save (io sink, `output_ports.length === 0`)
-   blocks, lifted out of their package group so they never appear twice.
+   blocks, lifted out of their group so they never appear twice. The lift wins
+   over the tier split below: a Load/Save block is pinned here whatever origin
+   it resolves to.
 2. **Built-in** — the remaining core blocks (`derivePackage` → "SciStudio Core"),
    as one flat grid with **no category sub-grouping**. Core blocks that use a
    dotted namespace but ship with core (the `ai.` namespace, e.g. `ai.agent`)
    resolve to Built-in rather than a standalone package.
-3. **Custom** — user `source === "custom"` blocks.
-4. **Plugin packages** — every other package, sorted **A→Z** by display name.
+3. **My Library** — blocks resolved to the user-wide tier
+   (`~/.scistudio/blocks/`, `origin === "user"`).
+4. **This Project** — blocks resolved to the project-local tier
+   (`{project}/blocks/`, `origin === "project"`).
+5. **Plugin packages** — every other package, sorted **A→Z** by display name.
 
 Built-in and plugin sections remain collapsible (existing package-collapse
 behavior); Data I/O is always shown. Within every section, tiles sort
 alphabetically by block name.
+
+### 4.1 Grouping Is By Origin Tier First, Package Second (ADR-053 FR-038)
+
+`buildPaletteSections` used to group solely by `derivePackage`, which put every
+tier-1 drop-in into one `Custom` section. It now groups by **origin tier
+first** and by package only inside the package family:
+
+| Resolved `origin` | Section |
+|---|---|
+| `user` | My Library |
+| `project` | This Project |
+| `custom` | This Project (see below) |
+| `builtin` / `package` | `derivePackage(block)` — Built-in or the plugin package |
+
+`origin` arrives on the block list response (ADR-053 FR-004). `custom` is the
+FR-002 fallback for a tier-1 block whose `file_path` resolves to neither root
+(absent path, a symlink escaping both, a differing Windows drive); it renders
+under **This Project** because an unresolvable drop-in is not known to be
+reusable across projects, and filing it under a section that promises
+cross-project reuse would be a claim the backend did not make. A payload
+carrying no recognised `origin` at all — a backend that predates the tier split
+— falls back to the legacy `source` label and lands in the same place, so the
+palette degrades rather than breaking.
+
+`derivePackage` no longer has a `Custom` branch: tier-1 blocks are routed by
+origin before package resolution runs.
+
+### 4.2 Tier Empty States (ADR-053 FR-037)
+
+**My Library** and **This Project** render even when they contain no blocks,
+each carrying one line stating what the section is for:
+
+> **My Library** — No blocks of your own yet. Save a block here and every
+> project can use it.
+>
+> **This Project** — No blocks in this project yet. Blocks you add here stay
+> with this project.
+
+This is load-bearing rather than polish. For a user who has never heard of a
+personal library, the empty section is the only moment they are guaranteed to
+be looking at the place it would live. Every other section — Data I/O,
+Built-in, and the plugin packages — keeps the ordinary omit-when-empty
+behaviour.
+
+The two empty states are suppressed while a search term or a category chip is
+narrowing the grid. Under an active filter an empty section says nothing about
+the library and everything about the query, and "No blocks of your own yet"
+would assert something false about a section whose contents were merely
+filtered away. Filtering otherwise treats the tier sections exactly like the
+package sections.
+
+### 4.3 Shared Section Model
+
+The grouping skeleton is generic and shared with the Data types tab
+(ADR-053 §10.1, FR-047): `buildSections<T>(items, groupOf, pinnedOrder,
+compare)` and `filterItems<T>(items, search, toHaystack)` live in
+`components/palette/sections.ts` and know nothing about blocks. Both surfaces
+group primarily by origin tier, so one skeleton fits both with no per-surface
+special-casing. `derivePackage`, `isIoSource` / `isIoSink` / `isDataIoBlock`,
+`CATEGORY_KEYS`, and `portSignature` stay block-side per ADR-053 §10.2.
 
 ## 5. Category Filter Chips
 
@@ -141,19 +215,57 @@ cover sibling tiles). It shows:
   the first entry of `accepted_types` (or `Any` when empty / the any-type marker),
   under `in` and `out` groupings.
 
-The popover is hover-triggered with a short open delay (~150ms) and is
-non-interactive (display only). It replaces the information previously shown
-always-on (description) and adds the typed port contract, which the old text
-`X in / Y out` line did not convey.
+The popover is hover-triggered with a short open delay (~150ms). It replaces
+the information previously shown always-on (description) and adds the typed
+port contract, which the old text `X in / Y out` line did not convey.
 
-The popover is implemented as a standalone display-only component
-(`components/BlockDetailPopover.tsx`, testid `block-detail-popover`) taking a
-`BlockSummary` and a viewport-space `{ left, top }` anchor. It is shared with
-the canvas, which reuses it for the on-node hover detail (§10, #1887).
+The popover is implemented as a shared card shell
+(`components/palette/DetailPopover.tsx`) composed by
+`components/BlockDetailPopover.tsx` (testid `block-detail-popover`) with a
+`BlockSummary` and a viewport-space `{ left, top }` anchor. One implementation
+serves both palette surfaces (ADR-053 FR-046) and the canvas, which reuses it
+for the on-node hover detail (§10, #1887).
+
+### 6.1 The Popover Is Interactive (ADR-053 FR-044 – FR-046)
+
+The palette popover was originally display-only, rendered with
+`pointer-events-none`, and its visibility was driven entirely by the tile.
+Nothing inside it could be clicked, which blocked the promotion action ADR-053
+§6.2 places there (entry point E5).
+
+- The palette card accepts pointer events and **maintains its own hover
+  state**: it cancels the pending close when the pointer enters it.
+- The `POPOVER_GAP` between tile and card is dead space with no element under
+  the cursor, so leaving the tile schedules the close after a short grace
+  period (`POPOVER_CLOSE_DELAY_MS`) rather than closing at once. Without the
+  grace period the card would be unreachable and interactivity would be
+  theoretical.
+- The open delay, close grace, gap, and max height live in
+  `components/palette/hoverPopover.ts`, together with `useHoverPopover<T>()` —
+  the hover state machine both palette surfaces use — and `computeTileAnchor`,
+  which opens the card to the right of the tile and clamps its top into the
+  viewport. The canvas keeps its own anchor (`computeNodeDetailAnchor`, §10)
+  because a placed node can sit anywhere and the viewport pans and zooms.
+- Interactivity is opt-in per call site: a surface spreads
+  `useHoverPopover().popoverProps`, which supplies the `interactive` flag
+  together with the handlers that keep the card open. The two must arrive
+  together, because a card that swallows pointer events without maintaining
+  hover state closes under the cursor. The canvas node popover (§10) spreads
+  nothing and stays display-only and `pointer-events-none`, unchanged.
+- `BlockDetailPopover` takes an `actions` slot rendered under the port
+  signature, above a hairline rule (testid `palette-popover-actions`). That is
+  where "Promote to My Library" mounts.
+
+Tile dragging is unaffected: `handleDragStart` closes the card immediately
+rather than through the grace period, and the drag payload contract is
+unchanged (ADR-053 FR-045).
 
 ## 7. Out Of Scope
 
-- No backend, schema, or `BlockSummary` contract change.
+- The original #1797 redesign made no backend, schema, or `BlockSummary`
+  contract change. The ADR-053 tier split adds exactly one optional field,
+  `BlockSummary.origin` (FR-004), which §4.1 consumes; nothing else about the
+  contract moved.
 - No change to `categoryVisuals.ts` (consumed read-only). The original #1797 work
   left the canvas node untouched; the §10 amendment (#1887) later reuses the
   shared popover on canvas nodes without otherwise changing node rendering.
@@ -168,9 +280,24 @@ Pure ordering/detection/filter logic is extracted into a testable model module
 `BlockPalette.parts/__tests__/paletteModel.test.ts`:
 
 - Load/Save detection by io + zero-port structural signal (not by name).
-- Section ordering: Data I/O → Built-in → Custom → plugin packages A→Z.
-- Data I/O lifted out of its package group (no duplicate rendering).
-- Category-chip filter composes with text search (AND).
+- Origin resolution: the backend value passes through, an unrecognised value is
+  treated as absent, and a payload without one falls back to the legacy
+  `source` label.
+- Origin-first grouping: user → My Library, project and the `custom` fallback →
+  This Project, builtin/package → `derivePackage`; Data I/O outranks all of it.
+- Section ordering: Data I/O → Built-in → My Library → This Project → plugin
+  packages A→Z, each section sorted by block name.
+- Data I/O lifted out of its group (no duplicate rendering).
+- Both tier sections render empty with their teaching copy, and drop it while a
+  filter is active.
+- Category-chip filter composes with text search (AND), across the tier
+  sections exactly as across the package sections.
+
+The generic half is covered by `palette/__tests__/sections.test.ts`, exercised
+against an item type that is neither a block nor a type so the FR-047 claim
+that one skeleton fits both surfaces stays honest, and by
+`palette/__tests__/useHoverPopover.test.tsx` (open delay, close grace, anchor
+clamping, re-targeting between tiles, no timer left after unmount).
 
 Component behavior is covered by the rewritten `BlockPalette.test.tsx`:
 
@@ -179,6 +306,10 @@ Component behavior is covered by the rewritten `BlockPalette.test.tsx`:
 - Data I/O section renders Load and Save pinned at the top.
 - Activating a category chip filters the visible tiles.
 - Hovering a tile reveals the detail popover with description and port signature.
+- The panel is titled `Blocks`; `My Library` and `This Project` replace `Custom`
+  and render with their teaching copy when empty.
+- The popover carries no `pointer-events-none`, survives the tile→popover gap,
+  closes when the pointer leaves the card, and does not disturb dragging.
 
 Canvas hover-detail behavior (§10, #1887) is covered by
 `nodes/BlockNode.parts/nodeDetailAnchor.test.ts` (right/left flip + top clamp of

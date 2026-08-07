@@ -45,12 +45,21 @@ export interface CanvasReadabilityWiring {
   onTidyLayout: (positions: Record<string, { x: number; y: number }>) => void;
 }
 
+/**
+ * Left-panel tabs (ADR-053 §9, FR-034 / FR-039).
+ *
+ * `blocks` is the renamed first tab. `types` is the `Data types` tab that sits
+ * between `Blocks` and `Project`; the key is widened here ahead of the pane so
+ * both tab surfaces read one union.
+ */
+export type LeftTab = "blocks" | "types" | "project";
+
 export interface ProjectWorkspaceProps {
   // Project / workflow context
   currentProject: ProjectResponse;
   // Left panel
-  leftTab: "blocks" | "project";
-  onLeftTabChange: (tab: "blocks" | "project") => void;
+  leftTab: LeftTab;
+  onLeftTabChange: (tab: LeftTab) => void;
   blocks: BlockSummary[];
   paletteSearch: string;
   setPaletteSearch: (search: string) => void;
@@ -152,7 +161,12 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
         </button>
       </div>
       <div className="min-h-0 flex-1">
-        {leftTab === "blocks" ? (
+        {/* TODO(#2025): the `Data types` tab button and its pane land with
+            #2025 (ADR-053 spec §9.2, FR-039 – FR-043). The `types` key exists
+            in the union ahead of them so both tab surfaces share one type and
+            #2025 only adds rendering.
+            Followup: https://github.com/jiazhenz026/SciStudio/issues/2025 */}
+        {leftTab === "types" ? null : leftTab === "blocks" ? (
           <BlockPalette
             blocks={blocks}
             collapsed={false}

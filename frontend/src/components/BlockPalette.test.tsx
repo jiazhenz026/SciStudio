@@ -34,6 +34,7 @@ function makeBlock(
     input_ports: overrides.input_ports ?? [],
     output_ports: overrides.output_ports ?? [],
     source: overrides.source,
+    origin: overrides.origin,
     package_name: overrides.package_name,
     direction: overrides.direction,
   };
@@ -73,6 +74,19 @@ const annotate = makeBlock({
   type_name: "ai.annotate",
   name: "Annotate",
   base_category: "ai",
+});
+const myTool = makeBlock({
+  type_name: "my_denoise",
+  name: "My Denoise",
+  origin: "user",
+  description: "Rolling-ball denoise I reuse everywhere",
+});
+const projectTool = makeBlock({
+  type_name: "project_qc",
+  name: "Project QC",
+  origin: "project",
+  base_category: "code",
+  description: "One-off QC for this dataset",
 });
 
 describe("BlockPalette — grid redesign (#1797)", () => {
@@ -199,6 +213,186 @@ describe("BlockPalette — grid redesign (#1797)", () => {
     // Column count is driven by an inline grid-template-columns. jsdom has no
     // layout / ResizeObserver, so the component keeps the default 2 columns.
     expect(grid.style.gridTemplateColumns).toBe("repeat(2, minmax(0, 1fr))");
+  });
+});
+
+describe("BlockPalette — origin tiers and empty states (#1995)", () => {
+  it("names the panel after its tab (FR-034)", () => {
+    render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
+    expect(screen.getByText("Blocks")).toBeInTheDocument();
+    expect(screen.queryByText("Palette")).not.toBeInTheDocument();
+  });
+
+  it("renders My Library and This Project instead of one Custom section (FR-035)", () => {
+    render(<BlockPalette {...defaultProps} blocks={[myTool, projectTool]} />);
+    expect(screen.getByText("My Library")).toBeInTheDocument();
+    expect(screen.getByText("This Project")).toBeInTheDocument();
+    expect(screen.queryByText("Custom")).not.toBeInTheDocument();
+
+    const library = screen.getByText("My Library").closest("section")!;
+    expect(within(library).getByText("My Denoise")).toBeInTheDocument();
+    const project = screen.getByText("This Project").closest("section")!;
+    expect(within(project).getByText("Project QC")).toBeInTheDocument();
+  });
+
+  it("orders Data I/O → Built-in → My Library → This Project → packages A→Z (FR-036)", () => {
+    render(
+      <BlockPalette
+        {...defaultProps}
+        blocks={[cellpose, load, save, myTool, projectTool, annotate]}
+      />,
+    );
+    const headers = screen
+      .getAllByText(/^(Data I\/O|Built-in|My Library|This Project|Imaging)$/)
+      .map((node) => node.textContent);
+    expect(headers).toEqual(["Data I/O", "Built-in", "My Library", "This Project", "Imaging"]);
+  });
+
+  it("renders both tier sections with teaching copy when the user owns nothing (FR-037)", () => {
+    render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
+
+    expect(screen.getByText("My Library")).toBeInTheDocument();
+    expect(screen.getByText("This Project")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "No blocks of your own yet. Save a block here and every project can use it.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "No blocks in this project yet. Blocks you add here stay with this project.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByTestId("palette-section-empty")).toHaveLength(2);
+  });
+
+  it("keeps other sections omitting themselves when empty (FR-037)", () => {
+    render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
+    // No Data I/O block in this catalog, so the pinned section stays away.
+    expect(screen.queryByText("Data I/O")).not.toBeInTheDocument();
+  });
+
+  it("drops the teaching copy while a search is active", () => {
+    render(<BlockPalette {...defaultProps} blocks={[cellpose]} search="cellpose" />);
+    expect(screen.queryByTestId("palette-section-empty")).not.toBeInTheDocument();
+    expect(screen.queryByText("My Library")).not.toBeInTheDocument();
+  });
+
+  it("filters the tier sections by search exactly like any other section", () => {
+    render(<BlockPalette {...defaultProps} blocks={[myTool, projectTool]} search="denoise" />);
+    expect(screen.getByText("My Denoise")).toBeInTheDocument();
+    expect(screen.queryByText("Project QC")).not.toBeInTheDocument();
+    expect(screen.queryByText("This Project")).not.toBeInTheDocument();
+  });
+
+  it("filters the tier sections by category chip exactly like any other section", () => {
+    render(<BlockPalette {...defaultProps} blocks={[myTool, projectTool]} />);
+    fireEvent.click(within(screen.getByTestId("palette-category-chips")).getByText("Code"));
+
+    expect(screen.getByText("Project QC")).toBeInTheDocument();
+    expect(screen.queryByText("My Denoise")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("palette-section-empty")).not.toBeInTheDocument();
+  });
+
+  it("puts an unresolvable `custom` block in This Project rather than dropping it (FR-002)", () => {
+    const orphan = makeBlock({ type_name: "orphan", name: "Orphan", origin: "custom" });
+    render(<BlockPalette {...defaultProps} blocks={[orphan]} />);
+    const project = screen.getByText("This Project").closest("section")!;
+    expect(within(project).getByText("Orphan")).toBeInTheDocument();
+  });
+
+  it("still renders a catalog from a backend that sends no origin at all", () => {
+    const legacy = makeBlock({ type_name: "legacy", name: "Legacy", source: "custom" });
+    render(<BlockPalette {...defaultProps} blocks={[legacy, cellpose]} />);
+    const project = screen.getByText("This Project").closest("section")!;
+    expect(within(project).getByText("Legacy")).toBeInTheDocument();
+    expect(screen.getByText("Cellpose Segment")).toBeInTheDocument();
+  });
+});
+
+describe("BlockPalette — interactive hover popover (#2025)", () => {
+  function openPopover() {
+    fireEvent.mouseEnter(screen.getAllByTestId("palette-block-tile")[0]);
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    return screen.getByTestId("block-detail-popover");
+  }
+
+  it("no longer renders the popover with pointer-events-none (FR-044)", () => {
+    vi.useFakeTimers();
+    render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
+    expect(openPopover().className).not.toContain("pointer-events-none");
+  });
+
+  it("stays open when the pointer crosses the gap into the card (FR-044)", () => {
+    vi.useFakeTimers();
+    render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
+    const popover = openPopover();
+
+    // Pointer leaves the tile into the POPOVER_GAP dead space...
+    fireEvent.mouseLeave(screen.getAllByTestId("palette-block-tile")[0]);
+    act(() => {
+      vi.advanceTimersByTime(50);
+    });
+    expect(screen.getByTestId("block-detail-popover")).toBeInTheDocument();
+
+    // ...and reaches the card, which holds it open indefinitely.
+    fireEvent.mouseEnter(popover);
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(screen.getByTestId("block-detail-popover")).toBeInTheDocument();
+  });
+
+  it("closes once the pointer leaves the card too", () => {
+    vi.useFakeTimers();
+    render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
+    const popover = openPopover();
+
+    fireEvent.mouseLeave(screen.getAllByTestId("palette-block-tile")[0]);
+    fireEvent.mouseEnter(popover);
+    fireEvent.mouseLeave(popover);
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(screen.queryByTestId("block-detail-popover")).not.toBeInTheDocument();
+  });
+
+  it("closes when the pointer leaves the tile and never reaches the card", () => {
+    vi.useFakeTimers();
+    render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
+    openPopover();
+
+    fireEvent.mouseLeave(screen.getAllByTestId("palette-block-tile")[0]);
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(screen.queryByTestId("block-detail-popover")).not.toBeInTheDocument();
+  });
+
+  it("keeps tile dragging working and gets the popover out of the way (FR-045)", () => {
+    vi.useFakeTimers();
+    render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
+    openPopover();
+
+    const setData = vi.fn();
+    const tile = screen.getAllByTestId("palette-block-tile")[0];
+    fireEvent.dragStart(tile, {
+      dataTransfer: { setData, setDragImage: vi.fn(), effectAllowed: "none" },
+    });
+
+    // The drag payload contract is unchanged by the popover's interactivity.
+    expect(setData).toHaveBeenCalledTimes(1);
+    const [mimeType, payload] = setData.mock.calls[0];
+    expect(mimeType).toBe("application/scistudio-block");
+    expect(JSON.parse(payload as string)).toMatchObject({
+      type_name: "imaging.cellpose_segment",
+      name: "Cellpose Segment",
+    });
+
+    // And the card is gone immediately, not after the close grace period.
+    expect(screen.queryByTestId("block-detail-popover")).not.toBeInTheDocument();
   });
 });
 

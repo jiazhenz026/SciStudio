@@ -180,6 +180,18 @@ export interface PanelManifest {
   response_schema?: Record<string, unknown> | null;
 }
 
+/**
+ * ADR-053 FR-001/FR-002/FR-004 — which tier a registered block came from.
+ *
+ * `builtin` and `package` are unchanged from the pre-ADR-053 vocabulary. The
+ * single `custom` label that used to cover both tier-1 drop-in directories
+ * splits into `user` (`~/.scistudio/blocks/`) and `project`
+ * (`{project}/blocks/`); `custom` survives only as the FR-002 fallback for a
+ * block whose `file_path` resolves to neither root — an absent path, a symlink
+ * escaping both, a differing Windows drive.
+ */
+export type BlockOrigin = "builtin" | "user" | "project" | "package" | "custom";
+
 export interface BlockSummary {
   name: string;
   type_name: string;
@@ -199,6 +211,11 @@ export interface BlockSummary {
   output_ports: BlockPortResponse[];
   direction?: string | null;
   source?: string;
+  /** ADR-053 FR-004: the resolved origin tier, used for palette grouping and
+   *  for gating the promotion action. Optional so a payload from a backend
+   *  that predates the tier split still deserializes; the palette falls back to
+   *  `source` in that case. */
+  origin?: BlockOrigin;
   package_name?: string;
   /** ADR-029 D8: true when this block supports user-configurable input port count. */
   variadic_inputs?: boolean;
