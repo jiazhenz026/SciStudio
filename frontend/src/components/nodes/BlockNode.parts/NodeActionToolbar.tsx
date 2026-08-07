@@ -5,6 +5,14 @@
 // the node is selected. They MUST NOT consume body space or change the node's
 // measured geometry, so the toolbar is absolutely positioned above the square
 // and is excluded from layout flow.
+//
+// ADR-053 §6.2 E2 — this is the canvas node's menu, so it is where promotion
+// mounts. It arrives as a `trailing` node rather than an `onPromote` callback
+// because the shared `PromoteToLibraryAction` decides for itself whether to
+// render at all (FR-019, hidden not disabled) and owns the whole flow
+// (FR-025); a callback prop would put a second copy of that decision here.
+
+import type { ReactNode } from "react";
 
 interface NodeActionToolbarProps {
   /** Show the toolbar (hover or selected). */
@@ -12,9 +20,17 @@ interface NodeActionToolbarProps {
   onRun?: () => void;
   onRestart?: () => void;
   onDelete?: () => void;
+  /** ADR-053 §6.2 E2 — extra controls appended after Delete. */
+  trailing?: ReactNode;
 }
 
-export function NodeActionToolbar({ visible, onRun, onRestart, onDelete }: NodeActionToolbarProps) {
+export function NodeActionToolbar({
+  visible,
+  onRun,
+  onRestart,
+  onDelete,
+  trailing,
+}: NodeActionToolbarProps) {
   return (
     <div
       data-testid="node-action-toolbar"
@@ -84,6 +100,7 @@ export function NodeActionToolbar({ visible, onRun, onRestart, onDelete }: NodeA
           <path d="M4 4l8 8M12 4l-8 8" />
         </svg>
       </button>
+      {trailing}
     </div>
   );
 }

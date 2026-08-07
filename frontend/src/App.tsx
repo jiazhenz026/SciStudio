@@ -282,6 +282,7 @@ export default function App() {
     deleteProject,
     newWorkflow,
     createNewCustomBlock,
+    createNewDataType,
     createNewNote,
     importWorkflow,
   } = projectActions;
@@ -371,6 +372,12 @@ export default function App() {
     togglePreview,
     undoWorkflow,
   });
+  // The New-menu entries are project-scoped: `undefined` is what makes the
+  // toolbar hide/disable them. ADR-053 FR-032 adds a third one, so the shape is
+  // written once rather than three times.
+  const whenProjectOpen = (run: () => Promise<void>) =>
+    currentProject ? () => void run() : undefined;
+
   return (
     <ReactFlowProvider>
       <TooltipProvider delayDuration={300}>
@@ -394,20 +401,9 @@ export default function App() {
               closeCurrentProject({ setCurrentProject, setWorkflow, resetExecution })
             }
             onNewWorkflow={newWorkflow}
-            onNewCustomBlock={
-              currentProject
-                ? () => {
-                    void createNewCustomBlock();
-                  }
-                : undefined
-            }
-            onNewNote={
-              currentProject
-                ? () => {
-                    void createNewNote();
-                  }
-                : undefined
-            }
+            onNewCustomBlock={whenProjectOpen(createNewCustomBlock)}
+            onNewDataType={whenProjectOpen(createNewDataType)}
+            onNewNote={whenProjectOpen(createNewNote)}
             onNewPlot={
               currentProject
                 ? () => {

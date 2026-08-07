@@ -255,6 +255,12 @@ Nothing inside it could be clicked, which blocked the promotion action ADR-053
 - `BlockDetailPopover` takes an `actions` slot rendered under the port
   signature, above a hairline rule (testid `palette-popover-actions`). That is
   where "Promote to My Library" mounts.
+- Each palette surface passes `actions` **only when the hovered item is
+  promotable** (ADR-053 FR-019: resolved origin `project`). FR-019's "hidden,
+  not shown disabled" covers the hairline-ruled row itself — handing the card an
+  element that rendered nothing would leave an empty ruled-off strip under every
+  built-in, packaged, and already-promoted tile — so a non-promotable item's
+  card stays byte-identical to the pre-ADR-053 one.
 
 Tile dragging is unaffected: `handleDragStart` closes the card immediately
 rather than through the grace period, and the drag payload contract is
@@ -446,7 +452,10 @@ reported **separately**, an empty direction rendering as an em dash so a
 save-only type reads as save-only (FR-055), or one explicit
 `No file formats registered` line when the type has neither (FR-056); and the
 origin tier. The `actions` slot (testid `palette-popover-actions`, §6.1) is
-where **Promote to My Library** mounts, exactly as on the block card.
+where **Promote to My Library** mounts, exactly as on the block card — and, as
+on the block card, the tab supplies that slot only for a type whose origin is
+`project`, so a core, packaged, or already-promoted type's card carries no
+action row at all.
 
 ### 11.3 Canvas Port Colour Changes Source (ADR-053 FR-066, FR-067)
 

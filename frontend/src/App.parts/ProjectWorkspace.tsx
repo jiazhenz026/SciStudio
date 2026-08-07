@@ -8,7 +8,7 @@
 // state wiring.
 
 import type { PanelImperativeHandle } from "react-resizable-panels";
-import type { RefObject } from "react";
+import { useEffect, type RefObject } from "react";
 
 import type { useAppStore } from "../store";
 import type { AnyTab, FileTab } from "../store/types";
@@ -25,6 +25,7 @@ import { BottomPanel } from "../components/BottomPanel";
 import { CodeEditor } from "../components/CodeEditor";
 import { DataPreview } from "../components/DataPreview";
 import { ProjectTree } from "../components/ProjectTree";
+import { useLibraryReveal } from "../components/promotion/revealInLibrary";
 import { TabBar } from "../components/TabBar";
 import { TypePalette } from "../components/TypePalette";
 import { WorkflowCanvas } from "../components/WorkflowCanvas";
@@ -143,6 +144,18 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
     currentProject,
     onLoadWorkflowById,
   } = props;
+
+  // ADR-053 FR-020 — a promotion has to leave the user looking at the item in
+  // `My Library`, and the item's section lives on its own tab. The rest of the
+  // reveal (expanding the panel, refreshing the catalogue, narrowing to the
+  // item) is store-side; only the tab switch needs the component that owns it.
+  const revealed = useLibraryReveal();
+  useEffect(() => {
+    if (revealed) {
+      onLeftTabChange(revealed.surface);
+    }
+  }, [revealed, onLeftTabChange]);
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex shrink-0 border-b border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))]">

@@ -11,6 +11,7 @@ import type {
   ProjectResponse,
   ResolvedSubworkflowPorts,
   TypeSummary,
+  UserLibraryTarget,
   WorkflowEdge,
   WorkflowEventMessage,
   WorkflowNode,
@@ -698,6 +699,20 @@ export interface FileTab {
    * tab is not persisted across reload (see ``partializeTabs``).
    */
   blockSourceType?: string;
+  /**
+   * ADR-053 FR-032 — set when this tab edits a file in the user-wide library
+   * (``~/.scistudio/blocks`` or ``~/.scistudio/types``) rather than a project
+   * file.
+   *
+   * The new-file flow may write into either destination (FR-030), and FR-032
+   * requires the created file to open **for editing** in both cases — so the
+   * tab needs to know which door to read and write through. ``filePath`` holds
+   * the absolute library path for display; the target plus the basename is
+   * what the endpoint takes. Like a block-source tab, it is not persisted
+   * across reload (see ``partializeTabs``): it lives outside every project, so
+   * the project-file rehydrate path cannot restore it.
+   */
+  userLibraryTarget?: UserLibraryTarget;
 }
 
 /**
@@ -751,6 +766,16 @@ export interface TabSlice {
    * project, so it cannot use the project-file fetch path).
    */
   openBlockSourceTab: (blockType: string) => void;
+  /**
+   * ADR-053 FR-032 — open (or focus) an editable tab on a user-library file.
+   *
+   * The library sits outside every project root, so the project-file fetch
+   * path cannot reach it; this reads ``GET /api/user-library/file`` and saves
+   * through the matching PUT. Used by the new-file flow when the user chose
+   * the library destination (FR-029/FR-030) — without it, choosing the library
+   * would write a template the user could not then edit.
+   */
+  openUserLibraryFileTab: (target: UserLibraryTarget, filename: string) => void;
   /**
    * ADR-036 §3.10 — save a file tab's content to disk.
    *

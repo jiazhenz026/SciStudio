@@ -9,6 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [#1996][#2026] A block or data type you wrote in one project can now be saved
+  into your personal library, and a new file can be created there directly.
+  **Save to My Library** appears wherever you are already looking at the thing:
+  the code editor toolbar beside Save, the canvas node's action menu, and the
+  palette hover cards on both the Blocks and Data types tabs. All three call one
+  implementation (`components/promotion/promoteToUserLibrary.ts`, reached
+  through `runPromotion`), whose semantics match the agent's
+  `promote_to_user_library` MCP tool refusal for refusal — four copies of this
+  logic is exactly the drift ADR-053 was written to prevent. Promotion
+  **copies**: the originating project keeps its file and keeps working. The
+  action is offered only for items whose resolved origin is `project`, and for
+  anything else — built-in, packaged, or already in your library — it is
+  **hidden rather than greyed out**, because those can never become promotable.
+  A name collision in the destination is reported by the server as a 409 and
+  turned into a prompt offering **Overwrite** or **Save as new name**; nothing
+  in the flow can reach an overwrite the user did not ask for. Promoting a block
+  first works out which project-local data types it imports — a static parse of
+  its import statements, resolved against the registered type listing and
+  classified by the backend's own origin resolver — and offers to bring them
+  along as one confirmed action. Declining still promotes the block, with an
+  explicit warning that it will fail to load elsewhere. The cascade is one level
+  deep, and the level below it is **reported**, never silently dropped: a type
+  that itself imports another project-local type is named in the dialog and in
+  the result, so the limit leaves visible residue instead of a block that
+  mysteriously breaks in the next project. On success the palette expands,
+  switches to the item's tab, re-reads its catalogue and narrows to the promoted
+  name, so you land looking at it inside **My Library** — the container the
+  feature exists to teach — with an inline confirmation beside it rather than a
+  modal covering it. Creating files changes too: **New custom block** now asks
+  where the file should live before anything else, and a **New data type** entry
+  joins it in the New menu. Both run one flow — prompt, Python-identifier
+  validation, collision probe against the chosen destination, template fetch,
+  write, open for editing — differing only in the target subdirectory and the
+  template kind, and a file created in the library opens in a tab that reads and
+  saves through the library endpoint rather than the project one. Tests:
+  `frontend/src/components/promotion/__tests__/` (action, cascade, import parse,
+  entry points, dialogs, reveal, promotable),
+  `frontend/src/App.parts/__tests__/newDropinFile.test.tsx`,
+  `frontend/src/lib/__tests__/userLibrary.test.ts`,
+  `frontend/src/store/__tests__/userLibraryTab.test.ts`.
+  (@claude, 2026-08-07, branch: feat/1996-promotion-and-new-file-flows)
+
 - [#1995][#2025] The block palette now names the two places a block of your own
   can live instead of collapsing them into one `Custom` bucket. The user-wide
   library (`~/.scistudio/blocks/`) and the project-local one

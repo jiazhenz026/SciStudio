@@ -17,7 +17,7 @@
 // blocks as props: refreshing types must not mean refreshing the palette, and
 // drawing types must not require a blocks request.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { resolveRingColor, resolveTypeColor } from "../config/typeColorMap";
 import { useReloadFlash } from "../hooks/useReloadFlash";
@@ -27,6 +27,9 @@ import type { TypeSummary } from "../types/api";
 import { paletteColumns } from "./BlockPalette";
 import { FilterChips, type FilterChip } from "./palette/FilterChips";
 import { useHoverPopover } from "./palette/hoverPopover";
+import { PromoteToLibraryAction } from "./promotion/PromoteToLibraryAction";
+import { isPromotable, promotableType } from "./promotion/promotable";
+import { useLibraryReveal } from "./promotion/revealInLibrary";
 import { TypeDetailPopover } from "./TypePalette.parts/TypeDetailPopover";
 import { TypeTile } from "./TypePalette.parts/TypeTile";
 import {
@@ -36,6 +39,20 @@ import {
   typeHierarchyFrom,
   type TypeSection,
 } from "./TypePalette.parts/typeModel";
+
+/**
+ * ADR-053 §6.2 E5 — the popover's action row, or `undefined`.
+ *
+ * The Blocks tab's twin, and `undefined` for the same reason: FR-019's
+ * "hidden, not shown disabled" covers the hairline-ruled row `DetailPopover`
+ * draws around `actions`, so a core or packaged type's card stays exactly as
+ * it is today.
+ */
+function promoteAction(type: TypeSummary): ReactNode | undefined {
+  const item = promotableType(type);
+  if (!isPromotable(item)) return undefined;
+  return <PromoteToLibraryAction entryPoint="E5" item={item} variant="popover" />;
+}
 
 interface SectionViewProps {
   section: TypeSection;
@@ -194,6 +211,17 @@ export function TypePalette() {
     void reload();
   };
 
+  // FR-020 — after a promotion, narrow to the promoted type so `My Library` is
+  // the only section showing it. The Blocks tab gets the same treatment from
+  // the store-held palette search; this tab owns its search box, so the reveal
+  // arrives through the shared channel instead.
+  const revealed = useLibraryReveal();
+  useEffect(() => {
+    if (revealed?.surface === "types") {
+      setSearch(revealed.name);
+    }
+  }, [revealed]);
+
   const hovered = hover.hovered;
   const hoveredSwatch = hovered ? swatchFor.byType(hovered.item) : null;
 
@@ -261,6 +289,7 @@ export function TypePalette() {
         // together with the flag that drops `pointer-events-none`. B5 mounts
         // "Promote to My Library" by passing `actions` here.
         <TypeDetailPopover
+          actions={promoteAction(hovered.item)}
           anchor={hovered.anchor}
           fill={hoveredSwatch.fill}
           hierarchy={hierarchy}

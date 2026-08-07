@@ -8,6 +8,7 @@
 import type { StoreApi } from "zustand";
 
 import { ApiError, api, createClientSourceId } from "../../lib/api";
+import type { UserLibraryTarget } from "../../types/api";
 import type { AppStore, FileTab, TabSlice } from "../types";
 import {
   basename,
@@ -208,12 +209,141 @@ export function createOpenBlockSourceTab(
   };
 }
 
-// eslint-disable-next-line complexity -- ADR-045 reconcile state machine
+/**
+ * ADR-053 FR-032 — open an editable tab on a file in the user-wide library.
+ *
+ * The library lives outside every project root by construction (spec §2.3), so
+ * ``GET /api/projects/{id}/file`` cannot reach it and {@link createOpenFileTab}
+ * is not reusable here. `GET /api/user-library/file` was given that endpoint's
+ * exact 200/404 shape (spec §4), so only the call differs: the tab is a normal
+ * editable `FileTab` tagged with `userLibraryTarget`, which is what routes its
+ * saves back through the library PUT.
+ *
+ * Unlike a block-source tab this one is **not** read-only: FR-032 requires the
+ * created file to open for editing, and a library file the user cannot edit
+ * would make the library destination strictly worse than the project one.
+ */
+export function createOpenUserLibraryFileTab(
+  set: StoreSetter,
+  get: StoreGetter,
+): TabSlice["openUserLibraryFileTab"] {
+  return (target: UserLibraryTarget, filename: string) => {
+    const state = get();
+    const id = `user-library:${target}:${filename}`;
+
+    const existing = state.tabs.find((t) => t.id === id);
+    const needsRefetch = Boolean(existing && existing.kind === "file" && existing.loading);
+    if (existing && !needsRefetch) {
+      state.switchTab(id);
+      return;
+    }
+
+    if (!existing) {
+      if (state.tabs.length >= 50) {
+        window.alert("Maximum 50 tabs reached.");
+        return;
+      }
+      const placeholder: FileTab = {
+        kind: "file",
+        id,
+        // Replaced with the resolved absolute path once the fetch resolves.
+        filePath: filename,
+        displayName: `${filename} (library)`,
+        language: "python",
+        content: "",
+        contentLoadedAt: 0,
+        baseVersion: null,
+        pendingVersion: null,
+        pendingSourceId: null,
+        conflict: null,
+        dirty: false,
+        readOnly: false,
+        loading: true,
+        userLibraryTarget: target,
+      };
+      const currentActive = state.tabs.find((t) => t.id === state.activeTabId) ?? null;
+      const updatedTabs = currentActive
+        ? state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t))
+        : [...state.tabs];
+      set({ tabs: [...updatedTabs, placeholder], activeTabId: id });
+    } else {
+      state.switchTab(id);
+    }
+
+    api
+      .getUserLibraryFile(target, filename)
+      .then((response) => {
+        const after = get();
+        const current = after.tabs.find((t) => t.id === id);
+        if (!current || current.kind !== "file") return;
+        const populated: FileTab = {
+          ...current,
+          filePath: response.path,
+          displayName: `${response.filename} (library)`,
+          content: response.content,
+          contentLoadedAt: response.mtime,
+          loading: false,
+        };
+        set(replaceTab(after, id, populated));
+      })
+      .catch((err) => {
+        const message = err instanceof ApiError ? err.message : String(err);
+        window.alert(`Failed to open ${filename} from your library: ${message}`);
+        removeFailedTab(get, set, id);
+      });
+  };
+}
+
+/**
+ * ADR-053 FR-032 — save a user-library tab through the library endpoint.
+ *
+ * `overwrite: true` is correct and is not the FR-008 silent overwrite: the tab
+ * exists because the user opened *that* file, so writing it back is the only
+ * thing a save can mean. FR-018's prompt guards *creating* a copy over
+ * someone else's file, which is the promotion and new-file path, not this one.
+ */
+async function saveUserLibraryTab(
+  set: StoreSetter,
+  get: StoreGetter,
+  id: string,
+  tab: FileTab,
+  target: UserLibraryTarget,
+): Promise<void> {
+  const filename = tab.filePath.split(/[\\/]/).pop() ?? tab.filePath;
+  const sentContent = tab.content;
+  try {
+    const response = await api.putUserLibraryFile(target, filename, sentContent, {
+      overwrite: true,
+    });
+    const after = get();
+    const latest = after.tabs.find((t) => t.id === id);
+    if (!latest || latest.kind !== "file") return;
+    set(
+      replaceTab(after, id, {
+        ...latest,
+        dirty: latest.content !== sentContent,
+        contentLoadedAt: response.mtime,
+      }),
+    );
+  } catch (err) {
+    const message = err instanceof ApiError ? err.message : String(err);
+    window.alert(`Failed to save ${filename} to your library: ${message}`);
+  }
+}
+
 async function performSaveFileTab(set: StoreSetter, get: StoreGetter, id: string): Promise<void> {
   const state = get();
   const tab = state.tabs.find((t) => t.id === id);
   if (!tab || tab.kind !== "file") return;
   if (tab.readOnly) return;
+
+  // ADR-053 FR-032 — a library tab's file is outside every project root, so it
+  // saves through the library endpoint and never through the project one
+  // (FR-009: this spec adds a second door, it does not widen the first).
+  if (tab.userLibraryTarget) {
+    await saveUserLibraryTab(set, get, id, tab, tab.userLibraryTarget);
+    return;
+  }
 
   const project = state.currentProject;
   if (!project) return;

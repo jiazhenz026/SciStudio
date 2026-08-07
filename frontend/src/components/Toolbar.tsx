@@ -43,6 +43,8 @@ interface ToolbarProps {
   onNewWorkflow: () => void;
   /** ADR-036 §3.7 / §3.12 — optional. */
   onNewCustomBlock?: () => void;
+  /** ADR-053 FR-032 — optional. "New data type", the type-side twin. */
+  onNewDataType?: () => void;
   /** ADR-036 §3.7 / §3.12 — optional. */
   onNewNote?: () => void;
   onNewPlot?: () => void;
@@ -85,6 +87,7 @@ export function Toolbar(props: ToolbarProps) {
     onCloseProject,
     onNewWorkflow,
     onNewCustomBlock,
+    onNewDataType,
     onNewNote,
     onNewPlot,
     onViewSource,
@@ -151,6 +154,7 @@ export function Toolbar(props: ToolbarProps) {
           isFileTab={isFileTab}
           onNewWorkflow={onNewWorkflow}
           onNewCustomBlock={onNewCustomBlock}
+          onNewDataType={onNewDataType}
           onNewNote={onNewNote}
           onNewPlot={onNewPlot}
           onInstallPackage={() => setPackageManagerOpen(true)}

@@ -1,6 +1,14 @@
 /**
  * File operations group (New / Import / Save / Save-As dropdown) in the
  * Toolbar. Extracted in #1413.
+ *
+ * ADR-053 additions:
+ *   - "New data type" joins the New menu (FR-032), beside "New custom block";
+ *     both run the same destination-aware flow (FR-029 – FR-033).
+ *   - Entry point E1 — "Save to My Library" sits beside Save whenever the
+ *     active editor tab is a project-level drop-in (§6.2). It is the shared
+ *     `PromoteToLibraryAction`, not a toolbar-local reimplementation (FR-025),
+ *     and it renders nothing at all for anything else (FR-019).
  */
 import {
   ChartLine,
@@ -12,6 +20,7 @@ import {
   PackagePlus,
   Save,
   SaveAll,
+  Shapes,
   Workflow,
 } from "lucide-react";
 
@@ -24,6 +33,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import type { ProjectResponse } from "../../types/api";
+import { PromoteToLibraryAction } from "../promotion/PromoteToLibraryAction";
+import { useEditorPromotable } from "../promotion/useEditorPromotable";
 import { ToolbarButton } from "./ToolbarButton";
 
 export interface FileOperationsGroupProps {
@@ -31,6 +42,8 @@ export interface FileOperationsGroupProps {
   isFileTab: boolean;
   onNewWorkflow: () => void;
   onNewCustomBlock?: () => void;
+  /** ADR-053 FR-032 — "New data type". */
+  onNewDataType?: () => void;
   onNewNote?: () => void;
   onNewPlot?: () => void;
   onInstallPackage: () => void;
@@ -44,6 +57,7 @@ export function FileOperationsGroup({
   isFileTab,
   onNewWorkflow,
   onNewCustomBlock,
+  onNewDataType,
   onNewNote,
   onNewPlot,
   onInstallPackage,
@@ -51,6 +65,10 @@ export function FileOperationsGroup({
   onSave,
   onSaveAs,
 }: FileOperationsGroupProps) {
+  // E1 resolves what the editor is showing; the action itself is shared with
+  // the canvas node and the palette popovers.
+  const editorItem = useEditorPromotable();
+
   return (
     <div className="flex shrink-0 items-center gap-1">
       {/*
@@ -83,6 +101,13 @@ export function FileOperationsGroup({
             <FileCode2 className="size-4" />
             New custom block
           </DropdownMenuItem>
+          {/* ADR-053 FR-032 — the type-side twin of "New custom block".
+           * Both entries call the same flow with one argument different
+           * (FR-033), and both ask where the file goes first (FR-029). */}
+          <DropdownMenuItem onClick={onNewDataType} disabled={!currentProject || !onNewDataType}>
+            <Shapes className="size-4" />
+            New data type
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={onNewNote} disabled={!currentProject || !onNewNote}>
             <FileText className="size-4" />
             New note
@@ -107,6 +132,9 @@ export function FileOperationsGroup({
         disabled={!currentProject}
         onClick={onSave}
       />
+      {/* ADR-053 §6.2 E1 — beside the save affordance, hidden unless the open
+       * file is a project-level drop-in (FR-019). */}
+      <PromoteToLibraryAction entryPoint="E1" item={editorItem} variant="toolbar" />
       {/*
        * Save-As dropdown: only meaningful for workflow tabs in v1. File
        * tabs save to a fixed path; hide for file tabs.
