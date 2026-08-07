@@ -34,9 +34,18 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from scistudio.api.routes.types import _type_origin
+from scistudio.api.routes.blocks import _summary as _block_summary
+from scistudio.api.routes.types import (
+    _summary as _type_summary,
+)
+from scistudio.api.routes.types import (
+    _type_origin,
+    package_names_by_import_root,
+)
 from scistudio.api.runtime import ApiRuntime
+from scistudio.blocks.registry import BlockSpec
 from scistudio.core.dropins import user_types_dir
+from scistudio.core.types.registry import TypeSpec
 
 PROBE_TYPE = '''\
 from typing import ClassVar
@@ -290,6 +299,183 @@ def test_type_hierarchy_still_carries_its_dead_colour_field(client: TestClient) 
     hierarchy = response.json()["type_hierarchy"]
     assert hierarchy, "the block schema must still carry type_hierarchy"
     assert all(entry["ui_ring_color"] is None for entry in hierarchy)
+
+
+# ---------------------------------------------------------------------------
+# FR-040 — package attribution, and the one name both tabs must agree on
+# ---------------------------------------------------------------------------
+
+
+class _BlockRegistryOf:
+    """The one accessor :func:`package_names_by_import_root` reads."""
+
+    def __init__(self, *specs: BlockSpec) -> None:
+        self._specs = {spec.name: spec for spec in specs}
+
+    def all_specs(self) -> dict[str, BlockSpec]:
+        return dict(self._specs)
+
+
+def _block(package_name: str, module_path: str, *, name: str = "Segment") -> BlockSpec:
+    return BlockSpec(
+        name=name,
+        type_name=f"{name.lower()}_block",
+        module_path=module_path,
+        class_name=name,
+        base_category="process",
+        source="entry_point",
+        package_name=package_name,
+    )
+
+
+def _packaged_type(package_root: str, *, name: str = "FluorImage") -> TypeSpec:
+    return TypeSpec(
+        name=name,
+        module_path=f"{package_root}.types",
+        class_name=name,
+        base_type="Array",
+        package_root=package_root,
+    )
+
+
+def _listed(spec: TypeSpec, registry: Any) -> Any:
+    """Run one type spec through the listing assembly with *registry*'s names."""
+    return _type_summary(
+        spec,
+        project_dir=None,
+        package_names=package_names_by_import_root(registry),
+        load_extensions={},
+        save_extensions={},
+    )
+
+
+def test_a_packaged_type_and_block_report_one_name_for_one_distribution() -> None:
+    """The acceptance check FR-040 turns on.
+
+    The Data types tab titles a package section from ``TypeSummary`` and the
+    Blocks tab from ``BlockSummary``. A name derived twice could disagree for a
+    single distribution, which would be worse than the lumped section it
+    replaced — so the listing reports the string the block side already
+    resolved, and this test is what holds the two to it.
+    """
+    block = _block("scistudio-blocks-imaging", "scistudio_blocks_imaging.blocks.segment")
+    listed = _listed(_packaged_type("scistudio_blocks_imaging"), _BlockRegistryOf(block))
+
+    assert listed.package_name == _block_summary(block).package_name
+    assert listed.package_name == "scistudio-blocks-imaging"
+
+
+def test_two_distributions_are_named_apart() -> None:
+    """Two packaged types report their own distributions, not a shared label."""
+    registry = _BlockRegistryOf(
+        _block("scistudio-blocks-imaging", "scistudio_blocks_imaging.blocks", name="Segment"),
+        _block("scistudio-blocks-srs", "scistudio_blocks_srs.blocks", name="Unmix"),
+    )
+    imaging = _listed(_packaged_type("scistudio_blocks_imaging"), registry)
+    srs = _listed(_packaged_type("scistudio_blocks_srs", name="SRSStack"), registry)
+
+    assert (imaging.package_name, srs.package_name) == (
+        "scistudio-blocks-imaging",
+        "scistudio-blocks-srs",
+    )
+
+
+def test_a_distribution_the_blocks_tab_does_not_name_reports_null() -> None:
+    """No block, or a name the block listing blanks, degrades to the lumped section.
+
+    ``routes.blocks._summary`` keeps only ``scistudio-blocks-*`` names, so
+    honouring anything else here would invent a section the Blocks tab does not
+    have. The type still lists — it simply has no package to be filed under.
+    """
+    display_named = _block("My Imaging Blocks", "scistudio_blocks_imaging.blocks")
+    assert _block_summary(display_named).package_name == ""
+
+    spec = _packaged_type("scistudio_blocks_imaging")
+    assert _listed(spec, _BlockRegistryOf(display_named)).package_name is None
+    assert _listed(spec, _BlockRegistryOf()).package_name is None
+    assert _listed(spec, _BlockRegistryOf()).name == "FluorImage"
+
+
+def test_an_import_root_two_distributions_claim_is_left_unnamed() -> None:
+    """Two names for one root is two right answers; the listing declines both."""
+    registry = _BlockRegistryOf(
+        _block("scistudio-blocks-imaging", "shared_root.blocks", name="Segment"),
+        _block("scistudio-blocks-srs", "shared_root.other", name="Unmix"),
+    )
+    assert _listed(_packaged_type("shared_root"), registry).package_name is None
+
+
+_PARITY_PACKAGE = '''\
+from typing import Any
+
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.package_info import PackageInfo
+from scistudio.core.types.base import DataObject
+
+
+class ParityProbeType(DataObject):
+    """A type shipped by the same distribution as the block below."""
+
+
+class ParityProbeBlock(Block):
+    name = "ParityProbeBlock"
+    input_ports = []
+    output_ports = []
+    config_schema = {"type": "object", "properties": {}}
+
+    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
+        return {}
+
+
+def get_block_package():
+    return PackageInfo(name="scistudio-blocks-parityprobe", version="0.1.0"), [ParityProbeBlock]
+
+
+def get_types():
+    return [ParityProbeType]
+'''
+
+
+def test_one_installed_distribution_names_itself_once_across_both_tabs(tmp_path: Path) -> None:
+    """End to end through the real discovery passes, not a hand-built spec.
+
+    A single source package ships one block and one type. Whatever the block
+    listing calls that distribution, the types listing must call it the same —
+    which is only guaranteed because the name is read from one place rather
+    than resolved independently on each side.
+    """
+    from scistudio.blocks.registry import BlockRegistry
+    from scistudio.core.types.registry import TypeRegistry
+
+    module_dir = tmp_path / "packages" / "scistudio-blocks-parityprobe-0.1.0" / "scistudio_blocks_parityprobe"
+    module_dir.mkdir(parents=True)
+    (module_dir / "__init__.py").write_text(_PARITY_PACKAGE, encoding="utf-8")
+
+    blocks = BlockRegistry()
+    blocks.add_package_src_dir(tmp_path / "packages")
+    blocks.scan()
+    types = TypeRegistry()
+    types.add_package_src_dir(tmp_path / "packages")
+    types.scan_all()
+
+    block_spec = blocks.get_spec("ParityProbeBlock")
+    assert block_spec is not None
+    listed = _listed(types.resolve("ParityProbeType"), blocks)
+
+    assert listed.origin == "package"
+    assert listed.package_name == _block_summary(block_spec, blocks).package_name
+    assert listed.package_name == "scistudio-blocks-parityprobe"
+
+
+def test_only_package_tier_types_carry_a_package_name(client: TestClient) -> None:
+    """Core, user, project, and custom types report null (FR-040)."""
+    assert all(entry["package_name"] is None for entry in _types(client).values())
+
+
+def test_the_listing_reports_package_name_for_every_type(client: TestClient) -> None:
+    """The field is always present, so the tab never has to test for absence."""
+    assert all("package_name" in entry for entry in _types(client).values())
 
 
 # ---------------------------------------------------------------------------

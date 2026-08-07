@@ -15,9 +15,11 @@ work exists to remove; the dead ``ui_ring_color`` field stays dead.
 
 Everything here is derived, never stored. Origin comes from the shared resolver
 (:func:`scistudio.api._block_source.resolve_origin`, FR-003), colour from the
-type registry's validated collection (FR-050/FR-052), and extensions from the
-IO format capability table (FR-054). This module owns no rule of its own — it
-asks three existing sources one question each and assembles the answer.
+type registry's validated collection (FR-050/FR-052), extensions from the IO
+format capability table (FR-054), and the owning package name from the block
+registry's own record of it (FR-040) so the two tabs cannot title one
+distribution two ways. This module owns no rule of its own — it asks four
+existing sources one question each and assembles the answer.
 """
 
 from __future__ import annotations
@@ -29,9 +31,13 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from scistudio.api._block_source import TYPE_SURFACE, resolve_origin
+from scistudio.api._block_source import PACKAGE_ORIGIN, TYPE_SURFACE, resolve_origin
 from scistudio.api.deps import get_block_registry, get_type_registry
-from scistudio.api.routes.blocks import _active_project_dir, get_optional_runtime
+from scistudio.api.routes.blocks import (
+    _active_project_dir,
+    _is_plugin_package,
+    get_optional_runtime,
+)
 from scistudio.api.schemas import (
     TypeListResponse,
     TypeSummary,
@@ -83,20 +89,73 @@ def _type_origin(spec: Any, project_dir: Path | None) -> str:
     )
 
 
+#: Sentinel for an import root two differently-named distributions both claim.
+#: Naming such a package would mean picking one of two right answers, so the
+#: listing declines and the type falls back to the lumped section.
+_AMBIGUOUS = ""
+
+
+def package_names_by_import_root(block_registry: Any) -> dict[str, str]:
+    """Map each import root to the package name the Blocks tab shows for it.
+
+    ADR-053 FR-040. The Data types tab must title a package exactly as the
+    Blocks tab does, and the only way to guarantee that is to report the same
+    string rather than a second string derived to look like it — an inferred
+    name that disagreed with the block side for one distribution would be worse
+    than the single lumped section it replaced.
+
+    ``BlockSpec`` carries both the resolved package name and the module its
+    class came from, so the block registry already records import root ->
+    package name for every installed distribution that ships blocks. Types join
+    on the import root (:attr:`~scistudio.core.types.registry.TypeSpec.package_root`)
+    because that is the one handle the two registries share.
+
+    Only names the block *listing* keeps are included, via the same
+    :func:`~scistudio.api.routes.blocks._is_plugin_package` predicate: a name
+    that route blanks is one the Blocks tab never shows, so honouring it here
+    would invent a section the other tab does not have.
+    """
+    names: dict[str, str] = {}
+    for spec in block_registry.all_specs().values():
+        name = getattr(spec, "package_name", "") or ""
+        root = (getattr(spec, "module_path", "") or "").split(".")[0]
+        if not root or not _is_plugin_package(name):
+            continue
+        known = names.setdefault(root, name)
+        if known != name:
+            names[root] = _AMBIGUOUS
+    return names
+
+
+def _package_name(spec: Any, origin: str, names: dict[str, str]) -> str | None:
+    """Return the distribution a package-tier type belongs to, or ``None``.
+
+    ``None`` covers core, the two drop-in tiers, the ``custom`` fallback, and a
+    package whose distribution the block side does not name — the last of which
+    keeps the type in the lumped section rather than dropping it (FR-040).
+    """
+    if origin != PACKAGE_ORIGIN:
+        return None
+    return names.get(getattr(spec, "package_root", "") or "") or None
+
+
 def _summary(
     spec: Any,
     *,
     project_dir: Path | None,
+    package_names: dict[str, str],
     load_extensions: dict[str, list[str]],
     save_extensions: dict[str, list[str]],
 ) -> TypeSummary:
     """Assemble one :class:`TypeSummary` from a type spec and the IO tables."""
     name = spec.name
+    origin = _type_origin(spec, project_dir)
     return TypeSummary(
         name=name,
         base_type=getattr(spec, "base_type", "") or "",
         description=getattr(spec, "description", "") or "",
-        origin=_type_origin(spec, project_dir),
+        origin=origin,
+        package_name=_package_name(spec, origin, package_names),
         file_path=getattr(spec, "file_path", "") or None,
         ui_color=getattr(spec, "ui_color", None),
         ui_ring_color=getattr(spec, "ui_ring_color", None),
@@ -156,8 +215,9 @@ async def list_types(
     already has, so it costs no scan and can be re-fetched on every reload
     event without the Data types tab needing a block request (FR-027).
 
-    Both extension tables are built once per request rather than per type: the
-    capability list is walked twice, not once per registered type.
+    Both extension tables and the import-root -> package-name map are built
+    once per request rather than per type: the capability list is walked twice
+    and the block registry once, not once per registered type.
 
     The listing is sorted by name. The palette groups by origin tier itself
     (FR-038), and a name sort is the ordering that stays stable when a type's
@@ -166,10 +226,12 @@ async def list_types(
     project_dir = _active_project_dir(runtime)
     load_extensions = format_extensions_by_type(registry, direction="load")
     save_extensions = format_extensions_by_type(registry, direction="save")
+    package_names = package_names_by_import_root(registry)
     types = [
         _summary(
             spec,
             project_dir=project_dir,
+            package_names=package_names,
             load_extensions=load_extensions,
             save_extensions=save_extensions,
         )

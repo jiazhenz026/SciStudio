@@ -3,7 +3,8 @@
 // One `TypeSummary` factory for the model, component, and colour-parity tests
 // so the three cannot drift on what the B2 listing contract actually sends —
 // notably that `load_extensions` / `save_extensions` are always present and
-// that both colour fields are `null`, not absent, when nothing is declared.
+// that both colour fields, and `package_name`, are `null` rather than absent
+// when the backend has nothing to report.
 
 import type { TypeSummary } from "../../../types/api";
 
@@ -13,6 +14,7 @@ export function makeType(overrides: Partial<TypeSummary> & { name: string }): Ty
     base_type: overrides.base_type ?? "DataObject",
     description: overrides.description ?? "",
     origin: overrides.origin ?? "core",
+    package_name: overrides.package_name ?? null,
     file_path: overrides.file_path ?? null,
     ui_color: overrides.ui_color ?? null,
     ui_ring_color: overrides.ui_ring_color ?? null,

@@ -392,20 +392,26 @@ source/sink predicates, `CATEGORY_KEYS`, `portSignature` stay block concepts)
 and nothing type-side is generalised into the block model.
 
 Section order (FR-040): **Core** (pinned, never collapses) → **My Library** →
-**This Project** → **Packages**. My Library and This Project render even when
-empty, each carrying one line stating what the section is for, on the same
-terms as §4.2 — and, as there, the teaching copy is dropped while a filter is
-active. The FR-002 `custom` fallback files under This Project for the same
-reason it does on the Blocks tab.
+**This Project** → one section per package, A→Z. My Library and This Project
+render even when empty, each carrying one line stating what the section is for,
+on the same terms as §4.2 — and, as there, the teaching copy is dropped while a
+filter is active. The FR-002 `custom` fallback files under This Project for the
+same reason it does on the Blocks tab.
 
-`TypeSummary` carries no package attribution — ADR-053 FR-026 lists name, base
-type, description, origin tier, file path, colours, and extensions — so
-package-tier types render in **one** `Packages` section rather than one section
-per distribution. Inferring a distribution name from `file_path` was rejected:
-it would produce a section title the backend never supplied, and one that could
-disagree with the Blocks tab's real `package_name` for the same distribution,
-which is the drift ADR-053 exists to remove. The section still sits where
-FR-040 puts packages, after both tier sections.
+A package section is titled by `TypeSummary.package_name`, which the listing
+reports as **the same string** `BlockSummary.package_name` carries for that
+distribution rather than as a second name derived to resemble it. Inferring a
+distribution name from `file_path` was rejected and stays rejected: it would
+produce a section title the backend never supplied, and one that could disagree
+with the Blocks tab's real name for the same distribution, which is the drift
+ADR-053 exists to remove. Instead the type registry records which
+distribution's discovery hook delivered each type (`TypeSpec.package_root`) and
+the listing looks the display name up in the block registry, so the two tabs
+cannot spell one package two ways. A package-tier type the backend cannot name
+reports `null` and collects in a lumped `Packages` section — the
+pre-attribution behaviour, kept so a type can never vanish because its
+distribution went unnamed. That id and every real package name land in the same
+A→Z remainder, which is where FR-040 puts packages: after both tier sections.
 
 The search input matches name, description, base type, **and** registered
 extensions, so typing `.csv` answers "which type do I get if I load a CSV?".
