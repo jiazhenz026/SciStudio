@@ -208,6 +208,18 @@
       "at": "2026-08-07T23:06:43.576242Z",
       "pattern": "docs/adr/ADR-053.md",
       "reason": "Owner authorised authoring the Learning Center system spec in speckit form and revising ADR-053 sections 2.1, 2.2, 4.2 and 8 in the same session."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T23:33:35.793143Z",
+      "pattern": "docs/architecture/ARCHITECTURE.md",
+      "reason": "Owner directive: the spec must require every scistudio.* entry-point group to be symmetric, not just add a fourth group. Added FR-025..FR-035 and the two documentation-drift corrections the investigation surfaced."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T23:33:35.793159Z",
+      "pattern": "pyproject.toml",
+      "reason": "Owner directive: the spec must require every scistudio.* entry-point group to be symmetric, not just add a fourth group. Added FR-025..FR-035 and the two documentation-drift corrections the investigation surfaced."
     }
   ],
   "session_id": "6dc64796-0ea8-4207-8b64-93841a2ad93c",
