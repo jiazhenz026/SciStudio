@@ -429,11 +429,31 @@ validates the backend spelling. Both must have a test that pins the mapping.
 
 ### 10.3 Implementation
 
-- [ ] `POST /api/work-import/sessions` -> `<artifact>`
-- [ ] Brief write-before-spawn ordering -> `<artifact>`
-- [ ] Per-session brief file naming -> `<artifact>`
-- [ ] PTY spawn and join for a work-import tab -> `<artifact>`
-- [ ] `tests/api/test_work_import_session.py` -> `<artifact>`
+- [x] `POST /api/work-import/sessions` ->
+      `src/scistudio/api/routes/work_import.py`, routed in
+      `src/scistudio/api/app.py`. Response is contract C3 verbatim.
+- [x] Brief write-before-spawn ordering ->
+      `work_import.create_work_import_session` validates, composes, writes
+      (`_write_brief` flushes and `os.fsync`s before the handle closes), then
+      spawns. Proved by
+      `test_brief_is_complete_on_disk_before_the_agent_is_spawned`, which reads
+      the brief from *inside* the spawn call, and by
+      `test_no_agent_is_spawned_when_the_brief_cannot_be_written`.
+- [x] Per-session brief file naming -> `work_import._new_brief_filename`
+      (`<UTC timestamp>-<uuid8>.md` under `.scistudio/work-import/`), opened
+      with mode `"x"` so a collision fails loudly instead of overwriting a
+      concurrent session's instructions.
+- [x] PTY spawn and join for a work-import tab ->
+      `ai_pty/engine.py`: the AI Block body was extracted into the shared
+      `_open_prespawned_tab`, and `open_work_import_tab` calls it with no
+      `block_run_id`, so no AI Block control maps are populated.
+      `ai_pty/websocket.py`: the join predicate now also recognises the
+      provider-neutral `_engine_prespawned` marker; the user-launched spawn
+      contract (query params, spawn semantics, error frames, cap) is unchanged
+      and pinned by six regression tests in the new file.
+- [x] `tests/api/test_work_import_session.py` -> 35 tests covering FR-022,
+      FR-024, FR-027 to FR-030, contract C3, the §7.4 permission-mode trap, and
+      the frozen user-launched route.
 
 ### 10.4 Audit
 

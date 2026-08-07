@@ -1,0 +1,119 @@
+{
+  "branch": "feat/2001-work-import-session",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/routes/work_import.py",
+      "src/scistudio/api/routes/ai_pty/**",
+      "src/scistudio/api/app.py",
+      "tests/api/test_work_import_session.py",
+      "docs/planning/adr-053-work-import-checklist.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-07T05:43:18.228729Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-work-import-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-07T05:43:18.228739Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "FR-022 to FR-030 in docs/specs/adr-053-work-import.md already specify this surface; A2 owns the only permitted spec edits for this track.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2001,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-053 spec 2 (Bring in my work) backend session endpoint and agent session spawn per FR-022 to FR-030; complete delivery, no deferred tasks.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2001-feat-2001-work-import-session",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:43:18.228691Z",
+      "pattern": "src/scistudio/api/routes/work_import.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:43:18.228712Z",
+      "pattern": "src/scistudio/api/routes/ai_pty/engine.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:43:18.228715Z",
+      "pattern": "src/scistudio/api/routes/ai_pty/websocket.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:43:18.228716Z",
+      "pattern": "src/scistudio/api/routes/ai_pty/__init__.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:43:18.228719Z",
+      "pattern": "src/scistudio/api/app.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:43:18.228720Z",
+      "pattern": "tests/api/test_work_import_session.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-07T05:43:18.228722Z",
+      "pattern": "docs/planning/adr-053-work-import-checklist.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "aa7379ca-438f-4766-8d8a-bcab088e4a8f",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-08-07T05:43:18.228744Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_work_import_session.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
