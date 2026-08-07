@@ -282,7 +282,49 @@ through the same helper so there is exactly one answer to "where does the user t
 - [x] Audit report committed -> `8205d828`
 - [x] Audit report merged into PR A evidence path -> merge `afab0e8a`
 - [x] Findings recorded. **Recommendation: pass-with-fixes.** 2 P1, 3 P2, 4 P3.
-- [~] P1 findings fixed before integration -> dispatched to `A-FIX` on `fix/2022-audit-p1-shadowing-and-registration`
+- [x] P1 findings fixed before integration -> `A-FIX` commit `392bba5b`, integrated at `6a9eae24`
+- [x] P2/P3 findings fixed -> same commit; all three P2s and all four P3s closed, none deferred
+
+#### A-FIX outcome (all AUDIT-A findings closed)
+
+One shared guard replaces the single-site rule:
+
+```python
+guard_dropin_type_roots(import_roots, *, bind=True) -> tuple[DropinTypeCollision, ...]
+```
+
+called from **four** sites — `_scan_tier1`, `BlockRegistry.instantiate`,
+`engine/runners/worker.py::_prepend_runtime_import_roots`, and
+`TypeRegistry._scan_filesystem_dirs` (with `bind=False`, because that pass loads by file
+path and needs the verdict rather than the mitigation). The old `_shadowed_top_level_module`
+and its scan loop are deleted, so nothing restates the rule.
+
+Manager-verified reproduction, run against the base tree and the fix:
+
+| | base `e3e95a75` | after `392bba5b` |
+|---|---|---|
+| worker resolves the shadowed name | `SHADOWED-BY-TYPE-FILE` (the `types/` file) | the **installed** module |
+| colliding type in a real `TypeRegistry` | registered | **absent** |
+| collision reported on the FR-015 surface | yes | yes (unchanged) |
+
+7 of the new tests fail on the base tree and pass on the fix, so they are genuine
+regression tests rather than assertions written to match the implementation.
+
+**Manager prompt error, corrected by the agent.** My fix prompt located the worker's
+`sys.path` injection at `blocks/registry/__init__.py:521`. The worker never calls
+`BlockRegistry.instantiate` — it calls its own `_prepend_runtime_import_roots`
+(`engine/runners/worker.py:96`). A-FIX went to the real file, added it as a declared scope
+addition, and flagged it rather than halting for a four-line call. That was the right call:
+stopping would have left both P1s open.
+
+**MCP `reload_blocks`** got `hot_reload()` plus a new `TypeRegistry.rescan()` (clear, then
+`scan_all`) because a bare `scan_all` is additive — later passes skip names already present,
+so an edited type would keep its first definition forever. The MCP context exposes registries
+as read-only properties over the live runtime, so in-place refresh is the only reach it has;
+previewers stay outside it and the docstring says so rather than implying coverage.
+
+Ratchet: **6981 LOC / 119 clusters, byte-identical to base.** Import-linter 13/13 kept.
+mypy clean over 343 files.
 
 #### AUDIT-A findings
 
@@ -411,6 +453,8 @@ Append only.
 | `2026-08-07` | `B3` | `Product judgment: the custom fallback origin groups into This Project rather than My Library or its own section.` | `Accepted by the manager. An unresolvable file_path is not evidence of cross-project reuse, so filing it under My Library would make a claim the backend never made; This Project renders unconditionally so a custom block can never vanish; and it is where every tier-1 block lands on a backend that has not yet split the tiers, so the palette degrades rather than breaks while B1 is in flight.` | `Confirm with AUDIT-B` |
 | `2026-08-07` | `B3` | `Left TODO(#2025) on the ProjectWorkspace types branch, which renders null.` | `Accepted. The TODO cites a tracked open issue and B4 fills it in the same PR, so it is not an untracked deferral. AUDIT-B must confirm it is gone by the time PR B is opened.` | `B4 (#2025)` |
 | `2026-08-07` | `manager` | `gate_record python_tests cannot reach green on this Windows host: 9 environmental failures, all reproducing on the unmodified base (POSIX unix sockets, POSIX shell rc, Windows path semantics, TOML backslash escaping, and the #2011 /bin/sh hook family).` | `Accepted for every agent slice. Each agent verified the failures reproduce on its own base commit before proceeding. The evaluator deliberately ignores a --check-na for python_tests because CI owns that job, so the Linux runner on the two delivery PRs is the authoritative evidence. Manager will not treat a local python_tests red as a slice defect without first reproducing it on the base.` | `CI on PR A / PR B` |
+| `2026-08-07` | `A-FIX` | `Accepted scope addition: src/scistudio/engine/runners/worker.py — the manager's fix prompt named the wrong file for the worker sys.path injection.` | `Accepted. The worker never calls BlockRegistry.instantiate; without the real call site the P1-1 reproduction still fails. Agent declared it in its ledger and flagged it rather than halting. engine/** is protected core and covered by the owner-authorized label.` | `N/A` |
+| `2026-08-07` | `A-FIX` | `Accepted scope addition: tests/api/test_blocks.py, tests/api/test_reload_on_save.py, tests/ai/test_mcp_tools_authoring.py — consequences of the P2-1 route change, since refresh_all_registries builds a fresh BlockRegistry rather than re-scanning the existing object.` | `Accepted. Also fixed 5 pre-existing latent mypy errors the pre-commit hook surfaced once those files entered the changed set.` | `N/A` |
 | `2026-08-07` | `A2` | `Accepted scope addition: tests/api/test_packages.py (test double needed the unified entry point).` | `Recorded here to close AUDIT-A P3-4, which noted §9 was missing two accepted scope additions.` | `N/A` |
 | `2026-08-07` | `A3` | `Accepted scope addition: tests/blocks/test_registry_package_layout.py (ADR-047 §C9 class inventory plus a pre-existing mypy error the diff exposed).` | `Recorded here to close AUDIT-A P3-4.` | `N/A` |
 | `2026-08-07` | `manager` | `AUDIT-A returned two P1s. Track B backend (B1/B2) was unblocked by the owner's condition once the audit returned, but A-FIX and B1 both edit api/routes/blocks.py and ai/agent/mcp/**.` | `Held B1/B2 until A-FIX lands, rather than creating the two-agents-one-file hard fail the dispatch rules forbid.` | `N/A` |
