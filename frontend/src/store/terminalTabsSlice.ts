@@ -202,6 +202,36 @@ export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTab
       };
     }),
 
+  // ADR-053 spec 2 (#2001) — Bring In My Work session tab.
+  //
+  // The backend spawned the PTY before responding (contract C3 / FR-024), so
+  // this skips `setup` exactly as the AI-Block path does. It stays a `"user"`
+  // tab: FR-025 requires an ordinary chat session, and the `"ai-block"` source
+  // would attach Mark-done and block-cancel behaviour that has no block behind
+  // it. The provider is supplied by the caller from the response — never
+  // defaulted (ADR-034 FR-020c).
+  addWorkImportTerminalTab: ({ tabId, title, provider, permissionMode }) =>
+    set((state) => {
+      const tab: TerminalTab = {
+        id: tabId,
+        title,
+        provider,
+        permissionMode,
+        state: "running",
+        source: "user",
+      };
+      const existing = state.terminalTabs.findIndex((t) => t.id === tabId);
+      if (existing >= 0) {
+        const next = state.terminalTabs.slice();
+        next[existing] = { ...next[existing], ...tab };
+        return { terminalTabs: next, activeTerminalTabId: tabId };
+      }
+      return {
+        terminalTabs: [...state.terminalTabs, tab],
+        activeTerminalTabId: tabId,
+      };
+    }),
+
   updateAiBlockStatus: (id: string, status: AiBlockStatus) =>
     set((state) => {
       const idx = state.terminalTabs.findIndex((t) => t.id === id);
