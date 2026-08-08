@@ -484,6 +484,14 @@
       "path": "docs/planning/adr-053-spec1-personal-tool-library-checklist.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T07:41:11.544063Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "no contract, behaviour or public surface changed",
+      "verified_in_diff": null
     }
   ],
   "governance_touch": true,
@@ -2348,6 +2356,14 @@
       "kind": "path",
       "path": "tests/core/test_type_registry_scan_dirs.py",
       "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T07:41:11.544082Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docstring prose reword with no behaviour change; the branch's existing suites already cover everything these sentences describe",
       "verified_in_diff": null
     }
   ]
