@@ -17,7 +17,9 @@ up to the doc commitment.
 
 from __future__ import annotations
 
+import importlib.util
 import logging
+import os
 from pathlib import Path
 from textwrap import dedent
 
@@ -68,6 +70,17 @@ this is not valid python
 _NOT_A_DATAOBJECT_MODULE = """
 class NotADataObject:
     \"\"\"Plain class — must not be registered.\"\"\"
+"""
+
+
+#: Two class names of identical length go through this template, so an edit can
+#: keep the file's size byte for byte — one half of the ``.pyc`` staleness key.
+_SAME_SIZE_MODULE = """
+from scistudio.core.types.base import DataObject
+
+
+class {name}(DataObject):
+    \"\"\"Drop-in type edited in place.\"\"\"
 """
 
 
@@ -434,3 +447,49 @@ class TestRuntimeWiring:
         assert "SecondDropInType" in types
         # A's type must not leak into B.
         assert "FirstDropInType" not in types
+
+
+# ---------------------------------------------------------------------------
+# ADR-053 FR-062 — ``rescan()`` must run the current definition
+# ---------------------------------------------------------------------------
+
+
+class TestRescanReloadsEditedSource:
+    """The reload path cannot inherit CPython's bytecode-freshness key.
+
+    A cached ``.pyc`` is accepted when the source's mtime **in whole seconds**
+    and its size both match what the cache recorded. A drop-in type edited
+    within one second of its last load, to the same length, satisfies both — so
+    ``rescan()`` clears the registry and then re-registers the class definition
+    it just removed, with no error anywhere. FR-062 exists to make an edit
+    visible without a restart, and silently running the previous definition is
+    the one outcome it cannot produce. Reported by an external review of
+    PR #2035.
+    """
+
+    def test_an_edit_inside_one_second_at_the_same_size_is_reloaded(self, tmp_path: Path) -> None:
+        scan_dir = tmp_path / "types"
+        path = _write_module(scan_dir, "edited_type.py", _SAME_SIZE_MODULE.format(name="AlphaEdit"))
+
+        registry = TypeRegistry()
+        registry.add_scan_dir(scan_dir)
+        registry.scan_all()
+        assert "AlphaEdit" in registry.all_types()
+
+        cached = Path(importlib.util.cache_from_source(str(path)))
+        if not cached.exists():  # pragma: no cover - runner with bytecode caching off
+            pytest.skip("no bytecode cache was written, so the stale-cache case cannot arise")
+
+        before = path.stat()
+        path.write_text(dedent(_SAME_SIZE_MODULE.format(name="BetaEdits")), encoding="utf-8")
+        # Both halves of the freshness key, restored deliberately rather than
+        # raced: the size is unchanged by construction and the timestamp is put
+        # back, which is what a same-second edit produces on its own.
+        assert path.stat().st_size == before.st_size, "precondition: the edit keeps the file size"
+        os.utime(path, (before.st_atime, before.st_mtime))
+
+        registry.rescan()
+
+        registered = registry.all_types()
+        assert "BetaEdits" in registered, "the reload ran a stale .pyc instead of the edited source"
+        assert "AlphaEdit" not in registered
