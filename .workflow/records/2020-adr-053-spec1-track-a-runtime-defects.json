@@ -327,6 +327,14 @@
       "path": null,
       "rationale": "no contract, behaviour or public surface changed; CHANGELOG already carries the Track A entries",
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T05:26:23.421908Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -1848,6 +1856,22 @@
       "kind": "na",
       "path": null,
       "rationale": "docstring prose reword with no behaviour change; the branch's three new test suites already cover the behaviour these docstrings describe",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T05:26:23.421925Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_dropin_type_import.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T05:26:23.421929Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/core/test_type_registry_scan_dirs.py",
+      "rationale": null,
       "verified_in_diff": null
     }
   ]
