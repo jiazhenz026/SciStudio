@@ -177,6 +177,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   subprocess and the first `TypeRegistry` coverage of the refusal. (@claude,
   2026-08-07, branch: fix/2022-audit-p1-shadowing-and-registration)
 
+- [#2022] A refused drop-in name now comes back when the user fixes the cause.
+  The fail-closed half of the shadowing guard refuses a colliding name
+  process-wide when the installed module it would shadow cannot be imported —
+  a missing native dependency is the ordinary case — because leaving that name
+  unbound would hand it to the very file the guard had just rejected. Nothing
+  ever released the refusal again. The user did what the error asked, removed
+  the file and rescanned, and the name stayed dead for the life of the process:
+  an installed package the product was never asked to touch, left broken with
+  no recovery short of restarting the app, in answer to the user doing the
+  right thing. A guard pass now records which drop-in directory warrants each
+  refusal, and a later pass over that same directory releases the warrant once
+  it no longer finds the collision — the refusal ends when its last warrant
+  does. **The bound is the directories the pass was given.** A pass knows the
+  complete collision set only for the roots it was asked about, so a refusal
+  warranted by a tier outside the pass survives it, and a root that exists but
+  cannot be listed withholds the release rather than granting it; releasing a
+  still-warranted refusal is the shadowing hole reopened, and that is the
+  direction that must not fail. Building the release exposed a second defect it
+  would otherwise have rested on: a refusal recorded mid-scan installed its
+  finder immediately, so the same name colliding in a *second* tier had the
+  guard's own `ImportError` answered back to its own question and read as "no
+  installed module owns this name". That tier's file was never reported to the
+  user and never recorded a warrant, so removing the project-tier file would
+  have released a refusal the user-tier file still warranted. The finder is now
+  silenced for the duration of the guard window instead of being lifted out of
+  `sys.meta_path`, so every root in a pass is asked the same question. Tests:
+  `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-08, branch:
+  fix/2022-release-stale-name-refusals)
+
 - [#2021, #2009] Reload now means reload for types too, not only for blocks.
   The reload-symmetry fix above enumerated `refresh_block_registry` call sites,
   but three events invalidate the registry through `BlockRegistry.hot_reload()`
