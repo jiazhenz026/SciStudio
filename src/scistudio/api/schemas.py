@@ -702,6 +702,25 @@ class ErrorResponse(BaseModel):
 UserLibraryTarget = Literal["blocks", "types"]
 
 
+class MoveSourceRef(BaseModel):
+    """The project file a library write should consume (ADR-053 FR-017).
+
+    Promotion **moves**: the copy in the library becomes the only copy, so the
+    write that creates it is also what removes the original. Naming the source
+    here rather than adding a general project-file delete endpoint keeps the
+    blast radius at exactly this operation — there is no way to reach the
+    removal except by first writing that file's content somewhere else.
+    """
+
+    project_id: str = Field(description="Project whose root the path is resolved against.")
+    path: str = Field(
+        description=(
+            "Project-relative path of the file to remove once the write has succeeded. "
+            "Sandboxed by the same resolver the project file read and write use."
+        )
+    )
+
+
 class UserLibraryWriteRequest(BaseModel):
     """Request body for ``PUT /api/user-library/file`` (ADR-053 FR-006)."""
 
@@ -712,6 +731,14 @@ class UserLibraryWriteRequest(BaseModel):
             "ADR-053 FR-008: writing over an existing file requires this explicit "
             "opt-in. Without it an existing target is reported as a 409 conflict so "
             "the UI can prompt for overwrite or save-as-new-name."
+        ),
+    )
+    move_from: MoveSourceRef | None = Field(
+        default=None,
+        description=(
+            "ADR-053 FR-017: when set, the named project file is removed after the write "
+            "succeeds, which is what makes promotion a move rather than a copy. Omitted "
+            "by callers creating a new file rather than promoting an existing one."
         ),
     )
 
@@ -748,4 +775,21 @@ class UserLibraryWriteResponse(BaseModel):
             "new block or type is discoverable without a restart. False means the file "
             "landed but the caller should trigger a palette reload."
         )
+    )
+    moved_from: str | None = Field(
+        default=None,
+        description=(
+            "ADR-053 FR-017: the project file that was removed, making this a move. "
+            "None when the request named no source, or when removing it failed — in "
+            "which case ``move_error`` says why and the original is still there."
+        ),
+    )
+    move_error: str | None = Field(
+        default=None,
+        description=(
+            "Why the source could not be removed, or None. A failure here never fails "
+            "the request: the library copy exists, so the promotion succeeded, and the "
+            "outcome is a copy rather than a move — which the UI reports rather than "
+            "hides."
+        ),
     )

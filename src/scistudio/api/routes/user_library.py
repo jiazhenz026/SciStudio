@@ -70,9 +70,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 
 from scistudio.api.deps import get_runtime
-from scistudio.api.routes.projects import ADR036_FILE_SIZE_CAP_BYTES
+from scistudio.api.routes.projects import ADR036_FILE_SIZE_CAP_BYTES, _resolve_project_file
 from scistudio.api.runtime import ApiRuntime
 from scistudio.api.schemas import (
+    MoveSourceRef,
     UserLibraryFileResponse,
     UserLibraryTarget,
     UserLibraryWriteRequest,
@@ -360,6 +361,15 @@ async def write_user_library_file(
         # ``os.link`` leaves the source name behind; ``os.replace`` consumes it.
         _discard(tmp_path)
 
+    # FR-017 — the library copy exists, so the original may go. Ordered this way
+    # deliberately: a removal that ran first and a write that then failed would
+    # destroy the user's only copy, and no error message makes that acceptable.
+    moved_from, move_error = _consume_source(runtime, body.move_from, resolved)
+
+    # After the removal, not before: the project file is gone from the tier the
+    # registry scans, so a refresh that ran first would leave the promoted item
+    # registered twice — once from each tier — which is the state FR-017 exists
+    # to avoid.
     refreshed = _refresh_registries(runtime)
 
     try:
@@ -375,7 +385,57 @@ async def write_user_library_file(
         size=stat.st_size,
         kind="modified" if existed else "created",
         registries_refreshed=refreshed,
+        moved_from=moved_from,
+        move_error=move_error,
     )
+
+
+def _consume_source(
+    runtime: ApiRuntime,
+    ref: MoveSourceRef | None,
+    written: Path,
+) -> tuple[str | None, str | None]:
+    """Remove the project file *ref* names, returning ``(removed_path, error)``.
+
+    ADR-053 FR-017. Promotion moves rather than copies, so the write above is
+    only half of it: while the project keeps its own copy, the two tiers hold
+    the same class name, and which one the process actually uses is decided by
+    a registry duplicate policy the user cannot see. Removing the original is
+    what makes "it is in My Library now" true rather than approximately true.
+
+    Three properties this function is responsible for:
+
+    * **The path is sandboxed by the same resolver the project file endpoints
+      use.** ``_resolve_project_file`` applies the realpath + commonpath
+      containment check, the ``..`` rejection, and the editor extension
+      allowlist, so a caller cannot name a file outside the project root or one
+      the editor would refuse to open. Reusing it rather than restating it is
+      the point: a second containment check is a second thing to get wrong.
+    * **A failure is reported, never raised.** The library copy is already on
+      disk, so the promotion succeeded; failing the request would tell the
+      caller nothing happened when something did. The outcome degrades to a
+      copy — exactly the pre-FR-017 behaviour — and the caller says so.
+    * **It never removes the file it just wrote.** The library sits outside
+      every project root, so containment already rules this out, but a
+      same-path guard makes it true regardless of how the roots are configured.
+    """
+    if ref is None:
+        return None, None
+    try:
+        _root, target = _resolve_project_file(runtime, ref.project_id, ref.path)
+    except HTTPException as exc:
+        return None, f"could not resolve {ref.path!r}: {exc.detail}"
+
+    if os.path.realpath(target) == os.path.realpath(written):
+        return None, "refusing to remove the file that was just written"
+    if not target.exists():
+        # Already gone — the move's goal, so not an error.
+        return str(target), None
+    try:
+        target.unlink()
+    except OSError as exc:
+        return None, f"could not remove {ref.path!r}: {exc}"
+    return str(target), None
 
 
 def _refresh_registries(runtime: ApiRuntime) -> bool:

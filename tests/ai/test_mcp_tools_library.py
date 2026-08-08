@@ -128,8 +128,9 @@ def ctx(home: Path, project: Path) -> Iterator[_StubRuntime]:
 # ---------------------------------------------------------------------------
 
 
-def test_promotion_copies_the_block_into_the_user_library(ctx: _StubRuntime, project: Path) -> None:
-    original = (project / "blocks" / "promotable.py").read_text(encoding="utf-8")
+def test_promotion_moves_the_block_into_the_user_library(ctx: _StubRuntime, project: Path) -> None:
+    source = project / "blocks" / "promotable.py"
+    original = source.read_text(encoding="utf-8")
     result = _run(tools_library.promote_to_user_library(block_type="test.promotable"))
 
     promoted = user_blocks_dir() / "promotable.py"
@@ -137,8 +138,41 @@ def test_promotion_copies_the_block_into_the_user_library(ctx: _StubRuntime, pro
     assert result.filename == "promotable.py"
     assert result.overwritten is False
     assert promoted.read_text(encoding="utf-8") == original
-    # FR-017: copy, never move — the originating project keeps working.
-    assert (project / "blocks" / "promotable.py").read_text(encoding="utf-8") == original
+    # FR-017: promotion moves. Leaving the project's copy behind put the same
+    # block name in two tiers, and which of them the process actually loaded
+    # was then decided by a registry duplicate policy the user cannot see.
+    assert not source.exists()
+    assert Path(result.moved_from or "") == source
+    assert result.move_error is None
+    # The block still resolves here: the user tier is on every project's scan
+    # path (FR-060), so the file moved, not the block.
+    assert ctx.block_registry.get_spec("test.promotable") is not None
+
+
+def test_a_failed_removal_is_reported_as_a_copy_rather_than_raised(
+    ctx: _StubRuntime,
+    project: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FR-017 — the library copy landed, so the promotion succeeded.
+
+    Raising here would tell the agent nothing happened when something did, and
+    the agent would very likely retry straight into a collision. Reporting the
+    outcome as a copy is the only answer a caller can act on.
+    """
+    source = project / "blocks" / "promotable.py"
+
+    def _refuse(self: Path, missing_ok: bool = False) -> None:
+        raise PermissionError("file is locked")
+
+    monkeypatch.setattr(Path, "unlink", _refuse)
+    result = _run(tools_library.promote_to_user_library(block_type="test.promotable"))
+
+    assert (user_blocks_dir() / "promotable.py").exists()
+    assert source.exists()
+    assert result.moved_from is None
+    assert result.move_error is not None
+    assert "locked" in result.move_error
 
 
 def test_promotion_refreshes_the_registries_it_invalidated(ctx: _StubRuntime, project: Path) -> None:
@@ -197,9 +231,15 @@ def test_overwrite_requires_an_explicit_opt_in(ctx: _StubRuntime, project: Path)
     existing = user_blocks_dir() / "promotable.py"
     existing.write_text("# hand-written library block\n", encoding="utf-8")
 
+    source = project / "blocks" / "promotable.py"
+    source_text = source.read_text(encoding="utf-8")
+
     result = _run(tools_library.promote_to_user_library(block_type="test.promotable", overwrite=True))
     assert result.overwritten is True
-    assert existing.read_text(encoding="utf-8") == (project / "blocks" / "promotable.py").read_text(encoding="utf-8")
+    # Compared against text captured before the call, because FR-017 removed
+    # the file it came from.
+    assert existing.read_text(encoding="utf-8") == source_text
+    assert not source.exists()
 
 
 def test_a_builtin_block_cannot_be_promoted(ctx: _StubRuntime) -> None:

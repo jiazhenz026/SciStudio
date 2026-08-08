@@ -631,6 +631,11 @@
       "at": "2026-08-08T09:42:23.858536Z",
       "owner_directive": "A type I just created never shows up no matter how I reload. Also: users may double-click a type and find nothing there - make double-click open that type's source. Core and package types must be read-only; user-library and project types editable.",
       "reason": "Owner review of the running desktop build: Reload did not rescan, and a type row answered a double click with nothing"
+    },
+    {
+      "at": "2026-08-08T10:04:49.403421Z",
+      "owner_directive": "What is saved into My Library should be moved there outright - clear it out of the project. Blocks and types must behave the same.",
+      "reason": "Owner reversed FR-017 after seeing copied types shadowed by their project originals"
     }
   ],
   "docs_events": [
@@ -2878,6 +2883,30 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/store/__tests__/typeCatalogInvalidation.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T10:04:49.403440Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_user_library_write.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T10:04:49.403445Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_library.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T10:04:49.403447Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/promotion/__tests__/promoteToUserLibrary.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }

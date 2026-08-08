@@ -33,7 +33,7 @@ export function createPromotionIo(projectId: string | null): PromotionIo {
       throw new Error("Open a project before promoting to your library.");
     }
     const response = await api.getProjectFile(projectId, path);
-    return { filename: basename(path), content: response.content };
+    return { filename: basename(path), content: response.content, projectPath: path };
   };
 
   return {
@@ -41,10 +41,21 @@ export function createPromotionIo(projectId: string | null): PromotionIo {
       if (ref.from === "block") {
         // The block source endpoint resolves the file wherever it lives, which
         // is what lets a "View source" tab promote without the caller knowing
-        // the path. The project's own copy is only read, never touched
-        // (FR-017).
+        // the path.
         const response = await api.getBlockSource(ref.blockType);
-        return { filename: basename(response.path), content: response.source };
+        // FR-017 needs a project-*relative* path to remove, and this endpoint
+        // answers with an absolute one. Promotion is offered only for a
+        // resolved origin of `project` (FR-019), and a project-tier block sits
+        // directly in `{project}/blocks/` by construction
+        // (`scistudio.core.dropins.project_blocks_dir`), so the basename is the
+        // whole of the difference. The server re-resolves and sandboxes it
+        // anyway; nothing here is trusted.
+        const file = basename(response.path);
+        return {
+          filename: file,
+          content: response.source,
+          projectPath: response.origin === "project" ? `blocks/${file}` : null,
+        };
       }
       return readProjectFile(ref.path);
     },
@@ -68,10 +79,13 @@ export function createPromotionIo(projectId: string | null): PromotionIo {
       target: UserLibraryTarget,
       filename: string,
       content: string,
-      options: { overwrite: boolean },
+      options: { overwrite: boolean; moveFrom?: string | null },
     ) => {
       const response = await api.putUserLibraryFile(target, filename, content, {
         overwrite: options.overwrite,
+        // FR-017 — no project, nothing to move out of it. The server only ever
+        // removes a path it can resolve inside the project root it was given.
+        moveFrom: projectId && options.moveFrom ? { projectId, path: options.moveFrom } : null,
       });
       // The write rebuilt every backend registry (FR-010/FR-062), so the
       // cached type catalogue is stale from here on — including when a cascade
@@ -79,7 +93,12 @@ export function createPromotionIo(projectId: string | null): PromotionIo {
       // nothing and would otherwise leave the new type invisible until a
       // manual reload.
       invalidateTypeCatalog();
-      return { path: response.path, kind: response.kind };
+      return {
+        path: response.path,
+        kind: response.kind,
+        movedFrom: response.moved_from,
+        moveError: response.move_error,
+      };
     },
     // FR-008: the endpoint reports an existing file as a 409 rather than
     // overwriting it, so the FR-018 prompt is driven by the server's answer

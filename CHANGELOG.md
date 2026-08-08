@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- [#1995] **Saving to My Library now moves the file instead of copying it**, and
+  the action says so: it reads **Move to My Library**. The block or data type
+  keeps working in the project you promoted it from — your personal library is
+  on every project's scan path — so what moves is where the file lives, not what
+  the project can use.
+
+  Copying turned out to be the worse behaviour, and not in a small way. It left
+  the same class name registered in two places at once, and which one actually
+  loaded came down to a scan-order rule that isn't even the same for the two
+  registries: for blocks the library copy wins, for data types the project copy
+  wins. So the same action appeared to work for a block and to do nothing at all
+  for a type — the type stayed listed under *This Project*, *My Library* stayed
+  empty, and pressing the button again just wrote another file nothing would
+  ever load. Moving removes the clash rather than arbitrating it.
+
+  If the original can't be removed — it's locked, or read-only — the promotion
+  is **not** failed: the library copy is there, so you're told the result was a
+  copy and which file to delete by hand. The agent's `promote_to_user_library`
+  tool moves on exactly the same terms, so asking Claude to do it and clicking
+  the button do the same thing.
+
 ### Fixed
 
 - [#1995] The Data types tab's **Reload** button now actually re-scans. It used

@@ -1,4 +1,4 @@
-// "Save to My Library" — the one promotion control, rendered at E1, E2 and E5.
+// "Move to My Library" — the one promotion control, rendered at E1, E2 and E5.
 //
 // Spec: docs/specs/adr-053-personal-tool-library.md
 //   §6   FR-019 (offered only for a resolved origin of `project`; **hidden**,
@@ -32,7 +32,7 @@ export interface PromoteToLibraryActionProps {
   entryPoint: "E1" | "E2" | "E5";
 }
 
-const LABEL = "Save to My Library";
+const LABEL = "Move to My Library";
 
 const VARIANT_CLASS: Record<PromoteActionVariant, string> = {
   popover:

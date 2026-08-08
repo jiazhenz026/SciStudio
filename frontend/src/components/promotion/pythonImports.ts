@@ -57,7 +57,7 @@ export interface ParsedImport {
  * A delimiter counter that does not know about literals reads that `(` as an
  * open bracket, joins every following line into one logical line, and the
  * import regexes — anchored at the start of a statement — then match nothing.
- * The consequence is precisely what FR-024 forbids: cascade promotion copies
+ * The consequence is precisely what FR-024 forbids: cascade promotion moves
  * the block **without** its project-local type, silently, and the promoted
  * block fails in every other project with no warning anywhere. Removing
  * literals before counting is what makes that impossible rather than unlikely.

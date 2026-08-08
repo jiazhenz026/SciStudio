@@ -5,7 +5,7 @@
  * ADR-053 additions:
  *   - "New data type" joins the New menu (FR-032), beside "New custom block";
  *     both run the same destination-aware flow (FR-029 – FR-033).
- *   - Entry point E1 — "Save to My Library" sits beside Save whenever the
+ *   - Entry point E1 — "Move to My Library" sits beside Save whenever the
  *     active editor tab is a project-level drop-in (§6.2). It is the shared
  *     `PromoteToLibraryAction`, not a toolbar-local reimplementation (FR-025),
  *     and it renders nothing at all for anything else (FR-019).

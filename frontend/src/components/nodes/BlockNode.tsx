@@ -158,7 +158,7 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
       onMouseLeave={scheduleHideActions}
     >
       {/* Floating actions — outside the square body (ADR-050 §2.2).
-          ADR-053 §6.2 E2: "Save to My Library" joins the same menu, from the
+          ADR-053 §6.2 E2: "Move to My Library" joins the same menu, from the
           block's own summary — the shared action hides itself for anything
           whose resolved origin is not `project` (FR-019), so a built-in or
           already-promoted node's menu is unchanged. */}

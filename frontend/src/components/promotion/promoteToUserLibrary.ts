@@ -27,7 +27,7 @@
 //   | existing destination → `FileExistsError`     | 409 → FR-018 prompt        |
 //   | `overwrite=True`                             | "Overwrite"                |
 //   | `new_name='<other>.py'`                      | "Save as new name"         |
-//   | copies; the project keeps its file           | copies (FR-017)            |
+//   | moves; the project's file is removed         | moves (FR-017)             |
 //
 // The `custom` row is the one that used to be missing on the E3 side: the tool
 // could not import the shared resolver across the layer boundary and asked two
@@ -51,10 +51,19 @@ import type { TypeSummary, UserLibraryTarget } from "../../types/api";
 import { resolveCascade, type CascadePlan, type TypeDependency } from "./cascade";
 import { isPromotableOrigin, type PromotableItem, type PromotionSourceRef } from "./promotable";
 
-/** The bytes a promotion copies, and the filename it suggests for them. */
+/** The bytes a promotion carries, and the filename it suggests for them. */
 export interface PromotionSource {
   filename: string;
   content: string;
+  /**
+   * Project-relative path of the file that was read, or `null` when the source
+   * is not a file in the open project.
+   *
+   * FR-017 needs it: promotion moves, and the write that lands the library copy
+   * is also what removes this file. `null` means the move degrades to a copy
+   * rather than removing something the caller could not name precisely.
+   */
+  projectPath: string | null;
 }
 
 /** One completed write into the user library. */
@@ -66,11 +75,24 @@ export interface PromotedFile {
   path: string;
   /** True when an existing library file was replaced after an explicit opt-in. */
   overwritten: boolean;
+  /**
+   * FR-017 — the project file this write consumed, or `null` when nothing was
+   * removed. `null` with a `moveError` set means the library copy landed and
+   * the original is still there, so the result is a copy, not a move.
+   */
+  movedFrom: string | null;
+  /** Why the original could not be removed, or `null`. */
+  moveError: string | null;
 }
 
 /** Everything the action needs from the outside world. */
 export interface PromotionIo {
-  /** Read the file a `PromotableItem` points at. Never moves or deletes it. */
+  /**
+   * Read the file a `PromotableItem` points at.
+   *
+   * Reading never removes anything. The removal is FR-017's, and it happens on
+   * the server as part of the write that replaces this file — see `write`.
+   */
   readSource: (ref: PromotionSourceRef) => Promise<PromotionSource>;
   /** Read one project-level type's source, for the cascade walk. */
   readTypeSource: (type: TypeSummary) => Promise<string>;
@@ -86,8 +108,15 @@ export interface PromotionIo {
     target: UserLibraryTarget,
     filename: string,
     content: string,
-    options: { overwrite: boolean },
-  ) => Promise<{ path: string; kind: "created" | "modified" }>;
+    options: { overwrite: boolean; moveFrom?: string | null },
+  ) => Promise<{
+    path: string;
+    kind: "created" | "modified";
+    /** FR-017 — the project file the server removed, or `null`. */
+    movedFrom: string | null;
+    /** Why it could not be removed, or `null`. */
+    moveError: string | null;
+  }>;
   /** True when an error from `write` is the FR-008 collision. */
   isCollision: (error: unknown) => boolean;
 }
@@ -190,18 +219,22 @@ async function writeWithCollisionPrompt(
   kind: "block" | "type",
   initialFilename: string,
   content: string,
+  /** FR-017 — the project file this write consumes, or `null` to copy. */
+  moveFrom: string | null,
 ): Promise<PromotedFile | null> {
   let filename = initialFilename;
   let overwrite = false;
   for (;;) {
     try {
-      const result = await io.write(target, filename, content, { overwrite });
+      const result = await io.write(target, filename, content, { overwrite, moveFrom });
       return {
         kind,
         label,
         filename,
         path: result.path,
         overwritten: result.kind === "modified",
+        movedFrom: result.movedFrom,
+        moveError: result.moveError,
       };
     } catch (error) {
       if (!io.isCollision(error)) {
@@ -220,6 +253,27 @@ async function writeWithCollisionPrompt(
       overwrite = false;
     }
   }
+}
+
+/**
+ * FR-017 — one sentence per file whose original could not be removed.
+ *
+ * A failed removal is not a failed promotion: the library copy is on disk and
+ * usable. What it means is that the result is a **copy**, and the project still
+ * holds a file with the same class name in it — so which of the two the process
+ * actually loads is decided by a registry duplicate policy the user cannot see.
+ * Saying nothing would leave them with the pre-FR-017 confusion and no way to
+ * know they were in it.
+ */
+function moveWarnings(files: readonly PromotedFile[]): string[] {
+  return files
+    .filter((file) => file.moveError !== null)
+    .map(
+      (file) =>
+        `"${file.label}" is in My Library, but its original file could not be removed ` +
+        `from this project (${file.moveError}). Both copies now exist; delete the ` +
+        `project's copy by hand, or the project's will keep taking precedence.`,
+    );
 }
 
 /**
@@ -352,6 +406,10 @@ export async function promoteToUserLibrary(
         "type",
         toLibraryFilename(nested.filename),
         nested.content,
+        // FR-017 applies to the cascade too: a dependency left behind in the
+        // project would go on shadowing the copy that was just promoted, which
+        // is the whole failure mode the move exists to remove.
+        nested.projectPath,
       );
       if (!written) {
         return cancelledOutcome(item, promotedDependencies);
@@ -367,6 +425,7 @@ export async function promoteToUserLibrary(
       item.kind,
       filename,
       source.content,
+      source.projectPath,
     );
     if (!promoted) {
       return cancelledOutcome(item, promotedDependencies);
@@ -382,7 +441,10 @@ export async function promoteToUserLibrary(
         name: entry.type.name,
         via: entry.via.name,
       })),
-      warnings: cascadeWarnings(item, declined, cascade),
+      warnings: [
+        ...cascadeWarnings(item, declined, cascade),
+        ...moveWarnings([promoted, ...promotedDependencies]),
+      ],
     };
   } catch (error) {
     return {

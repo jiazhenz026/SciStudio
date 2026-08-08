@@ -2,7 +2,8 @@
 // promotion entry point.
 //
 // Spec: docs/specs/adr-053-personal-tool-library.md
-//   §6 FR-017 (promotion copies, never moves), FR-019 (offered only for a
+//   §6 FR-017 (promotion moves: the project's file is consumed), FR-019
+//   (offered only for a
 //   resolved origin of `project`; hidden, not disabled, otherwise),
 //   §6.2 FR-025 (E1, E2, E3 and E5 share one implementation).
 //
@@ -26,8 +27,9 @@ import { resolveBlockOrigin } from "../BlockPalette.parts/paletteModel";
 /**
  * Where the bytes to copy come from.
  *
- * Promotion copies (FR-017), so every variant is a *read* of something that
- * stays exactly where it is. Nothing here can move or delete a file.
+ * Every variant is a *read*. FR-017 makes promotion a move, but the removal
+ * is the server's and happens only as part of the library write that replaces
+ * the file — nothing reachable from this module can delete anything.
  */
 export type PromotionSourceRef =
   /** A registered block, read through `GET /api/blocks/{type}/source`. */

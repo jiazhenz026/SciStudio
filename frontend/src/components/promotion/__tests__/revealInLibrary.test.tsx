@@ -106,6 +106,8 @@ describe("the inline confirmation — FR-020 / FR-023 / FR-024", () => {
         filename: "normalize.py",
         path: "/home/dev/.scistudio/blocks/normalize.py",
         overwritten: false,
+        movedFrom: "blocks/normalize.py",
+        moveError: null,
       },
       promotedDependencies: [],
       declinedDependencies: [],
@@ -120,7 +122,7 @@ describe("the inline confirmation — FR-020 / FR-023 / FR-024", () => {
     act(() => showPromotionResult(outcome()));
 
     const notice = screen.getByTestId("promotion-result");
-    expect(notice).toHaveTextContent("Saved to My Library");
+    expect(notice).toHaveTextContent("Moved to My Library");
     expect(notice).toHaveTextContent("Normalize");
     // Non-modal, so it cannot cover the palette section it just revealed.
     expect(notice).not.toHaveAttribute("aria-modal");
@@ -149,7 +151,7 @@ describe("the inline confirmation — FR-020 / FR-023 / FR-024", () => {
 
   it("does not call a partial result a save", () => {
     // The item is not in the library; only the cascade's dependency is. A
-    // heading reading "Saved to My Library" would be as misleading as the
+    // heading reading "Moved to My Library" would be as misleading as the
     // silence this notice replaces.
     render(<UserLibraryDialogs />);
     act(() =>
@@ -164,6 +166,8 @@ describe("the inline confirmation — FR-020 / FR-023 / FR-024", () => {
               filename: "spectrum.py",
               path: "/home/dev/.scistudio/types/spectrum.py",
               overwritten: false,
+              movedFrom: "types/spectrum.py",
+              moveError: null,
             },
           ],
           warnings: ['"Normalize" was not promoted, but Spectrum is still there.'],
@@ -172,7 +176,7 @@ describe("the inline confirmation — FR-020 / FR-023 / FR-024", () => {
     );
 
     const notice = screen.getByTestId("promotion-result");
-    expect(notice).toHaveTextContent("Partly saved to My Library");
+    expect(notice).toHaveTextContent("Partly moved to My Library");
     expect(notice).toHaveTextContent("Spectrum");
     expect(screen.getAllByTestId("promotion-result-warning")).toHaveLength(1);
   });

@@ -77,11 +77,15 @@ function ConfirmDialog({
   return (
     <div className={OVERLAY}>
       <div aria-modal="true" className={CARD} data-testid="promotion-confirm-dialog" role="dialog">
-        <h2 className="font-display text-2xl text-ink">Save to My Library</h2>
+        <h2 className="font-display text-2xl text-ink">Move to My Library</h2>
+        {/* FR-017 — the sentence has to say the file leaves the project,
+            because it does. It also has to say the block keeps working here,
+            because it does: the library is on every project's scan path
+            (FR-060), so this moves where the file lives, not what resolves. */}
         <p className="mt-3 text-sm leading-snug text-stone-700">
-          Copy the {noun} <span className="font-medium text-ink">{plan.item.label}</span> into your
-          personal library as <span className="font-mono text-xs">{plan.filename}</span>. It stays
-          in this project too, and every project can use the copy.
+          Move the {noun} <span className="font-medium text-ink">{plan.item.label}</span> into your
+          personal library as <span className="font-mono text-xs">{plan.filename}</span>. Its file
+          leaves this project, and every project can use it from now on — including this one.
         </p>
 
         {dependencies.length > 0 ? (
@@ -136,7 +140,7 @@ function ConfirmDialog({
             onClick={() => onAnswer({ action: "promote", includeDependencies })}
             type="button"
           >
-            Save to My Library
+            Move to My Library
           </button>
         </div>
       </div>
@@ -321,10 +325,10 @@ const CLEAN_NOTICE_MS = 6000;
  * and is listed so the record stays exhaustive over the status union.
  */
 const NOTICE_HEADING: Record<PromotionOutcome["status"], string> = {
-  promoted: "Saved to My Library",
-  partial: "Partly saved to My Library",
-  cancelled: "Saved to My Library",
-  failed: "Could not save to My Library",
+  promoted: "Moved to My Library",
+  partial: "Partly moved to My Library",
+  cancelled: "Moved to My Library",
+  failed: "Could not move to My Library",
 };
 
 /**

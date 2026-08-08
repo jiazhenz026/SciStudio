@@ -43,16 +43,29 @@ export const userLibraryApi = {
    * `overwrite` defaults to `false`, so an existing destination comes back as
    * a 409 the caller must resolve with the user (FR-008/FR-018). Passing
    * `true` is the "overwrite" half of that prompt and never a default.
+   *
+   * `moveFrom` is FR-017: the project file this write replaces. The server
+   * removes it *after* the write lands, which is what makes promotion a move.
+   * It is a field on this request rather than a separate delete call on
+   * purpose — there is then no way to reach the removal except by having
+   * successfully written that content somewhere else first, and the product
+   * grows no general "delete a project file" endpoint.
    */
   putUserLibraryFile: (
     target: UserLibraryTarget,
     filename: string,
     content: string,
-    options?: { overwrite?: boolean },
+    options?: { overwrite?: boolean; moveFrom?: { projectId: string; path: string } | null },
   ) =>
     apiFetch<UserLibraryWriteResponse>(fileUrl(target, filename), {
       method: "PUT",
       headers: JSON_HEADERS,
-      body: JSON.stringify({ content, overwrite: options?.overwrite ?? false }),
+      body: JSON.stringify({
+        content,
+        overwrite: options?.overwrite ?? false,
+        move_from: options?.moveFrom
+          ? { project_id: options.moveFrom.projectId, path: options.moveFrom.path }
+          : null,
+      }),
     }),
 };

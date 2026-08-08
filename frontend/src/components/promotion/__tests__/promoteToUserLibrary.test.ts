@@ -1,6 +1,7 @@
 // The one promotion action (ADR-053 §6, §6.1).
 //
-// FR-017 (copy, never move), FR-018 (a collision prompts and is never resolved
+// FR-017 (promotion moves: the project's copy is consumed), FR-018 (a
+// collision prompts and is never resolved
 // silently), FR-019 (a non-project origin is refused), FR-021 – FR-024
 // (cascade offered, decline warns, second level reported) are properties of
 // `promoteToUserLibrary` itself, so they are asserted against it directly with
@@ -27,12 +28,16 @@ interface Written {
   filename: string;
   content: string;
   overwrite: boolean;
+  /** FR-017 — the project file this write was told to consume, or `null`. */
+  moveFrom: string | null;
 }
 
 function makeIo(options?: {
-  sources?: Record<string, { filename: string; content: string }>;
+  sources?: Record<string, { filename: string; content: string; projectPath?: string | null }>;
   catalogue?: readonly TypeSummary[];
   existing?: Set<string>;
+  /** Make every removal fail, so the copy-not-move degradation is observable. */
+  moveFails?: string;
 }) {
   const writes: Written[] = [];
   const existing = options?.existing ?? new Set<string>();
@@ -40,7 +45,19 @@ function makeIo(options?: {
   const io: PromotionIo = {
     readSource: vi.fn(async (ref) => {
       const key = ref.from === "block" ? `block:${ref.blockType}` : ref.path;
-      return sources[key] ?? { filename: "fallback.py", content: "# fallback\n" };
+      const found = sources[key] ?? { filename: "fallback.py", content: "# fallback\n" };
+      return {
+        filename: found.filename,
+        content: found.content,
+        // FR-017 — the real io derives this from the origin for a block and
+        // from the request for a project file; the fake mirrors both shapes.
+        projectPath:
+          found.projectPath !== undefined
+            ? found.projectPath
+            : ref.from === "projectFile"
+              ? ref.path
+              : `blocks/${found.filename}`,
+      };
     }),
     readTypeSource: vi.fn(async (type) => {
       const key = `types/${(type.file_path ?? "").split("/").pop()}`;
@@ -54,9 +71,16 @@ function makeIo(options?: {
       }
       const overwritten = existing.has(key);
       existing.add(key);
-      writes.push({ target, filename, content, overwrite: opts.overwrite });
+      const moveFrom = opts.moveFrom ?? null;
+      writes.push({ target, filename, content, overwrite: opts.overwrite, moveFrom });
       const kind: "created" | "modified" = overwritten ? "modified" : "created";
-      return { path: `/home/dev/.scistudio/${key}`, kind };
+      const failed = Boolean(options?.moveFails) && moveFrom !== null;
+      return {
+        path: `/home/dev/.scistudio/${key}`,
+        kind,
+        movedFrom: failed ? null : moveFrom,
+        moveError: failed ? (options?.moveFails ?? null) : null,
+      };
     }),
     isCollision: (error: unknown) => error instanceof Conflict,
   };
@@ -92,8 +116,8 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("FR-017 — promotion copies, never moves", () => {
-  it("only reads the source and only writes into the library", async () => {
+describe("FR-017 — promotion moves", () => {
+  it("names the project file the write must consume", async () => {
     const { io, writes } = makeIo({ sources: { "block:normalize": BLOCK_SOURCE } });
     const outcome = await promoteToUserLibrary(blockItem(), { io, prompts: makePrompts() });
 
@@ -104,16 +128,58 @@ describe("FR-017 — promotion copies, never moves", () => {
         filename: "normalize.py",
         content: BLOCK_SOURCE.content,
         overwrite: false,
+        // The removal is the server's, and it happens only as part of this
+        // write — there is no separate delete call this action could make.
+        moveFrom: "blocks/normalize.py",
       },
     ]);
-    // Nothing in the io surface can delete or move; the project file was read
-    // exactly once and never written.
     expect(io.readSource).toHaveBeenCalledTimes(1);
     expect(outcome.promoted).toMatchObject({
       filename: "normalize.py",
       path: "/home/dev/.scistudio/blocks/normalize.py",
       overwritten: false,
+      movedFrom: "blocks/normalize.py",
+      moveError: null,
     });
+    expect(outcome.warnings).toEqual([]);
+  });
+
+  it("moves a data type out of the project too, not only a block", async () => {
+    // Owner directive: blocks and types must behave the same. They did not —
+    // the two registries resolve a cross-tier name clash in opposite
+    // directions, so a copied block appeared to promote and a copied type did
+    // not. Moving removes the clash for both.
+    const type = projectType("Spectrum", "spectrum");
+    const { io, writes } = makeIo({
+      sources: { "types/spectrum.py": { filename: "spectrum.py", content: "x = 1\n" } },
+    });
+
+    const outcome = await promoteToUserLibrary(promotableType(type)!, {
+      io,
+      prompts: makePrompts(),
+    });
+
+    expect(outcome.status).toBe("promoted");
+    expect(writes.map((entry) => entry.moveFrom)).toEqual(["types/spectrum.py"]);
+    expect(outcome.promoted?.movedFrom).toBe("types/spectrum.py");
+  });
+
+  it("reports a copy rather than claiming a move when the removal fails", async () => {
+    // The library copy is on disk, so the promotion succeeded — but the
+    // project still holds a file with the same class name in it, and which one
+    // the process loads is then decided by a registry policy the user cannot
+    // see. Saying nothing would leave them in exactly the confusion FR-017
+    // exists to end.
+    const { io } = makeIo({
+      sources: { "block:normalize": BLOCK_SOURCE },
+      moveFails: "permission denied",
+    });
+    const outcome = await promoteToUserLibrary(blockItem(), { io, prompts: makePrompts() });
+
+    expect(outcome.status).toBe("promoted");
+    expect(outcome.promoted).toMatchObject({ movedFrom: null, moveError: "permission denied" });
+    expect(outcome.warnings.join(" ")).toContain("could not be removed");
+    expect(outcome.warnings.join(" ")).toContain("Both copies now exist");
   });
 });
 
@@ -194,6 +260,9 @@ describe("FR-018 — a collision prompts, and never overwrites silently", () => 
         filename: "normalize_v2.py",
         content: BLOCK_SOURCE.content,
         overwrite: false,
+        // Renaming changes where the copy lands, not which file it consumes:
+        // the original is still `blocks/normalize.py` and still has to go.
+        moveFrom: "blocks/normalize.py",
       },
     ]);
     expect(outcome.promoted?.filename).toBe("normalize_v2.py");

@@ -524,8 +524,50 @@ reproduction, in `docs/audit/2026-08-07-adr-053-spec1-write-path.md` (P1-1).
 
 ## 6. Promotion
 
-**FR-017.** Promotion MUST copy, never move. The originating project MUST keep
-working exactly as before.
+**FR-017.** Promotion MUST **move**: the library copy is written first, and the
+project's own file is then removed. The block or type MUST keep working in the
+originating project.
+
+Both halves of that are load-bearing, and the second is what makes the first
+safe. The user tier is scanned unconditionally, for every project, with no
+project context required (FR-060) — so a file that leaves `{project}/blocks/`
+for `~/.scistudio/blocks/` still resolves here. What moves is where the file
+lives, not what the project can use.
+
+This requirement was originally the opposite: *copy, never move, the originating
+project keeps working exactly as before*. It was reversed after owner review of
+a running build, and the reversal is the important part of this paragraph rather
+than a footnote to it.
+
+Copying leaves the same class name registered in two tiers, and **which of them
+the process actually loads is then decided by a registry duplicate policy the
+user cannot see** — one that is not even the same policy on both sides. The
+block registry writes unconditionally (`blocks/registry/_scan.py`), so the last
+tier scanned wins and the library copy takes precedence. The type registry skips
+a name already registered (`core/types/registry.py`), so the *first* tier scanned
+wins and the project copy takes precedence. Both directions are deliberate for
+their own domain — a drop-in block may override a builtin; a drop-in type may
+never shadow a core class — and neither was written with promotion in mind.
+
+The user-visible result was that the same action produced opposite outcomes:
+promoting a block appeared to work, and promoting a type appeared to do nothing
+at all. The type stayed listed under `This Project`, `My Library` stayed empty,
+and pressing the action again just wrote another shadowed file. There is no
+copy-preserving fix for that which does not amount to explaining a registry
+scan order to the user. Moving removes the clash instead of adjudicating it,
+and it makes "it is in My Library now" simply true.
+
+The removal MUST happen **after** the library copy is on disk, and a failed
+removal MUST NOT fail the promotion. The copy exists, so something did happen;
+reporting an error would say otherwise and invite a retry straight into a
+collision. The outcome degrades to a copy — the pre-reversal behaviour — and
+MUST be reported as one, naming the file that has to be removed by hand.
+
+The removal MUST be reachable only as part of a successful library write, and
+MUST be sandboxed by the same resolver the project file read and write endpoints
+use. A general "delete a project file" endpoint MUST NOT be introduced for it:
+the blast radius of this feature is then exactly this operation, and a second
+containment check is a second thing to get wrong.
 
 **FR-018.** A name collision in the destination MUST prompt the user with
 overwrite and save-as-new-name options. Silent overwrite is forbidden.
@@ -1018,7 +1060,7 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Shadowing rejection | A drop-in type entry colliding with an importable top-level module is reported through the FR-015 surface, its type is absent from a real `TypeRegistry`, and the real module still resolves inside a real worker subprocess — not only in the process that ran the scan. A `<name>/__init__.py` package is rejected on the same terms as `<name>.py` (FR-016) |
 | Shadowing fail-closed | When the collided installed module raises on import, the drop-in still does not win the name, and the collision is still reported on the next scan (FR-016) |
 | Refusal lifecycle | Removing the colliding entry and rescanning makes the name importable again; a rescan that still finds the entry keeps the refusal, and so does a rescan covering only some of the directories that warranted it (FR-016) |
-| Promotion semantics | Copy not move; collision prompts; hidden for built-in, packaged, and already-in-library items (FR-017 – FR-019) |
+| Promotion semantics | Move, not copy: the project's file is removed once the library copy lands, and the item still resolves in that project because the user tier is always scanned; a failed removal is reported as a copy rather than raised; collision prompts; hidden for built-in, packaged, and already-in-library items (FR-017 – FR-019) |
 | Cascade | Block with a project-level type dependency offers cascade; declining warns; second-level dependency reported (FR-021 – FR-024) |
 | Cascade import parse | An unmatched bracket inside a string literal does not hide the import that follows it (FR-022) |
 | Cascade partial result | Cancelling after a dependency has been written reports a partial result naming the files that stayed, rather than a silent cancellation (FR-020, FR-023) |

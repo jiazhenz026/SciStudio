@@ -5,8 +5,18 @@ Promotion is reachable from five entry points and this is the agent's: without
 it the agent cannot act on the promotion opportunities ADR-053 §3 expects it to
 offer — for instance right after it authors a block the user runs successfully.
 
-Promotion **copies** (FR-017). The originating project keeps working exactly as
-before; the copy is what becomes reusable across projects.
+Promotion **moves** (FR-017): the library copy is written first, and the
+project's own file is then removed. It used to copy, and leaving both files in
+place turned out to be the worse outcome — the two tiers then hold the same
+block name, and which of them the process actually loads is decided by a
+registry duplicate policy the user cannot see. The user's block keeps working
+in this project either way, because the user tier is scanned unconditionally
+(FR-060); what changes is that "it is in My Library now" becomes true rather
+than approximately true.
+
+A failed removal never fails the promotion. The library copy is on disk, so
+something did happen; the result reports that it is a copy rather than a move
+and says why, which is the only outcome the caller can act on.
 
 **FR-019 is one condition, not a list of cases.** Promotion is offered when
 the block's *resolved origin tier* is ``project`` and refused for every other
@@ -95,11 +105,26 @@ class PromoteToUserLibraryResult(BaseModel):
     """Result envelope for ``promote_to_user_library``."""
 
     block_type: str = Field(description="The block type that was promoted.")
-    source_path: str = Field(description="Absolute path of the file that was copied from.")
+    source_path: str = Field(description="Absolute path of the file that was promoted from.")
     path: str = Field(description="Absolute path of the new file in the user library.")
     filename: str = Field(description="Filename the block now has in the user library.")
     bytes_written: int = Field(description="Number of bytes written to the destination.")
     overwritten: bool = Field(description="True when an existing library file was replaced.")
+    moved_from: str | None = Field(
+        default=None,
+        description=(
+            "FR-017: the project file that was removed, making this a move. None when the "
+            "removal failed, in which case ``move_error`` says why and both copies exist."
+        ),
+    )
+    move_error: str | None = Field(
+        default=None,
+        description=(
+            "Why the project's own copy could not be removed, or None. Never fails the "
+            "promotion: the library copy landed, so the outcome is a copy rather than a "
+            "move, and the caller should tell the user to delete the project file by hand."
+        ),
+    )
     added: list[str] = Field(
         default_factory=list,
         description="Block type names that appeared after the post-promotion registry refresh.",
@@ -203,7 +228,9 @@ async def promote_to_user_library(
         tier root has no project copy to promote. All four are refused, which
         is exactly what the palette, the canvas node and the editor toolbar do
         by hiding the action.
-      - Move a block — this copies, and the project keeps its own file.
+      - Copy a block — this **moves**: the project's own file is removed once
+        the library copy is written. The block keeps working in this project,
+        because the user library is on every project's scan path.
       - Write arbitrary files into the user's home directory; only a registered
         block's own source is copied, and only into the library blocks
         directory.
@@ -250,6 +277,19 @@ async def promote_to_user_library(
     payload = source.read_bytes()
     _atomic_write(destination, payload)
 
+    # FR-017 — the library copy exists, so the original may go. Strictly after
+    # the write: a removal that ran first and a write that then failed would
+    # destroy the user's only copy, and no error message makes that acceptable.
+    moved_from: str | None = None
+    move_error: str | None = None
+    try:
+        source.unlink()
+        moved_from = str(source)
+    except OSError as exc:
+        move_error = str(exc)
+        logger.warning("promote_to_user_library: could not remove %s: %s", source, exc)
+
+    # After the removal, so the refresh sees one file rather than two.
     added, removed = refresh_context_registries(ctx)
     await broadcast_blocks_reloaded(ctx, added=added, removed=removed, source="agent")
     logger.info("promote_to_user_library: %s -> %s (overwritten=%s)", source, destination, overwritten)
@@ -261,6 +301,8 @@ async def promote_to_user_library(
         filename=destination.name,
         bytes_written=len(payload),
         overwritten=overwritten,
+        moved_from=moved_from,
+        move_error=move_error,
         added=added,
         removed=removed,
     )

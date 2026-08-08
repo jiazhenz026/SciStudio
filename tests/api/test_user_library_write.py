@@ -67,10 +67,13 @@ def _put(
     filename: str,
     content: str = "x = 1\n",
     overwrite: bool | None = None,
+    move_from: dict[str, str] | None = None,
 ) -> httpx.Response:
     body: dict[str, object] = {"content": content}
     if overwrite is not None:
         body["overwrite"] = overwrite
+    if move_from is not None:
+        body["move_from"] = move_from
     return client.put(
         "/api/user-library/file",
         params={"target": target, "filename": filename},
@@ -588,3 +591,117 @@ def test_a_block_promoted_through_the_agent_appears_in_the_palette(
     refreshed = {block["type_name"]: block for block in client.get("/api/blocks/").json()["blocks"]}
     assert "test.agent_promoted" in refreshed
     assert (user_blocks_dir() / "agent_promoted.py").exists()
+
+
+# ---------------------------------------------------------------------------
+# FR-017 — the write consumes the project file it was given
+# ---------------------------------------------------------------------------
+
+
+def _project_id(client: TestClient) -> str:
+    """The open project's id, however the listing happens to be shaped."""
+    payload = client.get("/api/projects/").json()
+    entries = payload["projects"] if isinstance(payload, dict) else payload
+    return str(entries[0]["id"])
+
+
+def test_a_named_source_is_removed_after_the_write(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    """Promotion moves: the library copy lands, and then the original goes."""
+    source = opened_project / "types" / "moved_probe.py"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("x = 1\n", encoding="utf-8")
+
+    response = _put(
+        client,
+        target="types",
+        filename="moved_probe.py",
+        move_from={"project_id": _project_id(client), "path": "types/moved_probe.py"},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert Path(body["moved_from"]) == source
+    assert body["move_error"] is None
+    assert not source.exists()
+    assert (user_types_dir() / "moved_probe.py").exists()
+
+
+def test_no_source_named_leaves_everything_alone(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    """The new-file flow creates rather than promotes, and removes nothing."""
+    bystander = opened_project / "types" / "bystander.py"
+    bystander.parent.mkdir(parents=True, exist_ok=True)
+    bystander.write_text("x = 1\n", encoding="utf-8")
+
+    body = _put(client, target="types", filename="created_probe.py").json()
+
+    assert body["moved_from"] is None
+    assert body["move_error"] is None
+    assert bystander.exists()
+
+
+def test_an_already_absent_source_is_not_an_error(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    """ "Gone" is the move's goal, so finding it gone is success, not failure."""
+    response = _put(
+        client,
+        target="types",
+        filename="absent_probe.py",
+        move_from={"project_id": _project_id(client), "path": "types/never_existed.py"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["move_error"] is None
+    assert (user_types_dir() / "absent_probe.py").exists()
+
+
+def test_an_unknown_project_is_reported_rather_than_failing_the_write(
+    client: TestClient,
+) -> None:
+    """A removal failure never fails the request.
+
+    The library copy is on disk, so the promotion happened; a 4xx here would
+    tell the caller nothing did. The outcome degrades to a copy and says so,
+    which is what the UI turns into a warning.
+    """
+    body = _put(
+        client,
+        target="types",
+        filename="orphan_probe.py",
+        move_from={"project_id": "no-such-project", "path": "types/x.py"},
+    ).json()
+
+    assert body["moved_from"] is None
+    assert "could not resolve" in (body["move_error"] or "")
+    assert (user_types_dir() / "orphan_probe.py").exists()
+
+
+@pytest.mark.parametrize("path", ["../../secrets.py", r"..\..\secrets.py"])
+def test_a_traversing_source_path_is_refused_by_the_shared_resolver(
+    client: TestClient,
+    opened_project: Path,
+    path: str,
+) -> None:
+    """The removal reuses the project endpoints' sandbox rather than restating it.
+
+    A second containment check is a second thing to get wrong, so this asserts
+    the shared one is really reached: the escape is refused, and the write still
+    succeeds and is reported as a copy.
+    """
+    body = _put(
+        client,
+        target="types",
+        filename="sandboxed_probe.py",
+        move_from={"project_id": _project_id(client), "path": path},
+    ).json()
+
+    assert body["moved_from"] is None
+    assert body["move_error"]
+    assert (user_types_dir() / "sandboxed_probe.py").exists()

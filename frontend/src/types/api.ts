@@ -362,6 +362,19 @@ export interface UserLibraryWriteResponse {
    * the file landed but the caller should trigger a palette reload itself.
    */
   registries_refreshed: boolean;
+  /**
+   * FR-017: the project file the server removed, making this a move rather
+   * than a copy. `null` when the request named no source, or when the removal
+   * failed — in which case `move_error` says why and the original is still
+   * there.
+   */
+  moved_from: string | null;
+  /**
+   * Why the original could not be removed, or `null`. Never fails the request:
+   * the library copy exists, so the promotion succeeded and the outcome is a
+   * copy, which the UI reports rather than hides.
+   */
+  move_error: string | null;
 }
 
 /**
