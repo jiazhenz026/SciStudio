@@ -69,6 +69,16 @@ exists for, by the import health of an unrelated package. Such a name is
 refused outright instead, through :class:`_RefusedNameFinder`; see there for
 why refusing is the same answer the un-shadowed process gives.
 
+A refusal outlives the scan that discovered it but not the drop-in entry that
+caused it. Each one is held on the warrant of the type roots where the
+collision was found, and a subsequent pass over one of those roots withdraws
+its warrant once the entry is gone, dropping the refusal when the last warrant
+goes. Without that the product breaks an installed module it was never asked
+to touch, for the life of the process, in answer to the user doing exactly
+what the refusal asked — removing the file. The bound is the roots: a pass
+never withdraws a warrant held by a root it was not asked about, because it
+has no listing of that root and therefore no evidence the refusal is stale.
+
 The collision question is asked of every name the directory makes importable,
 including underscore-prefixed ones; :func:`_importable_entries` records why,
 and why that is a different question from whether a registry registers the
@@ -300,26 +310,110 @@ class _RefusedNameFinder:
     rest of the drop-in tier keeps working — dropping the whole root would
     punish every other type in it for one bad neighbour.
 
-    Registered at ``sys.meta_path[0]``, and only once a binding has actually
-    failed: the finder answers ``None`` for every other name, so a process with
-    no unguardable collision never pays for it.
+    Registered at ``sys.meta_path[0]``, and only while something is actually
+    refused: the finder answers ``None`` for every other name, so a process with
+    no unguardable collision never pays for it, and one whose last refusal is
+    released stops paying again.
+
+    **A refusal is held on a warrant, and ends with it.** It has to outlive the
+    scan that discovered it — that is what failing closed means — but not the
+    drop-in entry that caused it. Each refusal records the type roots whose
+    contents warrant it, and :meth:`reconcile` lets the next pass withdraw the
+    warrants of the roots it has just listed; a refusal left with no warrant is
+    dropped. That is what makes the guard self-healing: the user
+    removes the file the report named, rescans, and the name works again.
+
+    The warrant is per root because a pass is given specific roots and knows the
+    collision set for those alone. :meth:`reconcile` therefore only ever adds or
+    withdraws the warrants of the roots it is handed, and a warrant held by a
+    root outside the pass survives untouched. Releasing more than that would
+    reopen FR-016 on the strength of not having looked.
     """
 
     def __init__(self) -> None:
         #: Colliding stem to the sentence explaining the refusal.
         self.reasons: dict[str, str] = {}
+        #: Colliding stem to the type roots warranting it, by :func:`_root_warrant`.
+        self.warrants: dict[str, set[str]] = {}
+        self._silent = False
+
+    @contextmanager
+    def silenced(self) -> Iterator[None]:
+        """Answer ``None`` for every name for the duration of the body.
+
+        :func:`_sys_path_without` needs this module's own previous answers out
+        of the way while it asks what a name would resolve to. A flag rather
+        than a trip out of ``sys.meta_path``, because a refusal recorded
+        *inside* that window puts the finder back mid-pass: the same stem
+        colliding in a second root would then have this finder's ``ImportError``
+        handed to :func:`_installed_origin` as the verdict on its own question
+        and read as "no installed module owns this name". That root would be
+        reported to nobody and would record no warrant, so removing the first
+        root's file would release a refusal the second root's file still
+        warrants — the FR-016 hole reopened by the release rule itself.
+        """
+        previous = self._silent
+        self._silent = True
+        try:
+            yield
+        finally:
+            self._silent = previous
 
     def refuse(self, stem: str, reason: str) -> None:
-        """Refuse *stem* from now on, installing the finder if needed."""
+        """Refuse *stem* from now on, installing the finder if needed.
+
+        The warrant is not recorded here but by :meth:`reconcile`, at the end of
+        the same pass, so that every warrant is derived from one listing rather
+        than some here and some there.
+        """
         self.reasons[stem] = reason
-        if self not in sys.meta_path:
-            sys.meta_path.insert(0, self)
+        self.warrants.setdefault(stem, set())
+        self._sync_meta_path()
 
     def allow(self, stem: str) -> None:
-        """Drop any refusal on *stem* — the binding succeeded after all."""
+        """Drop any refusal on *stem* — the binding succeeded after all.
+
+        Unconditional and bounded by no root: the installed module is now in
+        ``sys.modules``, where no drop-in file can displace it, so no root can
+        still warrant refusing the name.
+        """
         self.reasons.pop(stem, None)
+        self.warrants.pop(stem, None)
+        self._sync_meta_path()
+
+    def reconcile(self, colliding_by_root: dict[str, frozenset[str]]) -> None:
+        """Re-derive the warrants held by the roots in *colliding_by_root*.
+
+        The argument is one guard pass's complete answer for the roots it
+        listed: warrant key to the stems that still collide there. Every refused
+        stem gains that root's warrant when it is in the set and loses it when
+        it is not, and a refusal left with no warrant at all is dropped. Roots
+        absent from the mapping are not consulted — the ones the pass was not
+        given, and the ones it could not list — so their warrants stand.
+        """
+        for stem in list(self.reasons):
+            held = self.warrants.setdefault(stem, set())
+            for warrant, stems in colliding_by_root.items():
+                if stem in stems:
+                    held.add(warrant)
+                else:
+                    held.discard(warrant)
+            if not held:
+                del self.warrants[stem]
+                del self.reasons[stem]
+        self._sync_meta_path()
+
+    def _sync_meta_path(self) -> None:
+        """Hold a place on ``sys.meta_path`` exactly while something is refused."""
+        installed = self in sys.meta_path
+        if self.reasons and not installed:
+            sys.meta_path.insert(0, self)
+        elif not self.reasons and installed:
+            sys.meta_path.remove(self)
 
     def find_spec(self, fullname: str, path: object = None, target: object = None) -> None:
+        if self._silent:
+            return None
         reason = self.reasons.get(fullname)
         if reason is None:
             return None
@@ -327,8 +421,24 @@ class _RefusedNameFinder:
 
 
 #: Process-wide, because the roots reach ``sys.path`` from several call sites
-#: and the refusal has to outlive the scan that discovered it.
+#: and the refusal has to outlive the scan that discovered it — though not the
+#: drop-in entry that warrants it (:meth:`_RefusedNameFinder.reconcile`).
 _REFUSED_NAMES = _RefusedNameFinder()
+
+
+def _root_warrant(root: Path) -> str:
+    """Return the key a refusal's warrant on *root* is recorded under.
+
+    The resolved path, because the call sites do not agree on the spelling they
+    pass: :func:`scistudio.engine.runners.worker._prepend_runtime_import_roots`
+    resolves its roots before the guard ever sees them and the palette scan does
+    not, and a warrant recorded under one spelling has to be found again under
+    the other. A path that will not resolve keeps its literal spelling, which
+    can only withhold a release, never grant one.
+    """
+    with suppress(OSError, ValueError):
+        return str(root.resolve())
+    return str(root)
 
 
 @dataclass(frozen=True)
@@ -362,12 +472,15 @@ def _sys_path_without(type_roots: tuple[Path, ...]) -> Iterator[None]:
     Every FR-016 question is "what would this name resolve to if the drop-in
     were not there", so every one of them is asked from inside this block. Two
     things have to go for that to be the question actually asked: *type_roots*
-    leave ``sys.path``, and :data:`_REFUSED_NAMES` leaves ``sys.meta_path``.
-    The finder is this module's own answer to a previous scan, so leaving it in
-    place would make :func:`_installed_origin` see its ``ImportError`` and
-    conclude the name is free — the guard would stop reporting the very
-    collision it is enforcing, and would never retry a binding that fails only
-    because a native dependency is temporarily missing.
+    leave ``sys.path``, and :data:`_REFUSED_NAMES` stops answering. The finder
+    is this module's own answer to a previous scan, so leaving it live would
+    make :func:`_installed_origin` see its ``ImportError`` and conclude the name
+    is free — the guard would stop reporting the very collision it is enforcing,
+    and would never retry a binding that fails only because a native dependency
+    is temporarily missing. It is silenced rather than lifted out of
+    ``sys.meta_path`` so that a refusal recorded *inside* the window cannot put
+    it back mid-pass; :meth:`_RefusedNameFinder.silenced` records what that
+    costs when it happens.
 
     Removes and re-inserts only the entries it took out, rather than swapping
     ``sys.path`` for a snapshot. The snapshot form clobbers a concurrent
@@ -380,14 +493,10 @@ def _sys_path_without(type_roots: tuple[Path, ...]) -> Iterator[None]:
     removed = [(index, entry) for index, entry in enumerate(sys.path) if entry in excluded]
     for index, _entry in reversed(removed):
         del sys.path[index]
-    suspended = _REFUSED_NAMES in sys.meta_path
-    if suspended:
-        sys.meta_path.remove(_REFUSED_NAMES)
     try:
-        yield
+        with _REFUSED_NAMES.silenced():
+            yield
     finally:
-        if suspended and _REFUSED_NAMES not in sys.meta_path:
-            sys.meta_path.insert(0, _REFUSED_NAMES)
         for index, entry in removed:
             sys.path.insert(min(index, len(sys.path)), entry)
 
@@ -468,15 +577,19 @@ def _importable_entries(root: Path) -> Iterator[tuple[str, Path]]:
     by name (:data:`_NEVER_IMPORTABLE_BY_NAME`) and stems that are not Python
     identifiers, which no ``import`` statement can name and no installed
     module can be called.
+
+    Raises ``OSError`` when *root* cannot be listed rather than yielding a short
+    listing, because :func:`guard_dropin_type_roots` reads a listing as evidence
+    that the names *not* in it are gone. A partial listing is not that evidence,
+    and a truncated one would look like it.
     """
-    with suppress(OSError):
-        for entry in sorted(root.iterdir()):
-            if entry.name in _NEVER_IMPORTABLE_BY_NAME:
-                continue
-            if entry.is_file() and entry.suffix == ".py" and entry.stem.isidentifier():
-                yield entry.stem, entry
-            elif entry.is_dir() and entry.name.isidentifier() and (entry / "__init__.py").is_file():
-                yield entry.name, entry
+    for entry in sorted(root.iterdir()):
+        if entry.name in _NEVER_IMPORTABLE_BY_NAME:
+            continue
+        if entry.is_file() and entry.suffix == ".py" and entry.stem.isidentifier():
+            yield entry.stem, entry
+        elif entry.is_dir() and entry.name.isidentifier() and (entry / "__init__.py").is_file():
+            yield entry.name, entry
 
 
 def guard_dropin_type_roots(
@@ -489,21 +602,47 @@ def guard_dropin_type_roots(
     Binding is once per process per name, so a ``tensorflow.py`` collision does
     not re-import TensorFlow on every palette refresh. Pass ``bind=False`` when
     the caller only needs the verdict and never touches ``sys.path``.
+
+    A pass also ends the refusals its own roots no longer warrant
+    (:meth:`_RefusedNameFinder.reconcile`), which is what lets the user act on
+    the report: rename the file it named, rescan, and the name is importable
+    again. That half runs whatever *bind* says, because its evidence is the
+    directory listing rather than the binding — a stem no entry in the root
+    claims any more cannot be shadowed from that root by anybody. A root this
+    pass was not given, or was given and could not list, produces no evidence
+    and so keeps whatever it warrants.
     """
     type_roots = tuple(path for path in map(Path, import_roots) if path.name == TYPES_DIR_NAME)
     collisions: list[DropinTypeCollision] = []
+    colliding_by_root: dict[str, set[str]] = {}
+    bound_in_this_pass: set[str] = set()
     with _sys_path_without(type_roots):
         for root in type_roots:
-            if not root.is_dir():
-                continue
-            for stem, path in _importable_entries(root):
+            entries: tuple[tuple[str, Path], ...] = ()
+            if root.is_dir():
+                try:
+                    entries = tuple(_importable_entries(root))
+                except OSError:
+                    # No listing, so no evidence in either direction. Leaving
+                    # this root out of ``colliding_by_root`` withholds the
+                    # release rather than granting it on a directory nobody
+                    # could read.
+                    continue
+            stems = colliding_by_root.setdefault(_root_warrant(root), set())
+            for stem, path in entries:
                 origin = _installed_origin(stem, type_roots)
                 if origin is None:
                     continue
+                stems.add(stem)
                 collision = DropinTypeCollision(path=path, stem=stem, origin=origin)
                 collisions.append(collision)
-                if bind and stem not in sys.modules:
+                # One import attempt per name per pass: the same broken package
+                # colliding in both tiers is one failure, not two. Which tiers
+                # those were is recorded by the warrants above, not here.
+                if bind and stem not in sys.modules and stem not in bound_in_this_pass:
+                    bound_in_this_pass.add(stem)
                     _bind_or_refuse(collision)
+    _REFUSED_NAMES.reconcile({warrant: frozenset(stems) for warrant, stems in colliding_by_root.items()})
     return tuple(collisions)
 
 
@@ -513,7 +652,8 @@ def _bind_or_refuse(collision: DropinTypeCollision) -> None:
     The mitigation half of FR-016, and the reason it cannot be written as
     ``with suppress(Exception)``: a suppressed binding failure leaves the name
     free for the drop-in the guard just refused. See :class:`_RefusedNameFinder`
-    for why refusing is the fail-closed answer rather than a second failure.
+    for why refusing is the fail-closed answer rather than a second failure, and
+    for how long the resulting refusal is allowed to stand.
     """
     try:
         importlib.import_module(collision.stem)

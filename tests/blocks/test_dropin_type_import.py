@@ -229,8 +229,11 @@ def _drop_dropin_modules() -> Iterator[None]:
         sys.modules.pop(name, None)
     # An FR-016 refusal is process-wide by design — it has to outlive the scan
     # that discovered it — so a test that provokes one must not leave it
-    # standing for the rest of the session.
+    # standing for the rest of the session. Its warrants go with it: a warrant
+    # naming a ``tmp_path`` root this test is about to lose would otherwise keep
+    # a refusal alive that no directory can any longer justify.
     dropins_module._REFUSED_NAMES.reasons.clear()
+    dropins_module._REFUSED_NAMES.warrants.clear()
     if dropins_module._REFUSED_NAMES in sys.meta_path:
         sys.meta_path.remove(dropins_module._REFUSED_NAMES)
 
@@ -895,6 +898,158 @@ class TestTypeNameCollisionIsRejected:
 
         assert registry.get_spec("collision_probe_shadowed") is None
         assert "DropinTypeNameCollision" in {failure.error_type for failure in registry.dropin_failures()}
+
+    # -- #2022: a refusal ends when the entry that warrants it does ------------
+
+    def _refuse_sample_dep(self, project: Path, installed_dep: Path) -> None:
+        """Provoke the fail-closed refusal of ``sample_dep`` and confirm it took."""
+        (installed_dep / "sample_dep.py").write_text(self._UNIMPORTABLE_DEP, encoding="utf-8")
+        (project / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+
+        guard_dropin_type_roots(type_scan_dirs(project))
+
+        assert "sample_dep" in dropins_module._REFUSED_NAMES.reasons, "precondition: the name is refused"
+
+    @staticmethod
+    def _import_error(stem: str) -> str:
+        """Return the message ``import stem`` fails with, or ``""`` if it does not."""
+        try:
+            importlib.import_module(stem)
+        except ImportError as exc:
+            return str(exc)
+        return ""
+
+    def test_removing_the_colliding_file_releases_the_refusal(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """The refusal has to end when its cause does, or it is a worse defect.
+
+        The refusal tells the user to rename or remove the file. Nothing acted
+        on their doing it: the name stayed dead for the life of the process, so
+        an installed package the product was never asked to touch was left
+        unusable with no recovery short of restarting the app — in answer to the
+        user doing exactly what they were asked.
+
+        The assertion is on *which* failure the name produces, not on whether it
+        produces one, because this installed module is broken on its own account
+        and still raises once the guard steps aside. That is the correct
+        outcome: the un-shadowed process raises here too, and restoring the
+        un-shadowed answer is all the guard ever claimed to do.
+        """
+        self._refuse_sample_dep(project, installed_dep)
+
+        (project / "types" / "sample_dep.py").unlink()
+        guard_dropin_type_roots(type_scan_dirs(project))
+
+        assert "sample_dep" not in dropins_module._REFUSED_NAMES.reasons
+        assert dropins_module._REFUSED_NAMES not in sys.meta_path, (
+            "with nothing refused the finder must stop answering every import in the process"
+        )
+        message = self._import_error("sample_dep")
+        assert "is rejected" not in message, "the guard must be out of the way"
+        assert "libsample.so" in message, "and the module's own failure is what the user sees"
+
+    def test_the_name_works_again_once_both_the_file_and_the_module_are_fixed(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """The whole point, stated as the user experiences it.
+
+        The user removes the drop-in the report named and repairs the dependency
+        the guard could not import. Nothing about the process is wrong any more,
+        so ``import sample_dep`` must simply work — and before this fix it could
+        not, because the release was never wired to anything.
+        """
+        self._refuse_sample_dep(project, installed_dep)
+
+        (project / "types" / "sample_dep.py").unlink()
+        (installed_dep / "sample_dep.py").write_text('ORIGIN = "installed"\nREPAIRED = True\n', encoding="utf-8")
+        guard_dropin_type_roots(type_scan_dirs(project))
+
+        assert importlib.import_module("sample_dep").ORIGIN == "installed"
+
+    def test_a_still_warranted_refusal_survives_a_rescan(self, home: Path, project: Path, installed_dep: Path) -> None:
+        """Releasing eagerly reopens FR-016, which is the direction that matters.
+
+        The file is still there and the module still cannot be bound, so the
+        drop-in would still take the name the moment the refusal lifted.
+        """
+        self._refuse_sample_dep(project, installed_dep)
+
+        guard_dropin_type_roots(type_scan_dirs(project))
+
+        assert "is rejected" in self._import_error("sample_dep")
+
+    def test_a_pass_does_not_release_a_refusal_warranted_by_a_root_it_was_not_given(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """The bound on the release, and the reason it is per root.
+
+        A pass is handed specific roots and knows the collision set for those
+        alone. Both tiers claim ``sample_dep`` here; removing the project-tier
+        file and rescanning **only the project root** proves nothing about the
+        user-tier file, which is still sitting on a ``sys.path`` entry waiting
+        to claim the name. A release that ignored the difference would lift the
+        refusal on the strength of not having looked.
+        """
+        (home / ".scistudio" / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+        self._refuse_sample_dep(project, installed_dep)
+
+        (project / "types" / "sample_dep.py").unlink()
+        guard_dropin_type_roots([project / "types"])
+
+        assert "is rejected" in self._import_error("sample_dep")
+
+    def test_the_same_name_colliding_in_two_tiers_is_reported_and_warranted_for_both(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """Both tiers must be seen in one pass, or the release is built on sand.
+
+        The refusal used to install its finder the instant it was recorded, in
+        the middle of the very pass that recorded it — so the *second* tier's
+        collision check asked ``find_spec`` about a name this module had just
+        refused, got its own ``ImportError`` back, and read it as "no installed
+        module owns this name". The user-tier file was never reported, and once
+        refusals carry warrants it would also have recorded none, so removing
+        the project-tier file would release a refusal the user-tier file still
+        warrants. Both halves are asserted here because the second is only
+        reachable through the first.
+        """
+        (home / ".scistudio" / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+        self._refuse_sample_dep(project, installed_dep)
+
+        collisions = guard_dropin_type_roots(type_scan_dirs(project))
+
+        assert [collision.path for collision in collisions] == [
+            project / "types" / "sample_dep.py",
+            home / ".scistudio" / "types" / "sample_dep.py",
+        ]
+        assert dropins_module._REFUSED_NAMES.warrants["sample_dep"] == {
+            str((project / "types").resolve()),
+            str((home / ".scistudio" / "types").resolve()),
+        }
+
+    def test_a_root_that_cannot_be_listed_does_not_release_its_refusal(
+        self, home: Path, project: Path, installed_dep: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No listing is no evidence, and no evidence must not read as "gone".
+
+        An empty answer from a directory that could not be read looks exactly
+        like an empty directory, and treating the two alike would release a
+        refusal on an I/O error — failing open on the one path that exists to
+        fail closed.
+        """
+        self._refuse_sample_dep(project, installed_dep)
+        real_iterdir = Path.iterdir
+
+        def _unreadable(self: Path) -> Iterator[Path]:
+            if self == project / "types":
+                raise OSError("directory temporarily unreadable")
+            return real_iterdir(self)
+
+        monkeypatch.setattr(Path, "iterdir", _unreadable)
+        guard_dropin_type_roots(type_scan_dirs(project))
+
+        assert "is rejected" in self._import_error("sample_dep")
 
 
 # ---------------------------------------------------------------------------
