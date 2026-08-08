@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [#2018] SciStudio is now licensed under the **Apache License 2.0** instead of
+  the MIT License. Apache-2.0 keeps the same permissive shape (use, modify,
+  redistribute, commercial use, no copyleft) and adds an explicit patent grant
+  from contributors, a patent-retaliation termination clause, and a requirement
+  that modified files be marked and the license/attribution notices carried
+  forward — the terms scientific institutions and companies most often ask for
+  before adopting a runtime. `LICENSE` now carries the verbatim Apache-2.0 text
+  with the appendix copyright line filled in; `pyproject.toml` declares
+  `Apache-2.0`; both READMEs were updated. The change is **prospective only**:
+  every existing tag, published artifact, and clone taken before this commit
+  keeps its MIT grant permanently, so nothing already released is withdrawn.
+  Two things deliberately did *not* change: the block-package scaffold
+  (`scistudio new-block-package`) still writes `license = {text = "MIT"}`
+  because the package it generates is the user's own code and gets the most
+  permissive default rather than inheriting the runtime's choice, and no
+  `NOTICE` file was added since Apache-2.0 does not require one and there is no
+  third-party attribution to propagate yet.
 - [#1983] Persisted block artifacts are now reclaimed instead of accumulating
   forever. Every block output is written as a full-size store under
   `data/zarr/<workflow_id>/<block_id>/`, and nothing ever removed one: a real

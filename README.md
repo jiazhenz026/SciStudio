@@ -7,7 +7,7 @@
 **For your great science: every data, every tool, one workflow.**
 
 [![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)]()
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![CI](https://github.com/jiazhenz026/SciStudio/actions/workflows/ci.yml/badge.svg)](https://github.com/jiazhenz026/SciStudio/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-online-blue.svg)](https://jiazhenz026.github.io/SciStudio/)
@@ -115,5 +115,5 @@ marks the stability tier of each public symbol.
 
 ## License
 
-SciStudio is released under the MIT License. See [LICENSE](LICENSE) for the full
-text.
+SciStudio is released under the Apache License 2.0. See [LICENSE](LICENSE) for
+the full text.
