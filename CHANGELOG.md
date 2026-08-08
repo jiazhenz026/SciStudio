@@ -105,6 +105,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2040] Provisioned agent hooks now repair themselves when the Python
+  interpreter they were pinned to disappears. Every hook command bakes an
+  absolute interpreter path at provisioning time. That path is correct when it
+  is written, but nothing kept it correct afterwards: uninstalling the desktop
+  app, deleting a virtualenv or upgrading Python left every previously
+  provisioned project running a command whose first word no longer existed.
+  Reopening the project — the obvious remedy — repaired nothing, because the
+  only existing repairs matched the pre-#1994 bare-`python` spelling and the
+  pre-#2011 `$(git rev-parse --show-toplevel)` spelling, while the canonical
+  hook merge appends only hooks that are *absent* and a dead hook is present.
+  The failure was also silent and fails *open*: a hook whose process cannot
+  start exits 127, a non-blocking status, so `protect_data_dir.py`,
+  `protect_workflow_yaml.py` and `deny_scistudio_cli.py` stopped enforcing
+  while the UI showed only a transient warning. Claude Code, both Qoder
+  channels and Codex now re-render any hook command still in the shape
+  SciStudio emits whose interpreter is no longer a real file. A live
+  interpreter is left alone even when it differs from the one provisioning
+  would choose now, so a deliberate choice survives; commands that are not the
+  generated shape are never touched. The fail-open semantics itself — a hook
+  that cannot start should not silently permit the call — remains open as
+  [#2041].
+
+  The same work fixed why the [#2011] Codex repair had not been reaching
+  projects either. It matched two fully spelled-out legacy commands, one of
+  which embedded `sys.executable` — the interpreter of the process running the
+  *repair*, not the one that wrote the file. Those agree only when a project is
+  re-provisioned from the very interpreter that provisioned it, so a project
+  provisioned by the packaged desktop app and reopened from any other install
+  kept its dead hooks. A legacy command is now recognised by its trailing
+  `$(git rev-parse ...)` script argument alone, whatever interpreter precedes
+  it.
+
 - [#2030] The worktree write guard no longer fails open on Windows. The hook
   script prepends `$REPO_ROOT/src` to whatever `PYTHONPATH` it inherits, and
   joined the two with a hardcoded `:`. On Windows the interpreter it invokes

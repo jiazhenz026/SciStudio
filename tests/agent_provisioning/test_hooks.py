@@ -930,3 +930,147 @@ def test_unchanged_scripts_are_not_rewritten(tmp_project_dir: Path) -> None:
     written = write_hooks(tmp_project_dir, force=False)
 
     assert not [path for path in written if path.startswith(".claude/hooks/")]
+
+
+# ---------------------------------------------------------------------------
+# #2040 — a baked interpreter that has since disappeared.
+#
+# hook_interpreter() is correct when it runs: the venv branch checks is_file()
+# and the fallback returns the running sys.executable. Nothing keeps it correct
+# afterwards. Uninstall the desktop app, delete a virtualenv or upgrade Python
+# and every provisioned project holds hook commands whose first word is gone.
+# Neither existing repair reached that state: the legacy upgrade matches only
+# the bare-`python` spelling, and the canonical merge appends only hooks that
+# are absent -- a hook that is present but dead satisfies it.
+# ---------------------------------------------------------------------------
+
+_DEAD_INTERPRETER = "C:/nonexistent-scistudio/resources/python/python.exe"
+
+
+def _settings_with_interpreter(interpreter: str, project_dir_var: str = "CLAUDE_PROJECT_DIR") -> dict:
+    """A generated-shape settings file pinned to *interpreter*."""
+    return {
+        "hooks": {
+            "PreToolUse": [
+                {
+                    "matcher": "Bash",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": (f'"{interpreter}" "${project_dir_var}/.claude/hooks/deny_scistudio_cli.py"'),
+                        }
+                    ],
+                }
+            ],
+            "PostToolUse": [],
+        }
+    }
+
+
+def _first_command(settings_path: Path) -> str:
+    data = json.loads(settings_path.read_text(encoding="utf-8"))
+    return str(data["hooks"]["PreToolUse"][0]["hooks"][0]["command"])
+
+
+def test_dead_interpreter_command_is_repaired(tmp_project_dir: Path) -> None:
+    """A hook pinned to an interpreter that no longer exists is re-rendered."""
+    settings_path = tmp_project_dir / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(_settings_with_interpreter(_DEAD_INTERPRETER)), encoding="utf-8")
+
+    written = write_hooks(tmp_project_dir, force=False)
+
+    assert ".claude/settings.json" in written
+    command = _first_command(settings_path)
+    assert _DEAD_INTERPRETER not in command
+    assert command == f'"{hook_interpreter()}" "$CLAUDE_PROJECT_DIR/.claude/hooks/deny_scistudio_cli.py"'
+
+
+def test_dead_interpreter_command_is_repaired_for_qoder(tmp_project_dir: Path) -> None:
+    """Qoder's own project-scope file is repaired on the same terms.
+
+    Its commands expand ``$QODER_PROJECT_DIR``; a repair that only recognised
+    Claude Code's variable would leave every Qoder tab unguarded.
+    """
+    settings_path = tmp_project_dir / ".qoder" / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(
+        json.dumps(_settings_with_interpreter(_DEAD_INTERPRETER, "QODER_PROJECT_DIR")), encoding="utf-8"
+    )
+
+    written = write_hooks(tmp_project_dir, force=False)
+
+    assert ".qoder/settings.json" in written
+    command = _first_command(settings_path)
+    assert _DEAD_INTERPRETER not in command
+    assert command == f'"{hook_interpreter()}" "$QODER_PROJECT_DIR/.claude/hooks/deny_scistudio_cli.py"'
+
+
+def test_live_interpreter_command_is_left_alone(tmp_project_dir: Path) -> None:
+    """A working interpreter survives, even when it is not the current choice.
+
+    The trigger is death, not difference. A user who deliberately pointed the
+    hooks at their own interpreter keeps it across project opens.
+    """
+    settings_path = tmp_project_dir / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    deliberate = sys.executable
+    settings_path.write_text(json.dumps(_settings_with_interpreter(deliberate)), encoding="utf-8")
+
+    write_hooks(tmp_project_dir, force=False)
+
+    assert _first_command(settings_path) == (
+        f'"{deliberate}" "$CLAUDE_PROJECT_DIR/.claude/hooks/deny_scistudio_cli.py"'
+    )
+
+
+def test_user_authored_command_is_not_repaired(tmp_project_dir: Path) -> None:
+    """Only the shape SciStudio emits is a candidate.
+
+    A user's own wrapper around the same script has its own reasons for the
+    interpreter it names; rewriting it would be SciStudio editing someone
+    else's configuration.
+    """
+    settings_path = tmp_project_dir / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    mine = f'{_DEAD_INTERPRETER} --flag "$CLAUDE_PROJECT_DIR/.claude/hooks/deny_scistudio_cli.py"'
+    settings_path.write_text(
+        json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": mine}]}],
+                    "PostToolUse": [],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    write_hooks(tmp_project_dir, force=False)
+
+    assert _first_command(settings_path) == mine
+
+
+def test_repaired_hook_blocks_again(tmp_project_dir: Path) -> None:
+    """End-to-end: after repair the guard enforces rather than failing open.
+
+    The defect's real cost is not the broken string. A hook that cannot start
+    exits 127, which is a non-blocking status, so the tool call proceeds
+    unguarded. Asserting the repaired command exits 2 is the only check that
+    distinguishes a restored guard from a merely tidier settings file.
+    """
+    write_hooks(tmp_project_dir, force=True)
+    settings_path = tmp_project_dir / ".claude" / "settings.json"
+    settings_path.write_text(json.dumps(_settings_with_interpreter(_DEAD_INTERPRETER)), encoding="utf-8")
+
+    write_hooks(tmp_project_dir, force=False)
+
+    interpreter = _first_command(settings_path).split('" "')[0].lstrip('"')
+    result = subprocess.run(
+        [interpreter, str(_deny_hook(tmp_project_dir))],
+        input=_BLOCKING_PAYLOAD,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 2, f"guard did not block after repair: {result.returncode}\n{result.stderr}"
