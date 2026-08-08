@@ -128,7 +128,20 @@ export interface PromotionPrompts {
 }
 
 export interface PromotionOutcome {
-  status: "promoted" | "cancelled" | "failed";
+  /**
+   * `partial` is a cancel that could not undo itself.
+   *
+   * Dependencies are written before the item (see `promoteToUserLibrary`), so
+   * a user who cancels the collision prompt for the *item* does so after
+   * cascade files have already been added to — or overwritten in — My Library.
+   * Reporting that is the only honest option available: there is no delete
+   * endpoint for the user library, and even with one a dependency write that
+   * took the "Overwrite" branch destroyed the previous file, so a rollback
+   * could not restore what it replaced. Returning `cancelled` instead left
+   * `runPromotion` silent, which is the one outcome FR-020's teaching intent
+   * rules out — the UI would say nothing while the library had changed.
+   */
+  status: "promoted" | "partial" | "cancelled" | "failed";
   item: PromotableItem;
   /** The item's own write, absent when it did not happen. */
   promoted: PromotedFile | null;
@@ -209,6 +222,35 @@ async function writeWithCollisionPrompt(
   }
 }
 
+/**
+ * The outcome of a cancel, which depends on what the cascade already wrote.
+ *
+ * Nothing written yet is a plain `cancelled` — the user's own decision, needing
+ * no confirmation. Anything written is a `partial`, carrying the sentence that
+ * names the files that stayed behind; see {@link PromotionOutcome.status} for
+ * why they stay rather than being rolled back.
+ */
+function cancelledOutcome(
+  item: PromotableItem,
+  promotedDependencies: PromotedFile[],
+): PromotionOutcome {
+  if (promotedDependencies.length === 0) {
+    return emptyOutcome(item, "cancelled");
+  }
+  const one = promotedDependencies.length === 1;
+  const names = promotedDependencies.map((entry) => entry.label).join(", ");
+  return {
+    ...emptyOutcome(item, "partial"),
+    promotedDependencies,
+    warnings: [
+      `"${item.label}" was not promoted, but the data ${one ? "type" : "types"} it depends on ` +
+        `(${names}) had already been copied into My Library and ${one ? "is" : "are"} still ` +
+        `there. Delete ${one ? "it" : "them"} from My Library if you did not mean to keep ` +
+        `${one ? "it" : "them"}.`,
+    ],
+  };
+}
+
 /** FR-023's decline warning, and FR-024's report, as user-facing sentences. */
 function cascadeWarnings(
   item: PromotableItem,
@@ -246,6 +288,11 @@ function cascadeWarnings(
  * or a cancelled collision prompt part-way through leaves the library without
  * the item rather than with an item whose types are missing. The originating
  * project is never written to at any point (FR-017).
+ *
+ * The same ordering is why a cancel is not always a no-op. Stopping after the
+ * cascade has written leaves those files in place, and the outcome says so
+ * (`partial`) rather than reporting a cancellation the library does not
+ * reflect — see {@link PromotionOutcome.status}.
  */
 export async function promoteToUserLibrary(
   item: PromotableItem,
@@ -307,7 +354,7 @@ export async function promoteToUserLibrary(
         nested.content,
       );
       if (!written) {
-        return { ...emptyOutcome(item, "cancelled"), promotedDependencies };
+        return cancelledOutcome(item, promotedDependencies);
       }
       promotedDependencies.push(written);
     }
@@ -322,7 +369,7 @@ export async function promoteToUserLibrary(
       source.content,
     );
     if (!promoted) {
-      return { ...emptyOutcome(item, "cancelled"), promotedDependencies };
+      return cancelledOutcome(item, promotedDependencies);
     }
 
     return {

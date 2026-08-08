@@ -47,6 +47,7 @@ from scistudio.core import dropins as dropins_module
 from scistudio.core.dropins import (
     block_scan_dirs,
     dropin_type_roots_for_block_dirs,
+    guard_dropin_type_roots,
     register_block_scan_dirs,
     register_type_scan_dirs,
     type_scan_dirs,
@@ -172,6 +173,33 @@ class ShadowedType(DataObject):
 '''
 
 
+#: A block whose registered name is the one thing that varies, so two bodies of
+#: identical length can declare two different blocks — the shape a same-second,
+#: same-size edit takes.
+_NAMED_PROBE_BLOCK = """\
+from typing import Any, ClassVar
+
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.config import BlockConfig
+
+
+class NamedProbe(Block):
+    type_name: ClassVar[str] = "test.named_probe"
+    name: ClassVar[str] = "{name}"
+    base_category: ClassVar[str] = "process"
+    subcategory: ClassVar[str] = "test"
+    input_ports: ClassVar = []
+    output_ports: ClassVar = []
+
+    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
+        return {{}}
+"""
+
+
+def _named_probe_block(name: str) -> str:
+    return _NAMED_PROBE_BLOCK.format(name=name)
+
+
 def _shared_type(tier: str) -> str:
     return (
         "from scistudio.core.types.base import DataObject\n"
@@ -199,6 +227,12 @@ def _drop_dropin_modules() -> Iterator[None]:
     yield
     for name in _DROPIN_MODULE_NAMES:
         sys.modules.pop(name, None)
+    # An FR-016 refusal is process-wide by design — it has to outlive the scan
+    # that discovered it — so a test that provokes one must not leave it
+    # standing for the rest of the session.
+    dropins_module._REFUSED_NAMES.reasons.clear()
+    if dropins_module._REFUSED_NAMES in sys.meta_path:
+        sys.meta_path.remove(dropins_module._REFUSED_NAMES)
 
 
 @pytest.fixture
@@ -414,6 +448,35 @@ class TestFailureSurfacing:
         registry.hot_reload()
 
         assert len(registry.dropin_failures()) == 1
+
+    def test_hot_reload_runs_an_edit_made_inside_one_second_at_the_same_size(self, home: Path, project: Path) -> None:
+        """FR-062's other half, on the block side (Codex P1 on PR #2035).
+
+        CPython accepts a cached ``.pyc`` when the source's mtime in whole
+        seconds and its size both match. A block edited within one second to
+        the same length satisfies both, so the reload re-executes the previous
+        class body and the palette keeps offering a block that no longer exists
+        on disk. Verified against the type registry first and reproduced here
+        against a real ``BlockRegistry``.
+        """
+        path = project / "blocks" / "renamed_probe.py"
+        path.write_text(_named_probe_block("alpha_probe"), encoding="utf-8")
+
+        registry = _scanned_registry(project)
+        assert registry.get_spec("alpha_probe") is not None
+
+        before = path.stat()
+        path.write_text(_named_probe_block("betaa_probe"), encoding="utf-8")
+        assert path.stat().st_size == before.st_size, "precondition: the edit keeps the file size"
+        os.utime(path, (before.st_atime, before.st_mtime))
+
+        registry.hot_reload()
+
+        # Only the *new* definition is asserted. ``hot_reload`` drops a tier-1
+        # entry when its file is gone and not when a name inside a surviving
+        # file changes, so ``alpha_probe`` lingering is that separate, unrelated
+        # behaviour — the question here is whether the edited body ran at all.
+        assert registry.get_spec("betaa_probe") is not None, "the reload ran a stale .pyc"
 
     # -- AUDIT-SEC P2-1: a drop-in that exits is a failure, not the end --------
 
@@ -771,6 +834,67 @@ class TestTypeNameCollisionIsRejected:
 
         assert "sample_dep" not in imported
         assert [failure.error_type for failure in registry.dropin_failures()] == ["DropinTypeNameCollision"]
+
+    # -- Codex P1 on PR #2035: the mitigation has to fail closed -------------
+
+    #: An installed module with a perfectly good spec that raises on import —
+    #: the shape a missing native dependency takes.
+    _UNIMPORTABLE_DEP = 'raise ImportError("libsample.so: cannot open shared object file")\n'
+
+    def test_a_collision_whose_module_raises_refuses_the_name(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """FR-016 must not depend on the collided package importing cleanly.
+
+        The guard's mitigation is to bind the installed module so it keeps
+        winning. When that module raises there is nothing to bind, and
+        swallowing the failure left the name free while the caller went on to
+        prepend the types root — so the next ``import sample_dep`` resolved the
+        drop-in file the guard had just refused. The refusal has to be
+        effective, not only announced (§13 OQ-1).
+        """
+        (installed_dep / "sample_dep.py").write_text(self._UNIMPORTABLE_DEP, encoding="utf-8")
+        (project / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+
+        collisions = guard_dropin_type_roots(type_scan_dirs(project))
+        assert [collision.stem for collision in collisions] == ["sample_dep"]
+
+        with prepended_sys_paths(type_scan_dirs(project)), pytest.raises(ImportError) as raised:
+            importlib.import_module("sample_dep")
+
+        assert "sample_dep" not in sys.modules
+        assert "libsample.so" in str(raised.value), "the refusal names the failure it stands in for"
+
+    def test_the_collision_is_still_reported_after_a_refusal(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """A refusal must not make the guard's own question answer "no module".
+
+        The finder lives on ``sys.meta_path``, which is where FR-015's lookup
+        also asks — so a second scan would see the refusal's ``ImportError``,
+        read it as "nothing installed owns this name", and stop reporting the
+        collision it is enforcing.
+        """
+        (installed_dep / "sample_dep.py").write_text(self._UNIMPORTABLE_DEP, encoding="utf-8")
+        (project / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+
+        guard_dropin_type_roots(type_scan_dirs(project))
+        second = guard_dropin_type_roots(type_scan_dirs(project))
+
+        assert [collision.stem for collision in second] == ["sample_dep"]
+
+    def test_the_dropin_does_not_win_the_name_through_the_block_scan(
+        self, home: Path, project: Path, installed_dep: Path
+    ) -> None:
+        """The product surface of the same defect: the palette scan's own path."""
+        (installed_dep / "sample_dep.py").write_text(self._UNIMPORTABLE_DEP, encoding="utf-8")
+        (project / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+        (project / "blocks" / "collision_probe.py").write_text(COLLISION_PROBE_BLOCK, encoding="utf-8")
+
+        registry = _scanned_registry(project)
+
+        assert registry.get_spec("collision_probe_shadowed") is None
+        assert "DropinTypeNameCollision" in {failure.error_type for failure in registry.dropin_failures()}
 
 
 # ---------------------------------------------------------------------------

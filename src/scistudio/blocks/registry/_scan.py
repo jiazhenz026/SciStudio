@@ -38,6 +38,7 @@ from typing import TYPE_CHECKING, Any
 from scistudio.blocks.io.capabilities import FormatCapability
 from scistudio.core.dropins import (
     dropin_import_roots_for_block_dirs,
+    evict_cached_bytecode,
     guard_dropin_type_roots,
 )
 from scistudio.core.types.base import DataObject
@@ -247,6 +248,12 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                 if spec is None or spec.loader is None:
                     continue
                 module = importlib.util.module_from_spec(spec)
+                # A fresh module object is not a fresh *definition*: CPython
+                # validates a cached ``.pyc`` on the source's mtime in whole
+                # seconds plus its size, so a block edited within one second to
+                # the same length would hot-reload into the previous class body.
+                # ADR-053 FR-062 requires a rebuild to run the source on disk.
+                evict_cached_bytecode(py_file)
                 # Issue #1531: wrap exec_module in its own try/except so a
                 # failing or hostile drop-in cannot crash the palette refresh.
                 try:

@@ -109,7 +109,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, overload
 
-from scistudio.core.dropins import guard_dropin_type_roots
+from scistudio.core.dropins import evict_cached_bytecode, guard_dropin_type_roots
 from scistudio.desktop.paths import (
     candidate_package_dirs,
     iter_source_package_module_candidates,
@@ -678,6 +678,13 @@ class TypeRegistry:
         would keep its first definition forever. Clearing first is what makes a
         type edit behave the way a block edit already does.
 
+        Clearing is necessary and not sufficient. The re-scan reloads each file
+        through :meth:`_scan_filesystem_dirs`, which evicts that file's cached
+        bytecode first — otherwise an edit made within one second of the last
+        load, to the same length, is re-executed from the stale ``.pyc`` and
+        this method registers the very definition it just removed, silently.
+        See :func:`scistudio.core.dropins.evict_cached_bytecode`.
+
         Holders of an :class:`~scistudio.api.runtime.ApiRuntime` should call
         ``refresh_all_registries()`` instead: it also rebuilds the block and
         previewer registries, and it can swap in a fresh instance. This method
@@ -821,6 +828,12 @@ class TypeRegistry:
                     # this insert every drop-in type is registerable but
                     # un-loadable (Codex P1 finding on PR #1339).
                     sys.modules[spec.name] = module
+                    # A fresh module object is not a fresh *definition*: the
+                    # loader would still take the class body from a stale
+                    # ``.pyc``. See
+                    # :func:`scistudio.core.dropins.evict_cached_bytecode`
+                    # (Codex P1 on PR #2035).
+                    evict_cached_bytecode(py_file)
                     spec.loader.exec_module(module)
                 except KeyboardInterrupt:
                     # The operator's own signal, not the drop-in's failure.

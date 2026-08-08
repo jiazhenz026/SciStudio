@@ -4,12 +4,19 @@
  * The ADR-045 version-vector contract on FileTab
  * (`baseVersion` / `pendingVersion` / `pendingSourceId`) is preserved
  * verbatim — see `tabSlice.versionVector.test.ts`.
+ *
+ * `useTypeCatalog` reaches back to the assembled store, so importing it here
+ * closes a module loop through `store/index.ts`. It is safe for the reason
+ * that module records: nothing in it touches `useAppStore` while the store is
+ * being assembled — the reference is inside a function this file calls from a
+ * user's save, long afterwards. Do not promote it to module scope.
  */
 import type { StoreApi } from "zustand";
 
 import { ApiError, api, createClientSourceId } from "../../lib/api";
 import type { UserLibraryTarget } from "../../types/api";
 import type { AppStore, FileTab, TabSlice } from "../types";
+import { invalidateTypeCatalog } from "../useTypeCatalog";
 import {
   basename,
   captureActiveTab,
@@ -315,6 +322,11 @@ async function saveUserLibraryTab(
     const response = await api.putUserLibraryFile(target, filename, sentContent, {
       overwrite: true,
     });
+    // The save rebuilt every backend registry (FR-010/FR-062). Editing a
+    // library type is the case the reviewer named: the file on disk changes,
+    // the type registry changes with it, and the cached frontend catalogue
+    // would otherwise keep answering with the version this tab just replaced.
+    invalidateTypeCatalog();
     const after = get();
     const latest = after.tabs.find((t) => t.id === id);
     if (!latest || latest.kind !== "file") return;

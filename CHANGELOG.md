@@ -306,6 +306,115 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#1996] Saving into My Library can no longer destroy a file another process
+  created a moment earlier. ADR-053 FR-008 says an existing file is reported,
+  never silently overwritten, and the endpoint checked for one before writing —
+  then wrote with `os.replace`, which overwrites unconditionally. Anything that
+  created the same library filename between those two steps was gone without a
+  message, even though the request had asked not to overwrite. That window is
+  reachable because of this same release: FR-065 wired the API process and the
+  standalone MCP bridge to share `~/.scistudio`, so two SciStudio processes
+  writing the same name is now an ordinary situation rather than a theoretical
+  one. A create now lands the file with a link, which the filesystem refuses
+  when the name is already taken, so the refusal is decided at the moment of
+  the write and the other writer's file survives; you get the same 409 and the
+  same **Overwrite / Save as new name** prompt you would have got a moment
+  earlier. An explicit `overwrite: true` still replaces, because that request
+  has said so. The file still appears complete or not at all — never
+  half-written — which is what keeps a palette refresh from importing a block
+  mid-save. Found by an external review of PR #2036. Tests:
+  `tests/api/test_user_library_write.py`. (@claude, 2026-08-08, branch:
+  fix/1996-codex-review-findings)
+
+- [#1996] Cancelling a promotion after its data types were already copied now
+  tells you so. **Save to My Library** writes a block's project-local data
+  types before the block itself, so that a failure never leaves a block in your
+  library whose types are missing. If you then hit an overwrite prompt for the
+  block and chose Cancel, those type files stayed in My Library — added, or
+  overwritten — and the app showed nothing at all, because a cancellation is
+  the user's own decision and needs no confirmation. That reasoning is right
+  for a cancellation that changed nothing and wrong for this one. The outcome
+  is now reported as a partial result: the notice reads **Partly saved to My
+  Library**, names the type files that are still there, and says to delete them
+  if you did not mean to keep them. They are reported rather than rolled back
+  because a dependency write that took the Overwrite branch replaced a file
+  that cannot be restored, so undoing would be a second silent change rather
+  than an undo. Found by an external review of PR #2036. Tests:
+  `frontend/src/components/promotion/__tests__/promoteToUserLibrary.test.ts`,
+  `frontend/src/components/promotion/__tests__/runPromotion.test.ts`. (@claude,
+  2026-08-08, branch: fix/1996-codex-review-findings)
+
+- [#2024] The Data types tab and the declared port colours now notice when the
+  types change. The frontend fetched the type listing once and then answered
+  every later question from that copy — for the rest of the session, unless you
+  pressed **Reload** on the tab yourself. Nothing else ever asked it to look
+  again: the websocket event that fires whenever the backend rebuilds its
+  registries refreshed only the *block* palette, and saving a file into your
+  library refreshed nothing at all. So editing a data type, creating one,
+  promoting a block that brought its types along, installing a package, or
+  pressing the palette's Reload left the tab and the canvas showing a registry
+  that no longer existed, with colours to match. Every one of those events now
+  drops the cached listing and re-reads it, and a reload asked for after a
+  write no longer gets folded into a request that was already on the wire
+  before the write landed. Found by an external review of PR #2036. Tests:
+  `frontend/src/store/__tests__/typeCatalogInvalidation.test.ts`. (@claude,
+  2026-08-08, branch: fix/1996-codex-review-findings)
+
+- [#1996] Promoting a block whose code contains a bracket inside a string now
+  still brings its data types along. The cascade detector joins multi-line
+  `import` statements by counting brackets, and it counted the ones inside
+  string literals too — so a single line like `pattern = "("` made every line
+  after it read as one continuation of that statement, and the block's real
+  `from spectrum import Spectrum` was never seen. **Save to My Library** then
+  copied the block without the type it depends on and said nothing, which is
+  exactly the silent outcome the one-level cascade limit is written to avoid:
+  the promoted block fails to load in the next project with no clue why. The
+  parse now removes string literals and comments before it counts anything,
+  including triple-quoted strings, escaped quotes and raw strings, so only real
+  brackets are counted and a `#` inside a string is no longer read as a
+  comment. Found by an external review of PR #2036. Tests:
+  `frontend/src/components/promotion/__tests__/pythonImports.test.ts`.
+  (@claude, 2026-08-08, branch: fix/1996-codex-review-findings)
+
+- [#2022] Reloading blocks and data types now runs the file you just edited.
+  Python caches compiled bytecode next to a source file and decides the cache
+  is still good by comparing the source's timestamp **in whole seconds** and
+  its size. A drop-in edited within a second of the last scan, to the same
+  length — renaming a field, flipping a boolean, changing a colour — matched
+  both, so the reload re-executed the previous version. It failed silently: the
+  type registry was emptied and then refilled with the definition it had just
+  removed, so the palette, the port colours and any experiment run afterwards
+  used code that is no longer on disk, with no error to notice. Both drop-in
+  scans now drop that cache entry before loading, from one shared helper, so an
+  edit is always compiled from source. The block scan is included because the
+  defect is the same defect — it was verified there against a real registry
+  after being found on the type side, and ADR-053's reload requirement is
+  written about registry-invalidating *events*, which cover both. Found by an
+  external review of PR #2035. Tests:
+  `tests/core/test_type_registry_scan_dirs.py`,
+  `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-08, branch:
+  fix/1996-codex-review-findings)
+
+- [#2022] The drop-in type name-collision guard now fails closed when it cannot
+  bind the module a drop-in would shadow. ADR-053 FR-016 refuses a file in
+  `{project}/types/` or `~/.scistudio/types/` whose name would shadow an
+  installed top-level module, and enforces the refusal by importing that module
+  first, so the installed package keeps winning while you rename the file. An
+  installed module can have a perfectly good spec and still raise on import — a
+  missing native dependency is the everyday case — and the guard swallowed that
+  failure. The name was then left unbound while the drop-in `types/` directory
+  joined `sys.path` anyway, so the next import of that name resolved the very
+  file the guard had just refused. FR-016 failed in exactly the situation it
+  exists for, and whether your machine was safe came down to the import health
+  of an unrelated package. Such a name is now refused outright for the life of
+  the process, scoped to the one colliding name so the rest of the drop-in
+  directory keeps working, and with a message naming both the collision and the
+  import failure it stands in for. Raising is also what the un-shadowed process
+  does: without the drop-in on `sys.path`, that import fails too. Found by an
+  external review of PR #2035. Tests:
+  `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-08, branch:
+  fix/1996-codex-review-findings)
+
 - [#2022] The drop-in type name-collision guard now looks at private names too.
   ADR-053 FR-016 refuses a file in `{project}/types/` or `~/.scistudio/types/`
   whose name would shadow an installed top-level module, because those

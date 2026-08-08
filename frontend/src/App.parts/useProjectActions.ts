@@ -17,6 +17,7 @@ import { ApiError, api } from "../lib/api";
 import { chooseSubworkflowFile } from "../lib/chooseSubworkflowFile";
 import { probeProjectFileExistence, probeUserLibraryFileExistence } from "../lib/fileExistence";
 import { useAppStore } from "../store";
+import { invalidateTypeCatalog } from "../store/useTypeCatalog";
 import type { ProjectResponse, UserLibraryTarget, WorkflowResponse } from "../types/api";
 
 function emptyWorkflow(id = "main"): WorkflowResponse {
@@ -396,6 +397,9 @@ async function createDropinFile(kind: DropinFileKind, deps: DropinFileDeps): Pro
     const template = await kind.fetchTemplate();
     if (destination === "library") {
       await api.putUserLibraryFile(kind.target, filename, template.content, { overwrite: false });
+      // FR-010/FR-062: the write rebuilt the backend registries, so the cached
+      // type catalogue no longer describes them.
+      invalidateTypeCatalog();
       openUserLibraryFileTab(kind.target, filename);
     } else {
       await api.putProjectFile(project.id, projectPath, template.content, {

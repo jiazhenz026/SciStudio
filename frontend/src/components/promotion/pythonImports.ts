@@ -20,6 +20,11 @@
 // re-check. The scanner is deliberately conservative: anything it cannot parse
 // is skipped rather than guessed at, and a missed import can only ever cause a
 // dependency to be *reported* as unpromoted rather than silently promoted.
+//
+// "Recognisable without a full grammar" is only true of a source that has lost
+// its string literals first — a `(` inside a string is not a bracket, and a
+// scanner that counts it as one stops finding imports altogether. See
+// `withoutLiteralsAndComments`.
 
 /** One parsed import statement. */
 export interface ParsedImport {
@@ -37,39 +42,81 @@ export interface ParsedImport {
 }
 
 /**
- * Replace triple-quoted blocks with equivalent blank lines.
+ * Remove every string literal and every comment, keeping the line structure.
  *
- * Docstrings routinely contain example code (`from spectrum import Spectrum`
- * in a block's own docstring is the obvious case), and counting those as real
+ * One pass, because the three things it removes can only be told apart by
+ * reading the file in order. A `#` inside a literal is not a comment, a quote
+ * inside a comment does not open a literal, and — the case this scanner exists
+ * for — a bracket inside a literal is not a bracket:
+ *
+ * ```python
+ * pattern = "("
+ * from spectrum import Spectrum
+ * ```
+ *
+ * A delimiter counter that does not know about literals reads that `(` as an
+ * open bracket, joins every following line into one logical line, and the
+ * import regexes — anchored at the start of a statement — then match nothing.
+ * The consequence is precisely what FR-024 forbids: cascade promotion copies
+ * the block **without** its project-local type, silently, and the promoted
+ * block fails in every other project with no warning anywhere. Removing
+ * literals before counting is what makes that impossible rather than unlikely.
+ *
+ * Docstrings are removed by the same pass, for the reason they always were:
+ * they routinely contain example code (`from spectrum import Spectrum` in a
+ * block's own docstring is the obvious case) and counting those as real
  * imports would offer a cascade for a dependency the file does not have.
- * Newlines are preserved so nothing downstream has to care that text was
- * removed.
+ * Newlines inside a triple-quoted literal are preserved so the statements
+ * around it stay separate lines; a single-quoted literal can only contain a
+ * newline as a backslash continuation, which genuinely continues the logical
+ * line, so those are dropped with the rest of it.
+ *
+ * A backslash escapes the next character in every literal, raw ones included:
+ * `r"\""` does not terminate at the middle quote even though the backslash
+ * survives into the value, so no prefix handling is needed to get termination
+ * right. The one form this does not model is a 3.12+ f-string reusing its own
+ * quote character inside a replacement field; consistent with the rest of this
+ * module, the mis-parse can only lose an import and never invent one.
  */
-function stripTripleQuoted(source: string): string {
+function withoutLiteralsAndComments(source: string): string {
   let out = "";
   let index = 0;
   while (index < source.length) {
-    const remaining = source.slice(index);
-    const match = /^(?:'''|""")/.exec(remaining);
-    if (!match) {
-      out += source[index];
+    const char = source[index];
+    if (char === "#") {
+      const newline = source.indexOf("\n", index);
+      index = newline === -1 ? source.length : newline;
+      continue;
+    }
+    if (char !== "'" && char !== '"') {
+      out += char;
       index += 1;
       continue;
     }
-    const delimiter = match[0];
-    const closing = source.indexOf(delimiter, index + delimiter.length);
-    const end = closing === -1 ? source.length : closing + delimiter.length;
-    const swallowed = source.slice(index, end);
-    out += swallowed.replace(/[^\n]/g, "");
-    index = end;
+    const triple = source.slice(index, index + 3);
+    const delimiter = triple === "'''" || triple === '"""' ? triple : char;
+    let cursor = index + delimiter.length;
+    while (cursor < source.length) {
+      if (source[cursor] === "\\") {
+        cursor += 2;
+        continue;
+      }
+      // An unterminated single-quoted literal ends at the newline rather than
+      // swallowing the rest of the file — a syntax error must not decide what
+      // the parse above it sees.
+      if (source[cursor] === "\n" && delimiter.length === 1) break;
+      if (source.startsWith(delimiter, cursor)) {
+        cursor += delimiter.length;
+        break;
+      }
+      cursor += 1;
+    }
+    if (delimiter.length === 3) {
+      out += source.slice(index, cursor).replace(/[^\n]/g, "");
+    }
+    index = cursor;
   }
   return out;
-}
-
-/** Drop a trailing `#` comment from one logical line. */
-function stripComment(line: string): string {
-  const hash = line.indexOf("#");
-  return hash === -1 ? line : line.slice(0, hash);
 }
 
 /**
@@ -77,10 +124,11 @@ function stripComment(line: string): string {
  *
  * `from spectrum import (\n    Spectrum,\n    Trace,\n)` is one statement, and
  * a line-at-a-time reader would see three fragments and understand none of
- * them.
+ * them. The delimiters are counted on a source that has already lost its
+ * literals and comments, so only real brackets are counted.
  */
 function logicalLines(source: string): string[] {
-  const lines = stripTripleQuoted(source).split(/\r?\n/).map(stripComment);
+  const lines = withoutLiteralsAndComments(source).split(/\r?\n/);
   const out: string[] = [];
   let buffer = "";
   let depth = 0;

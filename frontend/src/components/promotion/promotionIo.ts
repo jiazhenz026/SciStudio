@@ -10,7 +10,7 @@
 
 import { ApiError, api } from "../../lib/api";
 import { useAppStore } from "../../store";
-import { loadTypeCatalog } from "../../store/useTypeCatalog";
+import { invalidateTypeCatalog, loadTypeCatalog } from "../../store/useTypeCatalog";
 import type { TypeSummary, UserLibraryTarget } from "../../types/api";
 
 import type { PromotionIo, PromotionSource } from "./promoteToUserLibrary";
@@ -73,6 +73,12 @@ export function createPromotionIo(projectId: string | null): PromotionIo {
       const response = await api.putUserLibraryFile(target, filename, content, {
         overwrite: options.overwrite,
       });
+      // The write rebuilt every backend registry (FR-010/FR-062), so the
+      // cached type catalogue is stale from here on — including when a cascade
+      // wrote a type and the promotion is later abandoned, which reveals
+      // nothing and would otherwise leave the new type invisible until a
+      // manual reload.
+      invalidateTypeCatalog();
       return { path: response.path, kind: response.kind };
     },
     // FR-008: the endpoint reports an existing file as a 409 rather than

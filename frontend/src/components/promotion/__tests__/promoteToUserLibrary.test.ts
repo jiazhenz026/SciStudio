@@ -291,6 +291,60 @@ describe("FR-021 – FR-024 — cascade", () => {
     // The block never landed — a half-cascade is not a promotion.
     expect(writes).toEqual([]);
   });
+
+  // Reported by an external review of PR #2036: a cancel after the cascade has
+  // written is not a cancellation of anything the user can see. `runPromotion`
+  // shows no notice for `cancelled`, so the UI looked like nothing had
+  // happened while files had in fact been added to My Library.
+  it("reports a partial result when the item is cancelled after a dependency landed", async () => {
+    const { io, writes } = makeIo({
+      sources,
+      catalogue,
+      existing: new Set(["blocks/normalize.py"]),
+    });
+    const outcome = await promoteToUserLibrary(blockItem(), {
+      io,
+      prompts: makePrompts({
+        resolveCollision: vi.fn(async (): Promise<CollisionAnswer> => ({ action: "cancel" })),
+      }),
+    });
+
+    expect(writes.map((entry) => `${entry.target}/${entry.filename}`)).toEqual([
+      "types/spectrum.py",
+    ]);
+    expect(outcome.status).toBe("partial");
+    expect(outcome.promoted).toBeNull();
+    expect(outcome.promotedDependencies.map((entry) => entry.label)).toEqual(["Spectrum"]);
+    expect(outcome.warnings.join(" ")).toContain("Spectrum");
+    expect(outcome.warnings.join(" ")).toContain("still there");
+  });
+
+  it("reports a partial result when a later dependency's prompt is cancelled", async () => {
+    const { io, writes } = makeIo({
+      sources: {
+        "block:normalize": {
+          filename: "normalize.py",
+          content: "from spectrum import Spectrum\nfrom trace import Trace\n",
+        },
+        "types/spectrum.py": { filename: "spectrum.py", content: "" },
+        "types/trace.py": { filename: "trace.py", content: "" },
+      },
+      catalogue,
+      existing: new Set(["types/trace.py"]),
+    });
+    const outcome = await promoteToUserLibrary(blockItem(), {
+      io,
+      prompts: makePrompts({
+        resolveCollision: vi.fn(async (): Promise<CollisionAnswer> => ({ action: "cancel" })),
+      }),
+    });
+
+    expect(writes.map((entry) => `${entry.target}/${entry.filename}`)).toEqual([
+      "types/spectrum.py",
+    ]);
+    expect(outcome.status).toBe("partial");
+    expect(outcome.promotedDependencies.map((entry) => entry.label)).toEqual(["Spectrum"]);
+  });
 });
 
 describe("cancellation and failure", () => {
