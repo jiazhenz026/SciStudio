@@ -12,7 +12,8 @@ from pathlib import Path
 import pytest
 
 from scistudio.ai.agent import providers_registry
-from scistudio.ai.agent.providers_registry import agent_keys
+from scistudio.ai.agent.availability import session_unsupported_reason
+from scistudio.ai.agent.providers_registry import agent_descriptors, agent_keys
 from scistudio.blocks.ai.ai_block import (
     REUSE_LAST_OUTPUT_KEY,
     AIBlock,
@@ -495,27 +496,58 @@ def test_output_path_overrides_extracts_correctly() -> None:
 
 
 # ---------------------------------------------------------------------------
-# T-009 / FR-015 — registry-derived provider enum
+# T-009 / FR-015 — registry-derived, capability-filtered provider enum
 # ---------------------------------------------------------------------------
 
 
+def _capable_agent_keys() -> list[str]:
+    """Registry agent keys that can carry an AI Block task, in order."""
+    return [d.key for d in agent_descriptors() if session_unsupported_reason(d) is None]
+
+
 def test_config_schema_provider_enum_is_registry_derived() -> None:
-    """FR-015: the enum is exactly the registry's agent keys, in order.
+    """FR-015 + #2014: the enum is exactly the registry's AI-Block-capable
+    agent keys, in order.
 
     Equality rather than containment: a hand-maintained literal that
-    happened to include the registry keys plus a stale extra would pass a
+    happened to include the capable keys plus a stale extra would pass a
     containment check, and User Story 7 requires that adding a sixth
-    provider needs no edit here.
+    provider needs no edit here. #2014 narrowed the derivation from every
+    agent key to the capability-filtered set, so a chat-only provider can
+    never leak into the enum.
     """
     enum = AIBlock.config_schema["properties"]["provider"]["enum"]
-    assert enum == list(agent_keys())
+    assert enum == _capable_agent_keys()
 
 
-def test_config_schema_provider_enum_lists_all_five_agents() -> None:
-    """The three added providers are selectable on the block, not just in chat."""
+def test_config_schema_provider_enum_lists_only_capable_agents() -> None:
+    """The prompt-capable providers are selectable on the block; #2014:
+    ``kimi-code`` is chat-only and must not appear."""
     enum = AIBlock.config_schema["properties"]["provider"]["enum"]
-    assert set(enum) == {"claude-code", "codex", "kimi-code", "qoder", "qoder-cn"}
+    assert set(enum) == {"claude-code", "codex", "qoder", "qoder-cn"}
+    assert "kimi-code" not in enum
     assert "user-terminal" not in enum
+
+
+def test_config_schema_enum_never_advertises_a_provider_validation_rejects(
+    _provider_installed: None,
+) -> None:
+    """#2014 regression: the schema enum and ``validate_config`` agree.
+
+    The bug was a one-way disagreement — the enum advertised ``kimi-code``
+    while validation refused it — so pin both directions: every enum member
+    validates, and every registry agent *absent* from the enum is refused
+    with the chat-only explanation rather than spawned into a PTY that
+    exits 1.
+    """
+    enum = AIBlock.config_schema["properties"]["provider"]["enum"]
+    for provider in enum:
+        AIBlock().validate_config(_config(provider=provider, user_prompt="hi"))
+    for descriptor in agent_descriptors():
+        if descriptor.key in enum:
+            continue
+        with pytest.raises(ValueError, match="cannot run as an AI Block"):
+            AIBlock().validate_config(_config(provider=descriptor.key, user_prompt="hi"))
 
 
 def test_config_schema_provider_default_is_still_claude_code() -> None:

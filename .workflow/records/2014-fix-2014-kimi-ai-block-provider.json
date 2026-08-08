@@ -1,0 +1,486 @@
+{
+  "branch": "fix/2014-kimi-ai-block-provider",
+  "check_events": [
+    {
+      "at": "2026-08-08T07:54:35.417829Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-08T07:54:44.775053Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-08T07:54:44.814803Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-08T07:42:36.484362Z",
+      "owner_directive": "\u65b9\u6848\uff1aAI Block provider enum \u6539\u4e3a\u6309\u80fd\u529b\u8fc7\u6ee4\u2014\u2014\u7528 availability.session_unsupported_reason \u6392\u9664\u65e0\u4f4d\u7f6e\u63d0\u793a\u8bcd\u53c2\u6570\u7684 provider\uff08kimi-code\uff09\uff1bvalidate_config \u4fdd\u7559\u5168\u90e8 agent key \u7684\u8bc6\u522b\u4e0e\u53cb\u597d\u62a5\u9519\u3002\u540c\u6b65\u6ce8\u91ca\u3001SKILL.md\u3001adr-034 spec \u52d8\u8bef\u6bb5\u3001\u56de\u5f52\u6d4b\u8bd5\u3002",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-08-08T07:45:52.273731Z",
+      "owner_directive": "\u4eca\u5929\u4fee\u4e00\u4e2abug\uff1akimi\u5185\u90e8agent\u62a5\u544a\u5b89\u5168hook\u4e0d\u751f\u6548\u3002\u8c03\u67e5\u786e\u8ba4 Kimi Code 0.33.0 \u6709\u5b8c\u6574 hook \u7cfb\u7edf\uff08\u5951\u7ea6\u4e0e Claude Code \u4e00\u81f4\uff09\uff0c\u4f46\u53ea\u652f\u6301\u7528\u6237\u7ea7 <KIMI_CODE_HOME>/config.toml\uff0c\u6ca1\u6709\u9879\u76ee\u7ea7\u58f0\u660e\u4f4d\u7f6e\u3002Owner \u51b3\u5b9a\uff1a\u4e0d\u5199\u7528\u6237\u5168\u5c40\u914d\u7f6e\uff0c\u53ea\u628a spec \u91cc 'no hook system' \u7684\u9519\u8bef\u8bb0\u8f7d\u6539\u5bf9\uff0c\u5e76\u5728 AI Chat \u7684 Kimi \u4e0b\u52a0\u4e00\u6761\u50cf Codex trust \u63d0\u9192\u90a3\u6837\u7684\u63d0\u793a\uff0c\u544a\u8bc9\u7528\u6237 hook \u53ea\u80fd\u5168\u5c40\u751f\u6548\u3001\u53ef\u4ee5\u624b\u52a8\u914d\u7f6e\u6216\u8ba9 kimi \u81ea\u5df1\u5e2e\u5fd9\u914d\u7f6e\u3002",
+      "reason": "owner switched this branch to an owner-directed guided session and widened it to also fix the Kimi hook-coverage bug (#2045); the original bugfix ledger also omitted the protected-core authorization its own diff needs"
+    },
+    {
+      "at": "2026-08-08T07:46:05.274948Z",
+      "owner_directive": "\u63d0\u793a\u673a\u5236\uff1a\u524d\u7aef\u518d\u5199\u4e00\u4e2a\u786c\u7f16\u7801\u5206\u652f\uff08\u7167\u642c Codex trust \u63d0\u793a\u7684\u5199\u6cd5\uff09\uff0c\u5e76\u628a\u67b6\u6784\u6d4b\u8bd5 _FRONTEND_KEY_ALLOWLIST \u4ece 1 \u6761\u6269\u5230 2 \u6761\u3002#2014 \u4e00\u8d77\u505a\uff0cowner \u4f1a\u7ed9 PR \u6253 admin-approved:core-change label\u3002",
+      "reason": "owner chose the placement mechanism for the Kimi notice and confirmed the two-issue PR scope"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-08T07:42:36.484406Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-034-multi-provider-agent-chat.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T07:42:36.484412Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T07:42:36.484423Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs/user \u65e0 AI Block provider \u76f8\u5173\u9875\u9762\uff08\u5df2\u68c0\u7d22\u786e\u8ba4\uff09\uff0c\u65e0\u7528\u6237\u6587\u6863\u53ef\u66f4\u65b0",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T07:46:05.274981Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-034-multi-provider-agent-chat.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T07:54:17.184212Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/ai-assistant.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T07:54:17.184216Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/agent-provisioning.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-08-08T07:54:44.857251Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:54:44.872422Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:54:44.886578Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:54:44.900073Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:54:44.913651Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:54:44.927294Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:54:44.940857Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:54:44.954876Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:54:44.968407Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:54:44.981236Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:55:00.275591Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:55:00.288452Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:55:00.301457Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:55:00.314424Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:55:00.327165Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:55:00.340953Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:55:00.354398Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:55:00.368409Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:55:00.382303Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:55:00.396379Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2014,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2045,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "1844cc43",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "2c916133",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "\u4fee\u590d issue #2014\uff1aAI Block provider enum \u4e0d\u5e94\u66b4\u9732\u65e0\u6cd5\u8fd0\u884c AI Block \u4efb\u52a1\u7684 kimi-code\uff1b\u6309 issue \u65b9\u6848 1 \u7528\u5171\u4eab\u80fd\u529b\u5224\u5b9a\u6d3e\u751f enum\uff0c\u6700\u540e\u63d0\u4ea4 PR",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-08-08T07:54:44.981289Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-08T07:55:00.396434Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2014-fix-2014-kimi-ai-block-provider",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "agents:kimi-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:42:36.484382Z",
+      "pattern": "src/scistudio/blocks/ai/ai_block.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:42:36.484390Z",
+      "pattern": "src/scistudio/ai/agent/availability.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:42:36.484392Z",
+      "pattern": "src/scistudio/api/routes/ai_pty/_state.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:42:36.484394Z",
+      "pattern": "src/scistudio/ai/agent/providers_registry.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:42:36.484395Z",
+      "pattern": "src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:42:36.484397Z",
+      "pattern": "tests/blocks/ai/test_ai_block_skeleton.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:42:36.484398Z",
+      "pattern": "tests/api/test_provider_registry_extensibility.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:42:36.484400Z",
+      "pattern": "docs/specs/adr-034-multi-provider-agent-chat.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:46:05.274966Z",
+      "pattern": "frontend/src/components/AIChat/SetupScreen.tsx",
+      "reason": "owner chose the placement mechanism for the Kimi notice and confirmed the two-issue PR scope"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:46:05.274972Z",
+      "pattern": "frontend/src/components/AIChat/__tests__/**",
+      "reason": "owner chose the placement mechanism for the Kimi notice and confirmed the two-issue PR scope"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:46:05.274974Z",
+      "pattern": "tests/architecture/test_adr_034_provider_single_source.py",
+      "reason": "owner chose the placement mechanism for the Kimi notice and confirmed the two-issue PR scope"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:46:05.274975Z",
+      "pattern": "docs/specs/adr-034-multi-provider-agent-chat.md",
+      "reason": "owner chose the placement mechanism for the Kimi notice and confirmed the two-issue PR scope"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:54:17.184171Z",
+      "pattern": "src/scistudio/_user_guide/ai-assistant.md",
+      "reason": "record the docs and test surfaces the Kimi hook work actually landed on"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:54:17.184199Z",
+      "pattern": "docs/agent-provisioning.md",
+      "reason": "record the docs and test surfaces the Kimi hook work actually landed on"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:54:17.184204Z",
+      "pattern": "tests/agent_provisioning/test_hooks.py",
+      "reason": "record the docs and test surfaces the Kimi hook work actually landed on"
+    }
+  ],
+  "session_id": "724dc80e-a55d-46c2-86a7-8a599c0986eb",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-08-08T07:42:36.484427Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/ai/test_ai_block_skeleton.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T07:42:36.484431Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_provider_registry_extensibility.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T07:46:05.274986Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/architecture/test_adr_034_provider_single_source.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T07:54:17.184220Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_hooks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T07:54:17.184223Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/SetupScreen.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T07:54:17.184224Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/ProviderExtensibility.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

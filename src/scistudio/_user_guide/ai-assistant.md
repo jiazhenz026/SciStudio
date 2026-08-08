@@ -20,6 +20,10 @@ to. Five are supported:
 | **Qoder CLI** | Qoder (international) | yes | yes |
 | **Qoder CLI (China)** | Qoder (China) | yes | yes |
 
+Kimi Code has one further difference worth knowing before you pick it: SciStudio's
+safety hooks cannot be installed into a Kimi Code chat. See
+[Kimi Code chats run without SciStudio's hooks](#kimi-code-chats-run-without-scistudios-hooks).
+
 You only need **one** to get going, but you can install several and choose per
 chat or per AI Agent block. Install whichever you have an account for:
 
@@ -102,6 +106,30 @@ Until you answer, SciStudio's hooks are inactive — that is what option 3's
 "hooks won't run" means. If you picked option 3 and later wonder why the
 protections seem silent, that is the cause; the prompt returns when the hook
 configuration next changes.
+
+### Kimi Code chats run without SciStudio's hooks
+
+The hooks described just above are installed **into your project**, and every
+provider except Kimi Code picks them up from there. Kimi Code reads hooks only
+from its own settings file in your home directory, so there is nowhere in the
+project for SciStudio to put them. A Kimi Code chat therefore runs without
+them: the guard that stops accidental edits to your `data/` folder and your
+workflow files is simply not active in that tab.
+
+SciStudio does not edit that file for you. It is your personal settings file,
+shared by every project you open with Kimi Code, and changing it on your behalf
+would reach far outside the project you are working in.
+
+You can add the hooks yourself if you want them. The easiest way is to ask Kimi
+in the chat itself — something like *"add the hook scripts in this project's
+`.claude/hooks/` folder to my Kimi config as PreToolUse and PostToolUse hooks"* —
+since it can read the scripts and edit its own configuration. The scripts work
+with Kimi Code as-is; nothing needs to be rewritten. Remember that hooks added
+this way apply to **every** Kimi Code session on your computer, not only this
+project.
+
+Everything else — the SciStudio tools, the skills, and the project knowledge the
+assistant works from — is unaffected and works normally in a Kimi Code chat.
 
 ## The chat assistant
 

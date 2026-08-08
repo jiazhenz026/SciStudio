@@ -21,7 +21,7 @@ scope:
     - Add per-provider MCP injection strategies so the existing provider-agnostic MCP payload reaches every CLI.
     - Replace `AIBlock._build_spawn_argv` with an explicit `provider` field on the worker to engine PTY tab request.
     - Extend `GET /api/ai/status` and the PTY WebSocket provider whitelist to the full registry-derived provider set.
-    - Extend the AI Block `provider` config enum to the full agent provider set.
+    - Extend the AI Block `provider` config enum to the full agent provider set. AMENDED 2026-08-08 by #2014 - the enum covers the capability-filtered agent set (providers that can carry a positional prompt), so chat-only `kimi-code` is not advertised; see the corrections section.
     - Replace the SetupScreen provider radio list with a registry-driven dropdown that lists every supported agent and enables only the installed ones.
     - Add a zero-install guidance state that tells the user to install an agent CLI when none is detected.
     - Reword the permission-mode picker to plain user language with no CLI flag names.
@@ -276,6 +276,18 @@ meaningless because there is no session in which to approve anything. Adopting
 it would change what an AI Block *is* for one provider, which is an owner
 decision and not one to take silently inside a bug fix.
 
+**The AI Block enum no longer advertises Kimi Code (#2014).** The correction
+above made the AI Block *refuse* Kimi Code at config time, but the schema's
+`provider` enum was still derived from every registry agent key, so the block
+editor offered a choice the validator was guaranteed to reject. The enum is
+now derived from the capability-filtered agent set — the same
+`session_unsupported_reason` check the work-import surface uses — so the
+schema, the UI, and runtime validation cannot disagree. User Story 2's first
+acceptance scenario and Success Criterion 2 are amended accordingly: the AI
+Block provider set is "every agent CLI that can carry a positional prompt",
+which today means all five registry agents except `kimi-code`. Kimi Code
+remains a fully supported chat-tab provider.
+
 **A batch-launcher install truncates the AI Block prompt.** Codex installs from
 npm as `codex.cmd` with no `codex.exe` on PATH — the real binary sits under a
 hashed `node_modules` path — so `CreateProcess` runs it through `cmd.exe`, whose
@@ -293,10 +305,16 @@ separate per-CLI mechanism the tables never covered:
 
 | Fact | `claude-code` | `codex` | `kimi-code` | `qoder` / `qoder-cn` |
 |---|---|---|---|---|
-| Hook config location | `<project>/.claude/settings.json` | `<project>/.codex/config.toml` | **no hook system** | `<project>/.qoder/settings.json` |
-| Project-dir variable | `$CLAUDE_PROJECT_DIR` | `$(git rev-parse --show-toplevel)` | n/a | `$QODER_PROJECT_DIR` |
-| Provisioned before #1994 | yes | yes | n/a | **no** |
-| Extra gate | none | **trust review (answered in PTY) + POSIX-only command, now fixed** | n/a | none |
+| Hook config location | `<project>/.claude/settings.json` | `<project>/.codex/config.toml` | `<KIMI_CODE_HOME>/config.toml` — **user scope only**, corrected by #2045 | `<project>/.qoder/settings.json` |
+| Project-dir variable | `$CLAUDE_PROJECT_DIR` | `$(git rev-parse --show-toplevel)` | none — hooks run with the session cwd | `$QODER_PROJECT_DIR` |
+| Provisioned before #1994 | yes | yes | no | **no** |
+| Provisioned after #2045 | yes | yes | **no — deliberately, see below** | yes |
+| Extra gate | none | **trust review (answered in PTY) + POSIX-only command, now fixed** | none | none |
+
+The `kimi-code` column of this table originally read **"no hook system"** in
+every row. That was wrong when it was written, and #2045 corrects it; the
+paragraph below records what is actually true and why the conclusion — SciStudio
+does not provision Kimi hooks — nonetheless stands.
 
 Qoder's location and format were established by running
 `qoderclicn hooks migrate --from-claude` at 1.1.15 against a SciStudio-
@@ -388,6 +406,78 @@ Bash call, with the agent relaying SciStudio's own hook text. Claude Code is
 only a POSIX shell executes, so its hooks depend on Git Bash being present on
 Windows. That is a latent exposure for a Windows user without Git for Windows,
 recorded here rather than fixed because no such failure has been observed.
+
+**Kimi Code does have a hook system, and SciStudio still does not provision it
+(#2045).** The table above originally wrote Kimi off with *no hook system*, and
+every downstream row followed with `n/a`. A Kimi agent working inside a
+provisioned SciStudio project reported the consequence: it wrote
+`workflows/hook-test.yaml`, edited `workflows/main.yaml`, wrote into `data/`
+through Bash, and called `scaffold_block` without a prior `list_blocks` — four
+operations every other provider blocks — and nothing stopped any of them. It
+then attributed that to Kimi lacking hooks, which is the same wrong conclusion
+the table had already recorded.
+
+Reading the shipped 0.33.0 binary — the same build the rest of §1's provider
+table was verified against — shows the opposite. Kimi implements sixteen hook
+events including `PreToolUse` and `PostToolUse`; a blocking `PreToolUse` result
+is converted into a `deny` permission decision, so it genuinely gates tool
+calls; the runner spawns the command through a shell, writes the payload to
+stdin as JSON, and **treats exit code 2 as a block with stderr as the reason**;
+payload keys are emitted snake_case (`tool_name`, `tool_input`, `cwd`,
+`session_id`); and `matcher` is a regular expression tested against the tool
+name, so `Edit|Write|MultiEdit` is already a valid matcher. That is SciStudio's
+existing hook contract in every particular. **The seven scripts would run
+unmodified.**
+
+The reading is confirmed against the running binary, and the check is cheap to
+repeat. Point `KIMI_CODE_HOME` at a scratch directory holding a `config.toml`
+with SciStudio's hook entries and run `kimi doctor`: it reports `OK config.toml`.
+Add one bogus key to the same entry and it fails with
+`hooks[0]: Unrecognized key: "notARealField"` — so the `hooks` section is parsed
+and schema-checked rather than tolerated and ignored, and the snake_case TOML
+spelling is what the strict schema expects.
+
+The real obstacle is one row down: *where* a hook may be declared. Kimi reads
+hooks from a `[[hooks]]` array of `{event, matcher?, command, timeout?}` in
+`<KIMI_CODE_HOME>/config.toml`, and from plugins registered in
+`<KIMI_CODE_HOME>/plugins/installed.json`. Both are user scope. A project-scope
+file does exist — `<project>/.kimi-code/local.toml` — but its schema is a strict
+`{workspace: {additional_dir: [string]}}` and rejects anything else. The only
+knob that redirects the config is `KIMI_CODE_HOME`, which relocates
+credentials, sessions, and provider settings along with it. Confirmed the same
+way: with the cwd set to a project holding a `.kimi-code/config.toml`,
+`kimi doctor` still resolves its config from `KIMI_CODE_HOME` alone and reports
+the project file's location as *does not exist*. So the move that
+covers the other four CLIs — drop one file into the project — has no Kimi
+analogue, and the only mechanism that would work is writing the user's global
+configuration.
+
+**Decision: disclose the gap rather than write a user-scope config.** Three
+routes were considered. Merging entries into `<KIMI_CODE_HOME>/config.toml`
+works — Kimi runs hooks with the session cwd, so a cwd-relative command would
+bite only inside a provisioned project — but it makes SciStudio the first thing
+in this codebase to edit a user's global CLI configuration, and every entry
+fires in every unrelated project that user opens, failing to spawn seven times
+per tool call. Registering absolute per-project paths in that same global file
+is worse: Kimi matches on tool name, not on cwd, so project A's hook scripts
+would receive project B's payloads unless each script grew a project-root
+guard. A per-project `KIMI_CODE_HOME` would take the user's login with it.
+
+What ships instead is the truth, in the two places a reader can act on it: this
+table, and a note in the AI Chat setup screen shown when Kimi Code is selected.
+The note says the safety hooks do not apply to that tab, that the user can add
+them by hand — or ask Kimi in that very tab to do it — and that doing so takes
+effect for every Kimi session on the machine rather than this project alone.
+That note is the second and, by intent, last entry in the frontend
+provider-literal allowlist in
+`tests/architecture/test_adr_034_provider_single_source.py`; a third would mean
+the notice text belongs in the registry and the allowlist should empty out.
+
+This changes no success criterion. Kimi Code remains a fully supported chat
+provider; what changes is that its one unguarded surface is now stated rather
+than mislabelled, and revisiting is cheap — if Kimi Code gains a project-scope
+hook file, provisioning it is a `write_hooks` addition and nothing else, because
+the scripts and matchers already fit.
 
 **With the command line fixed, Codex invoked the hooks — and all three exited
 1.** Two further causes, and the first is not the one the error text suggests.
@@ -627,7 +717,9 @@ Acceptance Scenarios:
 
 - Given an AI Block configured with `provider: kimi-code`, when the block runs,
   then the engine receives `provider="kimi-code"` on the tab request and spawns
-  the Kimi factory.
+  the Kimi factory. AMENDED by #1994 and #2014 - Kimi Code has no positional
+  prompt argument, so it is refused at config time with that explanation and is
+  not advertised in the `provider` enum at all; see the corrections section.
 - Given an AI Block run completes, when the run directory is inspected, then
   `<project>/.scistudio/.tmp/` contains no orphaned system-prompt file.
 - Given a provider binary is absent, when `validate_config` runs, then the error
@@ -1428,8 +1520,9 @@ say so, because the change reads as a stylistic regression and will otherwise be
 
 - All five agent providers launch a chat tab and reach a working SciStudio MCP
   tool call in the manual smoke launch.
-- All five agent providers are selectable as an AI Block provider and complete a
-  block run.
+- Every AI-Block-capable agent provider — all registry agents except chat-only
+  `kimi-code` (#1994, #2014) — is selectable as an AI Block provider and
+  completes a block run.
 - Kimi Code and both Qoder channels are discovered when installed only in their
   well-known directories and absent from PATH.
 - Both Qoder channels are independently selectable when both are installed, and
