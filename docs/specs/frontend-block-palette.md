@@ -383,14 +383,14 @@ The left panel gains a third tab, **Data types**, between Blocks and Project
 (ADR-053 FR-039). The label is `Data types` rather than `Types`, which is too
 abstract standing alone next to `Blocks`; the internal `leftTab` key stays
 `types`. `frontend/src/components/TypePalette.tsx` is the pane, with its
-`TypePalette.parts/` model, tile, and popover siblings.
+`TypePalette.parts/` model, row, and popover siblings.
 
 ### 11.1 It Mirrors The Blocks Tab, Reusing Its Machinery
 
 The tab reuses §4.3's shared skeleton rather than restating it: `filterItems`
-and `buildSections<T>` build the sections, `PaletteTile` is the grid cell,
-`FilterChips` is the chip row, `useHoverPopover` is the hover state machine,
-and `DetailPopover` is the card. The type side supplies only its four
+and `buildSections<T>` build the sections, `FilterChips` is the chip row,
+`useHoverPopover` is the hover state machine, and `DetailPopover` is the
+card. The one thing not reused is the cell — see §11.2. The type side supplies only its four
 callbacks — group, sort, haystack, facet — which is ADR-053 FR-047's claim that
 one skeleton fits both surfaces with no per-surface special-casing. Per
 ADR-053 §10.2 nothing block-side is reused (`derivePackage`, the io
@@ -425,22 +425,34 @@ The chip vocabulary is surface-owned (ADR-053 §10.1): the Blocks tab filters by
 base category, the Data types tab filters by the **core base family** a type
 descends from (`Array`, `DataFrame`, `Series`, …), resolved with the existing
 `resolveCoreBaseType`. Each chip is tinted with that family's own resolved
-colour, so the chip row doubles as a legend for the tile swatches.
+colour, so the chip row doubles as a legend for the row swatches.
 
 The tab reads the type catalogue directly rather than taking it as a prop
 (ADR-053 FR-027): opening it neither waits for nor re-triggers a blocks fetch,
 and its Reload re-fetches only types, blinking with the same `useReloadFlash`
 hook the Blocks tab and the project tree use.
 
-### 11.2 Tile And Popover
+### 11.2 Row And Popover
 
-Each tile is a `PaletteTile` carrying the **canvas port colour** — solid fill
-plus ring, with `border = ring ?? fill` — lifted verbatim from the port handles
-rather than restated, so a type reads identically in the palette and on a
-canvas port (ADR-053 FR-041). No new colour table is introduced. Type tiles are
-not draggable; click or keyboard activation opens the same detail card hovering
-does, anchored to the tile, so the card and the action inside it are reachable
-without a pointer.
+Types are listed one per row (`TypePalette.parts/TypeRow`, testid
+`palette-type-row`), not laid out as a grid of `PaletteTile`s. The grid is the
+Blocks tab's vocabulary for *a thing you drag onto the canvas* — block tiles are
+`draggable` and carry a drag payload — and types have never been draggable, so a
+tile grid advertised an interaction that silently did nothing. ADR-053 FR-041
+records the correction and why owner review asked for it.
+
+Each row carries the **canvas port colour** as a small framed square left of the
+name — solid fill plus ring, with `border = ring ?? fill` — lifted from the port
+handles rather than restated, so a type reads identically in the palette and on
+a canvas port (FR-041). Only the ring width shrinks with the swatch. No new
+colour table is introduced. The row's remaining width carries the immediate
+parent in a secondary weight, suppressed for `DataObject` on the same grounds
+FR-043 suppresses a redundant `Array (Array)`.
+
+The hover contract is what the two cell shapes must keep identical, because one
+popover serves both tabs (FR-046): the anchor rectangle is the cell's own, and
+click or keyboard activation opens the same detail card hovering does, so the
+card and the action inside it are reachable without a pointer.
 
 The popover is the §6 shared card composed with type content (testid
 `type-detail-popover`), carrying: name and swatch in the header; the immediate
@@ -467,7 +479,7 @@ hierarchy and stops being a colour transport; its long-dead `ui_ring_color`
 field stays dead and is no longer read, because two supply points for one fact
 are the drift being removed.
 
-Resolution precedence, identical for palette tiles and canvas ports (FR-051):
+Resolution precedence, identical for palette cells and canvas ports (FR-051):
 
 1. the colour the type declared, from the types listing,
 2. the existing `typeColorMap` entry — directly or via `base_type`,
@@ -485,7 +497,7 @@ complete listing lands, the resolvers read `undefined` exactly as they read
 re-layouts when the listing arrives — colour is paint-only, port Y comes from
 `portRailOffset` — and for a type that declares nothing the two answers are the
 same string, so there is nothing to see. That is FR-067, and it is covered by
-`components/__tests__/typeColorSource.test.tsx`, which renders a palette tile
+`components/__tests__/typeColorSource.test.tsx`, which renders a palette row
 and a canvas port together and asserts they agree before and after the listing
 lands.
 
@@ -500,8 +512,9 @@ load/save extension rows including the no-formats case.
 
 Component behaviour is covered by `components/__tests__/TypePalette.test.tsx`:
 the panel title and tab structure, tier sections and teaching copy, search and
-chip filtering, tile colour under the precedence, every popover row, popover
-interactivity across the tile→card gap, self-fetching, and Reload.
+chip filtering, the row shape and its parent column, row swatch colour under
+the precedence, every popover row, popover interactivity across the row→card
+gap, self-fetching, and Reload.
 
 Cross-surface colour behaviour is covered by
 `components/__tests__/typeColorSource.test.tsx` (FR-066 parity, the FR-067

@@ -206,10 +206,10 @@ describe("E2 — canvas node action menu", () => {
 
 // ---------------------------------------------------------------- E5 -------
 
-function hoverFirstTile(testId: string) {
+function hoverFirstCell(testId: string) {
   vi.useFakeTimers();
-  const tile = screen.getAllByTestId(testId)[0];
-  fireEvent.mouseEnter(tile);
+  const cell = screen.getAllByTestId(testId)[0];
+  fireEvent.mouseEnter(cell);
   act(() => {
     vi.advanceTimersByTime(POPOVER_OPEN_DELAY_MS + 1);
   });
@@ -228,7 +228,7 @@ describe("E5 — palette hover popovers", () => {
         search=""
       />,
     );
-    hoverFirstTile("palette-block-tile");
+    hoverFirstCell("palette-block-tile");
 
     const button = screen.getByTestId("promote-to-library-action");
     expect(button).toHaveAttribute("data-entry-point", "E5");
@@ -258,7 +258,7 @@ describe("E5 — palette hover popovers", () => {
         search=""
       />,
     );
-    hoverFirstTile("palette-block-tile");
+    hoverFirstCell("palette-block-tile");
     expect(screen.getByTestId("block-detail-popover")).toBeInTheDocument();
     expect(actions()).toHaveLength(0);
     expect(screen.queryByTestId("palette-popover-actions")).not.toBeInTheDocument();
@@ -273,7 +273,7 @@ describe("E5 — palette hover popovers", () => {
 
   it("offers promotion in the type popover's action row", () => {
     renderTypes([projectTypeSummary]);
-    hoverFirstTile("palette-type-tile");
+    hoverFirstCell("palette-type-row");
 
     const button = screen.getByTestId("promote-to-library-action");
     expect(button).toHaveAttribute("data-entry-point", "E5");
@@ -298,7 +298,7 @@ describe("E5 — palette hover popovers", () => {
     ["packaged", packagedTypeSummary],
   ])("hides the type action row entirely for a %s type (FR-019)", (_label, type) => {
     renderTypes([type]);
-    hoverFirstTile("palette-type-tile");
+    hoverFirstCell("palette-type-row");
     expect(screen.getByTestId("type-detail-popover")).toBeInTheDocument();
     expect(actions()).toHaveLength(0);
     expect(screen.queryByTestId("palette-popover-actions")).not.toBeInTheDocument();
@@ -328,7 +328,7 @@ describe("FR-025 — one implementation behind every entry point", () => {
         search=""
       />,
     );
-    hoverFirstTile("palette-block-tile");
+    hoverFirstCell("palette-block-tile");
     fireEvent.click(screen.getByTestId("promote-to-library-action"));
 
     expect(runPromotion).toHaveBeenCalledTimes(3);

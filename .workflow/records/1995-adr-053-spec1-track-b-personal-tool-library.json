@@ -616,7 +616,13 @@
       "docs/planning/adr-053-spec1-personal-tool-library-checklist.md"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-08-08T08:08:29.727270Z",
+      "owner_directive": "Data types tab: type tiles look identical to block tiles, so they read as draggable into the workflow. Render types as a list instead - one row per type, colour swatch as a framed square left of the name, parent type in grey on the right.",
+      "reason": "Owner review of the running desktop build redirected the Data types tab presentation"
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-08-07T11:24:35.381790Z",
@@ -648,6 +654,30 @@
       "kind": "na",
       "path": null,
       "rationale": "merge-only commit; the docs for every change it carries already landed on Track A and are unchanged by the merge",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T08:16:52.843823Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-personal-tool-library.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T08:16:52.843841Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/frontend-block-palette.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T08:16:52.843844Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
       "verified_in_diff": null
     }
   ],
@@ -2783,6 +2813,30 @@
       "kind": "na",
       "path": null,
       "rationale": "merge-only commit carrying Track A's docstring reword; no behaviour changes, and Track A's own suites already cover every behaviour it touches",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T08:16:52.843846Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/TypePalette.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T08:16:52.843850Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/typeColorSource.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T08:16:52.843851Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/promotion/__tests__/entryPoints.test.tsx",
+      "rationale": null,
       "verified_in_diff": null
     }
   ]

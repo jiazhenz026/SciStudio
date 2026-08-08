@@ -1,8 +1,11 @@
 // The Data types tab (ADR-053 §9.2, FR-039 – FR-043).
 //
-// Structure mirrors the Blocks tab, tile colour follows the FR-051 precedence,
-// and the popover carries the FR-042 rows — including the FR-043 parent chain
-// and the FR-056 explicit no-formats line.
+// Structure mirrors the Blocks tab, the row swatch follows the FR-051
+// precedence, and the popover carries the FR-042 rows — including the FR-043
+// parent chain and the FR-056 explicit no-formats line.
+//
+// The cell is a list row, not a tile (FR-041): the Blocks tab's grid reads as
+// "drag me onto the canvas" and a type cannot be dragged anywhere.
 
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -56,21 +59,33 @@ function renderPalette(types: TypeSummary[] = CATALOGUE) {
   return result;
 }
 
-function tiles(): HTMLElement[] {
-  return screen.queryAllByTestId("palette-type-tile");
+function rows(): HTMLElement[] {
+  return screen.queryAllByTestId("palette-type-row");
 }
 
-function tileNamed(name: string): HTMLElement {
-  const tile = tiles().find((element) => within(element).queryByText(name) !== null);
-  if (!tile) {
-    throw new Error(`no tile for ${name}`);
+/**
+ * Match on the name cell rather than the row's text, because the row now also
+ * carries a parent: `within(imageRow).queryByText("Array")` would otherwise
+ * hand back Image's row when asked for Array's.
+ */
+function rowNamed(name: string): HTMLElement {
+  const row = rows().find(
+    (element) => within(element).queryByTestId("palette-type-row-name")?.textContent === name,
+  );
+  if (!row) {
+    throw new Error(`no row for ${name}`);
   }
-  return tile;
+  return row;
+}
+
+/** The right-hand parent cell of one row, or `null` when it is suppressed. */
+function parentOf(name: string): string | null {
+  return within(rowNamed(name)).queryByTestId("palette-type-row-parent")?.textContent ?? null;
 }
 
 function openPopoverFor(name: string): void {
   vi.useFakeTimers();
-  fireEvent.mouseEnter(tileNamed(name));
+  fireEvent.mouseEnter(rowNamed(name));
   act(() => {
     vi.advanceTimersByTime(POPOVER_OPEN_DELAY_MS + 1);
   });
@@ -107,9 +122,9 @@ describe("Data types tab — structure (FR-039, FR-040)", () => {
     ]);
   });
 
-  it("renders a tile per registered type", () => {
+  it("renders a row per registered type", () => {
     renderPalette();
-    expect(tiles()).toHaveLength(CATALOGUE.length);
+    expect(rows()).toHaveLength(CATALOGUE.length);
   });
 
   it("renders both tier sections with their teaching copy when empty (FR-037)", () => {
@@ -120,26 +135,51 @@ describe("Data types tab — structure (FR-039, FR-040)", () => {
     expect(hints[1]).toMatch(/stay with this project/);
   });
 
-  it("filters tiles by the search input", () => {
+  it("filters rows by the search input", () => {
     renderPalette();
     fireEvent.change(screen.getByPlaceholderText("Search data types"), {
       target: { value: "denois" },
     });
-    expect(tiles()).toHaveLength(1);
-    expect(within(tiles()[0]).getByText("MyDenoised")).toBeInTheDocument();
+    expect(rows()).toHaveLength(1);
+    expect(within(rows()[0]).getByText("MyDenoised")).toBeInTheDocument();
   });
 
-  it("filters tiles by a family chip", () => {
+  it("filters rows by a family chip", () => {
     renderPalette();
     fireEvent.click(within(screen.getByTestId("type-family-chips")).getByText("Series"));
-    expect(tiles().map((tile) => tile.textContent)).toEqual(["Series"]);
+    expect(rows().map((row) => row.textContent)).toEqual(["Series"]);
   });
 });
 
-describe("Data types tab — tile colour (FR-041, FR-051)", () => {
+describe("Data types tab — row shape (FR-041)", () => {
+  it("lists one row per type rather than a grid of draggable tiles", () => {
+    renderPalette();
+    // The affordance is the point: the Blocks tab marks its cells `draggable`
+    // and types were never draggable, so nothing here may claim to be.
+    for (const row of rows()) {
+      expect(row.getAttribute("draggable")).toBeNull();
+    }
+  });
+
+  it("sets the immediate parent beside the name", () => {
+    renderPalette();
+    expect(parentOf("MyDenoised")).toBe("Image");
+    expect(parentOf("Image")).toBe("Array");
+  });
+
+  it("suppresses `DataObject`, which every core base type would otherwise repeat", () => {
+    renderPalette();
+    expect(parentOf("Array")).toBeNull();
+    expect(parentOf("Series")).toBeNull();
+    // `DataObject` itself has no parent at all.
+    expect(parentOf("DataObject")).toBeNull();
+  });
+});
+
+describe("Data types tab — row swatch (FR-041, FR-051)", () => {
   it("renders a solid fill plus ring resolved through the precedence", () => {
     renderPalette();
-    const swatch = tileNamed("Image").querySelector("span[aria-hidden='true']") as HTMLElement;
+    const swatch = rowNamed("Image").querySelector("span[aria-hidden='true']") as HTMLElement;
     // Image is a `typeColorMap` entry with a manual contrasting ring — the
     // same pair its canvas port handle draws.
     expect(swatch.style.backgroundColor).toBe("rgb(59, 130, 246)");
@@ -148,13 +188,13 @@ describe("Data types tab — tile colour (FR-041, FR-051)", () => {
 
   it("gives a declared colour priority over the map and the hash fallback", () => {
     renderPalette();
-    const swatch = tileNamed("Declared").querySelector("span[aria-hidden='true']") as HTMLElement;
+    const swatch = rowNamed("Declared").querySelector("span[aria-hidden='true']") as HTMLElement;
     expect(swatch.style.backgroundColor).toBe("rgb(79, 142, 247)");
   });
 
   it("leaves an undeclared type on today's colour", () => {
     renderPalette();
-    const swatch = tileNamed("Array").querySelector("span[aria-hidden='true']") as HTMLElement;
+    const swatch = rowNamed("Array").querySelector("span[aria-hidden='true']") as HTMLElement;
     expect(swatch.style.backgroundColor).toBe("rgb(59, 130, 246)");
     expect(resolveTypeColor(["Array"])).toBe("#3b82f6");
   });
@@ -189,7 +229,7 @@ describe("Data types tab — hover popover (FR-042, FR-043, FR-056)", () => {
     expect(screen.getByTestId("type-detail-load")).toHaveTextContent(".png .tif");
     expect(screen.getByTestId("type-detail-save")).toHaveTextContent(".png");
 
-    fireEvent.mouseLeave(tileNamed("Image"));
+    fireEvent.mouseLeave(rowNamed("Image"));
     openPopoverFor("Series");
     // FR-055: a type saveable to a format it cannot be loaded from renders the
     // absence rather than hiding the direction.
@@ -219,7 +259,7 @@ describe("Data types tab — hover popover (FR-042, FR-043, FR-056)", () => {
     expect(popover.className).not.toContain("pointer-events-none");
 
     vi.useFakeTimers();
-    fireEvent.mouseLeave(tileNamed("MyDenoised"));
+    fireEvent.mouseLeave(rowNamed("MyDenoised"));
     fireEvent.mouseEnter(popover);
     act(() => {
       vi.advanceTimersByTime(1000);
@@ -237,12 +277,12 @@ describe("Data types tab — loading and reload (FR-027, FR-067)", () => {
     render(<TypePalette />);
     await act(async () => {});
     expect(listTypes).toHaveBeenCalledTimes(1);
-    expect(tiles().map((tile) => tile.textContent)).toEqual(["Array"]);
+    expect(rows().map((row) => row.textContent)).toEqual(["Array"]);
   });
 
-  it("renders no tiles and no crash before the listing lands", () => {
+  it("renders no rows and no crash before the listing lands", () => {
     render(<TypePalette />);
-    expect(tiles()).toHaveLength(0);
+    expect(rows()).toHaveLength(0);
     expect(screen.getByText("Data types")).toBeInTheDocument();
   });
 
@@ -255,6 +295,6 @@ describe("Data types tab — loading and reload (FR-027, FR-067)", () => {
       fireEvent.click(screen.getByText("Reload"));
     });
     expect(listTypes).toHaveBeenCalledTimes(2);
-    expect(tiles()).toHaveLength(2);
+    expect(rows()).toHaveLength(2);
   });
 });

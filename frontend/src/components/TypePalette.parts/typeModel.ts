@@ -284,3 +284,21 @@ export function parentRow(
     coreBase: coreBase && coreBase !== type.base_type ? coreBase : null,
   };
 }
+
+/**
+ * The parent shown on a list row (FR-041), or `null` when it carries no
+ * information.
+ *
+ * `DataObject` is the universal root — `resolveCoreBaseType` stops there, and
+ * `typeFamilyOf` above reads `base_type === "DataObject"` as "this type is its
+ * own family" — so printing it beside every core base type would be the row's
+ * version of the redundant `Array (Array)` that FR-043 keeps out of the
+ * popover. The popover still reports the full chain; the row is an index, and
+ * an index that repeats one word down its whole right edge indexes nothing.
+ */
+export function rowParent(type: TypeSummary): string | null {
+  if (!type.base_type || type.base_type === "DataObject") {
+    return null;
+  }
+  return type.base_type;
+}

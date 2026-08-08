@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [#1995] The Data types tab now lists types one per row instead of laying them
+  out as a grid of tiles. The grid was borrowed from the Blocks tab, where a
+  tile means *a thing you drag onto the canvas* — block tiles are `draggable`
+  and carry a drag payload. Data types have never been draggable, so the two
+  tabs looking identical amounted to advertising an interaction that silently
+  did nothing when you tried it. Each row now carries the type's colour as a
+  small framed square left of the name — the same fill-plus-ring the canvas port
+  handle draws, so the palette and the canvas still agree — and uses the width
+  the grid did not have to show the type's immediate parent in grey on the
+  right. `DataObject` is left off there, for the same reason the popover does
+  not print `Array (Array)`: repeating the universal root down the whole right
+  edge tells you nothing. The full inheritance chain, description, extensions,
+  origin, and the promotion action stay in the hover card, unchanged.
+
 - [#1996][#2026] A block or data type you wrote in one project can now be saved
   into your personal library, and a new file can be created there directly.
   **Save to My Library** appears wherever you are already looking at the thing:

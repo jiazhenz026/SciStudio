@@ -7,34 +7,37 @@
 //   docs/specs/frontend-block-palette.md §11.
 //
 // Everything structural here is B3's shared palette machinery — `filterItems`
-// and `buildSections<T>` (via `TypePalette.parts/typeModel`), `PaletteTile`,
-// `FilterChips`, `useHoverPopover`, and `DetailPopover` (via
+// and `buildSections<T>` (via `TypePalette.parts/typeModel`), `FilterChips`,
+// `useHoverPopover`, and `DetailPopover` (via
 // `TypePalette.parts/TypeDetailPopover`). FR-047 requires that skeleton to fit
 // both surfaces with no per-surface special-casing, and it does: this file
 // supplies four callbacks (group, sort, haystack, facet) and no exceptions.
+//
+// The cell is the one thing that is NOT shared with the Blocks tab (§10.1): a
+// type is a list row, not a draggable tile. See `TypePalette.parts/TypeRow`.
 //
 // FR-027 is why the tab reads the type catalogue directly rather than taking
 // blocks as props: refreshing types must not mean refreshing the palette, and
 // drawing types must not require a blocks request.
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { resolveRingColor, resolveTypeColor } from "../config/typeColorMap";
 import { useReloadFlash } from "../hooks/useReloadFlash";
 import { useTypeCatalog } from "../store/useTypeCatalog";
 import type { TypeSummary } from "../types/api";
 
-import { paletteColumns } from "./BlockPalette";
 import { FilterChips, type FilterChip } from "./palette/FilterChips";
 import { useHoverPopover } from "./palette/hoverPopover";
 import { PromoteToLibraryAction } from "./promotion/PromoteToLibraryAction";
 import { isPromotable, promotableType } from "./promotion/promotable";
 import { useLibraryReveal } from "./promotion/revealInLibrary";
 import { TypeDetailPopover } from "./TypePalette.parts/TypeDetailPopover";
-import { TypeTile } from "./TypePalette.parts/TypeTile";
+import { TypeRow } from "./TypePalette.parts/TypeRow";
 import {
   buildTypeSections,
   isFilteringTypes,
+  rowParent,
   typeFamilies,
   typeHierarchyFrom,
   type TypeSection,
@@ -57,21 +60,13 @@ function promoteAction(type: TypeSummary): ReactNode | undefined {
 interface SectionViewProps {
   section: TypeSection;
   forceOpen: boolean;
-  columns: number;
   /** Fill + ring for one type, resolved through the FR-051 precedence. */
   swatchFor: (type: TypeSummary) => { fill: string; ring?: string };
   onEnter: (type: TypeSummary, rect: DOMRect) => void;
   onLeave: () => void;
 }
 
-function SectionView({
-  section,
-  forceOpen,
-  columns,
-  swatchFor,
-  onEnter,
-  onLeave,
-}: SectionViewProps) {
+function SectionView({ section, forceOpen, swatchFor, onEnter, onLeave }: SectionViewProps) {
   const [collapsed, setCollapsed] = useState(false);
   const open = section.pinned || forceOpen || !collapsed;
 
@@ -104,18 +99,19 @@ function SectionView({
         </p>
       ) : null}
       {open && section.items.length > 0 ? (
-        <div
-          className="grid gap-1"
-          style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
-        >
+        // FR-041: one row per type, not a grid of tiles. The Blocks tab's grid
+        // says "drag me onto the canvas"; types cannot be dragged, so a list is
+        // both the honest affordance and the shape that has room for the parent.
+        <div className="flex flex-col gap-px">
           {section.items.map((type) => {
             const swatch = swatchFor(type);
             return (
-              <TypeTile
+              <TypeRow
                 fill={swatch.fill}
                 key={type.name}
                 onEnter={onEnter}
                 onLeave={onLeave}
+                parent={rowParent(type)}
                 ring={swatch.ring}
                 type={type}
               />
@@ -133,7 +129,7 @@ function SectionView({
  * The chip vocabulary stays surface-owned (§10.1): the Blocks tab supplies its
  * base categories, and a type's analogue is the core base family it descends
  * from. Each chip is tinted with that family's own resolved colour, so the
- * chip row is also a legend for the tile swatches beside it.
+ * chip row is also a legend for the row swatches under it.
  */
 function familyChips(
   families: readonly string[],
@@ -157,29 +153,13 @@ export function TypePalette() {
   const [activeFamilies, setActiveFamilies] = useState<string[]>([]);
   // FR-044/FR-046: B3's shared hover state machine, the same one the Blocks
   // tab drives. Spreading `popoverProps` onto the card below is what makes it
-  // interactive and keeps it open across the tile→card gap.
+  // interactive and keeps it open across the row→card gap.
   const hover = useHoverPopover<TypeSummary>();
   // Same one-shot blink the Blocks tab and the project tree use, so all three
   // side panels confirm a completed reload identically.
   const { ref: contentRef, trigger: triggerFlash } = useReloadFlash<HTMLDivElement, TypeSummary[]>(
     types,
   );
-
-  // Mirror the Blocks tab's responsive grid rather than restating it, so the
-  // two tabs never disagree about how many tiles fit a dragged panel width.
-  const gridScrollRef = useRef<HTMLDivElement | null>(null);
-  const [gridWidth, setGridWidth] = useState(0);
-  useEffect(() => {
-    const node = gridScrollRef.current;
-    if (!node || typeof ResizeObserver === "undefined") {
-      return;
-    }
-    const observer = new ResizeObserver(() => setGridWidth(node.clientWidth));
-    observer.observe(node);
-    setGridWidth(node.clientWidth);
-    return () => observer.disconnect();
-  }, []);
-  const columns = paletteColumns(gridWidth);
 
   const hierarchy = useMemo(() => typeHierarchyFrom(types), [types]);
   // FR-041 + FR-051: one resolution, shared with the canvas port handles. The
@@ -257,13 +237,9 @@ export function TypePalette() {
           />
         ) : null}
 
-        <div
-          className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pb-6 scrollbar-thin"
-          ref={gridScrollRef}
-        >
+        <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pb-6 scrollbar-thin">
           {sections.map((section) => (
             <SectionView
-              columns={columns}
               forceOpen={forceOpen}
               key={section.id}
               onEnter={hover.openFor}

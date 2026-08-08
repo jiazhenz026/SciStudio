@@ -314,7 +314,7 @@ and `resolveRingColor()` (ring), used by the canvas port handles
 carry hand-assigned colours; unknown and plugin types fall back to a
 deterministic `hashTypeName` lookup into a 20-hue palette, with the ring derived
 as `darkenHex(base, 0.3)`. The solid-plus-ring treatment this spec requires for
-type tiles is therefore already implemented.
+type swatches is therefore already implemented.
 
 A type cannot currently influence its own colour. `TypeHierarchyEntry` carries a
 `ui_ring_color` field (`src/scistudio/api/schemas.py:162`) but **nothing ever
@@ -750,9 +750,11 @@ group by origin tier first and package second. The change is larger than the
 The label is `Data types` rather than `Types`, which is too abstract standing
 alone next to `Blocks`; the internal key stays `types`.
 
-**FR-040.** The Data types tab MUST mirror the Blocks tab: search input, filter
-chips, and tier sections with core pinned at the top, then `My Library`, then
-`This Project`, then packages A→Z. Empty-state behaviour follows FR-037.
+**FR-040.** The Data types tab MUST mirror the Blocks tab's *structure*: search
+input, filter chips, and tier sections with core pinned at the top, then
+`My Library`, then `This Project`, then packages A→Z. Empty-state behaviour
+follows FR-037. The structure is mirrored; the cell deliberately is not, per
+FR-041.
 
 The per-package split is therefore **as granular as FR-026's name allows, and
 no more**. A distribution FR-026 cannot name — one whose `PackageInfo.name` is a
@@ -766,10 +768,29 @@ correct failure. Nothing is dropped — those types are still listed. Recorded
 here rather than left implicit, per
 `docs/audit/2026-08-07-adr-053-spec1-track-b.md` (P3-1).
 
-**FR-041.** Each type tile MUST carry a colour swatch — solid fill plus ring —
-resolved through the precedence in FR-051, so a type reads identically in the
-palette and on a canvas port. No new colour table is introduced; the declared
-colour simply takes priority over the existing resolution.
+**FR-041.** Types MUST be listed one per row, not laid out as a grid of tiles,
+and each row MUST carry a colour swatch — solid fill plus ring — resolved
+through the precedence in FR-051, so a type reads identically in the palette and
+on a canvas port. No new colour table is introduced; the declared colour simply
+takes priority over the existing resolution.
+
+A grid of 72×72 tiles is the Blocks tab's vocabulary for *a thing you drag onto
+the canvas*, and it earned that meaning honestly: block tiles are `draggable`
+and carry a drag payload. Types are not draggable and never were — the tile this
+replaced passed neither `draggable` nor `onDragStart` — so a tile grid was
+advertising an interaction that silently did nothing. The row is the honest
+affordance, and the correction owner review asked for after seeing the two tabs
+side by side in a running build.
+
+The swatch is a small framed square set left of the name: fill from FR-051's
+resolution, frame from the ring, matching the canvas port's
+`border = ring ?? fill` rule so the two surfaces still agree. The row's
+remaining horizontal space carries the type's immediate parent in a secondary
+weight — information the grid had nowhere to put, and the one thing a reader
+scanning a type index most often wants. `DataObject` is suppressed there for
+the same reason FR-043 keeps `Array (Array)` out of the popover: repeating the
+universal root down the whole right edge indexes nothing. The full chain stays
+in the popover.
 
 **FR-042.** Each type MUST have a hover popover carrying:
 
@@ -814,7 +835,7 @@ is listed as separate MUST NOT be forced into a common abstraction.
 | Search filtering | `filterItems<T>(items, search, toHaystack)` — generalised from `filterBlocks` / `matchesSearch` |
 | Section building | `buildSections<T>(items, groupOf, pinnedOrder)` — the Map-group → ordered-take → remainder-A→Z skeleton |
 | Section model | `Section<T>`, generalised from `PaletteSection` |
-| Tile | One tile component: colour swatch, label, hover trigger, drag hook |
+| Cell | **Not shared** — the Blocks tab keeps the tile (colour swatch, label, hover trigger, drag hook); the Data types tab uses a list row (FR-041). What the two cells MUST keep identical is the hover contract they hand the shared popover: the anchor rectangle is the cell's own, and click/keyboard activation opens the same card hovering does |
 | Popover | One popover (FR-046), including the interactivity change (FR-044) |
 | Filter chips | Generalised from `CategoryChips` |
 | Hover positioning | Anchor computation, `POPOVER_GAP`, `POPOVER_MAX_HEIGHT`, open delay |
@@ -948,7 +969,7 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Invalid colour | A malformed hex value warns and falls through without breaking palette or canvas (FR-052) |
 | Extensions per type | Load and save extensions reported separately from `FormatCapability`; a type with none reports empty lists (FR-054 – FR-056) |
 | Palette sections | Order, both tiers rendered when empty, origin-first grouping (FR-035 – FR-038) |
-| Data types tab | Mirrors blocks structure; tab label is `Data types`; tile colour follows the FR-051 precedence (FR-039 – FR-041) |
+| Data types tab | Mirrors the Blocks tab's structure; tab label is `Data types`; types are listed one per row with the parent beside the name, not laid out as draggable tiles; swatch colour follows the FR-051 precedence (FR-039 – FR-041) |
 | Package attribution | A packaged type and a packaged block from one distribution report the same package name, and the tab renders one section per package A→Z; an unnameable distribution reports `null` and its types stay listed (FR-026, FR-040) |
 | Type popover contents | Name, parent (with core base when it differs), description, extensions, origin, promotion action (FR-042, FR-043) |
 | Popover | Interactive, survives the tile→popover gap, does not break dragging (FR-044, FR-045) |

@@ -1,7 +1,7 @@
 // The canvas colour source switch (ADR-053 §7.1, spec §12.2 step 12).
 //
 // FR-066 — a type declaring `ui_color` renders in that colour on BOTH a
-//   palette tile and a canvas port, because both read the types listing.
+//   palette row and a canvas port, because both read the types listing.
 // FR-067 — ports render the existing resolution before the listing lands and
 //   neither flash nor re-layout when it does.
 // FR-052 — a malformed declaration warns and falls through without breaking
@@ -119,14 +119,19 @@ function landCatalogue(types: TypeSummary[]): void {
   });
 }
 
-function tileSwatch(name: string): HTMLElement {
-  const tile = screen
-    .queryAllByTestId("palette-type-tile")
-    .find((element) => within(element).queryByText(name) !== null);
-  if (!tile) {
-    throw new Error(`no tile for ${name}`);
+function rowSwatch(name: string): HTMLElement {
+  // Match the name cell, not the row's text: a row also carries its parent, so
+  // a plain text match hands back the wrong row for a name that happens to be
+  // some other type's base class.
+  const row = screen
+    .queryAllByTestId("palette-type-row")
+    .find(
+      (element) => within(element).queryByTestId("palette-type-row-name")?.textContent === name,
+    );
+  if (!row) {
+    throw new Error(`no row for ${name}`);
   }
-  return tile.querySelector("span[aria-hidden='true']") as HTMLElement;
+  return row.querySelector("span[aria-hidden='true']") as HTMLElement;
 }
 
 beforeEach(() => {
@@ -143,13 +148,13 @@ afterEach(() => {
 });
 
 describe("colour parity across palette and canvas (FR-066)", () => {
-  it("renders a declared colour on both a palette tile and a canvas port", () => {
+  it("renders a declared colour on both a palette row and a canvas port", () => {
     const { container } = renderNodeWithPorts([port("out", ["Declared"])]);
     render(<TypePalette />);
     landCatalogue([plainType, declaredType]);
 
     expect(handleFor(container, "out").style.backgroundColor).toBe(DECLARED_RGB);
-    expect(tileSwatch("Declared").style.backgroundColor).toBe(DECLARED_RGB);
+    expect(rowSwatch("Declared").style.backgroundColor).toBe(DECLARED_RGB);
   });
 
   it("keeps an undeclared type identical on both surfaces", () => {
@@ -159,7 +164,7 @@ describe("colour parity across palette and canvas (FR-066)", () => {
 
     const expected = "rgb(59, 130, 246)"; // typeColorMap.Array, unchanged
     expect(handleFor(container, "out").style.backgroundColor).toBe(expected);
-    expect(tileSwatch("Array").style.backgroundColor).toBe(expected);
+    expect(rowSwatch("Array").style.backgroundColor).toBe(expected);
   });
 
   it("does not read a colour off type_hierarchy (FR-066 rejects a second supply point)", () => {
@@ -233,6 +238,6 @@ describe("a malformed declaration (FR-052)", () => {
     // Both surfaces fall through to the next precedence level (base_type
     // Array) and keep rendering.
     expect(handleFor(container, "out").style.backgroundColor).toBe("rgb(59, 130, 246)");
-    expect(tileSwatch("Declared").style.backgroundColor).toBe("rgb(59, 130, 246)");
+    expect(rowSwatch("Declared").style.backgroundColor).toBe("rgb(59, 130, 246)");
   });
 });
