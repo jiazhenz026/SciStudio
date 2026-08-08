@@ -86,7 +86,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, overload
 
-from scistudio.core.dropins import guard_dropin_type_roots
+from scistudio.core.dropins import evict_cached_bytecode, guard_dropin_type_roots
 from scistudio.desktop.paths import (
     candidate_package_dirs,
     iter_source_package_module_candidates,
@@ -662,6 +662,14 @@ class TypeRegistry:
                     # stem and the same mtime (issue #1374).
                     path_hash = hashlib.sha256(str(py_file.resolve()).encode()).hexdigest()[:8]
                     mod_name = f"_scistudio_type_dropin_{py_file.stem}_{int(mtime)}_{path_hash}"
+                    # A fresh module object is not a fresh *definition*: the
+                    # loader would still take the class body from a stale
+                    # ``.pyc``. CPython keys freshness on mtime seconds plus
+                    # size, so an edit made within one second to the same
+                    # length reloads the old code. See
+                    # :func:`scistudio.core.dropins.evict_cached_bytecode`
+                    # (Codex P1 on PR #2035).
+                    evict_cached_bytecode(py_file)
                     spec = importlib.util.spec_from_file_location(mod_name, py_file)
                     if spec is None or spec.loader is None:
                         continue
@@ -675,7 +683,18 @@ class TypeRegistry:
                     # un-loadable (Codex P1 finding on PR #1339).
                     sys.modules[spec.name] = module
                     spec.loader.exec_module(module)
-                except Exception:
+                except KeyboardInterrupt:
+                    # The operator's own signal, not the drop-in's failure.
+                    raise
+                except BaseException:
+                    # ``BaseException`` rather than ``Exception`` for the same
+                    # reason the block scan uses it: a ``sys.exit()`` carried
+                    # over from a script raises ``SystemExit``, which would
+                    # otherwise take the whole type scan down with it
+                    # (``docs/audit/2026-08-07-adr-053-spec1-write-path.md``
+                    # P2-1). ``os._exit()`` and a module that never returns
+                    # from import stay outside this boundary; they need the
+                    # out-of-process sandbox deferred at ``TODO(#1531)``.
                     logger.warning(
                         "TypeRegistry: failed to import type drop-in from %s",
                         py_file,
