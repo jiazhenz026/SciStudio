@@ -478,3 +478,25 @@ def test_legacy_command_is_upgraded_whatever_interpreter_wrote_it(tmp_project_di
 
     assert ".codex/config.toml" in written
     assert target.read_text(encoding="utf-8") == fresh
+
+
+def test_toml_unescape_round_trips_escape() -> None:
+    """`_toml_unescape` must invert `_toml_escape` exactly.
+
+    Both repairs read a command back out of a TOML basic string before deciding
+    anything about it, so a wrong inversion silently misjudges which commands
+    are SciStudio's. The interesting inputs are the ones where the two escapes
+    interact: undoing them with two `str.replace` calls does not commute, since
+    unescaping quotes first turns a literal backslash followed by a quote into
+    a string terminator, and unescaping backslashes first does the same in
+    reverse.
+    """
+    for original in (
+        r"C:\Users\jiazh\python.exe",
+        r'a path with "quotes"',
+        r"trailing backslash\\",
+        r"\"",
+        r"C:\dir\ \"odd\" name\\",
+        "",
+    ):
+        assert _cc._toml_unescape(_toml_escape(original)) == original

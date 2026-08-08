@@ -286,7 +286,7 @@ def _upgrade_legacy_hook_commands(raw: str, project_dir: Path) -> str:
     not the one that wrote the file. Those agree only when a project is
     re-provisioned from the very interpreter that provisioned it, so in
     practice the repair silently did nothing: a project provisioned by the
-    packaged desktop app and later reopened from any other install kept its
+    packaged desktop app and then reopened from any other install kept its
     dead hooks, which is exactly the state #2040 found in the field.
 
     Only commands SciStudio emitted are matched, so a user-written hook command

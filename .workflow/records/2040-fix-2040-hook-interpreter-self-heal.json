@@ -327,6 +327,11 @@
       "at": "2026-08-08T00:48:27.246144Z",
       "owner_directive": "2011\u662f\u5565? \u6211\u89c9\u5f97\u52a0\u4e2a\u81ea\u6108\u5427\uff0c\u987a\u4fbf\u628a\u73b0\u5728\u7684\u9879\u76ee\u7ed9\u4fee\u4e86",
       "reason": "Owner chose the self-heal option and asked that the currently broken projects be repaired; scope now covers both provider config writers, their tests, the changelog and the ADR-040 risk entry."
+    },
+    {
+      "at": "2026-08-08T01:25:40.569081Z",
+      "owner_directive": "CI feedback: the deferral discipline ratchet flagged narrative prose in a docstring; reword it.",
+      "reason": "CI deferral-ratchet feedback required a docstring reword with no behaviour change; the branch's test evidence is unchanged and already present."
     }
   ],
   "docs_events": [
@@ -1110,6 +1115,170 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:25:48.417666Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:25:48.431269Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:25:48.446311Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:25:48.460751Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:25:48.474331Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:25:48.487150Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:25:48.500163Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:25:48.512989Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:25:48.526666Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:25:48.545210Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:27:03.648181Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:27:03.661880Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:27:03.675894Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:27:03.689822Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:27:03.713490Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:27:03.727210Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:27:03.740600Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:27:03.753575Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:27:03.766951Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T01:27:03.784228Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1122,7 +1291,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "a8645c4090d56250cf9dc5958f6e7f16c7b0eb83",
+    "base": "origin/main",
     "base_sha": "a8645c40",
     "changed_files": [
       ".workflow/records/2040-fix-2040-hook-interpreter-self-heal.json",
@@ -1133,9 +1302,9 @@
       "tests/agent_provisioning/test_codex_config.py",
       "tests/agent_provisioning/test_hooks.py"
     ],
-    "diff_fingerprint": "sha256:3e7521e87620978dfc1362307bdb4794210e10256f9ffd26d3178bc6f2b05fc1",
+    "diff_fingerprint": "sha256:a9b088805db5e6ffe638df2c3627c56d65d37852b00456910bb854e25cfa0ae2",
     "head": "HEAD",
-    "head_sha": "c071b21f",
+    "head_sha": "81166683",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -1251,6 +1420,22 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-08-08T01:25:48.545243Z",
+      "diff_fingerprint": "sha256:a9b088805db5e6ffe638df2c3627c56d65d37852b00456910bb854e25cfa0ae2",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-08T01:27:03.784257Z",
+      "diff_fingerprint": "sha256:a9b088805db5e6ffe638df2c3627c56d65d37852b00456910bb854e25cfa0ae2",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
     }
   ],
   "record_id": "2040-fix-2040-hook-interpreter-self-heal",
@@ -1315,6 +1500,22 @@
     },
     {
       "at": "2026-08-08T00:48:27.246198Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_codex_config.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T01:25:40.569099Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_hooks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T01:25:40.569104Z",
       "class": null,
       "kind": "path",
       "path": "tests/agent_provisioning/test_codex_config.py",
