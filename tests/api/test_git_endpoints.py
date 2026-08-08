@@ -6,7 +6,9 @@ Phase D39-2.2b — bodies filled, xfail flipped to passing.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from scistudio.engine.events import WORKFLOW_CHANGED
@@ -194,7 +196,7 @@ def test_restore_endpoint_auto_commits_dirty_tree(client: TestClient, opened_pro
 
 
 def test_restore_endpoint_to_commit_missing_file_deletes_after_auto_commit(
-    client: TestClient, opened_project: Path, runtime
+    client: TestClient, opened_project: Path, runtime: Any
 ) -> None:
     """Restoring a file to a commit that did not contain it means the
     file is deleted in the working tree, not a post-auto-commit failure.
@@ -447,14 +449,14 @@ def test_restore_rejects_unknown_commit_without_mutating_history(client: TestCli
 # ---------------------------------------------------------------------------
 
 
-def _subscribe_workflow_changed(runtime) -> list:
+def _subscribe_workflow_changed(runtime: Any) -> list:
     captured: list = []
     runtime.event_bus.subscribe(WORKFLOW_CHANGED, lambda ev: captured.append(ev))
     return captured
 
 
 def test_branch_switch_emits_workflow_changed_per_modified_yaml(
-    client: TestClient, opened_project: Path, runtime
+    client: TestClient, opened_project: Path, runtime: Any
 ) -> None:
     """Hotfix #988: branch switch that rewrites workflows/main.yaml must emit
     ``workflow.changed`` so the canvas reloads. Failure mode pre-fix: the
@@ -488,7 +490,7 @@ def test_branch_switch_emits_workflow_changed_per_modified_yaml(
     assert main_event.data["workflow_id"] == "main"
 
 
-def test_branch_switch_no_yaml_change_emits_nothing(client: TestClient, opened_project: Path, runtime) -> None:
+def test_branch_switch_no_yaml_change_emits_nothing(client: TestClient, opened_project: Path, runtime: Any) -> None:
     """Switching to a branch with the same YAML content emits nothing.
     Diff-based emission must be quiet for no-op switches.
     """
@@ -502,7 +504,7 @@ def test_branch_switch_no_yaml_change_emits_nothing(client: TestClient, opened_p
     assert captured == []
 
 
-def test_restore_endpoint_emits_workflow_changed(client: TestClient, opened_project: Path, runtime) -> None:
+def test_restore_endpoint_emits_workflow_changed(client: TestClient, opened_project: Path, runtime: Any) -> None:
     """``/api/git/restore`` rewrites a workflow YAML → workflow.changed."""
     target = opened_project / "workflows" / "main.yaml"
     target.write_text("workflow:\n  id: main\n  v: 1\n", encoding="utf-8")
@@ -528,7 +530,7 @@ def test_restore_endpoint_emits_workflow_changed(client: TestClient, opened_proj
     assert main_event.data["timestamp"]
 
 
-def test_branch_switch_emits_created_for_new_yaml(client: TestClient, opened_project: Path, runtime) -> None:
+def test_branch_switch_emits_created_for_new_yaml(client: TestClient, opened_project: Path, runtime: Any) -> None:
     """When the target branch has a workflow YAML that the source branch
     doesn't, the switch must emit ``kind=created`` so the frontend opens
     a new tab for it.
@@ -579,7 +581,7 @@ def test_branch_delete_endpoint(client: TestClient, opened_project: Path) -> Non
     client.post("/api/git/branch/switch", json={"branch_name": "main"})
 
     # Insert a lineage row that references the feature tip.
-    runtime = client.app.state.runtime
+    runtime = client.app.state.runtime  # type: ignore[attr-defined]
     runtime.lineage_store.insert_run(
         RunRecord(
             run_id="run-1356",
@@ -673,7 +675,7 @@ def test_branch_delete_endpoint_safety_net_keeps_sha_reachable(client: TestClien
     feature_tip_sha = client.post("/api/git/commit", json={"message": "feature tip"}).json()["commit_sha"]
     client.post("/api/git/branch/switch", json={"branch_name": "main"})
 
-    runtime = client.app.state.runtime
+    runtime = client.app.state.runtime  # type: ignore[attr-defined]
     runtime.lineage_store.insert_run(
         RunRecord(
             run_id="run-1356-restore",
@@ -736,7 +738,7 @@ def test_branch_delete_failed_delete_creates_no_lineage_refs(client: TestClient,
     feature_tip_sha = client.post("/api/git/commit", json={"message": "feature tip"}).json()["commit_sha"]
     client.post("/api/git/branch/switch", json={"branch_name": "main"})
 
-    runtime = client.app.state.runtime
+    runtime = client.app.state.runtime  # type: ignore[attr-defined]
     runtime.lineage_store.insert_run(
         RunRecord(
             run_id="run-1356-p2",
@@ -925,3 +927,130 @@ def test_no_active_project_409(client: TestClient) -> None:
     """All endpoints return 409 when no project is active."""
     resp = client.get("/api/git/status")
     assert resp.status_code == 409
+
+
+# ---------------------------------------------------------------------------
+# Block-registry refresh after a worktree rewrite (ADR-038 Addendum 1 §11.1)
+# ---------------------------------------------------------------------------
+
+
+def _count_registry_refreshes(runtime: Any, monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    """Patch ``refresh_block_registry`` to count calls without rebuilding.
+
+    Returns a one-element list used as a mutable counter; scanning the real
+    block directories on every git op would make these tests slow for no
+    added signal — what is under test is that the endpoint calls it at all.
+    """
+    calls = [0]
+
+    def _counting(self: Any) -> None:
+        calls[0] += 1
+
+    monkeypatch.setattr(type(runtime), "refresh_block_registry", _counting)
+    return calls
+
+
+def test_restore_refreshes_block_registry(
+    client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A restore can rewrite ``<project>/blocks/*.py``; the registry must follow.
+
+    Pre-#2033 only ``branch_switch`` refreshed. After a restore the execution
+    subprocess (which reloads block source from disk per ADR-017) would run the
+    restored code while the in-process registry still described the code the
+    user had just rolled back — so validation could reject a workflow citing a
+    block definition that no longer existed on disk.
+    """
+    (opened_project / "workflows" / "main.yaml").write_text("id: main\nnodes: []\n", encoding="utf-8")
+    base = client.post("/api/git/commit", json={"message": "base"}).json()["commit_sha"]
+
+    runtime = client.app.state.runtime  # type: ignore[attr-defined]
+    calls = _count_registry_refreshes(runtime, monkeypatch)
+
+    resp = client.post("/api/git/restore", json={"commit_sha": base})
+    assert resp.status_code == 200, resp.text
+    assert calls[0] >= 1, "restore must refresh the block registry"
+
+
+def test_merge_refreshes_block_registry(
+    client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A merge brings in the source branch's block sources."""
+    (opened_project / "workflows" / "main.yaml").write_text("id: main\nnodes: []\n", encoding="utf-8")
+    client.post("/api/git/commit", json={"message": "base"})
+    client.post("/api/git/branch/create", json={"name": "feature"})
+    client.post("/api/git/branch/switch", json={"branch_name": "feature"})
+    (opened_project / "workflows" / "feat.yaml").write_text("id: feat\nnodes: []\n", encoding="utf-8")
+    client.post("/api/git/commit", json={"message": "feature work"})
+    client.post("/api/git/branch/switch", json={"branch_name": "main"})
+
+    runtime = client.app.state.runtime  # type: ignore[attr-defined]
+    calls = _count_registry_refreshes(runtime, monkeypatch)
+
+    resp = client.post("/api/git/merge", json={"source_branch": "feature"})
+    assert resp.status_code == 200, resp.text
+    assert calls[0] >= 1, "merge must refresh the block registry"
+
+
+def test_cherry_pick_refreshes_block_registry(
+    client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Cherry-pick writes another commit's content into the current tree."""
+    (opened_project / "workflows" / "main.yaml").write_text("id: main\nnodes: []\n", encoding="utf-8")
+    client.post("/api/git/commit", json={"message": "base"})
+    client.post("/api/git/branch/create", json={"name": "side"})
+    client.post("/api/git/branch/switch", json={"branch_name": "side"})
+    (opened_project / "workflows" / "side.yaml").write_text("id: side\nnodes: []\n", encoding="utf-8")
+    pick = client.post("/api/git/commit", json={"message": "side work"}).json()["commit_sha"]
+    client.post("/api/git/branch/switch", json={"branch_name": "main"})
+
+    runtime = client.app.state.runtime  # type: ignore[attr-defined]
+    calls = _count_registry_refreshes(runtime, monkeypatch)
+
+    resp = client.post("/api/git/cherry-pick", json={"commit_sha": pick})
+    assert resp.status_code == 200, resp.text
+    assert calls[0] >= 1, "cherry-pick must refresh the block registry"
+
+
+def test_branch_switch_still_refreshes_block_registry(
+    client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression guard: the pre-existing call site survives the refactor.
+
+    ``branch_switch`` had its inline try/except replaced by the shared
+    ``_refresh_registries_after_worktree_write`` helper; this asserts the
+    behaviour it had since the Phase 3.5 integration audit is unchanged.
+    """
+    (opened_project / "workflows" / "main.yaml").write_text("id: main\nnodes: []\n", encoding="utf-8")
+    client.post("/api/git/commit", json={"message": "base"})
+    client.post("/api/git/branch/create", json={"name": "other"})
+
+    runtime = client.app.state.runtime  # type: ignore[attr-defined]
+    calls = _count_registry_refreshes(runtime, monkeypatch)
+
+    resp = client.post("/api/git/branch/switch", json={"branch_name": "other"})
+    assert resp.status_code == 200, resp.text
+    assert calls[0] >= 1
+
+
+def test_registry_refresh_failure_does_not_fail_the_restore(
+    client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The git op has already landed on disk; a refresh failure must not 500.
+
+    Rolling back a completed `git restore` is not possible here, so the helper
+    is deliberately best-effort. A raising registry leaves the endpoint green
+    and the registry stale — the pre-#2033 behaviour, not a new failure mode.
+    """
+    (opened_project / "workflows" / "main.yaml").write_text("id: main\nnodes: []\n", encoding="utf-8")
+    base = client.post("/api/git/commit", json={"message": "base"}).json()["commit_sha"]
+
+    runtime = client.app.state.runtime  # type: ignore[attr-defined]
+
+    def _boom(self: Any) -> None:
+        raise RuntimeError("registry scan exploded")
+
+    monkeypatch.setattr(type(runtime), "refresh_block_registry", _boom)
+
+    resp = client.post("/api/git/restore", json={"commit_sha": base})
+    assert resp.status_code == 200, resp.text

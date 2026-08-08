@@ -84,7 +84,6 @@
  *     expandedBlockExecutionIds: string[];  // BlockExecutionCard "expanded"
  *     // ---- dialogs (UI-only) -------------------------------------------
  *     methodsDialogRunId: string | null;     // null = closed
- *     rerunDialogRunId:   string | null;     // null = closed
  *     // ---- actions -----------------------------------------------------
  *     fetchRuns:      (opts?: { workflowId?: string; limit?: number }) => Promise<void>;
  *     fetchRunDetail: (runId: string) => Promise<void>;
@@ -92,8 +91,6 @@
  *     toggleBlockExecutionExpanded: (blockExecutionId: string) => void;
  *     openMethodsDialog: (runId: string) => void;
  *     closeMethodsDialog: () => void;
- *     openRerunDialog: (runId: string) => void;
- *     closeRerunDialog: () => void;
  *     // Lifecycle: clear caches on project switch (App.tsx subscribes to
  *     // currentProject change and calls this to flush stale runs).
  *     clearLineage: () => void;
@@ -129,8 +126,8 @@
  *       small (<100 typical). If a future run exceeds 500 blocks, this set
  *       still fits in memory.
  *
- *   openMethodsDialog / openRerunDialog:
- *     - set the corresponding *DialogRunId field
+ *   openMethodsDialog:
+ *     - set methodsDialogRunId
  *     - if details aren't cached, ALSO call fetchRunDetail — dialogs render
  *       fields straight from runDetails[runId]
  *
@@ -233,7 +230,6 @@ const INITIAL_LINEAGE_STATE = {
   runDetailError: {} as Record<string, string | null>,
   expandedBlockExecutionIds: [] as string[],
   methodsDialogRunId: null as string | null,
-  rerunDialogRunId: null as string | null,
 };
 
 export const createLineageSlice: StateCreator<AppStore, [], [], LineageSlice> = (set, get) => ({
@@ -304,18 +300,6 @@ export const createLineageSlice: StateCreator<AppStore, [], [], LineageSlice> = 
 
   closeMethodsDialog: () => {
     set({ methodsDialogRunId: null });
-  },
-
-  openRerunDialog: (runId) => {
-    set({ rerunDialogRunId: runId });
-    const state = get();
-    if (state.runDetails[runId] === undefined) {
-      void state.fetchRunDetail(runId);
-    }
-  },
-
-  closeRerunDialog: () => {
-    set({ rerunDialogRunId: null });
   },
 
   clearLineage: () => {

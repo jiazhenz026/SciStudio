@@ -337,9 +337,14 @@ def start_workflow(
     """Schedule a workflow run.
 
     D38-3.2 (closes D38-3.1a P2 / D38-3.1b P2-4): ``parent_run_id``
-    is a new optional parameter used by the ``/api/runs/{run_id}/rerun``
-    endpoint to stamp the new run's ``runs.parent_run_id`` column
-    pointing at the historical run that triggered the rerun.
+    stamps the new run's ``runs.parent_run_id`` column, pointing at the
+    historical run whose outputs this run builds on.
+
+    ADR-038 Addendum 1 §11.6 (#2033) removed the ``/api/runs/{run_id}/rerun``
+    endpoint, which was this parameter's only caller. The parameter and the
+    column stay: historical rows still carry a parent and the UI still renders
+    the link, and "Run from here" (§3.6a) remains free to pass it. New runs
+    started through the current surfaces leave it ``None``.
 
     Phase 3.5 integration: also drives the ADR-039 §3.4 pre-run
     auto-commit path. The captured SHA + the post-commit dirty

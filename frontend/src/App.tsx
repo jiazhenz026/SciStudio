@@ -331,7 +331,6 @@ export default function App() {
     cancelWorkflow,
     startFromSelected,
     handleRunBlock,
-    handleRestartBlock,
   } = useWorkflowExecutionActions({
     currentProject,
     workflowId,
@@ -500,7 +499,6 @@ export default function App() {
                 onErrorClick={handleErrorClick}
                 onCanvasPaneClick={handleCanvasPaneClick}
                 onRunBlock={handleRunBlock}
-                onRestartBlock={handleRestartBlock}
                 onSelectNode={handleNodeSelect}
                 onUpdateNodeConfig={updateNodeConfig}
                 onUpdateNodePosition={updateNodeLayout}

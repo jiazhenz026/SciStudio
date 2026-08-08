@@ -12,8 +12,8 @@
  *   - First-mount fetch of the runs list
  *   - The split-pane sizing (resizable left list / right detail)
  *   - Empty / loading / error states for the whole tab
- *   - Mount points for the two dialogs (MethodsExportDialog + RerunDialog),
- *     which are portal-rendered children but conceptually owned by this tab
+ *   - Mount point for MethodsExportDialog, a portal-rendered child that is
+ *     conceptually owned by this tab
  *   - Keyboard shortcuts (see below)
  *
  * Props
@@ -28,8 +28,8 @@
  * -------------------------
  *   - runs, runsLoading, runsError
  *   - selectedRunId
- *   - methodsDialogRunId, rerunDialogRunId
- *   - fetchRuns, selectRun, closeMethodsDialog, closeRerunDialog
+ *   - methodsDialogRunId
+ *   - fetchRuns, selectRun, closeMethodsDialog
  *
  * Layout markup (vitest will assert on these data-testids and selectors)
  * ----------------------------------------------------------------------
@@ -61,9 +61,6 @@
  *     {methodsDialogRunId !== null && (
  *       <MethodsExportDialog runId={methodsDialogRunId} onClose={closeMethodsDialog} />
  *     )}
- *     {rerunDialogRunId !== null && (
- *       <RerunDialog runId={rerunDialogRunId} onClose={closeRerunDialog} />
- *     )}
  *   </section>
  *
  *   Pane-split heuristic for v1: fixed 36% / 64%. Resizable handle is a
@@ -85,7 +82,6 @@
  *                          IMPL phase if needed; can be omitted for v1)
  *   Enter on a row       — already handled by RunsList (no global handler)
  *   "m" while a run selected — openMethodsDialog(selectedRunId)
- *   "r" while a run selected — openRerunDialog(selectedRunId)
  *   Esc                  — close any open dialog
  *
  *   The shortcut handler must check `document.activeElement` to avoid
@@ -149,7 +145,6 @@
  *   3. empty state renders the message when runs.length === 0 && !loading
  *   4. error banner renders + Retry button calls fetchRuns
  *   5. methodsDialogRunId !== null renders MethodsExportDialog
- *   6. rerunDialogRunId !== null renders RerunDialog
  *   7. Esc keypress closes the open dialog
  */
 
@@ -157,7 +152,6 @@ import { useEffect, useRef, type ReactElement } from "react";
 
 import { useAppStore } from "../../store";
 import { MethodsExportDialog } from "./MethodsExportDialog";
-import { RerunDialog } from "./RerunDialog";
 import { RunDetail } from "./RunDetail";
 import { RunsList } from "./RunsList";
 
@@ -169,11 +163,8 @@ export function LineageTab(): ReactElement {
   const fetchRuns = useAppStore((s) => s.fetchRuns);
   const clearLineage = useAppStore((s) => s.clearLineage);
   const methodsDialogRunId = useAppStore((s) => s.methodsDialogRunId);
-  const rerunDialogRunId = useAppStore((s) => s.rerunDialogRunId);
   const openMethodsDialog = useAppStore((s) => s.openMethodsDialog);
-  const openRerunDialog = useAppStore((s) => s.openRerunDialog);
   const closeMethodsDialog = useAppStore((s) => s.closeMethodsDialog);
-  const closeRerunDialog = useAppStore((s) => s.closeRerunDialog);
   const isRunning = useAppStore((s) => s.isRunning);
   const currentProjectId = useAppStore((s) => s.currentProject?.id ?? null);
 
@@ -207,8 +198,14 @@ export function LineageTab(): ReactElement {
     prevIsRunning.current = isRunning;
   }, [isRunning, fetchRuns]);
 
-  // Keyboard shortcuts: 'm' opens methods, 'r' opens rerun (when a run
-  // is selected and focus is not in a text field).
+  // Keyboard shortcut: 'm' opens methods (when a run is selected and focus is
+  // not in a text field).
+  //
+  // ADR-038 Addendum 1 §11.4 (#2033): 'r' used to open the Re-run dialog. The
+  // Re-run button had been removed from the run-detail footer in #1721, but
+  // this handler was left behind — a withdrawn feature still reachable by
+  // keystroke. Restore is deliberately NOT bound to a bare key: it rewrites
+  // the working tree, which is not something a stray keypress should start.
   useEffect(() => {
     function handleKey(e: KeyboardEvent): void {
       const target = document.activeElement;
@@ -222,14 +219,11 @@ export function LineageTab(): ReactElement {
       if (e.key === "m") {
         e.preventDefault();
         openMethodsDialog(selectedRunId);
-      } else if (e.key === "r") {
-        e.preventDefault();
-        openRerunDialog(selectedRunId);
       }
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [selectedRunId, openMethodsDialog, openRerunDialog]);
+  }, [selectedRunId, openMethodsDialog]);
 
   const showRefreshSpinner = runsLoading && runs.length > 0;
 
@@ -299,9 +293,6 @@ export function LineageTab(): ReactElement {
 
       {methodsDialogRunId !== null && (
         <MethodsExportDialog runId={methodsDialogRunId} onClose={closeMethodsDialog} />
-      )}
-      {rerunDialogRunId !== null && (
-        <RerunDialog runId={rerunDialogRunId} onClose={closeRerunDialog} />
       )}
     </section>
   );

@@ -20,8 +20,6 @@ vi.mock("../../../lib/api", async () => {
         getRuns: vi.fn().mockResolvedValue({ runs: [] }),
         getRun: vi.fn(),
         getRunMethods: vi.fn(),
-        validateRerun: vi.fn(),
-        rerunRun: vi.fn(),
       },
     },
   };
@@ -56,7 +54,6 @@ function resetLineage(): void {
     runDetailError: {},
     expandedBlockExecutionIds: [],
     methodsDialogRunId: null,
-    rerunDialogRunId: null,
   });
 }
 

@@ -103,20 +103,32 @@ export interface LineageGetRunsResponse {
 export interface LineageMethodsResponse {
   markdown: string;
 }
-export interface LineageRerunInputWarning {
+/** One boundary input that changed on disk since the run recorded it. */
+export interface RestoreInputWarning {
   path: string;
   reason: string;
 }
-export interface LineageRerunEnvWarning {
+/** One package (or Python / Platform) whose version moved since the run. */
+export interface RestoreEnvWarning {
   package: string;
   old: string;
   new: string;
 }
-export interface LineageRerunValidation {
-  input_warnings: LineageRerunInputWarning[];
-  env_warnings: LineageRerunEnvWarning[];
-}
-export interface LineageRerunResponse {
-  /** UUID of the new run record created by the backend re-execution. */
-  new_run_id: string;
+/**
+ * `GET /api/runs/validate-restore?commit_sha=…` — ADR-038 §3.6 advisory
+ * checks, relocated onto Restore by Addendum 1 (#2033).
+ *
+ * `run_id === null` means no recorded run references this commit (a manual
+ * commit, or an `auto: pre-restore` one), so nothing could be compared.
+ * Render that as "not checked" — never as a clean result. The empty warning
+ * arrays in that case are the absence of a comparison, not its outcome; the
+ * pre-#2033 UI conflated the two and told users "No drift detected" for a
+ * check that had never run.
+ */
+export interface RestorePreflight {
+  commit_sha: string;
+  run_id: string | null;
+  run_started_at: string | null;
+  input_warnings: RestoreInputWarning[];
+  env_warnings: RestoreEnvWarning[];
 }

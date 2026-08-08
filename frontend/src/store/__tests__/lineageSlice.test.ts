@@ -75,7 +75,6 @@ function resetLineage(): void {
     runDetailError: {},
     expandedBlockExecutionIds: [],
     methodsDialogRunId: null,
-    rerunDialogRunId: null,
   });
 }
 
@@ -189,7 +188,6 @@ describe("lineageSlice", () => {
       selectedRunId: "r1",
       expandedBlockExecutionIds: ["be-1"],
       methodsDialogRunId: "r1",
-      rerunDialogRunId: "r1",
       runDetails: { r1: makeDetail() },
       runDetailError: { r1: "x" },
       runDetailLoading: { r1: true },
@@ -203,6 +201,5 @@ describe("lineageSlice", () => {
     expect(s.runDetailError).toEqual({});
     expect(s.expandedBlockExecutionIds).toEqual([]);
     expect(s.methodsDialogRunId).toBe(null);
-    expect(s.rerunDialogRunId).toBe(null);
   });
 });

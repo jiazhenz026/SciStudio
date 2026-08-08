@@ -589,6 +589,89 @@ class LineageStore:
             )
             return {row[0] for row in cur.fetchall() if row[0]}
 
+    def latest_run_for_git_commit(self, commit_sha: str) -> dict[str, Any] | None:
+        """Return the newest run recorded at *commit_sha*, or ``None``.
+
+        ADR-038 Addendum 1 §11.3 (#2033): the restore preflight is driven by a
+        git commit, not a run id, so it needs the reverse of the usual lookup.
+        Several runs can share one commit (the pre-run auto-commit is skipped
+        when the tree is already clean, so consecutive runs of an unedited
+        workflow all anchor to the same SHA); the newest is the one whose
+        recorded environment best describes "how it was when this worked".
+
+        Args:
+            commit_sha: Full SHA to look up. Falsy input returns ``None``
+                without touching the database.
+
+        Returns:
+            The newest matching run row as a column-keyed dict, or ``None``
+            when no run references this commit — which is the normal case for
+            a manual commit or an ``auto: pre-restore`` commit, and which
+            callers must report as "unknown" rather than as "no drift".
+        """
+        if not commit_sha:
+            return None
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM runs WHERE workflow_git_commit = ? ORDER BY started_at DESC LIMIT 1",
+                (commit_sha,),
+            )
+            row = cur.fetchone()
+            if row is None:
+                return None
+            columns = [d[0] for d in cur.description]
+            return dict(zip(columns, row, strict=False))
+
+    def workflow_boundary_inputs(self, run_id: str) -> list[dict[str, Any]]:
+        """Return the run's inputs that came from outside the run itself.
+
+        ADR-038 §3.6 Check 1 operates on
+        ``past_run.input_objects_at_workflow_boundary()``: the data objects a
+        run consumed but did not produce. Intermediates flowing block-to-block
+        inside the run are irrelevant to a drift check — they will be
+        regenerated on the next execution. What matters is the files the
+        workflow read from disk, because those can change underneath the user
+        between the recorded run and now.
+
+        The boundary test is ``produced_by_execution`` pointing outside this
+        run (or being NULL, for objects whose producer was never recorded).
+
+        Args:
+            run_id: Id of the recorded run.
+
+        Returns:
+            One dict per distinct boundary input with ``object_id``,
+            ``type_name``, ``storage_path``, ``size_bytes``, and
+            ``mtime_at_write``. Objects with no ``storage_path`` (in-memory
+            values) are excluded — there is nothing on disk to compare.
+        """
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT DISTINCT do.object_id,
+                       do.type_name,
+                       do.storage_path,
+                       do.size_bytes,
+                       do.mtime_at_write
+                FROM block_io bio
+                JOIN block_executions be ON bio.block_execution_id = be.block_execution_id
+                JOIN data_objects do ON bio.object_id = do.object_id
+                WHERE be.run_id = ?
+                  AND bio.direction = 'input'
+                  AND do.storage_path IS NOT NULL
+                  AND (
+                        do.produced_by_execution IS NULL
+                        OR do.produced_by_execution NOT IN (
+                            SELECT block_execution_id FROM block_executions WHERE run_id = ?
+                        )
+                  )
+                ORDER BY do.storage_path
+                """,
+                (run_id, run_id),
+            )
+            columns = [d[0] for d in cur.description]
+            return [dict(zip(columns, row, strict=False)) for row in cur.fetchall()]
+
     # ------------------------------------------------------------------
     # block_executions
     # ------------------------------------------------------------------

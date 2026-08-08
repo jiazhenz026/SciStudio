@@ -9,6 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [#2033] **Restore is now the single way back to a past state, and it actually
+  gets you there.** Restoring a run used to rewrite one file —
+  `workflows/<id>.yaml` — so a user who had broken a custom block could open the
+  run that worked, press *Restore workflow*, and hit the identical failure: the
+  graph came back, the block source that broke did not. The Git tab's `Restore`,
+  one tab over and identically named, did the full-tree restore that would have
+  fixed it. Both are now one operation: **Restore**, full-tree, behind a shared
+  confirmation dialog that states the scope before anything is rewritten. Four
+  things landed with it.
+  **The registry follows the restore.** `refresh_block_registry()` ran only on
+  branch switch and package operations. Every other git operation that rewrites
+  the working tree — restore, merge, cherry-pick, merge-complete, merge-abort —
+  left the in-process registry describing the code the user had just rolled
+  back, while the execution subprocess (which reloads block source from disk per
+  ADR-017) ran the restored code. A restore that recovered the files correctly
+  could still be rejected by `start_workflow`'s validation citing a block
+  definition that no longer existed on disk, with nothing pointing at the stale
+  cache. A shared best-effort helper now covers all six call sites.
+  **The environment check exists.** ADR-038 §3.6 specified two advisory checks —
+  boundary inputs unchanged, environment not drifted — in executable pseudocode.
+  Neither was ever implemented: the client's `validateRerun` returned a
+  hardcoded empty-warnings object and the backend route was never written, so
+  the dialog rendered *"No drift detected"* unconditionally, in the one place a
+  user goes to ask that exact question. `GET /api/runs/validate-restore` now
+  performs the comparison and runs before a restore. A commit with no recorded
+  run (a manual commit, an `auto: pre-restore` commit) reports that nothing
+  could be compared rather than reporting a clean result — the two were
+  previously indistinguishable, and only the false one was ever shown. This
+  matters most for Restore: git cannot roll back SciStudio's own version,
+  installed packages, or the Python environment, all of which live outside the
+  project repository, so "worked yesterday, fails today" has a second cause that
+  the recovery path is now equipped to name.
+  **Re-run is withdrawn.** #1721 removed its button on the grounds that Restore
+  is the operation users understand, but left the dialog mounted, the `r`
+  shortcut that opens it, `POST /api/runs/{run_id}/rerun`, and the client
+  methods — a feature the product had decided not to have, still reachable by
+  keystroke. Restore plus the Run control the user already presses covers it.
+  `runs.parent_run_id` and its read paths stay: "Run from here" (ADR-038 §3.6a)
+  is a separate feature and historical rows keep rendering their parent link.
+  **The node toolbar drops its Restart button.** `handleRestartBlock` and
+  `handleRunBlock` had byte-identical bodies, down to the dependency array —
+  same `executeFrom` call, same arguments. Two icons and two tooltips for one
+  behaviour, with nothing to tell a user they were the same thing.
+  See ADR-038 Addendum 1 and ADR-050 Addendum 1.
+
 - [#2018] SciStudio is now licensed under the **Apache License 2.0** instead of
   the MIT License. Apache-2.0 keeps the same permissive shape (use, modify,
   redistribute, commercial use, no copyleft) and adds an explicit patent grant
