@@ -410,6 +410,15 @@ behaviour and error shape.
 target MUST be reported to the caller so the UI can prompt (§6, FR-018).
 Overwrite MUST require an explicit caller opt-in.
 
+The refusal MUST be decided when the file lands, not by an existence check that
+precedes it. A check-then-write sequence destroys anything created in the
+window between the two, and FR-065 makes that window reachable: the API process
+and the standalone MCP bridge share `~/.scistudio`, so two processes writing
+the same library filename is an ordinary situation rather than a theoretical
+one. The non-overwrite path therefore MUST use an exclusive-create primitive,
+and MUST NOT expose a partially written or empty file under the destination
+name while doing so — the same obligation the temp-file rule above carries.
+
 **FR-009.** `PUT /api/projects/{project_id}/file` MUST keep rejecting paths
 outside the project root. This spec adds a second door; it does not widen the
 first.
@@ -471,6 +480,17 @@ and all three are load-bearing:
   exists to eliminate, in the fix for it. This is the same obligation FR-057
   states for directory resolution, and it is discharged the same way: one shared
   implementation that every call site invokes, not a rule each site restates.
+- The mitigation MUST fail closed. Making the installed module win by importing
+  it first is not always possible: a module with a valid spec may still raise on
+  import, and a missing native dependency is the ordinary way that happens. A
+  binding failure that is swallowed leaves the name unbound while the caller
+  puts the types directory on `sys.path` anyway, so the refused drop-in wins the
+  name — FR-016 defeated in exactly the case it exists for, by the import health
+  of an unrelated package. Such a name MUST be refused outright for the life of
+  the process instead. That is also the answer the un-shadowed process gives:
+  without the drop-in the import raises too. The refusal MUST be scoped to the
+  colliding name, so the rest of the drop-in tier keeps working, and MUST NOT
+  make the collision itself unreportable on a later scan.
 
 Both the name and the collision test have a required shape. A name is any entry
 the directory makes importable, which is `<name>.py` *and* `<name>/__init__.py`;
@@ -514,6 +534,11 @@ test would offer promotion for an item that is already promoted.
 section in the palette. The action exists to teach that the container exists; a
 silent success wastes the teaching moment.
 
+A cancellation is exempt from that confirmation only while it changed nothing.
+An abandoned promotion that has already written cascade files (FR-023) MUST be
+reported as a partial result naming what stayed, because the library did change
+and silence would say otherwise.
+
 ### 6.1 Cascade Promotion
 
 **FR-021.** Before promoting a block, the implementation MUST determine which
@@ -525,10 +550,23 @@ resolved type by origin using the shared resolver (FR-003). Static parsing is
 sufficient because after §5 a block expresses a type dependency as a real import
 statement.
 
+The parse MUST be aware of string literals and comments. A scanner that joins
+continuation lines by counting brackets without them reads the `(` in
+`pattern = "("` as an open bracket and swallows every statement after it, and
+the failure is not visible anywhere: the cascade simply reports no dependency,
+so the block is promoted without its type and breaks in the next project —
+precisely the silent outcome FR-024 forbids. Whatever the implementation, a
+character that is part of a literal or a comment MUST NOT be read as syntax.
+
 **FR-023.** When project-level type dependencies are found, the user MUST be
 offered promotion of those types alongside the block, as a single confirmed
 action. Declining MUST still allow the block to be promoted, with an explicit
 warning that it will fail to load in other projects.
+
+Dependencies are written before the item, so a later refusal is not always
+undoable: an overwrite already consented to for a dependency has replaced a
+file no rollback can restore. The implementation MUST therefore report such an
+outcome rather than roll it back or discard it (FR-020).
 
 **FR-024.** Cascade MUST be one level deep in this spec. A type that itself
 imports another project-level type is out of scope and MUST be reported rather
@@ -568,6 +606,13 @@ still be listed.
 Data types tab MUST NOT depend on a blocks request to populate or refresh.
 `type_hierarchy` on the block response is unchanged and keeps serving port
 colour resolution.
+
+Independent does not mean unsubscribed. Any client-side cache of this listing
+holds runtime truth, so it MUST be dropped by every event that rebuilds the
+type registry (FR-010, FR-062) — including a user-library write — and not left
+valid until someone asks for a manual reload. Independence from the *block
+request* is the requirement; independence from *registry invalidation* is the
+defect it must not become.
 
 **FR-028.** A type template endpoint MUST be added to the same router, mirroring
 `GET /api/blocks/template`. It MUST return a minimal `DataObject` subclass
@@ -838,6 +883,15 @@ reaches far more often than package install. A regression test for this
 requirement MUST exercise the events; asserting over route source text cannot
 observe an invalidation that does not name a refresh method.
 
+A rebuild MUST run the source that is on disk. Python validates a cached `.pyc`
+on the source's timestamp in whole seconds plus its size, so a drop-in edited
+within one second of its last load, to the same length, reloads the previous
+bytecode; the registry is then cleared and refilled with the definition the
+reload existed to replace, with no error anywhere. The drop-in load path MUST
+defeat that key — by evicting the cached bytecode, by giving the module a
+content-derived identity, or by compiling from source — because "an edit is
+visible without a restart" is the whole of this requirement.
+
 **FR-063.** Package install and uninstall MUST refresh the type registry. A
 package can ship types; today installing one leaves them undiscovered until the
 next project switch. This is a pre-existing defect, fixed here because the Data
@@ -858,6 +912,7 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Origin tiers | A block resolved from each directory returns its distinct origin; unresolvable path falls back to `custom` (FR-001, FR-002) |
 | Shared resolver | Every surface — the block listing, the types listing, the source endpoint, and the agent's promotion tool — holds the *same function object*, and the agent tool's accept set equals the frontend predicate's across the whole origin vocabulary, `custom` included (FR-003, FR-019, FR-025) |
 | Write endpoint | Writes land in the user library; traversal and symlink escapes 403; existing file is reported rather than overwritten (FR-006 – FR-008) |
+| Write endpoint exclusivity | A file created between the existence probe and the write survives and the request is refused, with the interleaving constructed rather than raced (FR-008, FR-065) |
 | Write endpoint containment | Every containment rule has a test that fails if the rule is removed, including the ones no ordinary request reaches: a link resolving to a deeper directory *inside* the root, and a containment comparison that raises rather than returning (FR-007) |
 | Write endpoint temp file | No `.py` file other than the destination exists in the scanned directory at any point during a write, and a write that fails leaves nothing behind whatever it raised (FR-007) |
 | Drop-in isolation | A drop-in that raises outside `Exception` — `sys.exit()` being the ordinary accident — is recorded as a failure and skipped, and the healthy neighbours still register (FR-015) |
@@ -868,8 +923,11 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Worker parity | A block importing a drop-in type runs in the worker, not just registers (FR-013) |
 | Import failure surfaced | A failing drop-in produces a user-visible report (FR-015) |
 | Shadowing rejection | A drop-in type entry colliding with an importable top-level module is reported through the FR-015 surface, its type is absent from a real `TypeRegistry`, and the real module still resolves inside a real worker subprocess — not only in the process that ran the scan. A `<name>/__init__.py` package is rejected on the same terms as `<name>.py` (FR-016) |
+| Shadowing fail-closed | When the collided installed module raises on import, the drop-in still does not win the name, and the collision is still reported on the next scan (FR-016) |
 | Promotion semantics | Copy not move; collision prompts; hidden for built-in, packaged, and already-in-library items (FR-017 – FR-019) |
 | Cascade | Block with a project-level type dependency offers cascade; declining warns; second-level dependency reported (FR-021 – FR-024) |
+| Cascade import parse | An unmatched bracket inside a string literal does not hide the import that follows it (FR-022) |
+| Cascade partial result | Cancelling after a dependency has been written reports a partial result naming the files that stayed, rather than a silent cancellation (FR-020, FR-023) |
 | Type colour declaration | A type declaring a colour surfaces it through the types listing (FR-049, FR-050) |
 | Colour precedence | Declared colour beats `typeColorMap`, which beats the hash fallback; an undeclared type is unchanged from today (FR-051) |
 | Colour parity | A type declaring `ui_color` renders in that colour on both a palette tile and a canvas port (FR-066, FR-051) |
@@ -887,6 +945,8 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Agent import parity | The §2.5 reproduction registers under the agent runtime and the worker, not only under the API (FR-013, §10.3) |
 | Tier condition | User-tier blocks and types are discovered with no project open, at all four sites; project-tier discovery still requires one (FR-060) |
 | Reload events | Each of the palette Reload button, a `{project}/types/*.py` save, and the MCP `reload_blocks` tool makes a newly written type resolvable (FR-062) |
+| Reload runs current source | A drop-in type edited within one second to the same size registers its new definition after a rescan, not the cached one (FR-062) |
+| Type catalogue invalidation | The frontend type listing is re-read on a registry-reload event and after a user-library write, without a manual reload (FR-010, FR-027, FR-062) |
 | Package reload | Installing a package that ships types makes them discoverable without a project switch (FR-063) |
 | Branch switch reload | Switching to a branch with different `{project}/types/` refreshes the type registry (FR-064) |
 | Cross-process refresh | A block promoted through the agent appears in the palette without restart (FR-065) |
