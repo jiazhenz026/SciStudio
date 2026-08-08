@@ -35,8 +35,21 @@ owner 逐关设计，我记录。这份是草稿本，不是 spec。
 
 **覆盖**：工作流是什么、block 是什么、plot 是什么、History 有什么用
 
-**restore 语义**：另一分支正在修 bug，新行为是 **Git 的 restore 和 History 的 restore 完全一样**，
-都是恢复到当时那个 git commit。教程**路由到 History tab**。这一关要等该修复落地。
+**restore 语义（#2033 已落地，2026-08-07 核对）**：ADR-038 Addendum 1。实际形态比当初记的更宽：
+
+- History 的 "Restore workflow" 改名为 **Restore**，范围从**单个 workflow YAML 扩大到那个 commit 的整棵树**，
+  和 Git tab 的 Restore 完全一致。**这正是这一关需要的**——剧情里被改坏的如果只是工作流，
+  旧行为也能救；但把块也改坏了就救不回来。现在两条路一样。
+- restore 之前会跑**两项建议性检查**：输入文件变没变、环境有没有漂移。**只提示，不阻断**。
+- 目标 commit 没有关联运行时（手动提交、`auto: pre-restore` 提交），UI 明说"无法检查"，
+  **不会**报告"一切正常"。
+- restore / merge / cherry-pick 之后会**刷新块注册表**（以前只有切分支会）。
+
+教程**路由到 History tab**。这一关不再有前置依赖。
+
+**教程要不要触发那两项检查**：剧情里工作流是教程刚改坏的，输入没变、环境没变，
+所以检查会返回"没有漂移"。这是干净的——用户第一次见到 restore 就顺带看到它会先检查一下。
+不用刻意造漂移，那是另一个话题。
 
 ---
 
@@ -198,6 +211,15 @@ owner 逐关设计，我记录。这份是草稿本，不是 spec。
 - **跳过时必须告诉用户后面去哪找**：工具栏上常驻的 **"Bring in my work"**
   （work-import spec FR-001：永久可用、不受学习进度限制；FR-002：项目打开时启用）
 
+**已落地（2026-08-08 复核）**：`src/scistudio/api/routes/work_import.py` +
+`frontend/src/components/BringInMyWorkDialog.tsx`。教程文案要照实际形态写，两点：
+
+- 对话框是**一页一个问题**的分页形式（#2001 最后几轮把大段说明文字砍掉改成分页的）。
+  所以教程里不能说"填一张表"，得说"它会一步步问你几个问题"。
+- provider 选择是**一个下拉列出全部**，不可用的**置灰不隐藏**。这和关卡 4 结尾
+  "告诉用户有哪些 provider 可以用"是同一个意图 —— 弹窗自己就在做 provider 介绍，
+  教程不用另讲一遍，指过去就行。
+
 ---
 
 ## 关卡 5 · 总结关
@@ -260,11 +282,24 @@ data type（关 2）、previewer（关 2）、plot card（关 1/3/4）。
 **顺手让用户给自己的类型挑个颜色**，到关卡 3 双分支画布上，Image 端口就是他自己选的颜色，
 和表达矩阵那条分支一眼可辨。用户会记住"我造的类型，连它在画布上长什么样都是我定的"。
 
-**run 只有两个层次**（owner 的新 PR 已去掉 block rerun —— 后端压根没这个语义，
-它和 run from here 是同一件事）
+**run 只有两个层次**（#2033 已落地，2026-08-07 核对）
 - 重跑**整个工作流**
 - **run from here**：从某个块开始跑（基于最新中间状态的 checkpoint）；
   节点上原来那个 restart 就是它
+
+**⚠️ 我当初记的和实际落地的不是一回事，这里更正**：
+当初记的是"去掉 block rerun，它和 run from here 是同一件事"。实际落地的是
+**整个 Re-run 功能被撤下**（ADR-038 Addendum 1）：`POST /api/runs/{run_id}/rerun` 路由删除、
+`r` 快捷键删除、rerun 对话框改成 restore 的确认框、前端 `rerunRun` / `validateRerun` 全部移除。
+
+而 **"Run from here" 完全不受影响**，ADR 明确写了"§3.6a 不受影响，原样保留"。
+两者只是名字撞了，`engine/scheduler/_rerun.py` 里装的是 run from here 的 DAG 遍历，
+和被撤下的 Re-run 无关。这一点写卡片文案时不能弄混。
+
+**所以"回到过去"现在是两步，这一页要讲清楚**：
+**Restore 把当时的状态放回来，然后你自己按 Run。** ADR 的理由值得抄进卡片——
+两步是故意的：让用户在任何东西执行之前先看见被恢复的状态，
+而且复用他本来就在用的 Run 按钮，不是第二个语义不同的执行入口。
 
 **tidy 和 focus 的关键：都不动科学内容**
 - **focus mode** 是纯前端视图状态，把选中节点邻域外的变暗/隐藏，**完全不落盘**
@@ -337,8 +372,23 @@ data type（关 2）、previewer（关 2）、plot card（关 1/3/4）。
 **补充材料**
 - 第 1 页可讲的"每次 run 记了什么"（说人话版）：用的哪个工作流、当时的版本、
   每个块用了什么参数、跑了多久、成功还是失败、输入输出是哪些数据，
-  **还有当时的运行环境**（Python 版本、系统、装了哪些包）。半年后重跑会提示环境变了。
-  **重跑是接在后面的一条链，不是把旧记录盖掉。**
+  **还有当时的运行环境**（Python 版本、系统、装了哪些包）。
+  记环境这件事有了明确用途：**restore 之前会拿它跟现在比一比**（见第 2 页）。
+  跑新的一次不会把旧记录盖掉，历史是往后接的。
+
+- **第 2 页 restore（#2033 已落地，2026-08-07 核对，四条要讲）**
+  1. **它恢复的是那次运行对应的整棵项目树**，不只是工作流——块的代码、脚本一起回来。
+     这一条要说，因为用户最常见的情况恰恰是"我把块改坏了"。
+  2. **恢复之后你自己按 Run。** 产品不替你跑。理由说人话：先让你看见恢复成什么样了，
+     再由你决定要不要跑。
+  3. **恢复之前它会先检查两件事**：你的输入文件还是不是当初那些、现在的环境跟当初一不一样。
+     **只是提醒，不拦你。**
+  4. **有件事 restore 做不到，而且它会告诉你**：git 只管你项目文件夹里的东西，
+     SciStudio 自己的版本、你装的包、Python 环境**都不在里面**，恢复不回去。
+     所以"昨天还好好的今天就挂了"有第二种可能——不是代码变了，是环境变了。
+     这是全产品唯一会主动告诉你这件事的地方。
+     另外，如果你选的那个版本不是某次运行留下的（是你手动提交的），
+     它会说"没法检查"，**而不是说"没问题"**。这句诚实值得单独讲。
 - 第 3 页已核实：**每次运行前会自动存一个版本**
   （ADR-039 §3.4 pre-run auto-commit，[_runs.py:362](src/scistudio/api/runtime/_runs.py#L362)），
   提交信息带 `auto` 前缀，SHA 写进那次运行记录。自动提交失败则进入降级模式，
@@ -396,18 +446,44 @@ owner 指出"怎么把自己的数据放进项目"和"项目里各个文件夹�
 ## 文档过时记录（写 spec 时要一并修）
 
 1. 架构 §9.7 写 "🔗 Lineage"，实际用户可见名是 **History**
-2. 架构 §6.4 / §9.2 提到 **pause / resume**，**该 feature 已移除**
+2. 架构把 **pause / resume** 列成执行引擎的通用能力（§4 层级图、§5 那两张表），**该 feature 已移除**。
+   注意区分：ADR-051 交互块那个"引擎持有的暂停"是**真的**（架构 §6.4 讲两阶段 worker 那段），别一起删了。
 3. ADR-051 spec 把交互块面板资产路径写成 package 专属，实际代码不区分块来自哪一层
-4. 架构 §10.2 说 seaborn 可用，实际不在核心依赖列表里
+4. 架构说 seaborn 可用（§10.2 render 那段、`list_plot_examples` 那行、§13 技术栈表），
+   **不在 `pyproject.toml` 里**，2026-08-07 复核仍然如此
+5. **新增**：架构 §9.7 那张底部面板表（第 1791 行）写 **"🔗 Lineage"**，且说它
+   "owns methods-export and **rerun** dialogs"。两处都过时了——用户可见名是 History，
+   rerun 对话框已随 #2033 撤下
+
+（第 1 条复核：`TabBar.tsx` 里 `lineage: tabLabel(Waypoints, "History")`，注释写着
+"display label only is History，BottomTab key 和所有代码仍叫 lineage，owner 要求的 UI 改名"。）
 
 ---
 
-## 教程内容依赖的在途变更（写 spec 前要确认这些 PR 的状态）
+## 教程内容依赖的在途变更 —— 2026-08-08 对着最新 main 复核
 
-1. **History / Git 的 restore 统一**成"恢复到那次运行对应的 git commit"，教程路由到 History tab
-   → 关卡 1 第 6 步
-2. **block rerun 移除**，与 run from here 合并（后端没有 block rerun 这个语义）
-   → workflow 卡的 run 那页、关卡 3 切分支后的重跑引导
+**两条都已落地（#2033，ADR-038 Addendum 1），但实际形态和当初记的有出入，详见各自小节。**
+
+| 当初记的 | 实际落地的 | 影响 |
+|---|---|---|
+| History / Git 的 restore 统一成"恢复到那次运行对应的 git commit" | ✅ 统一了，而且**范围扩大到整棵树**，外加两项建议性前置检查 | 关卡 1 第 6 步、history 卡第 2 页 |
+| block rerun 移除，与 run from here 合并 | ⚠️ **整个 Re-run 功能撤下**（不是"合并"），**run from here 明确不受影响** | workflow 卡 run 那页 |
+
+**关卡 3 不受影响**：那里教的是切分支后要重跑，用的是普通的 Run，本来就不涉及 Re-run。
+
+**其余落地情况（同次复核）**
+
+- **work-import 已落地**：`src/scistudio/api/routes/work_import.py` 和
+  `frontend/src/components/BringInMyWorkDialog.tsx` 都在。对话框做成了**一页一个问题**的分页形式，
+  不可用的 provider 在下拉里置灰不隐藏。关卡 4 结尾那个弹窗要照这个实际形态写。
+- **personal tool library 只落地了管道，没落地界面**：注册表统一（`src/scistudio/core/dropins.py`）、
+  drop-in 类型导入缺陷修复、刷新对称性都进去了，配套 parity 测试也有
+  （`tests/api/test_registry_provisioning_parity.py`、`test_registry_reload_symmetry.py`）。
+  但**用户能看见的那部分一个都没有**：`map_block_origin` 仍把 `tier1` 塌成 `custom`
+  （用户层/项目层没分开）、没有 `routes/types.py`、没有 `TypePalette.tsx`。
+  → **关卡 2 的"看当前支持哪些 data type"和"新建自定义类型"仍然没有 GUI 入口**，依赖照旧。
+- **previewer 用户层仍然没有**，关卡 3 的依赖照旧。
+- **`data/processed` 仍然不在脚手架里**（复核 `_projects.py` 的 `for subdir in (...)`）。
 
 ## 已确认的基建要求（从场景里长出来的）
 

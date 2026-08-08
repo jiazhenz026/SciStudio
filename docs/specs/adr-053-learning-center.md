@@ -560,8 +560,19 @@ callable, a callable returning a list or tuple, and a factory callable. Only the
 previewer registry records a load failure as a diagnostic anything can surface;
 the other two log and move on, so a user whose package silently contributed
 nothing has no way to find out. Only the previewer registry prepares `sys.path`
-for plugin roots. The personal tool library spec documents the matching
-divergence in the refresh path.
+for plugin roots. All four statements were re-verified against `main` on
+2026-08-08.
+
+The timing is favourable rather than accidental. The *other* half of the same
+problem — which drop-in directories each process sees, and which registries a
+package install or a branch switch refreshes — was just consolidated:
+`src/scistudio/core/dropins.py` is now the single answer, held in place by
+`tests/api/test_registry_provisioning_parity.py` and
+`tests/api/test_registry_reload_symmetry.py`. That work stopped at drop-in
+directories and did not touch entry points; `dropins.py` contains no entry-point
+handling at all. These requirements finish the job on the discovery side, with a
+settled precedent for what "one answer" looks like and a test file to extend
+rather than invent.
 
 **FR-025.** Enumeration and loading for every `scistudio.*` entry-point group
 MUST go through one shared helper. Each registry keeps its own registration
@@ -593,10 +604,15 @@ rather than reproduced as a per-group convention, and MUST NOT be extended to
 is required for all of them; the current previewer-only application means the
 same package can resolve for previewers and fail for blocks.
 
-**FR-031.** Package install, package uninstall, and branch switch MUST refresh
-every group, including `scistudio.tutorials`. The personal tool library spec
-consolidates this for blocks and types; tutorials MUST join that consolidated
-path rather than adding a fourth independent one.
+**FR-031.** Package install, package uninstall, branch switch, and the
+working-tree rewrites that now trigger a registry refresh — restore, merge, and
+cherry-pick, added by ADR-038 Addendum 1 — MUST reach every group, including
+`scistudio.tutorials`. This half of the symmetry problem is already solved:
+`src/scistudio/core/dropins.py` is the single answer to which drop-in
+directories a process sees, and `tests/api/test_registry_provisioning_parity.py`
+and `tests/api/test_registry_reload_symmetry.py` hold it in place. Tutorials MUST
+join that path and extend those tests rather than adding a fourth independent
+one.
 
 **FR-032.** The previewer companion fallback — scanning the `scistudio.blocks`
 and `scistudio.types` groups for a conventional `get_previewers()` when a package
@@ -833,7 +849,10 @@ other behaviour.
 
 **FR-081.** No capability MUST be gated on progress. The work-import toolbar
 entry MUST remain permanently available regardless of progress, as work-import
-FR-001 requires; the unlock decides when the product *volunteers* it.
+FR-001 requires; the unlock decides when the product *volunteers* it. That entry
+has shipped (`src/scistudio/api/routes/work_import.py`,
+`frontend/src/components/BringInMyWorkDialog.tsx`), so the unlock routes to an
+existing surface rather than one this spec has to define.
 
 #### The Learning Center surface
 
@@ -1251,7 +1270,17 @@ depends on it — one designed scenario reuses a custom type across two tutorial
 projects and needs its previewer to travel — and it is excluded by the personal
 tool library spec's scope. Nothing in this spec assumes it exists.
 
-**A-007.** The two in-flight behaviour changes the scenario content depends on —
-unifying History and Git restore onto the run's commit, and removing block rerun
-in favour of run-from-here — land before the scenarios spec. Neither affects the
-system specified here; both affect what the tutorials say.
+**A-007.** The recovery-path behaviour the scenario content depends on has
+landed and is no longer an assumption. ADR-038 Addendum 1 (#2033) withdrew Re-run
+entirely, widened the History tab's Restore from one workflow YAML to the run's
+full recorded tree so it matches the Git tab's, added advisory input and
+environment checks ahead of a restore, and made restore, merge, and cherry-pick
+refresh the block registry. "Run from here" is explicitly unaffected. None of
+this changes the system specified here; it changes what the tutorials say, and
+the scenarios draft has been updated against it.
+
+**A-008.** The personal tool library's user-visible surfaces have *not* landed.
+Its plumbing has: the drop-in consolidation, the drop-in type import fix, and
+refresh symmetry are all on `main`. Its surfaces are not — `map_block_origin`
+still collapses `tier1` to `custom`, and there is no types route and no types
+palette. The scenarios spec depends on those surfaces; this spec does not.
