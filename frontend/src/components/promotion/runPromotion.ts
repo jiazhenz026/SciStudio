@@ -35,8 +35,9 @@ export async function runPromotion(item: PromotableItem): Promise<PromotionOutco
 
   if (outcome.status === "promoted") {
     // FR-020 — land the user looking at `My Library`, the section this whole
-    // feature exists to teach.
-    revealInLibrary(item.target === "types" ? "types" : "blocks", item.label);
+    // feature exists to teach. It brings that section into view; it does not
+    // filter the palette down to the item, which read as the palette breaking.
+    revealInLibrary(item.target === "types" ? "types" : "blocks");
   }
   if (outcome.status !== "cancelled") {
     // A cancellation is the user's own decision and needs no confirmation; a

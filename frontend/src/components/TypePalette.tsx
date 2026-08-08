@@ -20,7 +20,7 @@
 // blocks as props: refreshing types must not mean refreshing the palette, and
 // drawing types must not require a blocks request.
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { resolveRingColor, resolveTypeColor } from "../config/typeColorMap";
 import { useReloadFlash } from "../hooks/useReloadFlash";
@@ -31,7 +31,6 @@ import { FilterChips, type FilterChip } from "./palette/FilterChips";
 import { useHoverPopover } from "./palette/hoverPopover";
 import { PromoteToLibraryAction } from "./promotion/PromoteToLibraryAction";
 import { isPromotable, promotableType } from "./promotion/promotable";
-import { useLibraryReveal } from "./promotion/revealInLibrary";
 import { TypeDetailPopover } from "./TypePalette.parts/TypeDetailPopover";
 import { TypeRow } from "./TypePalette.parts/TypeRow";
 import {
@@ -191,16 +190,10 @@ export function TypePalette() {
     void reload();
   };
 
-  // FR-020 — after a promotion, narrow to the promoted type so `My Library` is
-  // the only section showing it. The Blocks tab gets the same treatment from
-  // the store-held palette search; this tab owns its search box, so the reveal
-  // arrives through the shared channel instead.
-  const revealed = useLibraryReveal();
-  useEffect(() => {
-    if (revealed?.surface === "types") {
-      setSearch(revealed.name);
-    }
-  }, [revealed]);
+  // No FR-020 hook here any more. A promotion used to type the promoted type's
+  // name into the search box above, which left this tab showing one row and no
+  // explanation the user could see — the reveal now stops at bringing the tab
+  // and its `My Library` section into view (`promotion/revealInLibrary`).
 
   const hovered = hover.hovered;
   const hoveredSwatch = hovered ? swatchFor.byType(hovered.item) : null;

@@ -621,6 +621,11 @@
       "at": "2026-08-08T08:08:29.727270Z",
       "owner_directive": "Data types tab: type tiles look identical to block tiles, so they read as draggable into the workflow. Render types as a list instead - one row per type, colour swatch as a framed square left of the name, parent type in grey on the right.",
       "reason": "Owner review of the running desktop build redirected the Data types tab presentation"
+    },
+    {
+      "at": "2026-08-08T09:13:45.293085Z",
+      "owner_directive": "After Save to My Library, a block or type has its name auto-filled into the search box; users are confused about why they cannot find anything else. Remove that behaviour.",
+      "reason": "Owner review of the running desktop build removed the post-promotion palette filter"
     }
   ],
   "docs_events": [
@@ -2836,6 +2841,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/promotion/__tests__/entryPoints.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T09:13:45.293103Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/promotion/__tests__/revealInLibrary.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }

@@ -1,6 +1,7 @@
-// ADR-053 FR-020 — a success confirms inline AND reveals the item in its new
-// palette section. A silent success wastes the teaching moment the whole
-// feature exists for, so both halves are asserted.
+// ADR-053 FR-020 — a success confirms inline AND brings the item's new palette
+// section into view. A silent success wastes the teaching moment the whole
+// feature exists for, so both halves are asserted — as is the thing the reveal
+// must NOT do: filter the palette down to the promoted item.
 
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -24,7 +25,7 @@ vi.mock("../../../lib/api/code", async (importOriginal) => {
 
 function Probe() {
   const reveal = useLibraryReveal();
-  return <span data-testid="reveal">{reveal ? `${reveal.surface}:${reveal.name}` : "none"}</span>;
+  return <span data-testid="reveal">{reveal ? reveal.surface : "none"}</span>;
 }
 
 beforeEach(() => {
@@ -40,41 +41,55 @@ afterEach(() => {
 });
 
 describe("revealInLibrary — FR-020", () => {
-  it("expands the palette, refreshes the catalogue, and narrows to the block", () => {
+  it("expands the palette and refreshes the catalogue", () => {
     useAppStore.setState({ paletteCollapsed: true });
     const before = useAppStore.getState().blockCatalogRefreshCounter;
 
     render(<Probe />);
-    act(() => revealInLibrary("blocks", "Normalize"));
+    act(() => revealInLibrary("blocks"));
 
     const state = useAppStore.getState();
     expect(state.paletteCollapsed).toBe(false);
     // Without the refresh the palette would not yet contain the promoted item.
     expect(state.blockCatalogRefreshCounter).toBe(before + 1);
-    // Narrowing to the name is what makes `My Library` the only section
-    // showing it — the reveal, not merely a hint that it happened.
-    expect(state.paletteSearch).toBe("Normalize");
-    expect(screen.getByTestId("reveal")).toHaveTextContent("blocks:Normalize");
+    expect(screen.getByTestId("reveal")).toHaveTextContent("blocks");
+  });
+
+  it("leaves the palette search alone", () => {
+    // It used to type the promoted item's name in here, which isolated the
+    // item but also emptied every other section — and the user, who did not
+    // type it, saw a palette that had lost everything. FR-020 forbids it.
+    useAppStore.setState({ paletteSearch: "" });
+    render(<Probe />);
+    act(() => revealInLibrary("blocks"));
+    expect(useAppStore.getState().paletteSearch).toBe("");
+  });
+
+  it("does not disturb a search the user did type", () => {
+    useAppStore.setState({ paletteSearch: "fft" });
+    render(<Probe />);
+    act(() => revealInLibrary("blocks"));
+    expect(useAppStore.getState().paletteSearch).toBe("fft");
   });
 
   it("re-fires for a repeat promotion of the same item", () => {
     render(<Probe />);
     const tokens: number[] = [];
-    act(() => revealInLibrary("blocks", "Normalize"));
+    act(() => revealInLibrary("blocks"));
     tokens.push(1);
-    act(() => revealInLibrary("blocks", "Normalize"));
+    act(() => revealInLibrary("blocks"));
     tokens.push(2);
     // A consumer comparing the value alone would ignore the second promotion;
     // the token is what makes the effect run again.
-    expect(screen.getByTestId("reveal")).toHaveTextContent("blocks:Normalize");
+    expect(screen.getByTestId("reveal")).toHaveTextContent("blocks");
     expect(tokens).toEqual([1, 2]);
   });
 
   it("reloads the type catalogue when a type was promoted", () => {
     render(<Probe />);
-    act(() => revealInLibrary("types", "Spectrum"));
+    act(() => revealInLibrary("types"));
     expect(listTypes).toHaveBeenCalled();
-    expect(screen.getByTestId("reveal")).toHaveTextContent("types:Spectrum");
+    expect(screen.getByTestId("reveal")).toHaveTextContent("types");
   });
 });
 

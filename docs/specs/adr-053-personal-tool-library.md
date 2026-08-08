@@ -540,9 +540,22 @@ The condition is the resolved origin, not the internal tier-1 classification: a
 user-library block is also tier-1 with a resolvable `file_path`, so the broader
 test would offer promotion for an item that is already promoted.
 
-**FR-020.** On success the UI MUST confirm inline and reveal the item in its new
-section in the palette. The action exists to teach that the container exists; a
-silent success wastes the teaching moment.
+**FR-020.** On success the UI MUST confirm inline and bring the item's new
+section into view: the catalogue is re-read so the item is actually there, the
+palette panel expands, and the left panel switches to the item's own tab. The
+action exists to teach that the container exists; a silent success wastes the
+teaching moment.
+
+The reveal MUST NOT filter the palette down to the promoted item. Typing the
+item's name into the search box does isolate it, and that was the original
+reading of "reveal" — but it also empties every other section, and the user did
+not type it. From their side the palette has simply lost everything else, with
+the cause sitting in a box they were not looking at and did not touch. A
+confirmation that reads as a malfunction teaches the opposite of what this
+feature exists to teach, and a search the user *had* typed would be destroyed
+on top of it. Owner review of a running build removed the filtering; the inline
+notice names the item, and the tab it now lands on shows `My Library` with the
+item in it.
 
 A cancellation is exempt from that confirmation only while it changed nothing.
 An abandoned promotion that has already written cascade files (FR-023) MUST be

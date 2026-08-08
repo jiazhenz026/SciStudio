@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [#1995] Saving a block or data type to My Library no longer types its name
+  into the palette search box. The intent was to reveal the item by leaving it
+  as the only thing on screen, but nobody watching it happen reads it that way:
+  the user did not type that search, so what they see is a palette that has
+  suddenly lost every other block, with the cause sitting in a box they were not
+  looking at — and any search they *had* typed is gone as well. The reveal now
+  stops where it stops being helpful: the catalogue is re-read, the palette
+  panel opens, and the left panel switches to the item's own tab, where
+  `My Library` is showing with the item in it. The inline "Saved to My Library"
+  notice still names the item and the file it was written to.
+
 - [#1995] The Data types tab now lists types one per row instead of laying them
   out as a grid of tiles. The grid was borrowed from the Blocks tab, where a
   tile means *a thing you drag onto the canvas* — block tiles are `draggable`
