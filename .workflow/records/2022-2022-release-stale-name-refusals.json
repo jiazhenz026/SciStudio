@@ -1,0 +1,126 @@
+{
+  "branch": "fix/2022-release-stale-name-refusals",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-08T05:43:23.575719Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T05:43:23.575725Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-personal-tool-library.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2022,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Complete delivery with no deferred scope: release stale FR-016 name refusals when the collision that warranted them is gone, bounded per type root so a still-warranted refusal survives. Do not open a PR; push the branch only.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2022-2022-release-stale-name-refusals",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-08T05:43:23.575603Z",
+      "pattern": "src/scistudio/core/dropins.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T05:43:23.575626Z",
+      "pattern": "tests/blocks/test_dropin_type_import.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T05:43:23.575629Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T05:43:23.575632Z",
+      "pattern": "docs/specs/adr-053-personal-tool-library.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T06:28:15.759738Z",
+      "pattern": "src/scistudio/blocks/registry/_scan.py",
+      "reason": "Inherited from the branch base, not authored here: this branch is cut from fix/2020-adr-053-registry-runtime-defects (PR #2035) and these four files arrive unmodified from its commit af4f298d, whose evidence is .workflow/records/2020-adr-053-spec1-track-a-runtime-defects.json. They appear in a diff taken against origin/main because that base predates the Track A branch point."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T06:28:15.759757Z",
+      "pattern": "src/scistudio/core/types/registry.py",
+      "reason": "Inherited from the branch base, not authored here: this branch is cut from fix/2020-adr-053-registry-runtime-defects (PR #2035) and these four files arrive unmodified from its commit af4f298d, whose evidence is .workflow/records/2020-adr-053-spec1-track-a-runtime-defects.json. They appear in a diff taken against origin/main because that base predates the Track A branch point."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T06:28:15.759760Z",
+      "pattern": "src/scistudio/desktop/paths.py",
+      "reason": "Inherited from the branch base, not authored here: this branch is cut from fix/2020-adr-053-registry-runtime-defects (PR #2035) and these four files arrive unmodified from its commit af4f298d, whose evidence is .workflow/records/2020-adr-053-spec1-track-a-runtime-defects.json. They appear in a diff taken against origin/main because that base predates the Track A branch point."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T06:28:15.759762Z",
+      "pattern": "tests/core/test_type_registry_scan_dirs.py",
+      "reason": "Inherited from the branch base, not authored here: this branch is cut from fix/2020-adr-053-registry-runtime-defects (PR #2035) and these four files arrive unmodified from its commit af4f298d, whose evidence is .workflow/records/2020-adr-053-spec1-track-a-runtime-defects.json. They appear in a diff taken against origin/main because that base predates the Track A branch point."
+    }
+  ],
+  "session_id": "151903f5-f76a-4244-ba2d-241c84b0b996",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-08-08T05:43:23.575730Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_dropin_type_import.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

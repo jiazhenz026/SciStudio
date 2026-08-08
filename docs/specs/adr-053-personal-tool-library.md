@@ -455,6 +455,16 @@ and all three are load-bearing:
   states for directory resolution, and it is discharged the same way: one shared
   implementation that every call site invokes, not a rule each site restates.
 
+The refusal has a lifecycle, and its end is part of the requirement. A refusal
+is warranted by a drop-in entry, and a scan that no longer finds that entry
+colliding MUST release it. Renaming or removing the file is precisely what the
+refusal asks the user to do, and a refusal that outlives its cause leaves an
+installed module unusable for the life of the process in answer to the user
+doing the right thing — a worse outcome than the shadowing, because the product
+never notices. Release MUST be bounded by the directories the scan was actually
+given: a scan knows the complete collision set only for those, so a refusal
+warranted by a directory it was not asked about MUST survive it.
+
 Both the name and the collision test have a required shape. A name is any entry
 the directory makes importable, which is `<name>.py` *and* `<name>/__init__.py`;
 a plain subdirectory is not, since a namespace portion cannot displace a regular
@@ -817,6 +827,7 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Worker parity | A block importing a drop-in type runs in the worker, not just registers (FR-013) |
 | Import failure surfaced | A failing drop-in produces a user-visible report (FR-015) |
 | Shadowing rejection | A drop-in type entry colliding with an importable top-level module is reported through the FR-015 surface, its type is absent from a real `TypeRegistry`, and the real module still resolves inside a real worker subprocess — not only in the process that ran the scan. A `<name>/__init__.py` package is rejected on the same terms as `<name>.py` (FR-016) |
+| Refusal lifecycle | Removing the colliding entry and rescanning makes the name importable again; a rescan that still finds the entry keeps the refusal, and so does a rescan covering only some of the directories that warranted it (FR-016) |
 | Promotion semantics | Copy not move; collision prompts; hidden for built-in, packaged, and already-in-library items (FR-017 – FR-019) |
 | Cascade | Block with a project-level type dependency offers cascade; declining warns; second-level dependency reported (FR-021 – FR-024) |
 | Type colour declaration | A type declaring a colour surfaces it through the types listing (FR-049, FR-050) |
