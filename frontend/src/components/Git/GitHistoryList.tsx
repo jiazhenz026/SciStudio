@@ -18,6 +18,7 @@ import type { JSX, KeyboardEvent as ReactKeyboardEvent } from "react";
 import { selectVisibleCommits } from "../../store/gitSlice";
 import { useAppStore } from "../../store";
 import type { GitCommit } from "../../types/api";
+import { RestoreDialog } from "../Lineage/RestoreDialog";
 import { GitDiffModal } from "./GitDiffModal";
 import { GitGraphPane } from "./GitHistoryList.parts/GitGraphPane";
 import { HistoryListBody } from "./GitHistoryList.parts/HistoryListBody";
@@ -72,23 +73,31 @@ function useDiffAction(opts: UseDiffActionOpts): {
   return { diffOpen, setDiffOpen, handleDiff };
 }
 
-function useRestoreAction(onRestoreClick?: (commit: GitCommit) => void) {
-  const restore = useAppStore((s) => s.restore);
+/**
+ * Open the shared restore confirmation dialog for a commit.
+ *
+ * ADR-038 Addendum 1 §11.4 (#2033): this used to be a `window.confirm`. A
+ * native confirm cannot render the ADR-038 §3.6 preflight — the input and
+ * environment checks that tell a user whether restoring this commit will
+ * reproduce what it recorded — so the restore now routes through
+ * `RestoreDialog`, the same surface the Run history tab uses.
+ *
+ * `onRestoreClick` still takes precedence when a host supplies one, so an
+ * embedder can keep owning the interaction.
+ */
+function useRestoreAction(
+  setRestoreTarget: (commit: GitCommit | null) => void,
+  onRestoreClick?: (commit: GitCommit) => void,
+) {
   return useCallback(
     (commit: GitCommit) => {
       if (onRestoreClick) {
         onRestoreClick(commit);
         return;
       }
-      const ok = window.confirm(
-        `Restore files from commit ${commit.short_sha}?\n\n${commit.subject}\n\nThis will overwrite the working tree.`,
-      );
-      if (!ok) return;
-      void restore(commit.sha).catch((err) => {
-        console.warn("[GitHistoryList] restore failed:", err);
-      });
+      setRestoreTarget(commit);
     },
-    [onRestoreClick, restore],
+    [onRestoreClick, setRestoreTarget],
   );
 }
 
@@ -118,7 +127,8 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
   }, [branch, commits, loading, loadLog]);
 
   const { diffOpen, setDiffOpen, handleDiff } = useDiffAction({ onCommitClick });
-  const handleRestore = useRestoreAction(onRestoreClick);
+  const [restoreTarget, setRestoreTarget] = useState<GitCommit | null>(null);
+  const handleRestore = useRestoreAction(setRestoreTarget, onRestoreClick);
 
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLLIElement>, commit: GitCommit) => {
@@ -181,6 +191,19 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
           from={diffOpen.from}
           to={diffOpen.to}
           onClose={() => setDiffOpen(null)}
+        />
+      )}
+
+      {restoreTarget && (
+        <RestoreDialog
+          commitSha={restoreTarget.sha}
+          targetLabel={`${restoreTarget.short_sha} · ${restoreTarget.subject}`}
+          onClose={() => setRestoreTarget(null)}
+          onRestored={() => {
+            // The restore landed on disk; drop the cached status/log so the
+            // badge and the `auto: pre-restore` commit show up immediately.
+            useAppStore.getState().invalidateHistory();
+          }}
         />
       )}
     </div>

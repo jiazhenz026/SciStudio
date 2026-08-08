@@ -54,7 +54,6 @@ interface WorkflowCanvasProps {
   onDeleteNode: (nodeId: string) => void;
   onDeleteEdge: (edge: WorkflowEdge) => void;
   onRunBlock: (blockId: string) => void;
-  onRestartBlock: (blockId: string) => void;
   onErrorClick: (blockId: string) => void;
   /**
    * ADR-050 FR-013 — warning-status click handler. Selects the node and opens
@@ -257,7 +256,6 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onErrorClick,
     onWarningClick,
     onPaneClick,
-    onRestartBlock,
     onRunBlock,
     onSelectNode,
     onUpdateNodeConfig,
@@ -283,7 +281,6 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
 
   const flowCallbacks = useFlowCallbacks({
     onRunBlock,
-    onRestartBlock,
     onDeleteNode,
     onErrorClick,
     onUpdateNodeConfig,

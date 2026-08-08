@@ -71,7 +71,7 @@ your own quick figures, [writing-plots.md](writing-plots.md).
 ## 5. It is all recorded
 
 Every run is saved. The **run history** remembers what you ran, with which
-parameters, and lets you restore or re-run it later; **branches** let you keep
+parameters, and lets you restore any of it later; **branches** let you keep
 several variants of a pipeline side by side. See
 [history-and-branches.md](history-and-branches.md).
 
@@ -81,7 +81,7 @@ several variants of a pipeline side by side. See
 |---|---|
 | Learn the canvas, running, and previews in depth | [using-the-gui.md](using-the-gui.md) |
 | See every built-in block and what it does | [built-in-blocks.md](built-in-blocks.md) |
-| Re-run past work; keep pipeline variants on branches | [history-and-branches.md](history-and-branches.md) |
+| Go back to past work; keep pipeline variants on branches | [history-and-branches.md](history-and-branches.md) |
 | Get the AI assistant to do the work | [ai-assistant.md](ai-assistant.md) |
 | Make a quick plot of a result | [writing-plots.md](writing-plots.md) |
 | Write your own block | [writing-blocks.md](writing-blocks.md) |

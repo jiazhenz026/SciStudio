@@ -6,7 +6,6 @@ import { useCallback } from "react";
 
 export interface FlowCallbacksOpts {
   onRunBlock: (blockId: string) => void;
-  onRestartBlock: (blockId: string) => void;
   onDeleteNode: (nodeId: string) => void;
   onErrorClick: (blockId: string) => void;
   onUpdateNodeConfig: (nodeId: string, patch: Record<string, unknown>) => void;
@@ -19,19 +18,8 @@ export interface FlowCallbacksOpts {
 }
 
 export function useFlowCallbacks(opts: FlowCallbacksOpts) {
-  const {
-    onRunBlock,
-    onRestartBlock,
-    onDeleteNode,
-    onErrorClick,
-    onUpdateNodeConfig,
-    onWarningClick,
-  } = opts;
+  const { onRunBlock, onDeleteNode, onErrorClick, onUpdateNodeConfig, onWarningClick } = opts;
   const makeOnRun = useCallback((nodeId: string) => () => onRunBlock(nodeId), [onRunBlock]);
-  const makeOnRestart = useCallback(
-    (nodeId: string) => () => onRestartBlock(nodeId),
-    [onRestartBlock],
-  );
   const makeOnDelete = useCallback((nodeId: string) => () => onDeleteNode(nodeId), [onDeleteNode]);
   const makeOnErrorClick = useCallback(
     (nodeId: string) => () => onErrorClick(nodeId),
@@ -51,7 +39,6 @@ export function useFlowCallbacks(opts: FlowCallbacksOpts) {
   );
   return {
     makeOnRun,
-    makeOnRestart,
     makeOnDelete,
     makeOnErrorClick,
     makeOnWarningClick,

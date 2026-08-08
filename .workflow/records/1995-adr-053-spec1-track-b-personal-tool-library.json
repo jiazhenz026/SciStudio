@@ -651,7 +651,7 @@
       "verified_in_diff": null
     }
   ],
-  "governance_touch": false,
+  "governance_touch": true,
   "guard_events": [
     {
       "at": "2026-08-07T11:26:58.598528Z",
@@ -2673,7 +2673,50 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:28:01.984173Z",
+      "pattern": "docs/**",
+      "reason": "Merge Track A, which now carries origin/main including the parallel spec-2 work-import track. Paths outside the original surface arrive from the base branch through the merge and are not authored here."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:28:01.984193Z",
+      "pattern": "frontend/**",
+      "reason": "Merge Track A, which now carries origin/main including the parallel spec-2 work-import track. Paths outside the original surface arrive from the base branch through the merge and are not authored here."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:28:01.984196Z",
+      "pattern": "scripts/hooks/**",
+      "reason": "Merge Track A, which now carries origin/main including the parallel spec-2 work-import track. Paths outside the original surface arrive from the base branch through the merge and are not authored here."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:28:01.984198Z",
+      "pattern": "LICENSE",
+      "reason": "Merge Track A, which now carries origin/main including the parallel spec-2 work-import track. Paths outside the original surface arrive from the base branch through the merge and are not authored here."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:28:01.984199Z",
+      "pattern": "README.md",
+      "reason": "Merge Track A, which now carries origin/main including the parallel spec-2 work-import track. Paths outside the original surface arrive from the base branch through the merge and are not authored here."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:28:01.984201Z",
+      "pattern": "README.zh-CN.md",
+      "reason": "Merge Track A, which now carries origin/main including the parallel spec-2 work-import track. Paths outside the original surface arrive from the base branch through the merge and are not authored here."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:28:01.984203Z",
+      "pattern": "pyproject.toml",
+      "reason": "Merge Track A, which now carries origin/main including the parallel spec-2 work-import track. Paths outside the original surface arrive from the base branch through the merge and are not authored here."
+    }
+  ],
   "session_id": "a1b6503a-696b-48f1-b4c8-5e7c82ac0c3a",
   "strictness_tier": 1,
   "task_kind": "feature",

@@ -334,6 +334,16 @@ export interface UISlice {
   closePlotPicker: () => void;
   setActiveBottomTab: (tab: BottomTab) => void;
   /**
+   * ADR-053 spec 2 (#2001) — bring a bottom-panel tab into view.
+   *
+   * `setActiveBottomTab` alone is not enough when the panel is collapsed: the
+   * work-import session would start, the tab would be created, and the user
+   * would see nothing happen. This expands the panel and selects the tab in one
+   * action, mirroring `openNewPlotPicker`'s existing treatment of the same
+   * problem.
+   */
+  openBottomTab: (tab: BottomTab) => void;
+  /**
    * ADR-050 §3.1 — enter focus mode around the given selection. A no-op when
    * `selectedIds` is empty (focus mode is unavailable without a selection).
    */
@@ -595,6 +605,31 @@ export interface TerminalTabsSlice {
      * never guess or default a provider onto an engine-initiated tab.
      */
     provider: TerminalProvider;
+  }) => void;
+  /**
+   * ADR-053 spec 2 (#2001) / FR-022, FR-025 — attach a Bring In My Work
+   * session tab.
+   *
+   * `POST /api/work-import/sessions` has already composed the brief, written it
+   * to disk in full, and spawned the PTY (FR-024) by the time this is called,
+   * so the tab goes straight to `running`: there is no SetupScreen to show and
+   * no second launch to perform. Mounting it opens
+   * `WS /api/ai/pty/{tabId}` with the existing query parameters, which joins
+   * the already-spawned session rather than starting another one.
+   *
+   * `source` stays `"user"` on purpose. FR-025 requires an ORDINARY chat
+   * session the user can talk to, redirect, and end like any other — an
+   * `"ai-block"` tab would carry a Mark-done affordance and block-run cancel
+   * semantics that have no meaning here.
+   *
+   * Idempotent on `tabId`, matching `addAiBlockTerminalTab`.
+   */
+  addWorkImportTerminalTab: (args: {
+    tabId: string;
+    title: string;
+    /** ADR-034 FR-020c — the provider the backend actually spawned. Never defaulted. */
+    provider: TerminalProvider;
+    permissionMode: "safe" | "dangerous";
   }) => void;
   /**
    * ADR-035 §3.9 — update the AI Block status for a tab. No-op if the tab
@@ -902,7 +937,10 @@ export interface LineageSlice {
   expandedBlockExecutionIds: string[];
   // dialogs (UI-only)
   methodsDialogRunId: string | null;
-  rerunDialogRunId: string | null;
+  // ADR-038 Addendum 1 (#2033): `rerunDialogRunId` / `openRerunDialog` /
+  // `closeRerunDialog` are gone with the Re-run affordance. The restore
+  // dialog is owned locally by whichever tab opened it, so it needs no
+  // store state.
   // actions
   fetchRuns: (opts?: { workflowId?: string; limit?: number }) => Promise<void>;
   fetchRunDetail: (runId: string) => Promise<void>;
@@ -910,8 +948,6 @@ export interface LineageSlice {
   toggleBlockExecutionExpanded: (blockExecutionId: string) => void;
   openMethodsDialog: (runId: string) => void;
   closeMethodsDialog: () => void;
-  openRerunDialog: (runId: string) => void;
-  closeRerunDialog: () => void;
   clearLineage: () => void;
 }
 

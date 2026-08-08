@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -106,6 +107,17 @@ class TestBrowseFilesystem:
         )
         assert resp.status_code == 400
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        # #2030: the 400 depends on the POSIX NAME_MAX/ENAMETOOLONG contract.
+        # Windows has no per-component NAME_MAX, so an over-length component is
+        # simply a name that does not exist and the endpoint answers 404. The
+        # regression #1753 actually guards — never a 500 — still holds there;
+        # only this test's way of provoking the error is POSIX-specific.
+        # ``test_safe_is_dir_swallows_oserror_on_overlength_path`` below covers
+        # the swallow logic directly and runs on every platform.
+        reason="POSIX NAME_MAX/ENAMETOOLONG semantics; Windows answers 404, not 500",
+    )
     def test_overlength_path_returns_400_not_500(self, client: TestClient, browse_dir: Path) -> None:
         # Regression (#1753): a multi-file field stringifies to a comma-joined
         # value thousands of characters long. ``os.stat`` on such a path raises

@@ -9,7 +9,7 @@
 // (FR-001..FR-007, FR-011).
 //
 // Runtime state, warnings, and errors render through the single unified
-// `NodeStatusSurface` corner glyph. Run/restart/delete float OUTSIDE the
+// `NodeStatusSurface` corner glyph. Run/delete float OUTSIDE the
 // square in `NodeActionToolbar` on hover/selected. Port handles + ADR-029
 // variadic +/- controls stay on the left/right rails via `PortHandles`,
 // aligned to the square through `nodeGeometry`.
@@ -165,7 +165,6 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
       <NodeActionToolbar
         visible={actionsVisible}
         onRun={data.onRun}
-        onRestart={data.onRestart}
         onDelete={data.onDelete}
         trailing={
           summary ? (

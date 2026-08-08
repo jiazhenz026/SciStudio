@@ -99,7 +99,6 @@ export interface ProjectWorkspaceProps {
   onErrorClick: (blockId: string) => void;
   onCanvasPaneClick: () => void;
   onRunBlock: (blockId: string) => Promise<void> | void;
-  onRestartBlock: (blockId: string) => Promise<void> | void;
   onSelectNode: (nodeId: string | null) => void;
   onUpdateNodeConfig: (nodeId: string, patch: Record<string, unknown>) => void;
   onUpdateNodePosition: (nodeId: string, position: { x: number; y: number }) => void;
@@ -257,7 +256,6 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
     onErrorClick,
     onCanvasPaneClick,
     onRunBlock,
-    onRestartBlock,
     onSelectNode,
     onUpdateNodeConfig,
     onUpdateNodePosition,
@@ -316,7 +314,6 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
       onWarningClick={readability.onWarningClick}
       onPaneClick={onCanvasPaneClick}
       onRunBlock={onRunBlock}
-      onRestartBlock={onRestartBlock}
       onSelectNode={onSelectNode}
       onUpdateNodeConfig={onUpdateNodeConfig}
       onUpdateNodePosition={onUpdateNodePosition}
