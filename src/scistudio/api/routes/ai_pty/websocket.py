@@ -26,6 +26,7 @@ from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from scistudio.ai.agent.terminal import PtyProcess
 from scistudio.api.routes.ai_pty import _state as _pkg
+from scistudio.api.routes.ai_pty import engine as _engine
 from scistudio.api.routes.ai_pty.validation import _validate_project_dir
 
 logger = logging.getLogger(__name__)
@@ -66,21 +67,39 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
 
     dangerous = dangerous_raw in {"true", "1", "yes"}
 
-    # ---- Engine-initiated tab join (ADR-035 §3.10) -------------------------
-    # Audit P1-C (Codex #861-2): if the engine pre-spawned a PTY for this
-    # tab_id (engine-initiated AI Block tab), JOIN that PTY instead of
-    # spawning a fresh one. Re-spawning would orphan the original agent
-    # process, drop the engine's _engine_initial_stdin / _engine_block_run_id
-    # metadata, and break the worker's completion-watcher correlation.
+    # ---- Pre-spawned tab join (ADR-035 §3.10, ADR-053 FR-022) --------------
+    # Audit P1-C (Codex #861-2): if a PTY was already spawned server-side for
+    # this tab_id, JOIN it instead of spawning a fresh one. Re-spawning would
+    # orphan the original agent process, drop the stamped metadata, and — for
+    # an AI Block tab — break the worker's completion-watcher correlation.
+    #
+    # The predicate reads the provider-neutral ``_engine_prespawned`` marker
+    # that :func:`~.engine._open_prespawned_tab` stamps on every server-side
+    # spawn, so a Bring In My Work tab joins its own session PTY rather than
+    # starting a second agent that never sees the brief. The original
+    # ``_engine_block_run_id`` clause is kept as well: it is AI-Block-specific,
+    # and dropping it would silently change behaviour for any caller that
+    # stamps only that attribute. Nothing else about this route changes — the
+    # query-parameter contract, the spawn path, the cap, the error frames and
+    # the teardown are untouched, and a work-import tab acquires no AI Block
+    # semantics because it registers in none of the block-run maps.
     existing_pty: PtyProcess | None = None
     async with _pkg._active_lock:
         candidate = _pkg._active_ptys.get(tab_id)
-        if candidate is not None and getattr(candidate, "_engine_block_run_id", None):
+        if candidate is not None and (
+            getattr(candidate, "_engine_prespawned", False) or getattr(candidate, "_engine_block_run_id", None)
+        ):
             existing_pty = candidate
 
     if existing_pty is not None:
         pty = existing_pty
-        # #1789: the engine pre-spawns this PTY before any WS connects, so it was
+        # The handoff completed: this tab is now owned by this WebSocket and
+        # is reclaimed by the teardown below, so the orphan reaper must leave
+        # it alone. Stamped on join rather than inferred, because "in
+        # ``_active_ptys`` and pre-spawned" cannot tell a live joined tab from
+        # one whose WebSocket never arrived.
+        pty._engine_joined = True  # type: ignore[attr-defined]
+        # #1789: the server pre-spawns this PTY before any WS connects, so it was
         # sized at the default 120x30 — not the frontend's real viewport. Without
         # correcting it on join, the agent TUI keeps drawing at 120x30 while xterm
         # renders at the fitted size, so the display is garbled and, when the pane
@@ -92,6 +111,11 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
             pty.resize(cols=initial_cols, rows=initial_rows)
     else:
         # ---- Resource cap --------------------------------------------------
+        # Reclaim orphaned pre-spawned tabs before counting. Their handoff
+        # never completed, so nothing else will ever remove them, and without
+        # this a user-launched chat could be refused for a cap that is full of
+        # dead entries.
+        _engine.reclaim_orphaned_prespawned_tabs()
         async with _pkg._active_lock:
             if len(_pkg._active_ptys) >= _pkg.MAX_ACTIVE_PTYS:
                 # Note: send + close while still holding the lock would

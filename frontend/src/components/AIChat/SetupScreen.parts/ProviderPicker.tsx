@@ -19,6 +19,31 @@ import type { ProviderStatus, TerminalProvider } from "./types";
  */
 export const PROVIDER_PLACEHOLDER_LABEL = "Choose provider…";
 
+/**
+ * A caller's replacement for the two-boolean reading of one provider.
+ *
+ * ADR-053 spec 2 (#2001) added the reason this exists. `GET /api/ai/status`
+ * answers "installed?" and "signed in?", and this component was written against
+ * exactly that. The work-import dialog consumes a DIFFERENT and finer report —
+ * four graded states plus a separate "can this CLI be handed a task at all?" —
+ * and feeding it through the two booleans below misreports it: an agent that is
+ * installed, signed in, and failing its live call has `available: true,
+ * logged_in: true` and would be listed as selectable, or (mapped the other way)
+ * annotated `(not installed)`, which is the misreport FR-034 forbids by name.
+ *
+ * So a caller that knows more may say so per provider, and this component
+ * renders what it is told rather than re-deriving it. That is the opposite of a
+ * fork: FR-042 requires provider selection to have ONE implementation, and the
+ * knowledge that varies — what the states are and which of them can run this
+ * kind of session — stays with the caller that has it.
+ */
+export interface ProviderOptionOverride {
+  /** Suffix after the label, already parenthesised, or `null` for none. */
+  hint: string | null;
+  /** Whether the option can be chosen. `false` renders it greyed and disabled. */
+  selectable: boolean;
+}
+
 export interface ProviderPickerProps {
   tabId: string;
   /** Status entries exactly as `GET /api/ai/status` returned them (registry order). */
@@ -26,6 +51,15 @@ export interface ProviderPickerProps {
   statusLoading: boolean;
   provider: TerminalProvider | null;
   onChange: (provider: TerminalProvider) => void;
+  /**
+   * Optional per-provider override, keyed by provider name.
+   *
+   * OMITTING IT MUST LEAVE THIS COMPONENT EXACTLY AS IT WAS — same options, same
+   * order, same hints, same disabled set, same test ids. The AI chat passes
+   * nothing and `SetupScreen.test.tsx` pins that; a provider absent from the map
+   * also falls back, so a partial map cannot silently blank an entry.
+   */
+  optionOverrides?: Readonly<Record<string, ProviderOptionOverride>>;
 }
 
 /**
@@ -42,23 +76,46 @@ function providerHint(s: ProviderStatus): string | null {
   return null;
 }
 
-function optionText(s: ProviderStatus): string {
+type Overrides = ProviderPickerProps["optionOverrides"];
+
+/** What the caller said about this provider, or nothing. */
+function overrideFor(s: ProviderStatus, overrides: Overrides): ProviderOptionOverride | undefined {
+  return overrides?.[s.name];
+}
+
+/**
+ * Whether this option can be chosen — the one predicate both the ordering and
+ * the `disabled` attribute read, so a listed-but-unchoosable provider can never
+ * sort as if it were choosable.
+ */
+function isSelectable(s: ProviderStatus, overrides: Overrides): boolean {
+  return overrideFor(s, overrides)?.selectable ?? s.available;
+}
+
+function optionText(s: ProviderStatus, overrides: Overrides): string {
   // FR-020b: the backend owns the display name. Falling back to the raw key is a
   // visible degradation, not a label map — it never invents a nicer name.
   const parts = [s.label || s.name];
   if (s.version) parts.push(`v${s.version}`);
-  const hint = providerHint(s);
+  const supplied = overrideFor(s, overrides);
+  const hint = supplied ? supplied.hint : providerHint(s);
   if (hint) parts.push(hint);
   return parts.join(" ");
 }
 
 /**
- * ADR-034 FR-021b — available providers first, registry order preserved within
+ * ADR-034 FR-021b — selectable providers first, registry order preserved within
  * each group. `filter` is order-preserving, so two passes give a stable list and
  * the user never scans past a disabled entry to reach a selectable one.
  */
-function orderedProviders(providers: readonly ProviderStatus[]): ProviderStatus[] {
-  return [...providers.filter((p) => p.available), ...providers.filter((p) => !p.available)];
+function orderedProviders(
+  providers: readonly ProviderStatus[],
+  overrides: Overrides,
+): ProviderStatus[] {
+  return [
+    ...providers.filter((p) => isSelectable(p, overrides)),
+    ...providers.filter((p) => !isSelectable(p, overrides)),
+  ];
 }
 
 export function ProviderPicker({
@@ -67,8 +124,9 @@ export function ProviderPicker({
   statusLoading,
   provider,
   onChange,
+  optionOverrides,
 }: ProviderPickerProps) {
-  const options = orderedProviders(providers);
+  const options = orderedProviders(providers, optionOverrides);
   const awaitingStatus = statusLoading && options.length === 0;
   const selectId = `setup-provider-select-${tabId}`;
 
@@ -98,10 +156,10 @@ export function ProviderPicker({
           <option
             key={s.name}
             value={s.name}
-            disabled={!s.available}
+            disabled={!isSelectable(s, optionOverrides)}
             data-testid={`setup-provider-option-${s.name}`}
           >
-            {optionText(s)}
+            {optionText(s, optionOverrides)}
           </option>
         ))}
       </select>

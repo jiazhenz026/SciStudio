@@ -33,12 +33,40 @@ scope:
     - Learning Center progress, thresholds, and when the unlock fires, which belong to the Learning Center system spec.
     - Promotion of blocks into the user library after the fact, governed by the ADR-053 personal tool library spec.
 governs:
-  modules: []
-  contracts: []
-  entry_points: []
+  modules:
+    - scistudio.ai.agent.availability
+    - scistudio.ai.work_import
+    - scistudio.api.routes.work_import
+  contracts:
+    - scistudio.ai.agent.availability.AvailabilityReport
+    - scistudio.ai.agent.availability.AvailabilityState
+    - scistudio.ai.agent.availability.ProviderAvailability
+    - scistudio.ai.work_import.context.ImportSessionContext
+  entry_points:
+    - GET /api/ai/availability
+    - POST /api/work-import/sessions
   files:
     - docs/specs/adr-053-work-import.md
     - docs/adr/ADR-053.md
+    - src/scistudio/ai/agent/availability.py
+    - src/scistudio/ai/work_import/__init__.py
+    - src/scistudio/ai/work_import/brief.py
+    - src/scistudio/ai/work_import/brief_template.md
+    - src/scistudio/ai/work_import/context.py
+    - src/scistudio/api/routes/work_import.py
+    - frontend/src/components/BringInMyWorkDialog.tsx
+    - frontend/src/components/BringInMyWorkDialog.parts/AgentSetup.tsx
+    - frontend/src/components/BringInMyWorkDialog.parts/AvailabilityGuidance.tsx
+    - frontend/src/components/BringInMyWorkDialog.parts/CorrectnessCaveat.tsx
+    - frontend/src/components/BringInMyWorkDialog.parts/DataKindsQuestion.tsx
+    - frontend/src/components/BringInMyWorkDialog.parts/FreeTextQuestion.tsx
+    - frontend/src/components/BringInMyWorkDialog.parts/SourceAndDestination.tsx
+    - frontend/src/components/BringInMyWorkDialog.parts/availability.ts
+    - frontend/src/components/BringInMyWorkDialog.parts/copy.ts
+    - frontend/src/components/BringInMyWorkDialog.parts/formState.ts
+    - frontend/src/components/BringInMyWorkDialog.parts/useAgentAvailability.ts
+    - frontend/src/lib/api/agentAvailability.ts
+    - frontend/src/lib/api/workImport.ts
   excludes:
     - docs/user/reference/**
     - docs/user/llms.txt
@@ -46,12 +74,17 @@ planned_governs:
   modules: []
   contracts: []
   entry_points: []
-  files:
-    - frontend/src/components/BringInMyWorkDialog.tsx
+  files: []
   excludes: []
 tests:
+  - tests/ai/test_work_import_brief.py
   - tests/api/test_agent_availability.py
+  - tests/api/test_work_import_session.py
   - frontend/src/components/__tests__/BringInMyWorkDialog.test.tsx
+  - frontend/src/components/__tests__/BringInMyWorkToolbarEntry.test.tsx
+  - frontend/src/components/__tests__/workImport.test.ts
+  - frontend/src/lib/api/__tests__/agentAvailability.test.ts
+  - frontend/src/store/__tests__/terminalTabsSlice.workImport.test.ts
 acceptance_source: adr
 language_source: en
 ---
@@ -214,9 +247,9 @@ bypassable before the session starts.
   remaining reachable after it is written.
 - **The user selects the personal library as the destination and the agent writes
   a block depending on a project-local type.** The block would load in this
-  project and fail in every other. The prompt must prevent it (FR-013).
+  project and fail in every other. The prompt must prevent it (FR-026).
 - **A provider probe hangs or the binary exists but does not respond.** Treated as
-  a reported state, never as a stuck dialog (FR-031).
+  a reported state, never as a stuck dialog (FR-035).
 - **The user's codebase is in another language.** Transcription across languages
   is in scope. Whether the original can be executed for comparison depends on
   what is installed, which the brief leaves to the agent to work out with the
@@ -284,9 +317,12 @@ tier, MUST remain in effect.
 blocks land in **this project only**, or in the **personal library** available
 across projects.
 
-**FR-012.** When the personal library is chosen, blocks are written to the
-user-wide library, which requires the write path defined by the ADR-053 personal
-tool library spec (its FR-006). This spec does not define a second write path.
+**FR-012.** When the personal library is chosen, the blocks and types are written
+directly by the in-session agent, which has the user's shell: §4.6 sends it to
+`~/.scistudio/types/` and `~/.scistudio/blocks/`. No endpoint is involved. This
+spec therefore defines no write path of its own, and it does not depend on the
+write endpoint in the ADR-053 personal tool library spec (its FR-006). The dialog
+collects the destination; the brief is what carries it.
 
 **FR-040.** The dialog MUST let the user choose **which agent** runs the session
 when more than one is usable. Availability is not a single boolean: the #1994
@@ -490,7 +526,7 @@ block without a test would produce an empty one.
 | Entity | Description | Attributes | Relationships |
 |---|---|---|---|
 | `ImportSessionContext` | Everything the dialog collects, composed into the brief before the session is spawned | `source_location` (nullable), `has_no_codebase` (bool), `destination_tier` (`project` \| `user_library`), `data_kinds` (preset selections + free text), `workflow_description`, `interaction_wishes`, `other_software`, a skipped/answered marker per optional question, plus `provider` and `permission_mode` | Written into the brief file before spawn (FR-023, FR-024, FR-027); per-session, gitignored, not product state |
-| `AgentAvailability` | The graded result of probing a provider | `state` (`not_installed` \| `not_authenticated` \| `call_failed` \| `ready`), `cause` (populated for `call_failed`), `providers` (populated for `ready`) | Derived from the #1994 provider registry rows plus a live call (FR-028, FR-029); consumed by this dialog and by any other agent-dependent surface (FR-032) |
+| `AgentAvailability` | The graded result of probing a provider | `state` (`not_installed` \| `not_authenticated` \| `call_failed` \| `ready`), `cause` (populated for `call_failed`), `providers` (populated for `ready`) | Derived from the #1994 provider registry rows plus a live call (FR-032, FR-033); consumed by this dialog and by any other agent-dependent surface (FR-036) |
 
 ## 4. Implementation Plan
 
@@ -502,15 +538,15 @@ transcription, or import code anywhere under `src/scistudio/`;
 `terminal.py`. Unlike the personal tool library spec, which mostly re-shapes
 existing behavior, this is new construction with two exceptions.
 
-**Provider discovery already exists and is not merged yet.** PR #2003 (issue
-#1994, ADR-034) introduces a provider registry and `GET /api/ai/status`, which
+**Provider discovery already exists.** PR #2003 (issue #1994, ADR-034) merged on
+2026-08-07 and landed a provider registry and `GET /api/ai/status`, which
 returns per provider `{name, available, version, logged_in, label}`. `available`
 means the binary was found and `--version` returned within a probe timeout;
 `logged_in` comes from a `CredentialProbe` on the provider descriptor. Probes run
 concurrently on worker threads and never block or 500 the endpoint. This covers
-two of the four states in FR-027, so the availability work here is an increment
-over #1994 rather than a parallel implementation — and it is a dependency that
-has not landed.
+two of the four states in FR-031, so the availability work here is an increment
+over #1994 rather than a parallel implementation, built on merged code rather
+than on a pending dependency.
 
 **Agent sessions are PTY-hosted CLIs**, not API clients
 (`src/scistudio/ai/agent/terminal.py`). The agent therefore has the user's shell,
@@ -525,7 +561,7 @@ and `agent_provisioning/skills.py` provisions seven skills into every project
 (`scistudio`, `-build-workflow`, `-write-block`, `-debug-run`, `-inspect-data`,
 `-project-qa`, `-write-plot`), loaded on demand. The brief composed here adds
 only what is true of this session — the task, the user's answers, and the
-reporting obligations — per FR-039.
+reporting obligations — per SC-007.
 
 **Delivery is by file reference, not by prompt injection.** Today the composed
 system prompt reaches claude through `_write_system_prompt_tempfile` and
@@ -549,12 +585,12 @@ feature adds a brief file rather than a second prompt-assembly path.
 |---|---|---|
 | `docs/adr/ADR-053.md` | modify | Revise §4.1 and §5; generalise §4 to users without code; synchronise §1.1, §6, §7, §8, §9.5 |
 | `docs/specs/adr-053-work-import.md` | create | This spec |
-| `frontend/src/components/BringInMyWorkDialog.tsx` | create | The framing dialog, caveat copy, and availability guidance (FR-003 – FR-021) |
+| `frontend/src/components/BringInMyWorkDialog.tsx` | create | The framing dialog and its four questions (FR-003 – FR-021), the provider and permission-mode controls (FR-040 – FR-044), the caveat copy (FR-037, FR-038), and per-state availability guidance shown in place of a start action (FR-005, FR-031, FR-034) |
 | `frontend/src/components/AIChat/SetupScreen.parts/ProviderPicker.tsx` | reuse | Provider selection, unchanged (FR-042) |
 | `frontend/src/components/AIChat/SetupScreen.parts/PermissionModePicker.tsx` | reuse | Permission mode, unchanged (FR-042) |
 | Toolbar component | modify | The entry and its enablement rule (FR-001, FR-002) |
 | Agent session spawn path | modify | Accept a composed task brief (FR-023, FR-024) |
-| Availability probe module | create | Four-state resolution over the #1994 registry (FR-027 – FR-032) |
+| Availability probe module | create | Four-state resolution over the #1994 registry (FR-031 – FR-036) |
 | Import brief template | create | The brief text from §4.6, with substitution points for the dialog's answers (FR-026) |
 
 Concrete paths for the last four depend on #2003's final shape and are left
@@ -565,7 +601,7 @@ unresolved rather than guessed.
 | Task | Title | Story | Depends on | Verification |
 |---|---|---|---|---|
 | T-001 | ADR-053 revision (§4.1, §5, §4 generalisation) | — | — | Full audit passes; no stale references to no-agent scanning |
-| T-002 | Availability probe with four-state resolution over the merged provider registry | US3 | #2003 merged | `tests/api/test_agent_availability.py` covers all four states |
+| T-002 | Availability probe with four-state resolution over the merged provider registry | US3 | — | `tests/api/test_agent_availability.py` covers all four states |
 | T-003 | Toolbar entry and enablement | US1, US2 | — | Enabled with a project open, disabled without |
 | T-004 | Dialog shell, source/destination page, caveat copy | US1, US2, US4 | T-003 | Caveat present and not bypassable; directory picker accepts a directory |
 | T-005 | No-codebase option and its conditional field behaviour | US2 | T-004 | Source field disabled; question 2 becomes required |
@@ -585,27 +621,27 @@ settled by a single review (see §4.5).
 | Entry enablement | Toolbar entry enabled with a project open, disabled without one (FR-002) |
 | Source picker | The browse control accepts a directory, not only a file (FR-008) |
 | No-codebase mode | The option is offered; selecting it disables the source field and leaves the destination tier in effect (FR-009, FR-010) |
-| Destination tier | Both choices are offered; choosing the personal library routes writes to the user-wide library (FR-011, FR-012) |
+| Destination tier | Both choices are offered; choosing the personal library reaches the brief as the user-library destination the agent writes to itself (FR-011, FR-012) |
 | Provider choice | With two usable providers the user can pick between them; with one it is preselected and still visible (FR-040, FR-043) |
 | Permission mode | Both modes are offered and the default is the safe one (FR-041) |
 | Selection is applied | The chosen provider and permission mode reach the spawned session (FR-044) |
 | Partial availability | One usable and one unusable provider lets the user proceed rather than blocking (FR-005) |
-| Library-mode constraint | In personal-library mode the composed brief carries the project-local-type warning (FR-013) |
-| Preset grouping | Generic shapes and domain options are visually grouped so both can be selected (FR-015) |
-| Question 2 conditionality | Skippable with a source location, required without one (FR-017, FR-018) |
-| Required vs skippable | Source-or-no-codebase, destination, and question 1 required; questions 3 and 4 each offer an explicit skip (FR-021) |
-| Skip is conveyed | A skipped question reaches the brief marked as skipped rather than being omitted (FR-022) |
-| Brief composition | Every dialog answer and the source location appear in the composed brief (FR-024) |
+| Library-mode constraint | In personal-library mode the composed brief carries the project-local-type warning (FR-026) |
+| Preset grouping | Generic shapes and domain options are visually grouped so both can be selected (FR-014) |
+| Question 2 conditionality | Skippable with a source location, required without one (FR-016, FR-017) |
+| Required vs skippable | Source-or-no-codebase, destination, and question 1 required; questions 3 and 4 each offer an explicit skip (FR-020) |
+| Skip is conveyed | A skipped question reaches the brief marked as skipped rather than being omitted (FR-021) |
+| Brief composition | Every dialog answer and the source location appear in the composed brief (FR-023) |
 | Brief location | The brief is written under `.scistudio/` and is not picked up by git in a project using the default ignore file (FR-027) |
 | Write before spawn | The brief file exists and is complete before the session is spawned; a session is never started against a missing or partial file (FR-024) |
 | Visible message | Session start shows one line referencing the brief, not the brief's contents (FR-028) |
 | Provider independence | Brief delivery is identical for a `FLAG_FILE` and an `AMBIENT` provider (FR-029) |
 | Concurrent sessions | Two sessions started in one project get distinct brief files (FR-030) |
-| Availability states | All four states resolve correctly, including authenticated-but-failing (FR-027, FR-029) |
-| Availability guidance | `call_failed` reports its cause and does not suggest reinstalling (FR-030) |
-| Probe non-blocking | A hanging provider yields a reported state rather than a stuck dialog (FR-031) |
-| Caveat presence | The caveat is present and the session cannot be started without it having been shown (FR-033, FR-034) |
-| No enforcement | Nothing blocks a block on the absence of a test file (FR-035) |
+| Availability states | All four states resolve correctly, including authenticated-but-failing (FR-031, FR-033) |
+| Availability guidance | `call_failed` reports its cause and does not suggest reinstalling (FR-034) |
+| Probe non-blocking | A hanging provider yields a reported state rather than a stuck dialog (FR-035) |
+| Caveat presence | The caveat is present and the session cannot be started without it having been shown (FR-037, FR-038) |
+| No enforcement | Nothing blocks a block on the absence of a test file (FR-039) |
 | Brief fidelity | The composed brief matches §4.6 verbatim outside the substituted answers section (FR-026) |
 | Answer substitution | Each question appears with its own text and the user's answer, or an explicit skip marker (FR-021, FR-026) |
 
@@ -632,7 +668,7 @@ brief keeps the two cases from being reported as equally strong (§4.6,
 "Verifying your work"), but the asymmetry is real and accepted: the alternative is excluding these users, who are precisely
 the ones with nothing reusable today.
 
-**The caveat can be ignored.** FR-034 puts it where the user starts, which is the
+**The caveat can be ignored.** FR-038 puts it where the user starts, which is the
 best available position, and it is still a sentence people skip. The honest
 statement is better than a false guarantee, even when some users do not read it.
 
@@ -643,14 +679,17 @@ requires the agent to flag these points, which helps a reviewing user and does
 nothing for one who does not read. Where the original cannot be executed there is
 no automatic check that would catch it either.
 
-**The dependency is unmerged.** T-002 builds on #2003.
+**The provider registry is a hard dependency, and it has landed.** T-002 builds
+on #2003, which merged on 2026-08-07, so the risk this entry recorded — building
+on unmerged work — no longer applies.
 
-**The implementation issues describe a superseded design.** #2000, #2001, and
-#2002 were written against the scan-then-transcribe flow that ADR-053 §4.1 no
-longer describes. #2001's static-scan scope does not exist any more, none of the
-three covers the no-codebase path, and none reflects the delivery standard in
-§4.6. They need rewriting before implementation starts, or an implementer will
-build from them rather than from this spec.
+**The implementation issues have been rewritten.** #2000, #2001, and #2002 were
+written against the scan-then-transcribe flow that ADR-053 §4.1 no longer
+describes, and the risk this entry recorded was that an implementer would build
+from them rather than from this spec. All three were rewritten on 2026-08-07
+against the revision in #2010 — #2001's static-scan scope is gone, the
+no-codebase path is covered, and the delivery standard in §4.6 is reflected — so
+that risk no longer applies.
 
 **Rollback**: every element is additive — a toolbar entry, a dialog, a prompt
 template, and a probe. Removing the toolbar entry disables the feature without
@@ -1066,7 +1105,9 @@ the original run on real data, the user's stated expectation, or neither — so
 claims of different strength are never presented as equivalent.
 
 **SC-006.** A user who skips every skippable question can still start a session,
-and the resulting brief distinguishes skipped questions from unanswered ones.
+and the resulting brief distinguishes a question the user did not answer from
+one they answered in the negative — so the agent knows to ask about the first
+and not to ask about the second.
 
 **SC-008.** Starting a session displays at most one line of instruction text to
 the user, on every supported provider.

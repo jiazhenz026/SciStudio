@@ -54,6 +54,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   behaviour, with nothing to tell a user they were the same thing.
   See ADR-038 Addendum 1 and ADR-050 Addendum 1.
 
+- [#2018] SciStudio is now licensed under the **Apache License 2.0** instead of
+  the MIT License. Apache-2.0 keeps the same permissive shape (use, modify,
+  redistribute, commercial use, no copyleft) and adds an explicit patent grant
+  from contributors, a patent-retaliation termination clause, and a requirement
+  that modified files be marked and the license/attribution notices carried
+  forward — the terms scientific institutions and companies most often ask for
+  before adopting a runtime. `LICENSE` now carries the verbatim Apache-2.0 text
+  with the appendix copyright line filled in; `pyproject.toml` declares
+  `Apache-2.0`; both READMEs were updated. The change is **prospective only**:
+  every existing tag, published artifact, and clone taken before this commit
+  keeps its MIT grant permanently, so nothing already released is withdrawn.
+  Two things deliberately did *not* change: the block-package scaffold
+  (`scistudio new-block-package`) still writes `license = {text = "MIT"}`
+  because the package it generates is the user's own code and gets the most
+  permissive default rather than inheriting the runtime's choice, and no
+  `NOTICE` file was added since Apache-2.0 does not require one and there is no
+  third-party attribution to propagate yet.
 - [#1983] Persisted block artifacts are now reclaimed instead of accumulating
   forever. Every block output is written as a full-size store under
   `data/zarr/<workflow_id>/<block_id>/`, and nothing ever removed one: a real
@@ -149,6 +166,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   (@claude, 2026-07-02, branch: guided/1910-workflow-id-filename-palette-reload)
 
 ### Fixed
+
+- [#2040] Provisioned agent hooks now repair themselves when the Python
+  interpreter they were pinned to disappears. Every hook command bakes an
+  absolute interpreter path at provisioning time. That path is correct when it
+  is written, but nothing kept it correct afterwards: uninstalling the desktop
+  app, deleting a virtualenv or upgrading Python left every previously
+  provisioned project running a command whose first word no longer existed.
+  Reopening the project — the obvious remedy — repaired nothing, because the
+  only existing repairs matched the pre-#1994 bare-`python` spelling and the
+  pre-#2011 `$(git rev-parse --show-toplevel)` spelling, while the canonical
+  hook merge appends only hooks that are *absent* and a dead hook is present.
+  The failure was also silent and fails *open*: a hook whose process cannot
+  start exits 127, a non-blocking status, so `protect_data_dir.py`,
+  `protect_workflow_yaml.py` and `deny_scistudio_cli.py` stopped enforcing
+  while the UI showed only a transient warning. Claude Code, both Qoder
+  channels and Codex now re-render any hook command still in the shape
+  SciStudio emits whose interpreter is no longer a real file. A live
+  interpreter is left alone even when it differs from the one provisioning
+  would choose now, so a deliberate choice survives; commands that are not the
+  generated shape are never touched. The fail-open semantics itself — a hook
+  that cannot start should not silently permit the call — remains open as
+  [#2041].
+
+  The same work fixed why the [#2011] Codex repair had not been reaching
+  projects either. It matched two fully spelled-out legacy commands, one of
+  which embedded `sys.executable` — the interpreter of the process running the
+  *repair*, not the one that wrote the file. Those agree only when a project is
+  re-provisioned from the very interpreter that provisioned it, so a project
+  provisioned by the packaged desktop app and reopened from any other install
+  kept its dead hooks. A legacy command is now recognised by its trailing
+  `$(git rev-parse ...)` script argument alone, whatever interpreter precedes
+  it.
+
+- [#2030] The worktree write guard no longer fails open on Windows. The hook
+  script prepends `$REPO_ROOT/src` to whatever `PYTHONPATH` it inherits, and
+  joined the two with a hardcoded `:`. On Windows the interpreter it invokes
+  splits `PYTHONPATH` on `;`, so that join collapsed into a single unusable
+  entry, `import scistudio` failed, and the guard exited 1 — which a PreToolUse
+  hook treats as a *non-blocking* error. The guard therefore stopped guarding
+  altogether: an agent that forgot to create a worktree could write into the
+  main checkout unchallenged. It only bit when the caller had already exported
+  `PYTHONPATH`, which is routine here because `pip install -e .` is forbidden
+  and callers point `PYTHONPATH` at `./src`. The script now selects the
+  separator per platform. Alongside this, the Windows test suite was brought to
+  green: five tests that assert genuinely POSIX-only behaviour (the zsh
+  `ZDOTDIR` / bash `--rcfile` terminal shims, which `user_terminal_post_rc_invocation`
+  deliberately skips on Windows; the two `AF_UNIX` MCP socket route tests, whose
+  Windows TCP counterpart is already covered; and the `NAME_MAX`/`ENAMETOOLONG`
+  browse test, where Windows correctly answers 404 rather than the 500 that
+  regression guards against) now carry explicit `skipif` markers with reasons,
+  while `test_claude_and_codex_share_identical_mcp_env` was repaired rather than
+  skipped — it substring-matched a raw path against TOML-escaped output and so
+  could only ever hold on POSIX; it now decodes the TOML and compares values.
+  Tests: `tests/qa/test_gate_record_hooks.py`, `tests/cli/test_install.py`.
+  (@claude, 2026-08-07, branch: test/2030-windows-test-failures)
+- [#2019] Creating or opening a project while another project was already open
+  could hang the app indefinitely: the project dialog stayed up, the bottom-right
+  `Working…` pill sat blurred underneath it, and nothing ever completed. Both
+  routes rebind the MCP transport to the new project directory, which first
+  stops the outgoing server — and `MCPServer.stop()` did `close()` followed by
+  `wait_closed()`. `close()` only retires the listener; connections already
+  established keep running, and since Python 3.12 `wait_closed()` does not
+  return until every connection handler has finished. Because the per-client
+  loop blocks on `readline()` until its peer disconnects, any attached MCP
+  client (an AI Chat session holding the project's transport, for instance)
+  pinned that coroutine forever, so the HTTP request never returned and the
+  frontend `finally` that clears the busy flag and closes the dialog never ran.
+  `stop()` now hangs up on live client transports before waiting, and bounds the
+  wait so a wedged handler degrades to a logged warning instead of a hang. Two
+  supporting changes make the failure mode non-fatal in general: `apiFetch`
+  gained an opt-in `timeoutMs` that aborts the request and rejects with
+  `ApiTimeoutError` (applied to the two project-switch calls, which are the ones
+  gating a modal), so the promise always settles; and the project dialog now
+  reports progress on its submit button and refuses a second submit while a
+  switch is in flight, rather than racing two project switches. Separately, the
+  global busy indicator had no `z-index` at all while every modal overlay is
+  `z-50` or `z-[9999]` with a backdrop blur — the one affordance saying "still
+  working" rendered blurred underneath the dialog waiting on that work; it now
+  sits above the topmost modal layer and no longer intercepts clicks. Tests:
+  `tests/ai/test_mcp_server_stop.py`,
+  `frontend/src/lib/api/__tests__/timeout.test.ts`,
+  `frontend/src/App.busyIndicator.test.tsx`,
+  `frontend/src/components/ProjectDialog.test.tsx`. (@claude, 2026-08-07,
+  branch: fix/2019-new-project-mcp-deadlock)
 
 - [#1986] The desktop app now remembers which port its backend bound and prefers
   that port on the next launch, so the renderer keeps a stable

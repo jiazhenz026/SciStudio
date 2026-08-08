@@ -26,6 +26,7 @@ from scistudio.api.routes import (
     projects,
     runs,
     tutorials,
+    work_import,
     workflows,
 )
 from scistudio.api.routes import (
@@ -292,6 +293,8 @@ def create_app() -> FastAPI:
     app.include_router(git_routes.router)
     # #1741/#1742: diagnostics — /api/version, /api/client-logs, /api/diagnostics/bundle.
     app.include_router(diagnostics.router)
+    # ADR-053 §4 — Bring In My Work session spawn (POST /api/work-import/sessions).
+    app.include_router(work_import.router)
 
     @app.get("/api/logs/stream")
     async def logs_stream(request: Request) -> object:
