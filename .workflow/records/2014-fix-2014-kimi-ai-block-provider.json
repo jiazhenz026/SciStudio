@@ -223,7 +223,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "579b097d3d2014805c8efe1b0c44d32ff9b6f5ab",
+    "shas": [
+      "579b097d3d2014805c8efe1b0c44d32ff9b6f5ab"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -626,6 +632,110 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-08T08:30:48.891526Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/ai/ai_block.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/ai/ai_block.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T08:30:48.904469Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T08:30:48.920421Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T08:30:48.933292Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T08:30:48.946293Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T08:30:48.960401Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T08:30:48.974116Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T08:30:48.991612Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T08:30:49.004601Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T08:30:49.021120Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -664,9 +774,9 @@
       "tests/architecture/test_adr_034_provider_single_source.py",
       "tests/blocks/ai/test_ai_block_skeleton.py"
     ],
-    "diff_fingerprint": "sha256:6bcb4b732108055e3b150253ea003f4953862c2373cf73f3a6bec756aa50d4c0",
+    "diff_fingerprint": "sha256:4819fde6fb48c6d8a05aaa278897542a9ae830c7086c15e908929fa88649bcdd",
     "head": "HEAD",
-    "head_sha": "2706e353",
+    "head_sha": "579b097d",
     "surfaces": {
       "docs": 2,
       "frontend": 3,
@@ -682,7 +792,15 @@
   },
   "owner_directive": "\u4fee\u590d issue #2014\uff1aAI Block provider enum \u4e0d\u5e94\u66b4\u9732\u65e0\u6cd5\u8fd0\u884c AI Block \u4efb\u52a1\u7684 kimi-code\uff1b\u6309 issue \u65b9\u6848 1 \u7528\u5171\u4eab\u80fd\u529b\u5224\u5b9a\u6d3e\u751f enum\uff0c\u6700\u540e\u63d0\u4ea4 PR",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2045,
+      2014
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-08T07:54:44.981289Z",
@@ -713,6 +831,14 @@
     {
       "at": "2026-08-08T08:30:23.623722Z",
       "diff_fingerprint": "sha256:6bcb4b732108055e3b150253ea003f4953862c2373cf73f3a6bec756aa50d4c0",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-08T08:30:49.021150Z",
+      "diff_fingerprint": "sha256:4819fde6fb48c6d8a05aaa278897542a9ae830c7086c15e908929fa88649bcdd",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
