@@ -306,6 +306,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2022] The drop-in type name-collision guard now fails closed when it cannot
+  bind the module a drop-in would shadow. ADR-053 FR-016 refuses a file in
+  `{project}/types/` or `~/.scistudio/types/` whose name would shadow an
+  installed top-level module, and enforces the refusal by importing that module
+  first, so the installed package keeps winning while you rename the file. An
+  installed module can have a perfectly good spec and still raise on import — a
+  missing native dependency is the everyday case — and the guard swallowed that
+  failure. The name was then left unbound while the drop-in `types/` directory
+  joined `sys.path` anyway, so the next import of that name resolved the very
+  file the guard had just refused. FR-016 failed in exactly the situation it
+  exists for, and whether your machine was safe came down to the import health
+  of an unrelated package. Such a name is now refused outright for the life of
+  the process, scoped to the one colliding name so the rest of the drop-in
+  directory keeps working, and with a message naming both the collision and the
+  import failure it stands in for. Raising is also what the un-shadowed process
+  does: without the drop-in on `sys.path`, that import fails too. Found by an
+  external review of PR #2035. Tests:
+  `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-08, branch:
+  fix/1996-codex-review-findings)
+
 - [#2022] The drop-in type name-collision guard now looks at private names too.
   ADR-053 FR-016 refuses a file in `{project}/types/` or `~/.scistudio/types/`
   whose name would shadow an installed top-level module, because those

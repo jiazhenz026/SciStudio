@@ -1,0 +1,170 @@
+{
+  "branch": "fix/1996-codex-review-findings",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-08T04:18:47.004162Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T04:18:47.004167Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-personal-tool-library.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2022,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1996,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2024,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix the Codex review findings raised on PRs #2035 and #2036 for ADR-053 Spec 1: fail closed on the FR-016 shadow guard, make the FR-008 overwrite refusal atomic, evict stale bytecode on type rescan, and address the three frontend P2 findings. Complete delivery, no deferred scope. admin-approved:core-change authorized by owner on 2026-08-07.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2022-1996-codex-review-findings",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-08T04:18:47.004117Z",
+      "pattern": "src/scistudio/core/dropins.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T04:18:47.004138Z",
+      "pattern": "src/scistudio/core/types/registry.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T04:18:47.004142Z",
+      "pattern": "src/scistudio/api/routes/user_library.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T04:18:47.004144Z",
+      "pattern": "frontend/src/components/promotion",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T04:18:47.004145Z",
+      "pattern": "frontend/src/store/useTypeCatalog.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T04:18:47.004147Z",
+      "pattern": "frontend/src/store/tabSlice.parts/fileTabActions.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T04:18:47.004148Z",
+      "pattern": "frontend/src/hooks/useWebSocket.parts/dispatchEvent.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T04:18:47.004150Z",
+      "pattern": "tests/blocks/test_dropin_type_import.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T04:18:47.004151Z",
+      "pattern": "tests/api/test_user_library_write.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T04:18:47.004152Z",
+      "pattern": "tests/core",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T04:18:47.004154Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T04:18:47.004155Z",
+      "pattern": "docs/specs/adr-053-personal-tool-library.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "20d7acf6-6f5a-4015-a38c-f91b11e73b86",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-08-08T04:18:47.004171Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_dropin_type_import.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T04:18:47.004174Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_user_library_write.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

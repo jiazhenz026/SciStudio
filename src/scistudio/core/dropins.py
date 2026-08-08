@@ -62,6 +62,13 @@ collision *and* of the mitigation — binding the module the drop-in would
 shadow before the roots join ``sys.path``, so the installed package keeps
 winning while the user renames the file.
 
+The mitigation fails closed. A collided module that raises on import cannot be
+bound, and a suppressed binding failure would leave the name free for the
+drop-in file the guard just refused — FR-016 defeated in precisely the case it
+exists for, by the import health of an unrelated package. Such a name is
+refused outright instead, through :class:`_RefusedNameFinder`; see there for
+why refusing is the same answer the un-shadowed process gives.
+
 The collision question is asked of every name the directory makes importable,
 including underscore-prefixed ones; :func:`_importable_entries` records why,
 and why that is a different question from whether a registry registers the
@@ -266,6 +273,58 @@ def dropin_import_roots_for_block_dirs(block_dirs: Iterable[str | Path]) -> tupl
     return (*dropin_type_roots_for_block_dirs(block_dirs), *user_python_import_roots())
 
 
+class _RefusedNameFinder:
+    """``sys.meta_path`` entry that fails the import of an unguardable name.
+
+    FR-016's mitigation is to *bind* the module a drop-in would shadow, so the
+    installed package keeps winning while the user renames the file. That
+    mitigation has one hole: a collided module can have a perfectly good spec
+    and still **raise** on import — a missing native dependency is the ordinary
+    case — and then there is nothing to bind. Leaving the name unbound while
+    the caller goes on to prepend the drop-in types directory hands the name to
+    the very file the guard just refused, so FR-016 fails in exactly the
+    situation it exists for and the product's safety becomes a function of an
+    unrelated package's import health.
+
+    Refusing the name outright is what makes §13 OQ-1's "registration is
+    refused, not merely warned" true in that case. It is also what the
+    *unshadowed* process does: without the drop-in on ``sys.path`` that import
+    raises, so raising is a restoration of the un-shadowed behaviour rather
+    than a new failure. The refusal is scoped to the one colliding name, so the
+    rest of the drop-in tier keeps working — dropping the whole root would
+    punish every other type in it for one bad neighbour.
+
+    Registered at ``sys.meta_path[0]``, and only once a binding has actually
+    failed: the finder answers ``None`` for every other name, so a process with
+    no unguardable collision never pays for it.
+    """
+
+    def __init__(self) -> None:
+        #: Colliding stem to the sentence explaining the refusal.
+        self.reasons: dict[str, str] = {}
+
+    def refuse(self, stem: str, reason: str) -> None:
+        """Refuse *stem* from now on, installing the finder if needed."""
+        self.reasons[stem] = reason
+        if self not in sys.meta_path:
+            sys.meta_path.insert(0, self)
+
+    def allow(self, stem: str) -> None:
+        """Drop any refusal on *stem* — the binding succeeded after all."""
+        self.reasons.pop(stem, None)
+
+    def find_spec(self, fullname: str, path: object = None, target: object = None) -> None:
+        reason = self.reasons.get(fullname)
+        if reason is None:
+            return None
+        raise ImportError(reason, name=fullname)
+
+
+#: Process-wide, because the roots reach ``sys.path`` from several call sites
+#: and the refusal has to outlive the scan that discovered it.
+_REFUSED_NAMES = _RefusedNameFinder()
+
+
 @dataclass(frozen=True)
 class DropinTypeCollision:
     """A drop-in type entry whose name would shadow an installed module.
@@ -292,10 +351,17 @@ class DropinTypeCollision:
 
 @contextmanager
 def _sys_path_without(type_roots: tuple[Path, ...]) -> Iterator[None]:
-    """Run the body with *type_roots* absent from ``sys.path``.
+    """Run the body as if the drop-in tier had never been installed.
 
     Every FR-016 question is "what would this name resolve to if the drop-in
-    were not there", so every one of them is asked from inside this block.
+    were not there", so every one of them is asked from inside this block. Two
+    things have to go for that to be the question actually asked: *type_roots*
+    leave ``sys.path``, and :data:`_REFUSED_NAMES` leaves ``sys.meta_path``.
+    The finder is this module's own answer to a previous scan, so leaving it in
+    place would make :func:`_installed_origin` see its ``ImportError`` and
+    conclude the name is free — the guard would stop reporting the very
+    collision it is enforcing, and would never retry a binding that fails only
+    because a native dependency is temporarily missing.
 
     Removes and re-inserts only the entries it took out, rather than swapping
     ``sys.path`` for a snapshot. The snapshot form clobbers a concurrent
@@ -308,9 +374,14 @@ def _sys_path_without(type_roots: tuple[Path, ...]) -> Iterator[None]:
     removed = [(index, entry) for index, entry in enumerate(sys.path) if entry in excluded]
     for index, _entry in reversed(removed):
         del sys.path[index]
+    suspended = _REFUSED_NAMES in sys.meta_path
+    if suspended:
+        sys.meta_path.remove(_REFUSED_NAMES)
     try:
         yield
     finally:
+        if suspended and _REFUSED_NAMES not in sys.meta_path:
+            sys.meta_path.insert(0, _REFUSED_NAMES)
         for index, entry in removed:
             sys.path.insert(min(index, len(sys.path)), entry)
 
@@ -423,11 +494,32 @@ def guard_dropin_type_roots(
                 origin = _installed_origin(stem, type_roots)
                 if origin is None:
                     continue
-                collisions.append(DropinTypeCollision(path=path, stem=stem, origin=origin))
+                collision = DropinTypeCollision(path=path, stem=stem, origin=origin)
+                collisions.append(collision)
                 if bind and stem not in sys.modules:
-                    with suppress(Exception):
-                        importlib.import_module(stem)
+                    _bind_or_refuse(collision)
     return tuple(collisions)
+
+
+def _bind_or_refuse(collision: DropinTypeCollision) -> None:
+    """Bind the module *collision* shadows, or refuse the name if it raises.
+
+    The mitigation half of FR-016, and the reason it cannot be written as
+    ``with suppress(Exception)``: a suppressed binding failure leaves the name
+    free for the drop-in the guard just refused. See :class:`_RefusedNameFinder`
+    for why refusing is the fail-closed answer rather than a second failure.
+    """
+    try:
+        importlib.import_module(collision.stem)
+    except Exception as exc:
+        _REFUSED_NAMES.refuse(
+            collision.stem,
+            f"{collision.message} The installed module could not be imported "
+            f"({exc!r}), so the name is refused outright rather than left for "
+            f"the drop-in to claim.",
+        )
+    else:
+        _REFUSED_NAMES.allow(collision.stem)
 
 
 def _register(registry: SupportsScanDirs, dirs: tuple[Path, ...]) -> tuple[Path, ...]:
