@@ -1177,3 +1177,16 @@ def test_the_client_probe_cap_is_longer_than_the_servers_own_budget() -> None:
     assert mirrored_budget_ms == availability_module.REPORT_BUDGET_SECONDS * 1000
     # And its own cap leaves room for the round trip on top of that.
     assert client_cap_ms > mirrored_budget_ms
+
+
+def test_no_install_hint_says_cli_twice() -> None:
+    """Two registry labels already end in "CLI"; appending gave "Qoder CLI CLI".
+
+    Checked across the whole registry rather than against the two known
+    offenders, so a sixth provider named in the same style is caught when it
+    is added rather than when a user reads it.
+    """
+    for descriptor in providers_registry.agent_descriptors():
+        hint = availability_module.install_hint(descriptor)
+        assert "CLI CLI" not in hint, f"{descriptor.key}: {hint}"
+        assert hint.count("CLI") <= 1, f"{descriptor.key} says CLI more than once: {hint}"

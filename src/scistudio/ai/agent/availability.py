@@ -656,6 +656,17 @@ def _home_relative(descriptor: ProviderDescriptor, segments: tuple[str, ...]) ->
     return "~/" + "/".join(parts)
 
 
+def _installable_name(descriptor: ProviderDescriptor) -> str:
+    """The provider's name with exactly one "CLI" in it.
+
+    Two registry labels already end in it — ``Qoder CLI`` and
+    ``Qoder CLI (China)`` — so appending unconditionally produced "Install the
+    Qoder CLI CLI". Split on whitespace rather than ``endswith`` because the
+    China variant carries the word in the middle, not at the end.
+    """
+    return descriptor.label if "CLI" in descriptor.label.split() else f"{descriptor.label} CLI"
+
+
 def install_hint(descriptor: ProviderDescriptor) -> str:
     """Name the executable to install and everywhere SciStudio looked for it.
 
@@ -673,10 +684,10 @@ def install_hint(descriptor: ProviderDescriptor) -> str:
     """
     names = " or ".join(f"`{name}`" for name in descriptor.binary_candidates)
     if not names:  # pragma: no cover - every agent descriptor declares a binary
-        return f"Install the {descriptor.label} CLI so SciStudio can find it."
+        return f"Install {_installable_name(descriptor)} so SciStudio can find it."
     searched = ", ".join(_home_relative(descriptor, segments) for segments in descriptor.well_known_dirs)
     location = f"your PATH and in {searched}" if searched else "your PATH"
-    return f"Install the {descriptor.label} CLI so that {names} is on {location}."
+    return f"Install {_installable_name(descriptor)} so that {names} is on {location}."
 
 
 def login_hint(descriptor: ProviderDescriptor) -> str:
