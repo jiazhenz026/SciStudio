@@ -11,6 +11,10 @@
 // types tab exists, or the tab having to know a canvas is open: neither
 // surface owns the fetch, and neither waits on a blocks request for it.
 //
+// Cached is not the same as permanent. What the registry holds is runtime
+// truth, so this cache is valid only until something rebuilds the registries —
+// and `invalidateTypeCatalog` is how every such event says so.
+//
 // FR-067 lives in what this module does NOT do. It never publishes a partial
 // or placeholder catalogue: `declaredTypeColors` stays `undefined` until a
 // complete listing lands, the colour resolvers read `undefined` as "declares
@@ -51,28 +55,62 @@ let inFlight: Promise<void> | null = null;
  * a broken canvas, which is precisely the failure mode FR-067 exists to
  * prevent. The attempt is not latched, so the next surface to mount retries.
  */
-export async function loadTypeCatalog(options?: { force?: boolean }): Promise<void> {
+async function fetchTypeCatalog(): Promise<void> {
+  try {
+    const payload = await codeApi.listTypes();
+    useAppStore.getState().setTypes(payload.types ?? []);
+  } catch (error) {
+    console.warn(
+      "[types] type catalogue unavailable; keeping the default colour resolution",
+      error,
+    );
+  }
+}
+
+export function loadTypeCatalog(options?: { force?: boolean }): Promise<void> {
   const force = options?.force === true;
   if (!force && useAppStore.getState().typesLoaded) {
-    return;
+    return Promise.resolve();
   }
-  if (inFlight) {
-    return inFlight;
+  const pending = inFlight;
+  if (pending && !force) {
+    return pending;
   }
-  inFlight = (async () => {
-    try {
-      const payload = await codeApi.listTypes();
-      useAppStore.getState().setTypes(payload.types ?? []);
-    } catch (error) {
-      console.warn(
-        "[types] type catalogue unavailable; keeping the default colour resolution",
-        error,
-      );
-    } finally {
-      inFlight = null;
-    }
-  })();
-  return inFlight;
+  // A forced reload queues *behind* an in-flight request instead of joining
+  // it. A fetch already on the wire may have left before the write that
+  // invalidated this cache landed, so its answer is not an answer to this
+  // question — joining it would report the state the caller just changed.
+  const request = pending ? pending.then(fetchTypeCatalog, fetchTypeCatalog) : fetchTypeCatalog();
+  const tracked: Promise<void> = request.finally(() => {
+    if (inFlight === tracked) inFlight = null;
+  });
+  inFlight = tracked;
+  return tracked;
+}
+
+/**
+ * The registries changed — drop this cache and re-read it (FR-010 / FR-062).
+ *
+ * The backend answer to "a write invalidates every registry" is
+ * `refresh_all_registries()`, named for the *event* rather than for a registry
+ * set. This is the frontend half of the same sentence, and it exists so that
+ * every caller who causes such an event says one thing rather than reaching
+ * for the loader's `force` flag and hoping it remembered. It is deliberately
+ * fire-and-forget: the catalogue is an enhancement every consumer already
+ * renders without (FR-067), so nothing a write does should wait on it or fail
+ * with it.
+ *
+ * The callers are the three places a user-library write happens
+ * (`promotionIo.write`, the library tab's save, the new-file flow) and the
+ * `blocks.reloaded` websocket event, which is the backend telling every
+ * connected client that `refresh_all_registries()` ran — a palette reload, a
+ * project file save, a package install, an agent promotion. Without that last
+ * one the Data types tab and the declared canvas colours stayed on the first
+ * listing they ever fetched until someone pressed Reload by hand, which is
+ * runtime truth living in frontend state.
+ */
+export function invalidateTypeCatalog(): void {
+  void loadTypeCatalog({ force: true });
 }
 
 /** Test seam — drop any in-flight request so each test starts clean. */

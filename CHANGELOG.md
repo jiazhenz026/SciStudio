@@ -326,6 +326,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `tests/api/test_user_library_write.py`. (@claude, 2026-08-08, branch:
   fix/1996-codex-review-findings)
 
+- [#2024] The Data types tab and the declared port colours now notice when the
+  types change. The frontend fetched the type listing once and then answered
+  every later question from that copy — for the rest of the session, unless you
+  pressed **Reload** on the tab yourself. Nothing else ever asked it to look
+  again: the websocket event that fires whenever the backend rebuilds its
+  registries refreshed only the *block* palette, and saving a file into your
+  library refreshed nothing at all. So editing a data type, creating one,
+  promoting a block that brought its types along, installing a package, or
+  pressing the palette's Reload left the tab and the canvas showing a registry
+  that no longer existed, with colours to match. Every one of those events now
+  drops the cached listing and re-reads it, and a reload asked for after a
+  write no longer gets folded into a request that was already on the wire
+  before the write landed. Found by an external review of PR #2036. Tests:
+  `frontend/src/store/__tests__/typeCatalogInvalidation.test.ts`. (@claude,
+  2026-08-08, branch: fix/1996-codex-review-findings)
+
 - [#1996] Promoting a block whose code contains a bracket inside a string now
   still brings its data types along. The cascade detector joins multi-line
   `import` statements by counting brackets, and it counted the ones inside
