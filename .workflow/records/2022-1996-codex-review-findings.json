@@ -314,6 +314,14 @@
       "path": "tests/core/test_type_registry_scan_dirs.py",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T04:33:44.965384Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/promotion/__tests__/pythonImports.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ]
 }

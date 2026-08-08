@@ -326,6 +326,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `tests/api/test_user_library_write.py`. (@claude, 2026-08-08, branch:
   fix/1996-codex-review-findings)
 
+- [#1996] Promoting a block whose code contains a bracket inside a string now
+  still brings its data types along. The cascade detector joins multi-line
+  `import` statements by counting brackets, and it counted the ones inside
+  string literals too — so a single line like `pattern = "("` made every line
+  after it read as one continuation of that statement, and the block's real
+  `from spectrum import Spectrum` was never seen. **Save to My Library** then
+  copied the block without the type it depends on and said nothing, which is
+  exactly the silent outcome the one-level cascade limit is written to avoid:
+  the promoted block fails to load in the next project with no clue why. The
+  parse now removes string literals and comments before it counts anything,
+  including triple-quoted strings, escaped quotes and raw strings, so only real
+  brackets are counted and a `#` inside a string is no longer read as a
+  comment. Found by an external review of PR #2036. Tests:
+  `frontend/src/components/promotion/__tests__/pythonImports.test.ts`.
+  (@claude, 2026-08-08, branch: fix/1996-codex-review-findings)
+
 - [#2022] Reloading data types now runs the file you just edited. Python caches
   compiled bytecode next to a source file and decides the cache is still good
   by comparing the source's timestamp **in whole seconds** and its size. A
