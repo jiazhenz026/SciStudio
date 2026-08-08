@@ -302,3 +302,36 @@ export function rowParent(type: TypeSummary): string | null {
   }
   return type.base_type;
 }
+
+/** Which tier's file-open path reaches a type's source, and under what name. */
+export interface TypeSourceRef {
+  tier: "project" | "user";
+  /** Bare filename inside that tier's `types/` directory. */
+  filename: string;
+}
+
+/**
+ * FR-068 — where this type's source can be opened from, or `null`.
+ *
+ * Only the two drop-in tiers qualify, and for a reason rather than by
+ * omission: a core or packaged type's file lives inside an installed
+ * distribution, which neither file-open path can reach and which the user must
+ * not be invited to edit in place. There is no read-only viewer for those yet
+ * (`openBlockSourceTab`'s type-side counterpart does not exist), so a row for
+ * one opens nothing at all rather than opening something wrong.
+ *
+ * The filename is derived from the listing's absolute `file_path` the same way
+ * `promotion/promotable.ts` derives it: both drop-in tiers put a type directly
+ * in a `types/` directory by construction (`scistudio.core.dropins`), so the
+ * basename is the whole of what either opener needs.
+ */
+export function typeSourceRef(type: TypeSummary): TypeSourceRef | null {
+  if (type.origin !== "project" && type.origin !== "user") {
+    return null;
+  }
+  const filename = type.file_path ? (type.file_path.split(/[\\/]/).pop() ?? "") : "";
+  if (!filename.toLowerCase().endsWith(".py")) {
+    return null;
+  }
+  return { tier: type.origin, filename };
+}

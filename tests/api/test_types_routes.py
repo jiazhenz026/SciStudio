@@ -47,6 +47,29 @@ from scistudio.blocks.registry import BlockSpec
 from scistudio.core.dropins import user_types_dir
 from scistudio.core.types.registry import TypeSpec
 
+#: A drop-in block, for the one test that proves a *type* reload rebuilds the
+#: block registry in the same pass (FR-062).
+PROBE_BLOCK = '''\
+from typing import Any, ClassVar
+
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.config import BlockConfig
+
+
+class SharedScanBlock(Block):
+    """Drop-in block used to prove a type reload rebuilds both registries."""
+
+    type_name: ClassVar[str] = "test.shared_scan_block"
+    name: ClassVar[str] = "Shared Scan Block"
+    base_category: ClassVar[str] = "process"
+    subcategory: ClassVar[str] = "test"
+    input_ports: ClassVar = []
+    output_ports: ClassVar = []
+
+    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
+        return {}
+'''
+
 PROBE_TYPE = '''\
 from typing import ClassVar
 
@@ -574,3 +597,136 @@ def test_template_unknown_kind_400(client: TestClient) -> None:
     response = client.get("/api/types/template?kind=frobnicator")
     assert response.status_code == 400
     assert "frobnicator" in response.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# FR-062 — the Reload button re-scans, rather than re-reading a cached answer
+# ---------------------------------------------------------------------------
+
+
+def test_a_new_type_is_invisible_to_the_listing_until_something_rescans(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    """The listing costs no scan, which is the whole reason ``/reload`` exists.
+
+    This is the defect owner review hit in a running build, pinned as a fact
+    rather than left as an assumption: a type written to the project's own
+    drop-in directory is *not* in the listing, no matter how many times the
+    listing is re-fetched, because ``list_types`` answers from the in-memory
+    registry.
+    """
+    _write_type(opened_project / "types", "unscanned_probe")
+
+    for _ in range(3):
+        assert "UnscannedProbe" not in _types(client)
+
+
+def test_reload_rescans_and_reports_what_appeared(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    """``POST /api/types/reload`` finds a type written since the last scan."""
+    _write_type(opened_project / "types", "reload_probe")
+
+    response = client.post("/api/types/reload")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert "ReloadProbe" in body["added"]
+    assert body["removed"] == []
+    assert body["reloaded"] == len(_types(client))
+
+    # And the listing now agrees — the point of the endpoint.
+    assert _types(client)["ReloadProbe"]["origin"] == "project"
+
+
+def test_reload_reports_a_type_whose_file_was_deleted(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    """A removal is reported too, so the tab can drop a type the user deleted."""
+    written = _write_type(opened_project / "types", "vanishing_probe")
+    assert "VanishingProbe" in client.post("/api/types/reload").json()["added"]
+
+    written.unlink()
+    body = client.post("/api/types/reload").json()
+    assert body["removed"] == ["VanishingProbe"]
+    assert "VanishingProbe" not in _types(client)
+
+
+def test_reload_rebuilds_the_block_registry_too(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    """FR-062 — a reload is one event over both registries, not a type-only one.
+
+    A type reload that left the block registry on its previous scan would be
+    the mirror image of the bug #1910 fixed on the block side, and both
+    registries read drop-in directories that sit side by side in one project.
+    A block written but never scanned is the observable difference.
+    """
+    _write_type(opened_project / "types", "shared_scan_probe")
+    blocks_dir = opened_project / "blocks"
+    blocks_dir.mkdir(parents=True, exist_ok=True)
+    (blocks_dir / "shared_scan_block.py").write_text(PROBE_BLOCK, encoding="utf-8")
+
+    client.post("/api/types/reload")
+
+    assert "SharedScanProbe" in _types(client)
+    listed = client.get("/api/blocks/").json()["blocks"]
+    assert any(entry["type_name"] == "test.shared_scan_block" for entry in listed)
+
+
+# ---------------------------------------------------------------------------
+# FR-068 — the source behind one registered type
+# ---------------------------------------------------------------------------
+
+
+def test_type_source_returns_the_file_behind_a_dropin_type(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    """A drop-in type resolves to the exact file the user wrote."""
+    written = _write_type(opened_project / "types", "source_probe")
+    client.post("/api/types/reload")
+
+    response = client.get("/api/types/SourceProbe/source")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert Path(body["path"]) == written
+    assert body["source"] == written.read_text(encoding="utf-8")
+    assert body["language"] == "python"
+    assert body["origin"] == "project"
+
+
+def test_type_source_resolves_a_core_type_through_its_module(client: TestClient) -> None:
+    """Core types have no drop-in file, and still resolve — this is FR-068's point."""
+    body = client.get("/api/types/Array/source").json()
+    assert body["origin"] == "core"
+    assert body["path"].endswith("array.py")
+    assert "class Array" in body["source"]
+
+
+def test_type_source_is_registry_gated(client: TestClient, opened_project: Path) -> None:
+    """Only a registered name resolves; no caller-supplied path reaches the disk.
+
+    The guard that separates this endpoint from the unvalidated path joins
+    filed as #2037 and #2038: the name is a registry key, and the path comes
+    off the spec the registry already holds. A real, readable file that the
+    registry does not know about is therefore not reachable by naming it —
+    which is the property, rather than any string filtering.
+    """
+    secret = opened_project / "types" / "secret.py"
+    secret.parent.mkdir(parents=True, exist_ok=True)
+    secret.write_text("TOKEN = 'do not serve me'\n", encoding="utf-8")
+    client.post("/api/types/reload")  # the file is real and was scanned past
+
+    assert client.get("/api/types/NotARegisteredType/source").status_code == 404
+    assert client.get("/api/types/secret.py/source").status_code == 404
+    assert client.get("/api/types/secret/source").status_code == 404
+
+
+def test_type_source_does_not_shadow_the_template_or_reload_routes(client: TestClient) -> None:
+    """Route order — ``/template`` and ``/reload`` must not be read as type names."""
+    assert client.get("/api/types/template").status_code == 200
+    assert client.post("/api/types/reload").status_code == 200

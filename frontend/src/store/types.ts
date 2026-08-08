@@ -802,6 +802,15 @@ export interface TabSlice {
    */
   openBlockSourceTab: (blockType: string) => void;
   /**
+   * ADR-053 FR-068 — open a read-only tab on a core or packaged type's source.
+   *
+   * Reads ``GET /api/types/{type_name}/source``. Read-only structurally: that
+   * response carries an absolute path and no save route accepts one. A project
+   * or user-library type is opened through `openFileTab` /
+   * `openUserLibraryFileTab` instead, which produce genuinely editable tabs.
+   */
+  openTypeSourceTab: (typeName: string) => void;
+  /**
    * ADR-053 FR-032 — open (or focus) an editable tab on a user-library file.
    *
    * The library sits outside every project root, so the project-file fetch

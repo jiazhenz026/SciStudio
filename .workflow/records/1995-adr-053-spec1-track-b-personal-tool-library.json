@@ -626,6 +626,11 @@
       "at": "2026-08-08T09:13:45.293085Z",
       "owner_directive": "After Save to My Library, a block or type has its name auto-filled into the search box; users are confused about why they cannot find anything else. Remove that behaviour.",
       "reason": "Owner review of the running desktop build removed the post-promotion palette filter"
+    },
+    {
+      "at": "2026-08-08T09:42:23.858536Z",
+      "owner_directive": "A type I just created never shows up no matter how I reload. Also: users may double-click a type and find nothing there - make double-click open that type's source. Core and package types must be read-only; user-library and project types editable.",
+      "reason": "Owner review of the running desktop build: Reload did not rescan, and a type row answered a double click with nothing"
     }
   ],
   "docs_events": [
@@ -2849,6 +2854,30 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/promotion/__tests__/revealInLibrary.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T09:42:23.858554Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_types_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T09:42:23.858560Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/TypePalette.parts/__tests__/typeModel.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T09:42:23.858562Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/typeCatalogInvalidation.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }

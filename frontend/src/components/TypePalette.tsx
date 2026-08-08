@@ -24,6 +24,7 @@ import { useMemo, useState, type ReactNode } from "react";
 
 import { resolveRingColor, resolveTypeColor } from "../config/typeColorMap";
 import { useReloadFlash } from "../hooks/useReloadFlash";
+import { useAppStore } from "../store";
 import { useTypeCatalog } from "../store/useTypeCatalog";
 import type { TypeSummary } from "../types/api";
 
@@ -39,6 +40,7 @@ import {
   rowParent,
   typeFamilies,
   typeHierarchyFrom,
+  typeSourceRef,
   type TypeSection,
 } from "./TypePalette.parts/typeModel";
 
@@ -61,11 +63,20 @@ interface SectionViewProps {
   forceOpen: boolean;
   /** Fill + ring for one type, resolved through the FR-051 precedence. */
   swatchFor: (type: TypeSummary) => { fill: string; ring?: string };
+  /** FR-068 — how to open one type's source, or `undefined` for none. */
+  openSourceFor: (type: TypeSummary) => (() => void) | undefined;
   onEnter: (type: TypeSummary, rect: DOMRect) => void;
   onLeave: () => void;
 }
 
-function SectionView({ section, forceOpen, swatchFor, onEnter, onLeave }: SectionViewProps) {
+function SectionView({
+  section,
+  forceOpen,
+  swatchFor,
+  openSourceFor,
+  onEnter,
+  onLeave,
+}: SectionViewProps) {
   const [collapsed, setCollapsed] = useState(false);
   const open = section.pinned || forceOpen || !collapsed;
 
@@ -110,6 +121,7 @@ function SectionView({ section, forceOpen, swatchFor, onEnter, onLeave }: Sectio
                 key={type.name}
                 onEnter={onEnter}
                 onLeave={onLeave}
+                onOpenSource={openSourceFor(type)}
                 parent={rowParent(type)}
                 ring={swatch.ring}
                 type={type}
@@ -190,6 +202,28 @@ export function TypePalette() {
     void reload();
   };
 
+  // FR-068 — double-clicking a row opens that type's source. Which opener runs
+  // depends on the tier, and the split is not cosmetic: the two drop-in tiers
+  // are the user's own files and open **editable**, each wired to the PUT that
+  // can actually write it back — a project file through the project route, a
+  // library file through the library route, because the library sits outside
+  // every project root and the project route cannot reach it. A core or
+  // packaged type belongs to an installed distribution and opens **read-only**
+  // through the source endpoint, which resolves the file from the registry
+  // rather than from any path this component holds.
+  const openFileTab = useAppStore((state) => state.openFileTab);
+  const openUserLibraryFileTab = useAppStore((state) => state.openUserLibraryFileTab);
+  const openTypeSourceTab = useAppStore((state) => state.openTypeSourceTab);
+  const openSourceFor = (type: TypeSummary): (() => void) | undefined => {
+    const ref = typeSourceRef(type);
+    if (!ref) {
+      return () => openTypeSourceTab(type.name);
+    }
+    return ref.tier === "project"
+      ? () => openFileTab(`types/${ref.filename}`)
+      : () => openUserLibraryFileTab("types", ref.filename);
+  };
+
   // No FR-020 hook here any more. A promotion used to type the promoted type's
   // name into the search box above, which left this tab showing one row and no
   // explanation the user could see — the reveal now stops at bringing the tab
@@ -234,6 +268,7 @@ export function TypePalette() {
           {sections.map((section) => (
             <SectionView
               forceOpen={forceOpen}
+              openSourceFor={openSourceFor}
               key={section.id}
               onEnter={hover.openFor}
               onLeave={hover.scheduleClose}

@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- [#1995] The Data types tab's **Reload** button now actually re-scans. It used
+  to re-fetch the type listing, which is answered from the registry already in
+  memory and costs no directory scan — so a data type you had just written to
+  `{project}/types/` stayed invisible no matter how many times you pressed it,
+  and then appeared minutes later when some unrelated action (opening a project,
+  switching a branch, installing a package, saving to My Library, or the *other*
+  tab's Reload) happened to rebuild the registry. A button that does nothing is
+  worse than no button, because you stop looking for another cause. Reload now
+  calls `POST /api/types/reload`, the Data types counterpart of the fix the
+  Blocks tab got in #1910, and re-scans through the same whole-registry rebuild
+  so a type and a block written side by side in one project both appear.
+
+### Added
+
+- [#1995] Double-clicking a data type opens its source. Which kind of tab you
+  get follows where the type lives, and it is not a stylistic choice: types in
+  your project and in My Library are your own files and open **editable**, each
+  wired to the write path that can save it back — the library sits outside every
+  project root, so it needs its own. A built-in or packaged type opens
+  **read-only**, because its file belongs to an installed distribution and an
+  edit there is discarded by the next upgrade. The endpoint behind the read-only
+  case takes a registered type *name*, never a path, so it can only ever serve a
+  file this process already loaded.
+
 ### Changed
 
 - [#1995] Saving a block or data type to My Library no longer types its name

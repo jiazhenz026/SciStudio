@@ -60,6 +60,7 @@ __all__ = [
     "map_source_label",
     "resolve_block_source",
     "resolve_origin",
+    "resolve_spec_source_path",
 ]
 
 
@@ -108,7 +109,7 @@ def resolve_block_source(
     if spec is None:
         raise KeyError(block_type)
 
-    path = _source_path(spec)
+    path = resolve_spec_source_path(spec)
     if path is None or not path.exists():
         raise BlockSourceUnavailableError(f"no source file for block type '{block_type}'")
     try:
@@ -124,13 +125,24 @@ def resolve_block_source(
     }
 
 
-def _source_path(spec: Any) -> Path | None:
-    """Locate the ``.py`` file backing *spec*, or ``None`` if unresolvable."""
-    # Drop-in blocks carry the concrete file path.
+def resolve_spec_source_path(spec: Any) -> Path | None:
+    """Locate the ``.py`` file backing *spec*, or ``None`` if unresolvable.
+
+    Public because the type side needs exactly this and nothing more:
+    ``GET /api/types/{type_name}/source`` resolves a
+    :class:`~scistudio.core.types.registry.TypeSpec` the same two ways, and
+    a second copy of "concrete path, else the import module's file" is a
+    second place for the two surfaces to disagree about where a registered
+    thing lives. ``spec`` is read structurally, so it does not matter which
+    registry it came from.
+    """
+    # Drop-in blocks and every drop-in type carry the concrete file path.
     file_path = getattr(spec, "file_path", None)
     if file_path:
         return Path(str(file_path))
-    # Core and package blocks resolve through their import module.
+    # Core and package blocks — and core types — resolve through their
+    # import module. A drop-in type's ``module_path`` is synthetic and never
+    # reached here, because its ``file_path`` is set.
     module_path = getattr(spec, "module_path", "") or ""
     if module_path:
         try:

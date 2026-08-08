@@ -20,6 +20,8 @@ import {
   PACKAGES_SECTION_ID,
   parentRow,
   PROJECT_LIBRARY_SECTION_ID,
+  rowParent,
+  typeSourceRef,
   THIS_PROJECT_EMPTY_HINT,
   typeFamilies,
   typeFamily,
@@ -270,5 +272,60 @@ describe("originLabel", () => {
     expect(originLabel("project")).toBe("This Project");
     expect(originLabel("package")).toBe("Package");
     expect(originLabel("custom")).toBe("Custom");
+  });
+});
+
+describe("rowParent — the list row's parent column (FR-041)", () => {
+  it("reports the immediate parent", () => {
+    expect(rowParent(makeType({ name: "Image", base_type: "Array" }))).toBe("Array");
+  });
+
+  it("suppresses the universal root, which every core base would repeat", () => {
+    expect(rowParent(makeType({ name: "Array", base_type: "DataObject" }))).toBeNull();
+  });
+
+  it("reports nothing for a type with no parent at all", () => {
+    expect(rowParent(makeType({ name: "DataObject", base_type: "" }))).toBeNull();
+  });
+});
+
+describe("typeSourceRef — which opener reaches a type's source (FR-068)", () => {
+  it("routes a project type to its tier, by bare filename", () => {
+    const ref = typeSourceRef(
+      makeType({ name: "Spectrum", origin: "project", file_path: "/work/demo/types/spectrum.py" }),
+    );
+    expect(ref).toEqual({ tier: "project", filename: "spectrum.py" });
+  });
+
+  it("routes a user-library type to its own tier", () => {
+    const ref = typeSourceRef(
+      makeType({
+        name: "Spectrum",
+        origin: "user",
+        file_path: String.raw`C:\Users\d\.scistudio\types\s.py`,
+      }),
+    );
+    // Windows separators are split on too — the listing reports whatever the
+    // backend's filesystem uses.
+    expect(ref).toEqual({ tier: "user", filename: "s.py" });
+  });
+
+  it("declines core and packaged types, which have no editable file", () => {
+    expect(
+      typeSourceRef(makeType({ name: "Array", origin: "core", file_path: "/pkg/core/array.py" })),
+    ).toBeNull();
+    expect(
+      typeSourceRef(makeType({ name: "Plate", origin: "package", file_path: "/pkg/plate.py" })),
+    ).toBeNull();
+  });
+
+  it("declines the FR-002 custom fallback, whose file is outside both tiers", () => {
+    expect(
+      typeSourceRef(makeType({ name: "Odd", origin: "custom", file_path: "/elsewhere/odd.py" })),
+    ).toBeNull();
+  });
+
+  it("declines a type the listing reported without a path", () => {
+    expect(typeSourceRef(makeType({ name: "Ghost", origin: "project" }))).toBeNull();
   });
 });

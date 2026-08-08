@@ -17,12 +17,24 @@ import { dispatchWorkflowEvent } from "../../hooks/useWebSocket.parts/dispatchEv
 import { resetAppStore } from "../../testUtils";
 import type { WorkflowEventMessage } from "../../types/api";
 import { useAppStore } from "../index";
-import { invalidateTypeCatalog, loadTypeCatalog, resetTypeCatalogLoader } from "../useTypeCatalog";
+import {
+  invalidateTypeCatalog,
+  loadTypeCatalog,
+  rescanTypes,
+  resetTypeCatalogLoader,
+} from "../useTypeCatalog";
 
 const listTypes = vi.fn();
+const reloadTypes = vi.fn();
 vi.mock("../../lib/api/code", async (importOriginal) => {
   const actual = await importOriginal<typeof CodeApi>();
-  return { codeApi: { ...actual.codeApi, listTypes: () => listTypes() } };
+  return {
+    codeApi: {
+      ...actual.codeApi,
+      listTypes: () => listTypes(),
+      reloadTypes: () => reloadTypes(),
+    },
+  };
 });
 
 const putUserLibraryFile = vi.fn();
@@ -110,5 +122,40 @@ describe("the type catalogue is invalidated, not cached forever", () => {
     await first;
 
     await vi.waitFor(() => expect(listTypes).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe("rescanTypes — the Reload button (FR-062)", () => {
+  it("re-scans the drop-in directories before re-reading the listing", async () => {
+    // The order is the whole point. `listTypes` answers from the in-memory
+    // registry, so re-fetching without the scan re-reads the same stale answer
+    // — which is exactly what the button used to do.
+    const calls: string[] = [];
+    reloadTypes.mockImplementation(() => {
+      calls.push("scan");
+      return Promise.resolve({ reloaded: 0, added: [], removed: [] });
+    });
+    listTypes.mockImplementation(() => {
+      calls.push("list");
+      return Promise.resolve({ types: [] });
+    });
+
+    await rescanTypes();
+
+    expect(calls).toEqual(["scan", "list"]);
+  });
+
+  it("still re-reads the listing when the re-scan fails", async () => {
+    // A reload that cannot reach the backend should leave the tab showing what
+    // it had, not empty it or throw out of the click handler.
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    reloadTypes.mockRejectedValue(new Error("offline"));
+    listTypes.mockResolvedValue({ types: [] });
+
+    await expect(rescanTypes()).resolves.toBeUndefined();
+
+    expect(listTypes).toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 });

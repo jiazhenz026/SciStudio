@@ -30,9 +30,15 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
-from scistudio.api._block_source import PACKAGE_ORIGIN, TYPE_SURFACE, resolve_origin
-from scistudio.api.deps import get_block_registry, get_type_registry
+from scistudio.api._block_source import (
+    PACKAGE_ORIGIN,
+    TYPE_SURFACE,
+    resolve_origin,
+    resolve_spec_source_path,
+)
+from scistudio.api.deps import get_block_registry, get_runtime, get_type_registry
 from scistudio.api.routes.blocks import (
     _active_project_dir,
     _is_plugin_package,
@@ -50,6 +56,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/types", tags=["types"])
 BlockRegistryDep = Annotated[Any, Depends(get_block_registry)]
 TypeRegistryDep = Annotated[Any, Depends(get_type_registry)]
+RuntimeDep = Annotated[Any, Depends(get_runtime)]
 OptionalRuntimeDep = Annotated[Any, Depends(get_optional_runtime)]
 
 # ADR-053 FR-028 — only ``basic`` is recognised today. A future kind adds a
@@ -202,6 +209,83 @@ async def get_type_template(kind: str = "basic") -> TypeTemplateResponse:
     return TypeTemplateResponse(kind=kind, content=content, suggested_filename=suggested)
 
 
+class TypeReloadResponse(BaseModel):
+    """Response shape for ``POST /api/types/reload``."""
+
+    reloaded: int
+    added: list[str]
+    removed: list[str]
+
+
+@router.post("/reload", response_model=TypeReloadResponse)
+async def reload_types(runtime: RuntimeDep) -> TypeReloadResponse:
+    """Re-scan the drop-in type directories and broadcast the change.
+
+    The Data types tab's "Reload" button had exactly the defect #1910 fixed on
+    the Blocks tab, one release later and one tab over: it re-fetched
+    :func:`list_types`, which answers from the in-memory registry and costs no
+    scan, so a type the user had just written to ``{project}/types/`` was
+    invisible until something *else* happened to rebuild the registry — a
+    project switch, a git operation, a package install, a promotion, or the
+    other tab's Reload. Owner review of a running build hit it directly: a new
+    type "did not show up no matter how many times I reloaded", then appeared
+    later for no reason the user could see.
+
+    ADR-053 FR-062 — the re-scan is ``refresh_all_registries()``, the same
+    whole-registry rebuild ``POST /api/blocks/reload`` performs, because a
+    reload is an *event that invalidates the registry* and the two registries
+    share one drop-in scan. This is not a second implementation of that event:
+    it is a second surface reaching the one implementation, which is what
+    FR-027 asks for — the Data types tab must not have to speak to the block
+    endpoints to do its own job, while both endpoints still rebuild the same
+    world.
+
+    The broadcast is ``blocks.reloaded`` rather than a new event type. It is
+    already in the websocket outbound allow-list and every client already
+    treats it as "``refresh_all_registries()`` ran, re-read both catalogues"
+    (``frontend/src/hooks/useWebSocket.parts/dispatchEvent.ts``). Inventing a
+    ``types.reloaded`` sibling would mean two events for one fact, which is the
+    drift ADR-053 exists to remove; and the name is accurate here, because the
+    block registry really was rebuilt.
+    """
+    before = set(runtime.type_registry.all_types().keys())
+    blocks_before = set(runtime.block_registry.all_specs().keys())
+    runtime.refresh_all_registries()
+    after = set(runtime.type_registry.all_types().keys())
+    blocks_after = set(runtime.block_registry.all_specs().keys())
+    added = sorted(after - before)
+    removed = sorted(before - after)
+    logger.info("POST /api/types/reload: added=%s removed=%s", added, removed)
+
+    # Best-effort, exactly as on the block side: a headless or test runtime with
+    # no event bus simply skips the broadcast rather than failing the reload.
+    #
+    # The payload carries the *block* delta because that is what the event
+    # means and what its consumers read; the type delta is the response body,
+    # which is what the caller asked for. Reporting the type delta under keys
+    # every client reads as blocks would be a second meaning for one event.
+    event_bus = getattr(runtime, "event_bus", None)
+    if event_bus is not None:
+        from scistudio.engine.events import EngineEvent
+
+        try:
+            await event_bus.emit(
+                EngineEvent(
+                    event_type="blocks.reloaded",
+                    data={
+                        "added": sorted(blocks_after - blocks_before),
+                        "removed": sorted(blocks_before - blocks_after),
+                        "reloaded": sorted(blocks_after),
+                        "source": "types-palette",
+                    },
+                )
+            )
+        except Exception:
+            logger.exception("POST /api/types/reload: blocks.reloaded broadcast failed")
+
+    return TypeReloadResponse(reloaded=len(after), added=added, removed=removed)
+
+
 @router.get("/", response_model=TypeListResponse)
 @router.get("", response_model=TypeListResponse, include_in_schema=False)
 async def list_types(
@@ -239,3 +323,62 @@ async def list_types(
     ]
     types.sort(key=lambda item: item.name)
     return TypeListResponse(types=types)
+
+
+class TypeSourceResponse(BaseModel):
+    """Read-only source backing a registered data type (ADR-053 FR-068)."""
+
+    type_name: str
+    path: str
+    source: str
+    language: str = "python"
+    origin: str
+
+
+@router.get("/{type_name}/source", response_model=TypeSourceResponse)
+async def get_type_source(
+    type_name: str,
+    type_registry: TypeRegistryDep,
+    runtime: OptionalRuntimeDep,
+) -> TypeSourceResponse:
+    """Return the read-only source backing one registered data type (FR-068).
+
+    The type-side counterpart of ``GET /api/blocks/{block_type}/source``, and
+    registry-gated for the same reason: the name is looked up in the registry
+    and the path comes off the spec, so the only readable files are ones this
+    process already loaded. No caller-supplied path reaches the filesystem —
+    which is the whole difference between this and the unvalidated path joins
+    filed as #2037 and #2038.
+
+    **Read-only, for every tier, structurally.** The response carries an
+    absolute path, and no save route accepts one: a project file is written
+    through ``PUT /api/projects/{id}/file`` keyed on a project-relative path,
+    and a library file through ``PUT /api/user-library/file`` keyed on target
+    plus bare filename. So this endpoint cannot produce an editable tab even if
+    a caller wanted one, and it does not pretend otherwise with an ``editable``
+    flag that nothing could act on.
+
+    That is also why it is not the whole of FR-068. A type the user owns — the
+    project and user-library tiers — opens through the editable path that tier
+    already has, and only a core or packaged type, whose file belongs to an
+    installed distribution, comes here. ``origin`` is reported so the tab can
+    say which library the source came from.
+    """
+    spec = type_registry.all_types().get(type_name)
+    if spec is None:
+        raise HTTPException(status_code=404, detail=f"Unknown data type: {type_name}")
+
+    path = resolve_spec_source_path(spec)
+    if path is None or not path.exists():
+        raise HTTPException(status_code=404, detail=f"No source file for data type: {type_name}")
+    try:
+        source = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise HTTPException(status_code=404, detail=f"Could not read source for {type_name!r}: {exc}") from exc
+
+    return TypeSourceResponse(
+        type_name=type_name,
+        path=str(path),
+        source=source,
+        origin=_type_origin(spec, _active_project_dir(runtime)),
+    )

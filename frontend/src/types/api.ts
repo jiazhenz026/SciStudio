@@ -312,6 +312,22 @@ export interface TypeTemplateResponse {
 }
 
 /**
+ * Response body of `GET /api/types/{type_name}/source` (ADR-053 FR-068).
+ *
+ * Read-only for every tier, structurally: `path` is absolute, and every save
+ * route takes either a project-relative path or a library target plus bare
+ * filename. Only core and packaged types are opened through it — the two
+ * drop-in tiers open through their own editable path instead.
+ */
+export interface TypeSourceResponse {
+  type_name: string;
+  path: string;
+  source: string;
+  language: string;
+  origin: TypeOrigin;
+}
+
+/**
  * ADR-053 FR-006 — which user library directory a write or read addresses.
  *
  * Named by the caller and never inferred from file content: `blocks` is

@@ -144,12 +144,37 @@ export function useDeclaredTypeColors(): DeclaredTypeColors | undefined {
   return declared;
 }
 
+/**
+ * Re-scan the drop-in type directories, then re-read the listing (FR-062).
+ *
+ * The scan is the part that matters. `loadTypeCatalog({ force: true })` only
+ * bypasses *this module's* cache; the endpoint behind it answers from the
+ * in-memory registry and costs no scan, so on its own it re-fetches the same
+ * stale answer for as long as the process lives. A type the user wrote to
+ * `{project}/types/` five seconds ago is not in that registry until something
+ * rebuilds it, and a button labelled Reload has to be one of the things that
+ * does — which is the whole of the defect owner review hit: a new type "did
+ * not show up no matter how many times I reloaded", then appeared later
+ * because some unrelated action happened to rebuild the registry.
+ *
+ * The re-fetch still runs when the scan fails. A reload that cannot reach the
+ * backend should leave the tab showing what it had rather than emptying it.
+ */
+export async function rescanTypes(): Promise<void> {
+  try {
+    await codeApi.reloadTypes();
+  } catch (error) {
+    console.error("Data types reload: backend re-scan failed", error);
+  }
+  await loadTypeCatalog({ force: true });
+}
+
 export interface TypeCatalog {
   types: TypeSummary[];
   /** False until the first listing lands — the tab's own loading window. */
   loaded: boolean;
   declared: DeclaredTypeColors | undefined;
-  /** Re-fetch, bypassing the cache. Backs the Data types tab's Reload. */
+  /** Re-scan the drop-in dirs, then re-fetch. Backs the tab's Reload button. */
   reload: () => Promise<void>;
 }
 
@@ -161,5 +186,5 @@ export function useTypeCatalog(): TypeCatalog {
   useEffect(() => {
     void loadTypeCatalog();
   }, []);
-  return { types, loaded, declared, reload: () => loadTypeCatalog({ force: true }) };
+  return { types, loaded, declared, reload: rescanTypes };
 }

@@ -217,6 +217,96 @@ export function createOpenBlockSourceTab(
 }
 
 /**
+ * ADR-053 FR-068 — open a read-only tab on a core or packaged type's source.
+ *
+ * The type-side twin of {@link createOpenBlockSourceTab}, and read-only for a
+ * structural reason rather than a policy one: ``GET /api/types/{name}/source``
+ * answers with an absolute path, and every save route wants either a
+ * project-relative path or a library target plus a bare filename. There is
+ * nothing this tab could save through even if it were editable.
+ *
+ * A type the user owns never reaches here. The palette sends a project type to
+ * {@link createOpenFileTab} and a user-library type to
+ * {@link createOpenUserLibraryFileTab}, both of which produce a real editable
+ * tab wired to the right PUT — which is what FR-068 asks for, and why this
+ * function's job is only the two tiers whose files belong to an installed
+ * distribution.
+ */
+export function createOpenTypeSourceTab(
+  set: StoreSetter,
+  get: StoreGetter,
+): TabSlice["openTypeSourceTab"] {
+  return (typeName) => {
+    const state = get();
+    const id = `type-source:${typeName}`;
+
+    const existing = state.tabs.find((t) => t.id === id);
+    const needsRefetch = Boolean(existing && existing.kind === "file" && existing.loading);
+    if (existing && !needsRefetch) {
+      state.switchTab(id);
+      return;
+    }
+
+    if (!existing) {
+      if (state.tabs.length >= 50) {
+        window.alert("Maximum 50 tabs reached.");
+        return;
+      }
+      const placeholder: FileTab = {
+        kind: "file",
+        id,
+        // Replaced with the resolved absolute path once the fetch resolves.
+        filePath: typeName,
+        displayName: `${typeName} (source)`,
+        language: "python",
+        content: "",
+        contentLoadedAt: 0,
+        baseVersion: null,
+        pendingVersion: null,
+        pendingSourceId: null,
+        conflict: null,
+        dirty: false,
+        readOnly: true,
+        loading: true,
+      };
+      const currentActive = state.tabs.find((t) => t.id === state.activeTabId) ?? null;
+      const updatedTabs = currentActive
+        ? state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t))
+        : [...state.tabs];
+      set({ tabs: [...updatedTabs, placeholder], activeTabId: id });
+    } else {
+      state.switchTab(id);
+    }
+
+    api
+      .getTypeSource(typeName)
+      .then((response) => {
+        const after = get();
+        const current = after.tabs.find((t) => t.id === id);
+        if (!current || current.kind !== "file") return;
+        const populated: FileTab = {
+          ...current,
+          filePath: response.path,
+          displayName: `${basename(response.path)} (source)`,
+          content: response.source,
+          contentLoadedAt: 0,
+          baseVersion: null,
+          pendingVersion: null,
+          pendingSourceId: null,
+          conflict: null,
+          loading: false,
+        };
+        set(replaceTab(after, id, populated));
+      })
+      .catch((err) => {
+        const message = err instanceof ApiError ? err.message : String(err);
+        window.alert(`Failed to open source for ${typeName}: ${message}`);
+        removeFailedTab(get, set, id);
+      });
+  };
+}
+
+/**
  * ADR-053 FR-032 — open an editable tab on a file in the user-wide library.
  *
  * The library lives outside every project root by construction (spec §2.3), so

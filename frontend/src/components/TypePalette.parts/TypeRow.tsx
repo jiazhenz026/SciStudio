@@ -44,11 +44,28 @@ export interface TypeRowProps {
   ring?: string;
   /** Immediate parent, or `null` when it carries no information (`rowParent`). */
   parent: string | null;
+  /**
+   * FR-068 — open this type's source on a double click.
+   *
+   * The palette supplies one for every tier; whether the tab that opens is
+   * editable or read-only is its decision, not this row's. Optional, and
+   * `undefined` rather than a no-op callback, so a row that genuinely has
+   * nothing to open does not advertise in its tooltip that it does.
+   */
+  onOpenSource?: () => void;
   onEnter: (type: TypeSummary, rect: DOMRect) => void;
   onLeave: () => void;
 }
 
-export function TypeRow({ type, fill, ring, parent, onEnter, onLeave }: TypeRowProps) {
+export function TypeRow({
+  type,
+  fill,
+  ring,
+  parent,
+  onOpenSource,
+  onEnter,
+  onLeave,
+}: TypeRowProps) {
   // Click / keyboard activation opens the same detail card hovering does, so
   // the popover — and the promotion action inside it (E5) — is reachable
   // without a pointer. The wrapper carries the ref because activation has no
@@ -59,6 +76,10 @@ export function TypeRow({ type, fill, ring, parent, onEnter, onLeave }: TypeRowP
     <div
       className="rounded-lg border border-transparent transition hover:border-stone-200 hover:bg-white/70"
       data-testid="palette-type-row"
+      // FR-068 lives on the wrapper, not the button: a double click delivers
+      // two `click`s first, and putting it here keeps the popover's activation
+      // and the open in one place each rather than racing inside one handler.
+      onDoubleClick={onOpenSource}
       onMouseEnter={(event) => onEnter(type, event.currentTarget.getBoundingClientRect())}
       onMouseLeave={onLeave}
       ref={rowRef}
@@ -71,7 +92,7 @@ export function TypeRow({ type, fill, ring, parent, onEnter, onLeave }: TypeRowP
             onEnter(type, rect);
           }
         }}
-        title={type.name}
+        title={onOpenSource ? `${type.name} — double-click to open its source` : type.name}
         type="button"
       >
         <span

@@ -35,17 +35,23 @@ const image = makeType({
   save_extensions: [".png"],
 });
 const series = makeType({ name: "Series", save_extensions: [".json"] });
+// The two drop-in fixtures carry a `file_path` because the listing does, and
+// FR-068 derives the filename to open from it. A core type's path is left
+// `null` here on purpose: the listing does report one, and FR-068 must not use
+// it — a core file is resolved by the backend from the registry instead.
 const myType = makeType({
   name: "MyDenoised",
   base_type: "Image",
   origin: "user",
   description: "A denoised image of my own.",
+  file_path: "/home/dev/.scistudio/types/my_denoised.py",
 });
 const declaring = makeType({
   name: "Declared",
   base_type: "Array",
   origin: "project",
   ui_color: "#4f8ef7",
+  file_path: "/work/demo/types/declared.py",
 });
 
 const CATALOGUE: TypeSummary[] = [dataObject, array, image, series, myType, declaring];
@@ -173,6 +179,49 @@ describe("Data types tab — row shape (FR-041)", () => {
     expect(parentOf("Series")).toBeNull();
     // `DataObject` itself has no parent at all.
     expect(parentOf("DataObject")).toBeNull();
+  });
+});
+
+describe("Data types tab — double-click opens the source (FR-068)", () => {
+  function spyOpeners() {
+    const openFileTab = vi.fn();
+    const openUserLibraryFileTab = vi.fn();
+    const openTypeSourceTab = vi.fn();
+    act(() => {
+      useAppStore.setState({ openFileTab, openUserLibraryFileTab, openTypeSourceTab });
+    });
+    return { openFileTab, openUserLibraryFileTab, openTypeSourceTab };
+  }
+
+  it("opens a project type through the editable project-file path", () => {
+    const openers = spyOpeners();
+    renderPalette();
+    fireEvent.doubleClick(rowNamed("Declared"));
+    // Project-relative, because that is the only shape the project PUT that
+    // saves this tab back accepts.
+    expect(openers.openFileTab).toHaveBeenCalledWith("types/declared.py");
+    expect(openers.openTypeSourceTab).not.toHaveBeenCalled();
+  });
+
+  it("opens a user-library type through the library path, not the project one", () => {
+    // The library sits outside every project root, so the project-file route
+    // cannot reach it — this is not a stylistic split.
+    const openers = spyOpeners();
+    renderPalette();
+    fireEvent.doubleClick(rowNamed("MyDenoised"));
+    expect(openers.openUserLibraryFileTab).toHaveBeenCalledWith("types", "my_denoised.py");
+    expect(openers.openFileTab).not.toHaveBeenCalled();
+  });
+
+  it("opens a core type read-only, by name rather than by path", () => {
+    const openers = spyOpeners();
+    renderPalette();
+    fireEvent.doubleClick(rowNamed("Array"));
+    // The name is a registry key; the backend resolves the file. Nothing here
+    // hands a filesystem path to anything.
+    expect(openers.openTypeSourceTab).toHaveBeenCalledWith("Array");
+    expect(openers.openFileTab).not.toHaveBeenCalled();
+    expect(openers.openUserLibraryFileTab).not.toHaveBeenCalled();
   });
 });
 

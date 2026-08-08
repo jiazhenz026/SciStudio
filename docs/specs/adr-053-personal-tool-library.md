@@ -684,8 +684,8 @@ lands.
 **FR-051.** Colour resolution precedence MUST be: type-declared colour, then the
 existing `typeColorMap` entry, then the `hashTypeName` fallback. A declared
 colour wins; an undeclared type behaves exactly as it does today. This applies
-identically to palette tiles and canvas ports, so a type looks the same in both
-places.
+identically to the palette's row swatches and to canvas ports, so a type looks
+the same in both places.
 
 **FR-052.** An invalid colour value MUST be ignored with a warning and MUST fall
 through to the next precedence level. A malformed hex string in a user's type
@@ -822,6 +822,32 @@ immediate parent when the two differ. `resolveCoreBaseType`
 below `DataObject` and returns `null` when the type is itself a core base, so no
 redundant `Array (Array)` is rendered.
 
+**FR-068.** Double-clicking a type MUST open that type's source.
+
+Without it the row is the only thing in the left panel that answers a double
+click with nothing, and a user who has just written a type reaches for it first.
+Owner review of a running build asked for the behaviour in exactly those terms:
+"users will double-click a type and find that nothing happens".
+
+**Which tab opens depends on the tier, and MUST.** The two drop-in tiers are the
+user's own files and MUST open **editable**, each through the write path that
+can actually save it back — a project type through the project file route, a
+user-library type through the library route, because the library sits outside
+every project root by construction (§2.3) and the project route cannot reach it.
+A core or packaged type MUST open **read-only**: its file belongs to an
+installed distribution, where an edit in place is discarded by the next upgrade
+at best and corrupts the installation at worst.
+
+The read-only case needs a type-side counterpart of
+`GET /api/blocks/{block_type}/source`, and it MUST be registry-gated the same
+way: the path comes off the spec the registry already holds, so the only
+readable files are ones this process loaded and no caller-supplied path reaches
+the filesystem. That is the property separating it from the unvalidated path
+joins filed as #2037 and #2038 — a name, not a path, is the input. It is
+read-only structurally rather than by policy, because its response carries an
+absolute path and every save route takes either a project-relative path or a
+library target plus a bare filename; there is nothing it could save through.
+
 ### 9.3 Interactive Popover
 
 **FR-044.** The hover popover MUST become interactive: `pointer-events-none` is
@@ -938,6 +964,27 @@ visible without a restart" is the whole of this requirement, and it is one
 answer shared by the two registries for the reason FR-057 gives, not a rule
 restated at each scan.
 
+A surface that offers a **Reload** control MUST reach one of those events. The
+Data types tab shipped one that did not: its button re-fetched `GET /api/types/`,
+which answers from the in-memory registry and costs no scan, so it re-read the
+same stale answer for as long as the process lived. Owner review of a running
+build found the consequence directly — a type written to `{project}/types/` "did
+not show up no matter how many times I reloaded", and then appeared later,
+because some unrelated action happened to rebuild the registry. A button that
+does nothing is worse than no button, because the user stops looking for another
+cause.
+
+`POST /api/types/reload` is therefore the tab's counterpart of
+`POST /api/blocks/reload`, and it MUST re-scan through `refresh_all_registries()`
+rather than a type-only rebuild — the two registries read drop-in directories
+that sit side by side in one project, and the block side already learned this
+(#1910). Two endpoints reaching one implementation is what FR-027 asks for: the
+Data types tab does not have to speak to the block endpoints to do its own job,
+while both surfaces still rebuild the same world. The broadcast stays
+`blocks.reloaded`, because every client already reads that event as
+"`refresh_all_registries()` ran, re-read both catalogues" and a second event for
+one fact is the drift this spec exists to remove.
+
 **FR-063.** Package install and uninstall MUST refresh the type registry. A
 package can ship types; today installing one leaves them undiscovered until the
 next project switch. This is a pre-existing defect, fixed here because the Data
@@ -984,6 +1031,8 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Palette sections | Order, both tiers rendered when empty, origin-first grouping (FR-035 – FR-038) |
 | Data types tab | Mirrors the Blocks tab's structure; tab label is `Data types`; types are listed one per row with the parent beside the name, not laid out as draggable tiles; swatch colour follows the FR-051 precedence (FR-039 – FR-041) |
 | Package attribution | A packaged type and a packaged block from one distribution report the same package name, and the tab renders one section per package A→Z; an unnameable distribution reports `null` and its types stay listed (FR-026, FR-040) |
+| Data types Reload | Pressing Reload on the Data types tab makes a type written since the last scan appear, without any other action (FR-062) |
+| Type source opens by tier | Double-clicking a project or user-library type opens an editable tab wired to that tier's write path; a core or packaged type opens read-only, resolved by name through the registry (FR-068) |
 | Type popover contents | Name, parent (with core base when it differs), description, extensions, origin, promotion action (FR-042, FR-043) |
 | Popover | Interactive, survives the tile→popover gap, does not break dragging (FR-044, FR-045) |
 
