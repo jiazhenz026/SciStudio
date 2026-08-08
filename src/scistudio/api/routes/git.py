@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -272,6 +273,61 @@ def _auto_commit_if_dirty(engine: GitEngine, message: str) -> str | None:
         if "nothing to commit" in stderr_lower or "no local changes" in stderr_lower:
             return None
         raise
+
+
+_T = TypeVar("_T")
+
+
+async def _apply_worktree_op(
+    request: Request,
+    op: str,
+    run_op: Callable[[GitEngine], _T],
+    source_id_of: Callable[[_T], str],
+) -> _T:
+    """Run a git op that rewrites the working tree, then settle the runtime.
+
+    Four endpoints — merge, cherry-pick, merge-complete, merge-abort — were the
+    same nine lines with one call swapped out: resolve the engine, snapshot
+    HEAD, run the op, translate ``GitError``, refresh the registry, emit the
+    workflow diff. #2033 made them *more* alike by adding the registry refresh
+    to each, which is what pushed the pair into the semantic-duplication
+    ratchet's cluster set. Naming the shape is the honest fix; the alternative
+    was four copies drifting apart one hotfix at a time.
+
+    The order matters and is the reason this is one function rather than a
+    convention: the registry must be rebuilt from the new tree *before*
+    ``workflow.changed`` goes out, or the canvas reloads against block specs
+    the restore just superseded.
+
+    Args:
+        request: The active request, carrying the runtime on ``app.state``.
+        op: Short operation name, used for the registry-refresh log line.
+        run_op: Performs the git operation. ``GitError`` is translated to the
+            matching HTTP status; anything else propagates untouched.
+        source_id_of: Derives the ``workflow.changed`` ``source_id`` from the
+            op's result — a branch name, a commit SHA, or a fixed marker.
+
+    Returns:
+        Whatever *run_op* returned, so callers can shape their own response.
+    """
+    engine = _engine_for_request(request)
+    runtime = request.app.state.runtime
+    project_dir = Path(runtime.active_project.path)
+    before_ref = _capture_pre_op_ref(engine)
+    try:
+        result = run_op(engine)
+    except GitError as exc:
+        raise _git_error_to_http(exc) from exc
+    _refresh_registries_after_worktree_write(runtime, op)
+    await _emit_workflow_diff(
+        runtime,
+        project_dir,
+        engine,
+        before_ref,
+        source="gitRestore",
+        source_id=source_id_of(result),
+    )
+    return result
 
 
 def _refresh_registries_after_worktree_write(runtime: Any, op: str) -> None:
@@ -648,44 +704,32 @@ async def status_endpoint(request: Request) -> dict[str, Any]:
 
 @router.post("/merge")
 async def merge(request: Request, body: MergeRequest) -> dict[str, Any]:
-    """Merge a branch into current."""
-    engine = _engine_for_request(request)
-    runtime = request.app.state.runtime
-    project_dir = Path(runtime.active_project.path)
-    before_ref = _capture_pre_op_ref(engine)
-    try:
-        result = engine.merge(body.source_branch)
-    except GitError as exc:
-        raise _git_error_to_http(exc) from exc
-    # ADR-038 Addendum 1 §11.1 (#2033) — a merge brings in the source branch's
-    # block sources; refresh even when conflicted, since the non-conflicted
-    # half of the merge already landed in the working tree.
-    _refresh_registries_after_worktree_write(runtime, "merge")
-    # Hotfix #988 / ADR-045 §5.1 #5: FF / clean merges rewrite workflow YAMLs;
-    # emit per-file workflow.changed even when conflicted_files is non-empty so
-    # the user sees both the conflict UI AND the canvas reflecting the
-    # pre-conflict half of the merge that did apply.
-    await _emit_workflow_diff(
-        runtime, project_dir, engine, before_ref, source="gitRestore", source_id=body.source_branch
+    """Merge a branch into current.
+
+    The registry refresh and the ``workflow.changed`` emit both run even when
+    the merge came back conflicted: the non-conflicted half already landed in
+    the working tree, so the user must see the conflict UI *and* a canvas that
+    reflects what did apply (hotfix #988 / ADR-045 §5.1 #5, ADR-038 Addendum 1
+    §11.1). ``_apply_worktree_op`` does not care whether the result carries
+    conflicts, which is what makes that fall out for free.
+    """
+    return await _apply_worktree_op(
+        request,
+        "merge",
+        lambda engine: engine.merge(body.source_branch),
+        lambda _result: body.source_branch,
     )
-    return result
 
 
 @router.post("/cherry-pick")
 async def cherry_pick(request: Request, body: CherryPickRequest) -> dict[str, Any]:
     """Cherry-pick a commit onto current branch."""
-    engine = _engine_for_request(request)
-    runtime = request.app.state.runtime
-    project_dir = Path(runtime.active_project.path)
-    before_ref = _capture_pre_op_ref(engine)
-    try:
-        result = engine.cherry_pick(body.commit_sha)
-    except GitError as exc:
-        raise _git_error_to_http(exc) from exc
-    # ADR-038 Addendum 1 §11.1 (#2033).
-    _refresh_registries_after_worktree_write(runtime, "cherry_pick")
-    await _emit_workflow_diff(runtime, project_dir, engine, before_ref, source="gitRestore", source_id=body.commit_sha)
-    return result
+    return await _apply_worktree_op(
+        request,
+        "cherry_pick",
+        lambda engine: engine.cherry_pick(body.commit_sha),
+        lambda _result: body.commit_sha,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -708,40 +752,32 @@ async def merge_stage_file(request: Request, body: MergeStageFileRequest) -> dic
 
 @router.post("/merge/complete")
 async def merge_complete(request: Request) -> dict[str, str]:
-    """Finalize merge after all conflicts staged."""
-    engine = _engine_for_request(request)
-    runtime = request.app.state.runtime
-    project_dir = Path(runtime.active_project.path)
-    before_ref = _capture_pre_op_ref(engine)
-    try:
-        sha = engine.merge_complete()
-    except GitError as exc:
-        raise _git_error_to_http(exc) from exc
-    # ADR-038 Addendum 1 §11.1 (#2033) — the resolved conflict content is the
-    # working tree now, and a resolved block file is a changed block file.
-    _refresh_registries_after_worktree_write(runtime, "merge_complete")
-    # Merge-complete is the final write in a conflict-resolution flow:
-    # the staged conflict resolutions become the working tree. Emit so
-    # the canvas reflects the resolved YAML.
-    await _emit_workflow_diff(runtime, project_dir, engine, before_ref, source="gitRestore", source_id=sha)
+    """Finalize merge after all conflicts staged.
+
+    This is the final write of a conflict-resolution flow: the staged
+    resolutions become the working tree, and a resolved block file is a
+    changed block file like any other.
+    """
+    sha = await _apply_worktree_op(
+        request,
+        "merge_complete",
+        lambda engine: engine.merge_complete(),
+        lambda commit_sha: commit_sha,
+    )
     return {"status": "ok", "commit_sha": sha}
 
 
 @router.post("/merge/abort")
 async def merge_abort(request: Request) -> dict[str, str]:
-    """Abort an in-progress merge or cherry-pick."""
-    engine = _engine_for_request(request)
-    runtime = request.app.state.runtime
-    project_dir = Path(runtime.active_project.path)
-    before_ref = _capture_pre_op_ref(engine)
-    try:
-        engine.merge_abort()
-    except GitError as exc:
-        raise _git_error_to_http(exc) from exc
-    # ADR-038 Addendum 1 §11.1 (#2033) — an abort rewinds the whole tree, so
-    # any block source the merge had already written reverts with it.
-    _refresh_registries_after_worktree_write(runtime, "merge_abort")
-    # Abort rewinds the working tree to the pre-merge state — workflow
-    # YAML files revert too.
-    await _emit_workflow_diff(runtime, project_dir, engine, before_ref, source="gitRestore", source_id="merge-abort")
+    """Abort an in-progress merge or cherry-pick.
+
+    An abort rewinds the whole tree to its pre-merge state, so workflow YAMLs
+    and any block source the merge had already written both revert with it.
+    """
+    await _apply_worktree_op(
+        request,
+        "merge_abort",
+        lambda engine: engine.merge_abort(),
+        lambda _result: "merge-abort",
+    )
     return {"status": "ok"}
