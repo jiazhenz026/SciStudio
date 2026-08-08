@@ -30,15 +30,31 @@ matcher-table mapping.
 Codex 2026 walks from project root to cwd loading every
 ``.codex/config.toml`` — so the project-scope file takes precedence
 over ``~/.codex/config.toml`` for sessions opened inside this project.
+
+Repairing existing configs
+--------------------------
+
+:func:`write_codex_config` preserves an existing file rather than rewriting it,
+so an already-provisioned project only ever receives a fix through one of the
+two repairs below, applied in this order:
+
+* :func:`_upgrade_legacy_hook_commands` — a config still carrying the POSIX
+  ``$(git rev-parse --show-toplevel)`` substitution reaches the current
+  command shape.
+* :func:`_repair_dead_interpreter_hook_commands` — a config already in the
+  current shape, whose baked interpreter has since disappeared, is re-rendered
+  against a live one. See the ``hooks`` module docstring for how a frozen
+  interpreter dies and why the resulting failure is silent (#2040).
 """
 
 from __future__ import annotations
 
 import os
-import sys
+import re
+from collections.abc import Callable
 from pathlib import Path
 
-from scistudio.agent_provisioning.hooks import hook_interpreter
+from scistudio.agent_provisioning.hooks import hook_interpreter, interpreter_is_live
 
 _TARGET_REL = ".codex/config.toml"
 
@@ -183,6 +199,66 @@ def _shell_word(path: str | Path) -> str:
     return _quote_shell_path(text)
 
 
+#: One ``command = "..."`` assignment in a generated config. The value is a
+#: TOML basic string, so it runs to the first unescaped quote.
+_COMMAND_ASSIGNMENT_RE = re.compile(r'(?m)^(?P<indent>[ \t]*)command\s*=\s*"(?P<value>(?:[^"\\]|\\.)*)"[ \t]*$')
+
+
+def _toml_unescape(value: str) -> str:
+    """Invert :func:`_toml_escape` for one basic-string body.
+
+    Scanned left to right rather than undone with two ``str.replace`` calls,
+    because those do not commute: unescaping quotes first would turn a literal
+    backslash followed by a quote into a string terminator, and unescaping
+    backslashes first would do the same in reverse.
+    """
+    out: list[str] = []
+    index = 0
+    while index < len(value):
+        char = value[index]
+        if char == "\\" and index + 1 < len(value):
+            out.append(value[index + 1])
+            index += 2
+            continue
+        out.append(char)
+        index += 1
+    return "".join(out)
+
+
+def _unquote_shell_word(word: str) -> str:
+    """Recover the path :func:`_shell_word` rendered, quoted or bare."""
+    if len(word) >= 2 and word.startswith('"') and word.endswith('"'):
+        return word[1:-1].replace('\\"', '"')
+    return word
+
+
+def _rewrite_hook_commands(
+    raw: str,
+    project_dir: Path,
+    should_replace: Callable[[str, str], bool],
+) -> str:
+    """Re-render every generated hook command *should_replace* selects.
+
+    Both repairs below identify a command by its trailing script argument and
+    then replace the assignment wholesale, so a repaired file is byte-identical
+    to one written from scratch. They differ only in which trailing spelling
+    they recognise and in what they ask about the interpreter, which is what
+    ``should_replace`` decides: it receives the unescaped command and the
+    script it targets, and returns whether to re-render.
+    """
+
+    def _rewrite(match: re.Match[str]) -> str:
+        command = _toml_unescape(match.group("value"))
+        for _matcher, script, _status in (*_PRE_HOOKS, *_POST_HOOKS):
+            if not should_replace(command, script):
+                continue
+            fixed = _render_hook_command(project_dir, script)
+            return f'{match.group("indent")}command = "{_toml_escape(fixed)}"'
+        return match.group(0)
+
+    return _COMMAND_ASSIGNMENT_RE.sub(_rewrite, raw)
+
+
 #: The POSIX-only project-root construct every previously generated config
 #: carries. Matched literally so the repair cannot touch anything else.
 _LEGACY_ROOT_EXPR = '"$(git rev-parse --show-toplevel)/.claude/hooks/'
@@ -203,19 +279,48 @@ def _upgrade_legacy_hook_commands(raw: str, project_dir: Path) -> str:
     quoting in place, and that quoting is itself half the defect — see
     :func:`_shell_word`.
 
+    A legacy command is recognised by its trailing ``$(git rev-parse ...)``
+    script argument alone, whatever interpreter precedes it. It used to be
+    matched against two fully spelled-out commands, one of which embedded
+    ``sys.executable`` — the interpreter of the process running the *repair*,
+    not the one that wrote the file. Those agree only when a project is
+    re-provisioned from the very interpreter that provisioned it, so in
+    practice the repair silently did nothing: a project provisioned by the
+    packaged desktop app and later reopened from any other install kept its
+    dead hooks, which is exactly the state #2040 found in the field.
+
     Only commands SciStudio emitted are matched, so a user-written hook command
-    is untouched. Both the raw and TOML-escaped spellings are handled, since the
-    value lives in a TOML basic string where backslashes are doubled.
+    is untouched: the construct being matched is one no user would type.
     """
-    for _matcher, script, _status in (*_PRE_HOOKS, *_POST_HOOKS):
-        fixed = _render_hook_command(project_dir, script)
-        legacy_forms = (
-            f'python {_LEGACY_ROOT_EXPR}{script}"',
-            f'{_quote_shell_path(sys.executable)} {_LEGACY_ROOT_EXPR}{script}"',
-        )
-        for old in legacy_forms:
-            raw = raw.replace(_toml_escape(old), _toml_escape(fixed)).replace(old, fixed)
-    return raw
+    return _rewrite_hook_commands(
+        raw,
+        project_dir,
+        lambda command, script: command.endswith(f'{_LEGACY_ROOT_EXPR}{script}"'),
+    )
+
+
+def _has_dead_interpreter(command: str, project_dir: Path, script: str) -> bool:
+    """Whether *command* is the current shape for *script* but cannot run.
+
+    The interpreter cannot be matched literally the way the legacy construct
+    can, because its value is whatever happened to be running at provisioning
+    time. The *script* argument is deterministic, though, so the command is
+    identified by the trailing script word this module would render today; what
+    precedes it is the interpreter, and that is what gets tested.
+    """
+    suffix = f" {_shell_word(_hook_script_path(project_dir, script))}"
+    if not command.endswith(suffix):
+        return False
+    return not interpreter_is_live(_unquote_shell_word(command[: -len(suffix)]))
+
+
+def _repair_dead_interpreter_hook_commands(raw: str, project_dir: Path) -> str:
+    """Codex's half of the #2040 interpreter repair; see the module docstring."""
+    return _rewrite_hook_commands(
+        raw,
+        project_dir,
+        lambda command, script: _has_dead_interpreter(command, project_dir, script),
+    )
 
 
 def _render_hooks_block(project_dir: Path) -> str:
@@ -274,7 +379,11 @@ def write_codex_config(
             raw = dest.read_text(encoding="utf-8")
         except OSError:
             return []
+        # Legacy syntax first, so a config still carrying the POSIX
+        # substitution reaches the current shape before the interpreter check
+        # below decides whether that shape's first word still exists (#2040).
         upgraded = _upgrade_legacy_hook_commands(raw, project_dir)
+        upgraded = _repair_dead_interpreter_hook_commands(upgraded, project_dir)
         if upgraded != raw:
             dest.write_text(upgraded, encoding="utf-8")
             return [_TARGET_REL]

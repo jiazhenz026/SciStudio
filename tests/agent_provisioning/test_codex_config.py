@@ -239,7 +239,7 @@ def _generated_codex_hook_command(project_dir: Path) -> str:
     """The first PreToolUse command, read back the way Codex reads it."""
     write_codex_config(project_dir, force=True)
     parsed = tomllib.loads((project_dir / ".codex" / "config.toml").read_text(encoding="utf-8"))
-    return parsed["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+    return str(parsed["hooks"]["PreToolUse"][0]["hooks"][0]["command"])
 
 
 def _hook_stdin_payload(project_dir: Path) -> str:
@@ -362,4 +362,119 @@ def test_upgraded_config_matches_a_freshly_written_one(tmp_project_dir: Path) ->
 
     write_codex_config(tmp_project_dir, force=False)
 
+    assert target.read_text(encoding="utf-8") == fresh
+
+
+# ---------------------------------------------------------------------------
+# #2040 — the interpreter frozen into an already-modern config.
+#
+# _upgrade_legacy_hook_commands repairs configs written before the #2011
+# command-syntax fix and only those: it matches the two spellings carrying
+# `$(git rev-parse --show-toplevel)`. A config written after that fix is
+# already in the current shape and can never match, so when its interpreter
+# later disappears nothing rewrites it.
+# ---------------------------------------------------------------------------
+
+_DEAD_INTERPRETER = "C:/nonexistent-scistudio/resources/python/python.exe"
+
+
+def _repin_interpreter(raw: str, project_dir: Path, interpreter: str) -> str:
+    """Rewrite every generated hook command to run *interpreter* instead."""
+    for _matcher, script, _status in (*_cc._PRE_HOOKS, *_cc._POST_HOOKS):
+        current = _cc._render_hook_command(project_dir, script)
+        repinned = f"{_cc._shell_word(interpreter)} {_cc._shell_word(_cc._hook_script_path(project_dir, script))}"
+        raw = raw.replace(_toml_escape(current), _toml_escape(repinned))
+    return raw
+
+
+def test_dead_interpreter_hook_command_is_repaired(tmp_project_dir: Path) -> None:
+    """A modern-shape config whose interpreter has gone is re-rendered.
+
+    This is the state every project provisioned after #2011 lands in once the
+    interpreter disappears, and the state the legacy upgrade cannot reach.
+    """
+    target = tmp_project_dir / ".codex" / "config.toml"
+    write_codex_config(tmp_project_dir, force=True)
+    fresh = target.read_text(encoding="utf-8")
+
+    broken = _repin_interpreter(fresh, tmp_project_dir, _DEAD_INTERPRETER)
+    assert broken != fresh, "failed to construct the dead-interpreter shape for this test"
+    target.write_text(broken, encoding="utf-8")
+
+    written = write_codex_config(tmp_project_dir, force=False)
+
+    assert ".codex/config.toml" in written
+    repaired = target.read_text(encoding="utf-8")
+    assert _DEAD_INTERPRETER not in repaired
+    assert repaired == fresh
+
+
+def test_live_interpreter_hook_command_is_left_alone(tmp_project_dir: Path) -> None:
+    """A working interpreter is preserved even if it is not the current pick."""
+    target = tmp_project_dir / ".codex" / "config.toml"
+    write_codex_config(tmp_project_dir, force=True)
+    fresh = target.read_text(encoding="utf-8")
+
+    if sys.executable == hook_interpreter():
+        deliberate = fresh
+    else:
+        deliberate = _repin_interpreter(fresh, tmp_project_dir, sys.executable)
+        assert deliberate != fresh, "failed to construct a distinct live interpreter for this test"
+    target.write_text(deliberate, encoding="utf-8")
+
+    write_codex_config(tmp_project_dir, force=False)
+
+    assert target.read_text(encoding="utf-8") == deliberate
+
+
+def test_user_authored_codex_command_is_not_repaired(tmp_project_dir: Path) -> None:
+    """A command that is not the generated shape is never rewritten.
+
+    Identification is by the trailing script word this module would render
+    today; an extra argument means the string is someone else's, so a dead
+    interpreter in it is not SciStudio's to correct.
+    """
+    target = tmp_project_dir / ".codex" / "config.toml"
+    write_codex_config(tmp_project_dir, force=True)
+    fresh = target.read_text(encoding="utf-8")
+
+    script = _cc._PRE_HOOKS[0][1]
+    mine = f"{_DEAD_INTERPRETER} {_cc._shell_word(_cc._hook_script_path(tmp_project_dir, script))} --flag"
+    customised = fresh.replace(_toml_escape(_cc._render_hook_command(tmp_project_dir, script)), _toml_escape(mine))
+    assert customised != fresh, "failed to construct the user-authored shape for this test"
+    target.write_text(customised, encoding="utf-8")
+
+    write_codex_config(tmp_project_dir, force=False)
+
+    assert _toml_escape(mine) in target.read_text(encoding="utf-8")
+
+
+def test_legacy_command_is_upgraded_whatever_interpreter_wrote_it(tmp_project_dir: Path) -> None:
+    """The legacy repair must not depend on who is running it.
+
+    It used to match two fully spelled-out commands, one embedding
+    ``sys.executable`` — the interpreter of the process running the *repair*,
+    not the one that wrote the file. Those agree only when a project is
+    re-provisioned from the very interpreter that provisioned it. A project
+    provisioned by the packaged desktop app and reopened from any other install
+    therefore kept its dead hooks, which is the state #2040 found on a real
+    machine: a config still carrying ``$(git rev-parse ...)`` behind an
+    interpreter that no longer existed, which re-provisioning did not touch.
+    """
+    target = tmp_project_dir / ".codex" / "config.toml"
+    write_codex_config(tmp_project_dir, force=True)
+    fresh = target.read_text(encoding="utf-8")
+
+    legacy = fresh
+    for _matcher, script, _status in (*_cc._PRE_HOOKS, *_cc._POST_HOOKS):
+        legacy = legacy.replace(
+            _toml_escape(_cc._render_hook_command(tmp_project_dir, script)),
+            _toml_escape(f'"{_DEAD_INTERPRETER}" "$(git rev-parse --show-toplevel)/.claude/hooks/{script}"'),
+        )
+    assert legacy != fresh, "failed to construct the foreign-interpreter legacy shape for this test"
+    target.write_text(legacy, encoding="utf-8")
+
+    written = write_codex_config(tmp_project_dir, force=False)
+
+    assert ".codex/config.toml" in written
     assert target.read_text(encoding="utf-8") == fresh
