@@ -326,6 +326,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `tests/api/test_user_library_write.py`. (@claude, 2026-08-08, branch:
   fix/1996-codex-review-findings)
 
+- [#1996] Cancelling a promotion after its data types were already copied now
+  tells you so. **Save to My Library** writes a block's project-local data
+  types before the block itself, so that a failure never leaves a block in your
+  library whose types are missing. If you then hit an overwrite prompt for the
+  block and chose Cancel, those type files stayed in My Library — added, or
+  overwritten — and the app showed nothing at all, because a cancellation is
+  the user's own decision and needs no confirmation. That reasoning is right
+  for a cancellation that changed nothing and wrong for this one. The outcome
+  is now reported as a partial result: the notice reads **Partly saved to My
+  Library**, names the type files that are still there, and says to delete them
+  if you did not mean to keep them. They are reported rather than rolled back
+  because a dependency write that took the Overwrite branch replaced a file
+  that cannot be restored, so undoing would be a second silent change rather
+  than an undo. Found by an external review of PR #2036. Tests:
+  `frontend/src/components/promotion/__tests__/promoteToUserLibrary.test.ts`,
+  `frontend/src/components/promotion/__tests__/runPromotion.test.ts`. (@claude,
+  2026-08-08, branch: fix/1996-codex-review-findings)
+
 - [#2024] The Data types tab and the declared port colours now notice when the
   types change. The frontend fetched the type listing once and then answered
   every later question from that copy — for the rest of the session, unless you

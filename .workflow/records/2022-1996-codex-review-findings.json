@@ -415,6 +415,22 @@
       "path": "frontend/src/store/__tests__/typeCatalogInvalidation.test.ts",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T04:49:37.312419Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/promotion/__tests__/promoteToUserLibrary.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T04:49:37.312435Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/promotion/__tests__/runPromotion.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ]
 }

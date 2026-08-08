@@ -131,4 +131,34 @@ describe("the inline confirmation — FR-020 / FR-023 / FR-024", () => {
     act(() => showPromotionResult(outcome({ status: "failed", promoted: null, error: "boom" })));
     expect(screen.getByTestId("promotion-result")).toHaveTextContent("boom");
   });
+
+  it("does not call a partial result a save", () => {
+    // The item is not in the library; only the cascade's dependency is. A
+    // heading reading "Saved to My Library" would be as misleading as the
+    // silence this notice replaces.
+    render(<UserLibraryDialogs />);
+    act(() =>
+      showPromotionResult(
+        outcome({
+          status: "partial",
+          promoted: null,
+          promotedDependencies: [
+            {
+              kind: "type",
+              label: "Spectrum",
+              filename: "spectrum.py",
+              path: "/home/dev/.scistudio/types/spectrum.py",
+              overwritten: false,
+            },
+          ],
+          warnings: ['"Normalize" was not promoted, but Spectrum is still there.'],
+        }),
+      ),
+    );
+
+    const notice = screen.getByTestId("promotion-result");
+    expect(notice).toHaveTextContent("Partly saved to My Library");
+    expect(notice).toHaveTextContent("Spectrum");
+    expect(screen.getAllByTestId("promotion-result-warning")).toHaveLength(1);
+  });
 });

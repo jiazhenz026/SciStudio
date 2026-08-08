@@ -40,7 +40,11 @@ export async function runPromotion(item: PromotableItem): Promise<PromotionOutco
   }
   if (outcome.status !== "cancelled") {
     // A cancellation is the user's own decision and needs no confirmation; a
-    // success and a failure both do.
+    // success and a failure both do — and so does a `partial`, which is a
+    // cancellation the library did not fully honour: cascade files were
+    // already written and stay written. Suppressing that notice was the one
+    // case where the UI looked like nothing had happened while My Library had
+    // in fact changed.
     showPromotionResult(outcome);
   }
   return outcome;

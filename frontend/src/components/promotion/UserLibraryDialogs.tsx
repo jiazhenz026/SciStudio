@@ -312,6 +312,22 @@ function DestinationDialog({
 const CLEAN_NOTICE_MS = 6000;
 
 /**
+ * The notice's heading per outcome.
+ *
+ * `partial` gets its own wording because it is the case where saying "Saved"
+ * would be as misleading as the silence it replaces: the item the user asked
+ * for is *not* there, only the dependencies the cascade had already written.
+ * `cancelled` never reaches the notice (`runPromotion` shows nothing for it)
+ * and is listed so the record stays exhaustive over the status union.
+ */
+const NOTICE_HEADING: Record<PromotionOutcome["status"], string> = {
+  promoted: "Saved to My Library",
+  partial: "Partly saved to My Library",
+  cancelled: "Saved to My Library",
+  failed: "Could not save to My Library",
+};
+
+/**
  * FR-020's inline confirmation.
  *
  * Deliberately **not** modal: FR-020 asks for a confirmation *and* a reveal,
@@ -348,7 +364,7 @@ function ResultNotice({
       role="status"
     >
       <p className="font-display text-sm font-semibold text-ink">
-        {failed ? "Could not save to My Library" : "Saved to My Library"}
+        {NOTICE_HEADING[outcome.status]}
       </p>
       {failed ? (
         <p className="mt-1 text-xs leading-snug text-red-700">{outcome.error}</p>
