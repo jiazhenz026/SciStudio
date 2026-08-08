@@ -62,6 +62,24 @@ function trimmedOrNull(value: string): string | null {
 }
 
 /**
+ * FR-020 — record that the user chose to skip a question.
+ *
+ * Anything they had already typed is KEPT. Paged, the user can come back to the
+ * question, and a skip that had silently emptied the box would have destroyed an
+ * answer to record a choice about it. The text is ignored while `skipped` is set
+ * (`buildRequest` sends null either way) and typing clears the flag, so the two
+ * never contradict each other in the request.
+ */
+export function markSkipped(
+  state: WorkImportFormState,
+  key: "workflowDescription" | "interactionWishes" | "otherSoftware",
+): WorkImportFormState {
+  const next: WorkImportFormState = { ...state };
+  next[key] = { ...state[key], skipped: true };
+  return next;
+}
+
+/**
  * FR-016 / FR-017 — question 2 is skippable ONLY when a source location was
  * given. With a codebase the agent reads the code and this answer is
  * supplementary; without one it is the only description of the work that
@@ -80,11 +98,36 @@ export function sourceFieldDisabled(state: WorkImportFormState): boolean {
 }
 
 /**
+ * The sentences the dialog says when something is still missing.
+ *
+ * Named constants rather than literals inside `blockingReasons`, because since
+ * paging the same requirement is enforced in two places: on the page that asks
+ * for it (`pages.ts`, which blocks the user leaving that page) and once more
+ * over the whole form before the request is built. Two copies of a sentence
+ * would drift, and a user would meet two different wordings for one problem.
+ */
+export const REASON_NO_PROJECT =
+  "Open a project first. A session writes its blocks into a project.";
+export const REASON_NO_SOURCE = 'Say where your work is, or choose "I don\'t have a codebase".';
+export const REASON_NO_DATA_KIND = "Choose at least one kind of data, or write in your own.";
+export const REASON_NO_WORKFLOW_DESCRIPTION =
+  "Describe your analysis workflow. With no codebase to read, this is the only " +
+  "description of your work the agent will have.";
+export const REASON_NO_AGENT = "No agent is ready to run the session.";
+export const REASON_NO_PROVIDER = "Choose which agent runs the session.";
+
+/**
  * What still stands between the user and a session, in the user's own words.
  *
  * Returned as sentences rather than a boolean so the dialog can say why the
  * start action is unavailable. A disabled button with no explanation is the
  * same dead end FR-005 closes for availability.
+ *
+ * With paging every one of these is also enforced page by page, so reaching the
+ * final page with any of them outstanding should be impossible. This stays as
+ * the whole-form backstop: it is what the start action is gated on, so a gap in
+ * the page rules produces a disabled button and a sentence rather than a request
+ * the backend rejects.
  */
 export function blockingReasons(
   state: WorkImportFormState,
@@ -92,24 +135,21 @@ export function blockingReasons(
 ): string[] {
   const reasons: string[] = [];
   if (!opts.projectDir) {
-    reasons.push("Open a project first. A session writes its blocks into a project.");
+    reasons.push(REASON_NO_PROJECT);
   }
   if (!state.hasNoCodebase && !state.sourceLocation.trim()) {
-    reasons.push('Say where your work is, or choose "I don\'t have a codebase".');
+    reasons.push(REASON_NO_SOURCE);
   }
   if (state.dataKinds.length === 0 && !state.dataKindsOther.trim()) {
-    reasons.push("Choose at least one kind of data, or write in your own.");
+    reasons.push(REASON_NO_DATA_KIND);
   }
   if (workflowDescriptionRequired(state) && !state.workflowDescription.text.trim()) {
-    reasons.push(
-      "Describe your analysis workflow. With no codebase to read, this is the only " +
-        "description of your work the agent will have.",
-    );
+    reasons.push(REASON_NO_WORKFLOW_DESCRIPTION);
   }
   if (!opts.agentUsable) {
-    reasons.push("No agent is ready to run the session.");
+    reasons.push(REASON_NO_AGENT);
   } else if (!state.provider) {
-    reasons.push("Choose which agent runs the session.");
+    reasons.push(REASON_NO_PROVIDER);
   }
   return reasons;
 }

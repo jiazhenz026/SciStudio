@@ -824,6 +824,82 @@ connected in this session**; the ledger's own `sentrux_gate` ran under `check`.
 - [x] Track merged or integrated.
       -> merge `2c705ceb`. Spec frontmatter conflict with A2 resolved deliberately, not by picking a side: both blocks measured byte-identical and A4's spec body identical to base, so A2's file was taken as a strict superset. `ProviderPicker`/`PermissionModePicker` confirmed absent from the diff (FR-042).
 
+### 11.6 Follow-Up: Paged Dialog (owner directive, 2026-08-07)
+
+- Owner: `A4b`, branch `feat/2001-work-import-paged-dialog` in
+  `C:/Users/jiazh/workspace/SciStudio-wt-wi-page`; gate ledger
+  `.workflow/records/2001-2001-work-import-paged-dialog.json`.
+- Owner request (verbatim): *"整体很不错，但是我觉得一个长问卷用户看着很难受，也
+  懒得填。我建议弄成翻页的，一页一个问题，第一页是browse，选provider之类的，然后
+  第二页开始问题"* — the shipped dialog renders every question on one scrolling
+  page; make it paged, one question per page, setup first.
+- Presentation only. The request payload and `validateWorkImportRequest`
+  (contract C3, §7.3), which answers are required, and the wording of every
+  question, help line, example and preset label are unchanged. `copy.ts` gained
+  navigation strings and lost none.
+
+- [x] Page layout (owner directive; FR-003)
+      -> `frontend/src/components/BringInMyWorkDialog.tsx` plus
+      `BringInMyWorkDialog.parts/{pages.ts,PageNav.tsx}`. Five pages: **1**
+      setup — source with the directory browse control, "I don't have a
+      codebase", destination tier, provider picker, permission mode (FR-008 to
+      FR-012, FR-040 to FR-044); **2** question 1 (FR-013, FR-014); **3**
+      question 2 (FR-016, FR-017); **4** question 3 (FR-018); **5** question 4
+      (FR-019). One question per page, no review page.
+- [x] Caveat and start action (FR-004, FR-037, FR-038)
+      -> both on page 5, the caveat immediately above the navigation row that
+      carries Start, always expanded and with no dismiss control. Paged, this is
+      a stronger position than the shared footer it had: no page carries a start
+      action without also carrying the caveat, and
+      `BringInMyWorkDialog.test.tsx` asserts that over every page rather than
+      over the one that happens to render.
+- [x] FR-020 required vs skippable, as a navigation rule
+      -> `pages.ts` `pageGate`. Source-or-no-codebase and the provider choice
+      block page 1; question 1 blocks page 2; question 2 blocks page 3 in
+      no-codebase mode. Next is never disabled — pressing it either advances or
+      names what is missing and focuses the control that fixes it. The skip
+      moved from a checkbox under the box to a labelled button beside Next, with
+      `SKIP_HELP` under it; `SKIPPED_NOTE` makes a skip legible when the user
+      pages back to it, and typing takes it back.
+- [x] FR-016 / FR-017 question 2 decided on page 1, enforced on page 3
+      -> both pages read `workflowDescriptionRequired(state)` over state held by
+      the dialog, so they cannot disagree. Pinned by a round trip: set the mode
+      on page 1, assert the requirement and the longer prompt on page 3, go back,
+      unset it, assert the skip returns.
+- [x] FR-005 availability surfaces on page 1, not page 5
+      -> the provider is chosen on page 1, so page 1 is where "no agent is ready
+      to run the session" blocks. A user never answers five pages before finding
+      out. The guidance still replaces the start action on page 5 for the case
+      where the probe resolves late or a retry fails, and a probe still in flight
+      never holds the user up (FR-035).
+- [x] FR-021 skips reach the request marked as skipped
+      -> unchanged in `buildRequest`; a page paged past without an answer
+      resolves to the same payload as an explicit skip. Pinned directly: a walk
+      that answers only what FR-020 requires sends
+      `skipped: ["workflow_description", "interaction_wishes", "other_software"]`.
+- [x] FR-006 / FR-007 guard rewritten to walk every page
+      -> `BringInMyWorkDialog.test.tsx`. The old guard searched one render, which
+      paged would have checked page 1 and reported on five. It now visits each
+      page in turn, checks that page's text **and its placeholders** (the
+      examples are attributes, so `textContent` alone missed them), and then
+      asserts both that it reached all five pages and that what it read contains
+      the real questions — so an empty or missing page fails rather than passes
+      by vacuity. Run twice, once per question-2 mode. Verified by mutation: a
+      forbidden word planted in question 4's example fails both cases.
+- [x] Frontend tests
+      -> `npx vitest run BringInMyWorkDialog` — 2 files, 57 tests passing
+      (`BringInMyWorkDialog.test.tsx` 37, `BringInMyWorkDialogPaging.test.tsx`
+      20, sharing `BringInMyWorkDialog.harness.tsx`). Full suite `npx vitest
+      run` — 124 files / 1257 tests passing. `npm run lint` 0 errors and 40
+      warnings, the same 40 as before this change; `tsc --noEmit` clean;
+      `prettier --check` clean.
+- [x] Out-of-scope files untouched
+      -> `frontend/src/lib/api/workImport.ts`,
+      `frontend/src/lib/api/agentAvailability.ts`,
+      `AIChat/SetupScreen.parts/{ProviderPicker,PermissionModePicker}.tsx`
+      (FR-042), all of `src/scistudio/**`, `docs/specs/**`, `docs/adr/**` and
+      `pyproject.toml` are absent from the diff.
+
 ## 12. Verification Evidence
 
 All commands below were run by the manager on the **integrated** umbrella tree
