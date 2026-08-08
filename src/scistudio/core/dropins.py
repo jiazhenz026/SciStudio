@@ -477,7 +477,7 @@ def _sys_path_without(type_roots: tuple[Path, ...]) -> Iterator[None]:
     make :func:`_installed_origin` see its ``ImportError`` and conclude the name
     is free — the guard would stop reporting the very collision it is enforcing,
     and would never retry a binding that fails only because a native dependency
-    is temporarily missing. It is silenced rather than lifted out of
+    was missing when the scan ran. It is silenced rather than lifted out of
     ``sys.meta_path`` so that a refusal recorded *inside* the window cannot put
     it back mid-pass; :meth:`_RefusedNameFinder.silenced` records what that
     costs when it happens.
@@ -684,8 +684,8 @@ def evict_cached_bytecode(py_file: Path) -> None:
     for a handful of small user-authored files off any hot path — the *edited*
     case is the whole point of this tier, so the cache has almost nothing to
     offer it. The recompile also writes back a ``.pyc`` that does match the
-    current source, so the later by-path loads (in-process instantiation, the
-    worker subprocess) inherit a correct cache instead of each needing this call.
+    current source, so each subsequent by-path load (in-process instantiation,
+    the worker subprocess) inherits a correct cache instead of needing this call.
 
     Here rather than in either registry for the reason FR-057 gives: both scan
     passes need it, and a rule restated at two sites is a rule that drifts. Every
