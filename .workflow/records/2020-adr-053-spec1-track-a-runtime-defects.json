@@ -335,6 +335,14 @@
       "path": "CHANGELOG.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T06:56:45.938578Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-spec1-personal-tool-library-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
