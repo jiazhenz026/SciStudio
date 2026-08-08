@@ -4,7 +4,7 @@ title: "ADR-048 Preview System Implementation And Migration Specification"
 status: Planned
 feature_branch: codex/adr-048-previewers-plot-jobs
 created: 2026-06-10
-input: "Owner-approved ADR-048 direction: replace hardcoded data previews with routed core/package/project previewers, migrate rich image viewing to the imaging package, and keep preview-side plot rendering as a distinct artifact viewer surface."
+input: "Owner-approved ADR-048 direction: replace hardcoded data previews with routed core/package/user/project previewers, migrate rich image viewing to the imaging package, and keep preview-side plot rendering as a distinct artifact viewer surface."
 owners:
   - "@jiazhenz026"
 related_adrs:
@@ -182,8 +182,8 @@ Acceptance Scenarios:
 2. Given no collection-specific previewer, when the output is selected, then
    the core collection fallback lists item refs, types, and bounded samples.
 3. Given the user selects one sampled collection item, when PreviewHost requests
-   a child preview, then item-level routing uses the same project/package/core
-   precedence rules.
+   a child preview, then item-level routing uses the same
+   project/user/package/core precedence rules.
 
 ### User Story 5 - Preview clients use the routed session API (Priority: P1)
 
@@ -231,12 +231,16 @@ Acceptance Scenarios:
   containing registry, routing, model, session, data-access, fallback previewer,
   and API route modules.
 - FR-002: The preview registry must load core previewers unconditionally,
-  package previewers from `scistudio.previewers` entry points, and project
-  previewers from the active project configuration.
+  package previewers from `scistudio.previewers` entry points, user previewers
+  from the user library (`~/.scistudio/previewers`, unconditionally, #2017),
+  and project previewers from the active project configuration.
 - FR-003: Previewer resolution must follow ADR-048 precedence: project exact
-  collection, project exact item, package exact collection, package exact item,
-  project parent, package parent, core collection fallback, core base fallback,
-  then unknown/error fallback.
+  collection, project exact item, user exact collection, user exact item,
+  package exact collection, package exact item, project parent, user parent,
+  package parent, core collection fallback, core base fallback, then
+  unknown/error fallback. The user tier (#2017) sits between project and
+  package at every specificity class (owner decision: project > user >
+  package).
 - FR-004: Within the same precedence tier and type specificity, the router must
   select the highest priority previewer and must report ambiguity when priority
   ties remain unresolved.
@@ -404,7 +408,7 @@ has a stronger convention, but the semantics above are required.
 Build the previewer core behind the existing preview API first, then migrate the
 frontend and imaging package onto the new contract. The target architecture is:
 
-1. `PreviewerRegistry` loads core, package, and project specs.
+1. `PreviewerRegistry` loads core, package, user, and project specs.
 2. `PreviewRouter` resolves a `PreviewTarget` to one spec or a typed routing
    error.
 3. `PreviewSessionManager` creates backend sessions and calls providers.
@@ -571,7 +575,7 @@ with validation, not as implicit arbitrary script loading.
 
 - SC-001: All current data preview API tests pass through the new previewer
   subsystem or have explicit migration assertions approved by ADR-048.
-- SC-002: Router tests cover project/package/core precedence, collection
+- SC-002: Router tests cover project/user/package/core precedence, collection
   routing, parent fallback, priority, explicit defaults, and ambiguity errors.
 - SC-003: Core fallback viewers exist for DataFrame, Array, Series, Text,
   Artifact, CompositeData, Collection, and Plot artifacts.

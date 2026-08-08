@@ -33,7 +33,7 @@ scope:
     - Registering project-level and user-level type directories in the agent runtime, which registers none today.
     - Reload symmetry — package install/uninstall and branch switch refresh the type registry, not only the block registry.
   out:
-    - A user tier for previewers. Previewers keep core / package / project discovery only; `OwnerKind` is unchanged.
+    - A user tier for previewers, as scoped at writing. **Superseded:** #2017 added the user previewer tier (`~/.scistudio/previewers/`, `OwnerKind.USER`); this exclusion no longer holds.
     - The palette tips strip (#1997), which moves to the Learning Center spec because it teaches features unrelated to the library.
     - Learning Center entries, the tutorial registry, progress, and first-run landing (the Learning Center system spec).
     - Codebase import, agent transcription, and differential tests (the import spec).
@@ -110,8 +110,10 @@ registries scan in opposite orders. Every feature above would otherwise behave
 differently depending on which process the user's action ran in, so §10.3 and
 §10.4 consolidate this first and everything else is built on top.
 
-Previewers are deliberately excluded. They keep core / package / project
-discovery; `OwnerKind` is not extended. The tips strip (#1997) moves to the
+Previewers are deliberately excluded here. **Superseded:** the user
+previewer tier later landed as its own change (#2017), extending `OwnerKind`
+with `USER` and applying this spec's drop-in guards to previewer scan dirs
+(#2044). The tips strip (#1997) moves to the
 Learning Center spec.
 
 ## 2. Current State
@@ -1028,7 +1030,7 @@ teaching rather than clutter.
 
 | Assumption | Source |
 |---|---|
-| Previewers need no user tier; project-level is sufficient | owner |
+| Previewers need no user tier; project-level is sufficient | owner — **overturned**: the owner later decided the tier is worth having; see #2017 |
 | The drop-in import defect is fixed in this spec, not split out | owner |
 | The tips strip (#1997) belongs to the Learning Center spec | owner |
 | Types are implemented independently with shared helpers extracted, not folded into the block implementation | owner |

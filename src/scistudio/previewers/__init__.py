@@ -18,8 +18,9 @@ preview subsystem is **provisional**.
 
 The operational layer — :class:`PreviewerRegistry`, :class:`PreviewRouter`,
 :class:`PreviewSessionManager`, :class:`PreviewService`,
-:func:`build_preview_service`, :func:`get_preview_service`, and
-:func:`load_project_previewers` — is core-internal machinery. It stays
+:func:`build_preview_service`, :func:`get_preview_service`,
+:func:`load_project_previewers`, and :func:`load_user_previewers` — is
+core-internal machinery. It stays
 importable for the API runtime but carries no author stability promise and is
 excluded from the generated reference, so it is not advertised here as author
 surface.
@@ -75,7 +76,7 @@ from scistudio.previewers.models import (
 from scistudio.previewers.models import (
     UnknownTargetError as UnknownTargetError,
 )
-from scistudio.previewers.project import load_project_previewers
+from scistudio.previewers.project import load_project_previewers, load_user_previewers
 from scistudio.previewers.registry import PreviewerRegistry
 from scistudio.previewers.router import PreviewRouter
 from scistudio.previewers.session import PreviewSessionManager
@@ -109,17 +110,25 @@ def build_preview_service(
 
     Loads core specs unconditionally, then package specs (discovered via
     ``scistudio.previewers`` entry points), then project-local specs/defaults
-    for *project_dir*.
+    for *project_dir*, then user-library specs. The user tier loads
+    unconditionally — it does not depend on an open project (#2017, mirroring
+    the user type/block tiers). Project loads before user so a project
+    previewer shadows a user previewer with the same id, matching the
+    project-first registration order the type registry uses.
     """
+    from scistudio.core.dropins import previewer_import_roots
+
     registry = PreviewerRegistry()
     registry.load_core()
     registry.load_packages()
     load_project_previewers(registry, project_dir)
+    load_user_previewers(registry)
 
     router = PreviewRouter(registry)
     sessions = PreviewSessionManager(
         registry,
         child_context_resolver=child_context_resolver,
+        dropin_import_roots=previewer_import_roots(project_dir),
     )
     return PreviewService(registry=registry, router=router, sessions=sessions)
 
@@ -149,7 +158,8 @@ def get_preview_service(*, project_dir: Path | None = None, refresh: bool = Fals
 # convenience; the canonical roots are ``.models`` / ``.data_access`` /
 # ``.helpers`` (ADR-052 §8). The Internal operational layer (PreviewerRegistry,
 # PreviewRouter, PreviewSessionManager, PreviewService, build_preview_service,
-# get_preview_service, load_project_previewers) stays importable from this module
+# get_preview_service, load_project_previewers, load_user_previewers) stays
+# importable from this module
 # for the API runtime but is decorated ``@internal`` and excluded here so it is
 # not advertised as author surface. ``UnknownPreviewerError`` /
 # ``UnknownTargetError`` remain importable (back-compat) but are likewise excluded.

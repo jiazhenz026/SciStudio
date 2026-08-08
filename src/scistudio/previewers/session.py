@@ -113,6 +113,7 @@ class PreviewSessionManager:
         max_sessions: int = _DEFAULT_MAX_SESSIONS,
         data_access_factory: Callable[[PreviewLimits], PreviewDataAccess] | None = None,
         child_context_resolver: ChildContextResolver | None = None,
+        dropin_import_roots: tuple[Path, ...] = (),
     ) -> None:
         self._registry = registry
         self._router = PreviewRouter(registry)
@@ -121,6 +122,7 @@ class PreviewSessionManager:
         self._max_sessions = max(1, int(max_sessions))
         self._data_access_factory = data_access_factory or self._default_data_access
         self._child_context_resolver = child_context_resolver
+        self._dropin_import_roots = tuple(dropin_import_roots)
 
     @property
     def router(self) -> PreviewRouter:
@@ -371,10 +373,29 @@ class PreviewSessionManager:
         return envelope.with_session(session_id)
 
     def _resolve_provider(self, spec: PreviewerSpec) -> PreviewProvider | None:
-        return _provider_from_decl(spec.backend_provider)
+        return self._provider_from_decl_scoped(spec.backend_provider)
 
     def _resolve_resource_provider(self, spec: PreviewerSpec) -> PreviewResourceProvider | None:
-        return _provider_from_decl(spec.resource_provider)
+        return self._provider_from_decl_scoped(spec.resource_provider)
+
+    def _provider_from_decl_scoped(self, provider: ProviderT | str | None) -> ProviderT | None:
+        """Resolve a provider declaration, re-activating drop-in import roots.
+
+        A drop-in previewer (project or user tier) may declare its provider as
+        a ``module:callable`` string resolved lazily at render time. The scan
+        keeps its ``sys.path`` activation scoped (#2044), so the previewer
+        import roots are re-activated for the duration of the lazy import —
+        the same door :meth:`scistudio.blocks.registry.BlockRegistry.instantiate`
+        re-opens for drop-in blocks, with the same FR-016 guard in front of it.
+        """
+        if not isinstance(provider, str) or not self._dropin_import_roots:
+            return _provider_from_decl(provider)
+        from scistudio.core.dropins import PREVIEWERS_DIR_NAME, guard_dropin_roots
+        from scistudio.desktop.paths import prepended_sys_paths
+
+        guard_dropin_roots(self._dropin_import_roots, dir_name=PREVIEWERS_DIR_NAME)
+        with prepended_sys_paths(self._dropin_import_roots):
+            return _provider_from_decl(provider)
 
     def _error_envelope(
         self,

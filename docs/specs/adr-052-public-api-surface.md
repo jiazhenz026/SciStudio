@@ -1050,7 +1050,7 @@ Neither public package imports any of these; core owns the machinery (ADR-048).
 | ➖ | `PreviewRouter` | router.py | Internal | resolution order / precedence |
 | ➖ | `PreviewSessionManager` | session.py | Internal | session lifecycle, framework manifest-stamping |
 | ➖ | `PreviewService` / `build_preview_service` / `get_preview_service` | __init__.py | Internal | API-runtime bundle + accessor |
-| ➖ | `load_project_previewers` / `PROJECT_PREVIEWERS_DIR` / `PROJECT_PREVIEWERS_MANIFEST` | project.py | Internal | project-local drop-in loading |
+| ➖ | `load_project_previewers` / `load_user_previewers` / `PROJECT_PREVIEWERS_DIR` / `PROJECT_PREVIEWERS_MANIFEST` | project.py | Internal | project-local and user-library drop-in loading (#2017) |
 | ➖ | `validate_manifest` / `resolve_asset` / `is_remote_url` / `ManifestValidation` / `ServedAsset` | assets.py | Internal | backend asset validator / path-confinement (FR-024) |
 
 ### 8.5 Storage access — `request.storage` (closing the `_storage` leak)

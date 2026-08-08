@@ -1,0 +1,158 @@
+{
+  "branch": "feat/2017-user-previewer-tier",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/previewers/**",
+      "src/scistudio/core/dropins.py",
+      "src/scistudio/ai/work_import/brief_template.md",
+      "tests/previewers/**",
+      "tests/ai/test_work_import_brief.py",
+      "docs/adr/ADR-048.md",
+      "docs/specs/adr-048-preview-system.md",
+      "docs/specs/adr-052-public-api-surface.md",
+      "docs/architecture/ARCHITECTURE.md",
+      "docs/specs/adr-053-personal-tool-library.md",
+      "docs/specs/adr-053-work-import.md",
+      "docs/audit/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-08T08:47:56.160335Z",
+      "owner_directive": "Precedence decision from owner: project > user > package > core (owner's UI per-target tier choice is deferred to follow-up issue 2049). User-tier discovery loads unconditionally like types; manifest defaults stay project-only. Previewers become the third consumer of core/dropins.py: scoped sys.path via prepended_sys_paths, collision guard generalized to previewer dirs, bytecode eviction, BaseException isolation, failures recorded on registry diagnostics; render-time lazy string providers re-activate previewer import roots like BlockRegistry.instantiate does. The live work-import brief template carried the same stale no-user-tier instruction and was re-transcribed per FR-026.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-08T08:47:56.160356Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-048.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T08:47:56.160362Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-048-preview-system.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T08:47:56.160365Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T08:47:56.160367Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-personal-tool-library.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T08:47:56.160368Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-work-import.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T08:47:56.160369Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-052-public-api-surface.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T08:47:56.160371Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/ai/work_import/brief_template.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2017,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2044,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix issue 2044 (harden previewer drop-in scanning to mirror the 2035 blocks/types guards) and implement issue 2017 (user-level previewer tier under the user .scistudio/previewers directory), then dispatch a no-context audit agent, fix its findings, and open one new PR closing both issues.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2017-feat-2017-user-previewer-tier",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "agents",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "4fff68ee-4a01-4a6e-822e-2dd0e22c8668",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-08-08T08:47:56.160374Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_preview_routing.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T08:47:56.160377Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_previewer_dropins.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T08:47:56.160379Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_work_import_brief.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

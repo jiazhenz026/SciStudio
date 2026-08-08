@@ -67,15 +67,17 @@ class OwnerKind(StrEnum):
     """Where a previewer came from; sets how strongly it wins when routing.
 
     When more than one previewer could handle a target, provenance decides
-    precedence: a project-local previewer beats a package previewer, which beats
-    a built-in core fallback. The string values appear verbatim in the REST and
-    session API payloads.
+    precedence: a project-local previewer beats a user-library previewer, which
+    beats a package previewer, which beats a built-in core fallback. The string
+    values appear verbatim in the REST and session API payloads.
     """
 
     CORE = "core"
     """A built-in fallback that ships with SciStudio."""
     PACKAGE = "package"
     """A previewer registered by an installed package."""
+    USER = "user"
+    """A previewer registered from the user library (``~/.scistudio/previewers``)."""
     PROJECT = "project"
     """A previewer registered locally by the active project."""
 
@@ -344,7 +346,7 @@ class PreviewerSpec:
     previewer_id: str
     """Stable, unique id, e.g. ``"core.array.basic"``."""
     owner_kind: OwnerKind
-    """Provenance tier (core / package / project) that sets routing precedence."""
+    """Provenance tier (core / package / user / project) that sets routing precedence."""
     owner_name: str
     """Owning package name, project identifier, or ``"scistudio"``."""
     target_type: str
