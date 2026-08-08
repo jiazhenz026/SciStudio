@@ -31,9 +31,22 @@ export function DataKindsQuestion({
   onOtherChange,
 }: DataKindsQuestionProps) {
   return (
-    <section className="grid gap-2" data-testid="work-import-q1">
-      <h3 className="text-sm font-medium text-ink">{Q1_LABEL}</h3>
-      <p className="text-xs text-stone-500">{Q1_HELP}</p>
+    /*
+     * `tabIndex={-1}` makes the section itself a focus target. Paged, the
+     * requirement "choose at least one kind of data, or write in your own" can
+     * be satisfied by any of eight checkboxes or by the free-text field, so
+     * when the user tries to move on without answering, the dialog puts them at
+     * the top of the group rather than picking one of those and implying it is
+     * the answer we wanted.
+     */
+    <section
+      className="grid content-start gap-3 focus:outline-none"
+      data-testid="work-import-q1"
+      id="work-import-q1"
+      tabIndex={-1}
+    >
+      <h3 className="font-display text-xl text-ink">{Q1_LABEL}</h3>
+      <p className="text-sm text-stone-600">{Q1_HELP}</p>
 
       <div className="grid gap-3 sm:grid-cols-2">
         {DATA_KIND_GROUPS.map((group) => (
@@ -60,7 +73,7 @@ export function DataKindsQuestion({
         ))}
       </div>
 
-      <label className="text-sm text-ink" htmlFor="work-import-data-kinds-other">
+      <label className="mt-1 text-sm text-ink" htmlFor="work-import-data-kinds-other">
         {Q1_OTHER_LABEL}
       </label>
       <input

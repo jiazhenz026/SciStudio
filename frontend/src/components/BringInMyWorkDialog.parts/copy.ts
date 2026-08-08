@@ -325,3 +325,67 @@ export const CANCEL_LABEL = "Cancel";
 export const START_HELP =
   "This opens an ordinary chat session with everything you just told us already loaded. " +
   "You can talk to it, redirect it, and end it whenever you like.";
+
+// ---------------------------------------------------------------------------
+// Paging — navigation copy only.
+// ---------------------------------------------------------------------------
+
+/**
+ * Owner directive, 2026-08-07: a long questionnaire is unpleasant to look at
+ * and users will not bother filling it in. The dialog is therefore a sequence
+ * of pages — setup first, then ONE QUESTION PER PAGE — which is also the shape
+ * #2001 described in the first place ("Dialog, page one" and "Dialog, the four
+ * questions" as separate groups).
+ *
+ * EVERYTHING BELOW IS NAVIGATION COPY, and that boundary is the point. Not one
+ * question, help line, example or preset label changes with paging. What the
+ * user is asked, and in which words, is fixed by FR-006 – FR-019 and reproduced
+ * verbatim in the brief (spec §4.6): the agent is told "here is what we asked
+ * and here is what they answered", so a user must have seen the same strings
+ * the agent is shown. Paging changes where the words appear, never the words.
+ */
+
+/**
+ * The step names in the progress indicator. They label a dot, not a page, so
+ * they are short — the question itself is on the page in full.
+ */
+export const SETUP_STEP_TITLE = "Setup";
+export const Q1_STEP_TITLE = "Your data";
+export const Q2_STEP_TITLE = "Your workflow";
+export const Q3_STEP_TITLE = "Stepping in";
+export const Q4_STEP_TITLE = "Other software";
+
+export const PROGRESS_LABEL = "Progress";
+
+/**
+ * "Five pages of unknown length is its own kind of unpleasant." The user can
+ * see where they are and how much is left at every step, which is the whole
+ * reason a paged form is bearable at all.
+ */
+export function stepStatus(step: number, total: number): string {
+  return `Step ${step} of ${total}`;
+}
+
+export const BACK_LABEL = "Back";
+export const NEXT_LABEL = "Next";
+
+/**
+ * FR-020 — what a page the user skipped says when they come back to it.
+ *
+ * Without this a returned-to skip is indistinguishable from a blank the user
+ * forgot, which is exactly the reading FR-020 rules out. Typing an answer takes
+ * the skip back, so the note says nothing about it being final.
+ */
+export const SKIPPED_NOTE = "You skipped this — the agent will ask rather than assume.";
+
+/** Introduces the reason a page cannot be left yet (FR-020). */
+export const BLOCKED_LEAD = "Before you go on:";
+
+/**
+ * FR-005, on the setup page. The agent is chosen here, so this is where a user
+ * finds out that none can run the session — not after five pages of answers
+ * that cannot be submitted.
+ */
+export const NO_AGENT_BLOCKS_PAGING =
+  "The questions come next, but there is no point answering them until an agent " +
+  "can run the session.";

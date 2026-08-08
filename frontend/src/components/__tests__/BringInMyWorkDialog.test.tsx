@@ -8,9 +8,14 @@
  * The availability payload is supplied through the `fetchAvailability` seam so
  * these tests pin contract C1 (`checklist §7.1`) directly, rather than the
  * transport of the module that will implement it.
+ *
+ * THE DIALOG IS PAGED, so a test that renders it sees ONE page. Everything here
+ * drives it to the page it means to assert about through the shared `walkTo`,
+ * which throws if a page will not let it through — the alternative is a test
+ * that quietly passes because it searched page one for something on page four.
+ * The paging rules themselves are pinned in `BringInMyWorkDialogPaging.test.tsx`.
  */
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import type { Mock } from "vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as ApiModule from "../../lib/api";
@@ -21,90 +26,48 @@ vi.mock("../../lib/api", async () => {
 });
 
 import { BringInMyWorkDialog } from "../BringInMyWorkDialog";
-import { CAVEAT_BODY } from "../BringInMyWorkDialog.parts/copy";
+import {
+  CAVEAT_BODY,
+  Q1_LABEL,
+  Q2_LABEL,
+  Q3_LABEL,
+  Q4_LABEL,
+  SOURCE_LABEL,
+} from "../BringInMyWorkDialog.parts/copy";
 import { validateWorkImportRequest } from "../../lib/api/workImport";
 import { api } from "../../lib/api";
 import { useAppStore } from "../../store";
-import type {
-  AgentAvailabilityResponse,
-  ProviderAvailability,
-} from "../../lib/api/agentAvailability";
+import type { AgentAvailabilityResponse } from "../../lib/api/agentAvailability";
+import {
+  CLAUDE,
+  CODEX,
+  currentPage,
+  LAST_PAGE,
+  PAGE_IDS,
+  provider,
+  ready,
+  renderDialog,
+  sessionResponse,
+  settled,
+  SOURCE,
+  walkTo,
+  type PageAnswers,
+  type PageId,
+  type StartSession,
+} from "./BringInMyWorkDialog.harness";
 
-/**
- * One provider row, with contract C1's optional fields defaulted to "nothing to
- * report". Written as a factory rather than as object literals so a field added
- * to C1 lands in one place — and so a test that cares about `next_step` or
- * `session_unsupported_reason` says so by naming it.
- */
-function provider(
-  overrides: Partial<ProviderAvailability> & { key: string },
-): ProviderAvailability {
-  return {
-    label: overrides.key,
-    state: "ready",
-    cause: null,
-    next_step: null,
-    session_unsupported_reason: null,
-    ...overrides,
-  };
+/** Answer only what FR-020 requires, then stop on the last page. */
+function walkToStart(answers: PageAnswers = {}): void {
+  walkTo(LAST_PAGE, answers);
 }
 
-const CLAUDE = provider({ key: "claude-code", label: "Claude Code" });
-const CODEX = provider({ key: "codex", label: "Codex" });
-
-function ready(...providers: AgentAvailabilityResponse["providers"]): AgentAvailabilityResponse {
-  return { state: "ready", providers };
-}
-
-type StartSession = NonNullable<React.ComponentProps<typeof BringInMyWorkDialog>["startSession"]>;
-type SessionResponse = Awaited<ReturnType<StartSession>>;
-
-function sessionResponse(overrides: Partial<SessionResponse> = {}): SessionResponse {
-  return {
-    tab_id: "a1b2c3d4e5f6",
-    title: "Bring in my work",
-    brief_path: ".scistudio/work-import/s1.md",
-    provider: "claude-code",
-    permission_mode: "safe",
-    ...overrides,
-  };
-}
-
-interface Harness {
-  startSession: Mock<StartSession>;
-  onClose: Mock<() => void>;
-}
-
-function renderDialog(
-  availability: AgentAvailabilityResponse | Error = ready(CLAUDE),
-  overrides: Partial<Harness> = {},
-): Harness {
-  const startSession: Mock<StartSession> =
-    overrides.startSession ?? vi.fn<StartSession>(async () => sessionResponse());
-  const onClose: Mock<() => void> = overrides.onClose ?? vi.fn<() => void>();
-  render(
-    <BringInMyWorkDialog
-      onClose={onClose}
-      fetchAvailability={() =>
-        availability instanceof Error ? Promise.reject(availability) : Promise.resolve(availability)
-      }
-      startSession={startSession}
-    />,
-  );
-  return { startSession, onClose };
-}
-
-/** Wait for the availability probe to settle so the start action is decided. */
-async function settled(): Promise<void> {
-  await waitFor(() => expect(screen.queryByTestId("work-import-probing")).toBeNull());
-}
-
-function fillMinimum(): void {
-  fireEvent.change(screen.getByTestId("work-import-source-input"), {
-    target: { value: "/home/ana/plate-reader" },
-  });
-  fireEvent.click(screen.getByTestId("work-import-data-kind-Table / dataframe"));
-}
+const NO_CODEBASE: PageAnswers = {
+  setup: () => fireEvent.click(screen.getByTestId("work-import-no-codebase")),
+  q2: () =>
+    fireEvent.change(screen.getByTestId("work-import-q2-input"), {
+      target: { value: "Every Monday I open the export in Excel and average the replicates." },
+    }),
+};
 
 beforeEach(() => {
   useAppStore.setState({
@@ -128,9 +91,11 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("FR-037 / FR-038 — the correctness caveat", () => {
-  it("is present, in full, with the session start action", async () => {
+  it("is present, in full, on the page that carries the start action", async () => {
     renderDialog();
     await settled();
+    walkToStart();
+
     const caveat = screen.getByTestId("work-import-caveat");
     expect(caveat.textContent).toContain(CAVEAT_BODY);
     // All four claims FR-037 requires.
@@ -138,41 +103,52 @@ describe("FR-037 / FR-038 — the correctness caveat", () => {
     expect(caveat.textContent).toMatch(/instructed to check/i);
     expect(caveat.textContent).toMatch(/does not guarantee/i);
     expect(caveat.textContent).toMatch(/review the result yourself/i);
+    // FR-004 / FR-038 — it is on screen at the same moment the start action is.
+    expect(screen.getByTestId("work-import-start")).toBeTruthy();
   });
 
   it("is not weakened or omitted in no-codebase mode", async () => {
     renderDialog();
     await settled();
-    fireEvent.click(screen.getByTestId("work-import-no-codebase"));
+    walkToStart(NO_CODEBASE);
     expect(screen.getByTestId("work-import-caveat").textContent).toContain(CAVEAT_BODY);
   });
 
   it("is not dismissible and cannot be bypassed before the start action", async () => {
     renderDialog();
     await settled();
+    walkToStart();
     const caveat = screen.getByTestId("work-import-caveat");
     // No dismiss/close/hide affordance inside it, in either mode (FR-038).
     expect(within(caveat).queryAllByRole("button")).toHaveLength(0);
     expect(caveat.getAttribute("hidden")).toBeNull();
-    fireEvent.click(screen.getByTestId("work-import-no-codebase"));
-    expect(within(screen.getByTestId("work-import-caveat")).queryAllByRole("button")).toHaveLength(
-      0,
-    );
+  });
+
+  it("no page carries a start action without carrying the caveat", async () => {
+    // FR-038 in its paged form. On the scrolling page the caveat and the button
+    // merely shared a footer; paged, "the user has seen it" is a claim about
+    // which page they are on, so it is checked on every page there is.
+    renderDialog();
+    await settled();
+    for (const page of PAGE_IDS) {
+      walkTo(page);
+      const hasStart = screen.queryByTestId("work-import-start") !== null;
+      const hasCaveat = screen.queryByTestId("work-import-caveat") !== null;
+      expect(hasStart && !hasCaveat).toBe(false);
+    }
   });
 });
 
 describe("FR-008 – FR-010 — source, browse, and the no-codebase path", () => {
   it("the browse control asks for a directory, not a file", async () => {
-    vi.mocked(api.openNativeDialog).mockResolvedValue({ paths: ["/home/ana/plate-reader"] });
+    vi.mocked(api.openNativeDialog).mockResolvedValue({ paths: [SOURCE] });
     renderDialog();
     await settled();
 
     fireEvent.click(screen.getByTestId("work-import-source-browse"));
     await waitFor(() => expect(api.openNativeDialog).toHaveBeenCalled());
     expect(vi.mocked(api.openNativeDialog).mock.calls[0][0]).toBe("directory");
-    await waitFor(() =>
-      expect(screen.getByTestId("work-import-source-input")).toHaveValue("/home/ana/plate-reader"),
-    );
+    await waitFor(() => expect(screen.getByTestId("work-import-source-input")).toHaveValue(SOURCE));
   });
 
   it("selecting 'I don't have a codebase' disables the source field and leaves the rest in effect", async () => {
@@ -182,10 +158,14 @@ describe("FR-008 – FR-010 — source, browse, and the no-codebase path", () =>
 
     expect(screen.getByTestId("work-import-source-input")).toBeDisabled();
     expect(screen.getByTestId("work-import-source-browse")).toBeDisabled();
-    // FR-010 — every other field remains in effect, including the destination.
+    // FR-010 — every other field remains in effect, including the destination
+    // and the agent setup, which share the setup page with it.
     expect(screen.getByTestId("work-import-destination-user_library")).toBeEnabled();
-    expect(screen.getByTestId("work-import-data-kind-Image")).toBeEnabled();
     expect(screen.getByTestId("setup-permission-safe")).toBeEnabled();
+    // And the questions, which are now pages of their own rather than fields
+    // below it — reachable with no source location given.
+    walkTo("q1", { setup: () => {} });
+    expect(screen.getByTestId("work-import-data-kind-Image")).toBeEnabled();
   });
 });
 
@@ -193,6 +173,7 @@ describe("FR-013 – FR-015 — question 1", () => {
   it("groups the presets so both readings of the same data can be selected", async () => {
     renderDialog();
     await settled();
+    walkTo("q1");
 
     const arrangement = screen.getByTestId("work-import-data-kind-group-arrangement");
     const domain = screen.getByTestId("work-import-data-kind-group-domain");
@@ -208,6 +189,7 @@ describe("FR-013 – FR-015 — question 1", () => {
   it("offers a free-text field for anything not listed", async () => {
     renderDialog();
     await settled();
+    walkTo("q1");
     fireEvent.change(screen.getByTestId("work-import-data-kinds-other"), {
       target: { value: "chromatograms" },
     });
@@ -219,12 +201,18 @@ describe("FR-016 – FR-020 — questions 2 to 4 and their skips", () => {
   it("question 2 is skippable with a source and required without one", async () => {
     renderDialog();
     await settled();
+    walkTo("q2");
 
     expect(screen.getByTestId("work-import-q2-skip")).toBeTruthy();
     expect(screen.queryByTestId("work-import-q2-required")).toBeNull();
     const withSourceHelp = screen.getByTestId("work-import-q2-help").textContent ?? "";
 
+    // FR-016 / FR-017 — the requirement is DECIDED on the setup page and
+    // ENFORCED here, two pages later, so the round trip is the thing to pin.
+    walkTo("setup");
     fireEvent.click(screen.getByTestId("work-import-no-codebase"));
+    walkTo("q2", { setup: () => {} });
+
     expect(screen.queryByTestId("work-import-q2-skip")).toBeNull();
     expect(screen.getByTestId("work-import-q2-required")).toBeTruthy();
 
@@ -239,42 +227,108 @@ describe("FR-016 – FR-020 — questions 2 to 4 and their skips", () => {
   it("questions 3 and 4 are skippable and question 3 carries concrete examples", async () => {
     renderDialog();
     await settled();
+    walkTo("q3");
     expect(screen.getByTestId("work-import-q3-skip")).toBeTruthy();
-    expect(screen.getByTestId("work-import-q4-skip")).toBeTruthy();
     // FR-018 — without examples the question is too abstract to answer.
     const q3Help = screen.getByTestId("work-import-q3-help").textContent ?? "";
     expect(q3Help).toMatch(/background/i);
     expect(q3Help).toMatch(/segmentation mask/i);
+
+    walkTo("q4");
+    expect(screen.getByTestId("work-import-q4-skip")).toBeTruthy();
   });
 
   it("a skip reads as a choice rather than an abandoned field", async () => {
     renderDialog();
     await settled();
-    const skipLabel = screen.getByTestId("work-import-q3-skip").closest("label");
-    expect(skipLabel?.textContent).toMatch(/let the agent work this out/i);
-    expect(skipLabel?.textContent).toMatch(/knows to ask rather than assume/i);
+    walkTo("q3");
+    // FR-020 — the skip sits beside Next as its peer, with its own label and a
+    // sentence saying what happens as a result. Not a greyed box walked past.
+    expect(screen.getByTestId("work-import-q3-skip").textContent).toMatch(
+      /let the agent work this out/i,
+    );
+    expect(screen.getByTestId("work-import-skip-help").textContent).toMatch(
+      /knows to ask rather than assume/i,
+    );
   });
 });
 
 describe("FR-006 / FR-007 — who the questions are written for", () => {
+  /**
+   * The words a scientist cannot be asked for. Half of them name SciStudio
+   * concepts a first-day user has never met (FR-006); half name software
+   * development (FR-007).
+   */
+  const FORBIDDEN = [
+    /interpreter/i,
+    /virtual environment/i,
+    /dependenc/i,
+    /\bports?\b/i,
+    /data type/i,
+    /interactive block/i,
+    /previewer/i,
+    /\bpip\b/i,
+    /\bconda\b/i,
+    /\bschema\b/i,
+  ];
+
+  /**
+   * Everything the user can read on the page currently rendered.
+   *
+   * `textContent` alone would miss the examples, which are placeholders and
+   * therefore attributes — and the examples are exactly where a well-meaning
+   * edit would reach for a developer's vocabulary.
+   */
+  function visibleText(): string {
+    const dialog = screen.getByTestId("work-import-dialog");
+    const placeholders = Array.from(dialog.querySelectorAll("[placeholder]"))
+      .map((element) => element.getAttribute("placeholder") ?? "")
+      .join("\n");
+    return `${dialog.textContent ?? ""}\n${placeholders}`;
+  }
+
+  /**
+   * Walk every page, checking each one as it renders.
+   *
+   * THIS IS THE POINT OF THE TEST AND IT IS EASY TO LOSE. Before paging, one
+   * render put the whole dialog on screen and one search covered it. Paged, a
+   * search after a single render reads page one and reports on five — the guard
+   * would keep passing while guarding almost nothing. So the walk visits each
+   * page in turn, and then asserts BOTH that it reached all five and that what
+   * it read contains the actual questions: an empty page, or a page that
+   * silently stopped rendering, must fail here rather than pass by vacuity.
+   */
+  function everyPageIsAnswerableByAScientist(answers: PageAnswers = {}): void {
+    const visited: PageId[] = [];
+    let everything = "";
+    for (const page of PAGE_IDS) {
+      walkTo(page, answers);
+      visited.push(currentPage());
+      const text = visibleText();
+      everything += `\n${text}`;
+      for (const forbidden of FORBIDDEN) expect(text).not.toMatch(forbidden);
+    }
+
+    expect(visited).toEqual([...PAGE_IDS]);
+    // The walk read real content, not five blanks.
+    for (const label of [SOURCE_LABEL, Q1_LABEL, Q2_LABEL, Q3_LABEL, Q4_LABEL, CAVEAT_BODY]) {
+      expect(everything).toContain(label);
+    }
+  }
+
   it("asks nothing that needs SciStudio or software-development knowledge", async () => {
     renderDialog();
     await settled();
-    const text = screen.getByTestId("work-import-dialog").textContent ?? "";
-    for (const forbidden of [
-      /interpreter/i,
-      /virtual environment/i,
-      /dependenc/i,
-      /\bports?\b/i,
-      /data type/i,
-      /interactive block/i,
-      /previewer/i,
-      /\bpip\b/i,
-      /\bconda\b/i,
-      /\bschema\b/i,
-    ]) {
-      expect(text).not.toMatch(forbidden);
-    }
+    everyPageIsAnswerableByAScientist();
+  });
+
+  it("asks nothing that needs it in no-codebase mode either", async () => {
+    // A different question-2 prompt, a different placeholder, and the mode with
+    // the least context — so the wording most tempted to ask for detail only a
+    // developer could give (FR-017).
+    renderDialog();
+    await settled();
+    everyPageIsAnswerableByAScientist(NO_CODEBASE);
   });
 });
 
@@ -402,10 +456,14 @@ describe("FR-005 / FR-031 / FR-034 — graded availability", () => {
 
     fireEvent.click(screen.getByTestId("work-import-availability-retry"));
 
-    await waitFor(() => expect(screen.getByTestId("work-import-start")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("setup-provider-select")).toBeTruthy());
     expect(fetchAvailability).toHaveBeenCalledTimes(2);
     expect(fetchAvailability.mock.calls[1][0]).toEqual({ refresh: true });
     expect(screen.queryByTestId("work-import-guidance-call_failed")).toBeNull();
+    // The user was held on the setup page while no agent could run; the fix
+    // releases them, all the way through to a start action.
+    walkToStart();
+    expect(screen.getByTestId("work-import-start")).toBeTruthy();
   });
 
   it("each state gets its own guidance rather than one state's cause standing in for another", async () => {
@@ -439,10 +497,12 @@ describe("FR-005 / FR-031 / FR-034 — graded availability", () => {
       ],
     });
     await settled();
-    expect(screen.getByTestId("work-import-start")).toBeTruthy();
     const note = screen.getByTestId("work-import-unusable-providers");
     expect(note.textContent).toContain("Codex");
     expect(note.textContent).toContain("quota");
+    // Not blocked: a mixed result lets the user through to the start action.
+    walkToStart();
+    expect(screen.getByTestId("work-import-start")).toBeTruthy();
   });
 
   it("renders with a reported state rather than waiting when the probe fails", async () => {
@@ -463,11 +523,15 @@ describe("FR-005 / FR-031 / FR-034 — graded availability", () => {
         startSession={vi.fn<StartSession>(async () => sessionResponse())}
       />,
     );
-    // FR-035 — a hanging probe never produces a stuck surface. The dialog and
-    // every question are on screen; only the agent section reports waiting.
+    // FR-035 — a hanging probe never produces a stuck surface. The dialog is on
+    // screen, the setup page is usable, only the agent section reports waiting…
     expect(screen.getByTestId("work-import-dialog")).toBeTruthy();
-    expect(screen.getByTestId("work-import-q1")).toBeTruthy();
+    expect(currentPage()).toBe("setup");
     expect(screen.getByTestId("work-import-probing")).toBeTruthy();
+    // …and an unresolved probe does not hold the user on page one either. Only
+    // the start action waits on it.
+    walkTo("q1");
+    expect(screen.getByTestId("work-import-q1")).toBeTruthy();
   });
 
   it("explains itself when the report names no providers at all", async () => {
@@ -518,13 +582,14 @@ describe("a provider that cannot run a session is never offered (FR-029, FR-043)
   it("does not block a user who also has a provider that works", async () => {
     renderDialog({ state: "ready", providers: [CLAUDE, KIMI] });
     await settled();
-    expect(screen.getByTestId("work-import-start")).toBeTruthy();
     expect(screen.getByTestId("setup-provider-select")).toHaveValue("claude-code");
     const note = screen.getByTestId("work-import-unusable-providers");
     expect(note.textContent).toContain("Kimi Code");
     // Its own reason, not its availability state — it IS ready, and saying so
     // in a list headed "not usable right now" would read as a bug.
     expect(note.textContent).toContain("no positional prompt argument");
+    walkToStart();
+    expect(screen.getByTestId("work-import-start")).toBeTruthy();
   });
 
   it("is reported under its own reason even when it is also not installed", async () => {
@@ -583,9 +648,17 @@ describe("FR-040 – FR-044 — provider and permission mode", () => {
     renderDialog(ready(CLAUDE, CODEX), { startSession });
     await settled();
 
-    fillMinimum();
-    fireEvent.change(screen.getByTestId("setup-provider-select"), { target: { value: "codex" } });
-    fireEvent.click(screen.getByTestId("setup-permission-dangerous"));
+    walkToStart({
+      setup: () => {
+        fireEvent.change(screen.getByTestId("work-import-source-input"), {
+          target: { value: SOURCE },
+        });
+        fireEvent.change(screen.getByTestId("setup-provider-select"), {
+          target: { value: "codex" },
+        });
+        fireEvent.click(screen.getByTestId("setup-permission-dangerous"));
+      },
+    });
     fireEvent.click(screen.getByTestId("work-import-start"));
 
     await waitFor(() => expect(startSession).toHaveBeenCalledTimes(1));
@@ -603,17 +676,21 @@ describe("starting the session (FR-021 – FR-025)", () => {
     const { onClose } = renderDialog(ready(CLAUDE), { startSession });
     await settled();
 
-    fillMinimum();
-    fireEvent.change(screen.getByTestId("work-import-q2-input"), {
-      target: { value: "Load the export, drop blanks, normalise to the control." },
+    walkToStart({
+      q2: () =>
+        fireEvent.change(screen.getByTestId("work-import-q2-input"), {
+          target: { value: "Load the export, drop blanks, normalise to the control." },
+        }),
+      // Question 3 is skipped by the control that says so; question 4 is simply
+      // paged past. FR-021 makes those the same claim, and the payload agrees.
+      q3: () => fireEvent.click(screen.getByTestId("work-import-q3-skip")),
     });
-    fireEvent.click(screen.getByTestId("work-import-q3-skip"));
     fireEvent.click(screen.getByTestId("work-import-start"));
 
     await waitFor(() => expect(startSession).toHaveBeenCalledTimes(1));
     expect(startSession.mock.calls[0][0]).toEqual({
       project_dir: "/projects/demo",
-      source_location: "/home/ana/plate-reader",
+      source_location: SOURCE,
       has_no_codebase: false,
       destination_tier: "project",
       data_kinds: ["Table / dataframe"],
@@ -638,22 +715,22 @@ describe("starting the session (FR-021 – FR-025)", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("a no-codebase session cannot start without question 2, and can with it", async () => {
+  it("a no-codebase session cannot get past question 2 without it, and can with it", async () => {
     const startSession = vi.fn<StartSession>(async () => sessionResponse());
     renderDialog(ready(CLAUDE), { startSession });
     await settled();
 
-    fireEvent.click(screen.getByTestId("work-import-no-codebase"));
-    fireEvent.click(screen.getByTestId("work-import-data-kind-Table / dataframe"));
-    expect(screen.getByTestId("work-import-start")).toBeDisabled();
+    // FR-020 under paging: the block is on the page that asks, not on a start
+    // action five pages away that the user would otherwise never have reached.
+    walkTo("q2", { setup: () => fireEvent.click(screen.getByTestId("work-import-no-codebase")) });
+    fireEvent.click(screen.getByTestId("work-import-next"));
+    expect(currentPage()).toBe("q2");
     expect(screen.getByTestId("work-import-blocking-reasons").textContent).toMatch(
       /only description of your work/i,
     );
 
-    fireEvent.change(screen.getByTestId("work-import-q2-input"), {
-      target: { value: "Every Monday I open the export in Excel and average the replicates." },
-    });
-    expect(screen.getByTestId("work-import-start")).toBeEnabled();
+    NO_CODEBASE.q2?.();
+    walkToStart({ setup: () => {} });
     fireEvent.click(screen.getByTestId("work-import-start"));
     await waitFor(() => expect(startSession).toHaveBeenCalledTimes(1));
     expect(startSession.mock.calls[0][0]).toMatchObject({
@@ -667,13 +744,17 @@ describe("starting the session (FR-021 – FR-025)", () => {
     const withSource = vi.fn<StartSession>(async () => sessionResponse());
     renderDialog(ready(CLAUDE), { startSession: withSource });
     await settled();
-    fillMinimum();
-    fireEvent.change(screen.getByTestId("work-import-q2-input"), {
-      target: { value: "In: the plate export. Out: one number per condition." },
+    walkToStart({
+      q2: () =>
+        fireEvent.change(screen.getByTestId("work-import-q2-input"), {
+          target: { value: "In: the plate export. Out: one number per condition." },
+        }),
+      q3: () =>
+        fireEvent.change(screen.getByTestId("work-import-q3-input"), {
+          target: { value: "Let me pick the background patch." },
+        }),
     });
-    fireEvent.change(screen.getByTestId("work-import-q3-input"), {
-      target: { value: "Let me pick the background patch." },
-    });
+    // The last page is where the walk stops, so its answer is typed in place.
     fireEvent.change(screen.getByTestId("work-import-q4-input"), { target: { value: "Fiji" } });
     fireEvent.click(screen.getByTestId("work-import-start"));
     await waitFor(() => expect(withSource).toHaveBeenCalledTimes(1));
@@ -685,13 +766,18 @@ describe("starting the session (FR-021 – FR-025)", () => {
     const noCodebase = vi.fn<StartSession>(async () => sessionResponse());
     renderDialog(ready(CLAUDE), { startSession: noCodebase });
     await settled();
-    fireEvent.change(screen.getByTestId("work-import-source-input"), {
-      target: { value: "/typed/before/ticking" },
-    });
-    fireEvent.click(screen.getByTestId("work-import-no-codebase"));
-    fireEvent.click(screen.getByTestId("work-import-data-kind-Image"));
-    fireEvent.change(screen.getByTestId("work-import-q2-input"), {
-      target: { value: "Every Monday I open the export in Excel." },
+    walkToStart({
+      setup: () => {
+        fireEvent.change(screen.getByTestId("work-import-source-input"), {
+          target: { value: "/typed/before/ticking" },
+        });
+        fireEvent.click(screen.getByTestId("work-import-no-codebase"));
+      },
+      q1: () => fireEvent.click(screen.getByTestId("work-import-data-kind-Image")),
+      q2: () =>
+        fireEvent.change(screen.getByTestId("work-import-q2-input"), {
+          target: { value: "Every Monday I open the export in Excel." },
+        }),
     });
     fireEvent.click(screen.getByTestId("work-import-start"));
     await waitFor(() => expect(noCodebase).toHaveBeenCalledTimes(1));
@@ -707,11 +793,14 @@ describe("starting the session (FR-021 – FR-025)", () => {
     renderDialog(ready(CLAUDE), { startSession });
     await settled();
 
-    fillMinimum();
-    fireEvent.change(screen.getByTestId("work-import-q3-input"), {
-      target: { value: "typed, then thought better of it" },
+    walkToStart({
+      q3: () => {
+        fireEvent.change(screen.getByTestId("work-import-q3-input"), {
+          target: { value: "typed, then thought better of it" },
+        });
+        fireEvent.click(screen.getByTestId("work-import-q3-skip"));
+      },
     });
-    fireEvent.click(screen.getByTestId("work-import-q3-skip"));
     fireEvent.click(screen.getByTestId("work-import-start"));
 
     await waitFor(() => expect(startSession).toHaveBeenCalledTimes(1));
@@ -721,18 +810,25 @@ describe("starting the session (FR-021 – FR-025)", () => {
     expect(validateWorkImportRequest(body)).toEqual([]);
   });
 
-  it("cannot start without a provider when two are usable", async () => {
+  it("cannot leave the setup page without a provider when two are usable", async () => {
     renderDialog(ready(CLAUDE, CODEX));
     await settled();
-    fillMinimum();
+    fireEvent.change(screen.getByTestId("work-import-source-input"), {
+      target: { value: SOURCE },
+    });
     // Neither provider is preselected, so the request would carry a blank
-    // `provider` — which the backend rejects. The dialog blocks first.
-    expect(screen.getByTestId("work-import-start")).toBeDisabled();
+    // `provider` — which the backend rejects. FR-040's choice is made on this
+    // page, so this page is where the dialog blocks: the user is told now, not
+    // after four more pages of answers.
+    fireEvent.click(screen.getByTestId("work-import-next"));
+    expect(currentPage()).toBe("setup");
     expect(screen.getByTestId("work-import-blocking-reasons").textContent).toMatch(
       /Choose which agent runs the session/i,
     );
+
     fireEvent.change(screen.getByTestId("setup-provider-select"), { target: { value: "codex" } });
-    expect(screen.getByTestId("work-import-start")).toBeEnabled();
+    fireEvent.click(screen.getByTestId("work-import-next"));
+    expect(currentPage()).toBe("q1");
   });
 
   it("surfaces a failed start and leaves the dialog open", async () => {
@@ -742,7 +838,7 @@ describe("starting the session (FR-021 – FR-025)", () => {
     const { onClose } = renderDialog(ready(CLAUDE), { startSession });
     await settled();
 
-    fillMinimum();
+    walkToStart();
     fireEvent.click(screen.getByTestId("work-import-start"));
     await waitFor(() =>
       expect(screen.getByTestId("work-import-error").textContent).toContain(
@@ -750,6 +846,8 @@ describe("starting the session (FR-021 – FR-025)", () => {
       ),
     );
     expect(onClose).not.toHaveBeenCalled();
+    // Still on the page it failed on, with everything the user answered intact.
+    expect(currentPage()).toBe(LAST_PAGE);
     expect(useAppStore.getState().terminalTabs).toHaveLength(0);
   });
 });
