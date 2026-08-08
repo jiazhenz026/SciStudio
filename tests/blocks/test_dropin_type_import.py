@@ -173,6 +173,33 @@ class ShadowedType(DataObject):
 '''
 
 
+#: A block whose registered name is the one thing that varies, so two bodies of
+#: identical length can declare two different blocks — the shape a same-second,
+#: same-size edit takes.
+_NAMED_PROBE_BLOCK = """\
+from typing import Any, ClassVar
+
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.config import BlockConfig
+
+
+class NamedProbe(Block):
+    type_name: ClassVar[str] = "test.named_probe"
+    name: ClassVar[str] = "{name}"
+    base_category: ClassVar[str] = "process"
+    subcategory: ClassVar[str] = "test"
+    input_ports: ClassVar = []
+    output_ports: ClassVar = []
+
+    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
+        return {{}}
+"""
+
+
+def _named_probe_block(name: str) -> str:
+    return _NAMED_PROBE_BLOCK.format(name=name)
+
+
 def _shared_type(tier: str) -> str:
     return (
         "from scistudio.core.types.base import DataObject\n"
@@ -421,6 +448,35 @@ class TestFailureSurfacing:
         registry.hot_reload()
 
         assert len(registry.dropin_failures()) == 1
+
+    def test_hot_reload_runs_an_edit_made_inside_one_second_at_the_same_size(self, home: Path, project: Path) -> None:
+        """FR-062's other half, on the block side (Codex P1 on PR #2035).
+
+        CPython accepts a cached ``.pyc`` when the source's mtime in whole
+        seconds and its size both match. A block edited within one second to
+        the same length satisfies both, so the reload re-executes the previous
+        class body and the palette keeps offering a block that no longer exists
+        on disk. Verified against the type registry first and reproduced here
+        against a real ``BlockRegistry``.
+        """
+        path = project / "blocks" / "renamed_probe.py"
+        path.write_text(_named_probe_block("alpha_probe"), encoding="utf-8")
+
+        registry = _scanned_registry(project)
+        assert registry.get_spec("alpha_probe") is not None
+
+        before = path.stat()
+        path.write_text(_named_probe_block("betaa_probe"), encoding="utf-8")
+        assert path.stat().st_size == before.st_size, "precondition: the edit keeps the file size"
+        os.utime(path, (before.st_atime, before.st_mtime))
+
+        registry.hot_reload()
+
+        # Only the *new* definition is asserted. ``hot_reload`` drops a tier-1
+        # entry when its file is gone and not when a name inside a surviving
+        # file changes, so ``alpha_probe`` lingering is that separate, unrelated
+        # behaviour — the question here is whether the edited body ran at all.
+        assert registry.get_spec("betaa_probe") is not None, "the reload ran a stale .pyc"
 
     # -- AUDIT-SEC P2-1: a drop-in that exits is a failure, not the end --------
 

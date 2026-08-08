@@ -376,19 +376,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `frontend/src/components/promotion/__tests__/pythonImports.test.ts`.
   (@claude, 2026-08-08, branch: fix/1996-codex-review-findings)
 
-- [#2022] Reloading data types now runs the file you just edited. Python caches
-  compiled bytecode next to a source file and decides the cache is still good
-  by comparing the source's timestamp **in whole seconds** and its size. A
-  drop-in type edited within a second of the last scan, to the same length —
-  renaming a field, flipping a boolean, changing a colour — matched both, so
-  the reload re-executed the previous version. Both halves of ADR-053's reload
-  promise failed silently: the registry was emptied and then refilled with the
-  definition it had just removed, so the palette, the port colours and any
-  experiment run afterwards used code that is no longer on disk, with no error
-  to notice. The drop-in tier now drops that cache entry before loading, so an
-  edit is always compiled from source. Found by an external review of PR #2035.
-  Tests: `tests/core/test_type_registry_scan_dirs.py`. (@claude, 2026-08-08,
-  branch: fix/1996-codex-review-findings)
+- [#2022] Reloading blocks and data types now runs the file you just edited.
+  Python caches compiled bytecode next to a source file and decides the cache
+  is still good by comparing the source's timestamp **in whole seconds** and
+  its size. A drop-in edited within a second of the last scan, to the same
+  length — renaming a field, flipping a boolean, changing a colour — matched
+  both, so the reload re-executed the previous version. It failed silently: the
+  type registry was emptied and then refilled with the definition it had just
+  removed, so the palette, the port colours and any experiment run afterwards
+  used code that is no longer on disk, with no error to notice. Both drop-in
+  scans now drop that cache entry before loading, from one shared helper, so an
+  edit is always compiled from source. The block scan is included because the
+  defect is the same defect — it was verified there against a real registry
+  after being found on the type side, and ADR-053's reload requirement is
+  written about registry-invalidating *events*, which cover both. Found by an
+  external review of PR #2035. Tests:
+  `tests/core/test_type_registry_scan_dirs.py`,
+  `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-08, branch:
+  fix/1996-codex-review-findings)
 
 - [#2022] The drop-in type name-collision guard now fails closed when it cannot
   bind the module a drop-in would shadow. ADR-053 FR-016 refuses a file in

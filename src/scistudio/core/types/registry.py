@@ -105,12 +105,11 @@ import inspect
 import logging
 import re
 import sys
-from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, overload
 
-from scistudio.core.dropins import guard_dropin_type_roots
+from scistudio.core.dropins import evict_cached_bytecode, guard_dropin_type_roots
 from scistudio.desktop.paths import (
     candidate_package_dirs,
     iter_source_package_module_candidates,
@@ -251,28 +250,6 @@ def _entrypoint_module(ep: Any) -> str:
         return module
     value = getattr(ep, "value", None)
     return value.split(":")[0] if isinstance(value, str) else ""
-
-
-def _evict_cached_bytecode(py_file: Path) -> None:
-    """Drop the ``__pycache__`` entry CPython would validate for *py_file*.
-
-    A cached ``.pyc`` is accepted when its recorded source mtime — in whole
-    **seconds** — and source size both match. A drop-in type edited within one
-    second of its last load, to the same length, therefore reloads the previous
-    bytecode, and :meth:`TypeRegistry.rescan` clears the registry only to
-    re-register the class definition it just removed. FR-062 exists to make an
-    edit visible without a restart; silently running the previous definition is
-    the one outcome it cannot produce.
-
-    Deleting the cache entry rather than tightening the key, because the key is
-    CPython's and not ours. The cost is a recompile per drop-in file per scan,
-    for a handful of small user-authored files off any hot path — the *edited*
-    case is the whole point of this tier, so the cache has almost nothing to
-    offer it. Every failure is swallowed: a missing or unwritable cache entry
-    means the loader compiles from source, which is the outcome this wants.
-    """
-    with suppress(OSError, NotImplementedError, ValueError):
-        Path(importlib.util.cache_from_source(str(py_file))).unlink(missing_ok=True)
 
 
 def _spec_for_class(cls: type, *, package_root: str = "") -> TypeSpec:
@@ -706,7 +683,7 @@ class TypeRegistry:
         bytecode first — otherwise an edit made within one second of the last
         load, to the same length, is re-executed from the stale ``.pyc`` and
         this method registers the very definition it just removed, silently.
-        See :func:`_evict_cached_bytecode`.
+        See :func:`scistudio.core.dropins.evict_cached_bytecode`.
 
         Holders of an :class:`~scistudio.api.runtime.ApiRuntime` should call
         ``refresh_all_registries()`` instead: it also rebuilds the block and
@@ -853,9 +830,10 @@ class TypeRegistry:
                     sys.modules[spec.name] = module
                     # A fresh module object is not a fresh *definition*: the
                     # loader would still take the class body from a stale
-                    # ``.pyc``. See :func:`_evict_cached_bytecode` (Codex P1 on
-                    # PR #2035).
-                    _evict_cached_bytecode(py_file)
+                    # ``.pyc``. See
+                    # :func:`scistudio.core.dropins.evict_cached_bytecode`
+                    # (Codex P1 on PR #2035).
+                    evict_cached_bytecode(py_file)
                     spec.loader.exec_module(module)
                 except KeyboardInterrupt:
                     # The operator's own signal, not the drop-in's failure.

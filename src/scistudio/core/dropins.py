@@ -148,6 +148,7 @@ __all__ = [
     "dropin_import_roots",
     "dropin_import_roots_for_block_dirs",
     "dropin_type_roots_for_block_dirs",
+    "evict_cached_bytecode",
     "guard_dropin_type_roots",
     "project_blocks_dir",
     "project_dir_from_env",
@@ -520,6 +521,34 @@ def _bind_or_refuse(collision: DropinTypeCollision) -> None:
         )
     else:
         _REFUSED_NAMES.allow(collision.stem)
+
+
+def evict_cached_bytecode(py_file: Path) -> None:
+    """Drop the ``__pycache__`` entry CPython would validate for *py_file*.
+
+    A cached ``.pyc`` is accepted when its recorded source mtime — in whole
+    **seconds** — and source size both match. A drop-in edited within one second
+    of its last load, to the same length, therefore re-executes the previous
+    bytecode: a reload clears the registry and then registers the very
+    definition it was rebuilding to replace, with no error anywhere. FR-062
+    exists to make an edit visible without a restart, so silently running the
+    previous definition is the one outcome it cannot produce.
+
+    Deleting the cache entry rather than tightening the key, because the key is
+    CPython's and not ours. The cost is a recompile per drop-in file per scan,
+    for a handful of small user-authored files off any hot path — the *edited*
+    case is the whole point of this tier, so the cache has almost nothing to
+    offer it. The recompile also writes back a ``.pyc`` that does match the
+    current source, so the later by-path loads (in-process instantiation, the
+    worker subprocess) inherit a correct cache instead of each needing this call.
+
+    Here rather than in either registry for the reason FR-057 gives: both scan
+    passes need it, and a rule restated at two sites is a rule that drifts. Every
+    failure is swallowed — a missing or unwritable cache entry means the loader
+    compiles from source, which is exactly what this wants.
+    """
+    with suppress(OSError, NotImplementedError, ValueError):
+        Path(importlib.util.cache_from_source(str(py_file))).unlink(missing_ok=True)
 
 
 def _register(registry: SupportsScanDirs, dirs: tuple[Path, ...]) -> tuple[Path, ...]:

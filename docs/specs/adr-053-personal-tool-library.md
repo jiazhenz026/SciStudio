@@ -887,10 +887,12 @@ A rebuild MUST run the source that is on disk. Python validates a cached `.pyc`
 on the source's timestamp in whole seconds plus its size, so a drop-in edited
 within one second of its last load, to the same length, reloads the previous
 bytecode; the registry is then cleared and refilled with the definition the
-reload existed to replace, with no error anywhere. The drop-in load path MUST
-defeat that key — by evicting the cached bytecode, by giving the module a
+reload existed to replace, with no error anywhere. Both drop-in scan passes
+MUST defeat that key — by evicting the cached bytecode, by giving the module a
 content-derived identity, or by compiling from source — because "an edit is
-visible without a restart" is the whole of this requirement.
+visible without a restart" is the whole of this requirement, and it is one
+answer shared by the two registries for the reason FR-057 gives, not a rule
+restated at each scan.
 
 **FR-063.** Package install and uninstall MUST refresh the type registry. A
 package can ship types; today installing one leaves them undiscovered until the
@@ -945,7 +947,7 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Agent import parity | The §2.5 reproduction registers under the agent runtime and the worker, not only under the API (FR-013, §10.3) |
 | Tier condition | User-tier blocks and types are discovered with no project open, at all four sites; project-tier discovery still requires one (FR-060) |
 | Reload events | Each of the palette Reload button, a `{project}/types/*.py` save, and the MCP `reload_blocks` tool makes a newly written type resolvable (FR-062) |
-| Reload runs current source | A drop-in type edited within one second to the same size registers its new definition after a rescan, not the cached one (FR-062) |
+| Reload runs current source | A drop-in edited within one second to the same size registers its new definition after a rescan, not the cached one, in both the type registry and the block registry (FR-062) |
 | Type catalogue invalidation | The frontend type listing is re-read on a registry-reload event and after a user-library write, without a manual reload (FR-010, FR-027, FR-062) |
 | Package reload | Installing a package that ships types makes them discoverable without a project switch (FR-063) |
 | Branch switch reload | Switching to a branch with different `{project}/types/` refreshes the type registry (FR-064) |
