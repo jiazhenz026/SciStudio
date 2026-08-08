@@ -306,6 +306,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#1996] Saving into My Library can no longer destroy a file another process
+  created a moment earlier. ADR-053 FR-008 says an existing file is reported,
+  never silently overwritten, and the endpoint checked for one before writing —
+  then wrote with `os.replace`, which overwrites unconditionally. Anything that
+  created the same library filename between those two steps was gone without a
+  message, even though the request had asked not to overwrite. That window is
+  reachable because of this same release: FR-065 wired the API process and the
+  standalone MCP bridge to share `~/.scistudio`, so two SciStudio processes
+  writing the same name is now an ordinary situation rather than a theoretical
+  one. A create now lands the file with a link, which the filesystem refuses
+  when the name is already taken, so the refusal is decided at the moment of
+  the write and the other writer's file survives; you get the same 409 and the
+  same **Overwrite / Save as new name** prompt you would have got a moment
+  earlier. An explicit `overwrite: true` still replaces, because that request
+  has said so. The file still appears complete or not at all — never
+  half-written — which is what keeps a palette refresh from importing a block
+  mid-save. Found by an external review of PR #2036. Tests:
+  `tests/api/test_user_library_write.py`. (@claude, 2026-08-08, branch:
+  fix/1996-codex-review-findings)
+
 - [#2022] The drop-in type name-collision guard now fails closed when it cannot
   bind the module a drop-in would shadow. ADR-053 FR-016 refuses a file in
   `{project}/types/` or `~/.scistudio/types/` whose name would shadow an

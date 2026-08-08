@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 import httpx
@@ -364,21 +365,24 @@ def test_a_directory_standing_where_the_file_would_go_is_refused(client: TestCli
 def test_the_write_temp_file_is_not_itself_a_dropin(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """Atomicity of the destination name is not enough on its own.
 
-    The temp file has to share the destination directory for ``os.replace`` to
-    be atomic, and that directory is globbed for ``*.py`` and executed on every
-    scan — so a ``.py`` temp file is a second drop-in that a palette refresh
-    concurrent with a save can import half-written, and a real
+    The temp file has to share the destination directory for the landing step
+    to be atomic, and that directory is globbed for ``*.py`` and executed on
+    every scan — so a ``.py`` temp file is a second drop-in that a palette
+    refresh concurrent with a save can import half-written, and a real
     ``BlockRegistry.scan()`` was shown to execute one (P2-2). Asserted from
-    inside the write, which is the only moment the file exists.
+    inside the write, which is the only moment the file exists. The spy is on
+    ``os.link`` because that is what lands a *new* file: the destination name
+    has to appear already complete, which is the property an exclusive create
+    followed by a write would not have.
     """
     seen: list[list[str]] = []
-    real_replace = os.replace
+    real_link = os.link
 
-    def _spy(src: str, dst: str) -> None:
+    def _spy(src: str, dst: object) -> None:
         seen.append(sorted(entry.name for entry in user_blocks_dir().glob("*.py")))
-        real_replace(src, dst)
+        real_link(src, dst)  # type: ignore[arg-type]
 
-    monkeypatch.setattr("scistudio.api.routes.user_library.os.replace", _spy)
+    monkeypatch.setattr("scistudio.api.routes.user_library.os.link", _spy)
 
     assert _put(client, target="blocks", filename="atomic.py", content=PROBE_BLOCK).status_code == 200
 
@@ -396,10 +400,10 @@ def test_a_write_that_fails_outside_oserror_leaves_nothing_behind(
     product's own file listing.
     """
 
-    def _raise(_src: str, _dst: str) -> None:
+    def _raise(_src: str, _dst: object) -> None:
         raise ValueError("embedded null character in dst")
 
-    monkeypatch.setattr("scistudio.api.routes.user_library.os.replace", _raise)
+    monkeypatch.setattr("scistudio.api.routes.user_library.os.link", _raise)
 
     response = _put(client, target="blocks", filename="doomed.py", content=PROBE_BLOCK)
     assert response.status_code == 500, response.text
@@ -425,6 +429,43 @@ def test_overwrite_requires_an_explicit_opt_in(client: TestClient) -> None:
     assert response.status_code == 200, response.text
     assert response.json()["kind"] == "modified"
     assert (user_blocks_dir() / "dup.py").read_text(encoding="utf-8") == "second\n"
+
+
+def test_a_writer_that_arrives_after_the_probe_is_not_overwritten(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FR-008 must survive a second *writer*, not only a second request.
+
+    FR-065 put the API process and the standalone MCP bridge on the same
+    ``~/.scistudio``, so "does this exist" and "write it" are two moments with
+    another process free to run in between — a path this spec created. A
+    check-then-``os.replace`` sequence destroys whatever landed in that window
+    even though the request carried ``overwrite=false``, which is the silent
+    overwrite FR-008 forbids.
+
+    The interleaving is constructed rather than raced: the competing file
+    appears after the existence probe has already answered "absent", which is
+    the one ordering that matters, and it appears on every run.
+    """
+    landed = user_blocks_dir() / "contested.py"
+    rival = "written by the other process\n"
+    real_mkstemp = tempfile.mkstemp
+
+    def _mkstemp_then_lose_the_race(*, prefix: str, suffix: str, dir: str) -> tuple[int, str]:
+        result = real_mkstemp(prefix=prefix, suffix=suffix, dir=dir)
+        landed.write_text(rival, encoding="utf-8")
+        return result
+
+    monkeypatch.setattr("scistudio.api.routes.user_library.tempfile.mkstemp", _mkstemp_then_lose_the_race)
+
+    response = _put(client, target="blocks", filename="contested.py", content=PROBE_BLOCK)
+
+    assert response.status_code == 409, response.text
+    assert "contested.py" in response.json()["detail"]
+    assert landed.read_text(encoding="utf-8") == rival, "the other writer's file must survive"
+    assert sorted(entry.name for entry in user_blocks_dir().iterdir()) == ["contested.py"], (
+        "the refused write must leave no temp file behind"
+    )
 
 
 # ---------------------------------------------------------------------------

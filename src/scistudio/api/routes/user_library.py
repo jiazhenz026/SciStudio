@@ -47,7 +47,10 @@ Error shapes match the project endpoint so one frontend error path serves both:
 400 for an empty name, 403 for traversal and escape, 415 for a non-``.py``
 extension, 404 when a read finds nothing. The one addition is **409 for a
 collision** (FR-008): an existing file is reported to the caller rather than
-silently overwritten, and overwriting requires ``overwrite: true``.
+silently overwritten, and overwriting requires ``overwrite: true``. That
+refusal is decided by the filesystem at the moment of the write and not by the
+probe that precedes it — see :func:`write_user_library_file` for why the
+distinction is load-bearing once two processes share ``~/.scistudio``.
 
 After a successful write the registries are rebuilt through
 ``ApiRuntime.refresh_all_registries()`` (FR-010/FR-062) so the new block or
@@ -95,13 +98,14 @@ _TARGET_ROOTS = {
 _ALLOWED_SUFFIX = ".py"
 
 #: Suffix of the temp file the atomic write goes through. Deliberately **not**
-#: ``.py``: the temp file lives in the destination directory so ``os.replace``
-#: stays atomic, and that directory is globbed for ``*.py`` and executed on
+#: ``.py``: the temp file lives in the destination directory so the landing
+#: step stays atomic, and that directory is globbed for ``*.py`` and executed on
 #: every scan. A ``.py`` temp file is therefore a drop-in that a concurrent
 #: palette refresh can import half-written, and one left behind by a failed
 #: write is caller-controlled code the user cannot see in the palette or delete
 #: through the product (``docs/audit/2026-08-07-adr-053-spec1-write-path.md``
-#: P2-2). ``os.replace`` does not care about the source extension.
+#: P2-2). Neither ``os.replace`` nor ``os.link`` cares about the source
+#: extension.
 _WRITE_TEMP_SUFFIX = ".tmp"
 
 #: Windows device names, which Win32 may resolve ahead of a real file of the
@@ -114,6 +118,35 @@ _RESERVED_DEVICE_STEMS = frozenset(
 
 def _reject(status_code: int, detail: str) -> HTTPException:
     return HTTPException(status_code=status_code, detail=detail)
+
+
+def _collision(resolved: Path, target: UserLibraryTarget) -> HTTPException:
+    """The one FR-008 refusal sentence, for both writers that can raise it.
+
+    The pre-write probe and the exclusive create answer the same question at
+    two moments, and the caller must not be able to tell which one fired: a
+    collision the filesystem caught is the same fact as a collision the probe
+    caught, and two wordings would make the FR-018 prompt read differently
+    depending on a race the user cannot see.
+    """
+    return _reject(
+        409,
+        (
+            f"{resolved.name} already exists in the user library {target} directory. "
+            "Retry with overwrite=true to replace it, or choose another name."
+        ),
+    )
+
+
+def _discard(tmp_path: str) -> None:
+    """Remove the write's temp file, swallowing everything removal can raise.
+
+    Anything that escapes leaves a file behind in a directory the registry
+    scans, which is the outcome :data:`_WRITE_TEMP_SUFFIX` exists to prevent.
+    """
+    with suppress(OSError):
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 
 def _is_reserved_device_name(name: str) -> bool:
@@ -254,17 +287,33 @@ async def write_user_library_file(
     """Write one file into the user-wide library (ADR-053 FR-006 to FR-010).
 
     An existing target is a 409 unless ``overwrite`` is set (FR-008); the write
-    itself is atomic (temp file in the destination directory plus
-    ``os.replace``) so a failure never leaves a half-written block where the
+    itself is atomic (temp file in the destination directory plus a single
+    rename-shaped step) so a failure never leaves a half-written block where the
     registry will find it.
 
-    The temp file has to live in the destination directory for ``os.replace``
-    to be atomic, and that directory is globbed for ``*.py`` and executed on
-    every scan — so it is written with :data:`_WRITE_TEMP_SUFFIX` instead.
-    Atomicity of the destination *name* is not enough on its own: a ``.py``
-    temp file is a second name in the same scanned directory, and a palette
-    refresh concurrent with a save could import it half-written. Cleanup
-    catches every exception rather than only ``OSError``, because anything that
+    **The refusal is decided by the filesystem, not by the probe above it.**
+    ``existed`` answers the question early enough to give a good error, but it
+    cannot be the thing FR-008 rests on: FR-065 put the API process and the
+    standalone MCP bridge on the same ``~/.scistudio``, so a second writer can
+    create the target between that call and this one and ``os.replace`` would
+    destroy it without a word — the silent overwrite FR-008 exists to forbid,
+    reachable because of this spec's own work. The non-overwrite path therefore
+    lands the file with ``os.link``, which fails with ``FileExistsError`` when
+    the name is taken and is the same 409 either way. ``os.link`` rather than an
+    ``O_EXCL`` create because the destination name must never exist in a state
+    other than fully written: the temp file is complete and fsynced before the
+    name appears at all, so a palette refresh cannot catch it empty. An
+    ``overwrite=true`` request has consented to replacing whatever is there, so
+    it keeps ``os.replace``.
+
+    The temp file has to live in the destination directory for both steps to be
+    atomic, and that directory is globbed for ``*.py`` and executed on every
+    scan — so it is written with :data:`_WRITE_TEMP_SUFFIX` instead. Atomicity
+    of the destination *name* is not enough on its own: a ``.py`` temp file is a
+    second name in the same scanned directory, and a palette refresh concurrent
+    with a save could import it half-written. ``os.link`` keeps that second name
+    after a successful write, so it is removed on both paths, and cleanup
+    catches every exception rather than only ``OSError`` because anything that
     escapes it leaves that file behind.
     """
     _root, resolved = _resolve_user_library_file(target, filename)
@@ -280,13 +329,7 @@ async def write_user_library_file(
         raise _reject(400, "Path is a directory, not a file")
     existed = resolved.exists()
     if existed and not body.overwrite:
-        raise _reject(
-            409,
-            (
-                f"{resolved.name} already exists in the user library {target} directory. "
-                "Retry with overwrite=true to replace it, or choose another name."
-            ),
-        )
+        raise _collision(resolved, target)
 
     # ``resolved`` passed realpath + commonpath containment above.
     # lgtm[py/path-injection]
@@ -300,15 +343,22 @@ async def write_user_library_file(
             tmp_file.write(encoded)
             tmp_file.flush()
             os.fsync(tmp_file.fileno())
-        os.replace(tmp_path, resolved)
+        if body.overwrite:
+            os.replace(tmp_path, resolved)
+        else:
+            os.link(tmp_path, resolved)
+    except FileExistsError as exc:
+        _discard(tmp_path)
+        raise _collision(resolved, target) from exc
     except Exception as exc:
         # Not ``except OSError``: the cleanup has to cover everything the write
         # can raise, because whatever escapes it leaves a file behind in a
         # directory the scan reads.
-        with suppress(OSError):
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+        _discard(tmp_path)
         raise _reject(500, f"write failed: {exc}") from exc
+    if not body.overwrite:
+        # ``os.link`` leaves the source name behind; ``os.replace`` consumes it.
+        _discard(tmp_path)
 
     refreshed = _refresh_registries(runtime)
 
