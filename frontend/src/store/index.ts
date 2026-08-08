@@ -12,6 +12,7 @@ import { createProjectSlice } from "./projectSlice";
 import { createTabSlice } from "./tabSlice";
 import { createTerminalTabsSlice, rehydrateTerminalTabs } from "./terminalTabsSlice";
 import { createTutorialSlice } from "./tutorialSlice";
+import { createTypesSlice } from "./typesSlice";
 import type { AppStore, FileTab, TabState } from "./types";
 import { createUISlice } from "./uiSlice";
 import { createWorkflowSlice } from "./workflowSlice";
@@ -46,7 +47,11 @@ function partializeTabs(tabs: TabState[]): TabState[] {
       // comes from the block registry, not a project file, and has no
       // rehydrate-refetch path. Drop them from persistence so a reload does not
       // leave a permanently-empty placeholder.
-      .filter((tab) => !(tab.kind === "file" && tab.blockSourceType))
+      //
+      // ADR-053 FR-032: user-library tabs are dropped for the same reason.
+      // Their file lives outside every project root, so the project-file
+      // rehydrate path cannot restore it either.
+      .filter((tab) => !(tab.kind === "file" && (tab.blockSourceType || tab.userLibraryTarget)))
       .map((tab) => (tab.kind === "file" ? partializeFileTab(tab) : tab))
   );
 }
@@ -69,6 +74,8 @@ export const useAppStore = create<AppStore>()(
       ...createUISlice(...args),
       ...createPreviewSlice(...args),
       ...createPaletteSlice(...args),
+      // ADR-053 §7 — registered data type catalogue (FR-026 / FR-027).
+      ...createTypesSlice(...args),
       ...createTabSlice(...args),
       ...createTerminalTabsSlice(...args),
       // ADR-038 §3.8 — Lineage tab state.

@@ -40,22 +40,30 @@ scope:
     - Any change to block discovery tier semantics themselves, the registry data model, or type serialization.
     - Sandboxing drop-in execution (deferred by #1531 and unchanged here).
 governs:
-  modules: []
+  modules:
+    - scistudio.api.routes.types
+    - scistudio.api.routes.user_library
+    - scistudio.core.dropins
+    - scistudio.core.origins
+    - scistudio.ai.agent.mcp.tools_library
   contracts: []
   entry_points: []
   files:
     - docs/specs/adr-053-personal-tool-library.md
+    - src/scistudio/api/routes/types.py
+    - src/scistudio/api/routes/user_library.py
+    - src/scistudio/core/dropins.py
+    - src/scistudio/core/origins.py
+    - src/scistudio/ai/agent/mcp/tools_library.py
+    - frontend/src/components/TypePalette.tsx
   excludes:
     - docs/user/reference/**
     - docs/user/llms.txt
 planned_governs:
-  modules:
-    - scistudio.api.routes.types
+  modules: []
   contracts: []
   entry_points: []
-  files:
-    - src/scistudio/api/routes/types.py
-    - frontend/src/components/TypePalette.tsx
+  files: []
   excludes: []
 tests:
   - tests/api/test_block_origin_tiers.py
@@ -306,7 +314,7 @@ and `resolveRingColor()` (ring), used by the canvas port handles
 carry hand-assigned colours; unknown and plugin types fall back to a
 deterministic `hashTypeName` lookup into a 20-hue palette, with the ring derived
 as `darkenHex(base, 0.3)`. The solid-plus-ring treatment this spec requires for
-type tiles is therefore already implemented.
+type swatches is therefore already implemented.
 
 A type cannot currently influence its own colour. `TypeHierarchyEntry` carries a
 `ui_ring_color` field (`src/scistudio/api/schemas.py:162`) but **nothing ever
@@ -372,6 +380,15 @@ consumers of `custom` MUST continue to function.
 both the block and type surfaces (§10), not two path comparisons that can
 diverge.
 
+"Both surfaces" means every consumer, including the ones in other layers.
+The resolver therefore lives in `scistudio.core`, not in `scistudio.api`:
+the agent's promotion tool (§6.2 E3) applies the same rule as the palette, and
+the `AI must not depend on api` import-linter contract makes an `api` module
+unreachable from it — which is exactly how a second, narrower comparison came
+to be written there, and how E3 came to accept a block the three frontend entry
+points hide (`docs/audit/2026-08-07-adr-053-spec1-track-b.md` P2-2). A layer
+boundary that forces a copy is a design answer, not a reason for the copy.
+
 **FR-004.** The block list response MUST carry the resolved origin.
 
 **FR-005.** The types listing response (§7) MUST carry the same origin
@@ -392,6 +409,15 @@ behaviour and error shape.
 **FR-008.** The endpoint MUST NOT silently overwrite. An existing file at the
 target MUST be reported to the caller so the UI can prompt (§6, FR-018).
 Overwrite MUST require an explicit caller opt-in.
+
+The refusal MUST be decided when the file lands, not by an existence check that
+precedes it. A check-then-write sequence destroys anything created in the
+window between the two, and FR-065 makes that window reachable: the API process
+and the standalone MCP bridge share `~/.scistudio`, so two processes writing
+the same library filename is an ordinary situation rather than a theoretical
+one. The non-overwrite path therefore MUST use an exclusive-create primitive,
+and MUST NOT expose a partially written or empty file under the destination
+name while doing so — the same obligation the temp-file rule above carries.
 
 **FR-009.** `PUT /api/projects/{project_id}/file` MUST keep rejecting paths
 outside the project root. This spec adds a second door; it does not widen the
@@ -454,6 +480,17 @@ and all three are load-bearing:
   exists to eliminate, in the fix for it. This is the same obligation FR-057
   states for directory resolution, and it is discharged the same way: one shared
   implementation that every call site invokes, not a rule each site restates.
+- The mitigation MUST fail closed. Making the installed module win by importing
+  it first is not always possible: a module with a valid spec may still raise on
+  import, and a missing native dependency is the ordinary way that happens. A
+  binding failure that is swallowed leaves the name unbound while the caller
+  puts the types directory on `sys.path` anyway, so the refused drop-in wins the
+  name — FR-016 defeated in exactly the case it exists for, by the import health
+  of an unrelated package. Such a name MUST be refused outright for the life of
+  the process instead. That is also the answer the un-shadowed process gives:
+  without the drop-in the import raises too. The refusal MUST be scoped to the
+  colliding name, so the rest of the drop-in tier keeps working, and MUST NOT
+  make the collision itself unreportable on a later scan.
 
 The refusal has a lifecycle, and its end is part of the requirement. A refusal
 is warranted by a drop-in entry, and a scan that no longer finds that entry
@@ -472,10 +509,65 @@ module found elsewhere on `sys.path`. The collision test MUST run against a
 `sys.path` from which the types directories are absent, so a type file can never
 report itself as a collision.
 
+**A leading underscore is not an exemption.** "Any entry the directory makes
+importable" includes `_name.py` and `_name/__init__.py`. The underscore is a
+convention meaning *do not register me*, which the registries honour for the
+separate question of which files declare types, and it does not stop `import`
+from resolving the name. Exempting it removes exactly the class of name that
+matters most, because several of the standard library's private modules are
+imported lazily by ordinary calls, long after any scan has run, and a guard
+that only looks at public names never sees them. The only entries out of scope
+are the ones a directory on `sys.path` structurally does not make importable
+*by name*: `__init__.py`, which names the directory rather than a top-level
+module, and `__pycache__`. This narrowing was shipped; it is recorded, with its
+reproduction, in `docs/audit/2026-08-07-adr-053-spec1-write-path.md` (P1-1).
+
 ## 6. Promotion
 
-**FR-017.** Promotion MUST copy, never move. The originating project MUST keep
-working exactly as before.
+**FR-017.** Promotion MUST **move**: the library copy is written first, and the
+project's own file is then removed. The block or type MUST keep working in the
+originating project.
+
+Both halves of that are load-bearing, and the second is what makes the first
+safe. The user tier is scanned unconditionally, for every project, with no
+project context required (FR-060) — so a file that leaves `{project}/blocks/`
+for `~/.scistudio/blocks/` still resolves here. What moves is where the file
+lives, not what the project can use.
+
+This requirement was originally the opposite: *copy, never move, the originating
+project keeps working exactly as before*. It was reversed after owner review of
+a running build, and the reversal is the important part of this paragraph rather
+than a footnote to it.
+
+Copying leaves the same class name registered in two tiers, and **which of them
+the process actually loads is then decided by a registry duplicate policy the
+user cannot see** — one that is not even the same policy on both sides. The
+block registry writes unconditionally (`blocks/registry/_scan.py`), so the last
+tier scanned wins and the library copy takes precedence. The type registry skips
+a name already registered (`core/types/registry.py`), so the *first* tier scanned
+wins and the project copy takes precedence. Both directions are deliberate for
+their own domain — a drop-in block may override a builtin; a drop-in type may
+never shadow a core class — and neither was written with promotion in mind.
+
+The user-visible result was that the same action produced opposite outcomes:
+promoting a block appeared to work, and promoting a type appeared to do nothing
+at all. The type stayed listed under `This Project`, `My Library` stayed empty,
+and pressing the action again just wrote another shadowed file. There is no
+copy-preserving fix for that which does not amount to explaining a registry
+scan order to the user. Moving removes the clash instead of adjudicating it,
+and it makes "it is in My Library now" simply true.
+
+The removal MUST happen **after** the library copy is on disk, and a failed
+removal MUST NOT fail the promotion. The copy exists, so something did happen;
+reporting an error would say otherwise and invite a retry straight into a
+collision. The outcome degrades to a copy — the pre-reversal behaviour — and
+MUST be reported as one, naming the file that has to be removed by hand.
+
+The removal MUST be reachable only as part of a successful library write, and
+MUST be sandboxed by the same resolver the project file read and write endpoints
+use. A general "delete a project file" endpoint MUST NOT be introduced for it:
+the blast radius of this feature is then exactly this operation, and a second
+containment check is a second thing to get wrong.
 
 **FR-018.** A name collision in the destination MUST prompt the user with
 overwrite and save-as-new-name options. Silent overwrite is forbidden.
@@ -490,9 +582,27 @@ The condition is the resolved origin, not the internal tier-1 classification: a
 user-library block is also tier-1 with a resolvable `file_path`, so the broader
 test would offer promotion for an item that is already promoted.
 
-**FR-020.** On success the UI MUST confirm inline and reveal the item in its new
-section in the palette. The action exists to teach that the container exists; a
-silent success wastes the teaching moment.
+**FR-020.** On success the UI MUST confirm inline and bring the item's new
+section into view: the catalogue is re-read so the item is actually there, the
+palette panel expands, and the left panel switches to the item's own tab. The
+action exists to teach that the container exists; a silent success wastes the
+teaching moment.
+
+The reveal MUST NOT filter the palette down to the promoted item. Typing the
+item's name into the search box does isolate it, and that was the original
+reading of "reveal" — but it also empties every other section, and the user did
+not type it. From their side the palette has simply lost everything else, with
+the cause sitting in a box they were not looking at and did not touch. A
+confirmation that reads as a malfunction teaches the opposite of what this
+feature exists to teach, and a search the user *had* typed would be destroyed
+on top of it. Owner review of a running build removed the filtering; the inline
+notice names the item, and the tab it now lands on shows `My Library` with the
+item in it.
+
+A cancellation is exempt from that confirmation only while it changed nothing.
+An abandoned promotion that has already written cascade files (FR-023) MUST be
+reported as a partial result naming what stayed, because the library did change
+and silence would say otherwise.
 
 ### 6.1 Cascade Promotion
 
@@ -505,10 +615,23 @@ resolved type by origin using the shared resolver (FR-003). Static parsing is
 sufficient because after §5 a block expresses a type dependency as a real import
 statement.
 
+The parse MUST be aware of string literals and comments. A scanner that joins
+continuation lines by counting brackets without them reads the `(` in
+`pattern = "("` as an open bracket and swallows every statement after it, and
+the failure is not visible anywhere: the cascade simply reports no dependency,
+so the block is promoted without its type and breaks in the next project —
+precisely the silent outcome FR-024 forbids. Whatever the implementation, a
+character that is part of a literal or a comment MUST NOT be read as syntax.
+
 **FR-023.** When project-level type dependencies are found, the user MUST be
 offered promotion of those types alongside the block, as a single confirmed
 action. Declining MUST still allow the block to be promoted, with an explicit
 warning that it will fail to load in other projects.
+
+Dependencies are written before the item, so a later refusal is not always
+undoable: an overwrite already consented to for a dependency has replaced a
+file no rollback can restore. The implementation MUST therefore report such an
+outcome rather than roll it back or discard it (FR-020).
 
 **FR-024.** Cascade MUST be one level deep in this spec. A type that itself
 imports another project-level type is out of scope and MUST be reported rather
@@ -536,12 +659,25 @@ exactly the drift this spec is written to avoid.
 **FR-026.** A types listing endpoint MUST be added under a new
 `src/scistudio/api/routes/types.py`. It MUST return, per registered type: name,
 base type, description, origin tier (FR-005), `file_path` when resolvable, the
-declared colours (§7.1), and the supported file extensions (§7.2).
+owning package name when the type came from an installed distribution, the
+declared colours (§7.1), and the supported file extensions (§7.2). The package
+name MUST be the same value `BlockSummary.package_name` reports for that
+distribution — not a second name derived from the type's file path or module —
+so FR-040 can title a package section identically on both tabs. A type whose
+distribution cannot be named MUST report `null` rather than a guess, and MUST
+still be listed.
 
 **FR-027.** The endpoint MUST be independent of the block list response. The
 Data types tab MUST NOT depend on a blocks request to populate or refresh.
 `type_hierarchy` on the block response is unchanged and keeps serving port
 colour resolution.
+
+Independent does not mean unsubscribed. Any client-side cache of this listing
+holds runtime truth, so it MUST be dropped by every event that rebuilds the
+type registry (FR-010, FR-062) — including a user-library write — and not left
+valid until someone asks for a manual reload. Independence from the *block
+request* is the requirement; independence from *registry invalidation* is the
+defect it must not become.
 
 **FR-028.** A type template endpoint MUST be added to the same router, mirroring
 `GET /api/blocks/template`. It MUST return a minimal `DataObject` subclass
@@ -590,8 +726,8 @@ lands.
 **FR-051.** Colour resolution precedence MUST be: type-declared colour, then the
 existing `typeColorMap` entry, then the `hashTypeName` fallback. A declared
 colour wins; an undeclared type behaves exactly as it does today. This applies
-identically to palette tiles and canvas ports, so a type looks the same in both
-places.
+identically to the palette's row swatches and to canvas ports, so a type looks
+the same in both places.
 
 **FR-052.** An invalid colour value MUST be ignored with a warning and MUST fall
 through to the next precedence level. A malformed hex string in a user's type
@@ -669,14 +805,47 @@ group by origin tier first and package second. The change is larger than the
 The label is `Data types` rather than `Types`, which is too abstract standing
 alone next to `Blocks`; the internal key stays `types`.
 
-**FR-040.** The Data types tab MUST mirror the Blocks tab: search input, filter
-chips, and tier sections with core pinned at the top, then `My Library`, then
-`This Project`, then packages A→Z. Empty-state behaviour follows FR-037.
+**FR-040.** The Data types tab MUST mirror the Blocks tab's *structure*: search
+input, filter chips, and tier sections with core pinned at the top, then
+`My Library`, then `This Project`, then packages A→Z. Empty-state behaviour
+follows FR-037. The structure is mirrored; the cell deliberately is not, per
+FR-041.
 
-**FR-041.** Each type tile MUST carry a colour swatch — solid fill plus ring —
-resolved through the precedence in FR-051, so a type reads identically in the
-palette and on a canvas port. No new colour table is introduced; the declared
-colour simply takes priority over the existing resolution.
+The per-package split is therefore **as granular as FR-026's name allows, and
+no more**. A distribution FR-026 cannot name — one whose `PackageInfo.name` is a
+display string rather than an import-shaped one — reports `null`, and its types
+land in a single lumped `Packages` section rather than a named one. The Blocks
+tab reaches a named section for the same distribution through a frontend
+dotted-prefix heuristic on the block's type name, which has no equivalent on the
+type side and is not worth inventing one for: two tabs naming one distribution
+differently is the drift FR-026 exists to prevent, and less granular is the
+correct failure. Nothing is dropped — those types are still listed. Recorded
+here rather than left implicit, per
+`docs/audit/2026-08-07-adr-053-spec1-track-b.md` (P3-1).
+
+**FR-041.** Types MUST be listed one per row, not laid out as a grid of tiles,
+and each row MUST carry a colour swatch — solid fill plus ring — resolved
+through the precedence in FR-051, so a type reads identically in the palette and
+on a canvas port. No new colour table is introduced; the declared colour simply
+takes priority over the existing resolution.
+
+A grid of 72×72 tiles is the Blocks tab's vocabulary for *a thing you drag onto
+the canvas*, and it earned that meaning honestly: block tiles are `draggable`
+and carry a drag payload. Types are not draggable and never were — the tile this
+replaced passed neither `draggable` nor `onDragStart` — so a tile grid was
+advertising an interaction that silently did nothing. The row is the honest
+affordance, and the correction owner review asked for after seeing the two tabs
+side by side in a running build.
+
+The swatch is a small framed square set left of the name: fill from FR-051's
+resolution, frame from the ring, matching the canvas port's
+`border = ring ?? fill` rule so the two surfaces still agree. The row's
+remaining horizontal space carries the type's immediate parent in a secondary
+weight — information the grid had nowhere to put, and the one thing a reader
+scanning a type index most often wants. `DataObject` is suppressed there for
+the same reason FR-043 keeps `Array (Array)` out of the popover: repeating the
+universal root down the whole right edge indexes nothing. The full chain stays
+in the popover.
 
 **FR-042.** Each type MUST have a hover popover carrying:
 
@@ -694,6 +863,32 @@ immediate parent when the two differ. `resolveCoreBaseType`
 (`frontend/src/config/typeColorMap.ts:179`) already returns the highest ancestor
 below `DataObject` and returns `null` when the type is itself a core base, so no
 redundant `Array (Array)` is rendered.
+
+**FR-068.** Double-clicking a type MUST open that type's source.
+
+Without it the row is the only thing in the left panel that answers a double
+click with nothing, and a user who has just written a type reaches for it first.
+Owner review of a running build asked for the behaviour in exactly those terms:
+"users will double-click a type and find that nothing happens".
+
+**Which tab opens depends on the tier, and MUST.** The two drop-in tiers are the
+user's own files and MUST open **editable**, each through the write path that
+can actually save it back — a project type through the project file route, a
+user-library type through the library route, because the library sits outside
+every project root by construction (§2.3) and the project route cannot reach it.
+A core or packaged type MUST open **read-only**: its file belongs to an
+installed distribution, where an edit in place is discarded by the next upgrade
+at best and corrupts the installation at worst.
+
+The read-only case needs a type-side counterpart of
+`GET /api/blocks/{block_type}/source`, and it MUST be registry-gated the same
+way: the path comes off the spec the registry already holds, so the only
+readable files are ones this process loaded and no caller-supplied path reaches
+the filesystem. That is the property separating it from the unvalidated path
+joins filed as #2037 and #2038 — a name, not a path, is the input. It is
+read-only structurally rather than by policy, because its response carries an
+absolute path and every save route takes either a project-relative path or a
+library target plus a bare filename; there is nothing it could save through.
 
 ### 9.3 Interactive Popover
 
@@ -721,7 +916,7 @@ is listed as separate MUST NOT be forced into a common abstraction.
 | Search filtering | `filterItems<T>(items, search, toHaystack)` — generalised from `filterBlocks` / `matchesSearch` |
 | Section building | `buildSections<T>(items, groupOf, pinnedOrder)` — the Map-group → ordered-take → remainder-A→Z skeleton |
 | Section model | `Section<T>`, generalised from `PaletteSection` |
-| Tile | One tile component: colour swatch, label, hover trigger, drag hook |
+| Cell | **Not shared** — the Blocks tab keeps the tile (colour swatch, label, hover trigger, drag hook); the Data types tab uses a list row (FR-041). What the two cells MUST keep identical is the hover contract they hand the shared popover: the anchor rectangle is the cell's own, and click/keyboard activation opens the same card hovering does |
 | Popover | One popover (FR-046), including the interactivity change (FR-044) |
 | Filter chips | Generalised from `CategoryChips` |
 | Hover positioning | Anchor computation, `POPOVER_GAP`, `POPOVER_MAX_HEIGHT`, open delay |
@@ -800,6 +995,38 @@ reaches far more often than package install. A regression test for this
 requirement MUST exercise the events; asserting over route source text cannot
 observe an invalidation that does not name a refresh method.
 
+A rebuild MUST run the source that is on disk. Python validates a cached `.pyc`
+on the source's timestamp in whole seconds plus its size, so a drop-in edited
+within one second of its last load, to the same length, reloads the previous
+bytecode; the registry is then cleared and refilled with the definition the
+reload existed to replace, with no error anywhere. Both drop-in scan passes
+MUST defeat that key — by evicting the cached bytecode, by giving the module a
+content-derived identity, or by compiling from source — because "an edit is
+visible without a restart" is the whole of this requirement, and it is one
+answer shared by the two registries for the reason FR-057 gives, not a rule
+restated at each scan.
+
+A surface that offers a **Reload** control MUST reach one of those events. The
+Data types tab shipped one that did not: its button re-fetched `GET /api/types/`,
+which answers from the in-memory registry and costs no scan, so it re-read the
+same stale answer for as long as the process lived. Owner review of a running
+build found the consequence directly — a type written to `{project}/types/` "did
+not show up no matter how many times I reloaded", and then appeared later,
+because some unrelated action happened to rebuild the registry. A button that
+does nothing is worse than no button, because the user stops looking for another
+cause.
+
+`POST /api/types/reload` is therefore the tab's counterpart of
+`POST /api/blocks/reload`, and it MUST re-scan through `refresh_all_registries()`
+rather than a type-only rebuild — the two registries read drop-in directories
+that sit side by side in one project, and the block side already learned this
+(#1910). Two endpoints reaching one implementation is what FR-027 asks for: the
+Data types tab does not have to speak to the block endpoints to do its own job,
+while both surfaces still rebuild the same world. The broadcast stays
+`blocks.reloaded`, because every client already reads that event as
+"`refresh_all_registries()` ran, re-read both catalogues" and a second event for
+one fact is the drift this spec exists to remove.
+
 **FR-063.** Package install and uninstall MUST refresh the type registry. A
 package can ship types; today installing one leaves them undiscovered until the
 next project switch. This is a pre-existing defect, fixed here because the Data
@@ -818,8 +1045,12 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Area | Test |
 |---|---|
 | Origin tiers | A block resolved from each directory returns its distinct origin; unresolvable path falls back to `custom` (FR-001, FR-002) |
-| Shared resolver | Block and type origin resolution exercise the same function (FR-003) |
+| Shared resolver | Every surface — the block listing, the types listing, the source endpoint, and the agent's promotion tool — holds the *same function object*, and the agent tool's accept set equals the frontend predicate's across the whole origin vocabulary, `custom` included (FR-003, FR-019, FR-025) |
 | Write endpoint | Writes land in the user library; traversal and symlink escapes 403; existing file is reported rather than overwritten (FR-006 – FR-008) |
+| Write endpoint exclusivity | A file created between the existence probe and the write survives and the request is refused, with the interleaving constructed rather than raced (FR-008, FR-065) |
+| Write endpoint containment | Every containment rule has a test that fails if the rule is removed, including the ones no ordinary request reaches: a link resolving to a deeper directory *inside* the root, and a containment comparison that raises rather than returning (FR-007) |
+| Write endpoint temp file | No `.py` file other than the destination exists in the scanned directory at any point during a write, and a write that fails leaves nothing behind whatever it raised (FR-007) |
+| Drop-in isolation | A drop-in that raises outside `Exception` — `sys.exit()` being the ordinary accident — is recorded as a failure and skipped, and the healthy neighbours still register (FR-015) |
 | Project endpoint unchanged | Escaping paths still 403 (FR-009) |
 | Registry refresh | A written block/type is discoverable without restart (FR-010) |
 | MCP promotion | The agent tool promotes a block and the result is discoverable (FR-011) |
@@ -827,9 +1058,12 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Worker parity | A block importing a drop-in type runs in the worker, not just registers (FR-013) |
 | Import failure surfaced | A failing drop-in produces a user-visible report (FR-015) |
 | Shadowing rejection | A drop-in type entry colliding with an importable top-level module is reported through the FR-015 surface, its type is absent from a real `TypeRegistry`, and the real module still resolves inside a real worker subprocess — not only in the process that ran the scan. A `<name>/__init__.py` package is rejected on the same terms as `<name>.py` (FR-016) |
+| Shadowing fail-closed | When the collided installed module raises on import, the drop-in still does not win the name, and the collision is still reported on the next scan (FR-016) |
 | Refusal lifecycle | Removing the colliding entry and rescanning makes the name importable again; a rescan that still finds the entry keeps the refusal, and so does a rescan covering only some of the directories that warranted it (FR-016) |
-| Promotion semantics | Copy not move; collision prompts; hidden for built-in, packaged, and already-in-library items (FR-017 – FR-019) |
+| Promotion semantics | Move, not copy: the project's file is removed once the library copy lands, and the item still resolves in that project because the user tier is always scanned; a failed removal is reported as a copy rather than raised; collision prompts; hidden for built-in, packaged, and already-in-library items (FR-017 – FR-019) |
 | Cascade | Block with a project-level type dependency offers cascade; declining warns; second-level dependency reported (FR-021 – FR-024) |
+| Cascade import parse | An unmatched bracket inside a string literal does not hide the import that follows it (FR-022) |
+| Cascade partial result | Cancelling after a dependency has been written reports a partial result naming the files that stayed, rather than a silent cancellation (FR-020, FR-023) |
 | Type colour declaration | A type declaring a colour surfaces it through the types listing (FR-049, FR-050) |
 | Colour precedence | Declared colour beats `typeColorMap`, which beats the hash fallback; an undeclared type is unchanged from today (FR-051) |
 | Colour parity | A type declaring `ui_color` renders in that colour on both a palette tile and a canvas port (FR-066, FR-051) |
@@ -837,7 +1071,10 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Invalid colour | A malformed hex value warns and falls through without breaking palette or canvas (FR-052) |
 | Extensions per type | Load and save extensions reported separately from `FormatCapability`; a type with none reports empty lists (FR-054 – FR-056) |
 | Palette sections | Order, both tiers rendered when empty, origin-first grouping (FR-035 – FR-038) |
-| Data types tab | Mirrors blocks structure; tab label is `Data types`; tile colour follows the FR-051 precedence (FR-039 – FR-041) |
+| Data types tab | Mirrors the Blocks tab's structure; tab label is `Data types`; types are listed one per row with the parent beside the name, not laid out as draggable tiles; swatch colour follows the FR-051 precedence (FR-039 – FR-041) |
+| Package attribution | A packaged type and a packaged block from one distribution report the same package name, and the tab renders one section per package A→Z; an unnameable distribution reports `null` and its types stay listed (FR-026, FR-040) |
+| Data types Reload | Pressing Reload on the Data types tab makes a type written since the last scan appear, without any other action (FR-062) |
+| Type source opens by tier | Double-clicking a project or user-library type opens an editable tab wired to that tier's write path; a core or packaged type opens read-only, resolved by name through the registry (FR-068) |
 | Type popover contents | Name, parent (with core base when it differs), description, extensions, origin, promotion action (FR-042, FR-043) |
 | Popover | Interactive, survives the tile→popover gap, does not break dragging (FR-044, FR-045) |
 
@@ -846,6 +1083,8 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Agent import parity | The §2.5 reproduction registers under the agent runtime and the worker, not only under the API (FR-013, §10.3) |
 | Tier condition | User-tier blocks and types are discovered with no project open, at all four sites; project-tier discovery still requires one (FR-060) |
 | Reload events | Each of the palette Reload button, a `{project}/types/*.py` save, and the MCP `reload_blocks` tool makes a newly written type resolvable (FR-062) |
+| Reload runs current source | A drop-in edited within one second to the same size registers its new definition after a rescan, not the cached one, in both the type registry and the block registry (FR-062) |
+| Type catalogue invalidation | The frontend type listing is re-read on a registry-reload event and after a user-library write, without a manual reload (FR-010, FR-027, FR-062) |
 | Package reload | Installing a package that ships types makes them discoverable without a project switch (FR-063) |
 | Branch switch reload | Switching to a branch with different `{project}/types/` refreshes the type registry (FR-064) |
 | Cross-process refresh | A block promoted through the agent appears in the palette without restart (FR-065) |
@@ -863,12 +1102,13 @@ contract and is the list an implementer works from.
 
 | File | Action | Why |
 |---|---|---|
-| `src/scistudio/api/_block_source.py` | modify | Split `map_block_origin` into `user` / `project` with fallback (FR-001, FR-002) |
+| `src/scistudio/core/origins.py` | create | The shared origin resolver (FR-001 – FR-005). It lives in `core` because its consumers span layers: the API's block and type listings and the agent's promotion tool must apply one rule, and `AI must not depend on api` puts an `api` module out of the agent's reach |
+| `src/scistudio/api/_block_source.py` | modify | Re-export the resolver for its existing API callers; keep the legacy `source` label mapping (FR-001, FR-002) |
 | `src/scistudio/api/routes/blocks.py` | modify | Carry resolved origin (FR-004); populate `ui_ring_color` (FR-050) |
 | `src/scistudio/api/routes/types.py` | create | Types listing and type template (§7) |
 | `src/scistudio/api/schemas.py` | modify | Type listing response, declared colours, extensions (§7) |
 | `src/scistudio/core/types/base.py` | modify | Colour class attributes on `DataObject` (FR-049) — protected core, needs `admin-approved:core-change` |
-| `src/scistudio/core/types/registry.py` | modify | Collect declared colours (FR-050); scan-order reconciliation (FR-061) |
+| `src/scistudio/core/types/registry.py` | modify | Collect declared colours (FR-050); record the registering distribution (FR-026, FR-040); scan-order reconciliation (FR-061) |
 | `src/scistudio/api/runtime/_projects.py` | modify | Consume the shared provisioning helper (FR-057); reload symmetry (FR-062) |
 | `src/scistudio/ai/agent/mcp/runtime.py` | modify | Register type directories (FR-059); consume the helper (FR-057) |
 | `src/scistudio/core/types/serialization.py` | modify | Consume the helper instead of duplicating scan dirs (FR-057) |

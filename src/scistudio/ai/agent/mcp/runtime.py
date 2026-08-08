@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -48,6 +49,59 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def dropin_revision(scan_dirs: Iterable[Path]) -> tuple[tuple[str, int, int], ...]:
+    """Return a cheap signature of the drop-in files *scan_dirs* would register.
+
+    ADR-053 FR-065's cross-process half. A process that holds registries has no
+    way to be *told* that another process wrote into a shared drop-in directory
+    — the user library is a directory on disk, not a channel — so the signal is
+    the directory content itself: every ``.py`` file's path, size, and
+    modification time. Comparing two signatures answers "has anything a scan
+    would read changed since I last scanned?" without importing anything.
+
+    Name, size, and ``st_mtime_ns`` together rather than a directory mtime
+    alone: adding or removing a file changes the directory's own mtime, but
+    *editing* one does not, and an overwrite that keeps the byte count still
+    moves the file's mtime. Reading a handful of ``stat`` results per tool call
+    is cheap next to the registry scan it avoids.
+
+    Unreadable or missing directories contribute nothing, matching both
+    registries' behaviour of skipping absent scan directories.
+
+    Two shapes beyond a plain ``<name>.py`` have to be watched, because both
+    are things a scan would read (``docs/audit/2026-08-07-adr-053-spec1-write-path.md``,
+    P3-9 and P3-2):
+
+    * ``<name>/__init__.py``. A package-shaped drop-in type is a first-class
+      citizen of the FR-016 guard, so it must not be invisible to the detector
+      that decides whether to re-scan.
+    * ``<NAME>.PY``. Windows ``glob("*.py")`` is case-insensitive, so an
+      uppercase suffix is a live drop-in there, and a case-sensitive comparison
+      here meant editing one never moved the signature. The product refuses to
+      *create* such a file, but a user can still place one by hand.
+    """
+    entries: list[tuple[str, int, int]] = []
+    for directory in scan_dirs:
+        try:
+            children = sorted(directory.iterdir())
+        except OSError:
+            continue
+        for entry in children:
+            watched = entry
+            if entry.is_dir():
+                watched = entry / "__init__.py"
+                if not watched.is_file():
+                    continue
+            elif entry.suffix.lower() != ".py":
+                continue
+            try:
+                stat = watched.stat()
+            except OSError:
+                continue
+            entries.append((str(watched), stat.st_size, stat.st_mtime_ns))
+    return tuple(entries)
+
+
 @dataclass
 class StandaloneMCPRuntime:
     """Minimal :class:`MCPContext` implementation for the standalone bridge.
@@ -56,16 +110,34 @@ class StandaloneMCPRuntime:
     :mod:`scistudio.ai.agent.mcp._context`:
 
     * ``block_registry`` and ``type_registry`` — populated by
-      :func:`make_mcp_runtime`.
+      :func:`make_mcp_runtime`, and re-read through a staleness check (below).
     * ``project_dir`` — the project root passed by the caller, or
       ``None`` when no project is open.
     * ``workflow_runs`` — empty dict; the bridge has no scheduler.
 
-    The FastAPI variant (``ApiRuntime`` wrapped in an inline adapter)
-    additionally exposes ``start_workflow``. Standalone mode doesn't
-    drive execution from MCP tools, so we leave that as a no-op
-    placeholder — the runtime-dependent ``run_workflow`` tool will
-    surface a clear error if invoked here.
+    **ADR-053 FR-065 — the bridge's invalidation channel.** Under FastAPI the
+    context is a read-through adapter over the live ``ApiRuntime``, so anything
+    that refreshes the API's registries is immediately visible to the agent.
+    The standalone bridge had no equivalent: it built its two registries once
+    in :func:`make_mcp_runtime` and then held them for the whole session, so a
+    block or type written by any other process — including through the user
+    library endpoint — stayed invisible until the bridge was restarted.
+
+    The two registry attributes are therefore properties that first compare a
+    :func:`dropin_revision` signature of the drop-in directories against the
+    one taken at the last scan, and rebuild in place when it differs. That is
+    the channel: the shared directory *is* the message, and it works in both
+    directions without either process knowing the other exists.
+
+    The check is deliberately here rather than inside the registries. A
+    registry is a passive container that scans when asked; deciding *when* the
+    answer went stale is a property of holding one across a long-lived session,
+    which is what this class does and what a per-request API handler does not.
+
+    The FastAPI variant additionally exposes ``start_workflow``. Standalone
+    mode doesn't drive execution from MCP tools, so we leave that as a no-op
+    placeholder — the runtime-dependent ``run_workflow`` tool will surface a
+    clear error if invoked here.
 
     # TODO(#1012): I40a Phase 2a may need to add ``ai_block_run_dir``
     #   here to satisfy the MCPContext Protocol surface that
@@ -75,8 +147,8 @@ class StandaloneMCPRuntime:
     #   Out of scope per ADR-040 §3.1 / phase: 2a I40a. Followup: #1012.
     """
 
-    block_registry: BlockRegistry
-    type_registry: TypeRegistry
+    _block_registry: BlockRegistry
+    _type_registry: TypeRegistry
     _project_dir: Path | None = None
     workflow_runs: dict[str, Any] = field(default_factory=dict)
     # ADR-040 Addendum 5 / #1488: satisfies the ``active_workflow_id``
@@ -84,10 +156,43 @@ class StandaloneMCPRuntime:
     # live GUI editor, so the value is always ``None`` — callers that
     # need the live id must run against the FastAPI ``_RuntimeAdapter``.
     active_workflow_id: str | None = None
+    _dropin_revision: tuple[tuple[str, int, int], ...] = ()
 
     @property
     def project_dir(self) -> Path | None:
         return self._project_dir
+
+    def dropin_scan_dirs(self) -> tuple[Path, ...]:
+        """Return every drop-in directory this runtime's registries read."""
+        from scistudio.core.dropins import block_scan_dirs, type_scan_dirs
+
+        return (*block_scan_dirs(self._project_dir), *type_scan_dirs(self._project_dir))
+
+    def sync_dropins(self) -> bool:
+        """Rebuild both registries when the drop-in directories have changed.
+
+        Returns whether a rebuild happened. Idempotent and safe to call before
+        every registry read: when nothing moved it is a handful of ``stat``
+        calls and no scan.
+        """
+        current = dropin_revision(self.dropin_scan_dirs())
+        if current == self._dropin_revision:
+            return False
+        self._dropin_revision = current
+        self._block_registry.hot_reload()
+        self._type_registry.rescan()
+        logger.info("StandaloneMCPRuntime: drop-in change detected; registries rebuilt (FR-065)")
+        return True
+
+    @property
+    def block_registry(self) -> BlockRegistry:
+        self.sync_dropins()
+        return self._block_registry
+
+    @property
+    def type_registry(self) -> TypeRegistry:
+        self.sync_dropins()
+        return self._type_registry
 
     def start_workflow(self, workflow_id: str) -> object:
         # Standalone bridges intentionally don't host the scheduler.
@@ -150,12 +255,17 @@ def make_mcp_runtime(project_dir: Path | None) -> StandaloneMCPRuntime:
     StandaloneMCPRuntime
         A runtime ready to be passed to ``_context.set_context``.
     """
+    from scistudio.core.dropins import block_scan_dirs, type_scan_dirs
+
     block_registry = _build_block_registry(project_dir)
     type_registry = _build_type_registry(project_dir)
     return StandaloneMCPRuntime(
-        block_registry=block_registry,
-        type_registry=type_registry,
+        _block_registry=block_registry,
+        _type_registry=type_registry,
         _project_dir=project_dir,
+        # ADR-053 FR-065: seed the signature from the state the two scans above
+        # just read, so the first tool call does not rescan for no reason.
+        _dropin_revision=dropin_revision((*block_scan_dirs(project_dir), *type_scan_dirs(project_dir))),
     )
 
 
@@ -191,7 +301,11 @@ async def start_inprocess_server(
     from scistudio.ai.agent.mcp.server import MCPServer
 
     runtime = make_mcp_runtime(project_dir)
-    _context.set_context(runtime)
+    # ADR-053 FR-065 made the two registries read-through properties, which a
+    # Protocol declaring them as plain variables reads as read-only. The FastAPI
+    # ``_RuntimeAdapter`` has carried the same ignore since it was written for
+    # the same reason; both satisfy the surface every tool actually uses.
+    _context.set_context(runtime)  # type: ignore[arg-type]
 
     if socket_path is None:
         # Per-process socket under the project's .scistudio/ dir when a
@@ -235,6 +349,7 @@ async def stop_inprocess_server(server: MCPServer) -> None:
 __all__ = [
     "StandaloneMCPRuntime",
     "default_socket_path",
+    "dropin_revision",
     "make_mcp_runtime",
     "start_inprocess_server",
     "stop_inprocess_server",

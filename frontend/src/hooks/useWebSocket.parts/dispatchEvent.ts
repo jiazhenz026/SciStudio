@@ -12,6 +12,7 @@
 import type { VersionedWorkflowResponse } from "../../lib/api";
 import { useAppStore } from "../../store";
 import type { InteractivePrompt } from "../../store/types";
+import { invalidateTypeCatalog } from "../../store/useTypeCatalog";
 import type { LogEntry, WorkflowEventMessage } from "../../types/api";
 
 import { handleBlockPtyClosed, handleBlockPtyOpened } from "./handleBlockPty";
@@ -61,6 +62,13 @@ export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: Dispa
     // palette and canvas nodes pick up the new/changed block without a manual
     // palette reload.
     useAppStore.getState().bumpBlockCatalogRefresh();
+    // ADR-053 FR-062: every emitter of this event reaches it through
+    // `refresh_all_registries()`, which rebuilds the *type* registry too — a
+    // palette reload, a project file save, a package install, an agent
+    // promotion. Bumping only the block counter left the Data types tab and
+    // the declared canvas colours on their first-ever listing until the user
+    // pressed Reload by hand.
+    invalidateTypeCatalog();
     return true;
   }
   if (payload.type === "git.head_changed") {

@@ -24,6 +24,7 @@
  *                           ADR-045 source-id body fields
  *   - `api/lineage.ts`    — ADR-038 §3.8 lineage namespace + adapters
  *   - `api/git.ts`        — ADR-039 §3.5 git versioning surface
+ *   - `api/userLibrary.ts` — ADR-053 §4 user library file read/write
  *
  * Re-exports below keep the public surface backwards-compatible:
  * `import { ApiError, createClientSourceId } from "../lib/api"`,
@@ -39,6 +40,7 @@ import { lineageApi } from "./api/lineage";
 import { packagesApi } from "./api/packages";
 import { projectsApi } from "./api/projects";
 import { tutorialsApi } from "./api/tutorials";
+import { userLibraryApi } from "./api/userLibrary";
 import { workflowsApi } from "./api/workflows";
 
 export { ApiError, ApiTimeoutError } from "./api/core";
@@ -65,4 +67,6 @@ export const api = {
   ...packagesApi,
   ...gitApi,
   ...tutorialsApi,
+  // ADR-053 §4 — the user-wide library read/write door (FR-006, FR-031).
+  ...userLibraryApi,
 };

@@ -2,9 +2,10 @@
 
 Asserts the FastMCP-backed MCP server matches the ADR-040 contract:
 
-* 35 tools discoverable via ``await mcp.list_tools()``
+* 36 tools discoverable via ``await mcp.list_tools()``
   (26 from ADR-040 §3.1 + 1 from Addendum 5 / #1488 + 6 plot tools
-  from ADR-048 SPEC 2 + 1 qa tool ``open_gui`` from #1947).
+  from ADR-048 SPEC 2 + 1 qa tool ``open_gui`` from #1947 + 1 library
+  tool ``promote_to_user_library`` from ADR-053 FR-011).
 * Every write-class tool's result model has ``next_step: str``.
 * ``scaffold_block`` has the widened §3.2a signature with
   ``input_ports`` + ``output_ports`` dict args and a ``warnings`` field.
@@ -20,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from collections.abc import Coroutine, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -75,10 +77,12 @@ _EXPECTED_TOOL_NAMES = {
     "read_plot_source",
     "validate_plot",
     "run_plot_job",
+    # category (f) library (ADR-053 FR-011)
+    "promote_to_user_library",
 }
 
 
-def _run(coro):
+def _run(coro: Coroutine[Any, Any, Any]) -> Any:
     return asyncio.run(coro)
 
 
@@ -87,10 +91,10 @@ def _run(coro):
 # ---------------------------------------------------------------------------
 
 
-def test_fastmcp_lists_35_tools() -> None:
-    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + edit_workflow (#1912) + open_gui (#1947): 35 tools (28 + 6 plot + open_gui)."""
+def test_fastmcp_lists_36_tools() -> None:
+    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + #1912 + #1947 + ADR-053 FR-011: 36 tools."""
     tools = _run(mcp.list_tools())
-    assert len(tools) == 35
+    assert len(tools) == 36
     names = {t.name for t in tools}
     assert names == _EXPECTED_TOOL_NAMES, (
         f"missing: {_EXPECTED_TOOL_NAMES - names}; extra: {names - _EXPECTED_TOOL_NAMES}"
@@ -112,6 +116,8 @@ def test_write_class_tools_have_next_step() -> None:
         # ADR-048 SPEC 2 plot write/run-class.
         "scaffold_plot",
         "run_plot_job",
+        # ADR-053 FR-011 library write-class.
+        "promote_to_user_library",
     }
     tools = _run(mcp.list_tools())
     by_name = {t.name: t for t in tools}
@@ -155,6 +161,8 @@ class _StubRuntime:
     type_registry: TypeRegistry = field(default_factory=TypeRegistry)
     workflow_runs: dict[str, Any] = field(default_factory=dict)
     _project_dir: Path | None = None
+    # ADR-040 Addendum 5 / #1488 member of the MCPContext Protocol.
+    active_workflow_id: str | None = None
 
     @property
     def project_dir(self) -> Path | None:
@@ -162,7 +170,7 @@ class _StubRuntime:
 
 
 @pytest.fixture
-def stub_ctx(tmp_path: Path):
+def stub_ctx(tmp_path: Path) -> Iterator[_StubRuntime]:
     runtime = _StubRuntime(_project_dir=tmp_path)
     runtime.type_registry.scan_builtins()
     _context.set_context(runtime)
@@ -170,7 +178,7 @@ def stub_ctx(tmp_path: Path):
     _context.set_context(None)
 
 
-def test_scaffold_block_warns_on_generic_dataobject_port(stub_ctx, tmp_path: Path) -> None:
+def test_scaffold_block_warns_on_generic_dataobject_port(stub_ctx: _StubRuntime, tmp_path: Path) -> None:
     """ADR-040 §3.2a: warning text fires when a port uses generic DataObject."""
     result = _run(
         tools_authoring.scaffold_block(
@@ -187,7 +195,7 @@ def test_scaffold_block_warns_on_generic_dataobject_port(stub_ctx, tmp_path: Pat
     assert Path(result.path).exists()
 
 
-def test_scaffold_block_warns_on_unregistered_type(stub_ctx, tmp_path: Path) -> None:
+def test_scaffold_block_warns_on_unregistered_type(stub_ctx: _StubRuntime, tmp_path: Path) -> None:
     """ADR-040 §3.2a: warning text fires when a port type isn't in TypeRegistry."""
     result = _run(
         tools_authoring.scaffold_block(
@@ -200,7 +208,7 @@ def test_scaffold_block_warns_on_unregistered_type(stub_ctx, tmp_path: Path) -> 
     assert "unregistered" in joined or "thistypedoesnotexist_xyz" in joined
 
 
-def test_scaffold_block_emits_live_port_and_run_shape(stub_ctx, tmp_path: Path) -> None:
+def test_scaffold_block_emits_live_port_and_run_shape(stub_ctx: _StubRuntime, tmp_path: Path) -> None:
     """F40-integration F2: scaffold template emits the live API shape.
 
     The pre-F2 template emitted ``InputPort(name=..., type=Image)`` and
@@ -298,7 +306,7 @@ def test_finish_ai_block_returns_union_of_ok_or_error(
 # ---------------------------------------------------------------------------
 
 
-def test_preview_dataframe_csv_streams_without_full_load(stub_ctx, tmp_path: Path) -> None:
+def test_preview_dataframe_csv_streams_without_full_load(stub_ctx: _StubRuntime, tmp_path: Path) -> None:
     """Codex P1 (PR #1053): _preview_dataframe must not load the full CSV.
 
     Pre-fix: ``pcsv.read_csv(path).slice(0, 100)`` materialised the
@@ -328,7 +336,7 @@ def test_preview_dataframe_csv_streams_without_full_load(stub_ctx, tmp_path: Pat
     assert result["truncated"] is True, "5000-row CSV must report truncated=True"
 
 
-def test_preview_dataframe_parquet_streams_without_full_load(stub_ctx, tmp_path: Path) -> None:
+def test_preview_dataframe_parquet_streams_without_full_load(stub_ctx: _StubRuntime, tmp_path: Path) -> None:
     """Codex P1 (PR #1053): _preview_dataframe must not load the full Parquet."""
     from scistudio.ai.agent.mcp import tools_inspection
     from scistudio.ai.agent.mcp.tools_inspection import _preview_dataframe
@@ -347,7 +355,7 @@ def test_preview_dataframe_parquet_streams_without_full_load(stub_ctx, tmp_path:
     assert result["truncated"] is True
 
 
-def test_search_docs_top_n_from_full_corpus_not_first_20(stub_ctx, tmp_path: Path) -> None:
+def test_search_docs_top_n_from_full_corpus_not_first_20(stub_ctx: _StubRuntime, tmp_path: Path) -> None:
     """Codex P2 (PR #1053): search_docs top-N must come from full corpus.
 
     Pre-fix: the search loop broke at 20 raw traversal hits, then sorted
@@ -466,7 +474,7 @@ def test_docs_tools_no_env_var_backdoor_into_source_tree(tmp_path: Path, monkeyp
         _context.set_context(None)
 
 
-def test_get_doc_path_is_relative_not_absolute(stub_ctx, tmp_path: Path) -> None:
+def test_get_doc_path_is_relative_not_absolute(stub_ctx: _StubRuntime, tmp_path: Path) -> None:
     """#1097: ``GetDocResult.path`` must not leak absolute developer paths.
 
     Pre-fix: ``path=str(resolved)`` exposed e.g.

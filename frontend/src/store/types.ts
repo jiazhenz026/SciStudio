@@ -10,11 +10,14 @@ import type {
   PreviewTarget,
   ProjectResponse,
   ResolvedSubworkflowPorts,
+  TypeSummary,
+  UserLibraryTarget,
   WorkflowEdge,
   WorkflowEventMessage,
   WorkflowNode,
   WorkflowResponse,
 } from "../types/api";
+import type { DeclaredTypeColors } from "../config/typeColorMap";
 import type { LineageRunDetail, LineageRunSummary } from "../types/lineage";
 import type { BottomTab } from "../types/ui";
 
@@ -392,6 +395,28 @@ export interface PaletteSlice {
 }
 
 /**
+ * ADR-053 §7 — the registered data type catalogue.
+ *
+ * Separate from `PaletteSlice` because FR-027 makes the types listing
+ * independent of the block listing: the Data types tab must not have to fetch
+ * blocks to draw types, and refreshing types must not mean refreshing the
+ * palette. Loading is driven by `store/useTypeCatalog.ts`.
+ */
+export interface TypesSlice {
+  types: TypeSummary[];
+  /** True once `GET /api/types/` has landed at least once. */
+  typesLoaded: boolean;
+  /**
+   * FR-051 step 1 — `name → declared colours`, derived from `types` at set
+   * time. `undefined` until the listing lands (FR-067), which the colour
+   * resolvers read as "declares nothing" and answer with the pre-ADR-053
+   * fallback.
+   */
+  declaredTypeColors: DeclaredTypeColors | undefined;
+  setTypes: (types: TypeSummary[]) => void;
+}
+
+/**
  * ADR-034 Phase 1.3: one PTY-backed terminal tab.
  *
  * State machine:
@@ -709,6 +734,20 @@ export interface FileTab {
    * tab is not persisted across reload (see ``partializeTabs``).
    */
   blockSourceType?: string;
+  /**
+   * ADR-053 FR-032 — set when this tab edits a file in the user-wide library
+   * (``~/.scistudio/blocks`` or ``~/.scistudio/types``) rather than a project
+   * file.
+   *
+   * The new-file flow may write into either destination (FR-030), and FR-032
+   * requires the created file to open **for editing** in both cases — so the
+   * tab needs to know which door to read and write through. ``filePath`` holds
+   * the absolute library path for display; the target plus the basename is
+   * what the endpoint takes. Like a block-source tab, it is not persisted
+   * across reload (see ``partializeTabs``): it lives outside every project, so
+   * the project-file rehydrate path cannot restore it.
+   */
+  userLibraryTarget?: UserLibraryTarget;
 }
 
 /**
@@ -762,6 +801,25 @@ export interface TabSlice {
    * project, so it cannot use the project-file fetch path).
    */
   openBlockSourceTab: (blockType: string) => void;
+  /**
+   * ADR-053 FR-068 — open a read-only tab on a core or packaged type's source.
+   *
+   * Reads ``GET /api/types/{type_name}/source``. Read-only structurally: that
+   * response carries an absolute path and no save route accepts one. A project
+   * or user-library type is opened through `openFileTab` /
+   * `openUserLibraryFileTab` instead, which produce genuinely editable tabs.
+   */
+  openTypeSourceTab: (typeName: string) => void;
+  /**
+   * ADR-053 FR-032 — open (or focus) an editable tab on a user-library file.
+   *
+   * The library sits outside every project root, so the project-file fetch
+   * path cannot reach it; this reads ``GET /api/user-library/file`` and saves
+   * through the matching PUT. Used by the new-file flow when the user chose
+   * the library destination (FR-029/FR-030) — without it, choosing the library
+   * would write a template the user could not then edit.
+   */
+  openUserLibraryFileTab: (target: UserLibraryTarget, filename: string) => void;
   /**
    * ADR-036 §3.10 — save a file tab's content to disk.
    *
@@ -909,6 +967,8 @@ export type AppStore = ProjectSlice &
   UISlice &
   PreviewSlice &
   PaletteSlice &
+  // ADR-053 §7 — the registered data type catalogue.
+  TypesSlice &
   TabSlice &
   TerminalTabsSlice &
   // ADR-038 §3.8 — Lineage tab client state.

@@ -12,11 +12,13 @@
 import { useCallback } from "react";
 
 import type { PromptRequest } from "../components/PromptDialog";
+import { askFileDestination, type FileDestination } from "../components/promotion/dialogChannel";
 import { ApiError, api } from "../lib/api";
 import { chooseSubworkflowFile } from "../lib/chooseSubworkflowFile";
-import { probeProjectFileExistence } from "../lib/fileExistence";
+import { probeProjectFileExistence, probeUserLibraryFileExistence } from "../lib/fileExistence";
 import { useAppStore } from "../store";
-import type { ProjectResponse, WorkflowResponse } from "../types/api";
+import { invalidateTypeCatalog } from "../store/useTypeCatalog";
+import type { ProjectResponse, UserLibraryTarget, WorkflowResponse } from "../types/api";
 
 function emptyWorkflow(id = "main"): WorkflowResponse {
   return {
@@ -65,6 +67,8 @@ export interface ProjectActions {
   deleteProject: (projectId: string) => Promise<void>;
   newWorkflow: () => void;
   createNewCustomBlock: () => Promise<void>;
+  /** ADR-053 FR-032 — "New data type", the type-side twin of the above. */
+  createNewDataType: () => Promise<void>;
   createNewNote: () => Promise<void>;
   importWorkflow: () => Promise<void>;
   /**
@@ -270,6 +274,145 @@ function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   return { openProject, submitProjectDialog, deleteProject };
 }
 
+/**
+ * ADR-053 §8 — everything that differs between "New custom block" and
+ * "New data type".
+ *
+ * FR-033 requires the two flows to share their prompt, validation,
+ * collision-probe, write-dispatch, and open-file steps, and to differ only in
+ * "the target subdirectory and template kind". This record is that difference,
+ * written down: {@link createDropinFile} below is the flow, and it reads every
+ * varying value from here. Two parallel copies would drift the first time
+ * either one changed — which is the whole reason FR-033 exists.
+ */
+interface DropinFileKind {
+  /** Dialog heading, and the noun used in the destination question (FR-029). */
+  title: string;
+  noun: string;
+  defaultStem: string;
+  /** Project-relative drop-in directory, e.g. `blocks/`. */
+  projectDirectory: string;
+  /** The library directory the same tier maps to, for the E4 option copy. */
+  libraryDirectory: string;
+  /** The user library target the library destination writes to (FR-006). */
+  target: UserLibraryTarget;
+  /** FR-028: the type template mirrors the block template's response shape. */
+  fetchTemplate: () => Promise<{ content: string }>;
+}
+
+const NEW_BLOCK_KIND: DropinFileKind = {
+  title: "New custom block",
+  noun: "block",
+  defaultStem: "my_block",
+  projectDirectory: "blocks/",
+  libraryDirectory: "~/.scistudio/blocks/",
+  target: "blocks",
+  fetchTemplate: () => api.getBlockTemplate("basic"),
+};
+
+const NEW_TYPE_KIND: DropinFileKind = {
+  title: "New data type",
+  noun: "data type",
+  defaultStem: "my_data_type",
+  projectDirectory: "types/",
+  libraryDirectory: "~/.scistudio/types/",
+  target: "types",
+  fetchTemplate: () => api.getTypeTemplate("basic"),
+};
+
+/** Shared filename validation — a drop-in must be importable by its stem. */
+function validateDropinStem(value: string): string | null {
+  if (!value) return "Filename must not be empty.";
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) {
+    return "Filename must be a Python identifier (letters, digits, underscores).";
+  }
+  return null;
+}
+
+interface DropinFileDeps {
+  project: ProjectResponse;
+  promptInput: ProjectActionsDeps["promptInput"];
+  openFileTab: ProjectActionsDeps["openFileTab"];
+  openUserLibraryFileTab: (target: UserLibraryTarget, filename: string) => void;
+}
+
+/**
+ * ADR-053 §8 — the one new-drop-in-file flow (FR-029 – FR-033).
+ *
+ * Steps, in order, all shared by both kinds:
+ *
+ *  1. **Ask where it goes** (FR-029, entry point E4). Spec §8 calls this "the
+ *     cheapest possible moment to teach that the library exists, because the
+ *     user is already deciding where their work lives".
+ *  2. Prompt for a filename and validate it as a Python identifier.
+ *  3. **Probe the chosen destination** (FR-031) — the project endpoint or its
+ *     user-library counterpart, one probe protocol either way.
+ *  4. Fetch the template for this kind (FR-028 for types).
+ *  5. Write to the chosen destination (FR-030).
+ *  6. Open the new file for editing, through the tab path that destination
+ *     can actually save back to.
+ */
+async function createDropinFile(kind: DropinFileKind, deps: DropinFileDeps): Promise<void> {
+  const { project, promptInput, openFileTab, openUserLibraryFileTab } = deps;
+
+  const destination: FileDestination | null = await askFileDestination({
+    title: kind.title,
+    noun: kind.noun,
+    projectName: project.name,
+    projectDirectory: kind.projectDirectory,
+    libraryDirectory: kind.libraryDirectory,
+  });
+  if (destination === null) return;
+
+  const stem = await promptInput({
+    title: kind.title,
+    label: "Filename (without .py)",
+    defaultValue: kind.defaultStem,
+    validate: validateDropinStem,
+  });
+  if (stem === null) return;
+
+  const filename = `${stem}.py`;
+  const projectPath = `${kind.projectDirectory}${filename}`;
+  const where = destination === "library" ? "your library" : "this project";
+
+  // Audit 2026-05-14 P1 #2 (project) / ADR-053 FR-031 (library) — probe before
+  // PUT, against whichever destination was chosen.
+  const probe =
+    destination === "library"
+      ? await probeUserLibraryFileExistence(kind.target, filename)
+      : await probeProjectFileExistence(project.id, projectPath);
+  if (probe.kind === "exists") {
+    window.alert(
+      `A ${kind.noun} named "${filename}" already exists in ${where}. Pick another name.`,
+    );
+    return;
+  }
+  if (probe.kind === "unknown") {
+    window.alert(`Failed to check for an existing ${kind.noun}: ${probe.message}`);
+    return;
+  }
+
+  try {
+    const template = await kind.fetchTemplate();
+    if (destination === "library") {
+      await api.putUserLibraryFile(kind.target, filename, template.content, { overwrite: false });
+      // FR-010/FR-062: the write rebuilt the backend registries, so the cached
+      // type catalogue no longer describes them.
+      invalidateTypeCatalog();
+      openUserLibraryFileTab(kind.target, filename);
+    } else {
+      await api.putProjectFile(project.id, projectPath, template.content, {
+        createParentDirs: true,
+      });
+      openFileTab(projectPath);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    window.alert(`Failed to create ${kind.noun}: ${message}`);
+  }
+}
+
 interface FileActionDeps {
   currentProject: ProjectResponse | null;
   openFileTab: ProjectActionsDeps["openFileTab"];
@@ -277,45 +420,37 @@ interface FileActionDeps {
 }
 
 function useFileActions({ currentProject, openFileTab, promptInput }: FileActionDeps) {
-  /** ADR-036 §3.7 / §3.12 (I36c) — "New custom block". */
+  const openUserLibraryFileTab = useAppStore((state) => state.openUserLibraryFileTab);
+
+  /**
+   * ADR-036 §3.7 / §3.12 (I36c) + ADR-053 FR-029 – FR-031 —
+   * "New custom block", now destination-aware.
+   */
   const createNewCustomBlock = useCallback(async () => {
     if (!currentProject) return;
-    const stem = await promptInput({
-      title: "New custom block",
-      label: "Filename (without .py)",
-      defaultValue: "my_block",
-      validate: (value) => {
-        if (!value) return "Filename must not be empty.";
-        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) {
-          return "Filename must be a Python identifier (letters, digits, underscores).";
-        }
-        return null;
-      },
+    await createDropinFile(NEW_BLOCK_KIND, {
+      project: currentProject,
+      promptInput,
+      openFileTab,
+      openUserLibraryFileTab,
     });
-    if (stem === null) return;
-    const trimmed = stem;
-    const filePath = `blocks/${trimmed}.py`;
-    // Audit 2026-05-14 P1 #2 — probe before PUT.
-    const probe = await probeProjectFileExistence(currentProject.id, filePath);
-    if (probe.kind === "exists") {
-      window.alert(`A custom block named "${trimmed}.py" already exists. Pick a different name.`);
-      return;
-    }
-    if (probe.kind === "unknown") {
-      window.alert(`Failed to check for existing block: ${probe.message}`);
-      return;
-    }
-    try {
-      const tpl = await api.getBlockTemplate("basic");
-      await api.putProjectFile(currentProject.id, filePath, tpl.content, {
-        createParentDirs: true,
-      });
-      openFileTab(filePath);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      window.alert(`Failed to create custom block: ${message}`);
-    }
-  }, [currentProject, openFileTab, promptInput]);
+  }, [currentProject, openFileTab, openUserLibraryFileTab, promptInput]);
+
+  /**
+   * ADR-053 FR-032 — "New data type".
+   *
+   * The same call, one argument different (FR-033). Everything the two flows
+   * share is shared because there is only one of it.
+   */
+  const createNewDataType = useCallback(async () => {
+    if (!currentProject) return;
+    await createDropinFile(NEW_TYPE_KIND, {
+      project: currentProject,
+      promptInput,
+      openFileTab,
+      openUserLibraryFileTab,
+    });
+  }, [currentProject, openFileTab, openUserLibraryFileTab, promptInput]);
 
   /** ADR-036 §3.7 / §3.12 (I36c) — "New note" (markdown). */
   const createNewNote = useCallback(async () => {
@@ -360,7 +495,7 @@ function useFileActions({ currentProject, openFileTab, promptInput }: FileAction
     }
   }, [currentProject, openFileTab, promptInput]);
 
-  return { createNewCustomBlock, createNewNote };
+  return { createNewCustomBlock, createNewDataType, createNewNote };
 }
 
 export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
@@ -385,7 +520,7 @@ export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
     loadWorkflowForProject,
   });
 
-  const { createNewCustomBlock, createNewNote } = useFileActions({
+  const { createNewCustomBlock, createNewDataType, createNewNote } = useFileActions({
     currentProject,
     openFileTab,
     promptInput,
@@ -482,6 +617,7 @@ export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
     deleteProject,
     newWorkflow,
     createNewCustomBlock,
+    createNewDataType,
     createNewNote,
     importWorkflow,
     openSubworkflow,

@@ -6,7 +6,9 @@ import {
   createConfirmFileVersion,
   createMarkFileRemoteConflict,
   createOpenBlockSourceTab,
+  createOpenTypeSourceTab,
   createOpenFileTab,
+  createOpenUserLibraryFileTab,
   createSaveFileTab,
   createUpdateFileTabContent,
 } from "./tabSlice.parts/fileTabActions";
@@ -28,6 +30,10 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
 
   openFileTab: createOpenFileTab(set, get),
   openBlockSourceTab: createOpenBlockSourceTab(set, get),
+  // ADR-053 FR-068 — the type-side read-only source tab.
+  openTypeSourceTab: createOpenTypeSourceTab(set, get),
+  // ADR-053 FR-032 — the user library's own editable tab.
+  openUserLibraryFileTab: createOpenUserLibraryFileTab(set, get),
   saveFileTab: createSaveFileTab(set, get),
   updateFileTabContent: createUpdateFileTabContent(set, get),
   confirmFileVersion: createConfirmFileVersion(set, get),

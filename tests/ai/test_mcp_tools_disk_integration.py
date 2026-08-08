@@ -30,9 +30,10 @@ from __future__ import annotations
 import asyncio
 import os
 import threading
+from collections.abc import Coroutine, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import pytest
 
@@ -40,8 +41,10 @@ from scistudio.ai.agent.mcp import _context, tools_inspection, tools_workflow
 from scistudio.blocks.registry import BlockRegistry
 from scistudio.core.types.registry import TypeRegistry
 
+_T = TypeVar("_T")
 
-def _run(coro):
+
+def _run(coro: Coroutine[Any, Any, _T]) -> _T:
     """Run a coroutine synchronously (mirrors test_mcp_fastmcp.py helper)."""
     return asyncio.run(coro)
 
@@ -59,6 +62,7 @@ class _StubRuntime:
     type_registry: TypeRegistry = field(default_factory=TypeRegistry)
     workflow_runs: dict[str, Any] = field(default_factory=dict)
     _project_dir: Path | None = None
+    active_workflow_id: str | None = None
 
     @property
     def project_dir(self) -> Path | None:
@@ -87,7 +91,7 @@ def other_cwd(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def ctx_with_project(project_root: Path, monkeypatch: pytest.MonkeyPatch) -> _StubRuntime:
+def ctx_with_project(project_root: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[_StubRuntime]:
     """Install a runtime stub whose project_dir is *project_root*."""
     runtime = _StubRuntime(_project_dir=project_root)
     runtime.block_registry.scan()
@@ -192,7 +196,7 @@ def test_write_workflow_absolute_outside_project_raises_permission_error(
     # tmp_path is a parent of project_root, so a sibling of project_root
     # is guaranteed to be outside.
     outside = (tmp_path / "outside_target.yaml").resolve()
-    with pytest.raises(PermissionError, match="resolves outside project root"):
+    with pytest.raises(PermissionError, match="resolves outside"):
         _run(tools_workflow.write_workflow(path=str(outside), yaml=_VALID_WF_YAML))
     assert not outside.exists(), "write should not have occurred"
 
@@ -202,7 +206,7 @@ def test_write_workflow_relative_traversal_escape_raises_permission_error(
     project_root: Path,
 ) -> None:
     """A ``../`` escape is normalised and rejected."""
-    with pytest.raises(PermissionError, match="resolves outside project root"):
+    with pytest.raises(PermissionError, match="resolves outside"):
         _run(tools_workflow.write_workflow(path="../escape.yaml", yaml=_VALID_WF_YAML))
     bogus = (project_root.parent / "escape.yaml").resolve()
     assert not bogus.exists()
@@ -364,7 +368,7 @@ def test_edit_workflow_relative_traversal_escape_raises_permission_error(
     project_root: Path,
 ) -> None:
     """A ``../`` escape in the path is normalised and rejected before any read/write."""
-    with pytest.raises(PermissionError, match="resolves outside project root"):
+    with pytest.raises(PermissionError, match="resolves outside"):
         _run(
             tools_workflow.edit_workflow(
                 workflow_path="../escape_edit.yaml",
