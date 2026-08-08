@@ -216,6 +216,96 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-08T04:11:36.770055Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:25eb0f41c52bc242398a6647e5475a0ca9bea53c6e7b9dd685f95ab40961a280",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-08T04:12:28.046127Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:66a9bd32d56a4e7d877eb64e0ae137dadda98481dd7047dc911e128f740543fb",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-08T04:12:37.201515Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6e11478025ec5eb2d08358e483001c4f426f942cdd7758ec71cd767d996c9b11",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-08T04:14:18.159633Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-08T04:15:27.103877Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b34e5aa56c4b965121e5e1d88aad8800688f649236a178f6c2daf153b537751e",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-08T04:17:34.006494Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -384,6 +474,170 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:15:27.145757Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:15:27.158983Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:15:27.171765Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:15:27.184492Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:15:27.197680Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:15:27.211616Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:15:27.225519Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:15:27.238171Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:15:27.250787Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:15:27.266711Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:17:34.056125Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:17:34.069571Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:17:34.083694Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:17:34.097081Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:17:34.111183Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:17:34.124162Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:17:34.136606Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:17:34.149479Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:17:34.162479Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T04:17:34.179877Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -397,34 +651,38 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "origin/track/adr-053-work-import",
-    "base_sha": "ae2190cc",
+    "base_sha": "b1c0fe3a",
     "changed_files": [
       ".workflow/records/2001-2001-work-import-paged-dialog.json",
       "docs/planning/adr-053-work-import-checklist.md",
+      "frontend/src/components/AIChat/SetupScreen.parts/ProviderPicker.tsx",
+      "frontend/src/components/AIChat/__tests__/ProviderPicker.test.tsx",
+      "frontend/src/components/BringInMyWorkDialog.parts/AgentSetup.tsx",
       "frontend/src/components/BringInMyWorkDialog.parts/DataKindsQuestion.tsx",
       "frontend/src/components/BringInMyWorkDialog.parts/FreeTextQuestion.tsx",
       "frontend/src/components/BringInMyWorkDialog.parts/PageNav.tsx",
+      "frontend/src/components/BringInMyWorkDialog.parts/SourceAndDestination.tsx",
+      "frontend/src/components/BringInMyWorkDialog.parts/availability.ts",
       "frontend/src/components/BringInMyWorkDialog.parts/copy.ts",
       "frontend/src/components/BringInMyWorkDialog.parts/formState.ts",
-      "frontend/src/components/BringInMyWorkDialog.parts/pages.ts",
       "frontend/src/components/BringInMyWorkDialog.tsx",
-      "frontend/src/components/__tests__/BringInMyWorkDialog.harness.tsx",
       "frontend/src/components/__tests__/BringInMyWorkDialog.test.tsx",
-      "frontend/src/components/__tests__/BringInMyWorkDialogPaging.test.tsx"
+      "frontend/src/components/__tests__/BringInMyWorkDialogPaging.test.tsx",
+      "frontend/src/components/__tests__/workImport.test.ts"
     ],
-    "diff_fingerprint": "sha256:b08cd3a7ae0204e62ff2573a7ce5fc2344cccc4950417a014a826a8d848f6df6",
+    "diff_fingerprint": "sha256:f8bae3dc83db23339d9ffcfcaf5addbcb0e5546d30ecf7c84fc0409296e8d48e",
     "head": "HEAD",
-    "head_sha": "2be9dbf1",
+    "head_sha": "9f4391dc",
     "surfaces": {
       "docs": 1,
-      "frontend": 10,
+      "frontend": 14,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 10,
+      "implementation": 14,
       "packaging": 0,
       "protected_core": 0,
-      "sentrux": 10,
-      "test": 3,
+      "sentrux": 14,
+      "test": 4,
       "workflow_ci": 0
     }
   },
@@ -445,6 +703,26 @@
     {
       "at": "2026-08-08T00:43:06.365903Z",
       "diff_fingerprint": "sha256:b08cd3a7ae0204e62ff2573a7ce5fc2344cccc4950417a014a826a8d848f6df6",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-08T04:15:27.266734Z",
+      "diff_fingerprint": "sha256:f8bae3dc83db23339d9ffcfcaf5addbcb0e5546d30ecf7c84fc0409296e8d48e",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-08T04:17:34.179904Z",
+      "diff_fingerprint": "sha256:f8bae3dc83db23339d9ffcfcaf5addbcb0e5546d30ecf7c84fc0409296e8d48e",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 1,
@@ -520,6 +798,24 @@
       "at": "2026-08-08T00:11:33.579104Z",
       "pattern": ".workflow/records/**",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T04:03:14.418138Z",
+      "pattern": "frontend/src/components/AIChat/SetupScreen.parts/ProviderPicker.tsx",
+      "reason": "Owner copy pass (2026-08-08), relayed by the manager: replace the work-import dialog's separate unusable-provider block with the AI chat's one-dropdown pattern. The manager explicitly lifted the ProviderPicker out-of-scope restriction for this, because FR-042 requires ONE provider-selection implementation and extending the shared component additively serves that better than a fork. The new optional optionOverrides prop is inert when omitted, and a new regression test beside the component pins that the AI chat's rendering is unchanged."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T04:03:14.418155Z",
+      "pattern": "frontend/src/components/AIChat/__tests__/ProviderPicker.test.tsx",
+      "reason": "Owner copy pass (2026-08-08), relayed by the manager: replace the work-import dialog's separate unusable-provider block with the AI chat's one-dropdown pattern. The manager explicitly lifted the ProviderPicker out-of-scope restriction for this, because FR-042 requires ONE provider-selection implementation and extending the shared component additively serves that better than a fork. The new optional optionOverrides prop is inert when omitted, and a new regression test beside the component pins that the AI chat's rendering is unchanged."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T04:08:21.545726Z",
+      "pattern": "frontend/src/components/__tests__/workImport.test.ts",
+      "reason": "One assertion in frontend/src/components/__tests__/workImport.test.ts pinned the old wording of blockingReasons' question-2 sentence, which the owner's 2026-08-08 copy pass rewrote. Re-pointed at the exported REASON_NO_WORKFLOW_DESCRIPTION constant so the test asserts the rule rather than a phrase. No other assertion in that file changed."
     }
   ],
   "session_id": "cab1b9fd-819c-4c41-a2da-aa0e4de3e358",
@@ -539,6 +835,22 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/__tests__/BringInMyWorkDialogPaging.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T04:03:14.418160Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/ProviderPicker.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T04:08:21.545757Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/workImport.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }

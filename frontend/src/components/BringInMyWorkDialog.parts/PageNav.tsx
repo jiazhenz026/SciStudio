@@ -9,16 +9,29 @@
  * which one they are on, and — because completed steps are clickable — that
  * going back costs nothing.
  *
- * FR-020 — THE SKIP LIVES HERE, next to Next, and that placement is the whole
- * argument. On the scrolling page a skip was a checkbox under the box, and a
- * checkbox reads as a thing you tick when you have given up. As a peer of the
- * button that moves you on it reads as what FR-020 says it is: a second, equally
- * legitimate way to answer the question — the user telling the agent to work it
- * out. Its label and its consequence are the same words as before
- * (`SKIP_LABEL`, `SKIP_HELP`), because that copy is what makes the choice
- * legible and it is reproduced to the agent.
+ * FR-020 — THE SKIP LIVES HERE, next to Next, AND THAT IS NOW THE ONLY THING
+ * CARRYING THE REQUIREMENT.
+ *
+ * FR-020 wants a skip to read as a legitimate choice — the user telling the
+ * agent to work it out — rather than as an abandoned field. It used to say so
+ * in words: the button read "Skip — let the agent work this out" and a sentence
+ * under it explained what the agent would be told. The owner cut both as filler
+ * (2026-08-08). What is left is the structure, and the structure has to be
+ * enough, so these three properties are the requirement now:
+ *
+ *   1. Skip is a `<button>`, not a checkbox. A checkbox under an input reads as
+ *      a thing you tick when you have given up on the input.
+ *   2. It sits in this navigation row as a SIBLING OF THE PRIMARY ACTION, in
+ *      the same cluster, at the same size — a peer of "Next", not a footnote.
+ *   3. It is in the navigation row at all, rather than inside the question,
+ *      which is what makes it read as a way of MOVING ON rather than as a way
+ *      of failing to answer.
+ *
+ * Demote it — back into a checkbox, into the question body, into a text link —
+ * and FR-020 goes with it silently, because no copy is left that would notice.
+ * `BringInMyWorkDialog.test.tsx` asserts all three properties directly.
  */
-import { BACK_LABEL, PROGRESS_LABEL, SKIP_HELP, SKIP_LABEL, stepStatus } from "./copy";
+import { BACK_LABEL, PROGRESS_LABEL, SKIP_LABEL, stepStatus } from "./copy";
 
 export interface PageNavAction {
   label: string;
@@ -102,11 +115,11 @@ export function PageNav({ stepIndex, titles, onGoTo, onBack, skip, action }: Pag
           {BACK_LABEL}
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" data-testid="work-import-nav-actions">
           {skip ? (
             <button
               type="button"
-              className="rounded-full border border-stone-300 px-4 py-2 text-sm text-stone-600 hover:bg-stone-100"
+              className="rounded-full border border-stone-300 px-5 py-2 text-sm text-ink hover:bg-stone-100"
               data-testid={skip.testId}
               onClick={skip.onSkip}
             >
@@ -126,17 +139,6 @@ export function PageNav({ stepIndex, titles, onGoTo, onBack, skip, action }: Pag
           ) : null}
         </div>
       </div>
-
-      {/*
-       * What skipping does, said where the skip is. FR-020's "legitimate choice"
-       * half is carried by this sentence: the agent is told, so the user is
-       * handing it a decision rather than leaving a hole.
-       */}
-      {skip ? (
-        <p className="text-right text-xs text-stone-500" data-testid="work-import-skip-help">
-          {SKIP_HELP}
-        </p>
-      ) : null}
     </div>
   );
 }

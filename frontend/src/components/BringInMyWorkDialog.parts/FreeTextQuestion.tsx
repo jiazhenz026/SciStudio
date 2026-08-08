@@ -20,11 +20,15 @@
  * FR-020 — the skip control moved to the navigation row, beside Next, where it
  * reads as the second way to answer rather than as a box you tick when you give
  * up. What stays here is what a skip looks like when the user comes BACK to the
- * page: without `SKIPPED_NOTE` a returned-to skip is indistinguishable from a
- * blank they forgot, which is the exact reading FR-020 rules out. Typing takes
- * the skip back, so the note never becomes a trap.
+ * page: a `Skipped` chip beside the label, so a skip is distinguishable from a
+ * blank they forgot, which is the exact reading FR-020 rules out. It is a bare
+ * state word and not a sentence — the sentence that used to explain what
+ * skipping does to the agent was cut as filler (owner, 2026-08-08) — and it is
+ * NEUTRAL in colour, never the attention colour, because that colour means
+ * "required and unanswered" and a skip is a legitimate answer. Typing takes the
+ * skip back, so the chip never becomes a trap.
  */
-import { REQUIRED_MARKER, SKIPPED_NOTE } from "./copy";
+import { REQUIRED_MARKER, SKIPPED_MARKER } from "./copy";
 import type { OptionalAnswer } from "./formState";
 
 export interface FreeTextQuestionProps {
@@ -66,18 +70,18 @@ export function FreeTextQuestion({
             {REQUIRED_MARKER}
           </span>
         ) : null}
+        {skipped ? (
+          <span
+            className="ml-2 rounded-full bg-stone-200 px-2 py-0.5 align-middle text-xs font-normal text-stone-600"
+            data-testid={`work-import-${id}-skipped`}
+          >
+            {SKIPPED_MARKER}
+          </span>
+        ) : null}
       </label>
       <p className="text-sm text-stone-600" data-testid={`work-import-${id}-help`}>
         {help}
       </p>
-      {skipped ? (
-        <p
-          className="rounded-2xl bg-stone-100 px-3 py-2 text-xs text-stone-600"
-          data-testid={`work-import-${id}-skipped`}
-        >
-          {SKIPPED_NOTE}
-        </p>
-      ) : null}
       <textarea
         id={`work-import-${id}-input`}
         className="min-h-[9rem] rounded-2xl border border-stone-300 px-3 py-2 text-sm text-ink"

@@ -15,6 +15,7 @@ import {
   buildRequest,
   INITIAL_FORM_STATE,
   blockingReasons,
+  REASON_NO_WORKFLOW_DESCRIPTION,
   type WorkImportFormState,
 } from "../BringInMyWorkDialog.parts/formState";
 import {
@@ -158,7 +159,13 @@ describe("blockingReasons (FR-017, FR-020)", () => {
       projectDir: "/p",
       agentUsable: true,
     });
-    expect(noCodebase.some((r) => /only description of your work/.test(r))).toBe(true);
+    // The sentence states the fact and stops. It used to carry its own
+    // justification ("With no codebase to read, this is the only description of
+    // your work the agent will have"), which the owner read as condescending
+    // on 2026-08-08 — and which is already on the page as question 2's
+    // no-codebase help text, three inches above the box.
+    expect(noCodebase).toContain(REASON_NO_WORKFLOW_DESCRIPTION);
+    expect(REASON_NO_WORKFLOW_DESCRIPTION).toMatch(/^Required:/);
   });
 });
 

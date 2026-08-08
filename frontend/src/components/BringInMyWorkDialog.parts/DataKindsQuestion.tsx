@@ -15,7 +15,7 @@
  * routing mechanism. There is deliberately no lookup from a preset to a type,
  * a package, or a code path anywhere below.
  */
-import { DATA_KIND_GROUPS, Q1_HELP, Q1_LABEL, Q1_OTHER_LABEL, Q1_OTHER_PLACEHOLDER } from "./copy";
+import { DATA_KIND_GROUPS, Q1_LABEL, Q1_OTHER_LABEL, Q1_OTHER_PLACEHOLDER } from "./copy";
 
 export interface DataKindsQuestionProps {
   selected: string[];
@@ -46,8 +46,17 @@ export function DataKindsQuestion({
       tabIndex={-1}
     >
       <h3 className="font-display text-xl text-ink">{Q1_LABEL}</h3>
-      <p className="text-sm text-stone-600">{Q1_HELP}</p>
 
+      {/*
+       * FR-014 rests entirely on what is below this line now. A sentence used to
+       * say "the two lists describe the same data in different ways, so picking
+       * from both is normal"; it was cut as padding (owner, 2026-08-08), and
+       * FR-014's own wording asks for the presets to be "visually grouped so it
+       * is clear both may be selected, rather than presented as one flat list" —
+       * a requirement about structure, which is what these two labelled,
+       * bordered boxes with their own legends are. Flatten them, or drop the
+       * legends, and the requirement is gone with no copy left to notice.
+       */}
       <div className="grid gap-3 sm:grid-cols-2">
         {DATA_KIND_GROUPS.map((group) => (
           <fieldset
@@ -55,7 +64,8 @@ export function DataKindsQuestion({
             className="grid gap-1 rounded-2xl border border-stone-300 px-3 py-2"
             data-testid={`work-import-data-kind-group-${group.id}`}
           >
-            <legend className="px-1 text-xs uppercase tracking-wide text-stone-500">
+            {/* The legend is load-bearing for FR-014, not a caption. */}
+            <legend className="px-1 text-xs font-medium uppercase tracking-wide text-stone-600">
               {group.legend}
             </legend>
             {group.options.map((option) => (

@@ -10,7 +10,6 @@ import {
   NO_CODEBASE_HELP,
   NO_CODEBASE_LABEL,
   SOURCE_BROWSE_LABEL,
-  SOURCE_HELP,
   SOURCE_LABEL,
   SOURCE_PLACEHOLDER,
 } from "./copy";
@@ -35,10 +34,14 @@ export function SourceAndDestination({
   return (
     <div className="grid gap-4">
       <div className="grid gap-2">
+        {/*
+         * Label, box, button. No help line: the label asks the question, the
+         * placeholder says a folder, and the button says Browse (owner,
+         * 2026-08-08 — page one was padded).
+         */}
         <label className="text-sm font-medium text-ink" htmlFor="work-import-source">
           {SOURCE_LABEL}
         </label>
-        <p className="text-xs text-stone-500">{SOURCE_HELP}</p>
         <div className="flex gap-2">
           <input
             id="work-import-source"

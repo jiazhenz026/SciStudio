@@ -98,23 +98,29 @@ export function sourceFieldDisabled(state: WorkImportFormState): boolean {
 }
 
 /**
- * The sentences the dialog says when something is still missing.
+ * What the dialog says when something is still missing.
  *
  * Named constants rather than literals inside `blockingReasons`, because since
  * paging the same requirement is enforced in two places: on the page that asks
  * for it (`pages.ts`, which blocks the user leaving that page) and once more
  * over the whole form before the request is built. Two copies of a sentence
  * would drift, and a user would meet two different wordings for one problem.
+ *
+ * EACH ONE STATES A FACT AND STOPS. The earlier wording coaxed — the list was
+ * introduced with "Before you go on:" and each line was an instruction with its
+ * reasoning attached ("Describe your analysis workflow. With no codebase to
+ * read, this is the only description of your work the agent will have."). The
+ * owner read that as disrespectful (2026-08-08), and the reasoning was already
+ * on the page: it is the question's own help text, three inches above. So a
+ * required field says `Required:` and names itself, and the two conditions that
+ * are not required fields say what is wrong in one clause.
  */
-export const REASON_NO_PROJECT =
-  "Open a project first. A session writes its blocks into a project.";
-export const REASON_NO_SOURCE = 'Say where your work is, or choose "I don\'t have a codebase".';
-export const REASON_NO_DATA_KIND = "Choose at least one kind of data, or write in your own.";
-export const REASON_NO_WORKFLOW_DESCRIPTION =
-  "Describe your analysis workflow. With no codebase to read, this is the only " +
-  "description of your work the agent will have.";
+export const REASON_NO_PROJECT = "Open a project first.";
+export const REASON_NO_SOURCE = 'Required: where your work is, or "I don\'t have a codebase".';
+export const REASON_NO_DATA_KIND = "Required: at least one kind of data, or your own.";
+export const REASON_NO_WORKFLOW_DESCRIPTION = "Required: a description of your workflow.";
 export const REASON_NO_AGENT = "No agent is ready to run the session.";
-export const REASON_NO_PROVIDER = "Choose which agent runs the session.";
+export const REASON_NO_PROVIDER = "Required: which agent runs the session.";
 
 /**
  * What still stands between the user and a session, in the user's own words.

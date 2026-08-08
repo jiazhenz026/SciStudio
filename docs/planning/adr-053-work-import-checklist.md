@@ -900,6 +900,105 @@ connected in this session**; the ledger's own `sentrux_gate` ran under `check`.
       (FR-042), all of `src/scistudio/**`, `docs/specs/**`, `docs/adr/**` and
       `pyproject.toml` are absent from the diff.
 
+### 11.7 Follow-Up: Owner Copy Pass (2026-08-08)
+
+- Same owner, same branch and gate ledger as §11.6. Paging itself accepted; this
+  is copy plus one behavioural change to the provider picker.
+- The pattern behind every item: **the owner wants the affordance, not the
+  sentence explaining the affordance.**
+
+- [x] Deleted outright — nine strings, not reworded
+      -> `DIALOG_LEAD` (page-1 intro), `SOURCE_HELP`, `Q1_HELP`, `SKIP_HELP`,
+      `START_HELP`, `BLOCKED_LEAD` ("Before you go on:"),
+      `NO_AGENT_BLOCKS_PAGING`, `PARTIAL_AVAILABILITY_NOTE`, and the long
+      per-provider remedy lines beside the picker. `SKIP_LABEL` trimmed to
+      `"Skip"`; `SKIPPED_NOTE` replaced by `SKIPPED_MARKER` (`"Skipped"`), a
+      chip rather than prose. `START_HELP` and `PARTIAL_AVAILABILITY_NOTE` were
+      my judgement under the owner's stated rule, reported for review.
+- [x] FR-014 re-based on structure (owner cut the sentence that carried it)
+      -> the two labelled, bordered `fieldset` groups with their own legends are
+      what FR-014 actually names ("visually grouped … rather than … one flat
+      list"). `BringInMyWorkDialog.test.tsx` now asserts the two groups exist
+      separately, each legend is visible, each group holds its own options, and
+      the two competing readings ("Series" / "Time series") are both selectable.
+- [x] FR-020 re-based on structure (owner cut the copy that carried it)
+      -> three properties, each asserted directly: Skip is a `<button>` not a
+      checkbox; it is a sibling of the primary action inside
+      `work-import-nav-actions`; it lives in the navigation row, not in the
+      question body. Documented in `PageNav.tsx` and `copy.ts` so a change that
+      demotes the control is visibly a change to FR-020.
+- [x] One dropdown for every provider, replacing the note beside the picker
+      -> `AgentSetup.tsx` no longer renders an unusable-provider block at all.
+      Every provider is an option in the reused `ProviderPicker`, greyed and
+      disabled when it cannot run a session, with a short suffix naming its
+      state (`(not installed)`, `(not signed in)`, `(call failed)`,
+      `(not available)`). The AI chat's pattern, per the owner.
+- [x] `ProviderPicker` extended, not forked (FR-042)
+      -> new optional prop `optionOverrides?: Readonly<Record<string,
+      ProviderOptionOverride>>`, where `ProviderOptionOverride = { hint: string
+      | null; selectable: boolean }`. Absent or missing an entry, the component
+      falls back per provider to today's `available`/`logged_in` derivation, so
+      the AI chat is untouched. Both the option ordering and the `disabled`
+      attribute read one predicate, `isSelectable`, so a greyed provider cannot
+      sort as if it were choosable. **Scope**: `ProviderPicker.tsx` was outside
+      §11.1's write set; the manager lifted that restriction explicitly for this
+      change, recorded as a gate-ledger amendment.
+- [x] Regression test proving the AI chat is unchanged
+      -> new `frontend/src/components/AIChat/__tests__/ProviderPicker.test.tsx`.
+      Renders the picker exactly as the chat does — no `optionOverrides` — and
+      pins the whole option list as data: value, text and `disabled` for every
+      entry including the placeholder, in DOM order, over rows covering all four
+      two-boolean combinations. A third case passes an override map naming a
+      provider that is not in the list, pinning per-provider fallback. Existing
+      `SetupScreen.test.tsx` and `ProviderExtensibility.test.tsx` pass unchanged.
+- [x] `not_authenticated` is greyed here although the AI chat allows it
+      -> verified against the spawn rather than assumed. `spawn_agent` appends
+      the opening line as a positional argv element
+      (`terminal.py::_initial_prompt_argv`, the `[-- <prompt>]` tail), so there
+      is exactly one delivery attempt and it happens at process start; nothing
+      types it into the PTY afterwards. That line is the agent's only route to
+      the brief, which is its only source of instructions (FR-024, FR-028).
+      Independently, contract C1 grades `ready` only on a live minimal call
+      succeeding (FR-033), which a signed-out CLI cannot do, so `isUsable`
+      already excludes it and `canStart` would refuse it — a selectable option
+      the dialog then refuses to start on is worse than a greyed one.
+- [x] The dead-end guidance survives (FR-031, SC-002, both audits' P2)
+      -> `AvailabilityGuidance` is unchanged and still renders **only** when no
+      provider is usable, in place of the picker and the start action, still
+      blocking page 1. `AgentSetup.tsx` documents the two branches as answers to
+      two different questions so a later reader does not unify them.
+- [x] Required-field message: direct, and in the attention colour, on every
+      blocking page
+      -> the lead-in is gone and each reason states the fact
+      (`Required: where your work is, or "I don't have a codebase".`). Rendered
+      with `role="alert" aria-live="assertive"` on `bg-red-50` / `text-red-700`,
+      matching `frontend/src/components/Git/CommitDialog.tsx` — the
+      repository's existing dialog error treatment. Applies to pages 1, 2 and 3
+      (question 2 in no-codebase mode) because it renders in the shared footer
+      for whichever page is blocking. FR-020's other half is asserted: the
+      attention colour never reaches a skipped question, which keeps a neutral
+      chip.
+- [x] Guard against the filler returning
+      -> `BringInMyWorkDialog.test.tsx` walks every page asserting the nine cut
+      phrases are absent by their exact words, so a re-add is a visible test
+      edit rather than a silent regression.
+- [x] Frontend tests
+      -> `npx vitest run BringInMyWorkDialog` — 61 tests; `npx vitest run
+      ProviderPicker SetupScreen ProviderExtensibility` — 28 tests. Full suite
+      `npx vitest run` — **125 files / 1265 tests passing**. `npm run lint` 0
+      errors and the same 40 pre-existing warnings; `tsc --noEmit` clean;
+      `prettier --check .` clean.
+
+**Reported, not fixed — out of scope.** `Install the Qoder CLI CLI` is composed
+by `install_hint` in `src/scistudio/ai/agent/availability.py:659` (A1's file,
+#2000): `f"Install the {descriptor.label} CLI so that …"` appends `CLI` to a
+label that already ends in it. Two providers are affected — `Qoder CLI` and
+`Qoder CLI (China)` — and `src/scistudio/blocks/ai/ai_block.py:604` repeats the
+pattern in its own error text. The fix is to use the label as-is when it already
+contains `CLI` as a word. Not applied: the manager's scope lift covered
+`ProviderPicker.tsx` only, and `src/scistudio/**` belongs to another track. After
+this change the string appears only in the no-usable-provider guidance.
+
 ## 12. Verification Evidence
 
 All commands below were run by the manager on the **integrated** umbrella tree

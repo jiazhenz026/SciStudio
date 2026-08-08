@@ -39,9 +39,21 @@ export const ENTRY_LABEL = "Bring in my work";
 
 export const DIALOG_EYEBROW = "Bring in my work";
 export const DIALOG_TITLE = "Carry your existing analysis across";
-export const DIALOG_LEAD =
-  "You already have a way of doing this work. Tell us a little about it and an agent " +
-  "will sit with you and rebuild it here, step by step, asking you whatever it needs.";
+
+/*
+ * THERE IS NO INTRODUCTION, AND THAT IS A DECISION (owner, 2026-08-08).
+ *
+ * Page one used to open with "You already have a way of doing this work. Tell
+ * us a little about it and an agent will sit with you and rebuild it here…" —
+ * two sentences of preamble above a page of controls that say the same thing by
+ * being there. The owner's verdict on the whole first page was that it is
+ * padded, and a user who has just clicked "Bring in my work" does not need to
+ * be told what bringing in their work is.
+ *
+ * The rule that produced this deletion applies to everything in this file:
+ * WHERE A CONTROL ALREADY SAYS WHAT IT DOES, THE SENTENCE EXPLAINING IT IS
+ * FILLER. Adding one back is a change, not a restoration.
+ */
 
 /** Shown when the toolbar entry is reached with no project open (FR-002). */
 export const NO_PROJECT_MESSAGE =
@@ -79,9 +91,14 @@ export const CAVEAT_BODY =
 // Source and destination (FR-008 – FR-012).
 // ---------------------------------------------------------------------------
 
+/*
+ * The label and the placeholder are the whole question. The help line that used
+ * to sit under it — "Point us at the folder your analysis lives in. The agent
+ * reads it; it never changes it." — restated a field labelled "Where is your
+ * work?" next to a button labelled "Browse…" and a box reading "Choose a
+ * folder…", and was cut with the rest of page one's padding (owner, 2026-08-08).
+ */
 export const SOURCE_LABEL = "Where is your work?";
-export const SOURCE_HELP =
-  "Point us at the folder your analysis lives in. The agent reads it; it never changes it.";
 export const SOURCE_PLACEHOLDER = "Choose a folder…";
 export const SOURCE_BROWSE_LABEL = "Browse…";
 
@@ -114,15 +131,21 @@ export const DESTINATION_OPTIONS = [
 // ---------------------------------------------------------------------------
 
 export const Q1_LABEL = "What kind of data do you usually work with?";
-export const Q1_HELP =
-  "Pick everything that applies. The two lists describe the same data in different ways, " +
-  "so picking from both is normal.";
 
 /**
  * FR-014 — the presets cover two different levels of abstraction, and they are
  * grouped so it is clear both may be selected. A scientist says "time series",
  * not "Series"; in one flat list those two readings of the same data compete
  * and the user picks one when both are true.
+ *
+ * THE GROUPING IS NOW THE ONLY THING CARRYING FR-014, so it is not decoration.
+ * A help line used to say the quiet part out loud — "The two lists describe the
+ * same data in different ways, so picking from both is normal" — and it was cut
+ * as padding (owner, 2026-08-08). FR-014 asks for the presets to be "visually
+ * grouped so it is clear both may be selected, rather than presented as one
+ * flat list", which is a statement about structure; the sentence was one way to
+ * carry it and the two labelled boxes are the way the requirement names.
+ * Flattening these groups, or dropping their legends, removes the requirement.
  *
  * FR-015 — these are context, never a routing mechanism. Nothing downstream
  * branches on a selection; the agent builds what it needs from core types and
@@ -214,12 +237,35 @@ export const Q4_PLACEHOLDER = "e.g. Fiji for the segmentation, Prism for the fin
  * FR-020 — the skip affordance.
  *
  * A skip must read as a legitimate choice — the user telling the agent to work
- * it out — rather than as a field they gave up on. Hence a labelled control
- * with its own sentence, not a greyed-out box the user walks past.
+ * it out — rather than as a field they gave up on. IT NOW CARRIES THAT
+ * STRUCTURALLY RATHER THAN VERBALLY, and that shift is the thing to preserve.
+ *
+ * The label used to be "Skip — let the agent work this out" and it was followed
+ * by a sentence, "The agent is told you skipped this, so it knows to ask rather
+ * than assume." The owner cut both as filler (2026-08-08): *skip 就是 skip*.
+ * What makes the choice legitimate now is where the control is — a button of
+ * its own, sitting beside Next as its peer in the navigation row, the same size
+ * and the same prominence, rather than a checkbox tucked under the input where
+ * a skip reads as giving up on a field.
+ *
+ * SO: FR-020 depends on `PageNav` keeping Skip a sibling button of Next. A
+ * later change that demotes it to a checkbox, hides it in the question body, or
+ * styles it as secondary-to-the-point-of-invisible takes FR-020 with it, and
+ * there is no longer any copy that would notice. `BringInMyWorkDialog.test.tsx`
+ * asserts that structure directly for exactly this reason.
  */
-export const SKIP_LABEL = "Skip — let the agent work this out";
-export const SKIP_HELP =
-  "The agent is told you skipped this, so it knows to ask rather than assume.";
+export const SKIP_LABEL = "Skip";
+
+/**
+ * The marker on a question the user skipped, shown when they page back to it.
+ *
+ * A bare state word, deliberately — it exists so a skip is distinguishable from
+ * a blank the user forgot, which is the one thing FR-020 needs it to do. It is
+ * the counterpart of `REQUIRED_MARKER` and renders the same way: a chip beside
+ * the label, in a neutral colour. Never the attention colour — that belongs to
+ * "required and unanswered", and a skip is neither.
+ */
+export const SKIPPED_MARKER = "Skipped";
 
 export const REQUIRED_MARKER = "Required";
 
@@ -313,18 +359,41 @@ export const NO_PROVIDERS_BODY =
   "SciStudio has no agent providers registered, so there is nothing to check. This " +
   "is a fault in this build rather than anything on your computer — please report it.";
 
-/** Shown next to a usable provider list when some providers are not usable (FR-005). */
-export const PARTIAL_AVAILABILITY_NOTE =
-  "These agents are not usable right now. You can still start with one of the agents above.";
+/*
+ * THERE IS NO NOTE BESIDE THE PICKER (owner, 2026-08-08).
+ *
+ * A paragraph used to sit under the provider picker when some agents were
+ * usable and some were not — "These agents are not usable right now. You can
+ * still start with one of the agents above." — followed by a full remedy for
+ * each. The whole block is gone: every provider is now an option in the one
+ * dropdown, greyed with a short suffix when it cannot run a session, which is
+ * what the AI chat does. `AgentSetup` carries the reasoning, and
+ * `availability.ts::PROVIDER_STATE_HINT` carries the suffixes.
+ *
+ * The per-state guidance below this line survives untouched, and only renders
+ * when NO provider is usable. It is not a longer version of the suffix; it is
+ * the only thing on screen in the one state where the user has to act.
+ */
 
 export const START_LABEL = "Start session";
 export const STARTING_LABEL = "Starting…";
 export const CANCEL_LABEL = "Cancel";
 
-/** What the session is (FR-025) — a starting point, not a wizard. */
-export const START_HELP =
-  "This opens an ordinary chat session with everything you just told us already loaded. " +
-  "You can talk to it, redirect it, and end it whenever you like.";
+/*
+ * THE START ACTION EXPLAINS ITSELF, so there is no help line under it.
+ *
+ * It used to carry "This opens an ordinary chat session with everything you
+ * just told us already loaded. You can talk to it, redirect it, and end it
+ * whenever you like." Two reasons it is gone (owner, 2026-08-08). It describes
+ * what a button labelled "Start session" does, which is the pattern being cut
+ * everywhere on these pages. And it sat directly above the correctness caveat,
+ * which is the one paragraph on that page a user MUST read (FR-037, FR-038,
+ * ADR-053 §5.1) — a second grey paragraph competing with it made the page worse
+ * at the only job it cannot fail at.
+ *
+ * FR-025 is unaffected: it requires the spawned session to BE an ordinary chat
+ * session, which it is, not that the dialog say so.
+ */
 
 // ---------------------------------------------------------------------------
 // Paging — navigation copy only.
@@ -369,23 +438,25 @@ export function stepStatus(step: number, total: number): string {
 export const BACK_LABEL = "Back";
 export const NEXT_LABEL = "Next";
 
-/**
- * FR-020 — what a page the user skipped says when they come back to it.
+/*
+ * THE BLOCKED-PAGE MESSAGE HAS NO LEAD-IN AND NO EXPLANATION.
  *
- * Without this a returned-to skip is indistinguishable from a blank the user
- * forgot, which is exactly the reading FR-020 rules out. Typing an answer takes
- * the skip back, so the note says nothing about it being final.
+ * It used to open with "Before you go on:", which the owner read as
+ * disrespectful (2026-08-08) — the dialog coaxing an adult through a form. The
+ * reasons themselves now state the fact and nothing else, each one beginning
+ * "Required:" where it is a required field; they live with the rules that
+ * produce them, in `formState.ts`.
+ *
+ * The other half of that note was about colour: an incomplete page has to be
+ * visible at a glance rather than read for, so the message renders in the
+ * repository's dialog error treatment (`bg-red-50` / `text-red-700`, the shape
+ * `Git/CommitDialog.tsx` uses) rather than in a muted hint colour, on EVERY
+ * page that can block. FR-020's other half is why that treatment must never
+ * reach a skip: attention colour means "required and unanswered", and a skipped
+ * question is a legitimate answer.
+ *
+ * There is also no sentence explaining why the setup page holds the user when
+ * no agent is usable. The blocked-page message already says "No agent is ready
+ * to run the session."; a second line saying there is no point answering the
+ * questions yet was the same fact twice (owner, 2026-08-08).
  */
-export const SKIPPED_NOTE = "You skipped this — the agent will ask rather than assume.";
-
-/** Introduces the reason a page cannot be left yet (FR-020). */
-export const BLOCKED_LEAD = "Before you go on:";
-
-/**
- * FR-005, on the setup page. The agent is chosen here, so this is where a user
- * finds out that none can run the session — not after five pages of answers
- * that cannot be submitted.
- */
-export const NO_AGENT_BLOCKS_PAGING =
-  "The questions come next, but there is no point answering them until an agent " +
-  "can run the session.";

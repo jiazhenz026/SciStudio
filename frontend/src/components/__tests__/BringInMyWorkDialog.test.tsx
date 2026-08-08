@@ -28,6 +28,7 @@ vi.mock("../../lib/api", async () => {
 import { BringInMyWorkDialog } from "../BringInMyWorkDialog";
 import {
   CAVEAT_BODY,
+  DATA_KIND_GROUPS,
   Q1_LABEL,
   Q2_LABEL,
   Q3_LABEL,
@@ -171,15 +172,34 @@ describe("FR-008 – FR-010 — source, browse, and the no-codebase path", () =>
 
 describe("FR-013 – FR-015 — question 1", () => {
   it("groups the presets so both readings of the same data can be selected", async () => {
+    // FR-014 IS NOW CARRIED ENTIRELY BY THIS STRUCTURE. A sentence used to say
+    // "the two lists describe the same data in different ways, so picking from
+    // both is normal"; the owner cut it as padding (2026-08-08). FR-014 asks
+    // for the presets to be "visually grouped so it is clear both may be
+    // selected, rather than presented as one flat list", which is a
+    // requirement about structure — so the structure is what is pinned: two
+    // separate groups, each with its own visible legend, holding the two
+    // competing readings, both selectable at once.
     renderDialog();
     await settled();
     walkTo("q1");
 
     const arrangement = screen.getByTestId("work-import-data-kind-group-arrangement");
     const domain = screen.getByTestId("work-import-data-kind-group-domain");
+    expect(arrangement).not.toBe(domain);
+    for (const group of DATA_KIND_GROUPS) {
+      const fieldset = screen.getByTestId(`work-import-data-kind-group-${group.id}`);
+      // A legend the user can read, not a bare box.
+      expect(within(fieldset).getByText(group.legend)).toBeVisible();
+      for (const option of group.options) {
+        expect(within(fieldset).getByTestId(`work-import-data-kind-${option}`)).toBeTruthy();
+      }
+    }
+
+    // The two readings of the same data live in different groups…
     expect(within(arrangement).getByTestId("work-import-data-kind-Series")).toBeTruthy();
     expect(within(domain).getByTestId("work-import-data-kind-Time series")).toBeTruthy();
-
+    // …and picking both is possible, which is the thing the sentence used to say.
     fireEvent.click(screen.getByTestId("work-import-data-kind-Series"));
     fireEvent.click(screen.getByTestId("work-import-data-kind-Time series"));
     expect(screen.getByTestId("work-import-data-kind-Series")).toBeChecked();
@@ -239,17 +259,30 @@ describe("FR-016 – FR-020 — questions 2 to 4 and their skips", () => {
   });
 
   it("a skip reads as a choice rather than an abandoned field", async () => {
+    // FR-020 USED TO BE CARRIED BY COPY AND IS NOW CARRIED BY STRUCTURE, so
+    // this asserts the structure. The label was "Skip — let the agent work this
+    // out" with a sentence under it explaining what the agent would be told;
+    // the owner cut both as filler (2026-08-08). What makes a skip read as a
+    // legitimate choice rather than an abandoned field is now three facts, and
+    // each one is checked here because nothing else would notice losing it.
     renderDialog();
     await settled();
     walkTo("q3");
-    // FR-020 — the skip sits beside Next as its peer, with its own label and a
-    // sentence saying what happens as a result. Not a greyed box walked past.
-    expect(screen.getByTestId("work-import-q3-skip").textContent).toMatch(
-      /let the agent work this out/i,
-    );
-    expect(screen.getByTestId("work-import-skip-help").textContent).toMatch(
-      /knows to ask rather than assume/i,
-    );
+    const skip = screen.getByTestId("work-import-q3-skip");
+
+    // 1. It is a button, not a checkbox under the input.
+    expect(skip.tagName).toBe("BUTTON");
+
+    // 2. It is a sibling of the primary action, in the same cluster — a peer of
+    //    "Next", not a footnote below it.
+    const actions = screen.getByTestId("work-import-nav-actions");
+    expect(skip.parentElement).toBe(actions);
+    expect(screen.getByTestId("work-import-next").parentElement).toBe(actions);
+
+    // 3. It lives in the navigation row rather than inside the question, which
+    //    is what makes it read as a way of moving on.
+    expect(screen.getByTestId("work-import-nav").contains(skip)).toBe(true);
+    expect(screen.getByTestId("work-import-q3").contains(skip)).toBe(false);
   });
 });
 
@@ -329,6 +362,54 @@ describe("FR-006 / FR-007 — who the questions are written for", () => {
     renderDialog();
     await settled();
     everyPageIsAnswerableByAScientist(NO_CODEBASE);
+  });
+
+  it("does not explain a control that already explains itself", async () => {
+    /*
+     * The owner's 2026-08-08 pass, kept from creeping back.
+     *
+     * Every sentence below was on these pages and was cut for the same reason:
+     * it described a control that is on screen saying the same thing. They are
+     * pinned by their exact words rather than by a rule, because "is this
+     * filler?" is a judgement and "did somebody put this paragraph back?" is
+     * not. A deliberate re-add should delete the line here too, and then be
+     * visible in review as what it is.
+     */
+    const CUT = [
+      // Page one's introduction.
+      /You already have a way of doing this work/i,
+      // The source field's help line, above a Browse button.
+      /Point us at the folder your analysis lives in/i,
+      // Question 1's help line; FR-014 is carried by the groups themselves.
+      /picking from both is normal/i,
+      // What skipping does; the Skip button beside Next is the affordance.
+      /let the agent work this out/i,
+      /knows to ask rather than assume/i,
+      // The lead-in on the blocked-page message.
+      /before you go on/i,
+      // What the Start button does, above the caveat it was competing with.
+      /This opens an ordinary chat session/i,
+      // The paragraph beside the provider picker.
+      /You can still start with one of the agents above/i,
+      /not usable right now/i,
+    ];
+
+    renderDialog(ready(CLAUDE, CODEX));
+    await settled();
+    for (const page of PAGE_IDS) {
+      walkTo(page, {
+        setup: () => {
+          fireEvent.change(screen.getByTestId("work-import-source-input"), {
+            target: { value: SOURCE },
+          });
+          fireEvent.change(screen.getByTestId("setup-provider-select"), {
+            target: { value: "codex" },
+          });
+        },
+      });
+      const text = screen.getByTestId("work-import-dialog").textContent ?? "";
+      for (const gone of CUT) expect(text).not.toMatch(gone);
+    }
   });
 });
 
@@ -497,12 +578,68 @@ describe("FR-005 / FR-031 / FR-034 — graded availability", () => {
       ],
     });
     await settled();
-    const note = screen.getByTestId("work-import-unusable-providers");
-    expect(note.textContent).toContain("Codex");
-    expect(note.textContent).toContain("quota");
+
+    // The unusable one is IN THE DROPDOWN, greyed, with a short suffix — the AI
+    // chat's pattern (owner, 2026-08-08). There is no longer a block of prose
+    // beside the picker telling a user with a working agent how to repair one
+    // they are not using.
+    const codex = screen.getByTestId("setup-provider-option-codex") as HTMLOptionElement;
+    expect(codex.disabled).toBe(true);
+    expect(codex.textContent).toBe("Codex (call failed)");
+    // FR-034 — never reported as an install problem.
+    expect(codex.textContent).not.toMatch(/install/i);
+    // The remedy and the cause are not here; they belong to the dead-end state.
+    expect(screen.queryByTestId("work-import-guidance-call_failed")).toBeNull();
+    expect(screen.getByTestId("work-import-dialog").textContent).not.toContain("quota");
+
     // Not blocked: a mixed result lets the user through to the start action.
     walkToStart();
     expect(screen.getByTestId("work-import-start")).toBeTruthy();
+  });
+
+  it("lists every provider in the one dropdown, selectable ones first", async () => {
+    // The owner's own machine: two agents working, three not, and previously a
+    // paragraph of install and login instructions under the picker for the
+    // three he was not going to use.
+    renderDialog({
+      state: "ready",
+      providers: [
+        provider({
+          key: "qoder",
+          label: "Qoder CLI",
+          state: "not_installed",
+          next_step: "Install the Qoder CLI so that `qodercli` is on your PATH.",
+        }),
+        CLAUDE,
+        provider({
+          key: "qoder-cn",
+          label: "Qoder CLI (China)",
+          state: "not_authenticated",
+          next_step: "Start `qoderclicn` in a terminal and complete its sign-in.",
+        }),
+        CODEX,
+      ],
+    });
+    await settled();
+
+    const select = screen.getByTestId("setup-provider-select") as HTMLSelectElement;
+    const options = Array.from(select.querySelectorAll("option")).map((option) => ({
+      value: option.value,
+      text: option.textContent,
+      disabled: option.disabled,
+    }));
+    expect(options).toEqual([
+      { value: "", text: "Choose provider…", disabled: true },
+      { value: "claude-code", text: "Claude Code", disabled: false },
+      { value: "codex", text: "Codex", disabled: false },
+      { value: "qoder", text: "Qoder CLI (not installed)", disabled: true },
+      { value: "qoder-cn", text: "Qoder CLI (China) (not signed in)", disabled: true },
+    ]);
+
+    // None of the remedies reaches the user in this state.
+    const dialog = screen.getByTestId("work-import-dialog").textContent ?? "";
+    expect(dialog).not.toContain("qodercli");
+    expect(dialog).not.toMatch(/complete its sign-in/i);
   });
 
   it("renders with a reported state rather than waiting when the probe fails", async () => {
@@ -583,11 +720,17 @@ describe("a provider that cannot run a session is never offered (FR-029, FR-043)
     renderDialog({ state: "ready", providers: [CLAUDE, KIMI] });
     await settled();
     expect(screen.getByTestId("setup-provider-select")).toHaveValue("claude-code");
-    const note = screen.getByTestId("work-import-unusable-providers");
-    expect(note.textContent).toContain("Kimi Code");
-    // Its own reason, not its availability state — it IS ready, and saying so
-    // in a list headed "not usable right now" would read as a bug.
-    expect(note.textContent).toContain("no positional prompt argument");
+
+    const kimi = screen.getByTestId("setup-provider-option-kimi-code") as HTMLOptionElement;
+    expect(kimi.disabled).toBe(true);
+    // Its own suffix, not its availability state — it IS ready, and an option
+    // reading "Kimi Code" with nothing after it would look selectable-but-broken.
+    expect(kimi.textContent).toBe("Kimi Code (not available)");
+    // The registry's full explanation is guidance, and this user needs none.
+    expect(screen.getByTestId("work-import-dialog").textContent).not.toContain(
+      "no positional prompt argument",
+    );
+
     walkToStart();
     expect(screen.getByTestId("work-import-start")).toBeTruthy();
   });
@@ -726,7 +869,7 @@ describe("starting the session (FR-021 – FR-025)", () => {
     fireEvent.click(screen.getByTestId("work-import-next"));
     expect(currentPage()).toBe("q2");
     expect(screen.getByTestId("work-import-blocking-reasons").textContent).toMatch(
-      /only description of your work/i,
+      /Required: a description of your workflow/i,
     );
 
     NO_CODEBASE.q2?.();
@@ -823,7 +966,7 @@ describe("starting the session (FR-021 – FR-025)", () => {
     fireEvent.click(screen.getByTestId("work-import-next"));
     expect(currentPage()).toBe("setup");
     expect(screen.getByTestId("work-import-blocking-reasons").textContent).toMatch(
-      /Choose which agent runs the session/i,
+      /Required: which agent runs the session/i,
     );
 
     fireEvent.change(screen.getByTestId("setup-provider-select"), { target: { value: "codex" } });
