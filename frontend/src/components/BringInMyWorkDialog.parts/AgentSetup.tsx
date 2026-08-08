@@ -7,39 +7,47 @@
  * permission semantics belong to ADR-034; a second implementation here would
  * drift the moment a provider is added to the registry or a permission mode
  * changes, and the drift would be invisible until a user launched the wrong
- * thing. Nothing in this file forks either component — it only supplies props.
+ * thing. Nothing in this file forks either component — it supplies props.
+ *
+ * ONE DROPDOWN, NOT A DROPDOWN AND A PARAGRAPH (owner, 2026-08-08).
+ *
+ * This file used to render the usable providers in the picker and then a block
+ * beneath it explaining every unusable one — its state, and the full remedy for
+ * it. On a machine with two working agents and three that are not, that block
+ * was four lines of install and login instructions for CLIs the user was not
+ * going to use, sitting under a picker that already worked. The owner's verdict
+ * was that it is filler, and that the AI chat already has the right shape: one
+ * menu with every agent in it, the usable ones selectable, the rest greyed with
+ * a short suffix saying why.
+ *
+ * So the list is gone and every provider is an option. The suffixes come from
+ * `providerOptionOverrides`, which is also where the reasoning lives for why
+ * `not_authenticated` is greyed HERE and selectable in the AI chat.
+ *
+ * WHAT DID NOT GO, AND MUST NOT. When NO provider is usable, the dialog renders
+ * `AvailabilityGuidance` in place of this component entirely — full per-state
+ * guidance naming a concrete next action. That is US3's dead end, it is what
+ * FR-031 and SC-002 are written about, and both 2026-08-07 audits raised a P2
+ * when it named no action. The two branches are not two styles of the same
+ * message; they are answers to two different questions:
+ *
+ *   at least one usable  -> "which of these can I pick, and why not the rest?"
+ *                           -> a menu annotation. THIS FILE.
+ *   none usable          -> "I cannot proceed at all; what do I do?"
+ *                           -> instructions. `AvailabilityGuidance`.
+ *
+ * A later reader tempted to unify them should note that the second branch is
+ * the only one where the user has to act on the answer.
  */
 import { PermissionModePicker } from "../AIChat/SetupScreen.parts/PermissionModePicker";
 import { ProviderPicker } from "../AIChat/SetupScreen.parts/ProviderPicker";
 import type { PermissionMode } from "../AIChat/SetupScreen.parts/types";
 
-import { PARTIAL_AVAILABILITY_NOTE } from "./copy";
-import { toProviderStatuses, unusableProviders, usableProviders } from "./availability";
-import type { AgentAvailabilityResponse, ProviderAvailability } from "./useAgentAvailability";
+import { providerOptionOverrides, toProviderStatuses } from "./availability";
+import type { AgentAvailabilityResponse } from "./useAgentAvailability";
 
 /** The tab id the reused pickers namespace their element ids with. */
 export const WORK_IMPORT_PICKER_ID = "work-import";
-
-const STATE_SUMMARY: Record<string, string> = {
-  not_installed: "not found on this computer",
-  not_authenticated: "not signed in",
-  call_failed: "a test call failed",
-};
-
-/** Summary for a provider that works but cannot be handed a task to start with. */
-const SESSION_UNSUPPORTED_SUMMARY = "cannot be started with a task";
-
-function unusableLine(provider: ProviderAvailability): string {
-  // A provider that cannot run a session is reported as that rather than by its
-  // availability state: it may well be `ready`, and "Kimi Code — ready" in a
-  // list headed "not usable right now" reads as a bug rather than as a fact.
-  if (provider.session_unsupported_reason) {
-    return `${provider.label} — ${SESSION_UNSUPPORTED_SUMMARY}: ${provider.session_unsupported_reason}`;
-  }
-  const summary = STATE_SUMMARY[provider.state] ?? provider.state;
-  const detail = provider.state === "call_failed" ? provider.cause : provider.next_step;
-  return detail ? `${provider.label} — ${summary}: ${detail}` : `${provider.label} — ${summary}`;
-}
 
 export interface AgentSetupProps {
   availability: AgentAvailabilityResponse | null;
@@ -58,8 +66,7 @@ export function AgentSetup({
   onProviderChange,
   onPermissionModeChange,
 }: AgentSetupProps) {
-  const usable = usableProviders(availability);
-  const unusable = unusableProviders(availability);
+  const providers = availability?.providers ?? [];
 
   return (
     <div className="grid gap-4">
@@ -67,31 +74,16 @@ export function AgentSetup({
        * FR-043 — with exactly one usable provider the parent has already
        * selected it, so this renders as a filled control rather than a
        * one-option menu. It stays visible either way: the user should be able
-       * to see which agent is about to run.
+       * to see which agent is about to run, and which ones are not available.
        */}
       <ProviderPicker
         tabId={WORK_IMPORT_PICKER_ID}
-        providers={toProviderStatuses(usable)}
+        providers={toProviderStatuses(providers)}
         statusLoading={probing}
         provider={provider}
         onChange={onProviderChange}
+        optionOverrides={providerOptionOverrides(availability)}
       />
-
-      {/*
-       * FR-005 — a mixed result must not block. The usable agents stay
-       * selectable above and the rest are reported here, with their real state
-       * and their real cause, as information rather than as an obstacle.
-       */}
-      {usable.length > 0 && unusable.length > 0 ? (
-        <div className="text-xs text-stone-500" data-testid="work-import-unusable-providers">
-          <p>{PARTIAL_AVAILABILITY_NOTE}</p>
-          <ul className="mt-1 list-disc pl-5">
-            {unusable.map((p) => (
-              <li key={p.key || p.label}>{unusableLine(p)}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
 
       {/*
        * FR-041 — a session that writes many files and runs the user's code hits

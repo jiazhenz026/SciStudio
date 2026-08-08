@@ -34,6 +34,7 @@
  * in place of a start action; SOME usable providers means the user proceeds
  * with one of them and is told, without being blocked, why the others are out.
  */
+import type { ProviderOptionOverride } from "../AIChat/SetupScreen.parts/ProviderPicker";
 import type { ProviderStatus } from "../../store/types";
 
 import type {
@@ -73,21 +74,94 @@ export function hasUsableProvider(availability: AgentAvailabilityResponse | null
 /**
  * FR-042 — feed the EXISTING `ProviderPicker` without forking it.
  *
- * The picker speaks `GET /api/ai/status`'s two-boolean shape
- * (`available` / `logged_in`), which cannot express `call_failed`. Rather than
- * squeeze four states into two booleans — where `call_failed` would render as
- * "(not installed)", the exact misreport FR-034 exists to prevent — only the
- * usable providers are offered as options, and every non-usable one is
- * reported separately with its real state and its real cause.
+ * Every provider in the report is listed, usable or not, which is what the AI
+ * chat does and what the owner asked for on 2026-08-08: one dropdown, the
+ * usable ones selectable, the rest greyed with a short suffix naming why. The
+ * dialog used to offer only the usable ones and explain the rest in a paragraph
+ * beside the picker; that paragraph is gone.
+ *
+ * `available` carries "can this run a session" rather than "is the CLI on
+ * disk", because that is what the picker's own fallback derivation means by it
+ * — so if `optionOverrides` were ever dropped, the ordering and the disabled
+ * set would still be right and only the wording would coarsen. The wording is
+ * supplied separately by `providerOptionOverrides`, precisely because
+ * `available`/`logged_in` cannot express four states.
  */
 export function toProviderStatuses(providers: ProviderAvailability[]): ProviderStatus[] {
   return providers.map((p) => ({
     name: p.key,
-    available: true,
+    available: isUsable(p),
     version: null,
     logged_in: true,
     label: p.label || p.key,
   }));
+}
+
+/**
+ * The suffix each availability state puts after a provider's name in the list.
+ *
+ * As short as the AI chat's own `(not installed)` / `(not logged in)`, because
+ * this is an annotation on a menu entry and not guidance. When NO provider is
+ * usable the user gets `AvailabilityGuidance` instead, which is where FR-031's
+ * per-state instructions and SC-002's specific next action live. That split is
+ * deliberate: a user who has a working agent does not need to be told how to
+ * repair one they are not using, and a user who has none needs exactly that.
+ *
+ * FR-034 constrains one entry here directly. `call_failed` must never be
+ * reported as an install problem, so it says a call failed and nothing else —
+ * the cause it also requires is in the guidance branch, which is the branch a
+ * user who needs the cause is in.
+ */
+export const PROVIDER_STATE_HINT: Record<AgentAvailabilityState, string | null> = {
+  ready: null,
+  not_installed: "(not installed)",
+  not_authenticated: "(not signed in)",
+  call_failed: "(call failed)",
+};
+
+/** Suffix for a provider that works but cannot be handed a task (FR-029). */
+export const SESSION_UNSUPPORTED_HINT = "(not available)";
+
+/**
+ * Per-provider hint and selectability for `ProviderPicker.optionOverrides`.
+ *
+ * WHY `not_authenticated` IS NOT SELECTABLE HERE, when the AI chat lets a user
+ * launch a signed-out CLI on purpose.
+ *
+ * The AI chat's case is a hand-launched chat tab with no opening message: the
+ * CLI drops into its own login flow inside the PTY, the user finishes it, and
+ * types their first message afterwards. Nothing was at stake because nothing
+ * had been said yet.
+ *
+ * A work-import session has exactly one delivery attempt and it happens at
+ * `execve` time. `spawn_agent` appends the opening line as a POSITIONAL
+ * ARGUMENT (`terminal.py::_initial_prompt_argv`, the `[-- <prompt>]` tail), and
+ * that line — "Read the file … and follow the instructions in it" — is the
+ * agent's only route to the brief, which is its only source of instructions
+ * (FR-024, FR-028). Nothing types it into the PTY afterwards, and there is no
+ * retry. A CLI that answers that argv by starting a login flow either consumes
+ * the argument or drops it, and either way the session comes up with an agent
+ * that never read its brief and a user who cannot tell.
+ *
+ * It is also what the rest of the stack already believes: contract C1 grades
+ * `ready` only on a LIVE MINIMAL CALL succeeding (FR-033), which a signed-out
+ * CLI cannot do, so `isUsable` excludes it and `canStart` would refuse it. A
+ * selectable option the dialog then refuses to start on is worse than a greyed
+ * one that says why.
+ */
+export function providerOptionOverrides(
+  availability: AgentAvailabilityResponse | null,
+): Record<string, ProviderOptionOverride> {
+  const overrides: Record<string, ProviderOptionOverride> = {};
+  for (const provider of availability?.providers ?? []) {
+    overrides[provider.key] = {
+      hint: provider.session_unsupported_reason
+        ? SESSION_UNSUPPORTED_HINT
+        : PROVIDER_STATE_HINT[provider.state],
+      selectable: isUsable(provider),
+    };
+  }
+  return overrides;
 }
 
 /**

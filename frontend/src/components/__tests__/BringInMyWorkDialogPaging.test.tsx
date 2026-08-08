@@ -12,14 +12,14 @@
  * ASKS and SENDS — that contract is unchanged by paging and its tests should
  * not have to be read as paging tests.
  */
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BringInMyWorkDialog } from "../BringInMyWorkDialog";
 import {
   SETUP_STEP_TITLE,
   SKIP_LABEL,
-  SKIPPED_NOTE,
+  SKIPPED_MARKER,
   stepStatus,
 } from "../BringInMyWorkDialog.parts/copy";
 import { useAppStore } from "../../store";
@@ -171,7 +171,7 @@ describe("moving between pages", () => {
     fireEvent.click(screen.getByTestId("work-import-step-5"));
     expect(currentPage()).toBe("setup");
     expect(screen.getByTestId("work-import-blocking-reasons").textContent).toMatch(
-      /Say where your work is/i,
+      /Required: where your work is/i,
     );
 
     walkTo("q4");
@@ -228,7 +228,7 @@ describe("moving between pages", () => {
     fireEvent.keyDown(screen.getByTestId("work-import-dialog"), { key: "Enter" });
     expect(currentPage()).toBe("setup");
     expect(screen.getByTestId("work-import-blocking-reasons").textContent).toMatch(
-      /Say where your work is/i,
+      /Required: where your work is/i,
     );
   });
 });
@@ -240,10 +240,72 @@ describe("FR-020 — what a page requires, and what it lets the user past", () =
     expect(screen.queryByTestId("work-import-blocking-reasons")).toBeNull();
   });
 
+  it("says what is missing in the attention colour, on every page that can block", async () => {
+    // The owner could not see the old message: it was `text-stone-500`, the
+    // same weight as a hint, and it opened "Before you go on:" which he read as
+    // condescending (2026-08-08). An incomplete page has to be obvious at a
+    // glance. The treatment is the repository's existing dialog error shape —
+    // `Git/CommitDialog.tsx` — not a new colour.
+    /** The banner shown after trying to leave a page that is not answered. */
+    function attentionBanner(): HTMLElement {
+      fireEvent.click(screen.getByTestId("work-import-next"));
+      const banner = screen.getByTestId("work-import-blocking-reasons");
+      expect(banner.className).toContain("bg-red-50");
+      expect(banner.className).toContain("text-red-700");
+      expect(banner).toHaveAttribute("role", "alert");
+      expect(banner).toHaveAttribute("aria-live", "assertive");
+      // No coaxing lead-in.
+      expect(banner.textContent).not.toMatch(/before you go on/i);
+      return banner;
+    }
+
+    renderDialog();
+    await settled();
+
+    // Page 1 — the source, or the no-codebase option.
+    expect(attentionBanner().textContent).toMatch(/Required: where your work is/i);
+    expect(currentPage()).toBe("setup");
+    fireEvent.change(screen.getByTestId("work-import-source-input"), {
+      target: { value: SOURCE },
+    });
+    fireEvent.click(screen.getByTestId("work-import-next"));
+    // Answering clears it rather than leaving a stale warning behind.
+    expect(screen.queryByTestId("work-import-blocking-reasons")).toBeNull();
+
+    // Page 2 — question 1.
+    expect(currentPage()).toBe("q1");
+    expect(attentionBanner().textContent).toMatch(/Required: at least one kind of data/i);
+    expect(currentPage()).toBe("q1");
+
+    // Page 3 — question 2, which blocks only in no-codebase mode (FR-016,
+    // FR-017) and gets exactly the same treatment there.
+    cleanup();
+    renderDialog();
+    await settled();
+    walkTo("q2", { setup: () => fireEvent.click(screen.getByTestId("work-import-no-codebase")) });
+    expect(attentionBanner().textContent).toMatch(/Required: a description of your workflow/i);
+    expect(currentPage()).toBe("q2");
+  });
+
+  it("never puts the attention colour on a question the user skipped", async () => {
+    // FR-020 — the attention treatment means "required and unanswered". A skip
+    // is a legitimate answer, so it gets a neutral state chip and nothing else.
+    renderDialog();
+    await settled();
+    walkTo("q3");
+    fireEvent.click(screen.getByTestId("work-import-q3-skip"));
+    fireEvent.click(screen.getByTestId("work-import-back"));
+
+    const marker = screen.getByTestId("work-import-q3-skipped");
+    expect(marker.textContent).toBe(SKIPPED_MARKER);
+    expect(marker.className).not.toMatch(/red/);
+    expect(screen.queryByTestId("work-import-blocking-reasons")).toBeNull();
+  });
+
   it("blocks the setup page until the source or the no-codebase option is given", async () => {
     renderDialog();
     await settled();
-    expect(blockedGoingOn()).toMatch(/Say where your work is, or choose/i);
+    expect(blockedGoingOn()).toMatch(/Required: where your work is, or /i);
     // …and puts the user in front of the control that fixes it.
     expect(document.activeElement).toBe(screen.getByTestId("work-import-source-input"));
 
@@ -261,7 +323,7 @@ describe("FR-020 — what a page requires, and what it lets the user past", () =
     expect(screen.getByTestId("work-import-data-kind-Table / dataframe")).toBeChecked();
     // Untick it again and the page closes.
     fireEvent.click(screen.getByTestId("work-import-data-kind-Table / dataframe"));
-    expect(blockedGoingOn()).toMatch(/Choose at least one kind of data/i);
+    expect(blockedGoingOn()).toMatch(/Required: at least one kind of data/i);
 
     // The free-text field satisfies it just as well as a preset does.
     fireEvent.change(screen.getByTestId("work-import-data-kinds-other"), {
@@ -293,7 +355,7 @@ describe("FR-020 / FR-021 — a skip is a choice, and it reaches the request", (
     // Coming back, the skip is legible as a decision rather than as a blank the
     // user forgot — and it is not final.
     fireEvent.click(screen.getByTestId("work-import-back"));
-    expect(screen.getByTestId("work-import-q3-skipped").textContent).toBe(SKIPPED_NOTE);
+    expect(screen.getByTestId("work-import-q3-skipped").textContent).toBe(SKIPPED_MARKER);
     fireEvent.change(screen.getByTestId("work-import-q3-input"), {
       target: { value: "Actually, let me pick the background patch." },
     });
@@ -348,7 +410,10 @@ describe("FR-020 / FR-021 — a skip is a choice, and it reaches the request", (
     await settled();
     walkTo("q2", { setup: () => fireEvent.click(screen.getByTestId("work-import-no-codebase")) });
     expect(screen.queryByTestId("work-import-q2-skip")).toBeNull();
-    expect(screen.queryByTestId("work-import-skip-help")).toBeNull();
+    // Only Back and Next in the navigation row — no third control.
+    expect(within(screen.getByTestId("work-import-nav-actions")).getAllByRole("button")).toEqual([
+      screen.getByTestId("work-import-next"),
+    ]);
 
     // …and it comes back if the user changes their mind about the codebase.
     walkTo("setup");
@@ -376,8 +441,12 @@ describe("FR-005 — a user learns there is no usable agent on page one, not pag
     await settled();
 
     expect(currentPage()).toBe("setup");
-    expect(screen.getByTestId("work-import-guidance-not_installed")).toBeTruthy();
-    expect(screen.getByTestId("work-import-agent-blocks-paging")).toBeTruthy();
+    // FR-031 / SC-002 — the state with a dead end is the state that gets the
+    // full guidance, with the concrete next action in it. The picker is not
+    // rendered at all here: a menu with nothing selectable answers no question.
+    const guidance = screen.getByTestId("work-import-guidance-not_installed");
+    expect(guidance.textContent).toContain("`claude`");
+    expect(screen.queryByTestId("setup-provider-select")).toBeNull();
 
     fireEvent.change(screen.getByTestId("work-import-source-input"), {
       target: { value: SOURCE },
@@ -453,7 +522,7 @@ describe("FR-005 — a user learns there is no usable agent on page one, not pag
     fireEvent.change(screen.getByTestId("work-import-source-input"), {
       target: { value: SOURCE },
     });
-    expect(blockedGoingOn()).toMatch(/Choose which agent runs the session/i);
+    expect(blockedGoingOn()).toMatch(/Required: which agent runs the session/i);
     fireEvent.change(screen.getByTestId("setup-provider-select"), { target: { value: "codex" } });
     walkTo(LAST_PAGE);
     expect(screen.getByTestId("work-import-start")).toBeTruthy();

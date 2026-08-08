@@ -60,13 +60,10 @@ import {
 } from "./BringInMyWorkDialog.parts/availability";
 import {
   AVAILABILITY_PROBING,
-  BLOCKED_LEAD,
   CANCEL_LABEL,
   DIALOG_EYEBROW,
-  DIALOG_LEAD,
   DIALOG_TITLE,
   NEXT_LABEL,
-  NO_AGENT_BLOCKS_PAGING,
   Q2_HELP_NO_CODEBASE,
   Q2_HELP_WITH_SOURCE,
   Q2_LABEL,
@@ -78,7 +75,6 @@ import {
   Q4_HELP,
   Q4_LABEL,
   Q4_PLACEHOLDER,
-  START_HELP,
   START_LABEL,
   STARTING_LABEL,
 } from "./BringInMyWorkDialog.parts/copy";
@@ -386,17 +382,12 @@ export function BringInMyWorkDialog({
                 onPermissionModeChange={(permissionMode) => patch({ permissionMode })}
               />
             ) : (
-              <div className="grid gap-2">
-                <AvailabilityGuidance
-                  availability={availability}
-                  probeError={probeError}
-                  onRetry={retry}
-                  retrying={retrying}
-                />
-                <p className="text-xs text-stone-500" data-testid="work-import-agent-blocks-paging">
-                  {NO_AGENT_BLOCKS_PAGING}
-                </p>
-              </div>
+              <AvailabilityGuidance
+                availability={availability}
+                probeError={probeError}
+                onRetry={retry}
+                retrying={retrying}
+              />
             )}
           </div>
         );
@@ -471,13 +462,6 @@ export function BringInMyWorkDialog({
             {CANCEL_LABEL}
           </button>
         </div>
-        {/*
-         * What the whole thing is for, said once where it is read — on the way
-         * in. Repeating it above every question would be the padding one
-         * question per page exists to avoid.
-         */}
-        {pageIndex === 0 ? <p className="mb-4 text-sm text-stone-600">{DIALOG_LEAD}</p> : null}
-
         <div
           className="min-h-0 flex-1 overflow-y-auto pr-1 sm:min-h-[18rem]"
           data-testid="work-import-page"
@@ -493,18 +477,37 @@ export function BringInMyWorkDialog({
             </p>
           ) : null}
 
+          {/*
+           * FR-020 — what is missing, on whichever page is holding the user.
+           *
+           * The treatment is the repository's dialog error convention rather
+           * than a new one: `role="alert" aria-live="assertive"` on a
+           * `bg-red-50` / `text-red-700` block, which is what
+           * `Git/CommitDialog.tsx` uses for the same job in the same position.
+           * It replaced a `text-stone-500` hint, which the owner could not see
+           * without reading for it (2026-08-08) — an incomplete page has to be
+           * obvious at a glance, and a muted colour says "aside" rather than
+           * "you cannot leave yet".
+           *
+           * It is attention colour ONLY for required-and-unanswered. A skipped
+           * question is a legitimate answer (FR-020) and never appears here.
+           */}
           {reasons.length > 0 ? (
             <div
-              className="text-xs text-stone-500"
+              className="rounded bg-red-50 px-3 py-2 text-sm text-red-700"
               data-testid="work-import-blocking-reasons"
               role="alert"
+              aria-live="assertive"
             >
-              <p>{BLOCKED_LEAD}</p>
-              <ul className="mt-1 list-disc pl-5">
-                {reasons.map((reason) => (
-                  <li key={reason}>{reason}</li>
-                ))}
-              </ul>
+              {reasons.length === 1 ? (
+                <p>{reasons[0]}</p>
+              ) : (
+                <ul className="list-disc pl-5">
+                  {reasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              )}
             </div>
           ) : null}
 
@@ -528,8 +531,6 @@ export function BringInMyWorkDialog({
               retrying={retrying}
             />
           ) : null}
-
-          {startShown ? <p className="text-xs text-stone-500">{START_HELP}</p> : null}
 
           {/*
            * FR-004 / FR-038 — the caveat is on the page that carries the start
