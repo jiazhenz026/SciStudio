@@ -55,7 +55,9 @@ _ProviderSpawner = Callable[..., PtyProcess]
 #
 # ``_VALID_PROVIDERS`` is the WebSocket query whitelist (FR-023), so it spans the
 # *whole* registry including the ``user-terminal`` pseudo-provider; the agent-only
-# view (``agent_keys()``) is what ``GET /api/ai/status`` and the AI Block enum use.
+# view (``agent_keys()``) is what ``GET /api/ai/status`` uses. The AI Block enum
+# is narrower still: it filters the agent keys down to the providers that can
+# carry an AI Block task (#2014).
 _VALID_PROVIDERS: tuple[str, ...] = REGISTRY.keys()
 
 # ``functools.partial`` binds the descriptor, leaving the uniform keyword-only

@@ -173,10 +173,19 @@ def test_ws_whitelist_and_spawner_map_pick_up_the_sixth_provider(sixth_provider:
 
 
 def test_ai_block_config_enum_picks_up_the_sixth_provider(sixth_provider: dict[str, ModuleType]) -> None:
-    """FR-015: the enum widens and the default does not move."""
+    """FR-015: the enum widens and the default does not move.
+
+    #2014: the enum is the *capability-filtered* agent set, not every agent
+    key — chat-only providers such as ``kimi-code`` are excluded. The fixture
+    descriptor keeps the default ``prompt_argv_prefix``, so it is capable and
+    still appears with no edit here.
+    """
+    from scistudio.ai.agent.availability import session_unsupported_reason
+
     ai_block = sixth_provider["scistudio.blocks.ai.ai_block"]
     provider_schema = ai_block.AIBlock.config_schema["properties"]["provider"]
-    assert provider_schema["enum"] == list(registry.agent_keys())
+    capable = [d.key for d in registry.agent_descriptors() if session_unsupported_reason(d) is None]
+    assert provider_schema["enum"] == capable
     assert "fixture-agent" in provider_schema["enum"]
     assert provider_schema["default"] == "claude-code"
 

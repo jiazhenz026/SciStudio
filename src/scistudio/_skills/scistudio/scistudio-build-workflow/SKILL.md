@@ -271,22 +271,26 @@ terminates cleanly via
 `scistudio-debug-run` for the full `finish_ai_block` operational
 contract.
 
-The `provider` config accepts any agent CLI SciStudio supports:
+The `provider` config accepts any agent CLI that can run an AI Block task:
 
 | Value | Label | Binary |
 |---|---|---|
 | `claude-code` | Claude Code (default) | `claude` |
 | `codex` | Codex | `codex` |
-| `kimi-code` | Kimi Code | `kimi` |
 | `qoder` | Qoder CLI — international channel | `qodercli` |
 | `qoder-cn` | Qoder CLI (China) — China channel | `qoderclicn` |
+
+`kimi-code` is deliberately absent (#2014): Kimi Code has no positional
+prompt argument, so it cannot receive an AI Block task and the block refuses
+it at config time. It remains available for hand-launched chat tabs.
 
 The two Qoder channels are separate providers, not aliases: they have
 separate binaries, config roots, and credentials, and a user may have
 both installed. Picking one never falls back to the other.
 
 Do not treat this table as the authority. The enum is generated from
-`scistudio.ai.agent.providers_registry`, so
+`scistudio.ai.agent.providers_registry` (filtered to providers that can
+carry an AI Block prompt), so
 `get_block_schema("ai.assisted_segmenter")` is always current and this
 table may lag a newly added provider. Existing workflows using
 `provider: claude-code` are unaffected — the enum only widened.
