@@ -10,6 +10,9 @@ Owns:
   AIBlock, SubWorkflowBlock).
 - ``_scan_tier1`` — discover blocks from ``.py`` files under configured
   scan directories.
+- ``_reject_shadowing_type_files`` — ADR-053 FR-016 / §13 OQ-1 reporting
+  adapter over ``scistudio.core.dropins.guard_dropin_type_roots``, which owns
+  the rule and the mitigation for every process.
 - ``_scan_tier2`` — discover blocks via ``scistudio.blocks`` entry points
   (ADR-025 callable protocol).
 - ``_scan_package_src_dirs`` — Tier 3 scan of hard-installed/bundled
@@ -33,6 +36,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from scistudio.blocks.io.capabilities import FormatCapability
+from scistudio.core.dropins import (
+    dropin_import_roots_for_block_dirs,
+    evict_cached_bytecode,
+    guard_dropin_type_roots,
+)
 from scistudio.core.types.base import DataObject
 from scistudio.desktop.paths import (
     candidate_package_dirs,
@@ -146,15 +154,68 @@ def _scan_builtins(registry: BlockRegistry) -> None:
         _register_spec(registry, _spec_from_class(cls, source="builtin"))
 
 
+def _record_dropin_failure(registry: BlockRegistry, py_file: Path, error_type: str, message: str) -> None:
+    """Record one refused drop-in file on the registry (ADR-053 FR-015)."""
+    from scistudio.blocks.registry import DropinFailure
+
+    registry._dropin_failures.append(DropinFailure(file_path=str(py_file), error_type=error_type, message=message))
+
+
+def _reject_shadowing_type_files(registry: BlockRegistry, import_roots: tuple[Path, ...]) -> None:
+    """Report every FR-016 collision in *import_roots* on the registry.
+
+    Detection and the pre-binding that keeps the installed module resolving are
+    :func:`scistudio.core.dropins.guard_dropin_type_roots`, which the worker and
+    the in-process instantiation path call too. This function is only the block
+    registry's FR-015 reporting adapter for it.
+    """
+    for collision in guard_dropin_type_roots(import_roots):
+        logger.error("ADR-053 FR-016: rejected drop-in type %s — %s", collision.path, collision.message)
+        _record_dropin_failure(registry, collision.path, "DropinTypeNameCollision", collision.message)
+
+
 def _scan_tier1(registry: BlockRegistry) -> None:
     """Tier 1: scan configured directories for ``.py`` files containing Block subclasses.
 
     Security boundary (issue #1531): drop-in files are executed as Python
     modules in the server process.  Only files from trusted project- or
     user-controlled directories should be registered via
-    :meth:`BlockRegistry.add_scan_dir`.  Hostile or corrupt drop-ins are
-    isolated by the try/except below — a failing module is logged as a
-    warning and skipped without crashing the palette refresh.
+    :meth:`BlockRegistry.add_scan_dir`.
+
+    **What the try/except below does and does not isolate.** It catches
+    ``BaseException``, not ``Exception``, so a drop-in that raises
+    ``SystemExit`` is recorded as a failure and skipped like any other. That is
+    not an exotic case: a script converted into a block keeps its
+    ``sys.exit(main())`` idiom or its ``argparse`` error path, and under the
+    narrower ``except Exception`` such a file killed the palette refresh on
+    every startup, recorded no ``DropinFailure`` — so FR-015's "silent
+    disappearance ends" was not met for that class — and left the user no
+    in-product way to find the file, because the palette they would have used
+    to find it is what died
+    (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P2-1).
+    ``KeyboardInterrupt`` is re-raised: it is the operator's own signal, and
+    swallowing it would make the server un-interruptible during a scan.
+
+    Two failure modes remain outside this boundary and cannot be brought inside
+    it in-process: ``os._exit()``, which no handler can intercept, and a module
+    that never returns from import, which needs a wall clock this process does
+    not control. Both belong to the out-of-process sandbox the ``TODO(#1531)``
+    below defers — a thread-based bound would change where every well-behaved
+    drop-in executes, and an asynchronous interrupt would land in whichever
+    thread happens to be the main one. This paragraph states the boundary
+    rather than claiming isolation the code does not provide.
+
+    ADR-053 FR-012/FR-014: the drop-in type directories of the same tiers join
+    ``sys.path`` for the duration of drop-in execution, project tier first, so
+    ``from spectrum import SpectrumData`` resolves ``<project>/types/spectrum.py``
+    and a project type shadows a user-library type of the same file name. Which
+    directories those are is decided by :mod:`scistudio.core.dropins`, not here.
+    FR-013: the same roots are stamped on every Tier-1 spec so the worker
+    subprocess reconstructs the block against an identical import path.
+
+    FR-015: every refusal — a module that raised on import, and every FR-016
+    type-name collision — is recorded on the registry and returned by
+    ``GET /api/blocks/``, so a drop-in block no longer disappears in silence.
 
     TODO(#1531): a full subprocess-sandbox for drop-in execution is deferred.
       Out of scope per issue #1531 (contained hardening only for this PR).
@@ -162,6 +223,10 @@ def _scan_tier1(registry: BlockRegistry) -> None:
     """
     from scistudio.blocks.base.block import Block
     from scistudio.blocks.registry._spec import _spec_from_class
+
+    registry._dropin_failures = []
+    import_roots = dropin_import_roots_for_block_dirs(registry._scan_dirs)
+    _reject_shadowing_type_files(registry, import_roots)
 
     for scan_dir in registry._scan_dirs:
         if not scan_dir.is_dir():
@@ -183,13 +248,26 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                 if spec is None or spec.loader is None:
                     continue
                 module = importlib.util.module_from_spec(spec)
+                # A fresh module object is not a fresh *definition*: CPython
+                # validates a cached ``.pyc`` on the source's mtime in whole
+                # seconds plus its size, so a block edited within one second to
+                # the same length would hot-reload into the previous class body.
+                # ADR-053 FR-062 requires a rebuild to run the source on disk.
+                evict_cached_bytecode(py_file)
                 # Issue #1531: wrap exec_module in its own try/except so a
                 # failing or hostile drop-in cannot crash the palette refresh.
                 try:
-                    with prepended_sys_paths(_desktop_user_python_import_roots()):
+                    with prepended_sys_paths(import_roots):
                         spec.loader.exec_module(module)
-                except Exception:
+                except KeyboardInterrupt:
+                    # The operator's own signal, not the drop-in's failure.
+                    raise
+                except BaseException as exc:
                     # #1531: skip-don't-crash on a failing/hostile drop-in.
+                    # ``BaseException`` rather than ``Exception`` so a
+                    # ``sys.exit()`` carried over from a script — the common
+                    # accident — is recorded and skipped instead of killing the
+                    # refresh with no trace (P2-1, see the module docstring).
                     # Keep the historical "Failed to import block from" wording
                     # (asserted by the registry-logging contract test) so the
                     # hardening does not change the observable error log.
@@ -199,6 +277,7 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                         py_file,
                         exc_info=True,
                     )
+                    _record_dropin_failure(registry, py_file, type(exc).__name__, str(exc) or type(exc).__name__)
                     continue
 
                 for attr_name in dir(module):
@@ -235,14 +314,15 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                         block_spec.file_path = str(py_file)
                         block_spec.file_mtime = mtime
                         block_spec.module_path = mod_name
-                        block_spec.runtime_import_roots = [str(path) for path in _desktop_user_python_import_roots()]
+                        block_spec.runtime_import_roots = [str(path) for path in import_roots]
                         _register_spec(registry, block_spec)
-            except Exception:
+            except Exception as exc:
                 logger.warning(
                     "Failed to import block from %s",
                     py_file,
                     exc_info=True,
                 )
+                _record_dropin_failure(registry, py_file, type(exc).__name__, str(exc) or type(exc).__name__)
                 continue
 
 

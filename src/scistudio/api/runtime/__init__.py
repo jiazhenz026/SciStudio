@@ -694,6 +694,9 @@ class ApiRuntime:
     _save_known_projects = _projects._save_known_projects
     refresh_block_registry = _projects.refresh_block_registry
     refresh_type_registry = _projects.refresh_type_registry
+    # ADR-053 FR-062: the one entry point every registry-invalidating event
+    # calls, so no call site has to know the current registry set (#2021/#2009).
+    refresh_all_registries = _projects.refresh_all_registries
     _init_lineage_store = _projects._init_lineage_store
     _init_metadata_store = _projects._init_metadata_store
     create_project = _projects.create_project

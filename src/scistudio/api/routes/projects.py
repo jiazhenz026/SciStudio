@@ -17,6 +17,7 @@ from scistudio.api.file_contracts import ADR036_FILE_ALLOWLIST, FILE_CHANGED_EVE
 from scistudio.api.mcp_lifecycle import ensure_project_mcp_server
 from scistudio.api.runtime import FILE_ENTITY_CLASS, ApiRuntime
 from scistudio.api.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
+from scistudio.core.dropins import BLOCKS_DIR_NAME, TYPES_DIR_NAME
 from scistudio.engine.events import EngineEvent
 
 # ADR-036 搂3.5 (I36c) 鈥?string event type for the WS-broadcast that fires
@@ -437,23 +438,35 @@ async def write_project_file(
 # ---------------------------------------------------------------------------
 
 
-def _is_under_project_blocks_dir(project_root: Path | None, target: Path) -> bool:
-    """True when ``target`` is a ``.py`` file inside ``<project>/blocks``.
+def _project_dropin_dir(project_root: Path | None, target: Path) -> str | None:
+    """Return the drop-in tier child dir ``target`` sits in, else ``None``.
+
+    ADR-053 FR-062: ``<project>/types`` is a drop-in tier exactly as
+    ``<project>/blocks`` is (:mod:`scistudio.core.dropins`), so a save under it
+    invalidates the registries the same way. The gate used to name only
+    ``blocks``, which meant saving a type file refreshed nothing at all.
 
     Uses ``Path.relative_to`` to avoid string-prefix gotchas on Windows.
     """
     if project_root is None or target.suffix.lower() != ".py":
-        return False
+        return None
     try:
         rel = target.relative_to(project_root)
     except ValueError:
-        return False
+        return None
     parts = rel.parts
-    return len(parts) >= 2 and parts[0] == "blocks"
+    if len(parts) >= 2 and parts[0] in (BLOCKS_DIR_NAME, TYPES_DIR_NAME):
+        return parts[0]
+    return None
+
+
+def _is_under_project_blocks_dir(project_root: Path | None, target: Path) -> bool:
+    """True when ``target`` is a ``.py`` file inside ``<project>/blocks``."""
+    return _project_dropin_dir(project_root, target) == BLOCKS_DIR_NAME
 
 
 async def _maybe_reload_blocks_after_save(runtime: ApiRuntime, target: Path, content: str) -> None:
-    """If ``target`` is a clean ``blocks/*.py``, hot-reload + broadcast.
+    """If ``target`` is a clean ``blocks/*.py`` or ``types/*.py``, reload.
 
     "Clean" means lint returned zero diagnostics. Lint failure / ruff
     unavailability is treated as a no-op so a broken file never poisons
@@ -463,7 +476,7 @@ async def _maybe_reload_blocks_after_save(runtime: ApiRuntime, target: Path, con
     """
     active = runtime.active_project
     project_root = Path(active.path) if active is not None else None
-    if not _is_under_project_blocks_dir(project_root, target):
+    if _project_dropin_dir(project_root, target) is None:
         return
 
     # Import lazily to avoid pulling lint config into module import time.
@@ -477,7 +490,7 @@ async def _maybe_reload_blocks_after_save(runtime: ApiRuntime, target: Path, con
 
     if lint_result.diagnostics:
         logger.info(
-            "blocks-reload hook: %s has %d lint diagnostic(s); skipping hot_reload",
+            "blocks-reload hook: %s has %d lint diagnostic(s); skipping reload",
             target.name,
             len(lint_result.diagnostics),
         )
@@ -486,11 +499,15 @@ async def _maybe_reload_blocks_after_save(runtime: ApiRuntime, target: Path, con
     # ruff missing / timeout returns an empty diagnostics list with a
     # non-empty ``note``. Treat that as "no errors observed" 鈥?same as the
     # editor: no squiggles means no blocking issues.
+    # ADR-053 FR-062: rebuild every registry the save invalidates, not just
+    # blocks. A save under ``{project}/types`` reaches here now, and even a
+    # block save can change what the type registry should hold when the same
+    # commit touched both.
     before = set(runtime.block_registry.all_specs().keys())
     try:
-        runtime.block_registry.hot_reload()
+        runtime.refresh_all_registries()
     except Exception:
-        logger.exception("blocks-reload hook: hot_reload() raised")
+        logger.exception("blocks-reload hook: refresh_all_registries() raised")
         return
     after = set(runtime.block_registry.all_specs().keys())
 

@@ -33,6 +33,45 @@ Each core base class carries per-base ``reconstruct_extra_kwargs`` /
 ``serialise_extra_metadata`` hooks (ADR-052 §3.1 author extension point);
 the worker subprocess call site wires them. Both rely on the resolver and
 the validation hook added here.
+
+Scan order versus BlockRegistry
+-------------------------------
+
+ADR-053 FR-061. :meth:`TypeRegistry.scan_all` runs builtins -> entry-point ->
+package-src -> drop-in. :meth:`scistudio.blocks.registry.BlockRegistry.scan`
+runs builtins -> drop-in -> entry-point -> package-src. Both registries
+guarantee that entry-point registrations win on duplicates and both deliver
+it: the block registry by registering entry-points after drop-ins and
+overwriting, this registry by running entry-points early and having each
+subsequent pass skip names already present.
+
+The orders stay separate deliberately, because the two drop-in tiers have
+opposite duplicate policies and both are correct for their domain:
+
+- A drop-in *block* may override a built-in of the same name. That is the
+  point of a project-local block file: replace the shipped block for this
+  project. ``blocks.registry._scan._scan_tier1`` therefore registers
+  unconditionally, and running it after the builtin pass is what makes the
+  override happen.
+- A drop-in *type* may **not** override a core base class.
+  :meth:`TypeRegistry._scan_filesystem_dirs` skips any name already
+  registered, so a file declaring ``Array`` or ``DataFrame`` cannot shadow the
+  core class. Worker-side reconstruction resolves a serialised ``type_chain``
+  by name (:meth:`TypeRegistry.resolve`), so a shadowed core name would
+  silently change what every persisted artifact deserialises to, in one
+  process and not another.
+
+Reordering :meth:`TypeRegistry.scan_all` to match the block registry would
+move the drop-in pass ahead of ``_scan_package_src_dirs`` and hand drop-in
+types precedence over plugin-package types — an observable precedence change
+with no requirement behind it. Unifying the duplicate policies would be worse:
+it would either let a drop-in shadow a core type or stop a drop-in block from
+overriding a builtin. The shared helper extracted for FR-057
+(:mod:`scistudio.core.dropins`) owns *which directories* a process scans, not
+*in what order* a registry runs its discovery passes, so the two orders can
+differ without reintroducing the ADR-053 §2.6 drift.
+``tests/api/test_registry_provisioning_parity.py`` pins both orders and both
+precedence outcomes so neither can drift silently.
 """
 
 from __future__ import annotations
@@ -47,6 +86,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, overload
 
+from scistudio.core.dropins import evict_cached_bytecode, guard_dropin_type_roots
 from scistudio.desktop.paths import (
     candidate_package_dirs,
     iter_source_package_module_candidates,
@@ -110,9 +150,9 @@ class TypeRegistry:
         skipped at scan time rather than raising at registration time.
 
         ARCHITECTURE.md §10 (project layout) and §10.5 (user-wide
-        extension paths) document the two intended call sites; runtime
-        wiring in :class:`scistudio.api.runtime.ApiRuntime` issues these
-        calls before invoking :meth:`scan_all`.
+        extension paths) document the two intended tiers; ADR-053 FR-057
+        routes every runtime caller through
+        :func:`scistudio.core.dropins.register_type_scan_dirs`.
         """
         self._scan_dirs.append(Path(directory))
 
@@ -469,13 +509,38 @@ class TypeRegistry:
         Issue #1332 / ARCHITECTURE.md §10 + §10.5: after the entry-point pass,
         this also walks every directory registered via :meth:`add_scan_dir` and
         registers any drop-in :class:`DataObject` subclass found in a ``.py``
-        file there. Entry-point registrations win on duplicates (this matches
-        :meth:`BlockRegistry.scan`'s ordering).
+        file there. Which directories those are is not decided here — see
+        :mod:`scistudio.core.dropins` (ADR-053 FR-057).
+
+        The pass order below deliberately differs from
+        :meth:`BlockRegistry.scan`. The reason is recorded in this module's
+        docstring under "Scan order versus BlockRegistry" (ADR-053 FR-061).
         """
         self.scan_builtins()
         self._scan_entrypoint_types()
         self._scan_package_src_dirs()
         self._scan_filesystem_dirs()
+
+    def rescan(self) -> None:
+        """Rebuild this registry's contents in place (ADR-053 FR-062).
+
+        The type-side counterpart of
+        :meth:`scistudio.blocks.registry.BlockRegistry.hot_reload`. A bare
+        :meth:`scan_all` on a populated registry is additive — each subsequent
+        pass skips names already present — so an *edited* or *deleted* drop-in type
+        would keep its first definition forever. Clearing first is what makes a
+        type edit behave the way a block edit already does.
+
+        Holders of an :class:`~scistudio.api.runtime.ApiRuntime` should call
+        ``refresh_all_registries()`` instead: it also rebuilds the block and
+        previewer registries, and it can swap in a fresh instance. This method
+        exists for a caller that holds only the registry — the MCP
+        ``reload_blocks`` tool receives an ``MCPContext`` whose registries are
+        read-only properties over the live runtime, so refreshing in place is
+        the only way it can reach them.
+        """
+        self._registry.clear()
+        self.scan_all()
 
     def _scan_package_src_dirs(self) -> None:
         """Discover desktop source-package types through conventional ``get_types()``."""
@@ -554,11 +619,28 @@ class TypeRegistry:
           warnings; the offending file is skipped and scanning
           continues. A single broken drop-in must never kill the
           registry.
+        - A file rejected under ADR-053 FR-016 for shadowing an installed
+          top-level module is skipped entirely. Spec §13 OQ-1 resolved that
+          case as "registration is refused, not merely warned": telling the
+          user the file is rejected and must be renamed while the type it
+          declares keeps resolving and loading leaves the product saying one
+          thing and doing another, and nothing else reconciles the two — the
+          refusal is recorded on the *block* registry and the registration
+          happens here, and ``refresh_all_registries`` builds the two
+          independently. The predicate is
+          :func:`scistudio.core.dropins.guard_dropin_type_roots`, the same one
+          the block scan reports and the worker binds against, so the two sides
+          cannot drift into disagreeing about which files are refused. It is
+          asked with ``bind=False``: this pass loads drop-in types by file path
+          rather than through ``sys.path``, so it needs the verdict and not the
+          mitigation.
         """
         if not self._scan_dirs:
             return
 
         from scistudio.core.types.base import DataObject
+
+        refused = {collision.path for collision in guard_dropin_type_roots(self._scan_dirs, bind=False)}
 
         for scan_dir in self._scan_dirs:
             if not scan_dir.is_dir():
@@ -567,6 +649,12 @@ class TypeRegistry:
             for py_file in scan_dir.glob("*.py"):
                 if py_file.name.startswith("_"):
                     continue
+                if py_file in refused:
+                    logger.warning(
+                        "TypeRegistry: refusing %s — ADR-053 FR-016 name collision with an installed module",
+                        py_file,
+                    )
+                    continue
                 try:
                     mtime = py_file.stat().st_mtime
                     # Include a hash of the absolute path to prevent module-name
@@ -574,6 +662,14 @@ class TypeRegistry:
                     # stem and the same mtime (issue #1374).
                     path_hash = hashlib.sha256(str(py_file.resolve()).encode()).hexdigest()[:8]
                     mod_name = f"_scistudio_type_dropin_{py_file.stem}_{int(mtime)}_{path_hash}"
+                    # A fresh module object is not a fresh *definition*: the
+                    # loader would still take the class body from a stale
+                    # ``.pyc``. CPython keys freshness on mtime seconds plus
+                    # size, so an edit made within one second to the same
+                    # length reloads the old code. See
+                    # :func:`scistudio.core.dropins.evict_cached_bytecode`
+                    # (Codex P1 on PR #2035).
+                    evict_cached_bytecode(py_file)
                     spec = importlib.util.spec_from_file_location(mod_name, py_file)
                     if spec is None or spec.loader is None:
                         continue
@@ -587,7 +683,18 @@ class TypeRegistry:
                     # un-loadable (Codex P1 finding on PR #1339).
                     sys.modules[spec.name] = module
                     spec.loader.exec_module(module)
-                except Exception:
+                except KeyboardInterrupt:
+                    # The operator's own signal, not the drop-in's failure.
+                    raise
+                except BaseException:
+                    # ``BaseException`` rather than ``Exception`` for the same
+                    # reason the block scan uses it: a ``sys.exit()`` carried
+                    # over from a script raises ``SystemExit``, which would
+                    # otherwise take the whole type scan down with it
+                    # (``docs/audit/2026-08-07-adr-053-spec1-write-path.md``
+                    # P2-1). ``os._exit()`` and a module that never returns
+                    # from import stay outside this boundary; they need the
+                    # out-of-process sandbox deferred at ``TODO(#1531)``.
                     logger.warning(
                         "TypeRegistry: failed to import type drop-in from %s",
                         py_file,

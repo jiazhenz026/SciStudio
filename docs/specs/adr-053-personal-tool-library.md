@@ -435,9 +435,42 @@ obligation is that silent disappearance ends.
 **FR-016.** Because the types directories join `sys.path`, a file there can
 shadow an installed third-party package of the same name — a `json.py` or
 `numpy.py` under `{project}/types/` would be imported in preference to the real
-package by any code loaded afterwards. The implementation MUST warn on a type
-file whose stem collides with an importable top-level module. Whether this
-warns or blocks is an open decision (§13, OQ-1).
+package by any code loaded afterwards. A drop-in type entry whose name collides
+with an importable top-level module MUST be rejected: **registration is
+refused, not merely warned** (§13, OQ-1, resolved). Three obligations follow,
+and all three are load-bearing:
+
+- The refusal MUST be reported through the FR-015 surface.
+- The type declared in the refused entry MUST NOT register in the
+  `TypeRegistry`. Telling the user a file is rejected and must be renamed while
+  the type it declares stays resolvable and loadable is not a rejection, and
+  nothing else in the product reconciles the two: the refusal is recorded on the
+  block registry and the registration happens in the type registry, and §10.4's
+  unified refresh builds them independently.
+- The module the entry collides with MUST still resolve to the installed
+  package **in every process that puts the types directories on `sys.path`** —
+  the API, the agent, the worker, and IO dispatch. A guard that runs only during
+  the palette scan reproduces the scan-time-versus-run-time divergence FR-013
+  exists to eliminate, in the fix for it. This is the same obligation FR-057
+  states for directory resolution, and it is discharged the same way: one shared
+  implementation that every call site invokes, not a rule each site restates.
+
+The refusal has a lifecycle, and its end is part of the requirement. A refusal
+is warranted by a drop-in entry, and a scan that no longer finds that entry
+colliding MUST release it. Renaming or removing the file is precisely what the
+refusal asks the user to do, and a refusal that outlives its cause leaves an
+installed module unusable for the life of the process in answer to the user
+doing the right thing — a worse outcome than the shadowing, because the product
+never notices. Release MUST be bounded by the directories the scan was actually
+given: a scan knows the complete collision set only for those, so a refusal
+warranted by a directory it was not asked about MUST survive it.
+
+Both the name and the collision test have a required shape. A name is any entry
+the directory makes importable, which is `<name>.py` *and* `<name>/__init__.py`;
+a plain subdirectory is not, since a namespace portion cannot displace a regular
+module found elsewhere on `sys.path`. The collision test MUST run against a
+`sys.path` from which the types directories are absent, so a type file can never
+report itself as a collision.
 
 ## 6. Promotion
 
@@ -756,6 +789,17 @@ against the type registry. `refresh_block_registry` is called alone from five
 sites — branch switch and four package install/uninstall paths (§2.6) — while
 `refresh_type_registry` runs only on project switch and startup.
 
+The requirement is about **events**, not about that method name, and the
+enumeration MUST be conducted that way. Three further events rebuild the block
+registry through `BlockRegistry.hot_reload()` instead: the palette Reload
+button, the editor's file-save hook, and the agent's MCP `reload_blocks` tool.
+The save hook additionally MUST treat `{project}/types` as a drop-in tier —
+gating it on `{project}/blocks` alone means a type save invalidates nothing at
+all, which is the same user-visible failure FR-063 describes on a path the user
+reaches far more often than package install. A regression test for this
+requirement MUST exercise the events; asserting over route source text cannot
+observe an invalidation that does not name a refresh method.
+
 **FR-063.** Package install and uninstall MUST refresh the type registry. A
 package can ship types; today installing one leaves them undiscovered until the
 next project switch. This is a pre-existing defect, fixed here because the Data
@@ -782,7 +826,8 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Drop-in import | The §2.5 reproduction now registers `uses_spectrum`; project types shadow user types (FR-012, FR-014) |
 | Worker parity | A block importing a drop-in type runs in the worker, not just registers (FR-013) |
 | Import failure surfaced | A failing drop-in produces a user-visible report (FR-015) |
-| Shadowing warning | A type file colliding with an importable top-level module warns (FR-016) |
+| Shadowing rejection | A drop-in type entry colliding with an importable top-level module is reported through the FR-015 surface, its type is absent from a real `TypeRegistry`, and the real module still resolves inside a real worker subprocess — not only in the process that ran the scan. A `<name>/__init__.py` package is rejected on the same terms as `<name>.py` (FR-016) |
+| Refusal lifecycle | Removing the colliding entry and rescanning makes the name importable again; a rescan that still finds the entry keeps the refusal, and so does a rescan covering only some of the directories that warranted it (FR-016) |
 | Promotion semantics | Copy not move; collision prompts; hidden for built-in, packaged, and already-in-library items (FR-017 – FR-019) |
 | Cascade | Block with a project-level type dependency offers cascade; declining warns; second-level dependency reported (FR-021 – FR-024) |
 | Type colour declaration | A type declaring a colour surfaces it through the types listing (FR-049, FR-050) |
@@ -800,6 +845,7 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Agent type visibility | A drop-in type in the project and in the user library is registered in the agent runtime (FR-059) |
 | Agent import parity | The §2.5 reproduction registers under the agent runtime and the worker, not only under the API (FR-013, §10.3) |
 | Tier condition | User-tier blocks and types are discovered with no project open, at all four sites; project-tier discovery still requires one (FR-060) |
+| Reload events | Each of the palette Reload button, a `{project}/types/*.py` save, and the MCP `reload_blocks` tool makes a newly written type resolvable (FR-062) |
 | Package reload | Installing a package that ships types makes them discoverable without a project switch (FR-063) |
 | Branch switch reload | Switching to a branch with different `{project}/types/` refreshes the type registry (FR-064) |
 | Cross-process refresh | A block promoted through the agent appears in the palette without restart (FR-065) |
@@ -827,9 +873,14 @@ contract and is the list an implementer works from.
 | `src/scistudio/ai/agent/mcp/runtime.py` | modify | Register type directories (FR-059); consume the helper (FR-057) |
 | `src/scistudio/core/types/serialization.py` | modify | Consume the helper instead of duplicating scan dirs (FR-057) |
 | `src/scistudio/blocks/io/_unified_dispatch.py` | modify | Consume the helper; single active-project decision (FR-057, FR-060) |
-| `src/scistudio/blocks/registry/_scan.py` | modify | Import roots for drop-in type resolution (FR-012, FR-013) |
+| `src/scistudio/blocks/registry/_scan.py` | modify | Import roots for drop-in type resolution (FR-012, FR-013); report the shared guard's collisions (FR-015, FR-016) |
+| `src/scistudio/core/dropins.py` | modify | Own the collision rule and the pre-binding for every process (FR-016) |
+| `src/scistudio/blocks/registry/__init__.py` | modify | Guard the in-process instantiation door onto `sys.path` (FR-016) |
+| `src/scistudio/engine/runners/worker.py` | modify | Guard the worker's own `sys.path` injection (FR-013, FR-016) |
 | `src/scistudio/api/routes/git.py` | modify | Branch switch refreshes the type registry (FR-064) |
 | `src/scistudio/api/routes/packages.py` | modify | Package install/uninstall refreshes the type registry (FR-063) |
+| `src/scistudio/api/routes/projects.py` | modify | The save hook covers `{project}/types` and refreshes every registry (FR-062) |
+| `src/scistudio/ai/agent/mcp/tools_authoring.py` | modify | Agent reload refreshes the type registry too (FR-062) |
 | `frontend/src/App.tsx` | modify | `leftTab` widens to include `types` (FR-039) |
 | `frontend/src/App.parts/ProjectWorkspace.tsx` | modify | Third tab, renamed first tab (FR-034, FR-039) |
 | `frontend/src/App.parts/useProjectActions.ts` | modify | New data type; new-file target choice (FR-029 – FR-033) |
@@ -882,10 +933,14 @@ so it lands with the provisioning helper.
 
 ## 13. Open Questions
 
-**OQ-1.** Does a type file whose stem shadows an importable top-level module
-warn, or is it rejected outright (FR-016)? Warning preserves the user's freedom
-to name files as they like; rejecting prevents a failure mode that will be very
-hard for a user to diagnose.
+**OQ-1.** *Resolved.* A type file whose stem shadows an importable top-level
+module is rejected outright with an error, not warned (FR-016). The open
+question was whether to preserve the user's freedom to name files as they like.
+It is not worth preserving: the failure it permits is a `numpy.py` in a types
+directory silently becoming what every subsequently loaded module imports, which
+is among the hardest failures in this product to diagnose, and a warning that
+arrives in a server log is not seen by the person who caused it. Rejection costs
+the user a rename and is reported on the FR-015 surface, where they will see it.
 
 **OQ-2.** *Resolved.* User-tier discovery is unconditional (FR-060). The open
 question was whether to defer the direction to the Learning Center system spec,
@@ -908,9 +963,21 @@ groups rather than adding sections to it, so every existing palette ordering
 test is in scope. Mitigated by `paletteModel` being pure and already unit-tested.
 
 **Types directories join `sys.path`.** §5 makes a user-writable directory
-participate in module resolution for any code loaded afterwards. The shadowing
-warning (FR-016) reduces but does not eliminate this. The blast radius is bounded
-by these directories already executing arbitrary user code in-process (#1531).
+participate in module resolution for any code loaded afterwards. FR-016's
+rejection closes the case that mattered — a type file taking over the name of an
+installed module — by refusing the entry and binding the real module before the
+roots reach `sys.path`. The word "before" is where the risk actually lives: the
+roots reach `sys.path` from four processes, and the first implementation bound
+the real module in only one of them, so a block resolved the installed package
+during the palette scan and the type file inside the worker. That is why FR-016
+requires the binding at every such site through one shared implementation
+(`scistudio.core.dropins.guard_dropin_type_roots`) rather than at the site that
+happened to notice. What remains is a name no installed module currently uses,
+which becomes a collision only when the user later installs a package of that
+name — detected on the next scan, since the guard re-asks the question rather
+than trusting a `sys.modules` entry a drop-in may own. The blast radius is
+bounded by these directories already executing arbitrary user code in-process
+(#1531).
 
 **A second write door.** The user library endpoint writes outside every project
 root — the first such path in the product. Its constraint is inverted rather

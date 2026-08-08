@@ -198,10 +198,23 @@ class BlockSummary(BaseModel):
     panel_manifest: dict[str, Any] | None = None
 
 
+class DropinFailureResponse(BaseModel):
+    """One drop-in file the block scan refused (ADR-053 FR-015/FR-016)."""
+
+    file_path: str = Field(description="Absolute path of the drop-in file that was refused.")
+    error_type: str = Field(description="Exception class name, or 'DropinTypeNameCollision' for FR-016.")
+    message: str = Field(description="One-line explanation the palette can show to the user.")
+
+
 class BlockListResponse(BaseModel):
     """Response body for the block palette listing."""
 
     blocks: list[BlockSummary] = Field(default_factory=list)
+    # ADR-053 FR-015: a drop-in block that fails to import used to vanish with
+    # nothing but a server-side warning. The palette already fetches this
+    # response, so the refusals ride along with it rather than needing a new
+    # polling surface.
+    dropin_failures: list[DropinFailureResponse] = Field(default_factory=list)
 
 
 class BlockSourceResponse(BaseModel):

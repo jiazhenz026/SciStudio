@@ -62,8 +62,10 @@ _SIBLING_MODULES = (
 def _module_class_names(module_name: str) -> list[str]:
     """Return the names of every top-level ``class ...:`` in *module_name*."""
     module = importlib.import_module(module_name)
-    source = Path(module.__file__).read_text(encoding="utf-8")
-    tree = ast.parse(source, filename=module.__file__)
+    module_file = module.__file__
+    assert module_file is not None, f"{module_name} has no source file to inspect"
+    source = Path(module_file).read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=module_file)
     return [node.name for node in tree.body if isinstance(node, ast.ClassDef)]
 
 
@@ -77,7 +79,12 @@ def test_sibling_modules_define_no_classes(module_name: str) -> None:
 
 
 def test_registry_init_defines_exactly_the_public_classes() -> None:
-    """``__init__.py`` owns ``BlockRegistry`` + ``BlockSpec`` + 5 error classes."""
+    """``__init__.py`` owns the registry, its two records, and 5 error classes.
+
+    ``DropinFailure`` joined the inventory with ADR-053 FR-015 (the drop-in
+    refusals the palette listing reports). ADR-047 §C9 keeps every public class
+    of the package here, so this is the only legal home for it.
+    """
     assert sorted(_module_class_names("scistudio.blocks.registry")) == sorted(
         [
             "AmbiguousCapabilityError",
@@ -86,6 +93,7 @@ def test_registry_init_defines_exactly_the_public_classes() -> None:
             "BlockSpec",
             "CapabilityLookupError",
             "CapabilityRegistrationError",
+            "DropinFailure",
             "MissingCapabilityError",
         ]
     )

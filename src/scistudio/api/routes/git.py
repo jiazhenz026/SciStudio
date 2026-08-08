@@ -331,7 +331,7 @@ async def _apply_worktree_op(
 
 
 def _refresh_registries_after_worktree_write(runtime: Any, op: str) -> None:
-    """Rebuild the in-process block registry after a git op rewrote the tree.
+    """Rebuild the in-process registries after a git op rewrote the tree.
 
     ADR-038 Addendum 1 §11.1 (#2033). Per-project custom blocks live under
     ``<project>/blocks/`` (ADR-039 §3.5b "blocks alongside git"), so every git
@@ -348,7 +348,12 @@ def _refresh_registries_after_worktree_write(runtime: Any, op: str) -> None:
 
     ``branch_switch`` has called this since the Phase 3.5 integration audit
     (P2-2); ADR-038 Addendum 1 extends it to every other worktree-rewriting
-    endpoint. Call it after the git operation succeeds and before the
+    endpoint. ADR-053 FR-062 (#2021/#2009) widens *what* it rebuilds:
+    a branch can rewrite ``<project>/types/`` and ``<project>/previewers/``
+    exactly as it rewrites ``<project>/blocks/``, so this refreshes all three
+    rather than the block registry alone. The two changes are orthogonal --
+    #2033 found the events, #2021 found the registries -- and every
+    worktree-rewriting endpoint now gets both. Call it after the git operation succeeds and before the
     ``workflow.changed`` emit, so the frontend's reload reads fresh specs.
 
     Best-effort by design: the git operation has already landed on disk and a
@@ -357,9 +362,9 @@ def _refresh_registries_after_worktree_write(runtime: Any, op: str) -> None:
     pre-#2033 behaviour rather than a regression.
     """
     try:
-        runtime.refresh_block_registry()
+        runtime.refresh_all_registries()
     except Exception:
-        logger.warning("%s: refresh_block_registry failed (non-fatal)", op, exc_info=True)
+        logger.warning("%s: refresh_all_registries failed (non-fatal)", op, exc_info=True)
 
 
 def _iso_ts_now() -> str:

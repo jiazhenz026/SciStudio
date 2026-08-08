@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import collections.abc
 import importlib.metadata
+from collections.abc import Iterable
 from pathlib import Path
+from typing import cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -57,7 +59,12 @@ def fixture_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClien
         # attribute 'matches'``.
         group = kwargs.get("group")
         if group is not None:
-            base = tuple(real_entry_points(*args, **kwargs))
+            # ``**kwargs: object`` defeats the overloads on ``entry_points``,
+            # so the declared return degrades to the 3.11 mapping and mypy
+            # reads the iteration as group-name strings. A group-filtered call
+            # always yields EntryPoint on every supported version.
+            selected = cast("Iterable[importlib.metadata.EntryPoint]", real_entry_points(*args, **kwargs))
+            base = tuple(selected)
             add = tuple(ep for ep in extra if ep.group == group)
             return importlib.metadata.EntryPoints((*base, *add))
         if args:
@@ -592,13 +599,19 @@ def test_reload_blocks_endpoint_triggers_backend_rescan(client: TestClient, tmp_
 
     The palette "Reload" button previously only re-fetched the cached catalog, so
     an in-place drop-in edit (e.g. a changed base class → new colour/icon) stayed
-    stale. This endpoint calls ``registry.hot_reload()``: a drop-in the initial
-    scan never saw becomes visible only after the POST, proving a real re-scan.
-    """
-    registry = client.app.state.runtime.block_registry
+    stale. This endpoint performs a real backend re-scan: a drop-in the initial
+    scan never saw becomes visible only after the POST.
 
-    drop_dir = tmp_path / "dropins"
-    drop_dir.mkdir()
+    ADR-053 FR-062 / #2022: the re-scan is now ``refresh_all_registries()``, so
+    types and previewers are refreshed alongside blocks. That builds a fresh
+    ``BlockRegistry`` from the drop-in tiers rather than re-scanning the
+    existing object, so the probe goes into the user-library tier
+    (``~/.scistudio/blocks``, isolated by the ``client`` fixture) instead of an
+    ad-hoc scan dir no tier definition knows about. The FR-062 half is pinned
+    behaviourally in ``tests/api/test_registry_reload_symmetry.py``.
+    """
+    drop_dir = tmp_path / "home" / ".scistudio" / "blocks"
+    drop_dir.mkdir(parents=True, exist_ok=True)
     (drop_dir / "reload_probe_block.py").write_text(
         "from scistudio.blocks.process.process_block import ProcessBlock\n"
         "\n"
@@ -608,9 +621,8 @@ def test_reload_blocks_endpoint_triggers_backend_rescan(client: TestClient, tmp_
         "    type_name = 'reload_probe'\n",
         encoding="utf-8",
     )
-    registry.add_scan_dir(drop_dir)
 
-    # Not visible yet: the registry has not re-scanned since the dir was added.
+    # Not visible yet: the registry has not re-scanned since the file appeared.
     before = client.get("/api/blocks/")
     assert before.status_code == 200
     assert not any(b["type_name"] == "reload_probe" for b in before.json()["blocks"])

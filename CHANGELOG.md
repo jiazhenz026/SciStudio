@@ -167,6 +167,156 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2021, #2009] Installing a package or switching a branch now re-discovers
+  data types and previewers, not just blocks. The block registry was rebuilt
+  from five places — the branch-switch route and the four package
+  install/update/rollback/delete routes — while the type registry and the
+  previewer registry were rebuilt only on project switch and at startup. So a
+  package that shipped custom types or previewers had its blocks appear in the
+  palette while the rest of it stayed invisible, and a branch that changed
+  `{project}/types/` or `{project}/previewers/` changed only the blocks half of
+  the working tree as far as the running app was concerned. In both cases there
+  was no error and no indication that switching projects was the workaround.
+  All five call sites now go through one `ApiRuntime.refresh_all_registries()`
+  entry point that names the *event* rather than the registries, which is also
+  what a user library write will call once that endpoint exists (#1996), and a
+  regression test rejects any route in `api/routes/` that reaches for a single
+  registry again. Rebuild order is unchanged from the project-switch path:
+  types, then blocks, then previewers. Tests:
+  `tests/api/test_registry_reload_symmetry.py`. (@claude, 2026-08-07, branch:
+  fix/2021-registry-reload-symmetry)
+- [#2022] A drop-in block can now import a drop-in type, and a drop-in that
+  fails no longer disappears without a word. `ARCHITECTURE.md` presents
+  `{project}/blocks/` and `{project}/types/` as companion extension points, but
+  a block file doing `from spectrum import SpectrumData` raised
+  `ModuleNotFoundError` during the palette scan, was skipped, and left nothing
+  behind but a server-side warning — from the user's side the block they had
+  just written simply was not there. The types directories now join `sys.path`
+  for the duration of drop-in execution, project tier ahead of user tier so a
+  project-local type shadows a user-library type of the same file name, and the
+  same roots are stamped on the block spec so the worker subprocess reconstructs
+  the block against an identical import path — a block that resolved at palette
+  time and failed at run time would not have been a fix. Which directories those
+  are is answered by the #2020 shared helper rather than decided here, so the
+  API, the agent, the worker, and IO dispatch cannot drift apart on it.
+  **Failures are now visible.** `GET /api/blocks/` — the response the palette
+  already fetches — carries a `dropin_failures` list naming the file, the
+  exception type, and the message; one bad drop-in still cannot stop the rest of
+  the scan (#1531). **A type file that would hijack an installed module is
+  refused.** Because the types directories participate in module resolution, a
+  `numpy.py` there would become what everything loaded afterwards imports; such
+  a file is now rejected with an error on the same surface and the real module
+  is bound first, so the installed package keeps winning while the user renames
+  the file. The collision test runs against a `sys.path` with the types
+  directories removed, so a type file never reports itself. Resolves ADR-053
+  spec §13 OQ-1 as reject-with-error rather than warn-and-load. Tests:
+  `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-07, branch:
+  fix/2022-dropin-type-import)
+
+- [#2022] The refusal of a shadowing type file is now a refusal everywhere.
+  An independent audit of the fix above found it announced in one process and
+  enforced in none of the others. A `{project}/types/sample_dep.py` colliding
+  with an installed `sample_dep` was reported on the palette surface and the
+  installed module kept winning in the API — but the **worker subprocess**
+  put the same type roots on its own `sys.path` without binding anything
+  first, so the very block that imported the installed package during the
+  palette scan imported the type file when it ran. That is the scan-time
+  versus run-time divergence the drop-in fix exists to eliminate, reappearing
+  inside the fix, and it was new: before these directories joined `sys.path`
+  it could not happen. Separately, the file the user was told to rename kept
+  **registering its type**: `JsonBlob` from a rejected `json.py` stayed
+  resolvable and loadable, so the product said one thing and did another.
+  Both are closed by moving the collision rule and the pre-binding into one
+  shared function in `scistudio.core.dropins`, called by every site that puts
+  those roots on `sys.path` — the palette scan, in-process instantiation, and
+  the worker — and by giving the type registry's drop-in pass the *same*
+  predicate, so a refused file is skipped rather than registered. The
+  detection also covers a `types/<name>/__init__.py` package, which shadows
+  just as effectively and was missed by a `*.py` glob, and the shadowed module
+  is bound once per process rather than re-imported on every palette refresh
+  (a `tensorflow.py` collision no longer re-imports TensorFlow each time).
+  Tests: `tests/blocks/test_dropin_type_import.py`, including a real worker
+  subprocess and the first `TypeRegistry` coverage of the refusal. (@claude,
+  2026-08-07, branch: fix/2022-audit-p1-shadowing-and-registration)
+
+- [#2022] A refused drop-in name now comes back when the user fixes the cause.
+  The fail-closed half of the shadowing guard refuses a colliding name
+  process-wide when the installed module it would shadow cannot be imported —
+  a missing native dependency is the ordinary case — because leaving that name
+  unbound would hand it to the very file the guard had just rejected. Nothing
+  ever released the refusal again. The user did what the error asked, removed
+  the file and rescanned, and the name stayed dead for the life of the process:
+  an installed package the product was never asked to touch, left broken with
+  no recovery short of restarting the app, in answer to the user doing the
+  right thing. A guard pass now records which drop-in directory warrants each
+  refusal, and a later pass over that same directory releases the warrant once
+  it no longer finds the collision — the refusal ends when its last warrant
+  does. **The bound is the directories the pass was given.** A pass knows the
+  complete collision set only for the roots it was asked about, so a refusal
+  warranted by a tier outside the pass survives it, and a root that exists but
+  cannot be listed withholds the release rather than granting it; releasing a
+  still-warranted refusal is the shadowing hole reopened, and that is the
+  direction that must not fail. Building the release exposed a second defect it
+  would otherwise have rested on: a refusal recorded mid-scan installed its
+  finder immediately, so the same name colliding in a *second* tier had the
+  guard's own `ImportError` answered back to its own question and read as "no
+  installed module owns this name". That tier's file was never reported to the
+  user and never recorded a warrant, so removing the project-tier file would
+  have released a refusal the user-tier file still warranted. The finder is now
+  silenced for the duration of the guard window instead of being lifted out of
+  `sys.meta_path`, so every root in a pass is asked the same question. Tests:
+  `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-08, branch:
+  fix/2022-release-stale-name-refusals)
+
+- [#2021, #2009] Reload now means reload for types too, not only for blocks.
+  The reload-symmetry fix above enumerated `refresh_block_registry` call sites,
+  but three events invalidate the registry through `BlockRegistry.hot_reload()`
+  instead and were never evaluated against the type and previewer registries:
+  the palette **Reload** button, the editor's **save hook**, and the agent's
+  MCP **`reload_blocks`** tool. The most visible consequence was that saving a
+  file under `{project}/types/` refreshed *nothing at all* — the hook's gate
+  named only `{project}/blocks` — so a user could edit a data type, save it,
+  press Reload, and still be looking at the old one with no error anywhere.
+  The two routes now call the same `refresh_all_registries()` entry point the
+  other five events use, and the save hook treats `{project}/types` as the
+  drop-in tier it is. The MCP tool holds a context whose registries are
+  read-only views of the live runtime, so it refreshes both in place instead,
+  via a new `TypeRegistry.rescan()` that clears before scanning — a bare
+  re-scan is additive and would keep an edited type's first definition
+  forever. Previewers stay outside the agent's reach, which the tool now says.
+  The old regression test asserted this coverage by grepping route sources for
+  three method names and structurally could not see `hot_reload()`; its
+  docstring is corrected to claim only what it checks, and the events are
+  pinned behaviourally — write a type, trigger the event, resolve the type.
+  Tests: `tests/api/test_registry_reload_symmetry.py`,
+  `tests/api/test_reload_on_save.py`. (@claude, 2026-08-07, branch:
+  fix/2022-audit-p1-shadowing-and-registration)
+
+- [#2020] Every process now resolves the same drop-in block and type
+  directories. "Which drop-in directories does this process see?" was written
+  out four times — the API runtime, the agent runtime, worker-side type
+  reconstruction, and IO dispatch — and no two answers agreed; the only thing
+  keeping them in step was a comment. A shared helper
+  (`scistudio.core.dropins`) is now the single answer, and all four sites call
+  it. Two user-visible defects fall out of the consolidation. **The AI agent
+  could not see custom data types at all**: the agent runtime built its type
+  registry with no scan directory registered, so neither `{project}/types/` nor
+  `~/.scistudio/types/` existed as far as the agent was concerned, while it saw
+  both block tiers — and `make_mcp_runtime`'s docstring claimed the coverage it
+  did not have. **The user block library was gated on having a project open**:
+  with no project selected, `~/.scistudio/types/` loaded and
+  `~/.scistudio/blocks/` did not, an asymmetry that came from where two
+  `add_scan_dir` calls happened to be written rather than from a decision. User-
+  tier discovery is now unconditional everywhere, for blocks and types alike;
+  project-tier discovery still requires a project, since without one there is no
+  project directory to scan. The now-meaningless `always_home` parameter on the
+  IO dispatch helper is deleted rather than left inert. The two registries keep
+  their opposite scan orders on purpose — a drop-in block may replace a built-in
+  of the same name, a drop-in type may not shadow a core type that persisted
+  artifacts deserialise through — and that reason is now recorded at the call
+  site instead of being inferred from the code. Tests:
+  `tests/api/test_registry_provisioning_parity.py`. (@claude, 2026-08-07,
+  branch: fix/2020-dropin-provisioning-helper)
 - [#2040] Provisioned agent hooks now repair themselves when the Python
   interpreter they were pinned to disappears. Every hook command bakes an
   absolute interpreter path at provisioning time. That path is correct when it

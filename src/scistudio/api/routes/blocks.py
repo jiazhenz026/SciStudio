@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.resources as importlib_resources
 import logging
+from dataclasses import asdict
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Annotated, Any, cast
@@ -28,6 +29,7 @@ from scistudio.api.schemas import (
     BlockSourceResponse,
     BlockSummary,
     ConnectionValidationResponse,
+    DropinFailureResponse,
     FormatCapabilityResponse,
     MetadataFidelityResponse,
     TypeHierarchyEntry,
@@ -239,14 +241,26 @@ def _dynamic_ports_for_core_io(spec: Any, registry: Any, type_registry: Any) -> 
     return {"source_config_key": "core_type", "input_port_mapping": {"data": enum_map}}
 
 
+def _dropin_failures(registry: Any) -> list[DropinFailureResponse]:
+    # ADR-053 FR-015. A registry stand-in without the accessor still yields a
+    # palette rather than a 500, so a test double needs no update.
+    recorded = registry.dropin_failures() if hasattr(registry, "dropin_failures") else []
+    return [DropinFailureResponse(**asdict(failure)) for failure in recorded]
+
+
 @router.get("/", response_model=BlockListResponse)
 async def list_blocks(registry: BlockRegistryDep) -> BlockListResponse:
-    """Return the full block palette available in the current registry."""
+    """Return the full block palette available in the current registry.
+
+    ADR-053 FR-015: ``dropin_failures`` carries the drop-in files the scan
+    refused — a block whose import raised, or a type file rejected under FR-016
+    for shadowing an installed module — so a missing block has a visible cause.
+    """
     blocks = [
         _summary(spec, registry) for spec in registry.all_specs().values() if not _is_replaced_io_palette_block(spec)
     ]
     blocks.sort(key=lambda item: (item.base_category, item.subcategory, item.name))
-    return BlockListResponse(blocks=blocks)
+    return BlockListResponse(blocks=blocks, dropin_failures=_dropin_failures(registry))
 
 
 class BlockReloadResponse(BaseModel):
@@ -266,14 +280,19 @@ async def reload_blocks(runtime: RuntimeDep) -> BlockReloadResponse:
     an in-place source edit (e.g. changing a block's base class to
     ``ProcessBlock``) left its ``base_category``/``ui_color``/``ui_icon`` stale
     until the file was saved through the app or the agent ``reload_blocks`` tool
-    ran. This endpoint gives the button a real backend re-scan: it calls
-    ``registry.hot_reload()`` and emits ``blocks.reloaded`` so every connected
-    client refreshes its catalog through the existing WS → refresh path.
+    ran. This endpoint gives the button a real backend re-scan and emits
+    ``blocks.reloaded`` so every connected client refreshes its catalog through
+    the existing WS → refresh path.
+
+    ADR-053 FR-062: the re-scan is ``refresh_all_registries()`` rather than
+    ``block_registry.hot_reload()``. Reload is an event that invalidates the
+    registry, and FR-062 is written in terms of events, not method names — a
+    user who edits ``{project}/types/spectrum.py`` and presses Reload used to
+    get a fresh block registry and a stale type registry.
     """
-    registry = runtime.block_registry
-    before = set(registry.all_specs().keys())
-    registry.hot_reload()
-    after = set(registry.all_specs().keys())
+    before = set(runtime.block_registry.all_specs().keys())
+    runtime.refresh_all_registries()
+    after = set(runtime.block_registry.all_specs().keys())
     added = sorted(after - before)
     removed = sorted(before - after)
     logger.info("POST /api/blocks/reload: added=%s removed=%s", added, removed)
