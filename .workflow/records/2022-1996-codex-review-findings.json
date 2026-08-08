@@ -40,6 +40,14 @@
       "path": null,
       "rationale": "Comment-only change; the behaviour and its CHANGELOG entry landed in 4e433250.",
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T05:10:02.348172Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Comment-only change; the behaviour and its CHANGELOG entry landed in 4e433250.",
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -609,6 +617,14 @@
       "kind": "na",
       "path": null,
       "rationale": "No executable change \u2014 a module docstring paragraph explaining an existing import. Covered by frontend/src/store/__tests__/typeCatalogInvalidation.test.ts.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T05:10:02.348193Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "No executable change \u2014 two docstrings. Covered by frontend/src/store/__tests__/typeCatalogInvalidation.test.ts.",
       "verified_in_diff": null
     }
   ]

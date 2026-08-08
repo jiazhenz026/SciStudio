@@ -47,7 +47,7 @@ import { useAppStore } from "./index";
 let inFlight: Promise<void> | null = null;
 
 /**
- * Fetch the type catalogue into the store unless it is already there.
+ * One round trip, unconditionally.
  *
  * A failure is warned and swallowed: the catalogue is a colour and listing
  * *enhancement*, and every consumer already renders correctly without it
@@ -67,6 +67,15 @@ async function fetchTypeCatalog(): Promise<void> {
   }
 }
 
+/**
+ * Fetch the type catalogue into the store unless it is already there.
+ *
+ * `force` is how a caller says the cached answer is no longer true; every such
+ * caller should go through {@link invalidateTypeCatalog}, which names the
+ * reason. Concurrent asks share one request so N mounting surfaces produce one
+ * fetch — except a forced one, which must not be answered by a request that
+ * predates whatever invalidated the cache.
+ */
 export function loadTypeCatalog(options?: { force?: boolean }): Promise<void> {
   const force = options?.force === true;
   if (!force && useAppStore.getState().typesLoaded) {
