@@ -4,6 +4,12 @@
  * The ADR-045 version-vector contract on FileTab
  * (`baseVersion` / `pendingVersion` / `pendingSourceId`) is preserved
  * verbatim — see `tabSlice.versionVector.test.ts`.
+ *
+ * `useTypeCatalog` reaches back to the assembled store, so importing it here
+ * closes a module loop through `store/index.ts`. It is safe for the reason
+ * that module records: nothing in it touches `useAppStore` while the store is
+ * being assembled — the reference is inside a function this file calls from a
+ * user's save, long afterwards. Do not promote it to module scope.
  */
 import type { StoreApi } from "zustand";
 

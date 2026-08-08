@@ -32,6 +32,14 @@
       "path": null,
       "rationale": "Docstring-only change with no behaviour to document; the behaviour change it describes landed in a15e9f69 with its CHANGELOG entry and the FR-062 spec clause.",
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T05:06:49.684249Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Comment-only change; the behaviour and its CHANGELOG entry landed in 4e433250.",
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -593,6 +601,14 @@
       "kind": "na",
       "path": null,
       "rationale": "No executable change \u2014 a module docstring paragraph. The behaviour is covered by tests/blocks/test_dropin_type_import.py and tests/core/test_type_registry_scan_dirs.py, landed in a15e9f69.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T05:06:49.684269Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "No executable change \u2014 a module docstring paragraph explaining an existing import. Covered by frontend/src/store/__tests__/typeCatalogInvalidation.test.ts.",
       "verified_in_diff": null
     }
   ]
