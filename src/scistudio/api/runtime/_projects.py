@@ -21,6 +21,7 @@ from uuid import uuid4
 import yaml
 
 from scistudio.blocks.registry import BlockRegistry
+from scistudio.core.dropins import register_block_scan_dirs, register_type_scan_dirs
 from scistudio.core.types.registry import TypeRegistry
 from scistudio.workflow.definition import WorkflowDefinition
 from scistudio.workflow.serializer import save_yaml
@@ -58,10 +59,14 @@ def _save_known_projects(self: ApiRuntime) -> None:
 
 
 def refresh_block_registry(self: ApiRuntime) -> None:
+    """Rebuild the BlockRegistry for the active project.
+
+    ADR-053 FR-057/FR-060: scan dirs come from :mod:`scistudio.core.dropins`,
+    so the user tier no longer needs an open project to be seen.
+    """
+    project_dir = None if self.active_project is None else Path(self.active_project.path)
     registry = BlockRegistry()
-    if self.active_project is not None:
-        registry.add_scan_dir(Path(self.active_project.path) / "blocks")
-        registry.add_scan_dir(Path.home() / ".scistudio" / "blocks")
+    register_block_scan_dirs(registry, project_dir)
     registry.scan()
     self.block_registry = registry
 
@@ -75,13 +80,33 @@ def refresh_type_registry(self: ApiRuntime) -> None:
     user-wide ``~/.scistudio/types`` dir. Always rebuilds from scratch
     so a switch from project A to project B does not leak project A's
     types into project B.
+
+    ADR-053 FR-057/FR-058: same tier definition as the block registry.
     """
+    project_dir = None if self.active_project is None else Path(self.active_project.path)
     registry = TypeRegistry()
-    if self.active_project is not None:
-        registry.add_scan_dir(Path(self.active_project.path) / "types")
-    registry.add_scan_dir(Path.home() / ".scistudio" / "types")
+    register_type_scan_dirs(registry, project_dir)
     registry.scan_all()
     self.type_registry = registry
+
+
+def refresh_all_registries(self: ApiRuntime) -> None:
+    """Rebuild every registry a drop-in, package, or branch change invalidates.
+
+    ADR-053 FR-062 to FR-065 and #2009/#2021. Each invalidation event used to
+    pick its own subset: branch switch and the four package
+    install/update/rollback/delete routes rebuilt blocks alone, so a package
+    that ships types or previewers had them stay undiscovered until the user
+    happened to switch projects. Callers now name the event rather than the
+    registries, which is what stops the set drifting apart again — and is the
+    entry point to call after a user library write (FR-010 / FR-065).
+
+    The order is the one the project-switch path already used: types, then
+    blocks, then previewers.
+    """
+    self.refresh_type_registry()
+    self.refresh_block_registry()
+    self.refresh_preview_service()
 
 
 def _init_lineage_store(self: ApiRuntime, project_path: Path) -> None:
@@ -307,11 +332,10 @@ def open_project(self: ApiRuntime, project_id_or_path: str) -> KnownProject:
     self._save_known_projects()
     self.active_project = candidate
     self.data_catalog = {}
-    self.refresh_type_registry()
-    self.refresh_block_registry()
-    # ADR-048 SPEC 1: rebuild the previewer service so project-local
-    # previewers and default declarations track the active project (FR-002).
-    self.refresh_preview_service()
+    # ADR-053 FR-062: a project switch invalidates all three registries —
+    # blocks and types from ``<project>/`` and, per ADR-048 SPEC 1 FR-002,
+    # project-local previewers and their default declarations.
+    self.refresh_all_registries()
     self._init_metadata_store(Path(candidate.path))
     self._init_lineage_store(Path(candidate.path))
     self.reset_version_state_for_project(Path(candidate.path))

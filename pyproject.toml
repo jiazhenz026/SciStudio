@@ -3,7 +3,7 @@ name = "scistudio"
 version = "0.3.3a0"
 description = "AI-native, inclusive workflow runtime for multimodal scientific data"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
 authors = [
     {name = "Jiazhen Zhang"},

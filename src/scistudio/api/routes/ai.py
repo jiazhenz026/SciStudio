@@ -1,4 +1,4 @@
-"""Provider discovery endpoint for the embedded coding agent.
+"""Provider discovery endpoints for the embedded coding agent.
 
 ADR-034 Phase 2 trimmed this module down to the single ``/api/ai/status``
 endpoint introduced in Phase 1.2. The legacy pre-ADR-033 single-call
@@ -7,6 +7,14 @@ surfaces (``/api/ai/generate-block``, ``/api/ai/suggest-workflow``,
 schemas were deleted along with ``scistudio.ai.generation`` and
 ``scistudio.ai.optimization`` — they fed an AI workflow path that the
 PTY-tab embedded agent now replaces end-to-end.
+
+ADR-053 spec 2 adds ``/api/ai/availability`` beside it. The two are
+deliberately not merged: ``/status`` answers presence for the chat Setup
+screen's dropdown and costs nothing beyond a ``--version`` probe, while
+``/availability`` grades the same rows into the four states a surface that
+is about to *spend* a user's session needs, which requires a real billed
+call to each provider. A caller that only wants to order a dropdown should
+not pay for that.
 """
 
 from __future__ import annotations
@@ -18,9 +26,10 @@ import subprocess
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
+from scistudio.ai.agent import availability as agent_availability
 from scistudio.ai.agent.providers_registry import ProviderDescriptor, agent_descriptors, resolve_binary
 from scistudio.api.deps import get_runtime
 from scistudio.api.runtime import ApiRuntime
@@ -106,9 +115,72 @@ async def provider_status() -> dict[str, Any]:
     than scaling with the provider count; ``asyncio.gather`` preserves registry
     order in the result.
     """
+    return {"providers": await _status_rows()}
+
+
+async def _status_rows() -> list[dict[str, Any]]:
+    """Probe every registered agent provider concurrently, in registry order."""
     descriptors = agent_descriptors()
     providers = await asyncio.gather(*(asyncio.to_thread(_probe_provider, d) for d in descriptors))
-    return {"providers": list(providers)}
+    return list(providers)
+
+
+@router.get("/availability")
+async def agent_availability_report(
+    refresh: Annotated[
+        bool,
+        Query(description="Bypass the memoised report and re-probe every provider."),
+    ] = False,
+) -> dict[str, Any]:
+    """Return graded agent availability for any surface that needs a working agent.
+
+    ADR-053 spec 2, FR-031 to FR-036. Where ``GET /api/ai/status`` reports
+    whether each CLI is present and logged in, this endpoint answers the
+    question a surface about to start an agent session actually has: will a
+    call work *right now*? Response shape::
+
+        {
+          "state": "ready",
+          "providers": [
+            {"key": "claude-code", "label": "Claude Code",
+             "state": "ready", "cause": null, "next_step": null,
+             "session_unsupported_reason": null},
+            {"key": "codex", "label": "Codex",
+             "state": "call_failed", "cause": "quota exceeded",
+             "next_step": null, "session_unsupported_reason": null}
+          ]
+        }
+
+    Per-provider ``state`` is one of ``not_installed``, ``not_authenticated``,
+    ``call_failed``, ``ready``. The first two are read off the same status rows
+    ``/api/ai/status`` returns, so there is no second discovery path; the last
+    two are separated by a live minimal call through the provider's own CLI,
+    because a credential file on disk and a successful ``--version`` do not
+    establish that a request will succeed. ``cause`` is populated only for
+    ``call_failed`` and never carries reinstall guidance.
+
+    Two further fields are facts about the provider rather than grades of it.
+    ``next_step`` is the one action that moves this provider out of this state —
+    how to install it, or the command that signs it in — populated for the two
+    states FR-031 gives a guidance column to and null for the other two.
+    ``session_unsupported_reason``, when non-null, says the provider has no
+    positional prompt argument and therefore cannot be handed the opening
+    instruction every SciStudio-started session is delivered with; such a
+    provider must not be offered as the agent for a session however ``ready``
+    it is, though it remains a usable hand-launched chat tab.
+
+    The aggregate ``state`` is ``ready`` when **any** provider is ready, so one
+    unconfigured CLI never blocks a user who has a working one; otherwise it is
+    the most actionable state present, ranked ``call_failed`` >
+    ``not_authenticated`` > ``not_installed``.
+
+    Live calls are billed requests, so the report is memoised briefly and shared
+    across surfaces. Pass ``refresh=true`` behind an explicit retry control.
+    Every probe is bounded and runs concurrently: a slow or hanging provider is
+    reported as a failed call rather than holding the response.
+    """
+    report = await agent_availability.probe_availability(_status_rows, refresh=refresh)
+    return report.as_dict()
 
 
 def _probe_provider(descriptor: ProviderDescriptor) -> dict[str, Any]:

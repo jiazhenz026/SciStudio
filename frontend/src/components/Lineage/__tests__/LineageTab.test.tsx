@@ -37,8 +37,6 @@ vi.mock("../../../lib/api", async () => {
           workflow_yaml_snapshot: null,
         }),
         getRunMethods: vi.fn().mockResolvedValue({ markdown: "# methods" }),
-        validateRerun: vi.fn().mockResolvedValue({ input_warnings: [], env_warnings: [] }),
-        rerunRun: vi.fn().mockResolvedValue({ new_run_id: "" }),
       },
     },
   };
@@ -59,7 +57,6 @@ function resetLineage(): void {
     runDetailError: {},
     expandedBlockExecutionIds: [],
     methodsDialogRunId: null,
-    rerunDialogRunId: null,
   });
 }
 
@@ -108,9 +105,14 @@ describe("LineageTab", () => {
     expect(screen.getByTestId("methods-export-dialog")).toBeInTheDocument();
   });
 
-  it("renders RerunDialog when rerunDialogRunId is set", () => {
-    useAppStore.setState({ rerunDialogRunId: "abc-123" });
+  // ADR-038 Addendum 1 §11.4 (#2033): Re-run is withdrawn. The `r` key used
+  // to open its dialog even though the button had been removed in #1721 —
+  // a decommissioned feature still reachable by keystroke.
+  it("does not open any dialog when 'r' is pressed with a run selected", () => {
+    useAppStore.setState({ selectedRunId: "abc-123" });
     render(<LineageTab />);
-    expect(screen.getByTestId("rerun-dialog")).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "r" });
+    expect(screen.queryByTestId("rerun-dialog")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("restore-dialog")).not.toBeInTheDocument();
   });
 });

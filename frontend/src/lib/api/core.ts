@@ -38,7 +38,38 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+/**
+ * Thrown when a request carrying `timeoutMs` outlives its deadline (#2019).
+ *
+ * Distinct from `ApiError`: no HTTP response ever arrived, so there is no
+ * status code to branch on. Callers that need to tell "the server said no"
+ * from "the server never answered" check `instanceof ApiTimeoutError`.
+ */
+export class ApiTimeoutError extends Error {
+  timeoutMs: number;
+
+  constructor(path: string, timeoutMs: number) {
+    super(`Request to ${path} timed out after ${Math.round(timeoutMs / 1000)}s`);
+    this.name = "ApiTimeoutError";
+    this.timeoutMs = timeoutMs;
+  }
+}
+
+export interface ApiFetchOptions extends RequestInit {
+  /**
+   * #2019: abort the request after this many milliseconds and reject with
+   * `ApiTimeoutError`. Omit for no client-side deadline (the default — most
+   * calls are quick, and a spurious abort is worse than waiting).
+   *
+   * Set it on calls whose failure mode is "the UI is stuck until this
+   * settles". A hung backend used to wedge the app permanently: the `finally`
+   * that clears the busy flag and closes the modal never ran, because the
+   * promise it hung off never settled.
+   */
+  timeoutMs?: number;
+}
+
+export async function apiFetch<T>(path: string, init?: ApiFetchOptions): Promise<T> {
   // #1741: attach a correlation id (X-Request-ID) and emit DEBUG at the API
   // boundary so every call is traceable across frontend -> backend logs.
   const requestId = newRequestId();
@@ -48,15 +79,47 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   const started = typeof performance !== "undefined" ? performance.now() : 0;
   logger.debug(`→ ${method} ${path}`, { request_id: requestId });
 
+  // #2019: an AbortController rather than a bare Promise.race, so a timed-out
+  // request actually releases the connection instead of running on unobserved.
+  const { timeoutMs, ...requestInit } = init ?? {};
+  const controller = timeoutMs !== undefined ? new AbortController() : null;
+  const timer =
+    controller !== null && timeoutMs !== undefined
+      ? setTimeout(() => controller.abort(), timeoutMs)
+      : null;
+  // Honour a caller-supplied signal too: whichever fires first wins.
+  if (controller !== null && requestInit.signal) {
+    const callerSignal = requestInit.signal;
+    if (callerSignal.aborted) {
+      controller.abort();
+    } else {
+      callerSignal.addEventListener("abort", () => controller.abort(), { once: true });
+    }
+  }
+
   let response: Response;
   try {
-    response = await fetch(path, { ...init, headers });
+    response = await fetch(path, {
+      ...requestInit,
+      headers,
+      ...(controller !== null ? { signal: controller.signal } : {}),
+    });
   } catch (error) {
+    // Our own deadline tripped — report it as such rather than as a generic
+    // network fault, so the banner says "timed out" instead of "aborted".
+    if (timeoutMs !== undefined && controller?.signal.aborted && !requestInit.signal?.aborted) {
+      logger.error(`timeout: ${method} ${path} after ${timeoutMs}ms`, { request_id: requestId });
+      throw new ApiTimeoutError(path, timeoutMs);
+    }
     logger.error(`network error: ${method} ${path}`, {
       request_id: requestId,
       error: String(error),
     });
     throw error;
+  } finally {
+    if (timer !== null) {
+      clearTimeout(timer);
+    }
   }
   const elapsedMs = Math.round(
     (typeof performance !== "undefined" ? performance.now() : 0) - started,

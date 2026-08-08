@@ -9,6 +9,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [#2033] **Restore is now the single way back to a past state, and it actually
+  gets you there.** Restoring a run used to rewrite one file —
+  `workflows/<id>.yaml` — so a user who had broken a custom block could open the
+  run that worked, press *Restore workflow*, and hit the identical failure: the
+  graph came back, the block source that broke did not. The Git tab's `Restore`,
+  one tab over and identically named, did the full-tree restore that would have
+  fixed it. Both are now one operation: **Restore**, full-tree, behind a shared
+  confirmation dialog that states the scope before anything is rewritten. Four
+  things landed with it.
+  **The registry follows the restore.** `refresh_block_registry()` ran only on
+  branch switch and package operations. Every other git operation that rewrites
+  the working tree — restore, merge, cherry-pick, merge-complete, merge-abort —
+  left the in-process registry describing the code the user had just rolled
+  back, while the execution subprocess (which reloads block source from disk per
+  ADR-017) ran the restored code. A restore that recovered the files correctly
+  could still be rejected by `start_workflow`'s validation citing a block
+  definition that no longer existed on disk, with nothing pointing at the stale
+  cache. A shared best-effort helper now covers all six call sites.
+  **The environment check exists.** ADR-038 §3.6 specified two advisory checks —
+  boundary inputs unchanged, environment not drifted — in executable pseudocode.
+  Neither was ever implemented: the client's `validateRerun` returned a
+  hardcoded empty-warnings object and the backend route was never written, so
+  the dialog rendered *"No drift detected"* unconditionally, in the one place a
+  user goes to ask that exact question. `GET /api/runs/validate-restore` now
+  performs the comparison and runs before a restore. A commit with no recorded
+  run (a manual commit, an `auto: pre-restore` commit) reports that nothing
+  could be compared rather than reporting a clean result — the two were
+  previously indistinguishable, and only the false one was ever shown. This
+  matters most for Restore: git cannot roll back SciStudio's own version,
+  installed packages, or the Python environment, all of which live outside the
+  project repository, so "worked yesterday, fails today" has a second cause that
+  the recovery path is now equipped to name.
+  **Re-run is withdrawn.** #1721 removed its button on the grounds that Restore
+  is the operation users understand, but left the dialog mounted, the `r`
+  shortcut that opens it, `POST /api/runs/{run_id}/rerun`, and the client
+  methods — a feature the product had decided not to have, still reachable by
+  keystroke. Restore plus the Run control the user already presses covers it.
+  `runs.parent_run_id` and its read paths stay: "Run from here" (ADR-038 §3.6a)
+  is a separate feature and historical rows keep rendering their parent link.
+  **The node toolbar drops its Restart button.** `handleRestartBlock` and
+  `handleRunBlock` had byte-identical bodies, down to the dependency array —
+  same `executeFrom` call, same arguments. Two icons and two tooltips for one
+  behaviour, with nothing to tell a user they were the same thing.
+  See ADR-038 Addendum 1 and ADR-050 Addendum 1.
+
+- [#2018] SciStudio is now licensed under the **Apache License 2.0** instead of
+  the MIT License. Apache-2.0 keeps the same permissive shape (use, modify,
+  redistribute, commercial use, no copyleft) and adds an explicit patent grant
+  from contributors, a patent-retaliation termination clause, and a requirement
+  that modified files be marked and the license/attribution notices carried
+  forward — the terms scientific institutions and companies most often ask for
+  before adopting a runtime. `LICENSE` now carries the verbatim Apache-2.0 text
+  with the appendix copyright line filled in; `pyproject.toml` declares
+  `Apache-2.0`; both READMEs were updated. The change is **prospective only**:
+  every existing tag, published artifact, and clone taken before this commit
+  keeps its MIT grant permanently, so nothing already released is withdrawn.
+  Two things deliberately did *not* change: the block-package scaffold
+  (`scistudio new-block-package`) still writes `license = {text = "MIT"}`
+  because the package it generates is the user's own code and gets the most
+  permissive default rather than inheriting the runtime's choice, and no
+  `NOTICE` file was added since Apache-2.0 does not require one and there is no
+  third-party attribution to propagate yet.
 - [#1983] Persisted block artifacts are now reclaimed instead of accumulating
   forever. Every block output is written as a full-size store under
   `data/zarr/<workflow_id>/<block_id>/`, and nothing ever removed one: a real
@@ -104,6 +166,240 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   (@claude, 2026-07-02, branch: guided/1910-workflow-id-filename-palette-reload)
 
 ### Fixed
+
+- [#2021, #2009] Installing a package or switching a branch now re-discovers
+  data types and previewers, not just blocks. The block registry was rebuilt
+  from five places — the branch-switch route and the four package
+  install/update/rollback/delete routes — while the type registry and the
+  previewer registry were rebuilt only on project switch and at startup. So a
+  package that shipped custom types or previewers had its blocks appear in the
+  palette while the rest of it stayed invisible, and a branch that changed
+  `{project}/types/` or `{project}/previewers/` changed only the blocks half of
+  the working tree as far as the running app was concerned. In both cases there
+  was no error and no indication that switching projects was the workaround.
+  All five call sites now go through one `ApiRuntime.refresh_all_registries()`
+  entry point that names the *event* rather than the registries, which is also
+  what a user library write will call once that endpoint exists (#1996), and a
+  regression test rejects any route in `api/routes/` that reaches for a single
+  registry again. Rebuild order is unchanged from the project-switch path:
+  types, then blocks, then previewers. Tests:
+  `tests/api/test_registry_reload_symmetry.py`. (@claude, 2026-08-07, branch:
+  fix/2021-registry-reload-symmetry)
+- [#2022] A drop-in block can now import a drop-in type, and a drop-in that
+  fails no longer disappears without a word. `ARCHITECTURE.md` presents
+  `{project}/blocks/` and `{project}/types/` as companion extension points, but
+  a block file doing `from spectrum import SpectrumData` raised
+  `ModuleNotFoundError` during the palette scan, was skipped, and left nothing
+  behind but a server-side warning — from the user's side the block they had
+  just written simply was not there. The types directories now join `sys.path`
+  for the duration of drop-in execution, project tier ahead of user tier so a
+  project-local type shadows a user-library type of the same file name, and the
+  same roots are stamped on the block spec so the worker subprocess reconstructs
+  the block against an identical import path — a block that resolved at palette
+  time and failed at run time would not have been a fix. Which directories those
+  are is answered by the #2020 shared helper rather than decided here, so the
+  API, the agent, the worker, and IO dispatch cannot drift apart on it.
+  **Failures are now visible.** `GET /api/blocks/` — the response the palette
+  already fetches — carries a `dropin_failures` list naming the file, the
+  exception type, and the message; one bad drop-in still cannot stop the rest of
+  the scan (#1531). **A type file that would hijack an installed module is
+  refused.** Because the types directories participate in module resolution, a
+  `numpy.py` there would become what everything loaded afterwards imports; such
+  a file is now rejected with an error on the same surface and the real module
+  is bound first, so the installed package keeps winning while the user renames
+  the file. The collision test runs against a `sys.path` with the types
+  directories removed, so a type file never reports itself. Resolves ADR-053
+  spec §13 OQ-1 as reject-with-error rather than warn-and-load. Tests:
+  `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-07, branch:
+  fix/2022-dropin-type-import)
+
+- [#2022] The refusal of a shadowing type file is now a refusal everywhere.
+  An independent audit of the fix above found it announced in one process and
+  enforced in none of the others. A `{project}/types/sample_dep.py` colliding
+  with an installed `sample_dep` was reported on the palette surface and the
+  installed module kept winning in the API — but the **worker subprocess**
+  put the same type roots on its own `sys.path` without binding anything
+  first, so the very block that imported the installed package during the
+  palette scan imported the type file when it ran. That is the scan-time
+  versus run-time divergence the drop-in fix exists to eliminate, reappearing
+  inside the fix, and it was new: before these directories joined `sys.path`
+  it could not happen. Separately, the file the user was told to rename kept
+  **registering its type**: `JsonBlob` from a rejected `json.py` stayed
+  resolvable and loadable, so the product said one thing and did another.
+  Both are closed by moving the collision rule and the pre-binding into one
+  shared function in `scistudio.core.dropins`, called by every site that puts
+  those roots on `sys.path` — the palette scan, in-process instantiation, and
+  the worker — and by giving the type registry's drop-in pass the *same*
+  predicate, so a refused file is skipped rather than registered. The
+  detection also covers a `types/<name>/__init__.py` package, which shadows
+  just as effectively and was missed by a `*.py` glob, and the shadowed module
+  is bound once per process rather than re-imported on every palette refresh
+  (a `tensorflow.py` collision no longer re-imports TensorFlow each time).
+  Tests: `tests/blocks/test_dropin_type_import.py`, including a real worker
+  subprocess and the first `TypeRegistry` coverage of the refusal. (@claude,
+  2026-08-07, branch: fix/2022-audit-p1-shadowing-and-registration)
+
+- [#2022] A refused drop-in name now comes back when the user fixes the cause.
+  The fail-closed half of the shadowing guard refuses a colliding name
+  process-wide when the installed module it would shadow cannot be imported —
+  a missing native dependency is the ordinary case — because leaving that name
+  unbound would hand it to the very file the guard had just rejected. Nothing
+  ever released the refusal again. The user did what the error asked, removed
+  the file and rescanned, and the name stayed dead for the life of the process:
+  an installed package the product was never asked to touch, left broken with
+  no recovery short of restarting the app, in answer to the user doing the
+  right thing. A guard pass now records which drop-in directory warrants each
+  refusal, and a later pass over that same directory releases the warrant once
+  it no longer finds the collision — the refusal ends when its last warrant
+  does. **The bound is the directories the pass was given.** A pass knows the
+  complete collision set only for the roots it was asked about, so a refusal
+  warranted by a tier outside the pass survives it, and a root that exists but
+  cannot be listed withholds the release rather than granting it; releasing a
+  still-warranted refusal is the shadowing hole reopened, and that is the
+  direction that must not fail. Building the release exposed a second defect it
+  would otherwise have rested on: a refusal recorded mid-scan installed its
+  finder immediately, so the same name colliding in a *second* tier had the
+  guard's own `ImportError` answered back to its own question and read as "no
+  installed module owns this name". That tier's file was never reported to the
+  user and never recorded a warrant, so removing the project-tier file would
+  have released a refusal the user-tier file still warranted. The finder is now
+  silenced for the duration of the guard window instead of being lifted out of
+  `sys.meta_path`, so every root in a pass is asked the same question. Tests:
+  `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-08, branch:
+  fix/2022-release-stale-name-refusals)
+
+- [#2021, #2009] Reload now means reload for types too, not only for blocks.
+  The reload-symmetry fix above enumerated `refresh_block_registry` call sites,
+  but three events invalidate the registry through `BlockRegistry.hot_reload()`
+  instead and were never evaluated against the type and previewer registries:
+  the palette **Reload** button, the editor's **save hook**, and the agent's
+  MCP **`reload_blocks`** tool. The most visible consequence was that saving a
+  file under `{project}/types/` refreshed *nothing at all* — the hook's gate
+  named only `{project}/blocks` — so a user could edit a data type, save it,
+  press Reload, and still be looking at the old one with no error anywhere.
+  The two routes now call the same `refresh_all_registries()` entry point the
+  other five events use, and the save hook treats `{project}/types` as the
+  drop-in tier it is. The MCP tool holds a context whose registries are
+  read-only views of the live runtime, so it refreshes both in place instead,
+  via a new `TypeRegistry.rescan()` that clears before scanning — a bare
+  re-scan is additive and would keep an edited type's first definition
+  forever. Previewers stay outside the agent's reach, which the tool now says.
+  The old regression test asserted this coverage by grepping route sources for
+  three method names and structurally could not see `hot_reload()`; its
+  docstring is corrected to claim only what it checks, and the events are
+  pinned behaviourally — write a type, trigger the event, resolve the type.
+  Tests: `tests/api/test_registry_reload_symmetry.py`,
+  `tests/api/test_reload_on_save.py`. (@claude, 2026-08-07, branch:
+  fix/2022-audit-p1-shadowing-and-registration)
+
+- [#2020] Every process now resolves the same drop-in block and type
+  directories. "Which drop-in directories does this process see?" was written
+  out four times — the API runtime, the agent runtime, worker-side type
+  reconstruction, and IO dispatch — and no two answers agreed; the only thing
+  keeping them in step was a comment. A shared helper
+  (`scistudio.core.dropins`) is now the single answer, and all four sites call
+  it. Two user-visible defects fall out of the consolidation. **The AI agent
+  could not see custom data types at all**: the agent runtime built its type
+  registry with no scan directory registered, so neither `{project}/types/` nor
+  `~/.scistudio/types/` existed as far as the agent was concerned, while it saw
+  both block tiers — and `make_mcp_runtime`'s docstring claimed the coverage it
+  did not have. **The user block library was gated on having a project open**:
+  with no project selected, `~/.scistudio/types/` loaded and
+  `~/.scistudio/blocks/` did not, an asymmetry that came from where two
+  `add_scan_dir` calls happened to be written rather than from a decision. User-
+  tier discovery is now unconditional everywhere, for blocks and types alike;
+  project-tier discovery still requires a project, since without one there is no
+  project directory to scan. The now-meaningless `always_home` parameter on the
+  IO dispatch helper is deleted rather than left inert. The two registries keep
+  their opposite scan orders on purpose — a drop-in block may replace a built-in
+  of the same name, a drop-in type may not shadow a core type that persisted
+  artifacts deserialise through — and that reason is now recorded at the call
+  site instead of being inferred from the code. Tests:
+  `tests/api/test_registry_provisioning_parity.py`. (@claude, 2026-08-07,
+  branch: fix/2020-dropin-provisioning-helper)
+- [#2040] Provisioned agent hooks now repair themselves when the Python
+  interpreter they were pinned to disappears. Every hook command bakes an
+  absolute interpreter path at provisioning time. That path is correct when it
+  is written, but nothing kept it correct afterwards: uninstalling the desktop
+  app, deleting a virtualenv or upgrading Python left every previously
+  provisioned project running a command whose first word no longer existed.
+  Reopening the project — the obvious remedy — repaired nothing, because the
+  only existing repairs matched the pre-#1994 bare-`python` spelling and the
+  pre-#2011 `$(git rev-parse --show-toplevel)` spelling, while the canonical
+  hook merge appends only hooks that are *absent* and a dead hook is present.
+  The failure was also silent and fails *open*: a hook whose process cannot
+  start exits 127, a non-blocking status, so `protect_data_dir.py`,
+  `protect_workflow_yaml.py` and `deny_scistudio_cli.py` stopped enforcing
+  while the UI showed only a transient warning. Claude Code, both Qoder
+  channels and Codex now re-render any hook command still in the shape
+  SciStudio emits whose interpreter is no longer a real file. A live
+  interpreter is left alone even when it differs from the one provisioning
+  would choose now, so a deliberate choice survives; commands that are not the
+  generated shape are never touched. The fail-open semantics itself — a hook
+  that cannot start should not silently permit the call — remains open as
+  [#2041].
+
+  The same work fixed why the [#2011] Codex repair had not been reaching
+  projects either. It matched two fully spelled-out legacy commands, one of
+  which embedded `sys.executable` — the interpreter of the process running the
+  *repair*, not the one that wrote the file. Those agree only when a project is
+  re-provisioned from the very interpreter that provisioned it, so a project
+  provisioned by the packaged desktop app and reopened from any other install
+  kept its dead hooks. A legacy command is now recognised by its trailing
+  `$(git rev-parse ...)` script argument alone, whatever interpreter precedes
+  it.
+
+- [#2030] The worktree write guard no longer fails open on Windows. The hook
+  script prepends `$REPO_ROOT/src` to whatever `PYTHONPATH` it inherits, and
+  joined the two with a hardcoded `:`. On Windows the interpreter it invokes
+  splits `PYTHONPATH` on `;`, so that join collapsed into a single unusable
+  entry, `import scistudio` failed, and the guard exited 1 — which a PreToolUse
+  hook treats as a *non-blocking* error. The guard therefore stopped guarding
+  altogether: an agent that forgot to create a worktree could write into the
+  main checkout unchallenged. It only bit when the caller had already exported
+  `PYTHONPATH`, which is routine here because `pip install -e .` is forbidden
+  and callers point `PYTHONPATH` at `./src`. The script now selects the
+  separator per platform. Alongside this, the Windows test suite was brought to
+  green: five tests that assert genuinely POSIX-only behaviour (the zsh
+  `ZDOTDIR` / bash `--rcfile` terminal shims, which `user_terminal_post_rc_invocation`
+  deliberately skips on Windows; the two `AF_UNIX` MCP socket route tests, whose
+  Windows TCP counterpart is already covered; and the `NAME_MAX`/`ENAMETOOLONG`
+  browse test, where Windows correctly answers 404 rather than the 500 that
+  regression guards against) now carry explicit `skipif` markers with reasons,
+  while `test_claude_and_codex_share_identical_mcp_env` was repaired rather than
+  skipped — it substring-matched a raw path against TOML-escaped output and so
+  could only ever hold on POSIX; it now decodes the TOML and compares values.
+  Tests: `tests/qa/test_gate_record_hooks.py`, `tests/cli/test_install.py`.
+  (@claude, 2026-08-07, branch: test/2030-windows-test-failures)
+- [#2019] Creating or opening a project while another project was already open
+  could hang the app indefinitely: the project dialog stayed up, the bottom-right
+  `Working…` pill sat blurred underneath it, and nothing ever completed. Both
+  routes rebind the MCP transport to the new project directory, which first
+  stops the outgoing server — and `MCPServer.stop()` did `close()` followed by
+  `wait_closed()`. `close()` only retires the listener; connections already
+  established keep running, and since Python 3.12 `wait_closed()` does not
+  return until every connection handler has finished. Because the per-client
+  loop blocks on `readline()` until its peer disconnects, any attached MCP
+  client (an AI Chat session holding the project's transport, for instance)
+  pinned that coroutine forever, so the HTTP request never returned and the
+  frontend `finally` that clears the busy flag and closes the dialog never ran.
+  `stop()` now hangs up on live client transports before waiting, and bounds the
+  wait so a wedged handler degrades to a logged warning instead of a hang. Two
+  supporting changes make the failure mode non-fatal in general: `apiFetch`
+  gained an opt-in `timeoutMs` that aborts the request and rejects with
+  `ApiTimeoutError` (applied to the two project-switch calls, which are the ones
+  gating a modal), so the promise always settles; and the project dialog now
+  reports progress on its submit button and refuses a second submit while a
+  switch is in flight, rather than racing two project switches. Separately, the
+  global busy indicator had no `z-index` at all while every modal overlay is
+  `z-50` or `z-[9999]` with a backdrop blur — the one affordance saying "still
+  working" rendered blurred underneath the dialog waiting on that work; it now
+  sits above the topmost modal layer and no longer intercepts clicks. Tests:
+  `tests/ai/test_mcp_server_stop.py`,
+  `frontend/src/lib/api/__tests__/timeout.test.ts`,
+  `frontend/src/App.busyIndicator.test.tsx`,
+  `frontend/src/components/ProjectDialog.test.tsx`. (@claude, 2026-08-07,
+  branch: fix/2019-new-project-mcp-deadlock)
 
 - [#1986] The desktop app now remembers which port its backend bound and prefers
   that port on the next launch, so the renderer keeps a stable

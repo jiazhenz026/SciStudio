@@ -26,10 +26,24 @@ class _Runtime:
     def __init__(self) -> None:
         self.block_registry = _Registry()
         self.refreshed = False
-        self.active_project = None
+        self.refreshed_kinds: list[str] = []
+        self.active_project: SimpleNamespace | None = None
 
     def refresh_block_registry(self) -> None:
         self.refreshed = True
+        self.refreshed_kinds.append("block")
+
+    def refresh_type_registry(self) -> None:
+        self.refreshed_kinds.append("type")
+
+    def refresh_preview_service(self) -> None:
+        self.refreshed_kinds.append("preview")
+
+    def refresh_all_registries(self) -> None:
+        """Mirror ``ApiRuntime.refresh_all_registries`` (ADR-053 FR-062)."""
+        self.refresh_type_registry()
+        self.refresh_block_registry()
+        self.refresh_preview_service()
 
 
 def test_install_local_package_route_refreshes_registry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -153,7 +167,7 @@ def test_list_installed_route(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
     captured: dict[str, object] = {}
 
-    def fake_list(**kwargs):
+    def fake_list(**kwargs: object) -> list[package_manager.InstalledPackage]:
         captured.update(kwargs)
         return [
             package_manager.InstalledPackage(
@@ -189,9 +203,9 @@ def test_list_installed_route(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
 
 def test_updates_route(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
-    captured: dict[str, object] = {}
+    captured: dict[str, dict[str, object] | str] = {}
 
-    def fake_check(packages, *, core_base):
+    def fake_check(packages: dict[str, object], *, core_base: str) -> list[package_manager.PackageUpdateStatus]:
         captured["packages"] = packages
         captured["core_base"] = core_base
         return [
@@ -221,7 +235,7 @@ def test_update_route_refreshes_and_returns_relaunch(monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
     captured: list[Path] = []
 
-    def fake_update(name, *, packages, core_base):
+    def fake_update(name: str, *, packages: dict[str, object], core_base: str) -> package_manager.PackageActionResult:
         return package_manager.PackageActionResult(
             package_name=name, version="1.2.0", action="update", previous_version="1.0.0"
         )
@@ -241,7 +255,7 @@ def test_update_route_refreshes_and_returns_relaunch(monkeypatch: pytest.MonkeyP
 def test_update_route_maps_known_error_to_400(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
 
-    def boom(name, *, packages, core_base):
+    def boom(name: str, *, packages: dict[str, object], core_base: str) -> package_manager.PackageActionResult:
         raise package_manager.PackageUpdateError("Checksum mismatch")
 
     monkeypatch.setattr(package_manager, "update_package", boom)
@@ -285,7 +299,7 @@ def test_delete_route(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_delete_route_missing_is_404(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
 
-    def missing(name):
+    def missing(name: str) -> package_manager.PackageActionResult:
         raise package_manager.PackageUpdateError("Package 'x' is not installed.")
 
     monkeypatch.setattr(package_manager, "delete_package", missing)

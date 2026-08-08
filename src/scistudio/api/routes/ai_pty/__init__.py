@@ -42,10 +42,16 @@ The route enforces a hard cap of ``MAX_ACTIVE_PTYS`` concurrent
 terminals (default 16) — the 17th connection receives an ``error``
 frame and is closed before the PTY is spawned.
 
-ADR-035 (§3.10) extends this package — without modifying the existing
-``WS /api/ai/pty/{tab_id}`` handler — with an engine-initiated tab-open
-path. See :func:`open_engine_initiated_tab` and the
-``/api/ai/pty/internal/*`` routes wired below.
+ADR-035 (§3.10) extends this package with a **pre-spawned** tab-open
+path, where the PTY exists before any WebSocket does. See
+:func:`open_engine_initiated_tab` (AI Block) and the
+``/api/ai/pty/internal/*`` routes wired below, plus
+:func:`open_work_import_tab` (ADR-053 Bring In My Work, FR-022), which
+shares the same spawn body. The user-launched handler above is
+otherwise unchanged: it gained only a join predicate that recognises a
+pre-spawned PTY by a provider-neutral marker instead of an
+AI-Block-specific one, so both features join their own PTY rather than
+starting a second agent over the top of it.
 
 Module layout (issue #1432 refactor of the original 757-LOC single
 module):
@@ -106,6 +112,7 @@ from .engine import (
     get_block_run_id_for_tab,
     get_run_dir_for_block_run,
     open_engine_initiated_tab,
+    open_work_import_tab,
 )
 from .internal_routes import _ensure_ipc_token as _ensure_ipc_token
 from .subscribers import (
@@ -121,6 +128,7 @@ __all__ = [
     "get_block_run_id_for_tab",
     "get_run_dir_for_block_run",
     "open_engine_initiated_tab",
+    "open_work_import_tab",
     "pty_endpoint",
     "register_ai_pty_subscriber",
     "router",

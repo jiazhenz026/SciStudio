@@ -185,7 +185,9 @@ def _git(repo: Path, *args: str) -> None:
     )
 
 
-def _run_write_guard_hook(payload: dict, *, cwd: Path) -> subprocess.CompletedProcess[str]:
+def _run_write_guard_hook(
+    payload: dict, *, cwd: Path, extra_pythonpath: str | None = None
+) -> subprocess.CompletedProcess[str]:
     """Execute the hook shell script with a JSON PreToolUse payload on stdin."""
     shell = shutil.which("sh")
     if shell is None:
@@ -194,6 +196,12 @@ def _run_write_guard_hook(payload: dict, *, cwd: Path) -> subprocess.CompletedPr
     # Ensure the guard's ``python -m scistudio...`` import resolves regardless
     # of how the test runner set PYTHONPATH.
     src = str(REPO_ROOT / "src")
+    if extra_pythonpath is not None:
+        # Appended, not prepended, on purpose: the hook prepends its own entry
+        # to whatever it inherits, so only the FIRST inherited entry gets fused
+        # by a wrong separator. Putting the decoy last leaves ``src`` in that
+        # first position, which is what makes the #2030 regression observable.
+        src = src + os.pathsep + extra_pythonpath
     env["PYTHONPATH"] = src + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
     return subprocess.run(
         [shell, str(WRITE_GUARD_HOOK)],
@@ -221,6 +229,41 @@ def main_and_linked_worktree(tmp_path: Path) -> tuple[Path, Path]:
     linked = tmp_path / "linked"
     _git(main, "worktree", "add", "-b", "feature", str(linked))
     return main.resolve(), linked.resolve()
+
+
+def test_write_guard_hook_resolves_module_when_pythonpath_is_already_set(
+    main_and_linked_worktree: tuple[Path, Path],
+) -> None:
+    """#2030: an inherited PYTHONPATH must not break the guard's own import.
+
+    The hook prepends ``$REPO_ROOT/src`` to any PYTHONPATH it inherits. That
+    join used a hardcoded ``:``, which is wrong on Windows — the interpreter
+    the hook invokes there splits PYTHONPATH on ``;``, so the joined value
+    collapsed into one unusable entry, ``import scistudio`` failed, and the
+    guard exited 1. Exit 1 from a PreToolUse hook is a *non-blocking* error, so
+    the guard failed OPEN: it stopped guarding entirely rather than blocking.
+
+    This is the regression, and it only bites when the caller already exported
+    PYTHONPATH — routine in this repo, where ``pip install -e .`` is forbidden
+    and callers point PYTHONPATH at ``./src``. A decoy entry forces the join.
+    """
+    main, linked = main_and_linked_worktree
+    decoy = str(main / "not-on-the-path")
+    payload = {
+        "tool_name": "Edit",
+        "tool_input": {"file_path": str(main / "src" / "leak.py")},
+        "cwd": str(linked),
+    }
+    result = _run_write_guard_hook(payload, cwd=linked, extra_pythonpath=decoy)
+
+    # A real decision (2 = BLOCK here), not an interpreter failure. Guarding
+    # against exit 1 specifically is the point: that is the fail-open state.
+    assert result.returncode == 2, (
+        f"expected BLOCK (exit 2) with a pre-set PYTHONPATH; got {result.returncode}. "
+        f"Exit 1 means the guard could not import itself and failed open.\n"
+        f"stdout={result.stdout!r}\nstderr={result.stderr!r}"
+    )
+    assert "No module named" not in result.stderr
 
 
 def test_write_guard_hook_allows_write_inside_linked_worktree(

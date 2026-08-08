@@ -419,19 +419,34 @@ async def scaffold_block(
 
 @mcp.tool(name="reload_blocks", tags={"category:authoring", "write"})
 async def reload_blocks() -> ReloadBlocksResult:
-    """Hot-reload the block registry.
+    """Hot-reload the block and data-type registries.
 
     Use when:
       - You've edited a block source file (existing or scaffolded) and
         want the new code picked up without restarting the backend.
+      - You've edited or added a drop-in data type under
+        ``{project}/types`` or the user library and want it resolvable.
 
     Do NOT use to:
       - Discover new entry-point blocks — pip installs require a
         backend restart; this only rescans the in-process registry.
+
+    ADR-053 FR-062: an agent block edit is an event that invalidates the
+    registry, and until FR-059 gave the agent a populated type registry there
+    was nothing on the type side for it to invalidate. The API routes that
+    handle the same event call ``ApiRuntime.refresh_all_registries()``; this
+    tool cannot, because an ``MCPContext`` exposes the two registries as
+    read-only properties over the live runtime and no refresh method, so it
+    refreshes both *in place* instead — the narrowest reach that still leaves
+    the agent's view consistent. Previewers are outside that reach: the
+    context does not carry the preview service, and widening the Protocol to
+    add it would change every context implementation for a surface the agent
+    does not read.
     """
     ctx = get_context()
     before = set(ctx.block_registry.all_specs().keys())
     ctx.block_registry.hot_reload()
+    ctx.type_registry.rescan()
     after = set(ctx.block_registry.all_specs().keys())
     added = sorted(after - before)
     removed = sorted(before - after)

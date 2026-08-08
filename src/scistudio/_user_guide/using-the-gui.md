@@ -106,5 +106,5 @@ preview-only (it is not a workflow block) and shows in the **plots** tab. See
 ## Next
 
 - [built-in-blocks.md](built-in-blocks.md) — the blocks you build with
-- [history-and-branches.md](history-and-branches.md) — re-run and branch your work
+- [history-and-branches.md](history-and-branches.md) — restore past work and branch it
 - [ai-assistant.md](ai-assistant.md) — have the assistant do it for you

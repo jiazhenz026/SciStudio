@@ -27,8 +27,6 @@ vi.mock("../../../lib/api", async () => {
         getRuns: vi.fn().mockResolvedValue({ runs: [] }),
         getRun: vi.fn(),
         getRunMethods: vi.fn(),
-        validateRerun: vi.fn(),
-        rerunRun: vi.fn(),
       },
     },
   };
@@ -91,7 +89,6 @@ function resetLineage(): void {
     runDetailError: {},
     expandedBlockExecutionIds: [],
     methodsDialogRunId: null,
-    rerunDialogRunId: null,
   });
 }
 
@@ -139,9 +136,9 @@ describe("RunDetail", () => {
     expect(screen.getByTestId("block-execution-card-be-001")).toBeInTheDocument();
   });
 
-  // #1721 — the Re-run button was removed from the RunDetail footer (Restore is
-  // now the primary, first action). The 'r' keyboard shortcut + RerunDialog are
-  // unchanged and covered by LineageTab tests; there is no footer Re-run button.
+  // #1721 removed the footer's Re-run button; ADR-038 Addendum 1 (#2033)
+  // removed everything behind it — the dialog, the `r` shortcut that still
+  // opened it, and the REST route. Restore is the only action in this footer.
   it("renders no Re-run button in the footer", () => {
     useAppStore.setState({ selectedRunId: "r1", runDetails: { r1: makeDetail() } });
     render(<RunDetail />);
