@@ -92,7 +92,6 @@ export interface UseFlowNodesOpts {
   dragSizes: Record<string, { width: number; height: number }>;
   onUpdateNodeConfig: (nodeId: string, patch: Record<string, unknown>) => void;
   makeOnRun: (nodeId: string) => () => void;
-  makeOnRestart: (nodeId: string) => () => void;
   makeOnDelete: (nodeId: string) => () => void;
   makeOnErrorClick: (nodeId: string) => () => void;
   makeOnUpdateConfig: (nodeId: string) => (patch: Record<string, unknown>) => void;
@@ -129,7 +128,6 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
     dragSizes,
     onUpdateNodeConfig,
     makeOnRun,
-    makeOnRestart,
     makeOnDelete,
     makeOnErrorClick,
     makeOnUpdateConfig,
@@ -209,7 +207,6 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
         highlighted: highlightedNodeId === node.id,
         callbacks: {
           onRun: makeOnRun(node.id),
-          onRestart: makeOnRestart(node.id),
           onDelete: makeOnDelete(node.id),
           onUpdateConfig: makeOnUpdateConfig(node.id),
           onErrorClick: makeOnErrorClick(node.id),
@@ -232,7 +229,6 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
     edges,
     makeOnDelete,
     makeOnErrorClick,
-    makeOnRestart,
     makeOnRun,
     makeOnUpdateConfig,
     makeOnWarningClick,

@@ -242,15 +242,21 @@ describe("GitHistoryList", () => {
       );
     });
 
-    it("top-toolbar Restore acts on the selected commit (List view)", () => {
+    it("top-toolbar Restore opens the confirmation dialog for the selected commit", () => {
+      // ADR-038 Addendum 1 §11.4 (#2033): Restore used to fire a
+      // `window.confirm` and call the store action straight away. A native
+      // confirm cannot show the §3.6 preflight, so it now opens
+      // `RestoreDialog` — nothing is restored until the user confirms there.
       const restore = vi.fn().mockResolvedValue(undefined);
       useAppStore.setState({ restore });
-      vi.spyOn(window, "confirm").mockReturnValue(true);
+      const confirmSpy = vi.spyOn(window, "confirm");
       render(<GitHistoryList branch="main" />);
       flipToListView();
       fireEvent.click(screen.getByTestId(`git-history-row-${userCommit.short_sha}`));
       fireEvent.click(screen.getByTestId("git-history-toolbar-restore"));
-      expect(restore).toHaveBeenCalledWith(userCommit.sha);
+      expect(screen.getByTestId("restore-dialog")).toBeTruthy();
+      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(restore).not.toHaveBeenCalled();
     });
 
     it("top-toolbar Restore delegates to onRestoreClick when provided", () => {

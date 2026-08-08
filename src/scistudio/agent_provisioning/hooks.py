@@ -22,6 +22,29 @@ tool name; omitting it leaves a bypass path):
 
 Hook scripts read JSON from stdin (Claude Code's hook stdin contract);
 exit code 2 blocks the tool call (PreToolUse only); exit code 0 passes.
+
+Self-healing the baked interpreter (#2040)
+------------------------------------------
+
+:func:`hook_interpreter` resolves an absolute path once, at provisioning time,
+and that path is then frozen into every generated command. It is correct when
+written — the venv branch checks ``is_file`` and the fallback returns the
+running ``sys.executable`` — but nothing keeps it correct afterwards. Uninstall
+the desktop app, delete a virtualenv or upgrade Python and every hook in every
+project provisioned against that interpreter becomes a command whose first word
+does not exist.
+
+Nothing repaired that. :func:`_upgrade_legacy_settings_commands` matches only
+the pre-#1994 bare-``python`` spelling, and :func:`_merge_missing_canonical_hooks`
+appends only hooks that are *absent* — a hook that is present but dead satisfies
+it. Re-opening the project, which is what a user would try, rewrote nothing.
+
+It matters more than a broken command usually would, because the failure is
+silent and fails *open*: a hook that cannot start exits 127, a non-blocking
+status, so the tool call proceeds unguarded while the UI shows only a transient
+warning. ``protect_data_dir.py`` and its siblings stop enforcing without ever
+saying so. :func:`_repair_dead_interpreter_commands` re-renders the path;
+the fail-open semantics itself is TODO(#2041).
 """
 
 from __future__ import annotations
@@ -29,8 +52,10 @@ from __future__ import annotations
 import importlib.resources
 import json
 import os
+import re
 import stat
 import sys
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 _HOOKS_DIR_REL = ".claude/hooks"
@@ -240,22 +265,17 @@ def _legacy_python_hook_command(script: str, hooks_dir_rel: str, project_dir_var
     return f'python "${project_dir_var}/{hooks_dir_rel}/{script}"'
 
 
-def _upgrade_legacy_settings_commands(
-    settings: dict,
-    hooks_dir_rel: str,
-    project_dir_var: str = _CLAUDE_PROJECT_DIR_VAR,
-) -> bool:
-    """Replace old PATH-dependent SciStudio hook commands in-place.
+def _iter_settings_handlers(settings: dict) -> Iterator[dict]:
+    """Yield every hook handler mapping declared anywhere in ``settings``.
 
-    User-owned custom commands are preserved. Only the exact command strings
-    emitted by older SciStudio versions are upgraded.
+    Both repair passes below walk the same four levels of a user-owned file
+    whose shape is not guaranteed, so each level is type-checked rather than
+    assumed. Sharing one traversal keeps a malformed-input tolerance fix from
+    having to be made twice.
     """
     hooks = settings.get("hooks")
     if not isinstance(hooks, dict):
-        return False
-    scripts = {dest for _template, dest in _HOOK_FILES}
-    py = _quote_shell_path(hook_interpreter())
-    changed = False
+        return
     for groups in hooks.values():
         if not isinstance(groups, list):
             continue
@@ -266,17 +286,121 @@ def _upgrade_legacy_settings_commands(
             if not isinstance(handlers, list):
                 continue
             for handler in handlers:
-                if not isinstance(handler, dict):
-                    continue
-                command = handler.get("command")
-                if not isinstance(command, str):
-                    continue
-                for script in scripts:
-                    if command == _legacy_python_hook_command(script, hooks_dir_rel, project_dir_var):
-                        handler["command"] = f'{py} "${project_dir_var}/{hooks_dir_rel}/{script}"'
-                        changed = True
-                        break
+                if isinstance(handler, dict):
+                    yield handler
+
+
+def _rewrite_settings_commands(settings: dict, replacement_for: Callable[[str], str | None]) -> bool:
+    """Apply one command rewrite across a settings file, in place.
+
+    ``replacement_for`` receives a command string and returns what it should
+    become, or ``None`` to leave it alone. Both rewrites below are that shape,
+    so neither has to restate the traversal or the "was anything changed"
+    bookkeeping.
+    """
+    changed = False
+    for handler in _iter_settings_handlers(settings):
+        command = handler.get("command")
+        if not isinstance(command, str):
+            continue
+        replacement = replacement_for(command)
+        if replacement is None:
+            continue
+        handler["command"] = replacement
+        changed = True
     return changed
+
+
+def _upgrade_legacy_settings_commands(
+    settings: dict,
+    hooks_dir_rel: str,
+    project_dir_var: str = _CLAUDE_PROJECT_DIR_VAR,
+) -> bool:
+    """Replace old PATH-dependent SciStudio hook commands in-place.
+
+    User-owned custom commands are preserved. Only the exact command strings
+    emitted by older SciStudio versions are upgraded.
+    """
+    py = _quote_shell_path(hook_interpreter())
+
+    def _upgraded(command: str) -> str | None:
+        for _template, script in _HOOK_FILES:
+            if command == _legacy_python_hook_command(script, hooks_dir_rel, project_dir_var):
+                return f'{py} "${project_dir_var}/{hooks_dir_rel}/{script}"'
+        return None
+
+    return _rewrite_settings_commands(settings, _upgraded)
+
+
+#: The exact command shape :func:`_build_settings_json` emits: a quoted
+#: absolute interpreter, one space, then the hook script under the provider's
+#: project-root variable. Matched structurally, so a command a user wrote by
+#: hand is never a candidate for rewriting no matter what it invokes.
+_GENERATED_COMMAND_RE = re.compile(r'^"(?P<interpreter>(?:[^"\\]|\\.)*)" "\$(?P<var>\w+)/(?P<script_path>[^"]+)"$')
+
+
+def _generated_command_parts(
+    command: str,
+    hooks_dir_rel: str,
+    project_dir_var: str,
+    scripts: set[str],
+) -> tuple[str, str] | None:
+    """Split *command* into ``(interpreter, script_path)`` if SciStudio wrote it.
+
+    Returns ``None`` unless the string is the shape this module emits *and*
+    names one of the canonical hook scripts under the expected directory and
+    project-root variable. Everything else — a user's own command, a command
+    for some other tool, a canonical script invoked in a spelling we never
+    produced — is reported as not ours and left alone.
+    """
+    match = _GENERATED_COMMAND_RE.match(command)
+    if match is None or match.group("var") != project_dir_var:
+        return None
+    script_path = match.group("script_path")
+    prefix = f"{hooks_dir_rel}/"
+    if not script_path.startswith(prefix) or script_path.removeprefix(prefix) not in scripts:
+        return None
+    return match.group("interpreter").replace('\\"', '"'), script_path
+
+
+def interpreter_is_live(interpreter: str) -> bool:
+    """Whether a baked interpreter path still resolves to a real file.
+
+    Public because :mod:`scistudio.agent_provisioning.codex_config` freezes the
+    same interpreter into its own hook commands and needs the same answer; two
+    spellings of "is this path still usable" would be two things to keep in
+    step.
+    """
+    if not interpreter:
+        return False
+    try:
+        return Path(interpreter).is_file()
+    except (OSError, ValueError):
+        # An unusable path — too long, bad drive, illegal characters — is as
+        # dead as a missing one for the purpose of deciding to re-render.
+        return False
+
+
+def _repair_dead_interpreter_commands(
+    settings: dict,
+    hooks_dir_rel: str,
+    project_dir_var: str = _CLAUDE_PROJECT_DIR_VAR,
+) -> bool:
+    """Re-render hook commands whose baked interpreter is gone — see module docs.
+
+    A live interpreter is left alone even when it is not the one this process
+    would choose now, so a deliberate choice survives re-provisioning.
+    """
+    scripts = {dest for _template, dest in _HOOK_FILES}
+    py = _quote_shell_path(hook_interpreter())
+
+    def _repaired(command: str) -> str | None:
+        parts = _generated_command_parts(command, hooks_dir_rel, project_dir_var, scripts)
+        if parts is None or interpreter_is_live(parts[0]):
+            return None
+        return f'{py} "${project_dir_var}/{parts[1]}"'
+
+    return _rewrite_settings_commands(settings, _repaired)
 
 
 def _entry_command_strings(entry: object) -> list[str]:
@@ -354,10 +478,11 @@ def _write_settings_file(
     a second copy of this logic would be a second place for the two providers'
     hook coverage to drift apart.
 
-    Same three-way behaviour in both cases: write when absent or forced,
-    otherwise upgrade legacy command strings and additively merge any canonical
-    hook the user's existing file is missing, never touching user-authored
-    entries (ADR-040 Addendum 6, #1858).
+    Same behaviour in both cases: write when absent or forced, otherwise
+    upgrade legacy command strings, repair commands whose baked interpreter has
+    since disappeared (#2040), and additively merge any canonical hook the
+    user's existing file is missing — never touching user-authored entries
+    (ADR-040 Addendum 6, #1858).
     """
     settings_path = project_dir / settings_rel
     settings_path.parent.mkdir(parents=True, exist_ok=True)
@@ -376,12 +501,15 @@ def _write_settings_file(
     if not isinstance(existing, dict):
         return []
 
-    # Order matters: upgrade legacy command strings first, then top up any
-    # canonical hooks this SciStudio version adds (#1858). Use a
-    # non-short-circuiting OR so both run.
+    # Order matters: upgrade the legacy bare-``python`` spelling into the
+    # current shape first, so the interpreter repair that follows can recognise
+    # it; then top up any canonical hooks this SciStudio version adds (#1858).
+    # Assigned to separate names rather than OR-ed inline so none of them is
+    # short-circuited away.
     upgraded = _upgrade_legacy_settings_commands(existing, _HOOKS_DIR_REL, project_dir_var)
+    repaired = _repair_dead_interpreter_commands(existing, _HOOKS_DIR_REL, project_dir_var)
     merged = _merge_missing_canonical_hooks(existing, project_dir_var)
-    if upgraded or merged:
+    if upgraded or repaired or merged:
         settings_path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
         return [settings_rel]
     return []

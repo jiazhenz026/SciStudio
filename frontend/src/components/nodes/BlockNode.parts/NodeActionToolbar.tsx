@@ -1,20 +1,25 @@
 // ADR-050 §2.2 — floating node action toolbar.
 //
-// Run / Restart / Delete controls for a canvas block node. Per ADR-050 the
+// Run / Delete controls for a canvas block node. Per ADR-050 the
 // action buttons float OUTSIDE the square body and only appear on hover or when
 // the node is selected. They MUST NOT consume body space or change the node's
 // measured geometry, so the toolbar is absolutely positioned above the square
 // and is excluded from layout flow.
 
+//
+// ADR-050 Addendum 1 §8.1 (#2033): the toolbar used to carry a third button,
+// "Restart block", between run and delete. Its handler was byte-identical to
+// run's — same `executeFrom` call, same arguments — so the two buttons offered
+// one behaviour behind two icons and two tooltips. The duplicate is gone.
+
 interface NodeActionToolbarProps {
   /** Show the toolbar (hover or selected). */
   visible: boolean;
   onRun?: () => void;
-  onRestart?: () => void;
   onDelete?: () => void;
 }
 
-export function NodeActionToolbar({ visible, onRun, onRestart, onDelete }: NodeActionToolbarProps) {
+export function NodeActionToolbar({ visible, onRun, onDelete }: NodeActionToolbarProps) {
   return (
     <div
       data-testid="node-action-toolbar"
@@ -38,28 +43,6 @@ export function NodeActionToolbar({ visible, onRun, onRestart, onDelete }: NodeA
       >
         <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
           <path d="M4 2.5v11l9-5.5z" />
-        </svg>
-      </button>
-      <button
-        type="button"
-        className="nodrag rounded p-1 text-stone-400 transition-colors hover:bg-stone-100 hover:text-ink"
-        title="Restart block"
-        aria-label="Restart block"
-        onClick={(event) => {
-          event.stopPropagation();
-          onRestart?.();
-        }}
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          aria-hidden="true"
-        >
-          <path d="M13 8a5 5 0 1 1-1.5-3.5M13 3v2.5h-2.5" />
         </svg>
       </button>
       <button

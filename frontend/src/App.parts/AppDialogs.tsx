@@ -12,6 +12,8 @@ import { WorkflowConflictDialog } from "../components/WorkflowConflictDialog";
 interface AppDialogsProps {
   projectDialog: ProjectDialogState;
   projectDialogOpen: boolean;
+  /** #2019: a project create/open is in flight — block a second submit. */
+  busy: boolean;
   promptRequest: PromptRequest | null;
   recentProjects: ProjectResponse[];
   workflowConflict: VersionConflictState | null;
@@ -27,6 +29,7 @@ interface AppDialogsProps {
 export function AppDialogs({
   projectDialog,
   projectDialogOpen,
+  busy,
   promptRequest,
   recentProjects,
   workflowConflict,
@@ -41,6 +44,7 @@ export function AppDialogs({
   return (
     <>
       <ProjectDialog
+        busy={busy}
         description={projectDialog.description}
         mode={projectDialog.mode}
         name={projectDialog.name}

@@ -10,9 +10,24 @@ the last writer of ``PATH``.
 from __future__ import annotations
 
 import shlex
+import sys
 from pathlib import Path
 
+import pytest
+
 from scistudio.desktop import paths as desktop_paths
+
+# #2030: the shim is POSIX-only by design. ``user_terminal_post_rc_invocation``
+# returns its inputs unchanged when ``sys.platform == "win32"`` (see
+# ``scistudio/desktop/paths.py``), because Windows has no zsh ``ZDOTDIR`` or
+# bash ``--rcfile`` startup contract to intercept. The two shim-shaping tests
+# below therefore assert POSIX behaviour that Windows should not exhibit; the
+# Windows path — argv and env untouched — is covered by
+# ``test_unshimmed_shell_is_unchanged``, which runs everywhere.
+_POSIX_ONLY_SHIM = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX shell startup-file shim only (zsh ZDOTDIR / bash --rcfile)",
+)
 
 
 def _env(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
@@ -26,6 +41,7 @@ def _env(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
     return env, bin_dir, python
 
 
+@_POSIX_ONLY_SHIM
 def test_zsh_invocation_writes_zdotdir_that_reprepends_after_user_rc(tmp_path: Path) -> None:
     env, bin_dir, python = _env(tmp_path)
 
@@ -51,6 +67,7 @@ def test_zsh_invocation_writes_zdotdir_that_reprepends_after_user_rc(tmp_path: P
     assert 'source "${SCISTUDIO_USER_ZDOTDIR}/.zshenv"' in (zdotdir / ".zshenv").read_text("utf-8")
 
 
+@_POSIX_ONLY_SHIM
 def test_bash_invocation_uses_rcfile_that_reprepends(tmp_path: Path) -> None:
     env, bin_dir, python = _env(tmp_path)
 

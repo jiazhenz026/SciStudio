@@ -41,7 +41,7 @@ import { projectsApi } from "./api/projects";
 import { tutorialsApi } from "./api/tutorials";
 import { workflowsApi } from "./api/workflows";
 
-export { ApiError } from "./api/core";
+export { ApiError, ApiTimeoutError } from "./api/core";
 export {
   consumePendingWorkflowSourceId,
   createClientSourceId,

@@ -267,6 +267,147 @@
       "tool_versions": {
         "mypy": "2.1.0"
       }
+    },
+    {
+      "at": "2026-08-08T07:22:52.342398Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:550f868eaa026bdd79567e02f6ef49e70320d5fe83fa4f1ca7860aae955338fd",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-08T07:22:53.482647Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:aaf3226ff1c4abaff7b82a9926b7bafd350016df129e647237d0cee21455c77e",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-08T07:22:53.521188Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9e1d0c5d39463b4bff1165d541adc522e6d31c2ca80141f60aa80f52ebd84c86",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-08T07:23:49.367158Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:115753c47de112a6d238ac82d848e0644f04509f0db116d81e2fda2922800cdb",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-08T07:23:59.322978Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3bd76870e677e78fb575dd3d7e72079bd23251b8f810d4c396993df211b7acc4",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-08T07:23:59.571320Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:099db49388e7952ac3758aba8f665c45f15fd1035cf519da6278b43f07f36127",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-08T07:23:59.606167Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d7dc71d22f0d6cf0f0826689d2c23dc429f285fa8ec1a27dc061cd43d07a756c",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-08T07:24:01.967798Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9f9545dd13cc2d4c68668bfcfbb3c32380510c0090c59f7567c3fd0e7d38e7bc",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-08-08T07:24:12.677991Z",
+      "command": "python -m build --wheel",
+      "covered_surface": "packaging",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1de0da410f33054ff2953628cc81275b71dd51d0e822bc786af4ac3e5b127ae7",
+      "name": "wheel_release_smoke",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/wheel_release_smoke.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -345,7 +486,7 @@
       "verified_in_diff": null
     }
   ],
-  "governance_touch": false,
+  "governance_touch": true,
   "guard_events": [
     {
       "at": "2026-08-07T10:24:02.760237Z",
@@ -1626,6 +1767,256 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:12.712914Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/lineage/restore_preflight.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/lineage/restore_preflight.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/lineage/store.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/lineage/store.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:12.726317Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:12.739534Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:12.753313Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:12.766399Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:12.779183Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:12.792807Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:12.807832Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:12.821971Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:12.835300Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:39.761555Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/lineage/restore_preflight.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/lineage/restore_preflight.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/lineage/store.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/lineage/store.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:39.773805Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:39.785899Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:39.798105Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:39.811464Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:39.825968Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:39.839320Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:39.851978Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:39.864644Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T07:24:39.877229Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1784,6 +2175,26 @@
         "guard.docs_landing",
         "tests.changed_test_required"
       ]
+    },
+    {
+      "at": "2026-08-08T07:24:12.835398Z",
+      "diff_fingerprint": "sha256:e1253928f4cba5a307b89bfe6c71e55f818f2396e53ca6382952850541332303",
+      "mode": "pre-commit",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "scope.out-of-scope"
+      ]
+    },
+    {
+      "at": "2026-08-08T07:24:39.877263Z",
+      "diff_fingerprint": "sha256:e1253928f4cba5a307b89bfe6c71e55f818f2396e53ca6382952850541332303",
+      "mode": "pre-commit",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "scope.out-of-scope"
+      ]
     }
   ],
   "record_id": "2020-adr-053-spec1-track-a-runtime-defects",
@@ -1803,10 +2214,12 @@
       "architecture_tests",
       "deferral_discipline",
       "format_check",
+      "frontend",
       "full_audit",
       "import_contracts",
       "lint_format",
-      "type_check"
+      "type_check",
+      "wheel_release_smoke"
     ],
     "docs": [
       "docs_required_or_na"
@@ -1829,7 +2242,62 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:22:46.535483Z",
+      "pattern": "LICENSE",
+      "reason": "Merge of origin/main (2c916133) into the branch. LICENSE, README.md, README.zh-CN.md, docs/adr/ADR-038.md, docs/adr/ADR-040.md and pyproject.toml appear in the staged diff only because a merge carries the base branch's own commits through; all six are byte-identical to origin/main and none is authored here. Verified with git diff origin/main -- <paths>, which is empty. The pre-commit hook evaluates the staged diff before the merge commit exists, so merge-base is still the old fork point b485e293; once committed, the diff against origin/main is clean."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:22:46.535503Z",
+      "pattern": "README.md",
+      "reason": "Merge of origin/main (2c916133) into the branch. LICENSE, README.md, README.zh-CN.md, docs/adr/ADR-038.md, docs/adr/ADR-040.md and pyproject.toml appear in the staged diff only because a merge carries the base branch's own commits through; all six are byte-identical to origin/main and none is authored here. Verified with git diff origin/main -- <paths>, which is empty. The pre-commit hook evaluates the staged diff before the merge commit exists, so merge-base is still the old fork point b485e293; once committed, the diff against origin/main is clean."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:22:46.535506Z",
+      "pattern": "README.zh-CN.md",
+      "reason": "Merge of origin/main (2c916133) into the branch. LICENSE, README.md, README.zh-CN.md, docs/adr/ADR-038.md, docs/adr/ADR-040.md and pyproject.toml appear in the staged diff only because a merge carries the base branch's own commits through; all six are byte-identical to origin/main and none is authored here. Verified with git diff origin/main -- <paths>, which is empty. The pre-commit hook evaluates the staged diff before the merge commit exists, so merge-base is still the old fork point b485e293; once committed, the diff against origin/main is clean."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:22:46.535508Z",
+      "pattern": "docs/adr/**",
+      "reason": "Merge of origin/main (2c916133) into the branch. LICENSE, README.md, README.zh-CN.md, docs/adr/ADR-038.md, docs/adr/ADR-040.md and pyproject.toml appear in the staged diff only because a merge carries the base branch's own commits through; all six are byte-identical to origin/main and none is authored here. Verified with git diff origin/main -- <paths>, which is empty. The pre-commit hook evaluates the staged diff before the merge commit exists, so merge-base is still the old fork point b485e293; once committed, the diff against origin/main is clean."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:22:46.535510Z",
+      "pattern": "pyproject.toml",
+      "reason": "Merge of origin/main (2c916133) into the branch. LICENSE, README.md, README.zh-CN.md, docs/adr/ADR-038.md, docs/adr/ADR-040.md and pyproject.toml appear in the staged diff only because a merge carries the base branch's own commits through; all six are byte-identical to origin/main and none is authored here. Verified with git diff origin/main -- <paths>, which is empty. The pre-commit hook evaluates the staged diff before the merge commit exists, so merge-base is still the old fork point b485e293; once committed, the diff against origin/main is clean."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:24:38.819896Z",
+      "pattern": "docs/planning/**",
+      "reason": "Second merge-passthrough batch: origin/main also carries the parallel spec-2 work-import track (docs/specs/adr-053-work-import.md, its planning docs, and the frontend files it touched). Same situation as the first batch and verified the same way: the branch's real diff against origin/main is 51 files and every one of them is inside the originally declared surface. These paths are included so the staged-diff scope check can pass; they are not authored here."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:24:38.819916Z",
+      "pattern": "docs/specs/**",
+      "reason": "Second merge-passthrough batch: origin/main also carries the parallel spec-2 work-import track (docs/specs/adr-053-work-import.md, its planning docs, and the frontend files it touched). Same situation as the first batch and verified the same way: the branch's real diff against origin/main is 51 files and every one of them is inside the originally declared surface. These paths are included so the staged-diff scope check can pass; they are not authored here."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:24:38.819918Z",
+      "pattern": "frontend/**",
+      "reason": "Second merge-passthrough batch: origin/main also carries the parallel spec-2 work-import track (docs/specs/adr-053-work-import.md, its planning docs, and the frontend files it touched). Same situation as the first batch and verified the same way: the branch's real diff against origin/main is 51 files and every one of them is inside the originally declared surface. These paths are included so the staged-diff scope check can pass; they are not authored here."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-08T07:24:56.929217Z",
+      "pattern": "scripts/hooks/**",
+      "reason": "Final merge-passthrough path: scripts/hooks/check-worktree-write-guard.sh arrives from origin/main and is byte-identical to it. Not authored here."
+    }
+  ],
   "session_id": "dad3afc6-2898-4223-a08c-4def42d72b3a",
   "strictness_tier": 1,
   "task_kind": "bugfix",

@@ -58,7 +58,7 @@ Custom blocks extend these forms at project, user, or package scope.
 |---|---|
 | Lineage record | Connects the workflow snapshot, parameters, block executions, inputs, outputs, environment, and status |
 | Run history | Shows how a result was produced and which steps ran, failed, or skipped |
-| Re-runs | Create linked lineage records so attempts can be inspected and compared |
+| Restore | Returns the project to a recorded run's state, after reporting any input or environment drift since |
 | Git branches | Keep parallel workflow variants for different batches, instruments, cohorts, or experiments |
 
 ## 7. AI Agents

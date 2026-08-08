@@ -1,22 +1,22 @@
 """REST endpoints for ADR-038 run history (`/api/runs`).
 
-Endpoints (ADR-038 §3.7, §3.8):
+Endpoints (ADR-038 §3.7, §3.8; Addendum 1 §11.4):
 
 * ``GET  /api/runs``                       -- list runs (reverse-chrono), optional ``workflow_id`` filter + pagination
+* ``GET  /api/runs/validate-restore``      -- advisory preflight for a restore target (§3.6 checks)
 * ``GET  /api/runs/{run_id}``              -- full run detail with joined block_executions
 * ``GET  /api/runs/{run_id}/methods``      -- markdown methods export (``Content-Type: text/markdown``)
-* ``POST /api/runs/{run_id}/rerun``        -- queue a new run from the recorded workflow snapshot
 
 The lineage store is project-scoped -- every endpoint requires an active
 project. Failures resolve to ``400 Bad Request`` (no active project) or
 ``404 Not Found`` (unknown run / unknown workflow).
 
 The implementation is intentionally thin: it delegates row access to
-:class:`LineageStore` (ADR-038 §3.1, §5.1) and methods rendering to
-:mod:`scistudio.core.lineage.methods_export`. Routes are read-only against
-the lineage store; only ``/rerun`` mutates engine state (and that goes
-through the existing :meth:`ApiRuntime.start_workflow` path so the new
-run is recorded just like any user-initiated start).
+:class:`LineageStore` (ADR-038 §3.1, §5.1), methods rendering to
+:mod:`scistudio.core.lineage.methods_export`, and the restore preflight to
+:mod:`scistudio.core.lineage.restore_preflight`. Every route here is read-only
+against the lineage store -- ADR-038 Addendum 1 (#2033) removed
+``POST /{run_id}/rerun``, which was the only mutating one.
 """
 
 from __future__ import annotations
@@ -26,11 +26,10 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel, Field
 
-from scistudio.api.deps import get_lineage_store, get_runtime
-from scistudio.api.runtime import ApiRuntime
+from scistudio.api.deps import get_lineage_store
 from scistudio.core.lineage.methods_export import render_methods_markdown
+from scistudio.core.lineage.restore_preflight import evaluate_restore_target
 
 logger = logging.getLogger(__name__)
 
@@ -38,27 +37,6 @@ router = APIRouter(prefix="/api/runs", tags=["runs"])
 
 # Module-level Depends() singletons -- FastAPI / ruff B008 best practice.
 _LineageStoreDep = Depends(get_lineage_store)
-_RuntimeDep = Depends(get_runtime)
-
-
-# ---------------------------------------------------------------------------
-# Request / response models
-# ---------------------------------------------------------------------------
-
-
-class RerunRequest(BaseModel):
-    """Body for ``POST /api/runs/{run_id}/rerun``.
-
-    ``execute_from_block_id`` is optional. When set, the new run executes
-    only from that block forward, reusing upstream outputs from the most
-    recent checkpoint per ADR-038 §3.6a. When unset, the whole workflow
-    is re-run from scratch.
-    """
-
-    execute_from_block_id: str | None = Field(
-        default=None,
-        description="Optional block id to start execution from (ADR-038 §3.6a).",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -114,6 +92,46 @@ def list_runs(
         "limit": limit,
         "has_more": has_more,
     }
+
+
+# ---------------------------------------------------------------------------
+# GET /api/runs/validate-restore -- advisory preflight for a restore target
+# Must be declared BEFORE /{run_id} so the literal segment matches first.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/validate-restore")
+def validate_restore(
+    commit_sha: str = Query(description="Full SHA of the commit the user is about to restore to."),
+    run_id: str | None = Query(
+        default=None,
+        description="The run the restore was launched from, when the caller has one (Run history does; the Git tab does not).",
+    ),
+    store: Any = _LineageStoreDep,
+) -> dict[str, Any]:
+    """Return the advisory checks for restoring to ``commit_sha``.
+
+    ADR-038 §3.6 + Addendum 1 §11.3 (#2033). Compares the anchoring run's
+    boundary inputs against what is on disk now, and its
+    ``environment_snapshot`` against the live environment. Both checks are
+    advisory: this endpoint never blocks a restore, and a caller is free to
+    ignore the response entirely.
+
+    Keyed on the commit because that is what Restore operates on. ``run_id`` is
+    an optional refinement, not a duplicate of it: several runs can share one
+    commit (the pre-run auto-commit is skipped on an already-clean tree), so
+    resolving by commit alone answers with the newest of them whatever its
+    outcome. Run history knows which run the user picked and passes it; the Git
+    tab restores an arbitrary commit and has nothing to pass.
+
+    A target with no resolvable run returns ``run_id: null`` with both warning
+    lists empty. That is **not** a clean bill of health, and clients must not
+    render it as one: it means no recorded run describes this target, so
+    nothing could be compared. Conflating the two is the defect Addendum 1
+    exists to remove -- the previous UI showed "No drift detected" for a
+    comparison that never ran.
+    """
+    return evaluate_restore_target(store, commit_sha, run_id=run_id)
 
 
 # ---------------------------------------------------------------------------
@@ -214,96 +232,14 @@ def get_run_methods(run_id: str, store: Any = _LineageStoreDep) -> PlainTextResp
 
 
 # ---------------------------------------------------------------------------
-# POST /api/runs/{run_id}/rerun -- queue a new run
+# ADR-038 Addendum 1 (#2033): ``POST /api/runs/{run_id}/rerun`` is removed.
+#
+# Re-run is withdrawn as a user-facing operation -- Restore puts the recorded
+# state back and the user presses Run, which is the control they already use.
+# The §3.6 input + environment checks the rerun dialog was supposed to perform
+# (but never did) now live on the restore preflight above.
+#
+# ``runs.parent_run_id`` and its read paths stay: "Run from here" (§3.6a) is a
+# separate feature that still populates ``execute_from_block_id``, and
+# historical rows keep rendering their parent link.
 # ---------------------------------------------------------------------------
-
-
-@router.post("/{run_id}/rerun")
-async def rerun_run(
-    run_id: str,
-    body: RerunRequest,
-    store: Any = _LineageStoreDep,
-    runtime: ApiRuntime = _RuntimeDep,
-) -> dict[str, Any]:
-    """Queue a re-run of the workflow that produced ``run_id``.
-
-    Must be ``async def`` so the handler executes on the asyncio event-loop
-    thread rather than FastAPI's sync threadpool:
-    :meth:`ApiRuntime.start_workflow` schedules the run via
-    :func:`asyncio.create_task`, which raises ``RuntimeError("no running
-    event loop")`` from a threadpool caller and leaves the lineage
-    ``runs`` row stranded in ``running`` state (the row is inserted
-    before ``create_task`` is reached). The sibling
-    ``POST /api/workflows/{id}/execute`` handler is async for the same
-    reason.
-
-    The new run is created via :meth:`ApiRuntime.start_workflow` against
-    the historical run's ``workflow_id``. The runtime constructs a fresh
-    ``run_id`` and records it in the lineage store; this endpoint does
-    NOT manually insert anything into ``runs``.
-
-    Notes
-    -----
-    Per ADR-038 §3.6a, re-running with ``execute_from_block_id`` set
-    requires the checkpoint to be present (the latest run's intermediate
-    state). The runtime raises ``ValueError`` ("Run the full workflow at
-    least once …") when that precondition is not met -- we surface it as
-    a 400.
-
-    Re-running an older historical run (one whose intermediate data has
-    been overwritten by later runs) is **not** supported per ADR §3.6a;
-    the user is directed to run the full workflow from start instead.
-    The runtime's checkpoint resolution already enforces this; we don't
-    duplicate the check here.
-
-    The "input file size+mtime check" and "environment drift check"
-    listed in ADR §6 Phase 3 are advisory warnings emitted by the
-    frontend ``RerunDialog`` (D38-2.4b/c) before this endpoint is
-    called; this route does not re-implement them.
-    """
-    historical = store.get_run(run_id)
-    if historical is None:
-        raise HTTPException(status_code=404, detail=f"run_id {run_id!r} not found")
-
-    workflow_id = historical.get("workflow_id")
-    if not workflow_id:
-        # Defensive: a runs row without workflow_id is malformed, but we
-        # surface the failure as 422 so the client can distinguish from a
-        # plain "run not found".
-        raise HTTPException(
-            status_code=422,
-            detail=f"run {run_id!r} has no workflow_id; cannot determine target workflow",
-        )
-
-    try:
-        # D38-3.2 (closes D38-3.1a P2 / D38-3.1b P2-4): stamp the
-        # historical run id as ``parent_run_id`` on the new run so the
-        # rerun chain is queryable per ADR §3.6.
-        result = runtime.start_workflow(
-            workflow_id,
-            execute_from=body.execute_from_block_id,
-            parent_run_id=run_id,
-        )
-    except FileNotFoundError as exc:
-        # The historical workflow YAML may have been deleted since this run
-        # was recorded. ADR-038 §3.6a's "reproduce from snapshot" is a future
-        # enhancement -- at v1 we surface the missing-workflow case as 404.
-        raise HTTPException(
-            status_code=404,
-            detail=f"workflow {workflow_id!r} no longer exists on disk: {exc}",
-        ) from exc
-    except ValueError as exc:
-        # Most common cause: execute_from set but no checkpoint present
-        # ("Run the full workflow at least once before using 'Run from here'").
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        # No active project, etc. Surface as 400 so the client gets a
-        # human-readable message instead of a 500.
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    return {
-        "rerun_of": run_id,
-        "workflow_id": workflow_id,
-        "execute_from_block_id": body.execute_from_block_id,
-        "result": result,
-    }

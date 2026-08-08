@@ -104,6 +104,35 @@ function AppErrorBanner({ message, onDismiss }: { message: string | null; onDism
   );
 }
 
+/**
+ * Global "still working" pill (#2019).
+ *
+ * Module-level for the same reason as `AppErrorBanner`: it keeps App() under
+ * the max-lines-per-function limit.
+ *
+ * The indicator has to outrank every overlay. It previously carried no
+ * z-index at all, so any modal — all of which are z-50 or z-[9999], most over
+ * a backdrop blur — painted across it, and the one affordance telling the user
+ * work was still in flight showed up blurred underneath the very dialog that
+ * was waiting on that work. z-[10000] puts it above the topmost modal layer;
+ * `pointer-events-none` keeps a purely informational pill from swallowing
+ * clicks in the bottom-right corner now that it sits on top of everything.
+ * `frontend/src/App.busyIndicator.test.tsx` guards the ordering.
+ */
+function GlobalBusyIndicator({ busy }: { busy: boolean }) {
+  if (!busy) return null;
+  return (
+    <div
+      aria-live="polite"
+      className="pointer-events-none fixed bottom-4 right-4 z-[10000] rounded-full bg-ink px-4 py-2 text-sm text-white"
+      data-testid="global-busy-indicator"
+      role="status"
+    >
+      Working…
+    </div>
+  );
+}
+
 function useWorkflowPayload({
   workflowDescription,
   workflowEdges,
@@ -302,7 +331,6 @@ export default function App() {
     cancelWorkflow,
     startFromSelected,
     handleRunBlock,
-    handleRestartBlock,
   } = useWorkflowExecutionActions({
     currentProject,
     workflowId,
@@ -471,7 +499,6 @@ export default function App() {
                 onErrorClick={handleErrorClick}
                 onCanvasPaneClick={handleCanvasPaneClick}
                 onRunBlock={handleRunBlock}
-                onRestartBlock={handleRestartBlock}
                 onSelectNode={handleNodeSelect}
                 onUpdateNodeConfig={updateNodeConfig}
                 onUpdateNodePosition={updateNodeLayout}
@@ -513,6 +540,7 @@ export default function App() {
           )}
 
           <AppDialogs
+            busy={busy}
             projectDialog={projectDialog}
             projectDialogOpen={projectDialogOpen}
             promptRequest={promptRequest}
@@ -529,11 +557,7 @@ export default function App() {
 
           <InteractiveModals />
 
-          {busy ? (
-            <div className="fixed bottom-4 right-4 rounded-full bg-ink px-4 py-2 text-sm text-white">
-              Working…
-            </div>
-          ) : null}
+          <GlobalBusyIndicator busy={busy} />
 
           <AppLevelMergeFlow />
         </div>

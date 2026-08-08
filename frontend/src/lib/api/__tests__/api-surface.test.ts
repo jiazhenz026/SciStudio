@@ -98,8 +98,12 @@ describe("api public surface (#1422 split)", () => {
     expect(api.lineage).toHaveProperty("getRuns");
     expect(api.lineage).toHaveProperty("getRun");
     expect(api.lineage).toHaveProperty("getRunMethods");
-    expect(api.lineage).toHaveProperty("validateRerun");
-    expect(api.lineage).toHaveProperty("rerunRun");
+    expect(api.lineage).toHaveProperty("validateRestore");
+    // ADR-038 Addendum 1 §11.5 (#2033): Re-run is withdrawn from the client
+    // surface along with the `validateRerun` stub that never called a
+    // backend route.
+    expect(api.lineage).not.toHaveProperty("rerunRun");
+    expect(api.lineage).not.toHaveProperty("validateRerun");
   });
 
   it("re-exports ApiError as a constructable subclass of Error", () => {
