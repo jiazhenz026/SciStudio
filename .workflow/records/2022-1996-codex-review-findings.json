@@ -24,6 +24,14 @@
       "path": "docs/specs/adr-053-personal-tool-library.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T05:03:55.974269Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Docstring-only change with no behaviour to document; the behaviour change it describes landed in a15e9f69 with its CHANGELOG entry and the FR-062 spec clause.",
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -213,6 +221,136 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-08T05:02:37.073528Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/dropins.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/dropins.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T05:02:37.086748Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "src/scistudio/core/dropins.py"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-08T05:02:37.100281Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T05:02:37.114398Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T05:02:37.127939Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T05:02:37.141465Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T05:02:37.154548Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T05:02:37.167877Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T05:02:37.181102Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-08T05:02:37.194920Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -258,6 +396,18 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-08-08T05:02:37.211037Z",
+      "diff_fingerprint": "sha256:3d57cad7211ed0b5c2dae5c76d9c142b4eacd4db53c5a571d271924ed3af2941",
+      "mode": "pre-commit",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "tests.changed_test_required"
+      ]
     }
   ],
   "record_id": "2022-1996-codex-review-findings",
@@ -270,12 +420,17 @@
     }
   ],
   "required_obligations": {
-    "admin_labels": [],
+    "admin_labels": [
+      "admin-approved:core-change"
+    ],
     "checks": [
+      "architecture_tests",
+      "deferral_discipline",
       "format_check",
-      "frontend",
       "full_audit",
-      "lint_format"
+      "import_contracts",
+      "lint_format",
+      "type_check"
     ],
     "docs": [
       "docs_required_or_na"
@@ -373,7 +528,7 @@
     }
   ],
   "session_id": "20d7acf6-6f5a-4015-a38c-f91b11e73b86",
-  "strictness_tier": 2,
+  "strictness_tier": 1,
   "task_kind": "bugfix",
   "test_events": [
     {
@@ -430,6 +585,14 @@
       "kind": "path",
       "path": "frontend/src/components/promotion/__tests__/runPromotion.test.ts",
       "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-08T05:03:55.974292Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "No executable change \u2014 a module docstring paragraph. The behaviour is covered by tests/blocks/test_dropin_type_import.py and tests/core/test_type_registry_scan_dirs.py, landed in a15e9f69.",
       "verified_in_diff": null
     }
   ]

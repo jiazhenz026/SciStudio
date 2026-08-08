@@ -74,6 +74,11 @@ including underscore-prefixed ones; :func:`_importable_entries` records why,
 and why that is a different question from whether a registry registers the
 file.
 
+:func:`evict_cached_bytecode` is here for the FR-057 reason rather than the
+FR-016 one: both drop-in scan passes must defeat CPython's bytecode-freshness
+key before they load a file, and a rule restated at two scan sites is a rule
+that drifts. See FR-062 and the function's own docstring.
+
 It is here rather than in either registry because the roots reach ``sys.path``
 from four processes and the answer must be the same in all of them. It
 previously lived in ``blocks.registry._scan`` and ran only during the palette
