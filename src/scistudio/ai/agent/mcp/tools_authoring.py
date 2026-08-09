@@ -25,6 +25,7 @@ from typing import Annotated, Any
 from pydantic import BaseModel, Field
 
 from scistudio.ai.agent.mcp._context import _resolve_project_root, get_context
+from scistudio.ai.agent.mcp._reload import broadcast_blocks_reloaded, refresh_context_registries
 from scistudio.ai.agent.mcp.server import mcp
 
 logger = logging.getLogger(__name__)
@@ -433,45 +434,19 @@ async def reload_blocks() -> ReloadBlocksResult:
 
     ADR-053 FR-062: an agent block edit is an event that invalidates the
     registry, and until FR-059 gave the agent a populated type registry there
-    was nothing on the type side for it to invalidate. The API routes that
-    handle the same event call ``ApiRuntime.refresh_all_registries()``; this
-    tool cannot, because an ``MCPContext`` exposes the two registries as
-    read-only properties over the live runtime and no refresh method, so it
-    refreshes both *in place* instead — the narrowest reach that still leaves
-    the agent's view consistent. Previewers are outside that reach: the
-    context does not carry the preview service, and widening the Protocol to
-    add it would change every context implementation for a surface the agent
-    does not read.
+    was nothing on the type side for it to invalidate. What the event rebuilds
+    is defined once, in :mod:`scistudio.ai.agent.mcp._reload`, and shared with
+    ``promote_to_user_library``.
+
+    #9: the broadcast keeps connected GUI clients' palette and schemas current
+    right after the agent edits and reloads a custom block, instead of the user
+    having to hit palette reload.
     """
     ctx = get_context()
-    before = set(ctx.block_registry.all_specs().keys())
-    ctx.block_registry.hot_reload()
-    ctx.type_registry.rescan()
-    after = set(ctx.block_registry.all_specs().keys())
-    added = sorted(after - before)
-    removed = sorted(before - after)
+    added, removed = refresh_context_registries(ctx)
     logger.info("reload_blocks: added=%s removed=%s", added, removed)
-
-    # #9: broadcast ``blocks.reloaded`` so connected GUI clients refresh their
-    # block catalog (palette + schemas) right after the agent scaffolds/edits and
-    # reloads a custom block — instead of the user having to hit palette reload.
-    # The HTTP block-save endpoint already emits this event; the MCP reload path
-    # did not. Best-effort: a headless/test context with no event bus just skips.
-    event_bus = getattr(ctx, "event_bus", None)
-    if event_bus is not None:
-        try:
-            from scistudio.engine.events import EngineEvent
-
-            await event_bus.emit(
-                EngineEvent(
-                    event_type="blocks.reloaded",
-                    data={"added": added, "removed": removed, "reloaded": sorted(after), "source": "agent"},
-                )
-            )
-        except Exception:
-            logger.exception("reload_blocks: blocks.reloaded broadcast failed")
-
-    return ReloadBlocksResult(reloaded=len(after), added=added, removed=removed)
+    await broadcast_blocks_reloaded(ctx, added=added, removed=removed)
+    return ReloadBlocksResult(reloaded=len(ctx.block_registry.all_specs()), added=added, removed=removed)
 
 
 # ---------------------------------------------------------------------------

@@ -2,8 +2,9 @@ import { Background, Controls, ReactFlow, type Edge, useReactFlow } from "@xyflo
 import "@xyflow/react/dist/style.css";
 import { useEffect, useMemo, useState } from "react";
 
-import { resolveTypeColor } from "../config/typeColorMap";
+import { resolveTypeColor, type DeclaredTypeColors } from "../config/typeColorMap";
 import { useAppStore } from "../store";
+import { useDeclaredTypeColors } from "../store/useTypeCatalog";
 import type { BlockSchemaResponse, BlockSummary, WorkflowEdge, WorkflowNode } from "../types/api";
 import { computeEffectivePorts } from "../utils/computeEffectivePorts";
 import { arePortTypesCompatible } from "../utils/portCompat";
@@ -96,10 +97,24 @@ interface WorkflowCanvasProps {
   onLocateSubworkflow?: (nodeId: string) => void;
 }
 
+/**
+ * Build the ReactFlow edges, including each edge's type colour.
+ *
+ * ADR-053 FR-066: the declared half of that colour comes from the types
+ * listing (`declared`), the same source the port handles read, so an edge and
+ * the port it leaves can never disagree. `type_hierarchy` still resolves
+ * `base_type` and compatibility; it is no longer a colour transport.
+ *
+ * FR-067: `declared` is `undefined` until the listing lands, which the
+ * resolver reads as "declares nothing" — the edge keeps its pre-ADR-053
+ * colour through the window. `declared` is a memo dependency so the recompute
+ * happens exactly once, when the listing arrives.
+ */
 function useFlowEdges(
   edges: WorkflowEdge[],
   nodes: WorkflowNode[],
   schemas: Record<string, BlockSchemaResponse>,
+  declared: DeclaredTypeColors | undefined,
 ): Edge[] {
   return useMemo(() => {
     return edges.map((edge) => {
@@ -188,7 +203,11 @@ function useFlowEdges(
 
       const color = invalid
         ? "#dc2626"
-        : resolveTypeColor(sourcePort?.accepted_types ?? [], sourceSchema?.type_hierarchy);
+        : resolveTypeColor(
+            sourcePort?.accepted_types ?? [],
+            sourceSchema?.type_hierarchy,
+            declared,
+          );
       return {
         id: `${edge.source}->${edge.target}`,
         source: source.nodeId,
@@ -206,7 +225,7 @@ function useFlowEdges(
         },
       };
     });
-  }, [edges, nodes, schemas]);
+  }, [edges, nodes, schemas, declared]);
 }
 
 export function WorkflowCanvas(props: WorkflowCanvasProps) {
@@ -308,7 +327,9 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     });
   }, [highlightedNodeId, reactFlow]);
 
-  const baseFlowEdges = useFlowEdges(edges, nodes, schemas);
+  // ADR-053 FR-066 — the same declared-colour source the port handles read.
+  const declaredTypeColors = useDeclaredTypeColors();
+  const baseFlowEdges = useFlowEdges(edges, nodes, schemas, declaredTypeColors);
 
   // ADR-050 §3.1 — derive the focus set from the captured selection + edges.
   // Pure read; never mutates workflow state (FR-018).

@@ -40,6 +40,30 @@ def io_capable_type_names(registry: Any, type_registry: Any, *, direction: str) 
     return ordered
 
 
+def format_extensions_by_type(registry: Any, *, direction: str) -> dict[str, list[str]]:
+    """Return ``{type name: sorted extensions}`` for one IO *direction*.
+
+    ADR-053 FR-054. The types listing endpoint reports, per type, the file
+    extensions it can be loaded from and saved to; those facts already exist as
+    :class:`~scistudio.blocks.io.capabilities.FormatCapability` records and only
+    need grouping. Grouping is by ``capability.data_type.__name__``, the same
+    key :func:`io_capable_type_names` uses, so the enum a Load block offers and
+    the extensions a type advertises are derived from one reading of the
+    capability table.
+
+    ``direction`` is ``"load"`` or ``"save"``; FR-055 keeps them separate,
+    because a type readable from a format it cannot be written back to is a
+    real asymmetry and collapsing the two directions would hide it. A type with
+    no capability in this direction is simply absent from the mapping — the
+    caller supplies the FR-056 empty list, since only the caller knows the full
+    set of registered types.
+    """
+    grouped: dict[str, set[str]] = {}
+    for capability in registry.list_format_capabilities(direction=direction):
+        grouped.setdefault(capability.data_type.__name__, set()).update(capability.extensions)
+    return {name: sorted(extensions) for name, extensions in grouped.items()}
+
+
 def enrich_io_config_schema(spec: Any, registry: Any = None, type_registry: Any = None) -> dict[str, Any]:
     """Return *spec*'s ``config_schema`` with a dynamic ``core_type`` enum.
 

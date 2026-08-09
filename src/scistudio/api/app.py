@@ -26,6 +26,8 @@ from scistudio.api.routes import (
     projects,
     runs,
     tutorials,
+    types,
+    user_library,
     work_import,
     workflows,
 )
@@ -267,6 +269,11 @@ def create_app() -> FastAPI:
 
     app.include_router(workflows.router)
     app.include_router(blocks.router)
+    # ADR-053 §7 — the registered data type listing and the data-type template.
+    # Registered beside the block router rather than under it: FR-027 makes the
+    # Data types tab independent of the block listing, and a router nested in
+    # ``/api/blocks`` would contradict that in the URL if not in the code.
+    app.include_router(types.router)
     app.include_router(data.router)
     # ADR-048 SPEC 1: routed previewer session API (additive to data.router).
     app.include_router(data.previews_router)
@@ -281,6 +288,11 @@ def create_app() -> FastAPI:
     # match /api/projects/{id}/tree as a project-id lookup.
     app.include_router(filesystem.router)
     app.include_router(projects.router)
+    # ADR-053 §4 — the user-wide library write path. Registered beside the
+    # project file endpoints it inverts (FR-007) rather than under them: its
+    # target lives outside every project root, so it cannot hang off
+    # ``/api/projects/{project_id}``.
+    app.include_router(user_library.router)
     app.include_router(ai.router)
     app.include_router(ai_pty.router)
     # ADR-036 §3.3 — server-side ruff lint endpoint for the embedded editor.

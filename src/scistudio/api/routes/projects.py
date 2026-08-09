@@ -339,8 +339,14 @@ async def write_project_file(
     entity_id = _project_relative_entity_id(project_root, target)
     kind = "modified" if existed else "created"
 
-    # Atomic write: tempfile in same dir + os.replace.
-    tmp_fd, tmp_path = tempfile.mkstemp(prefix=".__scistudio_write_", suffix=target.suffix, dir=str(target.parent))
+    # Atomic write: tempfile in same dir + os.replace. The temp file must share
+    # the destination's directory for ``os.replace`` to be atomic, and since
+    # ADR-053 that directory may be ``<project>/blocks`` or ``<project>/types``
+    # — globbed for ``*.py`` and executed on every scan. It therefore carries a
+    # fixed ``.tmp`` suffix rather than the destination's, so it is never itself
+    # a drop-in while it exists
+    # (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P2-2).
+    tmp_fd, tmp_path = tempfile.mkstemp(prefix=".__scistudio_write_", suffix=".tmp", dir=str(target.parent))
     try:
         with os.fdopen(tmp_fd, "wb") as tmp_file:
             tmp_file.write(encoded)
@@ -381,9 +387,12 @@ async def write_project_file(
         except OSError:
             pass
         raise
-    except OSError as exc:
+    except Exception as exc:
         # Disk full / permissions / simulated rename failures: clean up
-        # the tmpfile and surface a 500 instead of a raw traceback.
+        # the tmpfile and surface a 500 instead of a raw traceback. Not
+        # ``except OSError``: a filename carrying an embedded NUL makes
+        # ``os.replace`` raise ``ValueError``, which slipped past the narrower
+        # handler and left the temp file behind for good.
         try:
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)

@@ -8,7 +8,7 @@
 // state wiring.
 
 import type { PanelImperativeHandle } from "react-resizable-panels";
-import type { RefObject } from "react";
+import { useEffect, type RefObject } from "react";
 
 import type { useAppStore } from "../store";
 import type { AnyTab, FileTab } from "../store/types";
@@ -25,7 +25,9 @@ import { BottomPanel } from "../components/BottomPanel";
 import { CodeEditor } from "../components/CodeEditor";
 import { DataPreview } from "../components/DataPreview";
 import { ProjectTree } from "../components/ProjectTree";
+import { useLibraryReveal } from "../components/promotion/revealInLibrary";
 import { TabBar } from "../components/TabBar";
+import { TypePalette } from "../components/TypePalette";
 import { WorkflowCanvas } from "../components/WorkflowCanvas";
 import { resolveVariadicPorts } from "../components/WorkflowCanvas.parts/flowNodeBuilder";
 import { buildScopedBlockOutputs } from "../components/WorkflowCanvas.parts/subworkflowRunView";
@@ -45,12 +47,21 @@ export interface CanvasReadabilityWiring {
   onTidyLayout: (positions: Record<string, { x: number; y: number }>) => void;
 }
 
+/**
+ * Left-panel tabs (ADR-053 §9, FR-034 / FR-039).
+ *
+ * `blocks` is the renamed first tab. `types` is the `Data types` tab that sits
+ * between `Blocks` and `Project`; the key is widened here ahead of the pane so
+ * both tab surfaces read one union.
+ */
+export type LeftTab = "blocks" | "types" | "project";
+
 export interface ProjectWorkspaceProps {
   // Project / workflow context
   currentProject: ProjectResponse;
   // Left panel
-  leftTab: "blocks" | "project";
-  onLeftTabChange: (tab: "blocks" | "project") => void;
+  leftTab: LeftTab;
+  onLeftTabChange: (tab: LeftTab) => void;
   blocks: BlockSummary[];
   paletteSearch: string;
   setPaletteSearch: (search: string) => void;
@@ -132,6 +143,18 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
     currentProject,
     onLoadWorkflowById,
   } = props;
+
+  // ADR-053 FR-020 — a promotion has to leave the user looking at the item in
+  // `My Library`, and the item's section lives on its own tab. The rest of the
+  // reveal (expanding the panel, refreshing the catalogue, narrowing to the
+  // item) is store-side; only the tab switch needs the component that owns it.
+  const revealed = useLibraryReveal();
+  useEffect(() => {
+    if (revealed) {
+      onLeftTabChange(revealed.surface);
+    }
+  }, [revealed, onLeftTabChange]);
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex shrink-0 border-b border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))]">
@@ -142,6 +165,16 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
         >
           Blocks
         </button>
+        {/* ADR-053 FR-039 — the third tab sits between `Blocks` and `Project`.
+            The user-facing label is `Data types`; `Types` is too abstract
+            standing alone next to `Blocks`. The internal key stays `types`. */}
+        <button
+          className={`flex-1 px-3 py-2 text-xs font-medium transition ${leftTab === "types" ? "border-b-2 border-ember text-ink" : "text-stone-400 hover:text-stone-600"}`}
+          onClick={() => onLeftTabChange("types")}
+          type="button"
+        >
+          Data types
+        </button>
         <button
           className={`flex-1 px-3 py-2 text-xs font-medium transition ${leftTab === "project" ? "border-b-2 border-ember text-ink" : "text-stone-400 hover:text-stone-600"}`}
           onClick={() => onLeftTabChange("project")}
@@ -151,7 +184,12 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
         </button>
       </div>
       <div className="min-h-0 flex-1">
-        {leftTab === "blocks" ? (
+        {/* FR-027 — the Data types pane takes no props: it reads the type
+            catalogue directly, so opening it neither waits for nor
+            re-triggers a blocks fetch. */}
+        {leftTab === "types" ? (
+          <TypePalette />
+        ) : leftTab === "blocks" ? (
           <BlockPalette
             blocks={blocks}
             collapsed={false}
