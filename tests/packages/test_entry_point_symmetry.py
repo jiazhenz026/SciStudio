@@ -505,18 +505,21 @@ def test_the_metadata_only_exemption_is_the_tutorial_group_alone() -> None:
 # FR-026 at the registry level — the regression that motivated the rule
 # ---------------------------------------------------------------------------
 
-#: Which registry scan reads which group.
+#: Which scan reads which group.
 #:
-#: TODO(#2057): ``scistudio.tutorials`` has no registry on this branch — the
-#:   Learning Center runtime is built on top of this contract rather than
-#:   before it. The tutorials agent must add its discovery entry point here
-#:   (``scistudio.tutorials.discovery``'s catalogue scan) so the group is
-#:   covered at the registry level too, per ADR-053 FR-031.
-#:   Followup: https://github.com/jiazhenz026/SciStudio/issues/2057
+#: ``scistudio.tutorials`` is a row like the other three, and deliberately not
+#: a *registry* row: the Learning Center catalogue is recomputed on every
+#: listing and cached nowhere, so there is no registry object to rebuild and
+#: nothing that can go stale (ADR-053 FR-031). What the three assertions below
+#: check is the part that is common to all four — that a scan contains an
+#: enumeration failure, records a load failure as a diagnostic, and stays quiet
+#: when nothing is wrong — and that part does not depend on a group holding
+#: state.
 _REGISTRY_SCANS: dict[str, str] = {
     BLOCKS_ENTRY_POINT_GROUP: "blocks",
     TYPES_ENTRY_POINT_GROUP: "types",
     PREVIEWERS_ENTRY_POINT_GROUP: "previewers",
+    TUTORIALS_ENTRY_POINT_GROUP: "tutorials",
 }
 
 _GROUPS_WITHOUT_A_REGISTRY = frozenset(LIVE_ENTRY_POINT_GROUPS) - set(_REGISTRY_SCANS)
@@ -525,18 +528,20 @@ _GROUPS_WITHOUT_A_REGISTRY = frozenset(LIVE_ENTRY_POINT_GROUPS) - set(_REGISTRY_
 def test_every_live_group_is_either_scanned_by_a_registry_or_tracked() -> None:
     """The coverage map above may not fall behind the live group set.
 
-    This fails the moment the tutorial registry lands, which is deliberate:
-    the map is how FR-026 coverage is claimed, and a group added to
-    ``LIVE_ENTRY_POINT_GROUPS`` without a row here would otherwise be
-    uncovered and unmentioned.
+    Every live group now has a scan, so the tracked-exception set is empty and
+    must stay empty: the map is how FR-026 coverage is claimed, and a group
+    added to ``LIVE_ENTRY_POINT_GROUPS`` without a row here would otherwise be
+    uncovered and unmentioned. A fifth group that genuinely cannot be scanned
+    belongs in this assertion with its reason, not absent from it.
     """
-    assert frozenset({TUTORIALS_ENTRY_POINT_GROUP}) == _GROUPS_WITHOUT_A_REGISTRY, (
-        "update _REGISTRY_SCANS and the TODO(#2057) above when a group gains or loses a registry"
+    assert not _GROUPS_WITHOUT_A_REGISTRY, (
+        "update _REGISTRY_SCANS when a group gains or loses a scan; "
+        f"these are covered by nothing: {sorted(_GROUPS_WITHOUT_A_REGISTRY)}"
     )
 
 
 def _scan_registry(kind: str) -> list[str]:
-    """Run one registry's entry-point pass and return its diagnostics."""
+    """Run one group's entry-point pass and return its diagnostics."""
     if kind == "blocks":
         from scistudio.blocks.registry import BlockRegistry
 
@@ -549,6 +554,8 @@ def _scan_registry(kind: str) -> list[str]:
         type_registry = TypeRegistry()
         type_registry._scan_entrypoint_types()
         return type_registry.diagnostics
+    if kind == "tutorials":
+        return _scan_tutorials()
     from scistudio.previewers.registry import PreviewerRegistry
 
     previewer_registry = PreviewerRegistry()
@@ -556,15 +563,40 @@ def _scan_registry(kind: str) -> list[str]:
     return previewer_registry.diagnostics
 
 
+def _scan_tutorials() -> list[str]:
+    """Run the Learning Center catalogue scan and return its diagnostics.
+
+    The environment is stated in full so the scan probes nothing. Left to
+    itself, ``DiscoveryEnvironment`` would enumerate installed distributions,
+    search for an agent binary, and run ``git --version`` — none of which is
+    the entry-point path these assertions are about, and all of which would
+    make a symmetry test depend on what happens to be installed on the machine
+    running it.
+    """
+    from scistudio.tutorials.discovery import DiscoveryEnvironment, discover_tutorials
+
+    result = discover_tutorials(
+        environment=DiscoveryEnvironment(
+            scistudio_version="0.0.0",
+            installed_distributions=frozenset(),
+            agent_available=False,
+            git_available=False,
+        )
+    )
+    return list(result.diagnostic_messages)
+
+
 @pytest.mark.parametrize("group", sorted(_REGISTRY_SCANS))
 def test_no_registry_propagates_an_enumeration_failure(
     group: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """FR-026 where it actually bit: the registry scan itself.
+    """FR-026 where it actually bit: the scan itself.
 
     ``TypeRegistry._scan_entrypoint_types`` used to let this out. The other two
-    absorbed it. All three absorb it now, and all three say so afterwards.
+    absorbed it. All four absorb it now, and all four say so afterwards — the
+    tutorial catalogue included, which is the point of writing the fourth group
+    against a settled contract rather than retrofitting it onto one.
     """
     monkeypatch.setattr(importlib.metadata, "entry_points", _exploding_entry_points)
 
