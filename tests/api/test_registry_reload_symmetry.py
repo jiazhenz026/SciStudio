@@ -35,6 +35,7 @@ import importlib.metadata
 import sys
 import types
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -408,13 +409,20 @@ def test_branch_switch_refreshes_project_types_and_previewers(
 #: added to :data:`~scistudio.core.entry_points.LIVE_ENTRY_POINT_GROUPS`
 #: cannot quietly sit outside the refresh path.
 #:
-#: TODO(#2057): ``scistudio.tutorials`` has no discovery surface on this branch
-#:   — the Learning Center runtime is built on top of the entry-point contract
-#:   rather than before it — so it has no row here yet. The tutorials agent
-#:   must add tutorial discovery to ``ApiRuntime.refresh_all_registries`` and
-#:   list it below, so package install, package uninstall, and branch switch
-#:   reach the tutorial catalogue like every other group (ADR-053 FR-031).
-#:   Followup: https://github.com/jiazhenz026/SciStudio/issues/2057
+#: ``scistudio.tutorials`` has no row, and that is the design rather than a gap.
+#: The other three groups each populate a registry object that is built once and
+#: then has to be rebuilt when something invalidates it — which is what a
+#: refresh site *is*. Tutorial discovery holds nothing:
+#: :meth:`scistudio.tutorials.session.TutorialRuntime.discover` recomputes the
+#: catalogue on every call, from the four source directories and the entry-point
+#: group, so a package installed, uninstalled, or swapped by a branch switch is
+#: reflected in the very next listing with no hook of any kind. That satisfies
+#: FR-031 more strongly than a cache plus an invalidation would, because there
+#: is nothing that can go stale between the two.
+#:
+#: So do not add a cached catalogue to ``ApiRuntime`` in order to give this map
+#: a fourth row. It would introduce the staleness the row exists to guard
+#: against, in a group that currently cannot have it.
 _GROUP_REFRESH_SITES: dict[str, str] = {
     "scistudio.blocks": "block_registry",
     "scistudio.types": "type_registry",
@@ -423,19 +431,70 @@ _GROUP_REFRESH_SITES: dict[str, str] = {
 
 
 def test_the_refresh_map_covers_every_live_entry_point_group() -> None:
-    """FR-031: exactly one group is still outside the refresh path, and it is tracked.
+    """FR-031: every group either has a refresh site or holds no state.
 
-    This fails the moment tutorial discovery lands, which is the intent: the
-    map is how refresh coverage is claimed, so a new group must either join it
-    or be argued about, never be forgotten.
+    ``scistudio.tutorials`` is the one group outside the map, because tutorial
+    discovery caches nothing and so has nothing to refresh — see the reasoning
+    recorded above :data:`_GROUP_REFRESH_SITES`.
+
+    The assertion is still exact in both directions. A fifth group appearing
+    without a row fails here, and so does tutorials growing a cache and joining
+    the map without the note above being revisited.
     """
     from scistudio.core.entry_points import LIVE_ENTRY_POINT_GROUPS, TUTORIALS_ENTRY_POINT_GROUP
 
     uncovered = frozenset(LIVE_ENTRY_POINT_GROUPS) - set(_GROUP_REFRESH_SITES)
 
     assert uncovered == frozenset({TUTORIALS_ENTRY_POINT_GROUP}), (
-        "update _GROUP_REFRESH_SITES and the TODO(#2057) above when a group joins or leaves the refresh path"
+        "update _GROUP_REFRESH_SITES and the note above it when a group joins or leaves the refresh path"
     )
+
+
+def test_tutorial_discovery_reflects_a_change_without_any_refresh_call() -> None:
+    """The claim the missing row rests on, asserted rather than asserted-by-comment.
+
+    A tutorial that appears on disk is in the next listing with nothing called
+    in between — no ``refresh_all_registries``, no reopened project, no restart.
+    That is what "holds no state" has to mean for FR-031 to be satisfied by its
+    absence from the map, so it is checked here rather than argued.
+    """
+    import tempfile
+
+    from scistudio.tutorials import discovery
+    from scistudio.tutorials.manifest import TUTORIAL_MANIFEST_FILENAME
+    from scistudio.tutorials.session import TutorialRuntime
+
+    with tempfile.TemporaryDirectory() as raw:
+        core = Path(raw)
+        original = discovery.core_tutorials_dir
+        discovery.core_tutorials_dir = lambda: core  # type: ignore[assignment]
+        try:
+            runtime = TutorialRuntime(
+                product_state=lambda: None,  # type: ignore[arg-type,return-value]
+                external_events=discovery_external_events(),
+            )
+            assert runtime.discover().tutorials == ()
+
+            appeared = core / "appeared"
+            appeared.mkdir()
+            (appeared / TUTORIAL_MANIFEST_FILENAME).write_text(
+                "manifest_version: 1\nid: appeared\ntitle: Appeared\n"
+                "summary: Written after the first listing.\nsteps:\n  - id: one\n    say: One.\n",
+                encoding="utf-8",
+            )
+
+            assert [found.id for found in runtime.discover().tutorials] == ["appeared"]
+        finally:
+            discovery.core_tutorials_dir = original  # type: ignore[assignment]
+
+
+def discovery_external_events() -> Any:
+    """The two API-layer event names, as the route layer supplies them."""
+    from scistudio.api.file_contracts import FILE_CHANGED_EVENT_TYPE
+    from scistudio.api.ws import BLOCKS_RELOADED
+    from scistudio.tutorials.conditions import ExternalEventNames
+
+    return ExternalEventNames(blocks_reloaded=BLOCKS_RELOADED, file_changed=FILE_CHANGED_EVENT_TYPE)
 
 
 @pytest.mark.parametrize("group", sorted(_GROUP_REFRESH_SITES))
