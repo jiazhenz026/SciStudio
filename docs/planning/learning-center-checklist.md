@@ -162,7 +162,7 @@ approves it.
 |---|---|---|---|---|---|---|---|---|---|---|
 | `A1` | `implementer` | `N/A` | §7.1 | Entry-point symmetry | `feat/lc-entry-points` | `.worktrees/lc-entry-points` | `src/scistudio/core/entry_points.py`, the three registries, `pyproject.toml`, `tests/packages/**`, `tests/api/test_registry_*` | `src/scistudio/tutorials/**`, `frontend/**`, `docs/architecture/**` | #2056 | `[ ]` |
 | `A2` | `implementer` | `N/A` | §7.2 | Manifest, conditions, actions | `feat/lc-manifest` | `.worktrees/lc-manifest` | `src/scistudio/tutorials/{__init__,manifest,conditions,actions}.py`, `src/scistudio/tutorials/schema/**`, `tests/tutorials/**` | everything else | #2057 | `[x]` |
-| `A3` | `implementer` | `N/A` | §7.3 | Tutorial projects, scoped library, progress | `feat/lc-projects` | `.worktrees/lc-projects` | `src/scistudio/tutorials/{projects,progress}.py`, `src/scistudio/core/dropins.py`, `src/scistudio/api/runtime/_projects.py`, `src/scistudio/api/routes/projects.py`, `tests/tutorials/**`, `tests/api/test_tutorial_project_visibility.py` | `src/scistudio/tutorials/{manifest,conditions,actions,discovery,driver,session}.py` | #2057 | `[ ]` |
+| `A3` | `implementer` | `N/A` | §7.3 | Tutorial projects, scoped library, progress | `feat/lc-projects` | `.worktrees/lc-projects` | `src/scistudio/tutorials/{projects,progress}.py`, `src/scistudio/core/dropins.py`, `src/scistudio/api/runtime/{_projects,models}.py`, `src/scistudio/api/routes/projects.py`, `tests/tutorials/**`, `tests/api/test_tutorial_project_visibility.py` | `src/scistudio/tutorials/{manifest,conditions,actions,discovery,driver,session}.py` | #2057 | `[x]` |
 | `A4` | `implementer` | `N/A` | §7.4 | Frontend Learning Center | `feat/lc-frontend` | `.worktrees/lc-frontend` | `frontend/src/**` | `src/**`, `tests/**`, `docs/**` | #2057 | `[x]` |
 | `A5` | `implementer` | `N/A` | §7.5 | Discovery, driver, session | `feat/lc-runtime` | `.worktrees/lc-runtime` | `src/scistudio/tutorials/{discovery,driver,session}.py`, `tests/tutorials/**` | wave-1 files | #2057 | `[ ]` |
 | `A6` | `implementer` | `N/A` | §7.6 | API routes + replay | `feat/lc-routes` | `.worktrees/lc-routes` | `src/scistudio/api/routes/tutorials.py`, `src/scistudio/api/routes/ai_pty/**`, `src/scistudio/api/app.py`, `tests/api/**` | `src/scistudio/tutorials/**` except read | #2057 | `[ ]` |
@@ -425,9 +425,11 @@ replay must not accept user input back into the scripted session (FR-061a).
 
 #### 7.3.3 Implementation
 
-- [ ] Tutorial project creation, marker, listing filter -> `<artifact>`
-- [ ] Scoped library -> `<artifact>`
-- [ ] Progress + milestone unlock -> `<artifact>`
+- [x] Tutorial project creation, marker, listing filter -> `feat/lc-projects` c0d15ca0
+- [x] Scoped library -> `feat/lc-projects` c0d15ca0
+- [x] Progress + milestone unlock -> `feat/lc-projects` c0d15ca0
+- [x] Tests -> 60 new tests; `tests/tutorials` + `tests/api/test_tutorial_project_visibility.py` + both parity files + `tests/api/test_projects.py` + `tests/architecture` all pass at `-n0`; `tests/api -m serial -n0` 106 pass; ruff, mypy, lint-imports (13 kept), deferral scan +0
+- [!] `DEFAULT_WORK_IMPORT_MILESTONE` ships as `None`, so the offer is never volunteered until configured -> `TODO(#2057)` citing spec A-005; the tutorial it names (the AI scenario, 关卡 4) is not authored in this PR. Both override paths tested; the toolbar entry stays available regardless (FR-081), so this withholds a prompt and gates no capability.
 
 ### 7.4 Track A4 — Frontend Learning Center (#2057)
 
@@ -547,7 +549,7 @@ replay must not accept user input back into the scripted session (FR-061a).
 Work that belongs to no single track because it depends on the merged file
 layout. The manager does these after integrating, before the pre-PR check.
 
-- [ ] **Wheel packaging.** `[tool.setuptools.package-data]` in `pyproject.toml`
+- [x] **Wheel packaging.** Added `tutorials/schema/*.json` and `tutorials/core/**/*` to `[tool.setuptools.package-data]`. Original note: `[tool.setuptools.package-data]` in `pyproject.toml`
       lists every non-Python file that ships. The new
       `src/scistudio/tutorials/schema/tutorial.schema.json` and the whole core
       tutorial tree (`tutorials/core/**`: `tutorial.yaml`, `assets/data/*.csv`,

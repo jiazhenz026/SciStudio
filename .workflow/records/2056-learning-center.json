@@ -21,8 +21,63 @@
       "pyproject.toml"
     ]
   },
-  "directive_events": [],
-  "docs_events": [],
+  "directive_events": [
+    {
+      "at": "2026-08-09T07:23:14.371837Z",
+      "owner_directive": "Manager dispatch plan: nine agent tracks (A1 entry-point symmetry, A2 manifest/conditions/actions, A3 tutorial projects/scoped library/progress, A4 frontend Learning Center, A5 discovery/driver/session, A6 API routes and replay, A7 core tutorial 1 and fixtures, A8 ADR-053 revisions, A9 no-context conformance audit). One gate ledger, manager-owned; dispatched agents do not create ledgers. Shared interface contracts are fixed in docs/planning/learning-center-checklist.md section 6.1.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-09T07:23:14.372004Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/learning-center-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T07:23:14.372020Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-053.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T07:23:14.372022Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-learning-center.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T07:23:14.372023Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T07:23:14.372032Z",
+      "class": "architecture",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs/architecture/ARCHITECTURE.md section 12.4 is owner-controlled and gated by architecture_doc_guard (#2054); no owner approval was available this session, so the table correction required by FR-034 is tracked at #2059 and left out. The rest of FR-034 (one documented place for the live group set) and all of FR-035 are delivered.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T07:23:14.372037Z",
+      "class": "ai-developer",
+      "kind": "na",
+      "path": null,
+      "rationale": "no wrapper, hook, gate-record, CI, or AI-runtime behaviour changes in this task, so no AI developer workflow doc is affected.",
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
   "guard_events": [],
   "issues": [
@@ -52,7 +107,14 @@
   "pull_request": null,
   "reconcile_events": [],
   "record_id": "2056-learning-center",
-  "requested_admin_labels": [],
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
   "required_obligations": {
     "admin_labels": [],
     "checks": [],
@@ -66,5 +128,62 @@
   "session_id": "b4be238d-ceba-4d3d-88fc-281a926395c6",
   "strictness_tier": null,
   "task_kind": "feature",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-08-09T07:23:14.372041Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T07:23:14.372044Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packages/test_entry_point_symmetry.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T07:23:14.372045Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_tutorial_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T07:23:14.372046Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_tutorial_project_visibility.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T07:23:14.372047Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_registry_provisioning_parity.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T07:23:14.372048Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_registry_reload_symmetry.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T07:23:14.372049Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/LearningCenter.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }

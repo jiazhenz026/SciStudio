@@ -143,6 +143,16 @@ scistudio = [
     # provisioning can copy them into each project (user-guide/ + agent docs).
     "_user_guide/**/*",
     "_agent_reference/**/*",
+    # ADR-053 Learning Center: the published manifest schema and the shipped
+    # core tutorials. Neither is reachable by ``packages.find``: the schema is
+    # data, and a tutorial's ``assets/code/*.py`` sources live in directories
+    # that are deliberately not importable packages (spec FR-020a keeps tutorial
+    # material off every import path). Without these patterns an installed wheel
+    # has a Learning Center whose schema fails to load and whose catalogue is
+    # empty, and ``wheel-release-smoke`` would not notice because it inspects
+    # the SPA bundle only. Same failure class as #824 and #2032.
+    "tutorials/schema/*.json",
+    "tutorials/core/**/*",
 ]
 
 [tool.ruff]
