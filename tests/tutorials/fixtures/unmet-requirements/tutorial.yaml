@@ -1,0 +1,23 @@
+# A well-formed manifest whose requirements cannot be met (FR-024): it is still
+# LISTED, marked unavailable, and says what it needs. It is not hidden, and it
+# is not malformed — the manifest itself is perfectly valid.
+#
+# All three requirement kinds are unmet at once, so the fixture keeps working
+# whichever of them a test exercises: a core version no release will satisfy, a
+# package that is not installed, and an agent requirement a zero-configuration
+# environment cannot meet.
+manifest_version: 1
+id: unmet-requirements
+title: A tutorial this install cannot run
+summary: Listed but unavailable, because none of its requirements are met.
+order: 93
+requires:
+  scistudio: ">=99.0.0"
+  agent: true
+  packages:
+    - scistudio-blocks-absent
+steps:
+  - id: unreachable-step
+    say: Nothing reaches this while the requirements are unmet.
+    done_when:
+      run_succeeded: {}

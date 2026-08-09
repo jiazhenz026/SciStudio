@@ -1,0 +1,18 @@
+# A malformed manifest (FR-022): its group must still list every other
+# tutorial, and this one must be reported as malformed naming the file and the
+# field.
+#
+# Two independent faults, so the fixture stays malformed if either is ever
+# relaxed: the required `title` is absent, and `order` is a string where the
+# schema demands an integer.
+#
+# This is deliberately DIFFERENT from future-manifest-version, which declares a
+# version this core does not support. That one is unavailable, not malformed,
+# and the two owe the reader different messages (FR-007a).
+manifest_version: 1
+id: malformed-manifest
+summary: Missing the required title, and order has the wrong type.
+order: "ninety-two"
+steps:
+  - id: only-step
+    say: This manifest never gets far enough to show this.

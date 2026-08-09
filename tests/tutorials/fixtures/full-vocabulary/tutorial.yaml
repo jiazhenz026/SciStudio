@@ -1,0 +1,223 @@
+# Spec §4.3's test material: one fixture exercising EVERY vocabulary term and
+# EVERY action type, so a term added to conditions.VOCABULARY or an action added
+# to the schema without a manifest that can express it fails here.
+#
+# It is not a scenario anyone would ship. Steps are grouped only so that each of
+# the sixteen terms of FR-047, both combinators of FR-048, both members of
+# UI_EVENT_NAMES, all three library_contains kinds, and all three action types
+# appear at least once.
+manifest_version: 1
+id: full-vocabulary
+title: Every term and every action
+summary: Exercises the whole condition vocabulary and every action type.
+order: 90
+requires:
+  scistudio: ">=0.3.0"
+  agent: false
+  packages: []
+bootstrap:
+  project_name: Full Vocabulary Fixture
+  do:
+    - copy:
+        source: assets/data
+        destination: data/raw
+    - write:
+        source: assets/code/constants.py
+        destination: blocks/constants.py
+steps:
+  # --- workflow-graph terms -------------------------------------------------
+  - id: term-node-exists
+    route_to: canvas
+    highlight: block_palette
+    say: node_exists
+    done_when:
+      node_exists:
+        block_type: load_data
+        node_id: load-1
+
+  - id: term-edge-exists
+    route_to: canvas
+    highlight: canvas
+    say: edge_exists
+    done_when:
+      edge_exists:
+        source_block_type: load_data
+        source_node_id: load-1
+        target_block_type: save_data
+        target_node_id: save-1
+
+  - id: term-config-equals
+    route_to: config
+    say: config_equals
+    done_when:
+      config_equals:
+        key: core_type
+        value: DataFrame
+        block_type: load_data
+        node_id: load-1
+
+  # --- run terms ------------------------------------------------------------
+  - id: term-run-succeeded
+    route_to: canvas
+    highlight: run_button
+    say: run_succeeded
+    done_when:
+      run_succeeded:
+        workflow_id: main
+        node_id: load-1
+
+  - id: term-port-has-output
+    route_to: canvas
+    highlight: data_preview
+    say: port_has_output
+    done_when:
+      port_has_output:
+        node_id: load-1
+        port: data
+
+  # --- registry terms -------------------------------------------------------
+  - id: term-block-registered
+    say: block_registered
+    done_when:
+      block_registered:
+        block_type: normalize_fluorescence
+
+  - id: term-type-registered
+    say: type_registered
+    done_when:
+      type_registered:
+        type_name: Image
+
+  - id: term-previewer-registered
+    say: previewer_registered
+    done_when:
+      previewer_registered:
+        type_name: Image
+
+  # --- plot, file, git ------------------------------------------------------
+  - id: term-plot-exists
+    route_to: plots
+    highlight: plots_new_button
+    say: plot_exists
+    done_when:
+      plot_exists:
+        plot_id: activity
+        node_id: normalize-1
+        port: normalized
+
+  - id: term-file-exists
+    say: file_exists
+    done_when:
+      file_exists:
+        path: data/raw/sample.csv
+
+  - id: term-git-branch-exists
+    route_to: git
+    say: git_branch_exists
+    done_when:
+      git_branch_exists:
+        branch: batch-two
+
+  - id: term-git-current-branch
+    route_to: git
+    say: git_current_branch
+    done_when:
+      git_current_branch:
+        branch: batch-two
+
+  # --- library, all three kinds --------------------------------------------
+  - id: term-library-contains-block
+    say: library_contains with kind block
+    done_when:
+      library_contains:
+        kind: block
+        name: normalize_fluorescence
+
+  - id: term-library-contains-type
+    say: library_contains with kind type
+    done_when:
+      library_contains:
+        kind: type
+        name: Image
+
+  - id: term-library-contains-previewer
+    say: library_contains with kind previewer
+    done_when:
+      library_contains:
+        kind: previewer
+        name: image_previewer
+
+  # --- interaction, reading, ui events -------------------------------------
+  - id: term-interaction-completed
+    say: interaction_completed
+    done_when:
+      interaction_completed:
+        node_id: segment-1
+
+  - id: term-page-reached
+    say: page_reached
+    done_when:
+      page_reached:
+        page: intro
+
+  - id: term-ui-event-preview-expanded
+    route_to: logs
+    highlight: data_preview
+    say: ui_event, first of the two names
+    done_when:
+      ui_event:
+        name: preview_expanded
+
+  - id: term-ui-event-block-source-viewed
+    say: ui_event, second of the two names
+    done_when:
+      ui_event:
+        name: block_source_viewed
+
+  # --- combinators ----------------------------------------------------------
+  - id: combinator-all
+    route_to: history
+    highlight: history_restore_button
+    say: all, nested over any
+    done_when:
+      all:
+        - node_exists:
+            block_type: save_data
+        - any:
+            - file_exists:
+                path: data/raw/sample.csv
+            - file_exists:
+                path: data/raw/missing.csv
+
+  - id: combinator-any
+    route_to: terminal
+    say: any
+    done_when:
+      any:
+        - run_succeeded: {}
+        - block_registered:
+            block_type: load_data
+
+  # --- the third action type, and a segment-bound file action ---------------
+  - id: action-replay
+    route_to: ai_chat
+    do:
+      - replay:
+          surface: ai_chat_terminal
+          segments:
+            - id: claims-to-write
+              source: assets/replay/segment-one.txt
+              do:
+                - write:
+                    source: assets/code/constants.py
+                    destination: blocks/written_by_segment.py
+            - id: confirms-it-wrote
+              source: assets/replay/segment-two.txt
+              do:
+                - copy:
+                    source: assets/data
+                    destination: data/replayed
+    say: replay, with both file actions bound to segments
+
+  - id: reading-step-without-a-condition
+    say: A step with no done_when advances on an explicit continue (FR-012).
