@@ -175,7 +175,7 @@ class PreviewerRegistry:
         metadata written before ``scistudio.previewers`` existed cannot declare
         it, and rewriting a user's installed ``dist-info`` is not something the
         product may do. That reason expires with those installs; it does not
-        generalise. A group added later has no such history, so this fallback
+        generalise. A subsequent group has no such history, so this fallback
         MUST NOT be extended to ``scistudio.tutorials`` or to any other new
         group — for tutorials it could not be, in any case, because it works by
         importing the companion module and FR-018 forbids importing a package

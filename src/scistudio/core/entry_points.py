@@ -50,7 +50,7 @@ whose value names a ``Block`` subclass directly rather than a factory. That
 form is already published and installed packages depend on it, so it is kept as
 a compatibility affordance, recorded here once rather than reproduced as a
 per-registry convention, and passed as ``allow_bare_class=True`` by the block
-registry alone. It MUST NOT be extended to any group added later: a new group
+registry alone. It MUST NOT be extended to any subsequent group: a new group
 has no published users to keep working, so accepting two shapes there would buy
 nothing and cost the contract.
 
