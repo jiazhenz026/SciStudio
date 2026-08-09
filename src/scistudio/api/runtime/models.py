@@ -26,13 +26,30 @@ if TYPE_CHECKING:
 
 @dataclass
 class KnownProject:
-    """Persisted metadata for a known project workspace."""
+    """Persisted metadata for a known project workspace.
+
+    ADR-053 Learning Center FR-063 and FR-064: a tutorial project is recorded
+    here like any other project — several routes resolve a project's real path
+    through this registry, including the path-containment check in
+    ``api/routes/projects.py``, so an unregistered one could not be operated —
+    and carries a marker distinguishing it from a user project. The marker is
+    the tutorial's full identity (FR-019: source kind, source id, tutorial id)
+    rather than a boolean, because restarting has to delete the previous project
+    *of that tutorial* (FR-066) and progress is keyed the same way (FR-075).
+
+    The three fields default to ``None``, so a ``projects.json`` written before
+    they existed still loads: ``_load_known_projects`` constructs entries with
+    ``KnownProject(**entry)``, and a missing key takes its default.
+    """
 
     id: str
     name: str
     path: str
     description: str = ""
     last_opened: str | None = None
+    tutorial_source_kind: str | None = None
+    tutorial_source_id: str | None = None
+    tutorial_id: str | None = None
 
 
 @dataclass

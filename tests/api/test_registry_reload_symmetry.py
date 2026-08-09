@@ -418,3 +418,46 @@ def test_refresh_all_registries_picks_up_a_user_library_write(
     assert "PromotedType" not in _type_names(runtime)
     runtime.refresh_all_registries()
     assert "PromotedType" in _type_names(runtime)
+
+
+# ---------------------------------------------------------------------------
+# ADR-053 Learning Center FR-031 — the tutorial tier joins this refresh path
+# rather than building a fourth. Appended to the symmetry this file already
+# holds (spec §4.4, "Extended, not duplicated").
+# ---------------------------------------------------------------------------
+
+
+def test_tutorial_tier_follows_the_active_project(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+    project_parent: Path,
+) -> None:
+    """FR-031: a project switch moves the tutorial tier with the others.
+
+    The project-level tutorial source is ``{project}/tutorials``, resolved
+    through the same :func:`scistudio.core.dropins._tier_dirs` definition as the
+    block and type tiers. Pinning it here is what stops a later change giving
+    tutorials their own provisioning path, where a switch would move two tiers
+    and leave the third pointing at the previous project.
+    """
+    from scistudio.core.dropins import tutorial_scan_dirs
+
+    def _active_tutorial_dirs() -> list[Path]:
+        active = runtime.active_project
+        assert active is not None
+        return list(tutorial_scan_dirs(Path(active.path)))
+
+    assert _active_tutorial_dirs()[0] == opened_project / "tutorials"
+
+    second = client.post(
+        "/api/projects/",
+        json={"name": "Second Project", "description": "", "path": str(project_parent)},
+    )
+    assert second.status_code == 200, second.text
+    second_path = Path(second.json()["path"])
+
+    assert _active_tutorial_dirs()[0] == second_path / "tutorials"
+    # The user tier is unconditional and unchanged by the switch, exactly as it
+    # is for blocks and types (FR-060).
+    assert _active_tutorial_dirs()[1] == Path.home() / ".scistudio" / "tutorials"
