@@ -95,8 +95,8 @@ from scistudio.tutorials.discovery import (
 from scistudio.tutorials.driver import (
     DriverContext,
     DriverError,
+    GuardedDriver,
     StepView,
-    _GuardedDriver,
     load_driver,
 )
 from scistudio.tutorials.manifest import TutorialManifest
@@ -791,7 +791,7 @@ class TutorialRuntime:
             raise SessionInvalidatedError(record.key, record.project_path)
         return state, record
 
-    def _resolved(self) -> tuple[SessionState, SessionRecord, _GuardedDriver, Path]:
+    def _resolved(self) -> tuple[SessionState, SessionRecord, GuardedDriver, Path]:
         """Return the active session with its driver, ending it if its source is gone."""
         state, record = self._active(self._sessions.read())
         tutorial = self.discover().find(record.key)
@@ -813,7 +813,7 @@ class TutorialRuntime:
             raise TutorialUnavailableError(record.key, str(exc)) from exc
         return state, record, driver, tutorial.directory
 
-    def _load(self, manifest: TutorialManifest, key: TutorialKey) -> _GuardedDriver:
+    def _load(self, manifest: TutorialManifest, key: TutorialKey) -> GuardedDriver:
         return load_driver(manifest, key)
 
     def _provision(self, manifest: TutorialManifest, key: TutorialKey) -> Path | None:
@@ -895,7 +895,7 @@ class TutorialRuntime:
         self,
         state: SessionState,
         record: SessionRecord,
-        driver: _GuardedDriver,
+        driver: GuardedDriver,
         tutorial_dir: Path,
     ) -> SessionView:
         """Judge the current step; advance while it is satisfied (FR-053, FR-054)."""
@@ -916,7 +916,7 @@ class TutorialRuntime:
         self,
         state: SessionState,
         record: SessionRecord,
-        driver: _GuardedDriver,
+        driver: GuardedDriver,
         tutorial_dir: Path,
         context: DriverContext,
     ) -> SessionView:
@@ -955,7 +955,7 @@ class TutorialRuntime:
     def _enter(
         self,
         record: SessionRecord,
-        driver: _GuardedDriver,
+        driver: GuardedDriver,
         context: DriverContext,
         tutorial_dir: Path,
     ) -> bool:
@@ -1028,7 +1028,7 @@ class TutorialRuntime:
         """FR-044's message: the tutorial and the exception, both named."""
         return f"'{record.title}' stopped: {type(exc).__name__}: {exc}"
 
-    def _step_of(self, record: SessionRecord, driver: _GuardedDriver, tutorial_dir: Path) -> StepView | None:
+    def _step_of(self, record: SessionRecord, driver: GuardedDriver, tutorial_dir: Path) -> StepView | None:
         """Return the current step's view, or ``None`` when the session is not on one."""
         if record.status is not SessionStatus.ACTIVE or record.step_id is None:
             return None

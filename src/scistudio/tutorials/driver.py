@@ -72,6 +72,7 @@ __all__ = [
     "DriverContractError",
     "DriverError",
     "DriverLoadError",
+    "GuardedDriver",
     "ManifestDriver",
     "StepView",
     "TutorialDriver",
@@ -348,7 +349,7 @@ class ManifestDriver:
 # ---------------------------------------------------------------------------
 
 
-class _GuardedDriver:
+class GuardedDriver:
     """Normalises every answer a driver gives, whichever driver it is.
 
     The session talks only to this, so the parity FR-040 requires is a property
@@ -419,14 +420,14 @@ class _GuardedDriver:
         return callable(getattr(self._inner, "condition", None))
 
 
-def guarded(driver: Any) -> _GuardedDriver:
+def guarded(driver: Any) -> GuardedDriver:
     """Wrap *driver* so its answers are normalised to the core contract.
 
     Every driver goes through this, core's included, so there is one code path
     and no way for a manifest tutorial and a package tutorial to diverge in what
     the runtime sees (FR-040).
     """
-    return _GuardedDriver(driver)
+    return GuardedDriver(driver)
 
 
 # ---------------------------------------------------------------------------
@@ -434,7 +435,7 @@ def guarded(driver: Any) -> _GuardedDriver:
 # ---------------------------------------------------------------------------
 
 
-def load_driver(manifest: TutorialManifest, key: TutorialKey) -> _GuardedDriver:
+def load_driver(manifest: TutorialManifest, key: TutorialKey) -> GuardedDriver:
     """Return the driver for *manifest*, importing a package's only if it has one.
 
     A manifest declaring ``steps`` gets :class:`ManifestDriver` and no import
