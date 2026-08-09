@@ -22,7 +22,7 @@ from __future__ import annotations
 import sys
 import types
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -431,7 +431,7 @@ def _entry_point_visible_only_with(sentinel: str, group: str, ep: Any) -> Any:
     return _entry_points
 
 
-@pytest.mark.parametrize("kind", ["blocks", "types", "previewers"])
+@pytest.mark.parametrize("kind", ["blocks", "types", "previewers", "tutorials"])
 def test_every_entry_point_scan_activates_the_plugin_import_roots(
     kind: str,
     tmp_path: Path,
@@ -444,11 +444,13 @@ def test_every_entry_point_scan_activates_the_plugin_import_roots(
     exists while the plugin root is active, so a scan that forgot the
     activation returns an empty group rather than failing loudly.
 
-    TODO(#2057): ``scistudio.tutorials`` has no registry on this branch, so its
-      scan cannot be listed here yet. The tutorials agent must add its
-      discovery pass to this parametrisation once
-      ``scistudio.tutorials.discovery`` exists, per ADR-053 FR-030/FR-031.
-      Followup: https://github.com/jiazhenz026/SciStudio/issues/2057
+    ``scistudio.tutorials`` joins on the same terms with one difference in
+    where the probe sits. FR-029a makes it a metadata-only group: its payload
+    is a *directory resolved from distribution metadata*, never a loaded
+    callable, because FR-018 forbids importing a package module while listing
+    the catalogue. Its probe therefore records from ``Distribution.locate_file``
+    and its ``load`` raises, so a scan that reached ``load`` at all would fail
+    here rather than pass.
     """
     import importlib.metadata
 
@@ -466,18 +468,43 @@ def test_every_entry_point_scan_activates_the_plugin_import_roots(
             seen.append(kind)
             return []
 
+    class _MetadataProbe:
+        """The same record, taken from metadata resolution (FR-029a)."""
+
+        name = "scistudio-blocks-probe"
+        files: ClassVar[list[object]] = []
+
+        def locate_file(self, path: object) -> Path:
+            seen.append("tutorials")
+            return tmp_path / str(path)
+
+    def _must_not_load() -> object:
+        raise AssertionError("the tutorial group must not load an entry point (FR-018/FR-029a)")
+
     group, scan = {
         "blocks": (shared.BLOCKS_ENTRY_POINT_GROUP, lambda: _run_block_entry_point_scan()),
         "types": (shared.TYPES_ENTRY_POINT_GROUP, lambda: _run_type_entry_point_scan()),
         "previewers": (shared.PREVIEWERS_ENTRY_POINT_GROUP, lambda: _run_previewer_entry_point_scan()),
+        "tutorials": (shared.TUTORIALS_ENTRY_POINT_GROUP, lambda: _run_tutorial_entry_point_scan()),
     }[kind]
 
-    ep = types.SimpleNamespace(
-        name="probe",
-        value="pkg_probe:contribute",
-        group=group,
-        load=lambda: _Probe(),
-    )
+    if kind == "tutorials":
+        (tmp_path / "pkg_probe" / "tutorials").mkdir(parents=True)
+        ep = types.SimpleNamespace(
+            name="probe",
+            value="pkg_probe.tutorials",
+            module="pkg_probe.tutorials",
+            group=group,
+            dist=_MetadataProbe(),
+            load=_must_not_load,
+        )
+    else:
+        ep = types.SimpleNamespace(
+            name="probe",
+            value="pkg_probe:contribute",
+            group=group,
+            load=lambda: _Probe(),
+        )
     monkeypatch.setattr(
         importlib.metadata,
         "entry_points",
@@ -508,6 +535,26 @@ def _run_previewer_entry_point_scan() -> None:
     from scistudio.previewers.registry import PreviewerRegistry
 
     PreviewerRegistry().load_packages()
+
+
+def _run_tutorial_entry_point_scan() -> None:
+    """Run the tutorial catalogue scan, with the environment stated.
+
+    ``DiscoveryEnvironment`` otherwise probes this machine for installed
+    distributions, an agent binary, and git. None of that is the entry-point
+    path this test is about, and probing it would make the assertion depend on
+    what happens to be installed on the runner.
+    """
+    from scistudio.tutorials.discovery import DiscoveryEnvironment, discover_tutorials
+
+    discover_tutorials(
+        environment=DiscoveryEnvironment(
+            scistudio_version="0.0.0",
+            installed_distributions=frozenset(),
+            agent_available=False,
+            git_available=False,
+        )
+    )
 
 
 def test_plugin_import_roots_are_one_answer_for_every_group() -> None:
