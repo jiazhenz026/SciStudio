@@ -96,6 +96,30 @@ export function useLearningCenter({ wsConnected, setLeftTab }: UseLearningCenter
     return `${active.source_kind}:${active.source_id}:${active.tutorial_id}:${active.step.id}`;
   });
 
+  /*
+   * FR-079 — when a tutorial finishes, ask whether the product should now
+   * volunteer the work-import offer.
+   *
+   * The ref only stops the same completion asking twice; it is not a record of
+   * whether the offer has been shown. That question has one owner, and it is
+   * the backend: `GET /unlock` answers it, and a second copy here would be the
+   * thing that makes a once-only offer appear twice.
+   */
+  const checkWorkImportOffer = useAppStore((state) => state.checkWorkImportOffer);
+  const completedTutorialKey = useAppStore((state) => {
+    const active = state.learningCenterSession;
+    if (!active || active.status !== "complete") return null;
+    return `${active.source_kind}:${active.source_id}:${active.tutorial_id}`;
+  });
+  const lastCompletionAsked = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!completedTutorialKey) return;
+    if (lastCompletionAsked.current === completedTutorialKey) return;
+    lastCompletionAsked.current = completedTutorialKey;
+    void checkWorkImportOffer();
+  }, [completedTutorialKey, checkWorkImportOffer]);
+
   useEffect(() => {
     if (!tutorialStepKey || !tutorialStepRoute) return;
     applyStepRoute(tutorialStepRoute, { openBottomTab, setLeftTab });

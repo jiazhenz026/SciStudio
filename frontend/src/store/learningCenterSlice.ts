@@ -199,6 +199,7 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
     learningCenterError: null,
     learningCenterFirstRunDismissed: false,
     learningCenterStartConflict: null,
+    learningCenterWorkImportOffer: false,
 
     openLearningCenter: () => set({ learningCenterOpen: true }),
 
@@ -378,6 +379,46 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
         set({ learningCenterSession: null });
         const catalogue = await learningCenterApi.getTutorialCatalogue();
         set({ learningCenterCatalogue: catalogue });
+      } catch (error) {
+        set({ learningCenterError: describe(error) });
+      }
+    },
+
+    /**
+     * FR-079 — ask whether the product should volunteer the work-import offer.
+     *
+     * The answer is the backend's and only the backend's. `mark_completed`
+     * returns true just once for a given tutorial and `work_import_offer_pending`
+     * is derived from that, so "has this been offered already" is a question
+     * with exactly one place to ask it. The boolean stored here is that answer
+     * held for rendering, not a record of what the frontend has shown — a
+     * second copy of the decision is how an offer that must appear once ends
+     * up appearing twice.
+     *
+     * A failure is swallowed deliberately. The offer is the product
+     * volunteering something; an error banner about an offer the user never
+     * asked for would be worse than the offer quietly not appearing.
+     */
+    checkWorkImportOffer: async () => {
+      try {
+        const unlock = await learningCenterApi.getTutorialUnlock();
+        set({ learningCenterWorkImportOffer: unlock.work_import_offer_pending });
+      } catch {
+        set({ learningCenterWorkImportOffer: false });
+      }
+    },
+
+    /**
+     * FR-079 — the offer has been presented and answered; do not offer again.
+     *
+     * Closed locally first so the card goes away the moment the user acts, then
+     * recorded on the backend, which is what makes it stay away across restarts
+     * and reloads.
+     */
+    dismissWorkImportOffer: async () => {
+      set({ learningCenterWorkImportOffer: false });
+      try {
+        await learningCenterApi.dismissTutorialUnlock();
       } catch (error) {
         set({ learningCenterError: describe(error) });
       }

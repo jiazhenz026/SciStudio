@@ -52,6 +52,7 @@ import { useWorkflowSync } from "./App.parts/useWorkflowSync";
 import { LearningCenter } from "./components/LearningCenter";
 import { ActiveStep } from "./components/LearningCenter.parts/ActiveStep";
 import { StepHighlight } from "./components/LearningCenter.parts/StepHighlight";
+import { WorkImportOffer } from "./components/LearningCenter.parts/WorkImportOffer";
 import { Toolbar } from "./components/Toolbar";
 import { TooltipProvider } from "./components/ui/tooltip";
 
@@ -553,6 +554,12 @@ export default function App() {
            * click the step is asking for (FR-089).
            */}
           <StepHighlight />
+
+          {/*
+           * ADR-053 FR-079 — the single product behaviour progress drives.
+           * Renders nothing unless the backend says the offer is still owed.
+           */}
+          <WorkImportOffer />
 
           {/* ADR-053 FR-082 … FR-088 — mounted once; the toolbar only opens it. */}
           <LearningCenter />

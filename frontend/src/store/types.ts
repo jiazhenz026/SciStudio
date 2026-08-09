@@ -123,6 +123,14 @@ export interface LearningCenterSlice {
    * edge case — and then retry this exact request.
    */
   learningCenterStartConflict: TutorialStartRequest | null;
+  /**
+   * FR-079 — whether the product should volunteer the work-import offer.
+   *
+   * The backend's answer held for rendering, never the frontend's own record
+   * of what it has already shown. `GET /unlock` is the single place that knows
+   * whether the offer is still owed.
+   */
+  learningCenterWorkImportOffer: boolean;
   openLearningCenter: () => void;
   closeLearningCenter: () => void;
   setLearningCenterCatalogue: (catalogue: TutorialCatalogueResponse | null) => void;
@@ -147,6 +155,8 @@ export interface LearningCenterSlice {
   leaveActiveTutorial: () => Promise<void>;
   /** Resolves to the directories the backend reports it deleted. */
   clearTutorialData: () => Promise<string[]>;
+  checkWorkImportOffer: () => Promise<void>;
+  dismissWorkImportOffer: () => Promise<void>;
 }
 
 export interface WorkflowSlice {
