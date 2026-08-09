@@ -325,6 +325,34 @@ def test_clearing_removes_tutorial_projects_and_leaves_user_projects_listed(
 # ---------------------------------------------------------------------------
 
 
+def _collect_route_paths(routes: object, prefix: str = "") -> set[str]:
+    """Recursively collect route paths, tolerant of Starlette's two layouts.
+
+    Starlette < 1.3 flattens ``include_router`` children straight into
+    ``app.routes``, each exposing ``.path``. Starlette >= 1.3, pulled in by
+    FastAPI 0.138, instead inserts one ``_IncludedRouter`` with no ``.path``,
+    putting the real routes under ``route.original_router.routes`` and the mount
+    prefix under ``route.include_context.prefix`` (#1769).
+
+    Reading ``.path`` alone therefore finds nothing on a newer Starlette and the
+    assertion below fails for a dependency version rather than for a missing
+    route — which is what happened: this test passed locally and failed in the
+    CI-equivalent environment, where the pin is newer. The same walker lives in
+    ``tests/contracts/test_runtime_import_contract.py`` for the same reason.
+    """
+    paths: set[str] = set()
+    for route in routes:  # type: ignore[attr-defined,union-attr]
+        path = getattr(route, "path", None)
+        if path is not None:
+            paths.add(prefix + path)
+        included = getattr(route, "original_router", None)
+        if included is not None:
+            context = getattr(route, "include_context", None)
+            nested_prefix = prefix + (getattr(context, "prefix", "") or "")
+            paths |= _collect_route_paths(getattr(included, "routes", ()), nested_prefix)
+    return paths
+
+
 def test_the_work_import_entry_exists_with_no_tutorials_completed(client: TestClient) -> None:
     """FR-081 / User Story 5, acceptance 3.
 
@@ -332,6 +360,4 @@ def test_the_work_import_entry_exists_with_no_tutorials_completed(client: TestCl
     surface exists. The route is registered on a fresh install with no recorded
     progress at all.
     """
-    paths = {getattr(route, "path", "") for route in client.app.routes}
-
-    assert "/api/work-import/sessions" in paths
+    assert "/api/work-import/sessions" in _collect_route_paths(client.app.routes)
