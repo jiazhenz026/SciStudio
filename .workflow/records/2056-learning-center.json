@@ -1,0 +1,70 @@
+{
+  "branch": "feat/learning-center",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/tutorials/**",
+      "src/scistudio/packages/**",
+      "src/scistudio/api/routes/tutorials.py",
+      "src/scistudio/api/routes/projects.py",
+      "src/scistudio/api/runtime/_projects.py",
+      "src/scistudio/blocks/registry/_scan.py",
+      "src/scistudio/core/types/registry.py",
+      "src/scistudio/previewers/registry.py",
+      "src/scistudio/core/dropins.py",
+      "frontend/src/**",
+      "tests/**",
+      "docs/**",
+      "pyproject.toml"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2056,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2057,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2058,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Agent manager session: pull latest origin/main, fully implement the ADR-053 Learning Center infrastructure spec (docs/specs/adr-053-learning-center.md) and fully implement the first core tutorial level as both deliverable and a live exercise of the Learning Center's completeness. Deliver one combined PR. Owner asleep; work autonomously.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2056-learning-center",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "b4be238d-ceba-4d3d-88fc-281a926395c6",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": []
+}
