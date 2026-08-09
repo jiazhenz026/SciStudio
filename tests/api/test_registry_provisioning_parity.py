@@ -19,6 +19,7 @@ orders and duplicate policies must stay as recorded (FR-061).
 
 from __future__ import annotations
 
+import sys
 import types
 from pathlib import Path
 from typing import Any
@@ -399,6 +400,128 @@ def test_dropin_type_cannot_shadow_a_core_type(tmp_path: Path) -> None:
     registry._scan_filesystem_dirs()
 
     assert registry.resolve("Array").module_path == "scistudio.core.types.array"
+
+
+# ---------------------------------------------------------------------------
+# ADR-053 (Learning Center) FR-030 / FR-031 — the entry-point half
+#
+# The drop-in half above answers "which directories does this process see?".
+# The same question has a second half — "which import roots does an
+# entry-point scan see?" — that was answered by the previewer registry alone.
+# A package's ``site-packages`` carries the ``dist-info`` that makes its entry
+# points visible at all, so a group scanned without those roots reports the
+# package as absent. The observable consequence was a package that resolved
+# for previewers and vanished for blocks (#1752).
+# ---------------------------------------------------------------------------
+
+
+def _entry_point_visible_only_with(sentinel: str, group: str, ep: Any) -> Any:
+    """Metadata that appears only while *sentinel* is on ``sys.path``.
+
+    Mirrors a packaged install: the plugin's ``dist-info`` is unreadable until
+    its root is activated, so a scan that skips the activation finds nothing
+    and reports no error.
+    """
+
+    def _entry_points(*_args: object, **kwargs: object) -> object:
+        if kwargs.get("group") != group:
+            return ()
+        return (ep,) if sentinel in sys.path else ()
+
+    return _entry_points
+
+
+@pytest.mark.parametrize("kind", ["blocks", "types", "previewers"])
+def test_every_entry_point_scan_activates_the_plugin_import_roots(
+    kind: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FR-030: one answer to "which import roots does a scan run under".
+
+    Written per site, like the drop-in assertions above, because that is what
+    makes divergence visible: each scan is run against metadata that only
+    exists while the plugin root is active, so a scan that forgot the
+    activation returns an empty group rather than failing loudly.
+
+    TODO(#2057): ``scistudio.tutorials`` has no registry on this branch, so its
+      scan cannot be listed here yet. The tutorials agent must add its
+      discovery pass to this parametrisation once
+      ``scistudio.tutorials.discovery`` exists, per ADR-053 FR-030/FR-031.
+      Followup: https://github.com/jiazhenz026/SciStudio/issues/2057
+    """
+    import importlib.metadata
+
+    from scistudio.core import entry_points as shared
+
+    sentinel = str(tmp_path)
+    monkeypatch.setattr(shared, "installed_package_import_roots", lambda: [tmp_path])
+
+    seen: list[str] = []
+
+    class _Probe:
+        """Records that the scan reached the point of reading the payload."""
+
+        def __call__(self) -> list[object]:
+            seen.append(kind)
+            return []
+
+    group, scan = {
+        "blocks": (shared.BLOCKS_ENTRY_POINT_GROUP, lambda: _run_block_entry_point_scan()),
+        "types": (shared.TYPES_ENTRY_POINT_GROUP, lambda: _run_type_entry_point_scan()),
+        "previewers": (shared.PREVIEWERS_ENTRY_POINT_GROUP, lambda: _run_previewer_entry_point_scan()),
+    }[kind]
+
+    ep = types.SimpleNamespace(
+        name="probe",
+        value="pkg_probe:contribute",
+        group=group,
+        load=lambda: _Probe(),
+    )
+    monkeypatch.setattr(
+        importlib.metadata,
+        "entry_points",
+        _entry_point_visible_only_with(sentinel, group, ep),
+    )
+
+    scan()
+
+    assert seen == [kind], (
+        f"the {kind} entry-point scan did not run with the plugin import roots active, "
+        "so an installed package's metadata was invisible to it"
+    )
+
+
+def _run_block_entry_point_scan() -> None:
+    from scistudio.blocks.registry import BlockRegistry
+
+    BlockRegistry()._scan_tier2()
+
+
+def _run_type_entry_point_scan() -> None:
+    from scistudio.core.types.registry import TypeRegistry
+
+    TypeRegistry()._scan_entrypoint_types()
+
+
+def _run_previewer_entry_point_scan() -> None:
+    from scistudio.previewers.registry import PreviewerRegistry
+
+    PreviewerRegistry().load_packages()
+
+
+def test_plugin_import_roots_are_one_answer_for_every_group() -> None:
+    """FR-030: no registry keeps its own copy of the resolution.
+
+    The drop-in half of this file makes the same claim about
+    :func:`scistudio.core.dropins.dropin_import_roots`; this is the
+    entry-point half, and the two are deliberately separate answers because
+    they cover different directories.
+    """
+    from scistudio.core import entry_points as shared
+    from scistudio.desktop.paths import installed_package_import_roots
+
+    assert tuple(installed_package_import_roots()) == shared.plugin_import_roots()
 
 
 def test_dropin_block_overrides_a_builtin_of_the_same_name() -> None:
