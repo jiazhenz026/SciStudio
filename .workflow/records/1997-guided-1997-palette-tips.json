@@ -1,6 +1,86 @@
 {
   "branch": "guided/1997-palette-tips",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-08-09T08:35:40.360156Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-09T08:36:11.267408Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e27198bd9051ef643e1cbde36e9feefeafc847c3321d23e865a134ee3eebfc89",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T08:36:16.325180Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cbb30fa2b0eb4fcb03f2743dc5e91dfa18f32630b1e2d15c97ccd7fc2b34b4ae",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T08:36:16.435053Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-09T08:39:02.906330Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:210ce1ff23b0a69c312820a3e32a20635cb67354dca03daefcc232ffc67d0f6b",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -47,9 +127,133 @@
       "reason": "owner directives during the live session: title wraps to two lines and expands with the body; tips come out scattered rather than in authoring order; no per-tab scoping"
     }
   ],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-09T08:39:10.533004Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/frontend-block-palette.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-08-09T08:39:02.941266Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:02.954978Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "frontend/src/App.parts/ProjectWorkspace.tsx",
+              "frontend/src/components/palette/tips/PaletteTipCard.tsx",
+              "frontend/src/components/palette/tips/__tests__/PaletteTipCard.test.tsx",
+              "frontend/src/components/palette/tips/__tests__/tipPool.test.ts",
+              "frontend/src/components/palette/tips/__tests__/useTipRotation.test.ts",
+              "frontend/src/components/palette/tips/tipPool.ts",
+              "frontend/src/components/palette/tips/useTipRotation.ts"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-09T08:39:02.965761Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:02.976372Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:02.986470Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:02.997133Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:03.007320Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:03.020279Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:03.030945Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:03.045083Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -59,25 +263,113 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "5f9f2b120c70bf69d8870d77af4cc0a5f55404e3",
+    "base_sha": "5f9f2b12",
+    "changed_files": [
+      ".workflow/records/1997-guided-1997-palette-tips.json",
+      "docs/specs/frontend-block-palette.md",
+      "frontend/src/App.parts/ProjectWorkspace.tsx",
+      "frontend/src/components/palette/tips/PaletteTipCard.tsx",
+      "frontend/src/components/palette/tips/__tests__/PaletteTipCard.test.tsx",
+      "frontend/src/components/palette/tips/__tests__/tipPool.test.ts",
+      "frontend/src/components/palette/tips/__tests__/useTipRotation.test.ts",
+      "frontend/src/components/palette/tips/tipPool.ts",
+      "frontend/src/components/palette/tips/useTipRotation.ts"
+    ],
+    "diff_fingerprint": "sha256:896103ef060a6f3033688565832c1d1224112f8b7887b2a7cb1443790186b6b1",
+    "head": "HEAD",
+    "head_sha": "58ea7929",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 7,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 7,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 8,
+      "test": 3,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Implement the palette tips surface from #1997, redesigned live: an overlay card pinned to the bottom of the shared left panel (Blocks / Data types / Project), 60s visible / 60s hidden rotation, x-dismiss with 5-minute snooze then session-off on the second dismiss, ember colour, placeholder tip content for now",
   "persona": "live_implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-08-09T08:39:03.045133Z",
+      "diff_fingerprint": "sha256:896103ef060a6f3033688565832c1d1224112f8b7887b2a7cb1443790186b6b1",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "tests.changed_test_required"
+      ]
+    }
+  ],
   "record_id": "1997-guided-1997-palette-tips",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "format_check",
+      "frontend",
+      "full_audit",
+      "lint_format",
+      "semantic_dup"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "496acf7b-24d3-4b85-b1b6-849de11831b4",
-  "strictness_tier": null,
+  "strictness_tier": 2,
   "task_kind": "guided",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-08-09T08:39:10.533176Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/palette/tips/__tests__/tipPool.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T08:39:10.533182Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/palette/tips/__tests__/useTipRotation.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T08:39:10.533183Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/palette/tips/__tests__/PaletteTipCard.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
