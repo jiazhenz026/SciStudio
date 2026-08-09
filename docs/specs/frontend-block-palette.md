@@ -24,6 +24,7 @@ scope:
     - A shared section/filter/tile/chip/popover helper set the Data types tab reuses (ADR-053 §10.1).
     - The category sub-grouping layer, the always-on description line, and the "X in / Y out" text line are removed from the tile.
     - A one-shot opacity blink confirming a completed Reload, via a shared `useReloadFlash` hook also wired to the project tree Refresh.
+    - A tip overlay pinned to the bottom of the shared left panel, rotating one curated tip at a time across all three tabs (§12, #1997).
   out:
     - Backend or schema changes (none — base_category, subcategory, ports, direction already exist on BlockSummary).
     - Per-block custom icons (still tracked as the categoryVisuals follow-up; palette keeps the category-icon fallback).
@@ -41,8 +42,10 @@ governs:
     - frontend/src/components/BlockPalette.parts
     - frontend/src/components/BlockDetailPopover.tsx
     - frontend/src/components/palette
+    - frontend/src/components/palette/tips
     - frontend/src/hooks/useReloadFlash.ts
     - frontend/src/components/ProjectTree.tsx
+    - frontend/src/App.parts/ProjectWorkspace.tsx
   excludes:
     - frontend/src/components/nodes/BlockNode.parts/categoryVisuals.ts
 tests:
@@ -51,6 +54,9 @@ tests:
   - frontend/src/components/palette/__tests__/sections.test.ts
   - frontend/src/components/palette/__tests__/useHoverPopover.test.tsx
   - frontend/src/hooks/__tests__/useReloadFlash.test.ts
+  - frontend/src/components/palette/tips/__tests__/tipPool.test.ts
+  - frontend/src/components/palette/tips/__tests__/useTipRotation.test.ts
+  - frontend/src/components/palette/tips/__tests__/PaletteTipCard.test.tsx
 acceptance_source: issue
 language_source: en
 ---
@@ -521,3 +527,145 @@ Cross-surface colour behaviour is covered by
 loading window and its no-flash / no-re-layout assertions, FR-052 fall-through)
 and by `config/__tests__/typeColorMap.test.ts` for the pure precedence,
 normalisation, and warning de-duplication.
+
+## 12. Left-Panel Tip Overlay (#1997)
+
+Observed usage says users have never heard of interactive blocks, custom
+previewers, or custom data types. Those features have close to zero surface
+area in the product, so a user has no moment at which they could learn the
+features exist, and documentation cannot reach someone who does not know the
+subject exists. The tip overlay is the cheapest surface that reaches every user
+in every session. ADR-053 §9.2 also treats it as the experiment that tests
+whether users read hints in this kind of surface at all, before condition-driven
+hints are built on that assumption.
+
+### 12.1 It Belongs To The Panel, Not To A Tab
+
+The overlay is mounted in `App.parts/ProjectWorkspace.tsx` on the pane body that
+holds all three left tabs (`Blocks`, `Data types`, `Project`), as a sibling of
+the active tab's content rather than inside any one of them.
+
+That placement is what makes one card and one clock serve three tabs. Switching
+tabs neither remounts the card nor restarts the rotation, so a user moving
+between Blocks and Data types sees one continuous schedule instead of a card
+that flickers on every switch. It also keeps all three panes unmodified: the
+overlay is positioned against the pane body, so the block grid, the type list,
+and the project tree each keep their full height.
+
+The card is anchored to the **bottom** of the pane body, above the pane's own
+content and below the tab strip. The tab strip stays reachable while a tip is
+up.
+
+### 12.2 Rotation, And The Two-Step Way Out
+
+The overlay covers part of the panel while it is up, so it earns its place by
+leaving again. `palette/tips/useTipRotation.ts` owns the schedule:
+
+| Phase | Duration |
+|---|---|
+| Quiet gap, including before the first tip | 40s (`TIP_HIDDEN_MS`) |
+| One tip visible | 40s (`TIP_VISIBLE_MS`) |
+| Quiet period bought by the first dismissal | 5min (`TIP_SNOOZE_MS`) |
+
+The rotation starts at a random position, so two users opening the same project
+do not both meet the same tip first. Each new visible phase advances the
+rotation by one, so consecutive tips differ.
+
+The close control escalates rather than toggling. The first dismissal buys the
+snooze and then the ordinary cycle resumes; the second stops the overlay for
+the rest of the session (`TIP_DISMISSALS_BEFORE_SILENCE`), at which point the
+card stops rendering entirely. A tip that expires on its own is the schedule
+doing its job rather than the user saying anything, so it never counts toward
+that escalation.
+
+The silence is session state held in React, deliberately not persisted. The
+intent is "leave me alone while I am working", and a user returning to the
+product later is a user worth telling about interactive blocks again.
+
+### 12.3 Hidden Means Harmless
+
+Between tips the card stays mounted at `opacity-0` with `pointer-events-none`
+rather than unmounting. Staying mounted is what gives the fade something to
+animate; dropping pointer events is what keeps the tiles underneath clickable
+during the quiet half of the cycle. An overlay that is invisible and still
+swallowing clicks would be worse than a permanent one.
+
+The card is `aria-live="polite"` and `aria-hidden` while down: it arrives
+unprompted and is advisory, so it announces itself without interrupting.
+
+### 12.4 Constant Height, Expandable Title And Body
+
+The card carries a title (with the close control) and a body, each clamped to
+two lines. As the panel is resized narrower the card holds that height and both
+stay clamped; text that no longer fits gets a `More` control that expands the
+title and the body together, and expanding is the only way the card grows. This
+keeps a resize from silently eating more of the panel.
+
+The title wraps to a second line rather than truncating: a title cut mid-word at
+panel width tells the user less than a two-line title does, and the card is
+anchored to the pane's bottom edge, so the extra line grows upward over the tile
+grid instead of displacing anything.
+
+Overflow is measured (`scrollHeight` against `clientHeight` under a
+`ResizeObserver`) on both elements rather than guessed from text length, because
+the panel is resizable and the same string fits or does not depending on its
+width. Either element overflowing is enough to offer the control, since one
+control releases both. A new tip always arrives collapsed.
+
+### 12.5 Tip Content Lives In One Module
+
+`palette/tips/tipPool.ts` owns everything the overlay says. A tip is an `id`, a
+`title`, and a `body`. The pool grows by editing that module alone.
+
+Every tip is shown on every tab. A user on the Blocks tab has as much to gain
+from a tip about the Git tab as from one about blocks, so the pool carries no
+per-tab scoping to shrink what any one user ever sees.
+
+`resolveTip(index)` is the only selection path. It maps the unbounded rotation
+index onto the pool, striding by a number coprime with the pool length instead
+of walking it one entry at a time. The pool is authored chapter by chapter, so a
+`+1` walk would spend a whole session inside one chapter; the stride scatters
+consecutive tips across chapters while still visiting every tip exactly once
+before any of them repeats, which a per-step `Math.random()` would not. The
+index is reduced modulo the pool before it is scaled, so a long session cannot
+push the product out of the safe integer range.
+
+Keeping selection behind one function is what leaves ADR-053 §9.2's deferred
+condition-driven hints open: a later trigger mechanism widens that function's
+inputs and nothing else moves.
+
+### 12.6 Deviations From The #1997 Issue Text
+
+The issue specified a single-line strip inside `BlockPalette.tsx`, between the
+category chips and the section grid, and an acceptance criterion for collapsed
+rail mode. The owner redirected all three during the live session:
+
+- **Position.** The strip became a bottom overlay on the shared pane body, so
+  all three tabs get it and the grid keeps its full height.
+- **Shape.** One line became a title plus two clamped lines with an expand
+  control, because one line at palette width truncates away the half of the
+  sentence that says where to click. The title wraps to two lines under the
+  same control rather than truncating.
+- **Presence.** A permanently visible strip became a rotating overlay with a
+  two-step dismissal, so it can be loud without being permanent.
+- **Collapsed rail mode.** The criterion is dropped as obsolete: the left panel
+  now collapses through `ResizablePanel` to `0%`, `BlockPalette` receives
+  `collapsed={false}` unconditionally, and the rail branch is unreachable.
+
+### 12.7 Test Plan
+
+`palette/tips/__tests__/tipPool.test.ts` holds the pool contract every future
+entry must satisfy: non-empty, unique ids, non-blank title and body,
+`resolveTip` wrapping an unbounded index, every tip shown once before any
+repeats, and the walk not following authoring order.
+
+`palette/tips/__tests__/useTipRotation.test.ts` covers the schedule on fake
+timers: the initial quiet gap, the alternating cycle and its index advance, that
+an expiring tip is not a dismissal, the five-minute snooze and the resumed cycle
+after it, session silence on the second dismissal, and the disabled case.
+
+`palette/tips/__tests__/PaletteTipCard.test.tsx` covers the rendered card:
+the hidden state carrying both `opacity-0` and `pointer-events-none`, dismissal
+and return after the snooze, the card disappearing entirely after the second
+dismissal, the expand control appearing only when something overflows, and a
+long title wrapping to two lines and being released along with the body.
