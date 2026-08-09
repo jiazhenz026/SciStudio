@@ -428,7 +428,7 @@ def resolve_entry_point_directory(
             group,
             name,
             STAGE_LOAD,
-            f"'{module}' is not a directory in the files of distribution '{_distribution_name(dist)}'",
+            f"'{module}' is not a directory in the files of distribution '{distribution_name(dist)}'",
         )
         return None
     return directory
@@ -459,13 +459,23 @@ def _locate_module_directory(dist: Any, parts: tuple[str, ...]) -> Path | None:
     return None
 
 
-def _distribution_name(dist: Any) -> str:
+def distribution_name(dist: Any, *, default: str = "<unknown>") -> str:
+    """Return a distribution's declared name, or *default*.
+
+    ``Distribution.name`` where the installed metadata carries it, falling back
+    to the ``Name`` metadata key. Callers differ only in what an unnamed
+    distribution should read as — a diagnostic wants ``<unknown>`` where a
+    grouping key wants ``""`` — so that is the parameter rather than a second
+    copy of the lookup.
+    """
+    if dist is None:
+        return default
     name = getattr(dist, "name", None)
     if isinstance(name, str) and name:
         return name
     metadata: Any = getattr(dist, "metadata", None)
     value = metadata.get("Name") if metadata is not None and hasattr(metadata, "get") else None
-    return value if isinstance(value, str) else "<unknown>"
+    return value if isinstance(value, str) else default
 
 
 __all__ = [
@@ -482,6 +492,7 @@ __all__ = [
     "TYPES_ENTRY_POINT_GROUP",
     "DiagnosticSink",
     "EntryPointDiagnostic",
+    "distribution_name",
     "entry_point_module",
     "entry_point_name",
     "enumerate_group",

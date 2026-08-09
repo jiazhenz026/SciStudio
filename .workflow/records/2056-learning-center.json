@@ -1,6 +1,178 @@
 {
   "branch": "feat/learning-center",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-08-09T10:39:01.699862Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7317cbf87bb7d2e8f316bb8493d67051d5762b566ff60bf935970e53dadd236f",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T10:39:02.597477Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0077a9fce7546333ced93bca8d602d02e3b30d1f5a5b3c024dc50bf205cd5e5f",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T10:39:02.955123Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:657149cb0b1d9a182f46fd85091715bfc36e5172bb05ea03f7a01e07780cfd14",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-09T10:39:29.801024Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a85d2ea43faf249c18680eea0508bca2ed754fd285ae4d7554fe1e84ea47b00a",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T10:39:34.106735Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ba097e87c59fb9ee2b0e2b153b93441b972eb21aff46d7cd1f7693bda4a9fbff",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T10:39:34.570776Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:dfdd207e5a76ff55d00234f1b157a213089e45bd7f1ad007bbf0ec3320622082",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T10:39:34.651039Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f2bf906e4cd5c29443b002724ca4ea8fc3cb8a57b7f0ef329d5ba3f7f539b51e",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-09T10:41:43.292244Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47330cd2ee11568161ff1049dc838db8b6dff79601be00d7e4447c18fbc35512",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T10:44:16.952325Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:5ddc495efa448f787d34cb416ea291184758edba7580ef95306e967f14723f98",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T10:44:22.140032Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4613a277d1fce0009ce25ba46f234dad6a9f8e8ac852ef74b69ca23255c721b2",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-08-09T10:44:24.445793Z",
+      "command": "python -m build --wheel",
+      "covered_surface": "packaging",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b1a46ec730e483e4a479959377b747c36191ab9903fbcbbd5f59f3947eeb571d",
+      "name": "wheel_release_smoke",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/wheel_release_smoke.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -78,7 +250,7 @@
       "verified_in_diff": null
     }
   ],
-  "governance_touch": false,
+  "governance_touch": true,
   "guard_events": [
     {
       "at": "2026-08-09T08:57:27.320984Z",
@@ -211,6 +383,244 @@
       ],
       "guard": "worktree_write_guard",
       "status": "fail"
+    },
+    {
+      "at": "2026-08-09T10:44:24.506326Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T10:44:24.519433Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/registry/__init__.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/registry/__init__.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/registry/_scan.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/registry/_scan.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/dropins.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/dropins.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/entry_points.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/entry_points.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/types/registry.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/types/registry.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T10:44:24.530068Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T10:44:24.541154Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T10:44:24.552512Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T10:44:24.563157Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "pyproject.toml",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": "pyproject.toml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-09T10:44:24.574775Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T10:44:24.586963Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T10:44:24.598189Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T10:44:24.608629Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T10:44:24.620580Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T10:52:06.683772Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1558/test_hook_payload_blocks_main_0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-09T10:52:07.163962Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1558/test_hook_payload_extracts_mul0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
     }
   ],
   "issues": [
@@ -234,11 +644,164 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "c8f308c1",
+    "changed_files": [
+      ".workflow/records/2056-learning-center.json",
+      "CHANGELOG.md",
+      "docs/adr/ADR-049.md",
+      "docs/adr/ADR-053.md",
+      "docs/audit/2026-08-09-learning-center-no-context.md",
+      "docs/planning/learning-center-checklist.md",
+      "docs/specs/adr-053-learning-center.md",
+      "frontend/src/App.parts/WelcomePane.tsx",
+      "frontend/src/App.parts/useLearningCenter.ts",
+      "frontend/src/App.parts/useRunFirstWorkflowTutorial.ts",
+      "frontend/src/App.test.tsx",
+      "frontend/src/App.tsx",
+      "frontend/src/components/BlockPalette.tsx",
+      "frontend/src/components/BottomPanel.parts/PlotsTab.tsx",
+      "frontend/src/components/DataPreview.tsx",
+      "frontend/src/components/LearningCenter.parts/ActiveStep.tsx",
+      "frontend/src/components/LearningCenter.parts/StepHighlight.tsx",
+      "frontend/src/components/LearningCenter.parts/WorkImportOffer.tsx",
+      "frontend/src/components/LearningCenter.parts/targets.ts",
+      "frontend/src/components/LearningCenter.tsx",
+      "frontend/src/components/Lineage/RunDetail.parts/restore.tsx",
+      "frontend/src/components/Toolbar.parts/ToolbarButton.tsx",
+      "frontend/src/components/Toolbar.parts/WorkflowGroups.tsx",
+      "frontend/src/components/Toolbar.tsx",
+      "frontend/src/components/TutorialPanel.test.tsx",
+      "frontend/src/components/TutorialPanel.tsx",
+      "frontend/src/components/WelcomeScreen.test.tsx",
+      "frontend/src/components/WelcomeScreen.tsx",
+      "frontend/src/components/WorkflowCanvas.tsx",
+      "frontend/src/components/__tests__/LearningCenter.test.tsx",
+      "frontend/src/components/__tests__/WorkImportOffer.test.tsx",
+      "frontend/src/components/__tests__/tutorialAutoAdvance.test.tsx",
+      "frontend/src/components/__tests__/tutorialTargets.test.tsx",
+      "frontend/src/hooks/useWebSocket.parts/dispatchEvent.ts",
+      "frontend/src/lib/api.ts",
+      "frontend/src/lib/api/__tests__/api-surface.test.ts",
+      "frontend/src/lib/api/learningCenter.ts",
+      "frontend/src/lib/api/tutorials.ts",
+      "frontend/src/store/index.ts",
+      "frontend/src/store/learningCenterSlice.ts",
+      "frontend/src/store/tabSlice.parts/fileTabActions.ts",
+      "frontend/src/store/tutorialSlice.test.ts",
+      "frontend/src/store/tutorialSlice.ts",
+      "frontend/src/store/types.ts",
+      "frontend/src/testUtils.ts",
+      "frontend/src/tutorials/runFirstWorkflow/content.test.ts",
+      "frontend/src/tutorials/runFirstWorkflow/content.ts",
+      "frontend/src/types/api.ts",
+      "pyproject.toml",
+      "src/scistudio/ai/agent/mcp/tools_library.py",
+      "src/scistudio/api/routes/ai_pty/replay.py",
+      "src/scistudio/api/routes/packages.py",
+      "src/scistudio/api/routes/projects.py",
+      "src/scistudio/api/routes/tutorials.py",
+      "src/scistudio/api/routes/user_library.py",
+      "src/scistudio/api/runtime/_projects.py",
+      "src/scistudio/api/runtime/models.py",
+      "src/scistudio/blocks/registry/__init__.py",
+      "src/scistudio/blocks/registry/_scan.py",
+      "src/scistudio/core/dropins.py",
+      "src/scistudio/core/entry_points.py",
+      "src/scistudio/core/types/registry.py",
+      "src/scistudio/previewers/registry.py",
+      "src/scistudio/tutorials/__init__.py",
+      "src/scistudio/tutorials/actions.py",
+      "src/scistudio/tutorials/conditions.py",
+      "src/scistudio/tutorials/core/welcome-to-scistudio/assets/code/normalize_fluorescence.py",
+      "src/scistudio/tutorials/core/welcome-to-scistudio/assets/code/normalize_fluorescence_renamed.py",
+      "src/scistudio/tutorials/core/welcome-to-scistudio/assets/code/normalized_activity_render.py",
+      "src/scistudio/tutorials/core/welcome-to-scistudio/assets/data/cell_viability_fluorescence.csv",
+      "src/scistudio/tutorials/core/welcome-to-scistudio/tutorial.yaml",
+      "src/scistudio/tutorials/discovery.py",
+      "src/scistudio/tutorials/driver.py",
+      "src/scistudio/tutorials/manifest.py",
+      "src/scistudio/tutorials/progress.py",
+      "src/scistudio/tutorials/projects.py",
+      "src/scistudio/tutorials/schema/tutorial.schema.json",
+      "src/scistudio/tutorials/session.py",
+      "tests/api/test_registry_provisioning_parity.py",
+      "tests/api/test_registry_reload_symmetry.py",
+      "tests/api/test_tutorial_library_write.py",
+      "tests/api/test_tutorial_package_lifecycle.py",
+      "tests/api/test_tutorial_project_visibility.py",
+      "tests/api/test_tutorial_replay.py",
+      "tests/api/test_tutorial_routes.py",
+      "tests/api/test_tutorials.py",
+      "tests/architecture/test_placement.py",
+      "tests/blocks/test_entry_point_isolation.py",
+      "tests/core/test_types.py",
+      "tests/packages/__init__.py",
+      "tests/packages/test_entry_point_symmetry.py",
+      "tests/previewers/test_preview_registry.py",
+      "tests/tutorials/__init__.py",
+      "tests/tutorials/conftest.py",
+      "tests/tutorials/fixtures/driver-declared/tutorial.yaml",
+      "tests/tutorials/fixtures/full-vocabulary/assets/code/constants.py",
+      "tests/tutorials/fixtures/full-vocabulary/assets/data/sample.csv",
+      "tests/tutorials/fixtures/full-vocabulary/assets/pages/intro.md",
+      "tests/tutorials/fixtures/full-vocabulary/assets/replay/segment-one.txt",
+      "tests/tutorials/fixtures/full-vocabulary/assets/replay/segment-two.txt",
+      "tests/tutorials/fixtures/full-vocabulary/tutorial.yaml",
+      "tests/tutorials/fixtures/future-manifest-version/tutorial.yaml",
+      "tests/tutorials/fixtures/malformed-manifest/tutorial.yaml",
+      "tests/tutorials/fixtures/minimal-core/assets/data/cells.csv",
+      "tests/tutorials/fixtures/minimal-core/tutorial.yaml",
+      "tests/tutorials/fixtures/unmet-requirements/tutorial.yaml",
+      "tests/tutorials/test_actions.py",
+      "tests/tutorials/test_condition_events.py",
+      "tests/tutorials/test_conditions.py",
+      "tests/tutorials/test_core_tutorials.py",
+      "tests/tutorials/test_discovery_no_import.py",
+      "tests/tutorials/test_discovery_tiers.py",
+      "tests/tutorials/test_driver_parity.py",
+      "tests/tutorials/test_manifest_schema.py",
+      "tests/tutorials/test_progress.py",
+      "tests/tutorials/test_replay.py",
+      "tests/tutorials/test_scoped_library.py",
+      "tests/tutorials/test_session_lifecycle.py",
+      "tests/tutorials/test_tier_asset_rules.py"
+    ],
+    "diff_fingerprint": "sha256:5a28eef3337ed2480242600dbf7aac2b18378fb6f3fb02254e307e04d5e6b1cc",
+    "head": "HEAD",
+    "head_sha": "167b55cd",
+    "surfaces": {
+      "docs": 5,
+      "frontend": 41,
+      "governance": 1,
+      "governed_docs": 0,
+      "implementation": 71,
+      "packaging": 1,
+      "protected_architecture": 0,
+      "protected_core": 5,
+      "sentrux": 114,
+      "test": 51,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Agent manager session: pull latest origin/main, fully implement the ADR-053 Learning Center infrastructure spec (docs/specs/adr-053-learning-center.md) and fully implement the first core tutorial level as both deliverable and a live exercise of the Learning Center's completeness. Deliver one combined PR. Owner asleep; work autonomously.",
   "persona": "manager",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-08-09T10:44:24.620641Z",
+      "diff_fingerprint": "sha256:5a28eef3337ed2480242600dbf7aac2b18378fb6f3fb02254e307e04d5e6b1cc",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
+        "checks.semantic_dup",
+        "guard.mod_guard"
+      ]
+    }
+  ],
   "record_id": "2056-learning-center",
   "requested_admin_labels": [
     {
@@ -249,11 +812,41 @@
     }
   ],
   "required_obligations": {
-    "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "admin_labels": [
+      "admin-approved:core-change"
+    ],
+    "checks": [
+      "architecture_tests",
+      "deferral_discipline",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check",
+      "wheel_release_smoke"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
@@ -278,7 +871,7 @@
     }
   ],
   "session_id": "b4be238d-ceba-4d3d-88fc-281a926395c6",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "feature",
   "test_events": [
     {

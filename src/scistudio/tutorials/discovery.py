@@ -78,6 +78,7 @@ from scistudio.core.entry_points import (
     TUTORIALS_ENTRY_POINT_GROUP,
     DiagnosticSink,
     EntryPointDiagnostic,
+    distribution_name,
     entry_point_name,
     enumerate_group,
     prepared_plugin_import_roots,
@@ -688,15 +689,13 @@ def _reject_duplicate_ids(entries: tuple[DiscoveredTutorial, ...]) -> tuple[Disc
 
 
 def _distribution_name(dist: Any) -> str:
-    """Return a distribution's declared name, or ``""``."""
-    if dist is None:
-        return ""
-    name = getattr(dist, "name", None)
-    if isinstance(name, str) and name:
-        return name
-    metadata: Any = getattr(dist, "metadata", None)
-    value = metadata.get("Name") if metadata is not None and hasattr(metadata, "get") else None
-    return value if isinstance(value, str) else ""
+    """Return a distribution's declared name, or ``""``.
+
+    The lookup lives in :mod:`scistudio.core.entry_points` beside the rest of
+    the entry-point metadata handling; a tutorial source keyed on an unnamed
+    distribution wants an empty string rather than a diagnostic's placeholder.
+    """
+    return distribution_name(dist, default="")
 
 
 # ---------------------------------------------------------------------------

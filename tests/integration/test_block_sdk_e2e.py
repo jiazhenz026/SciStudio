@@ -472,7 +472,11 @@ class TestTypeRegistryEntryPoints:
             reg = TypeRegistry()
             reg._scan_entrypoint_types()
 
-        assert "Failed to load entry-point 'broken-types'" in caplog.text
+        # ADR-053 FR-025: the message comes from the one shared enumeration and
+        # loading helper now, not from each registry's own copy. The three
+        # registries used to spell the same failure three ways, which is the
+        # divergence that requirement ends.
+        assert "Failed to load entry_point 'broken-types'" in caplog.text
 
     def test_entrypoint_callable_failure_logged(self, caplog: pytest.LogCaptureFixture) -> None:
         """An entry-point whose callable raises logs a warning and continues."""
@@ -491,7 +495,7 @@ class TestTypeRegistryEntryPoints:
             reg = TypeRegistry()
             reg._scan_entrypoint_types()
 
-        assert "callable raised an exception" in caplog.text
+        assert "Failed to process entry_point 'crashing-types'" in caplog.text
 
     def test_load_class_roundtrip(self) -> None:
         """A registered type can be loaded back into its original class."""

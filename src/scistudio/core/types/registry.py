@@ -114,6 +114,7 @@ from scistudio.core.entry_points import (
     STAGE_REGISTER,
     TYPES_ENTRY_POINT_GROUP,
     EntryPointDiagnostic,
+    entry_point_module,
     entry_point_name,
     enumerate_group,
     load_entry_point,
@@ -244,22 +245,14 @@ def _declared_colour(cls: type, attribute: str) -> str | None:
     return f"#{digits}"
 
 
-def _entrypoint_module(ep: Any) -> str:
-    """Return the module the ``scistudio.types`` entry-point *ep* declares.
-
-    ``EntryPoint.module`` is the left-hand side of ``module:attr``, which roots
-    at the distribution's own package however the plugin arranges its
-    registration hook — ``pkg:get_types`` and ``pkg.registration:get_types``
-    both root at ``pkg``. Anything that is not a real string (an entry-point
-    double in a test, a shim without the property) yields ``""``: an
-    unattributed type still registers and still lists, it simply falls back to
-    the lumped section, which is the FR-040 degradation and not a failure.
-    """
-    module = getattr(ep, "module", None)
-    if isinstance(module, str) and module:
-        return module
-    value = getattr(ep, "value", None)
-    return value.split(":")[0] if isinstance(value, str) else ""
+# ADR-053 FR-025: the module an entry point names is read by every group, so the
+# lookup lives in ``scistudio.core.entry_points`` rather than once per registry.
+# The behaviour this registry depends on is unchanged: anything that is not a
+# real string — an entry-point double in a test, a shim without the property —
+# yields ``""``, and an unattributed type still registers and still lists, it
+# simply falls back to the lumped section. That is the FR-040 degradation and
+# not a failure.
+_entrypoint_module = entry_point_module
 
 
 def _spec_for_class(cls: type, *, package_root: str = "") -> TypeSpec:

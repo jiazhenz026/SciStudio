@@ -26,6 +26,7 @@ from typing import Any
 
 from scistudio.core.entry_points import (
     EntryPointDiagnostic,
+    entry_point_module,
     entry_point_name,
     enumerate_group,
     load_entry_point,
@@ -291,10 +292,15 @@ class PreviewerRegistry:
 
 
 def _entry_point_root_module(ep: importlib.metadata.EntryPoint) -> str | None:
-    """Return the top-level module named by an entry point value."""
-    value = getattr(ep, "value", "")
-    module_name = str(value).split(":", 1)[0].strip()
-    module_name = module_name.split("[", 1)[0].strip()
+    """Return the top-level module named by an entry point value.
+
+    The companion fallback wants the distribution's *root* package so it can
+    try ``pkg`` and ``pkg.previewers``, where the rest of the product wants the
+    module the value actually names. ADR-053 FR-025 puts that shared parse in
+    :func:`scistudio.core.entry_points.entry_point_module`; the extra step here
+    is the truncation to the first segment, which is this fallback's own.
+    """
+    module_name = entry_point_module(ep)
     if not module_name:
         return None
     return module_name.split(".", 1)[0]
