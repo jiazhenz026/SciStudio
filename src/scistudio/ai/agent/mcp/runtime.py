@@ -135,9 +135,9 @@ class StandaloneMCPRuntime:
     which is what this class does and what a per-request API handler does not.
 
     The FastAPI variant additionally exposes ``start_workflow``. Standalone
-    mode doesn't drive execution from MCP tools, so we leave that as a no-op
-    placeholder — the runtime-dependent ``run_workflow`` tool will surface a
-    clear error if invoked here.
+    mode doesn't drive execution from MCP tools, so we leave that as a no-op —
+    the runtime-dependent ``run_workflow`` tool will surface a clear error if
+    invoked here.
 
     # TODO(#1012): I40a Phase 2a may need to add ``ai_block_run_dir``
     #   here to satisfy the MCPContext Protocol surface that

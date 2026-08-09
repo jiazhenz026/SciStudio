@@ -222,14 +222,14 @@ async def reload_types(runtime: RuntimeDep) -> TypeReloadResponse:
     """Re-scan the drop-in type directories and broadcast the change.
 
     The Data types tab's "Reload" button had exactly the defect #1910 fixed on
-    the Blocks tab, one release later and one tab over: it re-fetched
+    the Blocks tab, one release on and one tab over: it re-fetched
     :func:`list_types`, which answers from the in-memory registry and costs no
     scan, so a type the user had just written to ``{project}/types/`` was
     invisible until something *else* happened to rebuild the registry — a
     project switch, a git operation, a package install, a promotion, or the
     other tab's Reload. Owner review of a running build hit it directly: a new
     type "did not show up no matter how many times I reloaded", then appeared
-    later for no reason the user could see.
+    at some unrelated moment for no reason the user could see.
 
     ADR-053 FR-062 — the re-scan is ``refresh_all_registries()``, the same
     whole-registry rebuild ``POST /api/blocks/reload`` performs, because a
