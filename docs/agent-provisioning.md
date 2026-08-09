@@ -163,10 +163,17 @@ wins inside a SciStudio project tree.
 
 ## Known limitations
 
-- **Codex hook system** has documented gaps (ADR-040 §3.10) — the 7
-  hooks govern Claude Code only. The `AGENTS.md` file gives Codex the
-  same prose-level guidance, but matcher-driven blocking is
-  Claude-Code-specific until Codex hooks mature.
+- **Hook coverage is four providers out of five.** This bullet used to say
+  the 7 hooks govern Claude Code only; #1994 provisioned Codex
+  (`.codex/config.toml`) and both Qoder channels (`.qoder/settings.json`)
+  as well, and Codex hooks still carry the documented `apply_patch` and
+  MCP-call gaps of ADR-040 §3.10 plus a first-launch trust review the user
+  answers in the terminal. **Kimi Code is not provisioned at all** (#2045):
+  it has a hook system whose contract matches ours exactly, but it reads
+  hook declarations only from the user's own `<KIMI_CODE_HOME>/config.toml`,
+  and SciStudio does not write user-scope CLI configuration. A Kimi Code
+  chat therefore runs unguarded, and the AI Chat setup screen says so. Every
+  provider still receives the same prose-level guidance through `AGENTS.md`.
 - **Layer 7 ACL on `<project>/blocks/`** (`#1015`) — hook-layer
   enforcement has known blind spots (exotic Bash writes, `python -c`,
   `mv`). True bulletproof enforcement requires filesystem ACLs and is

@@ -173,6 +173,31 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
           </div>
         ) : null}
 
+        {/* #2045: Kimi Code does have a hook system, and its contract is the
+            one SciStudio's scripts already speak — JSON on stdin, exit code 2
+            blocks, regex matchers on the tool name. What it has no equivalent
+            of is a *project-scope* place to declare hooks: the only location it
+            reads is the user-level config file, and `.kimi-code/local.toml`
+            accepts nothing but `[workspace] additional_dir`. So there is no
+            file SciStudio can drop into the project the way it does for the
+            other four CLIs, and this tab runs unguarded. Writing the user's
+            global config on their behalf was rejected — SciStudio has never
+            written a user-scope CLI config — which leaves saying so plainly. */}
+        {provider === "kimi-code" ? (
+          <div
+            className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+            data-testid="setup-kimi-hooks-note"
+          >
+            <strong className="font-medium">Heads up:</strong> Kimi Code reads hooks only from its
+            own user-level <span className="font-mono">config.toml</span>, so SciStudio&rsquo;s
+            safety hooks — the ones that keep your <span className="font-mono">data/</span> folder
+            and workflow files from being edited by accident — do not apply to this tab. You can add
+            them by hand, or simply ask Kimi in this tab to set them up for you. They would then
+            apply to <strong className="font-medium">every</strong> Kimi Code session on this
+            machine, not just this project.
+          </div>
+        ) : null}
+
         <PermissionModePicker
           tabId={tabId}
           permissionMode={permissionMode}

@@ -83,6 +83,7 @@ __all__ = [
     "provider_keys",
     "resolve_binary",
     "resolve_executable",
+    "session_unsupported_reason",
 ]
 
 #: Sentinel first segment marking a path as relative to the provider's resolved
@@ -656,6 +657,36 @@ _KIMI_CODE = ProviderDescriptor(
         "seed the interactive session an AI Block needs. Kimi Code works as a "
         "hand-launched chat tab; pick another provider for an AI Block."
     ),
+    # #2045. Kimi Code is the one provider SciStudio does not provision hooks
+    # for, and the reason is not the one previously recorded. The ADR-034 spec
+    # said Kimi has "no hook system"; that is wrong, and was already wrong at
+    # the same 0.33.0 the rest of this table was verified against.
+    #
+    # Kimi has a full external-hook system whose contract is the one
+    # SciStudio's seven scripts already speak, verified by reading the shipped
+    # binary: ``PreToolUse``/``PostToolUse`` among sixteen events, the payload
+    # delivered as JSON on stdin with snake_case keys (``tool_name``,
+    # ``tool_input``, ``cwd``, ``session_id``), **exit code 2 blocks** with
+    # stderr carried back as the denial reason, and ``matcher`` a regular
+    # expression tested against the tool name — so ``Edit|Write|MultiEdit`` is
+    # already valid. Dropped in unchanged, the scripts would run.
+    #
+    # What Kimi has no equivalent of is a *project-scope* declaration site.
+    # Hooks are read from a ``[[hooks]]`` array in
+    # ``<KIMI_CODE_HOME>/config.toml`` and from user-scope plugins, and nowhere
+    # else: ``<project>/.kimi-code/local.toml`` exists but its schema is a
+    # strict ``{workspace: {additional_dir: [str]}}``, and the only relocation
+    # knob is ``KIMI_CODE_HOME``, which moves credentials and sessions with it.
+    #
+    # So the per-project file drop that covers Claude Code, both Qoder
+    # channels, and Codex has no Kimi analogue, and the only way to install
+    # these hooks is to write the user's global config. That was rejected on
+    # owner decision: SciStudio has never written a user-scope CLI config, and
+    # entries added there would fire in every unrelated project the user opens.
+    # The gap is disclosed to the user instead, by the ``kimi-code`` note in
+    # ``SetupScreen.tsx``. If a future Kimi Code release gains a project-scope
+    # hook file, provisioning it is an addition to ``write_hooks`` and nothing
+    # more, because the scripts and the matchers already fit.
 )
 
 _QODER = _qoder_channel(
@@ -691,7 +722,8 @@ _USER_TERMINAL = ProviderDescriptor(
 #: Ordered registry. Order is the frozen cross-agent contract:
 #: ``claude-code``, ``codex``, ``kimi-code``, ``qoder``, ``qoder-cn``, then the
 #: ``user-terminal`` TERMINAL-kind entry. It drives the status endpoint order,
-#: the WS whitelist, and the AI Block enum.
+#: the WS whitelist, and — after the AI Block's capability filter (#2014) —
+#: the AI Block enum.
 REGISTRY = ProviderRegistry(
     (
         _CLAUDE_CODE,
@@ -727,6 +759,38 @@ def agent_keys() -> tuple[str, ...]:
 def provider_keys() -> tuple[str, ...]:
     """Every provider key in registry order, including ``user-terminal``."""
     return REGISTRY.keys()
+
+
+def session_unsupported_reason(descriptor: ProviderDescriptor) -> str | None:
+    """Why a SciStudio-started session cannot use *descriptor*, or ``None``.
+
+    The single place this question is answered. Every SciStudio-started session
+    — an AI Block run, a Bring In My Work session — hands its agent an opening
+    instruction as a positional command-line argument, because four of the five
+    registry agents have no per-session prompt channel at all. A CLI that parses
+    its first positional as a *subcommand* cannot be reached that way, and
+    :attr:`ProviderDescriptor.prompt_argv_prefix` records exactly that, with
+    :attr:`ProviderDescriptor.prompt_unsupported_reason` explaining it in the
+    user's terms.
+
+    Consumers ask here rather than reading ``prompt_argv_prefix`` themselves so
+    the meaning of that field is interpreted once. It sits in the registry
+    beside the field it interprets, and not in ``availability`` where it began,
+    because #2014 gave it a second consumer in the block layer:
+    ``AIBlock.config_schema`` derives its ``provider`` enum from it, and
+    ``blocks`` may reach into ``scistudio.ai`` only through the one carved-out
+    lazy edge to this module (see the import-linter contracts in
+    ``pyproject.toml``). ``availability`` probes auth by running subprocesses;
+    a question that reads three descriptor fields and calls nothing should not
+    drag that into the block layer. ``availability`` re-exports it, so its own
+    callers and the API layer are unaffected.
+    """
+    if descriptor.prompt_argv_prefix is not None:
+        return None
+    return descriptor.prompt_unsupported_reason or (
+        f"{descriptor.label} has no positional prompt argument, so a SciStudio-started session "
+        f"cannot hand it the instructions it needs."
+    )
 
 
 # ---------------------------------------------------------------------------
