@@ -46,7 +46,7 @@ from typing import Any, Protocol, TypeVar, runtime_checkable
 
 __all__ = [
     "AI_CHAT_TERMINAL_SURFACE",
-    "EXECUTED_PROJECT_DIRS",
+    "EXECUTED_PROJECT_PATHS",
     "REPLAY_SURFACES",
     "Action",
     "ActionContext",
@@ -63,6 +63,7 @@ __all__ = [
     "execute_action",
     "execute_actions",
     "execute_replay",
+    "executed_project_path_hit",
     "iter_asset_sources",
     "iter_file_actions",
     "parse_action",
@@ -96,15 +97,70 @@ sequence and the :class:`ReplayDelivery` interface that slice drives.
 """
 
 
-EXECUTED_PROJECT_DIRS: frozenset[str] = frozenset({"blocks", "types", "previewers", "plots"})
-"""Tutorial-project directories the product imports or executes from (FR-020a).
+EXECUTED_PROJECT_PATHS: frozenset[str] = frozenset(
+    {
+        # -- Imported or executed as code by the registries --------------------
+        "blocks",  # drop-in scan imports every *.py; also joins sys.path
+        "types",  # drop-in scan imports every *.py; <project>/types joins sys.path
+        "previewers",  # sys.path insert, then every *.py is exec_module'd
+        "plots",  # plots/<id>/plot.yaml names a render script that is executed
+        # -- Configuration the product itself acts on to execute something -----
+        "workflows",  # a workflow YAML names a code block's script_path and cwd
+        "tutorials",  # a tutorial manifest is config this runtime acts on
+        # -- Agent surfaces, live because the PTY spawns with cwd = project ----
+        ".claude",  # settings.json registers hooks; hooks/*.py run on tool calls
+        ".codex",  # config.toml carries an MCP command and hook command lines
+        ".agents",  # skills/*/SKILL.md, provisioned and read as agent instructions
+        ".qoder",  # settings.json in Claude's format, read by both Qoder channels
+        ".kimi-code",  # mcp.json is merge-preserving, so a planted server survives
+        ".scistudio",  # mcp.json spawns a command; previewers.json steers resolution
+        ".git",  # commits run with cwd=project and no --no-verify, so hooks fire
+        # -- Root files, same reasoning, matched as a first segment ------------
+        ".mcp.json",  # fallback MCP discovery for Claude, Qoder, and Kimi
+        "CLAUDE.md",  # auto-loaded verbatim as agent instructions
+        "AGENTS.md",  # auto-loaded verbatim as agent instructions
+    }
+)
+"""Project paths the product imports, executes, or reads to configure execution.
 
-A write or copy destination whose first path segment is one of these lands in
-a directory the registry scan reaches. User-level and project-level tutorials
-are rejected for naming one; see
-:func:`scistudio.tutorials.manifest.validate_tier_rules`, which owns the tier
-grading because it owns :class:`~scistudio.tutorials.manifest.TutorialSourceKind`.
+FR-020a names ``blocks/``, ``types/``, ``previewers/`` and ``plots/`` as a
+floor — "at minimum" — not as the whole answer, and the first four alone are
+not enough to make SC-012 true. ``create_project`` provisions an agent tree
+into **every** project including tutorial ones
+(``api/runtime/_projects.py`` calls ``install_project_agent_assets``), and the
+AI PTY spawns with ``cwd`` set to the project root, so every provider's
+project-scope discovery is live. A tutorial that could write ``.claude/hooks/``
+would be shipping code that runs on the next tool call, before any human reads
+it.
+
+Two rules decided the membership, and both matter:
+
+* **Configuration that steers execution counts.** ``.claude/settings.json`` and
+  ``.codex/config.toml`` execute nothing themselves; they decide what does.
+  Admitting them because "it is only JSON" would leave the same hole open
+  through a different door.
+* **The match is on the path, never on the extension.** Forbidding ``*.py``
+  under ``.claude/hooks/`` while allowing ``*.sh`` would be the same bug with
+  an extra step. Membership is tested against the first segment of a
+  destination, so everything beneath a listed entry is covered.
+
+Deliberately *not* here: ``user-guide/`` and ``docs/``, which the provisioner
+also writes and the agent can read through its search tools. Those influence
+what an agent is told, not what the product imports or runs, and FR-020a is
+about executable code. That is a real question, but a broader one than this
+requirement, and quietly folding it in here would misrepresent what this set
+means.
+
+**Adding a provisioned directory to a project means adding it here.** If
+``create_project`` or ``agent_provisioning`` grows a new target, this list is
+the thing that has to grow with it, or a project-level tutorial can write into
+it. User-level and project-level tutorials are rejected for naming any of
+these; see :func:`scistudio.tutorials.manifest.validate_tier_rules`, which owns
+the tier grading because it owns
+:class:`~scistudio.tutorials.manifest.TutorialSourceKind`.
 """
+
+_EXECUTED_BY_FOLDED_NAME: Mapping[str, str] = {entry.casefold(): entry for entry in EXECUTED_PROJECT_PATHS}
 
 
 # ---------------------------------------------------------------------------
@@ -183,6 +239,19 @@ def destination_head(relative: str) -> str:
     """Return the first path segment of ``relative``, or ``""`` when there is none."""
     parts = PurePosixPath(relative).parts
     return parts[0] if parts else ""
+
+
+def executed_project_path_hit(relative: str) -> str | None:
+    """Return the :data:`EXECUTED_PROJECT_PATHS` entry ``relative`` lands under, if any.
+
+    Comparison is case-insensitive and ignores the trailing dots and spaces
+    Windows strips from a path component. Both matter: on a case-insensitive
+    filesystem ``Blocks/evil.py`` and ``blocks./evil.py`` reach the same
+    imported directory as ``blocks/evil.py``, so an exact match would be a
+    check that the filesystem does not agree with.
+    """
+    head = destination_head(relative).rstrip(". ").casefold()
+    return _EXECUTED_BY_FOLDED_NAME.get(head) if head else None
 
 
 def resolve_contained_path(base: Path, relative: str, *, field_name: str) -> Path:

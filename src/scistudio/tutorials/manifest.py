@@ -42,7 +42,8 @@ alone would not make a tier incapable of carrying executable code, so the
 grading also rejects, for ``user`` and ``project``: an asset under
 ``assets/code/``, ``assets/panels/`` or ``assets/replay/``; a ``replay``
 action; and a write or copy destination resolving under a directory the product
-imports or executes (:data:`~scistudio.tutorials.actions.EXECUTED_PROJECT_DIRS`).
+imports, executes, or reads as configuration for something it executes
+(:data:`~scistudio.tutorials.actions.EXECUTED_PROJECT_PATHS`).
 Without all three, a project-level tutorial could drop a ``.py`` into
 ``blocks/`` through an ordinary write action and have it imported on the next
 registry refresh. FR-020a records why this is deliberately a *different*
@@ -73,12 +74,12 @@ from typing import Any
 import yaml
 
 from scistudio.tutorials.actions import (
-    EXECUTED_PROJECT_DIRS,
+    EXECUTED_PROJECT_PATHS,
     Action,
     ActionValidationError,
     CopyAction,
     ReplayAction,
-    destination_head,
+    executed_project_path_hit,
     iter_asset_sources,
     iter_file_actions,
     parse_actions,
@@ -750,15 +751,16 @@ def validate_tier_rules(manifest: TutorialManifest) -> None:
                 ),
             )
         for file_action in iter_file_actions([action]):
-            head = destination_head(file_action.destination)
-            if head in EXECUTED_PROJECT_DIRS:
+            hit = executed_project_path_hit(file_action.destination)
+            if hit is not None:
                 raise ManifestValidationError(
                     path=manifest.path,
                     field_name=f"{field_name}.{file_action.kind}.destination",
                     reason=(
-                        f"a {tier.value}-level tutorial may not write into {head!r}, "
-                        "a project directory the product imports or executes; "
-                        f"the restricted set is {', '.join(sorted(EXECUTED_PROJECT_DIRS))}"
+                        f"a {tier.value}-level tutorial may not write into {hit!r}, "
+                        "a project path the product imports, executes, or reads to configure "
+                        "something it executes; the restricted set is "
+                        f"{', '.join(sorted(EXECUTED_PROJECT_PATHS))}"
                     ),
                 )
 
@@ -801,14 +803,15 @@ def _reject_executed_landing(manifest: TutorialManifest, action: CopyAction, *, 
         if not entry.is_file():
             continue
         landing = base / entry.relative_to(source)
-        head = destination_head(landing.as_posix())
-        if head in EXECUTED_PROJECT_DIRS:
+        hit = executed_project_path_hit(landing.as_posix())
+        if hit is not None:
             raise ManifestValidationError(
                 path=manifest.path,
                 field_name=f"{field_name}.copy.source",
                 reason=(
                     f"a {manifest.source_kind.value}-level tutorial may not copy "
                     f"{action.source!r} into {action.destination!r}: {landing.as_posix()!r} would land in "
-                    f"{head!r}, a project directory the product imports or executes"
+                    f"{hit!r}, a project path the product imports, executes, or reads to configure "
+                    "something it executes"
                 ),
             )
