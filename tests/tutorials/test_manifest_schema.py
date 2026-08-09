@@ -3,9 +3,9 @@
 Asserts: required fields; ``steps`` xor ``driver``; asset and destination
 containment; an unknown vocabulary term rejected at validation (FR-049);
 ``driver`` rejected for the user and project tiers (FR-020). Plus the two
-version cases FR-007a separates, and the single-declaration locks that keep the
-published schema from growing a second copy of the vocabulary or of the replay
-surface set.
+version cases FR-007a separates, the closed ``route_to`` and ``highlight`` sets,
+and the single-declaration locks that keep the published schema from growing a
+second copy of any of the five core-owned sets.
 """
 
 from __future__ import annotations
@@ -20,7 +20,10 @@ import yaml
 
 from scistudio.tutorials import actions as actions_module
 from scistudio.tutorials import conditions as conditions_module
+from scistudio.tutorials import manifest as manifest_module
 from scistudio.tutorials.manifest import (
+    HIGHLIGHT_TARGETS,
+    ROUTE_TARGETS,
     SCHEMA_PATH,
     ManifestValidationError,
     TutorialSourceKind,
@@ -163,9 +166,102 @@ def test_duplicate_step_ids_are_rejected(tmp_path: Path) -> None:
 
 def test_step_fields_round_trip(tmp_path: Path) -> None:
     data = copy.deepcopy(MINIMAL_MANIFEST)
-    data["steps"] = [{"id": "one", "say": "Hello", "highlight": "palette", "route_to": "canvas"}]
+    data["steps"] = [{"id": "one", "say": "Hello", "highlight": "block_palette", "route_to": "canvas"}]
     step = parse(data, tmp_path=tmp_path).steps[0]
-    assert (step.say, step.highlight, step.route_to) == ("Hello", "palette", "canvas")
+    assert (step.say, step.highlight, step.route_to) == ("Hello", "block_palette", "canvas")
+
+
+# ---------------------------------------------------------------------------
+# The two closed step vocabularies: route_to and highlight (FR-011)
+# ---------------------------------------------------------------------------
+
+
+def test_the_route_target_set_is_the_declared_one() -> None:
+    assert set(ROUTE_TARGETS) == {
+        "ai_chat",
+        "terminal",
+        "config",
+        "logs",
+        "plots",
+        "history",
+        "git",
+        "canvas",
+        "block_palette",
+    }
+
+
+def test_route_targets_use_the_user_visible_tab_names() -> None:
+    """The internal keys are ``ai`` and ``lineage``; manifests say what the user reads."""
+    assert "history" in ROUTE_TARGETS
+    assert "lineage" not in ROUTE_TARGETS
+    assert "ai_chat" in ROUTE_TARGETS
+    assert "ai" not in ROUTE_TARGETS
+
+
+def test_the_highlight_target_set_is_the_declared_one() -> None:
+    assert set(HIGHLIGHT_TARGETS) == {
+        "block_palette",
+        "canvas",
+        "run_button",
+        "plots_new_button",
+        "history_restore_button",
+        "data_preview",
+    }
+
+
+@pytest.mark.parametrize("target", sorted(ROUTE_TARGETS))
+def test_every_route_target_is_accepted(target: str, tmp_path: Path) -> None:
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["route_to"] = target
+    assert parse(data, tmp_path=tmp_path).steps[0].route_to == target
+
+
+@pytest.mark.parametrize("target", sorted(HIGHLIGHT_TARGETS))
+def test_every_highlight_target_is_accepted(target: str, tmp_path: Path) -> None:
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["highlight"] = target
+    assert parse(data, tmp_path=tmp_path).steps[0].highlight == target
+
+
+@pytest.mark.parametrize("bad", ["lineage", "ai", "preview", "Canvas", "settings_tab"])
+def test_a_route_to_outside_the_set_is_rejected_naming_the_field_and_the_values(bad: str, tmp_path: Path) -> None:
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["route_to"] = bad
+    with pytest.raises(ManifestValidationError) as excinfo:
+        parse(data, tmp_path=tmp_path)
+    message = str(excinfo.value)
+    assert "route_to" in message
+    assert bad in message
+    for target in ROUTE_TARGETS:
+        assert target in message
+
+
+@pytest.mark.parametrize("bad", ["palette", "block-palette", "run", "the big green button"])
+def test_a_highlight_outside_the_set_is_rejected_naming_the_field_and_the_values(bad: str, tmp_path: Path) -> None:
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["highlight"] = bad
+    with pytest.raises(ManifestValidationError) as excinfo:
+        parse(data, tmp_path=tmp_path)
+    message = str(excinfo.value)
+    assert "highlight" in message
+    assert bad in message
+    for target in HIGHLIGHT_TARGETS:
+        assert target in message
+
+
+def test_omitting_route_to_and_highlight_stays_legal(tmp_path: Path) -> None:
+    step = parse(copy.deepcopy(MINIMAL_MANIFEST), tmp_path=tmp_path).steps[0]
+    assert step.route_to is None
+    assert step.highlight is None
+
+
+def test_a_bad_route_target_fails_the_author_while_the_tutorial_is_listed(tmp_path: Path) -> None:
+    """The same argument FR-049 makes for terms: a typo must not reach the user."""
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["route_to"] = "lineage"
+    directory = write_tutorial(tmp_path / "typo", data)
+    with pytest.raises(ManifestValidationError):
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
 
 
 # ---------------------------------------------------------------------------
@@ -332,13 +428,19 @@ def test_the_schema_document_is_valid_json_and_published_at_the_declared_path() 
     assert load_schema() == document
 
 
-def test_the_schema_does_not_restate_the_vocabulary_or_the_replay_surfaces() -> None:
-    """FR-045 and FR-061a each name one owning declaration; a second copy could drift."""
+def test_the_schema_does_not_restate_any_of_the_closed_sets() -> None:
+    """Each closed set names one owning declaration; a second copy could drift."""
     raw = SCHEMA_PATH.read_text(encoding="utf-8")
-    for term in conditions_module.VOCABULARY:
-        assert f'"{term}"' not in raw, f"the schema restates the vocabulary term {term!r}"
-    for surface in actions_module.REPLAY_SURFACES:
-        assert f'"{surface}"' not in raw, f"the schema restates the replay surface {surface!r}"
+    owned: dict[str, frozenset[str]] = {
+        "vocabulary term": conditions_module.VOCABULARY,
+        "replay surface": actions_module.REPLAY_SURFACES,
+        "route target": manifest_module.ROUTE_TARGETS,
+        "highlight target": manifest_module.HIGHLIGHT_TARGETS,
+        "ui event name": conditions_module.UI_EVENT_NAMES,
+    }
+    for label, members in owned.items():
+        for member in members:
+            assert f'"{member}"' not in raw, f"the schema restates the {label} {member!r}"
 
 
 def test_the_reserved_asset_directories_are_the_five_the_spec_names() -> None:

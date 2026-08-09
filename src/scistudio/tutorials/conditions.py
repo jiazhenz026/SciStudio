@@ -66,6 +66,7 @@ __all__ = [
     "EVENT_TERM_MAP",
     "FILE_CHANGED_TERMS",
     "TERM_SPECS",
+    "UI_EVENT_NAMES",
     "VOCABULARY",
     "Condition",
     "ConditionValidationError",
@@ -208,7 +209,37 @@ which :mod:`scistudio.tutorials.manifest` calls during validation (FR-049).
 COMBINATORS: frozenset[str] = frozenset({"all", "any"})
 """FR-048. Negation is not here and is not an omission; see the module docstring."""
 
+UI_EVENT_NAMES: frozenset[str] = frozenset({"preview_expanded", "block_source_viewed"})
+"""The closed set of frontend events a ``ui_event`` condition may name (FR-052).
+
+Both members are FR-052's own motivating case: real product actions that leave
+no backend state behind, which is the entire reason that requirement exists.
+Everything else a tutorial waits on is a backend fact and belongs to one of the
+other fifteen terms.
+
+The set is closed for the reason FR-049 gives about terms. A free-form event
+name is a typo that fails the *user* on step nine — the step simply never
+advances, and nothing tells anyone why — instead of failing the author at
+validation. So an unlisted name is rejected while the tutorial is being listed.
+
+It grows by core change, not by a manifest author inventing a name: a new
+member is only meaningful once the frontend reports it, so adding one requires
+a matching frontend change in the same breath.
+"""
+
 _LIBRARY_KINDS: frozenset[str] = frozenset({"block", "type", "previewer"})
+
+_CLOSED_ARG_VALUES: Mapping[tuple[str, str], frozenset[str]] = MappingProxyType(
+    {
+        ("library_contains", "kind"): _LIBRARY_KINDS,
+        ("ui_event", "name"): UI_EVENT_NAMES,
+    }
+)
+"""Term arguments whose value set is itself closed, checked at validation.
+
+One table rather than a branch per term, so a third one cannot be added as a
+special case that forgets to say what it accepts.
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -263,11 +294,11 @@ def _check_args(spec: TermSpec, args: Mapping[str, Any], *, field_name: str) -> 
     for group in spec.one_of:
         if not any(key in args for key in group):
             raise ConditionValidationError(f"{field_name}: {spec.name} requires one of {', '.join(group)}")
-    if spec.name == "library_contains":
-        kind = args.get("kind")
-        if kind not in _LIBRARY_KINDS:
+    for (term, argument), accepted in _CLOSED_ARG_VALUES.items():
+        if spec.name == term and args.get(argument) not in accepted:
             raise ConditionValidationError(
-                f"{field_name}: library_contains kind must be one of {', '.join(sorted(_LIBRARY_KINDS))}"
+                f"{field_name}.{term}.{argument}: {args.get(argument)!r} is not accepted; "
+                f"the accepted values are {', '.join(sorted(accepted))}"
             )
 
 

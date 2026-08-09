@@ -17,7 +17,7 @@ bootstrap:
 steps:
   - id: drag-load
     say: Drag a Load block onto the canvas.
-    highlight: block-palette
+    highlight: block_palette
     route_to: canvas
     done_when:
       node_exists:

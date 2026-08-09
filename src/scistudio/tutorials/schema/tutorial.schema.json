@@ -81,8 +81,16 @@
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "say": { "type": "string" },
-        "highlight": { "type": "string" },
-        "route_to": { "type": "string" },
+        "highlight": {
+          "type": "string",
+          "minLength": 1,
+          "description": "An interface element to highlight. The set is closed, core-owned, and declared in exactly one place: scistudio.tutorials.manifest.HIGHLIGHT_TARGETS. It is not enumerated here so there is only one thing to keep in step. A name outside it is rejected at validation, because a highlight the frontend cannot resolve is guidance that silently disappears."
+        },
+        "route_to": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A tab or panel to take the user to. The set is closed, core-owned, and declared in exactly one place: scistudio.tutorials.manifest.ROUTE_TARGETS. Manifests name a tab the way the product names it to the user - 'ai_chat' and 'history', not the internal keys 'ai' and 'lineage' - and the frontend owns that mapping."
+        },
         "do": {
           "type": "array",
           "items": { "$ref": "#/$defs/action" },
@@ -95,7 +103,7 @@
       "type": "object",
       "minProperties": 1,
       "maxProperties": 1,
-      "description": "A single-key mapping: {term: {args}} for one of the sixteen vocabulary terms of FR-047, or {all: [...]} / {any: [...]} for a combinator (FR-048). Negation is deliberately absent: a step that advances when something is absent advances by the user doing nothing. The term names and each term's arguments are owned by scistudio.tutorials.conditions and enforced there during this same validation pass, so an unknown term fails the author rather than the user (FR-049)."
+      "description": "A single-key mapping: {term: {args}} for one of the sixteen vocabulary terms of FR-047, or {all: [...]} / {any: [...]} for a combinator (FR-048). Negation is deliberately absent: a step that advances when something is absent advances by the user doing nothing. The term names and each term's arguments are owned by scistudio.tutorials.conditions and enforced there during this same validation pass, so an unknown term fails the author rather than the user (FR-049). The ui_event term's 'name' argument is itself a closed set, declared at scistudio.tutorials.conditions.UI_EVENT_NAMES."
     },
     "action": {
       "type": "object",

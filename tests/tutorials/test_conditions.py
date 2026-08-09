@@ -29,6 +29,7 @@ from scistudio.tutorials.conditions import (
     EVENT_TERM_MAP,
     FILE_CHANGED_TERMS,
     TERM_SPECS,
+    UI_EVENT_NAMES,
     VOCABULARY,
     Condition,
     ConditionValidationError,
@@ -132,6 +133,28 @@ def test_library_contains_rejects_an_unknown_kind() -> None:
     assert "block" in str(excinfo.value)
 
 
+def test_the_ui_event_name_set_is_the_declared_one() -> None:
+    assert set(UI_EVENT_NAMES) == {"preview_expanded", "block_source_viewed"}
+
+
+@pytest.mark.parametrize("name", sorted(UI_EVENT_NAMES))
+def test_every_ui_event_name_is_accepted(name: str) -> None:
+    assert parse_condition({"ui_event": {"name": name}}).args["name"] == name
+
+
+@pytest.mark.parametrize("bad", ["preview_enlarged", "tab_opened", "clicked", "Preview_Expanded"])
+def test_a_ui_event_name_outside_the_set_is_rejected_naming_the_field_and_the_values(bad: str) -> None:
+    """FR-052 names real product actions; an unlisted one is a step that never advances."""
+    with pytest.raises(ConditionValidationError) as excinfo:
+        parse_condition({"ui_event": {"name": bad}})
+    message = str(excinfo.value)
+    assert "ui_event" in message
+    assert "name" in message
+    assert bad in message
+    for accepted in UI_EVENT_NAMES:
+        assert accepted in message
+
+
 def test_an_empty_combinator_is_rejected() -> None:
     with pytest.raises(ConditionValidationError):
         parse_condition({"all": []})
@@ -142,7 +165,7 @@ def test_terms_walks_the_whole_tree() -> None:
         {
             "all": [
                 {"node_exists": {"block_type": "LoadCSV"}},
-                {"any": [{"file_exists": {"path": "x"}}, {"ui_event": {"name": "opened"}}]},
+                {"any": [{"file_exists": {"path": "x"}}, {"ui_event": {"name": "preview_expanded"}}]},
             ]
         }
     )
@@ -171,7 +194,7 @@ def _state(tmp_path: Path, loaded_workflow: WorkflowDefinition) -> StubProductSt
         library=frozenset({("type", "CellTable")}),
         interactions=frozenset({"router-1"}),
         pages=frozenset({"what-is-a-block"}),
-        events=frozenset({"preview_enlarged"}),
+        events=frozenset({"preview_expanded"}),
     )
 
 
@@ -191,7 +214,7 @@ TRUE_CASES: list[tuple[str, dict[str, object]]] = [
     ("library_contains", {"library_contains": {"kind": "type", "name": "CellTable"}}),
     ("interaction_completed", {"interaction_completed": {"node_id": "router-1"}}),
     ("page_reached", {"page_reached": {"page": "what-is-a-block"}}),
-    ("ui_event", {"ui_event": {"name": "preview_enlarged"}}),
+    ("ui_event", {"ui_event": {"name": "preview_expanded"}}),
 ]
 
 FALSE_CASES: list[tuple[str, dict[str, object]]] = [
@@ -210,7 +233,7 @@ FALSE_CASES: list[tuple[str, dict[str, object]]] = [
     ("library_contains", {"library_contains": {"kind": "block", "name": "CellTable"}}),
     ("interaction_completed", {"interaction_completed": {"node_id": "router-2"}}),
     ("page_reached", {"page_reached": {"page": "what-is-a-plot"}}),
-    ("ui_event", {"ui_event": {"name": "tab_opened"}}),
+    ("ui_event", {"ui_event": {"name": "block_source_viewed"}}),
 ]
 
 

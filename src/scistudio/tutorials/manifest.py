@@ -93,7 +93,9 @@ from scistudio.tutorials.conditions import (
 __all__ = [
     "ASSETS_DIR_NAME",
     "EXECUTABLE_ASSET_DIRS",
+    "HIGHLIGHT_TARGETS",
     "RESERVED_ASSET_DIRS",
+    "ROUTE_TARGETS",
     "SCHEMA_PATH",
     "SUPPORTED_MANIFEST_VERSIONS",
     "TUTORIAL_MANIFEST_FILENAME",
@@ -135,6 +137,66 @@ malformed."""
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "tutorial.schema.json"
 """FR-013: the published schema package authors write against."""
+
+
+ROUTE_TARGETS: frozenset[str] = frozenset(
+    {
+        "ai_chat",
+        "terminal",
+        "config",
+        "logs",
+        "plots",
+        "history",
+        "git",
+        "canvas",
+        "block_palette",
+    }
+)
+"""The closed set of destinations a step's ``route_to`` may name (FR-011).
+
+The first seven mirror the product's real bottom-panel tabs; ``canvas`` and
+``block_palette`` are the two surfaces outside that strip a step can send a
+user to.
+
+**Manifests name the tab the way the product names it to the user, not the way
+the code spells it.** Two of the seven differ from their internal keys: the
+``BottomTab`` union in ``frontend/src/types/ui.ts`` is
+``ai | terminal | config | logs | plots | lineage | git``, and
+``frontend/src/components/BottomPanel.parts/TabBar.tsx`` labels ``ai`` as
+"AI Chat" and ``lineage`` as "History" — the latter an owner-requested UI
+rename that deliberately left every internal key alone. A tutorial manifest is
+authored content that a person reads and writes, so it says ``ai_chat`` and
+``history``. The frontend owns the ``ai_chat -> ai`` and ``history -> lineage``
+mapping.
+
+That mismatch is recorded here because it will otherwise read as a bug: the
+next person to compare this set against ``BottomTab`` will find two names that
+do not appear there, and this paragraph is the answer.
+"""
+
+HIGHLIGHT_TARGETS: frozenset[str] = frozenset(
+    {
+        "block_palette",
+        "canvas",
+        "run_button",
+        "plots_new_button",
+        "history_restore_button",
+        "data_preview",
+    }
+)
+"""The closed set of interface elements a step's ``highlight`` may name (FR-011).
+
+Deliberately small, and deliberately not a guess at a general vocabulary for
+the product's interface. Every member is something core tutorial 1 actually
+needs: drag from the palette, act on the canvas, press Run, create a plot,
+restore from History.
+
+The set grows by core change rather than by a manifest author inventing a name.
+A highlight only does anything once the frontend annotates the element it
+names, so a new member without a matching frontend annotation is a step whose
+guidance is silently dropped — which is exactly the failure this closure exists
+to stop.
+"""
 
 
 class TutorialSourceKind(StrEnum):
@@ -469,17 +531,38 @@ def _parse_steps(raw: Any, *, path: Path) -> tuple[TutorialStep, ...]:
             done_when = None if done_when_raw is None else parse_condition(done_when_raw, field_name="done_when")
         except ConditionValidationError as exc:
             raise ManifestValidationError(path=path, field_name=f"{field_name}.done_when", reason=str(exc)) from exc
+        highlight = _optional_str(item.get("highlight"))
+        route_to = _optional_str(item.get("route_to"))
+        _check_closed_value(highlight, HIGHLIGHT_TARGETS, field_name=f"{field_name}.highlight", path=path)
+        _check_closed_value(route_to, ROUTE_TARGETS, field_name=f"{field_name}.route_to", path=path)
         steps.append(
             TutorialStep(
                 id=step_id,
                 say=_optional_str(item.get("say")),
-                highlight=_optional_str(item.get("highlight")),
-                route_to=_optional_str(item.get("route_to")),
+                highlight=highlight,
+                route_to=route_to,
                 do=_parse_actions_or_fail(item.get("do"), field_name=f"{field_name}.do", path=path),
                 done_when=done_when,
             )
         )
     return tuple(steps)
+
+
+def _check_closed_value(value: str | None, accepted: frozenset[str], *, field_name: str, path: Path) -> None:
+    """Reject a step field naming something outside its core-owned set.
+
+    Same argument FR-049 makes for the condition vocabulary, applied to the two
+    step fields that address the interface: a free-form name is a typo that
+    fails the *user* — the highlight never appears, the route never happens, and
+    nothing says why — rather than failing the author while the tutorial is
+    being listed.
+    """
+    if value is not None and value not in accepted:
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=f"{value!r} is not accepted; the accepted values are {', '.join(sorted(accepted))}",
+        )
 
 
 def _optional_str(value: Any) -> str | None:

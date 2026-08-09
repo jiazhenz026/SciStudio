@@ -40,6 +40,7 @@ from scistudio.tutorials.actions import (
 )
 from scistudio.tutorials.conditions import (
     EVENT_TERM_MAP,
+    UI_EVENT_NAMES,
     VOCABULARY,
     Condition,
     ConditionValidationError,
@@ -51,6 +52,8 @@ from scistudio.tutorials.conditions import (
     parse_condition,
 )
 from scistudio.tutorials.manifest import (
+    HIGHLIGHT_TARGETS,
+    ROUTE_TARGETS,
     ManifestValidationError,
     TutorialBootstrap,
     TutorialManifest,
@@ -65,7 +68,10 @@ from scistudio.tutorials.manifest import (
 
 __all__ = [
     "EVENT_TERM_MAP",
+    "HIGHLIGHT_TARGETS",
     "REPLAY_SURFACES",
+    "ROUTE_TARGETS",
+    "UI_EVENT_NAMES",
     "VOCABULARY",
     "Action",
     "ActionContext",
