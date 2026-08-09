@@ -2,10 +2,15 @@
 # EVERY action type, so a term added to conditions.VOCABULARY or an action added
 # to the schema without a manifest that can express it fails here.
 #
-# It is not a scenario anyone would ship. Steps are grouped only so that each of
-# the sixteen terms of FR-047, both combinators of FR-048, both members of
-# UI_EVENT_NAMES, all three library_contains kinds, and all three action types
-# appear at least once.
+# It is not a scenario anyone would ship. Steps are grouped only so that every
+# term in conditions.VOCABULARY, both combinators of FR-048, both members of
+# UI_EVENT_NAMES, every SATISFIABLE library_contains kind, and all three action
+# types appear at least once.
+#
+# library_contains kind 'previewer' is deliberately absent. It is declared in
+# LIBRARY_KINDS and rejected at validation: the tutorial-scoped library has no
+# previewer tier, so the condition could never become true (spec A-006, #2017).
+# A fixture using it would not load.
 manifest_version: 1
 id: full-vocabulary
 title: Every term and every action
@@ -53,6 +58,16 @@ steps:
       config_equals:
         key: core_type
         value: DataFrame
+        block_type: load_data
+        node_id: load-1
+
+  - id: term-config-matches
+    route_to: config
+    say: config_matches, which judges a browser-picked absolute path
+    done_when:
+      config_matches:
+        key: path
+        pattern: data/raw/sample.csv
         block_type: load_data
         node_id: load-1
 
@@ -139,13 +154,6 @@ steps:
       library_contains:
         kind: type
         name: Image
-
-  - id: term-library-contains-previewer
-    say: library_contains with kind previewer
-    done_when:
-      library_contains:
-        kind: previewer
-        name: image_previewer
 
   # --- interaction, reading, ui events -------------------------------------
   - id: term-interaction-completed

@@ -4,8 +4,10 @@ ADR-053 Learning Center spec, FR-045 … FR-055
 (``docs/specs/adr-053-learning-center.md``).
 
 The vocabulary is **core-owned** (FR-045). Tutorials reference terms; they do
-not define them. It is exactly the sixteen terms of FR-047 plus the ``all`` and
-``any`` combinators of FR-048.
+not define them. It is the sixteen terms FR-047 requires, plus ``config_matches``
+(see :func:`_eval_config_matches` for the gap it closes — FR-047 sets a floor
+rather than a ceiling, and §4.5 records that core extends the vocabulary as
+tutorials find it short), plus the ``all`` and ``any`` combinators of FR-048.
 
 **Negation is deliberately absent.** FR-048's reason, kept here because the
 next reader will otherwise assume it was an oversight: a step that advances
@@ -44,7 +46,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
@@ -65,8 +67,10 @@ __all__ = [
     "COMBINATORS",
     "EVENT_TERM_MAP",
     "FILE_CHANGED_TERMS",
+    "LIBRARY_KINDS",
     "TERM_SPECS",
     "UI_EVENT_NAMES",
+    "UNSATISFIABLE_LIBRARY_KINDS",
     "VOCABULARY",
     "Condition",
     "ConditionValidationError",
@@ -125,6 +129,13 @@ _SPECS: tuple[TermSpec, ...] = (
         name="config_equals",
         judges="a node's configuration key holds a given value",
         required=("key", "value"),
+        optional=("node_id", "block_type"),
+        one_of=(("node_id", "block_type"),),
+    ),
+    TermSpec(
+        name="config_matches",
+        judges="a node's configuration key matches a glob, compared as a path",
+        required=("key", "pattern"),
         optional=("node_id", "block_type"),
         one_of=(("node_id", "block_type"),),
     ),
@@ -196,7 +207,8 @@ _SPECS: tuple[TermSpec, ...] = (
 )
 
 TERM_SPECS: Mapping[str, TermSpec] = MappingProxyType({spec.name: spec for spec in _SPECS})
-"""The sixteen terms of FR-047, each with the arguments it accepts."""
+"""Every term, each with the arguments it accepts: FR-047's sixteen plus
+``config_matches``."""
 
 VOCABULARY: frozenset[str] = frozenset(TERM_SPECS)
 """FR-045: the core-owned term set. This is the single declaration of it.
@@ -227,11 +239,40 @@ member is only meaningful once the frontend reports it, so adding one requires
 a matching frontend change in the same breath.
 """
 
-_LIBRARY_KINDS: frozenset[str] = frozenset({"block", "type", "previewer"})
+LIBRARY_KINDS: frozenset[str] = frozenset({"block", "type", "previewer"})
+"""The three kinds ``library_contains`` is specified to judge (FR-047).
+
+``previewer`` is **specified but not yet satisfiable**, and is kept here on
+purpose. Deleting it would leave the next reader to "add" it back without
+knowing it was ever considered; see :data:`UNSATISFIABLE_LIBRARY_KINDS` for
+what happens to it at validation and why.
+"""
+
+UNSATISFIABLE_LIBRARY_KINDS: Mapping[str, str] = MappingProxyType(
+    {
+        "previewer": (
+            "the tutorial-scoped library has no previewer tier yet — "
+            "scoped_library_dirs() creates blocks/ and types/ only, and the previewer "
+            "registry does not scan the library at all, so the condition can never "
+            "become true. The user previewer tier is out of scope per spec assumption "
+            "A-006 and is tracked at #2017; this term will accept the kind once it exists"
+        ),
+    }
+)
+"""Library kinds the vocabulary declares but the product cannot yet satisfy.
+
+FR-047 names "block, type, or previewer", so accepting the kind in the
+vocabulary is not a mistake — it is written against a product that does not
+exist yet. But a tutorial declaring it today would leave the reader on a step
+that can never complete and never says why, which is the failure FR-049 exists
+to prevent by rejecting at validation rather than at step nine. So the kind is
+declared, and rejected with its reason and its tracking issue, rather than
+silently accepted or silently removed.
+"""
 
 _CLOSED_ARG_VALUES: Mapping[tuple[str, str], frozenset[str]] = MappingProxyType(
     {
-        ("library_contains", "kind"): _LIBRARY_KINDS,
+        ("library_contains", "kind"): LIBRARY_KINDS,
         ("ui_event", "name"): UI_EVENT_NAMES,
     }
 )
@@ -239,6 +280,18 @@ _CLOSED_ARG_VALUES: Mapping[tuple[str, str], frozenset[str]] = MappingProxyType(
 
 One table rather than a branch per term, so a third one cannot be added as a
 special case that forgets to say what it accepts.
+"""
+
+_UNSATISFIABLE_ARG_VALUES: Mapping[tuple[str, str], Mapping[str, str]] = MappingProxyType(
+    {
+        ("library_contains", "kind"): UNSATISFIABLE_LIBRARY_KINDS,
+    }
+)
+"""Argument values inside a closed set that the product cannot yet make true.
+
+Checked after membership, so an author who writes an unsatisfiable value is
+told *why* it cannot work rather than being told it is not a valid value —
+those are different messages and only one of them is true.
 """
 
 
@@ -300,6 +353,16 @@ def _check_args(spec: TermSpec, args: Mapping[str, Any], *, field_name: str) -> 
                 f"{field_name}.{term}.{argument}: {args.get(argument)!r} is not accepted; "
                 f"the accepted values are {', '.join(sorted(accepted))}"
             )
+    for (term, argument), unsatisfiable in _UNSATISFIABLE_ARG_VALUES.items():
+        reason = unsatisfiable.get(str(args.get(argument))) if spec.name == term else None
+        if reason is not None:
+            raise ConditionValidationError(
+                f"{field_name}.{term}.{argument}: {args.get(argument)!r} cannot be satisfied yet — {reason}"
+            )
+    if spec.name == "config_matches":
+        pattern = args.get("pattern")
+        if not isinstance(pattern, str) or not pattern.strip():
+            raise ConditionValidationError(f"{field_name}: config_matches pattern must be a non-empty string")
 
 
 def parse_condition(raw: Any, *, field_name: str = "done_when") -> Condition:
@@ -472,6 +535,61 @@ def _eval_config_equals(args: Mapping[str, Any], state: ProductState) -> bool:
     return False
 
 
+def _as_posix(value: str) -> str:
+    """Normalise separators so one manifest judges the same on every platform."""
+    return value.replace("\\", "/")
+
+
+def _eval_config_matches(args: Mapping[str, Any], state: ProductState) -> bool:
+    """Does a node's configuration key match a glob, compared as a path?
+
+    ``config_equals`` is exact string equality, which cannot judge a value the
+    user produced through a file browser: the browser yields an **absolute**
+    path, while a manifest can only ever declare a project-relative one, so the
+    two never compare equal. The reader points the block at the right file, the
+    step does not advance, and nothing tells them why — worse than a stuck step,
+    because it looks like they did something wrong.
+
+    The retired frontend predicate handled this by normalising separators and
+    accepting a trailing-suffix match, and that capability was lost when judging
+    moved to the backend (FR-046). This term restores it as a first-class part
+    of the vocabulary rather than as a special case hidden inside
+    ``config_equals``, so a manifest that means "matches" says "matches" and a
+    term named "equals" always means equality.
+
+    Two properties do the work, both from :meth:`pathlib.PurePath.match`:
+
+    * a **relative pattern is matched from the right**, so
+      ``data/raw/cells.csv`` is satisfied by
+      ``/Users/someone/SciStudio Tutorials/proj/data/raw/cells.csv``. An
+      absolute pattern anchors at the root instead, for the rare manifest that
+      wants that.
+    * separators are normalised on both sides first, so a manifest written with
+      ``/`` judges a Windows configuration value containing ``\\`` correctly.
+
+    Plain relative patterns already match at any depth, so ``**`` is not needed
+    and is not recommended: ``PurePath.match`` treats it as a single ``*``.
+    """
+    workflow = state.workflow()
+    if workflow is None:
+        return False
+    key = args["key"]
+    pattern = _as_posix(str(args["pattern"]))
+    for node in workflow.nodes:
+        if not _node_matches(node, block_type=args.get("block_type"), node_id=args.get("node_id")):
+            continue
+        value = node.config.get(key)
+        if not isinstance(value, str) or not value:
+            continue
+        try:
+            if PurePosixPath(_as_posix(value)).match(pattern):
+                return True
+        except ValueError:
+            # An unusable pattern is a false condition, never a crashed session.
+            continue
+    return False
+
+
 def _eval_run_succeeded(args: Mapping[str, Any], state: ProductState) -> bool:
     workflow_id = args.get("workflow_id")
     node_id = args.get("node_id")
@@ -531,6 +649,7 @@ _SIMPLE_EVALUATORS: Mapping[str, Any] = MappingProxyType(
         "node_exists": _eval_node_exists,
         "edge_exists": _eval_edge_exists,
         "config_equals": _eval_config_equals,
+        "config_matches": _eval_config_matches,
         "run_succeeded": _eval_run_succeeded,
         "port_has_output": lambda args, state: state.port_has_output(str(args["node_id"]), str(args["port"])),
         "block_registered": lambda args, state: str(args["block_type"]) in state.block_type_names(),
@@ -593,7 +712,7 @@ mapping does not cover every case FR-053 has to.
 
 EVENT_TERM_MAP: Mapping[str, frozenset[str]] = MappingProxyType(
     {
-        WORKFLOW_CHANGED: frozenset({"node_exists", "edge_exists", "config_equals"}),
+        WORKFLOW_CHANGED: frozenset({"node_exists", "edge_exists", "config_equals", "config_matches"}),
         WORKFLOW_COMPLETED: frozenset({"run_succeeded", "port_has_output"}),
         BLOCK_DONE: frozenset({"run_succeeded", "port_has_output"}),
         BLOCK_ERROR: frozenset({"run_succeeded", "port_has_output"}),

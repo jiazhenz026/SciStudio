@@ -657,7 +657,22 @@ def load_manifest(directory: Path, *, source_kind: TutorialSourceKind) -> Tutori
     FR-005: the manifest is the only file required. Everything else about the
     tutorial directory is optional, and a tutorial with no ``assets/`` tree is
     a legal tutorial.
+
+    ``directory`` is the tutorial directory, not the manifest inside it. Being
+    handed the manifest is a natural mistake, and joining the filename onto it
+    produces ``.../tutorial.yaml/tutorial.yaml: cannot be read``, which reads
+    like a missing file rather than like a wrong argument — so it is caught and
+    named.
     """
+    if directory.is_file():
+        raise ManifestValidationError(
+            path=directory,
+            field_name="",
+            reason=(
+                f"is a file, but a tutorial is a directory containing {TUTORIAL_MANIFEST_FILENAME}; "
+                f"pass {directory.parent} rather than the manifest inside it"
+            ),
+        )
     path = directory / TUTORIAL_MANIFEST_FILENAME
     try:
         raw_text = path.read_text(encoding="utf-8")
