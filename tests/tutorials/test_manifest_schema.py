@@ -409,6 +409,17 @@ def test_invalid_yaml_names_the_file(tmp_path: Path) -> None:
     assert "tutorial.yaml" in str(excinfo.value)
 
 
+def test_being_handed_the_manifest_instead_of_its_directory_says_so(tmp_path: Path) -> None:
+    """Joining the filename on again would report ``.../tutorial.yaml/tutorial.yaml``."""
+    directory = write_tutorial(tmp_path / "bare")
+    with pytest.raises(ManifestValidationError) as excinfo:
+        load_manifest(directory / "tutorial.yaml", source_kind=TutorialSourceKind.CORE)
+    message = str(excinfo.value)
+    assert "is a file" in message
+    assert "tutorial.yaml/tutorial.yaml" not in message
+    assert str(directory) in message
+
+
 def test_a_missing_manifest_names_the_file(tmp_path: Path) -> None:
     with pytest.raises(ManifestValidationError) as excinfo:
         load_manifest(tmp_path / "absent", source_kind=TutorialSourceKind.CORE)

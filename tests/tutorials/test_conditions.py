@@ -1,6 +1,6 @@
 """The completion vocabulary and its evaluator — ADR-053 spec §4.4 "Conditions".
 
-Asserts: each of the sixteen vocabulary terms true *and* false against a
+Asserts: each vocabulary term true *and* false against a
 constructed state; ``all`` / ``any``; evaluation leaves no side effects
 (FR-055). Plus the parts of FR-048 through FR-054 that live in this module: no
 negation, unknown terms rejected at parse time, a condition already true on
@@ -28,8 +28,10 @@ from scistudio.tutorials.conditions import (
     COMBINATORS,
     EVENT_TERM_MAP,
     FILE_CHANGED_TERMS,
+    LIBRARY_KINDS,
     TERM_SPECS,
     UI_EVENT_NAMES,
+    UNSATISFIABLE_LIBRARY_KINDS,
     VOCABULARY,
     Condition,
     ConditionValidationError,
@@ -41,7 +43,7 @@ from scistudio.tutorials.conditions import (
     parse_condition,
     terms_for_event,
 )
-from scistudio.workflow.definition import WorkflowDefinition
+from scistudio.workflow.definition import NodeDef, WorkflowDefinition
 
 from .conftest import StubProductState, snapshot_tree
 
@@ -53,11 +55,12 @@ EXTERNAL = ExternalEventNames(blocks_reloaded="blocks.reloaded", file_changed="f
 # ---------------------------------------------------------------------------
 
 
-def test_the_vocabulary_is_exactly_the_sixteen_terms_of_fr_047() -> None:
+def test_the_vocabulary_is_fr_047s_sixteen_terms_plus_config_matches() -> None:
     assert set(VOCABULARY) == {
         "node_exists",
         "edge_exists",
         "config_equals",
+        "config_matches",
         "run_succeeded",
         "port_has_output",
         "block_registered",
@@ -72,7 +75,7 @@ def test_the_vocabulary_is_exactly_the_sixteen_terms_of_fr_047() -> None:
         "page_reached",
         "ui_event",
     }
-    assert len(VOCABULARY) == 16
+    assert len(VOCABULARY) == 17
     assert set(TERM_SPECS) == VOCABULARY
 
 
@@ -131,6 +134,41 @@ def test_library_contains_rejects_an_unknown_kind() -> None:
     with pytest.raises(ConditionValidationError) as excinfo:
         parse_condition({"library_contains": {"kind": "workflow", "name": "x"}})
     assert "block" in str(excinfo.value)
+
+
+def test_library_contains_still_declares_the_previewer_kind() -> None:
+    """FR-047 names three kinds; the third is specified and not yet satisfiable."""
+    assert set(LIBRARY_KINDS) == {"block", "type", "previewer"}
+    assert set(UNSATISFIABLE_LIBRARY_KINDS) == {"previewer"}
+
+
+@pytest.mark.parametrize("kind", ["block", "type"])
+def test_the_satisfiable_library_kinds_are_accepted(kind: str) -> None:
+    assert parse_condition({"library_contains": {"kind": kind, "name": "x"}}).args["kind"] == kind
+
+
+def test_the_previewer_library_kind_is_rejected_with_its_reason_and_its_issue() -> None:
+    """It can never become true, so it must fail the author, not the reader.
+
+    ``scoped_library_dirs()`` creates ``blocks/`` and ``types/`` only and the
+    previewer registry does not scan the library, so a tutorial declaring this
+    would strand the reader on a step that never completes and never says why.
+    """
+    with pytest.raises(ConditionValidationError) as excinfo:
+        parse_condition({"library_contains": {"kind": "previewer", "name": "image_previewer"}})
+    message = str(excinfo.value)
+    assert "previewer" in message
+    assert "#2017" in message
+    assert "A-006" in message
+    assert "cannot be satisfied yet" in message
+    # Distinguishable from "that is not a valid kind", which would be untrue.
+    assert "is not accepted" not in message
+
+
+def test_an_unknown_library_kind_still_says_it_is_not_a_kind() -> None:
+    with pytest.raises(ConditionValidationError) as excinfo:
+        parse_condition({"library_contains": {"kind": "workflow", "name": "x"}})
+    assert "is not accepted" in str(excinfo.value)
 
 
 def test_the_ui_event_name_set_is_the_declared_one() -> None:
@@ -202,6 +240,7 @@ TRUE_CASES: list[tuple[str, dict[str, object]]] = [
     ("node_exists", {"node_exists": {"block_type": "LoadCSV"}}),
     ("edge_exists", {"edge_exists": {"source_block_type": "LoadCSV", "target_block_type": "SaveCSV"}}),
     ("config_equals", {"config_equals": {"node_id": "load-1", "key": "path", "value": "data/raw/cells.csv"}}),
+    ("config_matches", {"config_matches": {"node_id": "load-1", "key": "path", "pattern": "raw/cells.csv"}}),
     ("run_succeeded", {"run_succeeded": {}}),
     ("port_has_output", {"port_has_output": {"node_id": "load-1", "port": "table"}}),
     ("block_registered", {"block_registered": {"block_type": "LoadCSV"}}),
@@ -221,6 +260,7 @@ FALSE_CASES: list[tuple[str, dict[str, object]]] = [
     ("node_exists", {"node_exists": {"block_type": "Cluster"}}),
     ("edge_exists", {"edge_exists": {"source_block_type": "SaveCSV", "target_block_type": "LoadCSV"}}),
     ("config_equals", {"config_equals": {"node_id": "load-1", "key": "path", "value": "elsewhere.csv"}}),
+    ("config_matches", {"config_matches": {"node_id": "load-1", "key": "path", "pattern": "other/cells.csv"}}),
     ("run_succeeded", {"run_succeeded": {"node_id": "save-1"}}),
     ("port_has_output", {"port_has_output": {"node_id": "save-1", "port": "table"}}),
     ("block_registered", {"block_registered": {"block_type": "Cluster"}}),
@@ -272,8 +312,119 @@ def test_terms_reading_the_workflow_are_false_when_no_workflow_is_open(tmp_path:
         {"node_exists": {"block_type": "LoadCSV"}},
         {"edge_exists": {"source_node_id": "a", "target_node_id": "b"}},
         {"config_equals": {"node_id": "a", "key": "k", "value": 1}},
+        {"config_matches": {"node_id": "a", "key": "k", "pattern": "x"}},
     ):
         assert evaluate(parse_condition(raw), state) is False
+
+
+# ---------------------------------------------------------------------------
+# config_matches — the file-browser path gap config_equals cannot judge
+# ---------------------------------------------------------------------------
+
+
+def _state_with_config_path(value: str) -> StubProductState:
+    return StubProductState(
+        workflow_definition=WorkflowDefinition(
+            id="wf-1",
+            nodes=[NodeDef(id="load-1", block_type="LoadCSV", config={"path": value})],
+        )
+    )
+
+
+def test_config_matches_judges_an_absolute_path_against_a_relative_declaration() -> None:
+    """The whole point: the browser yields absolute, a manifest can only say relative."""
+    picked = "/Users/someone/SciStudio Tutorials/welcome/data/raw/cells.csv"
+    state = _state_with_config_path(picked)
+    condition = parse_condition(
+        {"config_matches": {"node_id": "load-1", "key": "path", "pattern": "data/raw/cells.csv"}}
+    )
+    assert evaluate(condition, state) is True
+    # config_equals cannot, which is why this term exists.
+    equals = parse_condition({"config_equals": {"node_id": "load-1", "key": "path", "value": "data/raw/cells.csv"}})
+    assert evaluate(equals, state) is False
+
+
+def test_config_matches_also_judges_a_relative_value() -> None:
+    state = _state_with_config_path("data/raw/cells.csv")
+    condition = parse_condition(
+        {"config_matches": {"node_id": "load-1", "key": "path", "pattern": "data/raw/cells.csv"}}
+    )
+    assert evaluate(condition, state) is True
+
+
+def test_config_matches_normalises_separators_across_platforms() -> None:
+    """One manifest has to judge the same on Windows as it does on POSIX."""
+    state = _state_with_config_path("C:\\Users\\someone\\proj\\data\\raw\\cells.csv")
+    condition = parse_condition(
+        {"config_matches": {"node_id": "load-1", "key": "path", "pattern": "data/raw/cells.csv"}}
+    )
+    assert evaluate(condition, state) is True
+
+
+def test_config_matches_rejects_the_wrong_file() -> None:
+    state = _state_with_config_path("/Users/someone/proj/data/raw/other.csv")
+    condition = parse_condition(
+        {"config_matches": {"node_id": "load-1", "key": "path", "pattern": "data/raw/cells.csv"}}
+    )
+    assert evaluate(condition, state) is False
+
+
+def test_config_matches_does_not_match_a_different_parent_directory() -> None:
+    """Right-anchoring must not degrade into 'ends with the filename'."""
+    state = _state_with_config_path("/Users/someone/proj/data/processed/cells.csv")
+    condition = parse_condition(
+        {"config_matches": {"node_id": "load-1", "key": "path", "pattern": "data/raw/cells.csv"}}
+    )
+    assert evaluate(condition, state) is False
+
+
+def test_config_matches_accepts_a_glob() -> None:
+    state = _state_with_config_path("/Users/someone/proj/data/raw/plate-07.csv")
+    assert (
+        evaluate(
+            parse_condition({"config_matches": {"block_type": "LoadCSV", "key": "path", "pattern": "data/raw/*.csv"}}),
+            state,
+        )
+        is True
+    )
+    assert (
+        evaluate(
+            parse_condition({"config_matches": {"block_type": "LoadCSV", "key": "path", "pattern": "data/raw/*.tif"}}),
+            state,
+        )
+        is False
+    )
+
+
+def test_config_matches_is_false_for_a_missing_or_non_string_value() -> None:
+    state = StubProductState(
+        workflow_definition=WorkflowDefinition(
+            id="wf-1",
+            nodes=[NodeDef(id="load-1", block_type="LoadCSV", config={"path": 7, "other": "x"})],
+        )
+    )
+    for pattern_key in ("path", "absent"):
+        condition = parse_condition({"config_matches": {"node_id": "load-1", "key": pattern_key, "pattern": "x"}})
+        assert evaluate(condition, state) is False
+
+
+def test_config_matches_requires_a_non_empty_pattern() -> None:
+    for bad in ("", "   "):
+        with pytest.raises(ConditionValidationError) as excinfo:
+            parse_condition({"config_matches": {"node_id": "load-1", "key": "path", "pattern": bad}})
+        assert "non-empty" in str(excinfo.value)
+
+
+def test_config_matches_requires_a_node_id_or_a_block_type() -> None:
+    with pytest.raises(ConditionValidationError):
+        parse_condition({"config_matches": {"key": "path", "pattern": "x"}})
+
+
+def test_config_matches_is_re_evaluated_by_the_same_event_as_config_equals() -> None:
+    """A step waiting on a config the user edits must not need an explicit request."""
+    assert "config_matches" in EVENT_TERM_MAP[WORKFLOW_CHANGED]
+    condition = parse_condition({"config_matches": {"node_id": "load-1", "key": "path", "pattern": "x"}})
+    assert WORKFLOW_CHANGED in event_types_for_condition(condition, EXTERNAL)
 
 
 def test_file_exists_is_false_without_a_project() -> None:
@@ -377,7 +528,7 @@ def test_the_engine_half_of_the_map_is_keyed_by_the_imported_constants() -> None
         GIT_HEAD_CHANGED,
         INTERACTIVE_COMPLETE,
     }
-    assert EVENT_TERM_MAP[WORKFLOW_CHANGED] == {"node_exists", "edge_exists", "config_equals"}
+    assert EVENT_TERM_MAP[WORKFLOW_CHANGED] == {"node_exists", "edge_exists", "config_equals", "config_matches"}
     assert EVENT_TERM_MAP[WORKFLOW_COMPLETED] == {"run_succeeded", "port_has_output"}
     assert EVENT_TERM_MAP[GIT_HEAD_CHANGED] == {"git_branch_exists", "git_current_branch"}
     assert EVENT_TERM_MAP[INTERACTIVE_COMPLETE] == {"interaction_completed"}
@@ -439,7 +590,7 @@ def test_the_three_leaf_modules_import_neither_the_api_nor_the_runtime() -> None
 
 
 def test_terms_for_event_and_event_types_for_condition() -> None:
-    assert terms_for_event(WORKFLOW_CHANGED) == {"node_exists", "edge_exists", "config_equals"}
+    assert terms_for_event(WORKFLOW_CHANGED) == {"node_exists", "edge_exists", "config_equals", "config_matches"}
     assert terms_for_event("nothing.at.all") == frozenset()
     assert terms_for_event("blocks.reloaded", EXTERNAL) == BLOCKS_RELOADED_TERMS
 

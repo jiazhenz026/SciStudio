@@ -79,6 +79,16 @@ _TERMS: dict[str, tuple[dict[str, Any], Callable[[StubProductState], None]]] = {
         {"config_equals": {"block_type": "LoadCSV", "key": "path", "value": "data/raw/cells.csv"}},
         _set_workflow,
     ),
+    # The browser-picked absolute path config_equals cannot judge: the same
+    # event has to reach config_matches, or the step needs an explicit request.
+    "config_matches": (
+        {"config_matches": {"block_type": "LoadCSV", "key": "path", "pattern": "data/raw/cells.csv"}},
+        lambda state: setattr(
+            state,
+            "workflow_definition",
+            _workflow(config="/Users/someone/SciStudio Tutorials/welcome/data/raw/cells.csv"),
+        ),
+    ),
     "run_succeeded": (
         {"run_succeeded": {}},
         lambda state: setattr(state, "runs", (RunSummary(run_id="r-1", workflow_id="wf", succeeded=True),)),
