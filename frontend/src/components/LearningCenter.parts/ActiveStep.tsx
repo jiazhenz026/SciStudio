@@ -77,19 +77,13 @@ export function ActiveStep() {
         {step?.say ? <p className="mt-1 text-sm leading-6 text-stone-700">{step.say}</p> : null}
 
         {/*
-         * `highlight` and `route_to` are the backend's pointers at where the
-         * user should be looking. They are shown as words rather than acted on:
-         * turning them into a highlight ring or a panel switch needs an agreed
-         * vocabulary of element and surface ids, which the HTTP contract does
-         * not carry. Showing them keeps the guidance the backend sent instead
-         * of dropping it on the floor.
+         * `highlight` and `route_to` are not printed here any more. They used
+         * to render as "Look for: canvas" / "Go to: history", which named a
+         * thing instead of showing it — and printed the raw target id at that.
+         * Both now act: `App.tsx` routes to the surface on step entry, and
+         * `StepHighlight` rings the element. Re-adding the text would restate
+         * in words what the user is already being shown.
          */}
-        {step?.route_to ? (
-          <p className="mt-1 text-xs text-stone-500">Go to: {step.route_to}</p>
-        ) : null}
-        {step?.highlight ? (
-          <p className="mt-1 text-xs text-stone-500">Look for: {step.highlight}</p>
-        ) : null}
       </div>
 
       <div className="flex shrink-0 items-center gap-2">

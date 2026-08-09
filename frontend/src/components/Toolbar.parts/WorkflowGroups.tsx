@@ -55,6 +55,8 @@ function ExecutionControls(props: WorkflowGroupsProps) {
         disabled={!currentProject || isRunning}
         iconClassName={isRunning ? "animate-spin" : undefined}
         onClick={onRun}
+        // ADR-053 (#2057) — tutorial highlight target.
+        dataTutorialTarget="run_button"
       />
       <ToolbarButton
         icon={showStopping ? Loader2 : Square}

@@ -22,7 +22,7 @@
 //     BlockNode split; useAppKeyboardShortcuts here).
 
 import { ReactFlowProvider } from "@xyflow/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useLogStream } from "./hooks/useSSE";
 import { useWorkflowWebSocket } from "./hooks/useWebSocket";
@@ -42,6 +42,7 @@ import { useBottomPanelControls } from "./App.parts/useBottomPanelControls";
 import { useCanvasHandlers } from "./App.parts/useCanvasHandlers";
 import { useCanvasReadability } from "./App.parts/useCanvasReadability";
 import { useFileTabsAutosave } from "./App.parts/useFileTabsAutosave";
+import { useLearningCenter } from "./App.parts/useLearningCenter";
 import { usePromptInput } from "./App.parts/usePromptInput";
 import { useBlockCatalogSync } from "./App.parts/useBlockCatalogSync";
 import { useProjectActions } from "./App.parts/useProjectActions";
@@ -50,7 +51,7 @@ import { useWorkflowSync } from "./App.parts/useWorkflowSync";
 
 import { LearningCenter } from "./components/LearningCenter";
 import { ActiveStep } from "./components/LearningCenter.parts/ActiveStep";
-import { hasRecordedTutorialProgress } from "./store/learningCenterSlice";
+import { StepHighlight } from "./components/LearningCenter.parts/StepHighlight";
 import { Toolbar } from "./components/Toolbar";
 import { TooltipProvider } from "./components/ui/tooltip";
 
@@ -375,54 +376,10 @@ export default function App() {
   });
 
   /*
-   * ADR-053 Learning Center (#2057).
-   *
-   * The catalogue is fetched once at start-up because two surfaces need it
-   * before the panel is ever opened: the toolbar dot (FR-086) and the decision
-   * of whether this is a first run (FR-083).
+   * ADR-053 Learning Center (#2057) — start-up catalogue fetch, the FR-083
+   * first-run landing, the reconnect refetch, and step-entry routing.
    */
-  const refreshLearningCenter = useAppStore((state) => state.refreshLearningCenter);
-  const refreshActiveTutorialSession = useAppStore((state) => state.refreshActiveTutorialSession);
-  const openLearningCenter = useAppStore((state) => state.openLearningCenter);
-  const learningCenterCatalogue = useAppStore((state) => state.learningCenterCatalogue);
-  const learningCenterFirstRunDismissed = useAppStore(
-    (state) => state.learningCenterFirstRunDismissed,
-  );
-
-  useEffect(() => {
-    void refreshLearningCenter();
-  }, [refreshLearningCenter]);
-
-  /*
-   * FR-083 — on first launch with no recorded progress, the Learning Center is
-   * what the user sees. "No recorded progress" is read off the catalogue the
-   * backend returned rather than tracked here, so first-run means what the
-   * backend's progress store says it means (FR-074).
-   */
-  const firstRunLandingShown = useRef(false);
-  useEffect(() => {
-    if (firstRunLandingShown.current) return;
-    if (!learningCenterCatalogue) return;
-    if (learningCenterFirstRunDismissed) return;
-    if (hasRecordedTutorialProgress(learningCenterCatalogue)) return;
-    firstRunLandingShown.current = true;
-    openLearningCenter();
-  }, [learningCenterCatalogue, learningCenterFirstRunDismissed, openLearningCenter]);
-
-  /*
-   * Spec edge case — the frontend disconnects mid-session. Evaluation carried
-   * on without it, so on reconnect the session is fetched and the current step
-   * rendered. Nothing is replayed: the backend's answer is the whole truth, and
-   * this is why the design does not depend on a live stream being the only way
-   * a step advances.
-   */
-  const wasWsConnected = useRef(wsConnected);
-  useEffect(() => {
-    if (wsConnected && !wasWsConnected.current) {
-      void refreshActiveTutorialSession();
-    }
-    wasWsConnected.current = wsConnected;
-  }, [wsConnected, refreshActiveTutorialSession]);
+  useLearningCenter({ wsConnected, setLeftTab });
   useAppKeyboardShortcuts({
     activeFileTab,
     cancelWorkflow,
@@ -589,6 +546,13 @@ export default function App() {
             onPromptClose={clearPrompt}
             onResolveWorkflowConflict={resolveWorkflowConflict}
           />
+
+          {/*
+           * ADR-053 (#2057) — the ring around the element the step points at.
+           * A pointer-events-none overlay, so it never intercepts the drag or
+           * click the step is asking for (FR-089).
+           */}
+          <StepHighlight />
 
           {/* ADR-053 FR-082 … FR-088 — mounted once; the toolbar only opens it. */}
           <LearningCenter />

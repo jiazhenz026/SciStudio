@@ -288,7 +288,11 @@ export function DataPreview({
   );
 
   return (
-    <aside className="flex h-full flex-col overflow-hidden border-l border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(245,241,232,0.98))] p-4">
+    <aside
+      className="flex h-full flex-col overflow-hidden border-l border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(245,241,232,0.98))] p-4"
+      // ADR-053 (#2057) — tutorial highlight target.
+      data-tutorial-target="data_preview"
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Preview</p>

@@ -389,6 +389,10 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
   return (
     <div
       className="relative h-full"
+      // ADR-053 (#2057) — tutorial highlight target. This element rather than
+      // the inner <ReactFlow> because this is the drop area a step means when
+      // it says to drag a block onto the canvas.
+      data-tutorial-target="canvas"
       onDragOver={handlers.handleDragOver}
       onDrop={handlers.handleDrop}
     >

@@ -210,8 +210,14 @@ export function BlockPalette({
   // search, or popover. Behavior preserved as-is per spec §3.
   if (collapsed) {
     const railBlocks = sections.flatMap((section) => section.items);
+    // ADR-053 (#2057) — tutorial highlight target. Both the rail and the
+    // expanded panel carry it, since only one of the two ever renders and a
+    // step pointing at the palette must find whichever one is up.
     return (
-      <aside className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-2">
+      <aside
+        className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-2"
+        data-tutorial-target="block_palette"
+      >
         <button className="toolbar-button mb-2 self-center" onClick={handleReload} type="button">
           {"↻"}
         </button>
@@ -241,7 +247,10 @@ export function BlockPalette({
   }
 
   return (
-    <aside className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-4">
+    <aside
+      className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-4"
+      data-tutorial-target="block_palette"
+    >
       {/* Drag ghost element (offscreen) */}
       <div
         className="pointer-events-none fixed -left-[9999px] -top-[9999px] rounded-xl border border-ember bg-white px-4 py-2 text-sm font-medium text-ink shadow-lg"
