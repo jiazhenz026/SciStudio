@@ -19,6 +19,7 @@ from scistudio.api.runtime import FILE_ENTITY_CLASS, ApiRuntime
 from scistudio.api.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
 from scistudio.core.dropins import BLOCKS_DIR_NAME, TYPES_DIR_NAME
 from scistudio.engine.events import EngineEvent
+from scistudio.tutorials.projects import is_tutorial_entry
 
 # ADR-036 搂3.5 (I36c) 鈥?string event type for the WS-broadcast that fires
 # after a successful, lint-passing PUT to ``blocks/*.py``. Declared here
@@ -46,8 +47,28 @@ async def create_project(request: Request, body: ProjectCreate, runtime: Runtime
 
 @router.get("/", response_model=list[ProjectResponse])
 async def list_projects(runtime: RuntimeDep) -> list[ProjectResponse]:
-    """List all projects accessible to the current user."""
-    return [ProjectResponse(**runtime.project_response(project)) for project in runtime.list_projects()]
+    """List the user's projects, excluding tutorial projects.
+
+    ADR-053 Learning Center FR-065: this one response feeds all three surfaces
+    the requirement names — the recent-project list, the projects dropdown, and
+    the welcome pane — so filtering it is the whole of the hiding. A tutorial
+    project is a disposable teaching artifact that restarting and clearing both
+    delete (FR-066, FR-073); a user who wandered into one and started real
+    analysis would lose it, so the only way back in is the Learning Center.
+
+    The filter is here rather than in
+    :meth:`scistudio.api.runtime.ApiRuntime.list_projects` because that method
+    is the runtime's answer to "which projects exist", which the Learning Center
+    needs unfiltered, and because FR-065 also requires marked projects to stay
+    fully operable through every other route — ``GET``/``PUT``/``DELETE`` and
+    the file endpoints all resolve through ``runtime.known_projects``, which
+    this leaves untouched.
+    """
+    return [
+        ProjectResponse(**runtime.project_response(project))
+        for project in runtime.list_projects()
+        if not is_tutorial_entry(project)
+    ]
 
 
 # ---------------------------------------------------------------------------

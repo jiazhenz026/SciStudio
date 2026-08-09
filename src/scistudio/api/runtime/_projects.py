@@ -190,11 +190,30 @@ def create_project(
     name: str,
     description: str = "",
     parent_path: str | None = None,
+    *,
+    dir_name: str | None = None,
+    tutorial_source_kind: str | None = None,
+    tutorial_source_id: str | None = None,
+    tutorial_id: str | None = None,
 ) -> KnownProject:
+    """Create a project workspace and open it.
+
+    ADR-053 Learning Center FR-063/FR-064: the three ``tutorial_*`` arguments
+    mark the new project as belonging to one tutorial. They are plain strings
+    rather than a :class:`scistudio.tutorials.projects.TutorialKey` so this
+    module stays independent of the tutorial package — the marker is data the
+    known-projects file has to hold, and the identity type is the tutorial
+    layer's to define.
+
+    *dir_name* overrides the slug the directory would otherwise take from
+    *name*. The Learning Center needs it because a tutorial project's directory
+    is derived from the tutorial's identity and has to be stable across restarts
+    (FR-066), while the project's displayed name is the tutorial's title.
+    """
     from .models import KnownProject
 
     parent_dir = _safe_parent_dir(parent_path)
-    project_path = parent_dir / _slugify(name)
+    project_path = parent_dir / (dir_name or _slugify(name))
     if project_path.exists():
         raise FileExistsError(f"Project directory already exists: {project_path}")
 
@@ -219,8 +238,11 @@ def create_project(
         path=str(project_path),
         description=description,
         last_opened=_now_iso(),
+        tutorial_source_kind=tutorial_source_kind,
+        tutorial_source_id=tutorial_source_id,
+        tutorial_id=tutorial_id,
     )
-    metadata = {
+    metadata: dict[str, Any] = {
         "project": {
             "id": project.id,
             "name": project.name,
@@ -229,6 +251,18 @@ def create_project(
             "created": _now_iso(),
         }
     }
+    if tutorial_id:
+        # ADR-053 Learning Center FR-064: the marker is written into the project
+        # as well as into the known-projects registry, so it survives the
+        # registry being lost or pruned. ``_load_project_from_path`` reads it
+        # back; without it, re-adopting a tutorial project by path would rebuild
+        # an unmarked entry and the project would appear in the listing surfaces
+        # FR-065 keeps it out of.
+        metadata["project"]["tutorial"] = {
+            "source_kind": tutorial_source_kind,
+            "source_id": tutorial_source_id or "",
+            "id": tutorial_id,
+        }
     (project_path / "project.yaml").write_text(
         yaml.safe_dump(metadata, default_flow_style=False, sort_keys=False),
         encoding="utf-8",
@@ -281,6 +315,19 @@ def create_project(
 
 
 def list_projects(self: ApiRuntime) -> list[KnownProject]:
+    """Return every known project, most recently opened first.
+
+    ADR-053 Learning Center FR-065 excludes tutorial projects from the listing
+    that feeds the recent-project list, the projects dropdown, and the welcome
+    pane — and that filter is applied by the route
+    (``scistudio.api.routes.projects.list_projects``), not here. This method is
+    also the registry's pruning pass and the runtime's answer to "which projects
+    exist", which the Learning Center itself needs in order to find the tutorial
+    project it must delete on restart (FR-066) and the ones clearing removes
+    (FR-073). Filtering here would hide them from the layer that owns them, and
+    the marked entries must stay "fully operable through every other route"
+    (FR-065), which they only are while the runtime can still see them.
+    """
     self._load_known_projects()
     stale_ids = [
         pid
@@ -307,12 +354,20 @@ def _load_project_from_path(self: ApiRuntime, project_path: Path) -> KnownProjec
     raw = yaml.safe_load(project_file.read_text(encoding="utf-8")) or {}
     project_data = raw.get("project", {}) if isinstance(raw, dict) else {}
     project_id = project_data.get("id") or f"project-{uuid4().hex[:8]}"
+    # ADR-053 Learning Center FR-064: restore the tutorial marker written by
+    # ``create_project`` so a project re-adopted by path keeps its identity and
+    # stays out of the listing surfaces (FR-065).
+    declared = project_data.get("tutorial")
+    tutorial: dict[str, Any] = declared if isinstance(declared, dict) else {}
     entry = KnownProject(
         id=project_id,
         name=project_data.get("name") or project_path.name,
         path=str(project_path),
         description=project_data.get("description", ""),
         last_opened=_now_iso(),
+        tutorial_source_kind=tutorial.get("source_kind"),
+        tutorial_source_id=tutorial.get("source_id"),
+        tutorial_id=tutorial.get("id"),
     )
     self.known_projects[entry.id] = entry
     self._save_known_projects()

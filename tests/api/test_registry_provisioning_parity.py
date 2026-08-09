@@ -418,3 +418,78 @@ def test_dropin_block_overrides_a_builtin_of_the_same_name() -> None:
     assert spec is not None
     assert spec.class_name == "DropInLoad"
     assert spec.source == "tier1"
+
+
+# ---------------------------------------------------------------------------
+# ADR-053 Learning Center FR-016 / FR-031 / FR-070 — the tutorial drop-in tier
+# and the tutorial-scoped library, appended to the parity this file already
+# holds rather than pinned in a file of their own (spec §4.4, "Extended, not
+# duplicated"). The library swap's own behaviour is
+# ``tests/tutorials/test_scoped_library.py``; what belongs here is that the
+# tutorial tier resolves through the same tier definition as blocks and types.
+# ---------------------------------------------------------------------------
+
+
+def test_tutorial_tier_resolves_the_same_two_tiers_as_blocks_and_types(home: Path, project: Path) -> None:
+    """FR-016: tutorials join the existing tier definition, not a fourth one.
+
+    Same shape and same order as the two library kinds — project first, then
+    user — so every event that already reaches the block and type tiers reaches
+    tutorial discovery by the path it already travels (FR-031).
+    """
+    assert list(dropins.tutorial_scan_dirs(project)) == [
+        project / dropins.TUTORIALS_DIR_NAME,
+        home / ".scistudio" / dropins.TUTORIALS_DIR_NAME,
+    ]
+    assert list(dropins.tutorial_scan_dirs(None)) == [home / ".scistudio" / dropins.TUTORIALS_DIR_NAME]
+    assert dropins.user_tutorials_dir() == dropins.user_library_dir() / dropins.TUTORIALS_DIR_NAME
+    assert dropins.project_tutorials_dir(project) == project / dropins.TUTORIALS_DIR_NAME
+
+
+def test_tutorial_tier_is_deliberately_not_an_import_root(
+    home: Path, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FR-020a: a tutorial directory claims no top-level module name.
+
+    ``dropin_import_roots`` carries the *types* tiers onto ``sys.path``. A
+    tutorial directory holds a manifest and an assets tree, so it has nothing to
+    contribute there — and adding it would make any ``.py`` beside a manifest an
+    importable module, which is the exposure the tier grading exists to close.
+    """
+    monkeypatch.setattr(dropins, "user_python_import_roots", tuple)
+
+    roots = set(dropins.dropin_import_roots(project))
+
+    assert roots == {project / "types", home / ".scistudio" / "types"}
+    assert project / dropins.TUTORIALS_DIR_NAME not in roots
+    assert dropins.user_tutorials_dir() not in roots
+
+
+def test_a_tutorial_project_swaps_its_user_tier_at_every_registration_point(
+    home: Path,
+    recorders: dict[str, list[_RecordingRegistry]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FR-070/FR-071: the swap is in the tier definition, so all four sites get it.
+
+    A tutorial project scans the tutorial-scoped library where a real project
+    scans ``~/.scistudio``. Because that is one root inside
+    :func:`scistudio.core.dropins.library_root_for_project` rather than a
+    decision at each call site, no registration point has to learn what a
+    tutorial project is.
+    """
+    tutorial_project = dropins.tutorial_parent_dir() / "welcome"
+    library = dropins.tutorial_library_dir()
+    expected_blocks = [tutorial_project / "blocks", library / "blocks"]
+    expected_types = [tutorial_project / "types", library / "types"]
+
+    assert list(dropins.block_scan_dirs(tutorial_project)) == expected_blocks
+    assert _api_block_dirs(tutorial_project) == expected_blocks
+    assert _agent_block_dirs(tutorial_project) == expected_blocks
+    assert _dispatch_block_dirs(tutorial_project, monkeypatch) == expected_blocks
+
+    assert list(dropins.type_scan_dirs(tutorial_project)) == expected_types
+    assert _api_type_dirs(tutorial_project) == expected_types
+    assert _agent_type_dirs(tutorial_project) == expected_types
+    assert _worker_type_dirs(tutorial_project, monkeypatch) == expected_types
+    assert _dispatch_type_dirs(tutorial_project, monkeypatch) == expected_types

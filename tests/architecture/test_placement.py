@@ -153,6 +153,7 @@ def test_no_py_files_outside_known_packages() -> None:
         "plot",  # #1824 / ADR-052 §9: first-class plot render(collection) engine (scistudio.plot)
         "desktop",  # ADR-037: desktop distribution path/resource helpers
         "stability",  # ADR-052 §5: public-API stability decorators (scistudio.stability)
+        "tutorials",  # ADR-053 Learning Center: the tutorial runtime (scistudio.tutorials)
     }
     # Documentation trees that ship in the wheel as data, not importable code.
     # #1850: ``_user_guide/examples/`` holds runnable example block files
