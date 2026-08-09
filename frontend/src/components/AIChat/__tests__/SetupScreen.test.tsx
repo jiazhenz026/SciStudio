@@ -253,6 +253,33 @@ describe("SetupScreen provider select (FR-021)", () => {
     expect(note.textContent).toMatch(/trust/i);
     expect(note.textContent).toMatch(/data\//);
   });
+
+  it("shows the Kimi user-scope-hooks note only when Kimi Code is selected (#2045)", async () => {
+    mockStatusOnce({
+      providers: [
+        ALL_PROVIDERS[0],
+        { ...ALL_PROVIDERS[2], available: true, version: "0.33.0", logged_in: true },
+      ],
+    });
+    render(<SetupScreen tabId="t1" onLaunch={vi.fn()} onCancel={vi.fn()} />);
+    await screen.findByTestId("setup-provider-select");
+
+    expect(screen.queryByTestId("setup-kimi-hooks-note")).not.toBeInTheDocument();
+
+    selectProvider("claude-code");
+    expect(screen.queryByTestId("setup-kimi-hooks-note")).not.toBeInTheDocument();
+
+    selectProvider("kimi-code");
+    const note = screen.getByTestId("setup-kimi-hooks-note");
+    // The three things the user needs from this note: which hooks are missing,
+    // that they can turn them on themselves, and that doing so is global. A
+    // note that only said "hooks are off" would leave them stuck.
+    expect(note.textContent).toMatch(/data\//);
+    expect(note.textContent).toMatch(/config\.toml/);
+    expect(note.textContent).toMatch(/every Kimi Code session/i);
+    // The two notes are about different CLIs and must never co-render.
+    expect(screen.queryByTestId("setup-codex-trust-note")).not.toBeInTheDocument();
+  });
 });
 
 describe("SetupScreen zero-install notice (FR-021c / FR-021d)", () => {

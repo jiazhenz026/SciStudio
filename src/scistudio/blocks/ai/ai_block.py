@@ -79,6 +79,30 @@ def _agent_provider_keys() -> list[str]:
     return list(agent_keys())
 
 
+def _ai_block_provider_keys() -> list[str]:
+    """Agent keys the AI Block may advertise, in registry order (#2014).
+
+    The chat surface offers every registry agent; the AI Block surface must
+    not. An AI Block hands its task to the agent as a positional prompt
+    argument, and a CLI with no positional prompt — Kimi Code parses its
+    first positional as a subcommand — exits 1 before painting anything.
+    Advertising such a provider in the config enum offered the user a choice
+    that ``validate_config`` was guaranteed to reject, so the enum is
+    filtered through :func:`session_unsupported_reason`, the shared
+    capability check the work-import surface already uses, rather than
+    reading ``prompt_argv_prefix`` here and interpreting that field twice.
+
+    That check is imported from the registry, not from ``ai.agent.availability``
+    where it was first written. The lazy block-to-agent edge carved out in the
+    import-linter contracts terminates at the registry and nowhere else, and
+    ``availability`` runs subprocesses to probe auth state — a dependency this
+    layer has no business acquiring for a pure descriptor question.
+    """
+    from scistudio.ai.agent.providers_registry import agent_descriptors, session_unsupported_reason
+
+    return [d.key for d in agent_descriptors() if session_unsupported_reason(d) is None]
+
+
 def _resolve_provider_descriptor(provider: str) -> ProviderDescriptor:
     """Return the registry descriptor for *provider* or raise ``ValueError``.
 
@@ -143,8 +167,10 @@ class AIBlock(Block):
 
     Config:
         ``user_prompt`` (required) is the natural-language task. ``provider``
-        selects any agent CLI in the provider registry — ``"claude-code"`` is
-        the default. ``permission_mode`` is ``"safe"`` (the agent asks before
+        selects any agent CLI in the provider registry that can carry an AI
+        Block task — ``"claude-code"`` is the default, and chat-only CLIs
+        with no positional prompt argument (Kimi Code) are not offered
+        (#2014). ``permission_mode`` is ``"safe"`` (the agent asks before
         sensitive tool use, default) or ``"bypass"`` (full filesystem access).
         ``input_ports`` / ``output_ports`` declare the named ports and, for
         outputs, the file path where each result is expected.
@@ -254,14 +280,17 @@ class AIBlock(Block):
                 "ui_priority": 1,
             },
             # ADR-034 FR-015: the enum is derived from the provider
-            # registry's agent keys rather than a hand-maintained literal,
-            # so adding a sixth provider is a registry-only change. Enum
+            # registry rather than a hand-maintained literal, so adding a
+            # sixth provider is a registry-only change. #2014 narrowed the
+            # derivation from every agent key to the agents that can carry
+            # an AI Block task (``_ai_block_provider_keys``), so a chat-only
+            # provider such as Kimi Code is never advertised here. Enum
             # widening is backward compatible: a workflow saved with
             # ``provider: claude-code`` still validates, and the default is
             # deliberately unchanged.
             "provider": {
                 "type": "string",
-                "enum": _agent_provider_keys(),
+                "enum": _ai_block_provider_keys(),
                 "default": "claude-code",
                 "title": "Provider",
                 "ui_priority": 2,

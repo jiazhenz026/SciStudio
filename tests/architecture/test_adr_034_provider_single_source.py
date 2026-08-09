@@ -237,18 +237,35 @@ def test_the_registry_is_the_only_module_declaring_provider_labels() -> None:
 # SC: the frontend has no hand-maintained provider key or label list
 # ---------------------------------------------------------------------------
 
-#: ``{frontend file: {literal: reason}}`` — the single sanctioned survivor.
+#: ``{frontend file: {literal: reason}}`` — the sanctioned survivors.
 #:
-#: ``SetupScreen`` keeps a ``provider === "codex"`` branch that shows Codex's
-#: trust-hooks note (#1859). A5 retained it deliberately and flagged it. It is
-#: one provider-specific *UI warning*, not a key list and not a label map, so
-#: it does not reintroduce the duplication FR-020a/FR-020b remove: adding a
-#: sixth provider still requires no edit to this file. It is permitted here by
-#: exact file, exact literal, and stated count — a loose "SetupScreen may
+#: ``SetupScreen`` keeps two ``provider === "<key>"`` branches, each showing one
+#: warning about a hook gap that provider's own CLI design creates and that
+#: SciStudio cannot close from inside the project:
+#:
+#: - ``codex`` (#1859): Codex gates hook execution behind a trust review the
+#:   user answers in the PTY; declining it silently disables every provisioned
+#:   hook.
+#: - ``kimi-code`` (#2045): Kimi Code reads hook declarations only from its
+#:   user-level ``config.toml``. There is no project-scope location to
+#:   provision, so the tab runs with none of SciStudio's hooks and the note is
+#:   what tells the user.
+#:
+#: Both are provider-specific *UI warnings*, not a key list and not a label map,
+#: so neither reintroduces the duplication FR-020a/FR-020b remove: adding a
+#: sixth provider still requires no edit to this file. They are permitted here
+#: by exact file, exact literal, and stated count — a loose "SetupScreen may
 #: mention providers" rule would also let a real regression through.
+#:
+#: Growth here is the thing to watch. Two entries, each an unavoidable
+#: CLI-imposed gap with an issue behind it, is not the branch chain FR-020a
+#: deleted; a third arriving for an ordinary per-provider difference would be,
+#: and is the point at which the notice text belongs in the registry and this
+#: allowlist should shrink back to nothing.
 _FRONTEND_KEY_ALLOWLIST: dict[str, dict[str, str]] = {
     "components/AIChat/SetupScreen.tsx": {
         "codex": "#1859 Codex trust-hooks warning: one UI note, not a key or label list",
+        "kimi-code": "#2045 Kimi user-scope-hooks warning: one UI note, not a key or label list",
     },
 }
 
@@ -410,11 +427,21 @@ def test_the_guards_above_are_not_vacuous() -> None:
         assert (SRC_ROOT / relpath).is_file(), relpath
     sources = _frontend_sources()
     assert len(sources) > 50, f"frontend scan found only {len(sources)} files"
-    # The allowlisted survivor must actually be there: if #1859's warning is
-    # ever removed, this test fails and the allowlist entry is deleted with it
-    # rather than quietly becoming a hole.
-    setup_screen = FRONTEND_SRC / "components" / "AIChat" / "SetupScreen.tsx"
-    assert '"codex"' in _strip_ts_comments(setup_screen.read_text(encoding="utf-8"))
+    # Every allowlisted survivor must actually be there: if #1859's or #2045's
+    # warning is ever removed, this test fails and the allowlist entry is
+    # deleted with it rather than quietly becoming a hole. Derived from the
+    # allowlist rather than spelled out, so a third entry cannot be added
+    # without also being held to this rule.
+    for relpath, allowed in _FRONTEND_KEY_ALLOWLIST.items():
+        path = FRONTEND_SRC / relpath
+        assert path.is_file(), f"allowlisted frontend file moved or was deleted: {relpath}"
+        source = _strip_ts_comments(path.read_text(encoding="utf-8"))
+        stale = sorted(value for value in allowed if f'"{value}"' not in source)
+        assert stale == [], (
+            f"_FRONTEND_KEY_ALLOWLIST[{relpath!r}] still permits {stale}, but the "
+            "literal is gone. Delete the entry so the guard tightens instead of "
+            "keeping an unused exception open."
+        )
 
     # Same rule for the backend allowlist, added when the ``terminal.py`` entry
     # outlived the ``spawn_claude`` / ``spawn_codex`` shims it existed for

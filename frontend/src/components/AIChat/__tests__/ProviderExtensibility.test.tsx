@@ -204,15 +204,20 @@ describe("ADR-034 User Story 7 — a provider the frontend has never heard of", 
   });
 
   it("shows no provider-specific UI note for an unknown provider", async () => {
-    // The one surviving provider-specific branch in SetupScreen is the #1859
-    // Codex trust-hooks note, allowlisted by name in
-    // `tests/architecture/test_adr_034_provider_single_source.py`. It must be
-    // the *only* one: a second branch would mean the picker had started
-    // accumulating per-provider knowledge again.
+    // Two provider-specific branches survive in SetupScreen — the #1859 Codex
+    // trust-hooks note and the #2045 Kimi user-scope-hooks note — both
+    // allowlisted by name in
+    // `tests/architecture/test_adr_034_provider_single_source.py`. Each exists
+    // because that CLI imposes a hook gap SciStudio cannot close from inside
+    // the project. What must stay true is that a provider the frontend has
+    // never seen gets *neither*: a note appearing for an unknown key would mean
+    // the branches had stopped being about two named CLIs and started being
+    // per-provider knowledge the picker maintains.
     await renderWith(PAYLOAD_WITH_UNKNOWN_PROVIDERS);
 
     selectProvider("fixture-agent");
     expect(screen.queryByTestId("setup-codex-trust-note")).toBeNull();
+    expect(screen.queryByTestId("setup-kimi-hooks-note")).toBeNull();
   });
 });
 
