@@ -1,13 +1,16 @@
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { FolderInput, Package } from "lucide-react";
+import { FolderInput, GraduationCap, Package } from "lucide-react";
 import { useState } from "react";
 
 import type { ConnectionStatus } from "../hooks/connectionState";
 import { usePackageUpdates } from "../hooks/usePackageUpdates";
+import { useAppStore } from "../store";
+import { shouldShowUnfinishedTutorialDot } from "../store/learningCenterSlice";
 import type { ProjectResponse } from "../types/api";
 import { BringInMyWorkDialog } from "./BringInMyWorkDialog";
 import { ENTRY_LABEL, NO_PROJECT_MESSAGE } from "./BringInMyWorkDialog.parts/copy";
+import { LEARNING_CENTER_ENTRY_LABEL } from "./LearningCenter";
 import { PackageManagerDialog } from "./PackageManagerDialog";
 import { FileOperationsGroup } from "./Toolbar.parts/FileOperationsGroup";
 import { ProjectHeader } from "./Toolbar.parts/ProjectHeader";
@@ -126,6 +129,22 @@ export function Toolbar(props: ToolbarProps) {
   // app start.
   const [bringInMyWorkOpen, setBringInMyWorkOpen] = useState(false);
   const { updateCount } = usePackageUpdates();
+  /*
+   * ADR-053 Learning Center (#2057) FR-082 — a PERMANENT entry, on the same
+   * reasoning as "Bring in my work" beside it: nothing about progress decides
+   * whether it can be reached. The panel itself is mounted once by `App.tsx`,
+   * not here, because FR-083 also opens it as the first-run landing and two
+   * mount points would be two panels.
+   */
+  const openLearningCenter = useAppStore((state) => state.openLearningCenter);
+  const learningCenterCatalogue = useAppStore((state) => state.learningCenterCatalogue);
+  const learningCenterFirstRunDismissed = useAppStore(
+    (state) => state.learningCenterFirstRunDismissed,
+  );
+  const unfinishedTutorials = shouldShowUnfinishedTutorialDot({
+    catalogue: learningCenterCatalogue,
+    firstRunLandingDismissed: learningCenterFirstRunDismissed,
+  });
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -192,6 +211,42 @@ export function Toolbar(props: ToolbarProps) {
         {/* #1784 — Packages: opens the in-app Package Manager. Badge marks
             available OTA updates found by the startup check. */}
         <div className="flex shrink-0 items-center gap-2">
+          {/*
+           * ADR-053 FR-082 — the Learning Center's permanent entry.
+           *
+           * FR-086 — the dot marks unfinished core work. It appears only once
+           * the user has dismissed the first-run landing (pointing someone back
+           * at the panel they are looking at says nothing), clears on its own
+           * when the core group completes, and has no "dismiss forever": an
+           * unfinished tutorial hidden permanently would be indistinguishable
+           * from a finished one. Package groups never raise it (FR-080).
+           */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                aria-label={LEARNING_CENTER_ENTRY_LABEL}
+                className="relative inline-flex items-center gap-2 rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100"
+                data-testid="toolbar-learning-center"
+                onClick={openLearningCenter}
+                type="button"
+              >
+                <GraduationCap className="size-4" />
+                <span className="hidden 2xl:inline">{LEARNING_CENTER_ENTRY_LABEL}</span>
+                {unfinishedTutorials ? (
+                  <span
+                    aria-label="Unfinished tutorials"
+                    className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-ember"
+                    data-testid="toolbar-learning-center-dot"
+                  />
+                ) : null}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {unfinishedTutorials
+                ? `${LEARNING_CENTER_ENTRY_LABEL} — you have tutorials left to finish`
+                : LEARNING_CENTER_ENTRY_LABEL}
+            </TooltipContent>
+          </Tooltip>
           {/*
            * ADR-053 spec 2 (#2001) / FR-001 — "Bring in my work" is a
            * PERMANENT toolbar entry. It is not gated on Learning Center

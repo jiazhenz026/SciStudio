@@ -22,7 +22,7 @@
 //     BlockNode split; useAppKeyboardShortcuts here).
 
 import { ReactFlowProvider } from "@xyflow/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useLogStream } from "./hooks/useSSE";
 import { useWorkflowWebSocket } from "./hooks/useWebSocket";
@@ -45,11 +45,12 @@ import { useFileTabsAutosave } from "./App.parts/useFileTabsAutosave";
 import { usePromptInput } from "./App.parts/usePromptInput";
 import { useBlockCatalogSync } from "./App.parts/useBlockCatalogSync";
 import { useProjectActions } from "./App.parts/useProjectActions";
-import { useRunFirstWorkflowTutorial } from "./App.parts/useRunFirstWorkflowTutorial";
 import { useWorkflowExecutionActions } from "./App.parts/useWorkflowExecutionActions";
 import { useWorkflowSync } from "./App.parts/useWorkflowSync";
 
-import { TutorialPanel } from "./components/TutorialPanel";
+import { LearningCenter } from "./components/LearningCenter";
+import { ActiveStep } from "./components/LearningCenter.parts/ActiveStep";
+import { hasRecordedTutorialProgress } from "./store/learningCenterSlice";
 import { Toolbar } from "./components/Toolbar";
 import { TooltipProvider } from "./components/ui/tooltip";
 
@@ -316,16 +317,6 @@ export default function App() {
     importWorkflow,
   } = projectActions;
   const {
-    tutorialPromptVisible,
-    startTutorial,
-    dismissRunFirstWorkflowTutorialPrompt,
-    suppressRunFirstWorkflowTutorialPrompt,
-  } = useRunFirstWorkflowTutorial({
-    openProject,
-    setBusy,
-    setLastError,
-  });
-  const {
     runWorkflow,
     pauseWorkflow,
     resumeWorkflow,
@@ -382,6 +373,56 @@ export default function App() {
     tabs: tabs as AnyTab[],
     saveFileTab,
   });
+
+  /*
+   * ADR-053 Learning Center (#2057).
+   *
+   * The catalogue is fetched once at start-up because two surfaces need it
+   * before the panel is ever opened: the toolbar dot (FR-086) and the decision
+   * of whether this is a first run (FR-083).
+   */
+  const refreshLearningCenter = useAppStore((state) => state.refreshLearningCenter);
+  const refreshActiveTutorialSession = useAppStore((state) => state.refreshActiveTutorialSession);
+  const openLearningCenter = useAppStore((state) => state.openLearningCenter);
+  const learningCenterCatalogue = useAppStore((state) => state.learningCenterCatalogue);
+  const learningCenterFirstRunDismissed = useAppStore(
+    (state) => state.learningCenterFirstRunDismissed,
+  );
+
+  useEffect(() => {
+    void refreshLearningCenter();
+  }, [refreshLearningCenter]);
+
+  /*
+   * FR-083 — on first launch with no recorded progress, the Learning Center is
+   * what the user sees. "No recorded progress" is read off the catalogue the
+   * backend returned rather than tracked here, so first-run means what the
+   * backend's progress store says it means (FR-074).
+   */
+  const firstRunLandingShown = useRef(false);
+  useEffect(() => {
+    if (firstRunLandingShown.current) return;
+    if (!learningCenterCatalogue) return;
+    if (learningCenterFirstRunDismissed) return;
+    if (hasRecordedTutorialProgress(learningCenterCatalogue)) return;
+    firstRunLandingShown.current = true;
+    openLearningCenter();
+  }, [learningCenterCatalogue, learningCenterFirstRunDismissed, openLearningCenter]);
+
+  /*
+   * Spec edge case — the frontend disconnects mid-session. Evaluation carried
+   * on without it, so on reconnect the session is fetched and the current step
+   * rendered. Nothing is replayed: the backend's answer is the whole truth, and
+   * this is why the design does not depend on a live stream being the only way
+   * a step advances.
+   */
+  const wasWsConnected = useRef(wsConnected);
+  useEffect(() => {
+    if (wsConnected && !wasWsConnected.current) {
+      void refreshActiveTutorialSession();
+    }
+    wasWsConnected.current = wsConnected;
+  }, [wsConnected, refreshActiveTutorialSession]);
   useAppKeyboardShortcuts({
     activeFileTab,
     cancelWorkflow,
@@ -459,6 +500,14 @@ export default function App() {
 
           <AppErrorBanner message={lastError} onDismiss={() => setLastError(null)} />
 
+          {/*
+           * ADR-053 FR-089 — the active step sits in the layout, between the
+           * toolbar and the workspace, so it never covers the canvas element it
+           * is telling the user to act on. It renders nothing when no tutorial
+           * is running.
+           */}
+          <ActiveStep />
+
           {currentProject ? (
             <>
               <ProjectWorkspace
@@ -514,12 +563,6 @@ export default function App() {
                 selectedNodeLabel={selectedNodeLabel}
                 setPanelSize={setPanelSize}
               />
-              <TutorialPanel
-                onOpenFile={openFileTab}
-                onReloadBlocks={reloadBlocks}
-                onSaveWorkflow={saveWorkflow}
-                onShowBlocks={() => setLeftTab("blocks")}
-              />
             </>
           ) : (
             <WelcomePane
@@ -528,10 +571,6 @@ export default function App() {
               onOpenProject={() => openProjectDialog("open")}
               onOpenRecent={(projectId) => void openProject(projectId)}
               recentProjects={recentProjects}
-              tutorialPromptVisible={tutorialPromptVisible}
-              onStartTutorial={() => void startTutorial()}
-              onDismissTutorial={dismissRunFirstWorkflowTutorialPrompt}
-              onSuppressTutorial={suppressRunFirstWorkflowTutorialPrompt}
             />
           )}
 
@@ -550,6 +589,9 @@ export default function App() {
             onPromptClose={clearPrompt}
             onResolveWorkflowConflict={resolveWorkflowConflict}
           />
+
+          {/* ADR-053 FR-082 … FR-088 — mounted once; the toolbar only opens it. */}
+          <LearningCenter />
 
           <InteractiveModals />
 
