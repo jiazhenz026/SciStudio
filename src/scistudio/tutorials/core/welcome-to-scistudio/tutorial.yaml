@@ -1,0 +1,211 @@
+# Core tutorial 1 — "Welcome to SciStudio" (scenarios doc, 关卡 1).
+#
+# Teaches four things by doing them once each: what a workflow is, what a block
+# is, what a plot is, and what History is for. The reader writes no code — the
+# block source and the plot script are shipped under assets/code/ and written
+# into the project by step actions.
+#
+# Zero external configuration (ADR-053 §5.2): no AI provider, no package
+# install, no network. Everything it touches is core.
+manifest_version: 1
+id: welcome-to-scistudio
+title: Welcome to SciStudio
+summary: >-
+  Build your first workflow, run it, plot the result, and recover the project
+  after something changes underneath you.
+order: 1
+
+requires:
+  # to_memory() and the ergonomic table accessors the shipped block source
+  # relies on are stable from 0.3.1 (ADR-052 §10).
+  scistudio: ">=0.3.1"
+  agent: false
+  packages: []
+
+bootstrap:
+  project_name: Welcome to SciStudio
+  do:
+    # Lands as data/raw/cell_viability_fluorescence.csv, the path every step
+    # below names.
+    - copy:
+        source: assets/data
+        destination: data/raw
+
+steps:
+  - id: welcome
+    route_to: canvas
+    say: >-
+      This project holds one small dataset: a cell viability assay read out by
+      fluorescence. Twelve rows, four conditions, three replicates each — a
+      negative control, two drug doses, and a positive control. Raw
+      fluorescence counts cannot be compared across plates, so the job is to
+      rescale them against the two controls. You will build that as a
+      workflow: a graph of blocks, each one a step that takes typed data in and
+      hands typed data out. Nothing here asks you to write code.
+
+  - id: drag-load
+    route_to: canvas
+    highlight: block_palette
+    say: >-
+      Find the Load block in the palette and drag it onto the canvas. Load is
+      how data enters a workflow: it reads one file from disk and puts it on
+      its output port, typed.
+    done_when:
+      node_exists:
+        block_type: load_data
+
+  - id: point-load-at-the-data
+    route_to: config
+    highlight: canvas
+    say: >-
+      Select the Load block and open its config. Set path to
+      data/raw/cell_viability_fluorescence.csv and leave core_type as
+      DataFrame — that pair is the whole contract, telling SciStudio which file
+      to read and which core type to read it as. The output port recolours to
+      match the type you choose. Continue when the config looks right; if the
+      path is wrong, the run a few steps from now will say so.
+
+  - id: read-the-block
+    route_to: canvas
+    highlight: block_palette
+    do:
+      - write:
+          source: assets/code/normalize_fluorescence.py
+          destination: blocks/normalize_fluorescence.py
+    say: >-
+      A block that normalises against controls now exists in your project. We
+      wrote it for you — it is a file at blocks/normalize_fluorescence.py, and
+      saving a file in that folder is all it takes for SciStudio to register a
+      block. Find Normalize Fluorescence in the palette and open its source.
+      Read it before you use it. Every block in this product can be opened this
+      way, whether it came from core, from a package, or from your own project.
+    done_when:
+      ui_event:
+        name: block_source_viewed
+
+  - id: wire-the-block
+    route_to: canvas
+    highlight: canvas
+    say: >-
+      Drag Normalize Fluorescence onto the canvas, then connect the Load
+      block's data output to its table input. The connection is checked as you
+      draw it: Load is producing a DataFrame and this block accepts a
+      DataFrame, so the edge is allowed. A mismatch would be refused here
+      rather than at run time.
+    done_when:
+      all:
+        - node_exists:
+            block_type: normalize_fluorescence
+        - edge_exists:
+            source_block_type: load_data
+            target_block_type: normalize_fluorescence
+
+  - id: add-save
+    route_to: canvas
+    highlight: block_palette
+    say: >-
+      Drag a Save block onto the canvas and connect the normalized output to
+      it. Then set the Save block's config — core_type DataFrame, and a path
+      such as data/parquet/normalized_activity.parquet. Save is what makes a
+      result persist; without it the workflow computes a table and keeps it
+      only as a run artifact.
+    done_when:
+      all:
+        - node_exists:
+            block_type: save_data
+        - edge_exists:
+            source_block_type: normalize_fluorescence
+            target_block_type: save_data
+
+  - id: run-the-workflow
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      Press Run. SciStudio walks the graph in order, hands each block its
+      inputs, and records what happened. If a block fails, the canvas marks it
+      and the Logs tab carries the error.
+    done_when:
+      run_succeeded: {}
+
+  - id: look-at-the-numbers
+    route_to: canvas
+    highlight: data_preview
+    say: >-
+      Open the preview on the Normalize Fluorescence block's normalized output.
+      There is a new column, normalized_activity. The negative control sits at
+      0 and the positive control at 1, because that is what the rescaling pins
+      them to; the two drug doses land in between, at roughly 0.33 and 0.62 of
+      full activity. Those two numbers are the result of the experiment.
+    done_when:
+      ui_event:
+        name: preview_expanded
+
+  - id: create-the-plot
+    route_to: plots
+    highlight: plots_new_button
+    say: >-
+      A table is hard to read at a glance, so make a plot. Open the Plots tab
+      and create a new plot bound to the Normalize Fluorescence block's
+      normalized output. Name it normalized_activity. A plot is a card attached
+      to one output port — it reads that port's data and draws it, and it is
+      redrawn from the recipe each time rather than saved as a stale picture.
+    done_when:
+      plot_exists:
+        plot_id: normalized_activity
+
+  - id: render-the-plot
+    route_to: plots
+    do:
+      - write:
+          source: assets/code/normalized_activity_render.py
+          destination: plots/normalized_activity/render.py
+    say: >-
+      We filled in the drawing code for you, at
+      plots/normalized_activity/render.py. It is a plain function called
+      render that receives the bound data and returns a matplotlib figure. Open
+      it if you want to see how it works, then render the plot. You should get
+      a bar per condition with the replicates scattered over it, and the two
+      control lines at 0 and 1. Continue once the figure is on screen.
+
+  - id: something-changed-underneath-you
+    route_to: history
+    highlight: history_restore_button
+    do:
+      - write:
+          source: assets/code/normalize_fluorescence_renamed.py
+          destination: blocks/normalize_fluorescence.py
+    say: >-
+      We just edited one line of your block, the way an assistant tidying up
+      your project might have: the type_name was renamed from
+      normalize_fluorescence to normalise_fluorescence. The file still imports
+      and the block is still in the palette, and your workflow is broken
+      anyway, because a saved workflow refers to a block by its type_name.
+      Open History. It lists the runs of this project; select the run you just
+      made and press Restore. Restore puts that recorded version of the whole
+      project tree back — the workflow, the blocks, everything committed at
+      that point. It first checks whether your input files or your environment
+      have drifted since then and tells you what it finds. Those checks advise
+      you; they never stop you.
+    done_when:
+      block_registered:
+        block_type: normalize_fluorescence
+
+  - id: run-it-yourself
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      Your block is back and the workflow is whole again. Notice that Restore
+      did not run anything: it put the files back and stopped, so you can look
+      at what you got before any computation starts. Pressing Run is your
+      decision and stays your decision. Press it now and watch the workflow
+      complete again.
+
+  - id: what-you-learned
+    say: >-
+      Four things, each of which you have now used once. A workflow is a typed
+      graph that SciStudio runs in order. A block is a file in your project
+      that the registry picks up when you save it, and you can always read its
+      source. A plot is a card bound to one output port that redraws from its
+      recipe. History is the record of every run, and Restore is how you get a
+      recorded version of the project back when something goes wrong. Nothing
+      you did here required configuring anything outside SciStudio.

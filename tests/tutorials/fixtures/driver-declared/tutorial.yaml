@@ -1,0 +1,20 @@
+# A tutorial that hands control to a driver class instead of declaring steps
+# (FR-010: exactly one of steps or driver). Only core and package tutorials may
+# declare one (FR-020).
+#
+# The dotted path deliberately names a module that does not exist, so a test
+# can prove that listing a driver tutorial never imports the driver: discovery
+# has to list this without resolving the path, and only an explicit start
+# should fail.
+manifest_version: 1
+id: driver-declared
+title: A driver-backed tutorial
+summary: Hands the session to a driver class rather than declaring steps.
+order: 91
+requires:
+  scistudio: ">=0.3.0"
+  agent: false
+  packages: []
+bootstrap:
+  project_name: Driver Declared Fixture
+driver: scistudio_absent_package.tutorials.ScriptedDriver
