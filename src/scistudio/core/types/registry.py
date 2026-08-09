@@ -110,6 +110,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, overload
 
 from scistudio.core.dropins import evict_cached_bytecode, guard_dropin_type_roots
+from scistudio.core.entry_points import (
+    STAGE_REGISTER,
+    TYPES_ENTRY_POINT_GROUP,
+    EntryPointDiagnostic,
+    entry_point_name,
+    enumerate_group,
+    load_entry_point,
+    prepared_plugin_import_roots,
+    resolve_payload,
+)
 from scistudio.desktop.paths import (
     candidate_package_dirs,
     iter_source_package_module_candidates,
@@ -301,6 +311,22 @@ class TypeRegistry:
         # and consumed by :meth:`scan_all` (after entry-points / monorepo).
         self._scan_dirs: list[Path] = []
         self._package_src_dirs: list[Path] = []
+        self._entry_point_diagnostics: list[str] = []
+
+    @property
+    def diagnostics(self) -> list[str]:
+        """Return what the most recent ``scistudio.types`` entry-point scan refused.
+
+        ADR-053 FR-028. Same shape and same reason as
+        :attr:`scistudio.blocks.registry.BlockRegistry.diagnostics` and
+        :attr:`scistudio.previewers.registry.PreviewerRegistry.diagnostics`: a
+        package that contributed nothing has to be distinguishable from a
+        package that had nothing to contribute, and a log line the user never
+        sees does not distinguish them.
+
+        Rebuilt by every :meth:`_scan_entrypoint_types` pass.
+        """
+        return list(self._entry_point_diagnostics)
 
     def add_scan_dir(self, directory: str | Path) -> None:
         """Add a directory to the filesystem scan path (issue #1332).
@@ -592,63 +618,89 @@ class TypeRegistry:
         Addendum 1 §3 for the ``Meta`` constraints enforced here. A plugin
         shipping a broken ``Meta`` is logged as a warning and skipped;
         the rest of its entry-point payload still registers successfully.
+
+        ADR-053 FR-025/FR-026: enumeration, load, payload shape, and
+        diagnostics come from :mod:`scistudio.core.entry_points`, shared with
+        the block and previewer registries. This pass used to call
+        ``importlib.metadata.entry_points(group=...)`` unguarded and was the
+        only group able to raise an enumeration failure into its caller — for
+        a registry scan, that is the whole process's type catalogue lost to
+        one unreadable ``dist-info``. It is contained like every other group
+        now. FR-029: the payload contract here is the callable one, with no
+        bare-class allowance, so ``allow_bare_class=False``.
         """
         from scistudio.core.types.base import DataObject
 
-        eps = importlib.metadata.entry_points(group="scistudio.types")
-        for ep in eps:
-            try:
-                factory = ep.load()
-            except Exception:
-                logger.warning(
-                    "Failed to load entry-point '%s' from group 'scistudio.types'",
-                    ep.name,
-                    exc_info=True,
-                )
-                continue
+        diagnostics: list[EntryPointDiagnostic] = []
+        # FR-030: the same plugin import-root activation the previewer and
+        # block scans use, so one installed package resolves for every group
+        # rather than for whichever registry happened to prepare sys.path.
+        with prepared_plugin_import_roots():
+            eps = enumerate_group(TYPES_ENTRY_POINT_GROUP, diagnostics=diagnostics)
+            for ep in eps:
+                ep_name = entry_point_name(ep)
+                factory = load_entry_point(ep, TYPES_ENTRY_POINT_GROUP, diagnostics=diagnostics)
+                if factory is None:
+                    continue
 
-            try:
-                type_classes = factory()
-            except Exception:
-                logger.warning(
-                    "Entry-point '%s' callable raised an exception",
-                    ep.name,
-                    exc_info=True,
+                type_classes = resolve_payload(
+                    factory,
+                    group=TYPES_ENTRY_POINT_GROUP,
+                    entry_point=ep_name,
+                    allow_bare_class=False,
+                    diagnostics=diagnostics,
                 )
-                continue
+                if type_classes is None:
+                    continue
 
-            if not isinstance(type_classes, (list, tuple)):
-                logger.warning(
-                    "Entry-point '%s' returned %s instead of a list of type classes; skipping",
-                    ep.name,
-                    type(type_classes).__name__,
-                )
-                continue
-
-            for cls in type_classes:
-                if not isinstance(cls, type) or not issubclass(cls, DataObject):
-                    logger.warning(
-                        "Entry-point '%s' returned item %r which is not a DataObject subclass; skipping",
-                        ep.name,
-                        cls,
+                if not isinstance(type_classes, (list, tuple)):
+                    message = f"returned {type(type_classes).__name__} instead of a list of type classes"
+                    logger.warning("Entry-point '%s' %s; skipping", ep_name, message)
+                    diagnostics.append(
+                        EntryPointDiagnostic(
+                            group=TYPES_ENTRY_POINT_GROUP,
+                            entry_point=ep_name,
+                            stage=STAGE_REGISTER,
+                            message=message,
+                        )
                     )
                     continue
 
-                # ADR-027 Addendum 1 §3: Meta validation. Reject broken
-                # Meta with a warning (log + skip) instead of raising so
-                # one bad plugin does not take down the whole registry.
-                try:
-                    self.register_class(cls, package_root=_entrypoint_module(ep))
-                except ValueError:
-                    logger.warning(
-                        "Entry-point '%s' type %r has a Meta class that violates ADR-027 Addendum 1 §3; skipping",
-                        ep.name,
-                        cls,
-                        exc_info=True,
-                    )
-                    continue
+                for cls in type_classes:
+                    if not isinstance(cls, type) or not issubclass(cls, DataObject):
+                        message = f"returned item {cls!r} which is not a DataObject subclass"
+                        logger.warning("Entry-point '%s' %s; skipping", ep_name, message)
+                        diagnostics.append(
+                            EntryPointDiagnostic(
+                                group=TYPES_ENTRY_POINT_GROUP,
+                                entry_point=ep_name,
+                                stage=STAGE_REGISTER,
+                                message=message,
+                            )
+                        )
+                        continue
 
-                logger.info("Registered external type '%s' from entry-point '%s'", cls.__name__, ep.name)
+                    # ADR-027 Addendum 1 §3: Meta validation. Reject broken
+                    # Meta with a warning (log + skip) instead of raising so
+                    # one bad plugin does not take down the whole registry.
+                    try:
+                        self.register_class(cls, package_root=_entrypoint_module(ep))
+                    except ValueError:
+                        message = f"type {cls!r} has a Meta class that violates ADR-027 Addendum 1 §3"
+                        logger.warning("Entry-point '%s' %s; skipping", ep_name, message, exc_info=True)
+                        diagnostics.append(
+                            EntryPointDiagnostic(
+                                group=TYPES_ENTRY_POINT_GROUP,
+                                entry_point=ep_name,
+                                stage=STAGE_REGISTER,
+                                message=message,
+                            )
+                        )
+                        continue
+
+                    logger.info("Registered external type '%s' from entry-point '%s'", cls.__name__, ep_name)
+
+        self._entry_point_diagnostics = [str(diagnostic) for diagnostic in diagnostics]
 
     def scan_all(self) -> None:
         """Register built-in types and then scan entry-points for external types.

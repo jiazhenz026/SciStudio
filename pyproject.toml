@@ -115,9 +115,21 @@ scistudio = "scistudio.cli.main:app"
 [project.entry-points."scistudio.types"]
 
 # The ``scistudio.runners`` entry-point group was removed with the dead legacy
-# CodeBlock runner layer (ADR-052 §7A): CodeBlock resolves interpreters through
+# CodeBlock runner layer: CodeBlock resolves interpreters through
 # ``scistudio.blocks.code.backends`` / ``_backends_registry``, not the deleted
 # ``runners/*`` modules. The group had no runtime consumer.
+#
+# ADR-053 FR-035: this note used to cite "ADR-052 §7A", which reads as a section
+# of ``docs/adr/ADR-052.md`` — a document whose sections stop at §10 and which
+# never mentions runners. The decision is real and is recorded one document
+# over: ``docs/specs/adr-052-public-api-surface.md`` §7A, whose decision table
+# carries the owner's 2026-06-27 ruling to delete ``runner_registry.py`` and
+# ``runners/*`` as dead code with zero production importers, delivered in #1817.
+# The citation is spelled in full here so a reader can follow it.
+#
+# The live entry-point groups are listed in exactly one place,
+# ``src/scistudio/core/entry_points.py`` (ADR-053 FR-034). This group is not
+# among them and must not be reintroduced by inference from this note.
 
 [build-system]
 requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]

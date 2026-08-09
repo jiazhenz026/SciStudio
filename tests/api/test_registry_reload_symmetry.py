@@ -397,6 +397,70 @@ def test_branch_switch_refreshes_project_types_and_previewers(
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# ADR-053 (Learning Center) FR-031 — the refresh path reaches every live group
+# ---------------------------------------------------------------------------
+
+#: Which registry a live entry-point group is refreshed through.
+#:
+#: The tests above are written per registry kind, in paired assertions; this
+#: map is the same claim stated once against the live group set, so a group
+#: added to :data:`~scistudio.core.entry_points.LIVE_ENTRY_POINT_GROUPS`
+#: cannot quietly sit outside the refresh path.
+#:
+#: TODO(#2057): ``scistudio.tutorials`` has no discovery surface on this branch
+#:   — the Learning Center runtime is built on top of the entry-point contract
+#:   rather than before it — so it has no row here yet. The tutorials agent
+#:   must add tutorial discovery to ``ApiRuntime.refresh_all_registries`` and
+#:   list it below, so package install, package uninstall, and branch switch
+#:   reach the tutorial catalogue like every other group (ADR-053 FR-031).
+#:   Followup: https://github.com/jiazhenz026/SciStudio/issues/2057
+_GROUP_REFRESH_SITES: dict[str, str] = {
+    "scistudio.blocks": "block_registry",
+    "scistudio.types": "type_registry",
+    "scistudio.previewers": "preview_service",
+}
+
+
+def test_the_refresh_map_covers_every_live_entry_point_group() -> None:
+    """FR-031: exactly one group is still outside the refresh path, and it is tracked.
+
+    This fails the moment tutorial discovery lands, which is the intent: the
+    map is how refresh coverage is claimed, so a new group must either join it
+    or be argued about, never be forgotten.
+    """
+    from scistudio.core.entry_points import LIVE_ENTRY_POINT_GROUPS, TUTORIALS_ENTRY_POINT_GROUP
+
+    uncovered = frozenset(LIVE_ENTRY_POINT_GROUPS) - set(_GROUP_REFRESH_SITES)
+
+    assert uncovered == frozenset({TUTORIALS_ENTRY_POINT_GROUP}), (
+        "update _GROUP_REFRESH_SITES and the TODO(#2057) above when a group joins or leaves the refresh path"
+    )
+
+
+@pytest.mark.parametrize("group", sorted(_GROUP_REFRESH_SITES))
+def test_refresh_all_registries_rebuilds_the_registry_behind_every_group(
+    group: str,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """Every mapped group's registry is a different object after a refresh.
+
+    The behavioural tests above pin the user-visible half — a type or previewer
+    that was not there before the event is there afterwards. This pins the
+    structural half for every group at once, so a registry that
+    ``refresh_all_registries`` stopped rebuilding is caught even when no test
+    happens to ship a package for that group.
+    """
+    attribute = _GROUP_REFRESH_SITES[group]
+    before = getattr(runtime, attribute) if attribute != "preview_service" else runtime.get_preview_service()
+
+    runtime.refresh_all_registries()
+
+    after = getattr(runtime, attribute) if attribute != "preview_service" else runtime.get_preview_service()
+    assert after is not before, f"{group} was not rebuilt by refresh_all_registries()"
+
+
 def test_refresh_all_registries_picks_up_a_user_library_write(
     runtime: ApiRuntime,
     opened_project: Path,
