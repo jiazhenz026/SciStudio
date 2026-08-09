@@ -42,14 +42,16 @@ import { useBottomPanelControls } from "./App.parts/useBottomPanelControls";
 import { useCanvasHandlers } from "./App.parts/useCanvasHandlers";
 import { useCanvasReadability } from "./App.parts/useCanvasReadability";
 import { useFileTabsAutosave } from "./App.parts/useFileTabsAutosave";
+import { useLearningCenter } from "./App.parts/useLearningCenter";
 import { usePromptInput } from "./App.parts/usePromptInput";
 import { useBlockCatalogSync } from "./App.parts/useBlockCatalogSync";
 import { useProjectActions } from "./App.parts/useProjectActions";
-import { useRunFirstWorkflowTutorial } from "./App.parts/useRunFirstWorkflowTutorial";
 import { useWorkflowExecutionActions } from "./App.parts/useWorkflowExecutionActions";
 import { useWorkflowSync } from "./App.parts/useWorkflowSync";
 
-import { TutorialPanel } from "./components/TutorialPanel";
+import { LearningCenter } from "./components/LearningCenter";
+import { ActiveStep } from "./components/LearningCenter.parts/ActiveStep";
+import { StepHighlight } from "./components/LearningCenter.parts/StepHighlight";
 import { Toolbar } from "./components/Toolbar";
 import { TooltipProvider } from "./components/ui/tooltip";
 
@@ -316,16 +318,6 @@ export default function App() {
     importWorkflow,
   } = projectActions;
   const {
-    tutorialPromptVisible,
-    startTutorial,
-    dismissRunFirstWorkflowTutorialPrompt,
-    suppressRunFirstWorkflowTutorialPrompt,
-  } = useRunFirstWorkflowTutorial({
-    openProject,
-    setBusy,
-    setLastError,
-  });
-  const {
     runWorkflow,
     pauseWorkflow,
     resumeWorkflow,
@@ -382,6 +374,12 @@ export default function App() {
     tabs: tabs as AnyTab[],
     saveFileTab,
   });
+
+  /*
+   * ADR-053 Learning Center (#2057) — start-up catalogue fetch, the FR-083
+   * first-run landing, the reconnect refetch, and step-entry routing.
+   */
+  useLearningCenter({ wsConnected, setLeftTab });
   useAppKeyboardShortcuts({
     activeFileTab,
     cancelWorkflow,
@@ -459,6 +457,14 @@ export default function App() {
 
           <AppErrorBanner message={lastError} onDismiss={() => setLastError(null)} />
 
+          {/*
+           * ADR-053 FR-089 — the active step sits in the layout, between the
+           * toolbar and the workspace, so it never covers the canvas element it
+           * is telling the user to act on. It renders nothing when no tutorial
+           * is running.
+           */}
+          <ActiveStep />
+
           {currentProject ? (
             <>
               <ProjectWorkspace
@@ -514,12 +520,6 @@ export default function App() {
                 selectedNodeLabel={selectedNodeLabel}
                 setPanelSize={setPanelSize}
               />
-              <TutorialPanel
-                onOpenFile={openFileTab}
-                onReloadBlocks={reloadBlocks}
-                onSaveWorkflow={saveWorkflow}
-                onShowBlocks={() => setLeftTab("blocks")}
-              />
             </>
           ) : (
             <WelcomePane
@@ -528,10 +528,6 @@ export default function App() {
               onOpenProject={() => openProjectDialog("open")}
               onOpenRecent={(projectId) => void openProject(projectId)}
               recentProjects={recentProjects}
-              tutorialPromptVisible={tutorialPromptVisible}
-              onStartTutorial={() => void startTutorial()}
-              onDismissTutorial={dismissRunFirstWorkflowTutorialPrompt}
-              onSuppressTutorial={suppressRunFirstWorkflowTutorialPrompt}
             />
           )}
 
@@ -550,6 +546,16 @@ export default function App() {
             onPromptClose={clearPrompt}
             onResolveWorkflowConflict={resolveWorkflowConflict}
           />
+
+          {/*
+           * ADR-053 (#2057) — the ring around the element the step points at.
+           * A pointer-events-none overlay, so it never intercepts the drag or
+           * click the step is asking for (FR-089).
+           */}
+          <StepHighlight />
+
+          {/* ADR-053 FR-082 … FR-088 — mounted once; the toolbar only opens it. */}
+          <LearningCenter />
 
           <InteractiveModals />
 

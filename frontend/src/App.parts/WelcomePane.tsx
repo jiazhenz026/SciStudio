@@ -2,28 +2,27 @@ import type { ProjectResponse } from "../types/api";
 
 import { WelcomeScreen } from "../components/WelcomeScreen";
 
+/**
+ * ADR-053 FR-001 / FR-083 — the four tutorial-prompt props are gone.
+ *
+ * The first-run offer is no longer a card this pane passes through; the
+ * Learning Center is what a user with no recorded progress sees, and it is
+ * mounted by `App.tsx` above whatever this pane renders.
+ */
 interface WelcomePaneProps {
   recentProjects: ProjectResponse[];
-  tutorialPromptVisible: boolean;
   onDeleteProject: (projectId: string) => void;
   onNewProject: () => void;
   onOpenProject: () => void;
   onOpenRecent: (projectId: string) => void;
-  onStartTutorial: () => void;
-  onDismissTutorial: () => void;
-  onSuppressTutorial: () => void;
 }
 
 export function WelcomePane({
   recentProjects,
-  tutorialPromptVisible,
   onDeleteProject,
   onNewProject,
   onOpenProject,
   onOpenRecent,
-  onStartTutorial,
-  onDismissTutorial,
-  onSuppressTutorial,
 }: WelcomePaneProps) {
   return (
     <div className="min-h-0 flex-1">
@@ -33,10 +32,6 @@ export function WelcomePane({
         onOpenProject={onOpenProject}
         onOpenRecent={onOpenRecent}
         recentProjects={recentProjects}
-        tutorialPromptVisible={tutorialPromptVisible}
-        onStartTutorial={onStartTutorial}
-        onDismissTutorial={onDismissTutorial}
-        onSuppressTutorial={onSuppressTutorial}
       />
     </div>
   );

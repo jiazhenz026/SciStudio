@@ -98,6 +98,8 @@ export function RestoreRunButton({ run, onRestored }: RestoreRunButtonProps) {
         type="button"
         className="rounded-full bg-ink px-4 py-2 text-sm text-white disabled:bg-stone-400"
         data-testid="run-detail-restore-button"
+        // ADR-053 (#2057) — tutorial highlight target.
+        data-tutorial-target="history_restore_button"
         disabled={!commitSha}
         onClick={() => setDialogOpen(true)}
         title={

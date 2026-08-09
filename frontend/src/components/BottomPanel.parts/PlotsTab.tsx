@@ -147,6 +147,8 @@ export function PlotsTab() {
         </p>
         <button
           className="inline-flex items-center gap-1 rounded-full border border-stone-300 bg-white px-3 py-1 text-xs font-medium text-stone-700 hover:border-ink disabled:opacity-50"
+          // ADR-053 (#2057) — tutorial highlight target.
+          data-tutorial-target="plots_new_button"
           disabled={!workflowId}
           onClick={() => openNewPlotPicker()}
           title="Create a new plot"

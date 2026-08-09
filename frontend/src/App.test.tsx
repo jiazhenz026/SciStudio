@@ -23,6 +23,14 @@ describe("App", () => {
         if (url.endsWith("/api/projects/")) {
           return jsonResponse([]);
         }
+        // ADR-053 Learning Center (#2057) — App fetches the catalogue at
+        // start-up for the toolbar dot and the first-run decision.
+        if (url.endsWith("/api/tutorials/catalogue")) {
+          return jsonResponse({ groups: [], active: null, diagnostics: [] });
+        }
+        if (url.endsWith("/api/tutorials/sessions/active")) {
+          return jsonResponse(null);
+        }
         if (url.endsWith("/api/blocks/")) {
           return jsonResponse({
             blocks: [

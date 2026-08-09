@@ -108,23 +108,13 @@ export interface ProjectResponse {
   current_workflow_id?: string | null;
 }
 
-export interface RunFirstWorkflowBootstrapRequest {
-  parent_path?: string | null;
-}
-
-export interface RunFirstWorkflowBootstrapResponse {
-  tutorial_id: "run-first-scistudio-workflow";
-  project: ProjectResponse;
-  dataset_path: string;
-  workflow_id: string;
-  custom_block_path: string;
-  custom_block_type: string;
-  custom_block_name: string;
-  plot_id: string;
-  plot_title: string;
-  negative_control: string;
-  positive_control: string;
-}
+/*
+ * ADR-053 FR-001 — `RunFirstWorkflowBootstrapRequest` / `...Response` were the
+ * wire types of the single hardcoded tutorial's bootstrap route, removed with
+ * it (FR-003). The Learning Center's shapes live beside their client in
+ * `lib/api/learningCenter.ts`, since they describe one feature's contract
+ * rather than the shared product API.
+ */
 
 export interface BlockPortResponse {
   name: string;
