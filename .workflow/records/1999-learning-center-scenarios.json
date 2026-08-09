@@ -109,6 +109,36 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T06:06:44.908302Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:884fb3d05f513fdae7baa58eb2723bcc5d6a9a5739b3fcb0d26c01bec13016b8",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T06:09:45.241880Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1317a09dbbd303ca7bf373ba3dbbb3a6956b9afdcd1738b5f443872321ea9db5",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -621,6 +651,88 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:09:45.283887Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:09:45.293926Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:09:45.304747Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:09:45.315493Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:09:45.326115Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:09:45.337410Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:09:45.348199Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:09:45.360683Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:09:45.372579Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:09:45.391963Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -647,9 +759,9 @@
       "docs/planning/learning-center-scenarios.md",
       "docs/specs/adr-053-learning-center.md"
     ],
-    "diff_fingerprint": "sha256:a67ecc67fd9e2b17f95981f014800e05d65326a0db02f1759ac65d21de4c36cf",
+    "diff_fingerprint": "sha256:b98797ed807c1880533d6602a80d5ec0489d0caed659c98f4afcb172e7be3e32",
     "head": "HEAD",
-    "head_sha": "ebe2fb82",
+    "head_sha": "d528a802",
     "surfaces": {
       "docs": 3,
       "frontend": 0,
@@ -722,6 +834,14 @@
       "at": "2026-08-08T08:04:39.766622Z",
       "diff_fingerprint": "sha256:a67ecc67fd9e2b17f95981f014800e05d65326a0db02f1759ac65d21de4c36cf",
       "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-09T06:09:45.392013Z",
+      "diff_fingerprint": "sha256:b98797ed807c1880533d6602a80d5ec0489d0caed659c98f4afcb172e7be3e32",
+      "mode": "local",
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
