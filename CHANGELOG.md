@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   *requested* label downgrades the finding to a warning, so an agent is told
   before it opens the PR while CI stays the authority; silence downgrades
   nothing.
+  The workflow's label filter is now **derived** from `labels.py` rather than
+  restating it. That set decides which labels reach the evaluator at all, so a
+  label missing from it is invisible to every guard no matter what the guard
+  looks for — the owner applies the label, CI drops it, and the guard reports
+  missing approval. The new label was born into exactly that state while the set
+  was a literal; a Codex review caught it. Any label added to the vocabulary is
+  forwarded from now on without anyone having to remember a second list.
   It is enforced in **Verify Workflow Compliance**, which is the only CI job
   that runs the gate evaluator with PR context and can therefore verify *who*
   applied a label — the whole difficulty of an approval flag. Full Audit and the

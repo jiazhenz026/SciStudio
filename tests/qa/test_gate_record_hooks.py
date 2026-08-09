@@ -99,6 +99,56 @@ def test_workflow_gate_ci_is_single_evaluator_ci_invocation() -> None:
     assert "admin-approved:bypass" in workflow
 
 
+def test_workflow_gate_derives_the_label_vocabulary_rather_than_restating_it() -> None:
+    """#2054: the workflow's label filter must come from ``labels.py``.
+
+    ``OVERRIDE_LABELS`` decides which labels reach the evaluator at all, so a
+    label missing from it is invisible to every guard regardless of what that
+    guard looks for — the owner applies the label, the workflow drops it, and
+    the guard reports missing approval. That is precisely how
+    ``admin-approved:architecture-doc`` was born broken while it was a literal
+    set here, and a Codex review caught it. Restating the vocabulary is the
+    defect; deriving it is the fix.
+    """
+
+    workflow = _text(".github/workflows/workflow-gate.yml")
+    assert "from scistudio.qa.governance.gate_record.labels import VALID_LABELS as OVERRIDE_LABELS" in workflow
+    # No second copy of the vocabulary. Quoted forms only — the names may still
+    # appear in prose, and the one string literal that legitimately remains is
+    # the legacy ai-override migration map.
+    assert "OVERRIDE_LABELS = {" not in workflow
+    assert '"admin-approved:core-change"' not in workflow
+    assert '"admin-approved:merge"' not in workflow
+    assert '"admin-approved:architecture-doc"' not in workflow
+    assert '"human-authored"' not in workflow
+
+
+def test_workflow_gate_inline_python_parses_and_covers_every_valid_label() -> None:
+    """The heredoc is real code that never runs locally; parse it and check its set."""
+
+    import ast
+    import re
+
+    from scistudio.qa.governance.gate_record.labels import VALID_LABELS
+
+    workflow = _text(".github/workflows/workflow-gate.yml")
+    match = re.search(r"python - <<'PY'\n(.*?)\n\s*PY\n", workflow, re.S)
+    assert match, "the PR-context heredoc is no longer recognisable"
+    lines = match.group(1).split("\n")
+    indent = min(len(line) - len(line.lstrip()) for line in lines if line.strip())
+    ast.parse("\n".join(line[indent:] for line in lines))
+
+    # Every label an owner can apply must survive the filter, including the ones
+    # added after this test was written.
+    assert {
+        "human-authored",
+        "admin-approved:bypass",
+        "admin-approved:core-change",
+        "admin-approved:merge",
+        "admin-approved:architecture-doc",
+    } <= VALID_LABELS
+
+
 # ---------------------------------------------------------------------------
 # Legacy entry points and state are gone.
 # ---------------------------------------------------------------------------
