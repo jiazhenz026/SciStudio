@@ -62,8 +62,12 @@ steps:
       data/raw/cell_viability_fluorescence.csv and leave core_type as
       DataFrame — that pair is the whole contract, telling SciStudio which file
       to read and which core type to read it as. The output port recolours to
-      match the type you choose. Continue when the config looks right; if the
-      path is wrong, the run a few steps from now will say so.
+      match the type you choose.
+    done_when:
+      config_matches:
+        block_type: load_data
+        key: path
+        pattern: data/raw/cell_viability_fluorescence.csv
 
   - id: read-the-block
     route_to: canvas
