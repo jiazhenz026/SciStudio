@@ -336,7 +336,15 @@ def _unmet_version(specifier: str, installed: str) -> str | None:
         current = Version(installed)
     except InvalidVersion:  # pragma: no cover - a dev tree with an odd version string
         return None
-    if current in wanted:
+    # ``prereleases=True`` rather than the PEP 440 default. That default exists
+    # for dependency resolution, where silently pulling an alpha into someone's
+    # environment is the hazard. Here the question is the opposite one — is the
+    # SciStudio the user is already running new enough — and refusing to answer
+    # it "yes" for an alpha makes every release-candidate build report its own
+    # tutorials as needing an upgrade. SciStudio ships pre-release versions as a
+    # matter of course (this tree is 0.3.3a0), so the default would have made
+    # ``requires.scistudio`` unusable rather than merely strict.
+    if wanted.contains(current, prereleases=True):
         return None
     return f"needs SciStudio {specifier}, and this is {installed}"
 

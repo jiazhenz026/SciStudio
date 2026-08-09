@@ -34,6 +34,12 @@ import pytest
 
 from scistudio.tutorials.actions import CopyAction, ReplayAction, WriteAction
 from scistudio.tutorials.conditions import UI_EVENT_NAMES, VOCABULARY
+from scistudio.tutorials.discovery import (
+    DiscoveryEnvironment,
+    _unmet_version,
+    discover_tutorials,
+    unmet_requirement,
+)
 from scistudio.tutorials.manifest import (
     HIGHLIGHT_TARGETS,
     ROUTE_TARGETS,
@@ -323,3 +329,60 @@ class TestEveryShippedCoreTutorial:
         for step in manifest.steps:
             if step.done_when is not None:
                 walk(step.done_when, step.id)
+
+
+def test_every_shipped_tutorial_is_startable_in_this_tree() -> None:
+    """A shipped tutorial must be startable by the SciStudio that ships it.
+
+    The check the other tests in this file cannot make. They validate manifests
+    in isolation; this one runs the real discovery pass over the real tree and
+    asks the question a reader asks by opening the Learning Center: can I press
+    start?
+
+    It exists because the first time it was run the answer was no. SciStudio
+    versions itself with pre-release segments as a matter of course — this tree
+    is an ``a0`` — and ``packaging`` excludes pre-releases from specifier
+    matching unless asked not to, so ``requires.scistudio: ">=0.3.1"`` did not
+    match ``0.3.3a0`` and the only tutorial the product ships reported itself as
+    needing a newer SciStudio than the one it came in. Nothing in a manifest, a
+    schema, or a discovery unit test can see that: it needs the shipped
+    manifest and the running version in the same assertion.
+    """
+
+    result = discover_tutorials()
+    assert result.tutorials, "discovery found no core tutorials"
+    for tutorial in result.tutorials:
+        reason = unmet_requirement(tutorial.manifest, DiscoveryEnvironment())
+        assert reason is None, (
+            f"core tutorial {tutorial.key.tutorial_id!r} ships in a SciStudio it says it cannot run in: {reason}"
+        )
+        assert tutorial.is_startable, f"core tutorial {tutorial.key.tutorial_id!r} is discovered but not startable"
+
+
+@pytest.mark.parametrize(
+    ("specifier", "version"),
+    [(">=0.3.1", "0.3.3a0"), (">=0.3.0", "0.4.0rc1"), (">=1.0", "1.1.0b2")],
+)
+def test_a_prerelease_core_satisfies_a_plain_lower_bound(specifier: str, version: str) -> None:
+    """A pre-release build is new enough for a requirement it is numerically past.
+
+    PEP 440's default is right for dependency resolution, where quietly pulling
+    an alpha into an environment is the hazard. The question here is the
+    opposite one — whether the SciStudio already running is new enough — and
+    answering it "no" for every pre-release build would make ``requires``
+    unusable rather than merely strict.
+    """
+
+    assert _unmet_version(specifier, version) is None
+
+
+def test_a_prerelease_of_the_required_version_itself_is_still_too_old() -> None:
+    """The bound above is a widening, not a removal of the ordering.
+
+    ``1.0.0b2`` precedes ``1.0.0``, so a tutorial requiring ``>=1.0`` is right
+    to refuse it. Pinned separately because the obvious over-correction — treat
+    any pre-release as satisfying anything — would pass the test above and be
+    wrong here.
+    """
+
+    assert _unmet_version(">=1.0", "1.0.0b2") is not None
