@@ -44,7 +44,7 @@ about the user having just acted.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
@@ -521,18 +521,34 @@ def _eval_edge_exists(args: Mapping[str, Any], state: ProductState) -> bool:
     return False
 
 
-def _eval_config_equals(args: Mapping[str, Any], state: ProductState) -> bool:
+def _addressed_config_values(args: Mapping[str, Any], state: ProductState) -> Iterator[Any]:
+    """Yield the value of ``args['key']`` on every node the condition addresses.
+
+    ``config_equals`` and ``config_matches`` differ only in how they compare a
+    value once they have it. *Finding* it is one idea — no open workflow means
+    no match, then the ``node_id``/``block_type`` selection FR-047 gives both
+    terms, then the key being present on that node at all — and is written
+    once, so a change to which nodes a config term addresses reaches both terms
+    together.
+
+    A node that does not carry the key yields nothing rather than yielding
+    ``None``: absent and present-but-null are different, and only the caller
+    knows whether that difference matters to its comparison.
+    """
     workflow = state.workflow()
     if workflow is None:
-        return False
+        return
     key = args["key"]
-    expected = args["value"]
     for node in workflow.nodes:
         if not _node_matches(node, block_type=args.get("block_type"), node_id=args.get("node_id")):
             continue
-        if key in node.config and node.config[key] == expected:
-            return True
-    return False
+        if key in node.config:
+            yield node.config[key]
+
+
+def _eval_config_equals(args: Mapping[str, Any], state: ProductState) -> bool:
+    expected = args["value"]
+    return any(value == expected for value in _addressed_config_values(args, state))
 
 
 def _as_posix(value: str) -> str:
@@ -570,15 +586,8 @@ def _eval_config_matches(args: Mapping[str, Any], state: ProductState) -> bool:
     Plain relative patterns already match at any depth, so ``**`` is not needed
     and is not recommended: ``PurePath.match`` treats it as a single ``*``.
     """
-    workflow = state.workflow()
-    if workflow is None:
-        return False
-    key = args["key"]
     pattern = _as_posix(str(args["pattern"]))
-    for node in workflow.nodes:
-        if not _node_matches(node, block_type=args.get("block_type"), node_id=args.get("node_id")):
-            continue
-        value = node.config.get(key)
+    for value in _addressed_config_values(args, state):
         if not isinstance(value, str) or not value:
             continue
         try:
