@@ -305,8 +305,18 @@ class ProgressStore:
     def remove_package_group(self, distribution: str) -> int:
         """Drop the progress group of an uninstalled package (FR-078).
 
-        Called by whoever handles package uninstall; this module does not
-        observe installs.
+        Called from the uninstall route
+        (:func:`scistudio.api.routes.packages._forget_package_progress`); this
+        module does not observe package lifecycle events itself. Uninstall
+        alone — an update or a rollback moves the same package's code without
+        the user losing what they completed.
+
+        *distribution* MUST already be in the PEP 503 normalized form
+        :func:`scistudio.tutorials.discovery.normalize_distribution_name`
+        returns, because that is the spelling a package tutorial's ``source_id``
+        is recorded under. The fold is not applied here because ``discovery``
+        imports this module, so importing the normaliser back would close a
+        cycle; the one call site folds instead.
         """
         return self.remove_group("package", distribution)
 
