@@ -645,10 +645,62 @@ Append only.
 
 ## 10. Final Readiness
 
-- [ ] All dispatched agents have final outputs.
-- [ ] Manager reviewed every changed file.
-- [ ] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux
-      evidence when needed, commit, and PR evidence.
-- [ ] PR closes every issue fixed by the dispatch.
-- [ ] CI passed.
-- [ ] Checklist final state matches PR and gate record.
+- [x] All dispatched agents have final outputs. -> ten tracks: A1 … A10
+- [x] Manager reviewed every changed file. -> every track's output was read and
+      merged individually; six defects were found at integration that no single
+      track could see (§10.1)
+- [x] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux
+      evidence when needed, commit, and PR evidence. -> Sentrux N/A, neither MCP
+      nor CLI available in this session; recorded as a guard event by the
+      evaluator
+- [x] PR closes every issue fixed by the dispatch. -> #2056, #2057, #2058
+- [!] CI passed. -> **blocked on one owner decision**, see §10.2
+- [x] Checklist final state matches PR and gate record.
+
+### 10.1 What integration caught that no single track could
+
+Recorded because it is the argument for reviewing merged state rather than
+trusting per-track green suites.
+
+1. **The shipped tutorial was unstartable.** Real discovery over the real tree
+   returned `state=unavailable` for the only tutorial the product ships — no
+   start button, on first launch. `packaging` excludes pre-releases from
+   specifier matching and this tree is `0.3.3a0`. The discovery track's tests
+   redirect `core_tutorials_dir()`; the tutorial track had no discovery module.
+2. **`test_placement.py` treats shipped teaching assets as modules.** Only
+   visible once the tutorial and the placement test were in one tree.
+3. **mypy walks into `assets/code/`** with `disallow_untyped_defs`, against a
+   file deliberately left unannotated because a bench scientist reads it.
+4. **A test asserted a dependency version, not a route.** It passed in the
+   project environment and failed in the CI-equivalent one, because Starlette
+   >= 1.3 nests included routers and reading `.path` alone finds nothing.
+5. **The wheel would have shipped a Learning Center with no tutorials.**
+   `packages.find` reaches neither the schema nor the assets, and
+   `wheel-release-smoke` inspects only the SPA bundle.
+6. **`full_audit` was already failing** on the branch before the docs track
+   started, on ADR-053's own frontmatter.
+
+And the audit, which is the same argument one level up: three of its five
+load-bearing findings were requirements whose code existed and whose tests
+passed while **nothing called them in production**.
+
+### 10.2 The one blocker, and two other owner decisions
+
+**Blocking CI: the semantic-duplication ratchet.** 126 clusters and 7141
+duplicate LOC against limits of 120 and 7000. Duplication was reduced twice
+first — five clusters out of the tutorial runtime, and the three copies of the
+entry-point module lookup plus two of the distribution-name lookup that FR-025
+had left in the registries. Neither the scanner nor the baseline was touched.
+
+`origin/main` already measures **119 clusters and 6896 duplicate LOC**, measured
+on a detached checkout with none of this work present. One cluster and 104 lines
+of headroom, so no subsystem fits. Three of this branch's seven clusters cannot
+be removed at all: the two `Protocol`-versus-implementation pairs, and the
+tutorial's two teaching assets whose near-identity is the lesson. The percentage
+metric moved the *right* way, 11.88% to 11.48%.
+
+`SCISTUDIO_SKIP_PREFLIGHT=1` was deliberately not used. A quality threshold is
+the owner's to move.
+
+**Also needed:** `admin-approved:core-change` on the PR, and a decision on
+#2059, the `ARCHITECTURE.md` §12.4 correction FR-034 asks for.
