@@ -165,10 +165,10 @@ approves it.
 | `A3` | `implementer` | `N/A` | §7.3 | Tutorial projects, scoped library, progress | `feat/lc-projects` | `.worktrees/lc-projects` | `src/scistudio/tutorials/{projects,progress}.py`, `src/scistudio/core/dropins.py`, `src/scistudio/api/runtime/{_projects,models}.py`, `src/scistudio/api/routes/projects.py`, `tests/tutorials/**`, `tests/api/test_tutorial_project_visibility.py` | `src/scistudio/tutorials/{manifest,conditions,actions,discovery,driver,session}.py` | #2057 | `[x]` |
 | `A4` | `implementer` | `N/A` | §7.4 | Frontend Learning Center | `feat/lc-frontend` | `.worktrees/lc-frontend` | `frontend/src/**` | `src/**`, `tests/**`, `docs/**` | #2057 | `[x]` |
 | `A5` | `implementer` | `N/A` | §7.5 | Discovery, driver, session | `feat/lc-runtime` | `.worktrees/lc-runtime` | `src/scistudio/tutorials/{discovery,driver,session}.py`, `tests/tutorials/**` | wave-1 files | #2057 | `[x]` |
-| `A6` | `implementer` | `N/A` | §7.6 | API routes + replay | `feat/lc-routes` | `.worktrees/lc-routes` | `src/scistudio/api/routes/tutorials.py`, `src/scistudio/api/routes/ai_pty/**`, `src/scistudio/api/app.py`, `tests/api/**` | `src/scistudio/tutorials/**` except read | #2057 | `[ ]` |
+| `A6` | `implementer` | `N/A` | §7.6 | API routes + replay | `feat/lc-routes` | `.worktrees/lc-routes` | `src/scistudio/api/routes/tutorials.py`, `src/scistudio/api/routes/ai_pty/**`, `src/scistudio/api/app.py`, `tests/api/**` | `src/scistudio/tutorials/**` except read | #2057 | `[x]` |
 | `A7` | `implementer` | `N/A` | §7.7 | Core tutorial 1 + fixture tutorials | `feat/lc-tutorial-1` | `.worktrees/lc-tutorial-1` | `src/scistudio/tutorials/core/**`, `tests/tutorials/fixtures/**` | runtime modules | #2058 | `[x]` |
 | `A8` | `adr_author` | `N/A` | §7.8 | ADR-053 revisions, spec sync, CHANGELOG | `feat/lc-docs` | `.worktrees/lc-docs` | `docs/adr/ADR-053.md`, `docs/specs/adr-053-learning-center.md`, `CHANGELOG.md` | `docs/architecture/ARCHITECTURE.md`, all code | #2057 | `[x]` |
-| `A9` | `audit_reviewer` | `no-context` | §7.9 | Independent conformance audit | `feat/lc-audit` | `.worktrees/lc-audit` | `docs/audit/**` | everything else (read-only) | #2057 | `[ ]` |
+| `A9` | `audit_reviewer` | `no-context` | §7.9 | Independent conformance audit | `feat/lc-audit` | `.worktrees/lc-audit` | `docs/audit/**` | everything else (read-only) | #2057 | `[x]` |
 
 ## 6.1 Shared contracts — the interfaces agents build against
 
@@ -484,9 +484,10 @@ replay must not accept user input back into the scripted session (FR-061a).
 
 #### 7.6.3 Implementation
 
-- [ ] Routes -> `<artifact>`
-- [ ] Replay byte source -> `<artifact>`
-- [ ] Event subscription wiring -> `<artifact>`
+- [x] Routes -> `feat/lc-routes` d836ae75; all twelve §6.1.6 endpoints
+- [x] Replay byte source -> injected into the existing PTY join path, so the tab strip, terminal component, and tab lifecycle stay the product's real ones and only the byte source changes; input discarded; teardown on the same path a real PTY uses
+- [x] Event subscription wiring -> plus a genuine ordering bug found and fixed: `interactive_complete` both records an interaction and re-judges the step, so registration order decided whether a step waiting on that interaction could advance at all
+- [x] Tests -> 47 new; full `tests/api` green
 
 ### 7.7 Track A7 — Core tutorial 1 and test fixtures (#2058)
 
@@ -558,13 +559,36 @@ reference set." Does not affect the tutorial, because Load sets a storage ref.
 
 #### 7.9.4 Audit
 
-- [ ] Audit agent assigned, or manager audit completed.
-- [ ] Audit report file path assigned.
-- [ ] Audit report committed.
-- [ ] Audit report merged into final PR evidence path.
-- [ ] Findings recorded.
-- [ ] P1 findings fixed before integration.
-- [ ] P2/P3 findings fixed or tracked with owner-approved rationale.
+- [x] Audit agent assigned, or manager audit completed. -> no-context, `feat/lc-audit`
+- [x] Audit report file path assigned. -> `docs/audit/2026-08-09-learning-center-no-context.md`
+- [x] Audit report committed. -> 6f2ddd51, 702 lines
+- [x] Audit report merged into final PR evidence path. -> merged into `feat/learning-center`
+- [x] Findings recorded. -> 16 findings, recommendation **block**; 5 load-bearing
+- [x] P1 findings fixed before integration. -> see the table below
+- [x] P2/P3 findings fixed or tracked with owner-approved rationale.
+
+##### Audit findings and disposition
+
+The audit was worth its cost: three of its five load-bearing findings were
+invisible to the delivering tracks' own tests, because those tests called the
+functions directly while nothing called them in production.
+
+| Finding | Disposition |
+|---|---|
+| **FR-078 unimplemented** — `ProgressStore.remove_package_group` has zero production callers, so uninstalling a package does not remove its progress and reinstalling does not start from zero. `tests/tutorials/test_progress.py` calls the store directly, so the suite passed on an unbuilt requirement. | **Fixed.** Wired into the package-uninstall path with a test that goes through the route rather than the store. |
+| **FR-079 undelivered** — `getTutorialUnlock` / `dismissTutorialUnlock` had no consumer anywhere in the frontend, so the single product behaviour progress exists to drive was absent. | **Fixed.** Manager routing error, not agent drift: A4 was explicitly told the offer was out of its range. |
+| **SC-012 false** — `EXECUTED_PROJECT_DIRS` took FR-020a's "at minimum" literally, but `create_project` provisions `.claude/hooks/` into every project including tutorial ones and the AI PTY spawns with `cwd` there, so a project-tier tutorial could write an executable hook. The auditor demonstrated it by running the delivered validator. | **Fixed.** The security finding of the set. |
+| **`library_contains` unreachable, and the real library polluted** — the save-to-library write path binds `user_blocks_dir` / `user_types_dir` directly and never consults `library_root_for_project`, so a save from a tutorial project lands in the user's real `~/.scistudio/` library. The read side is correctly scoped, which is why the term can never see the file. | **Fixed.** Worse than an unreachable term: it is the exact pollution FR-070/FR-071 exist to prevent, and it survives clearing. |
+| **`full_audit` failing** — ADR-053 still governed the five frontend modules FR-001 deleted; ADR-049 planned `tests/packages/**`, which this work made resolve. | **Fixed by the manager.** `full_audit` now exits 0 with zero errors. |
+| `page_reached` unreachable — a step cannot name a page | **Tracked**, #2063. Widening the step view is a spec revision because FR-041 closes it deliberately. |
+| FR-034 unmet — `ARCHITECTURE.md` §12.4 | **Tracked**, #2059. Owner-gated; see §2.1. |
+
+Recorded on the other side, because it is evidence too: the audit independently
+confirmed that the requirements most likely to fail silently do hold — the
+FR-018 no-import proof is non-vacuous and defeats both the skip-the-package and
+swallowed-exception routes, no polling exists anywhere, FR-020a's enforcement
+mechanism and FR-055 and FR-040/FR-041 are correct and well tested, and a real
+wheel build confirms the tutorial schema and core assets ship.
 
 ## 8. Verification Evidence
 
