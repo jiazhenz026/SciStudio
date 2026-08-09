@@ -1,0 +1,26 @@
+# The smallest legal tutorial: a manifest and nothing else is required (FR-005).
+manifest_version: 1
+id: minimal-core
+title: A minimal core tutorial
+summary: One step, one condition, one written asset.
+order: 1
+requires:
+  scistudio: ">=0.3.0"
+  agent: false
+  packages: []
+bootstrap:
+  project_name: Minimal Core Tutorial
+  do:
+    - copy:
+        source: assets/data
+        destination: data/raw
+steps:
+  - id: drag-load
+    say: Drag a Load block onto the canvas.
+    highlight: block-palette
+    route_to: canvas
+    done_when:
+      node_exists:
+        block_type: LoadCSV
+  - id: read-about-it
+    say: That is a workflow. Continue when you are ready.
