@@ -1,0 +1,83 @@
+{
+  "branch": "guided/1997-palette-tips",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/**",
+      "docs/specs/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-09T06:17:25.302242Z",
+      "owner_directive": "On panel resize the tip overlay keeps a constant height (title + two clamped lines); text that no longer fits gets an expand control instead of growing the card",
+      "reason": "owner refined the tip overlay's resize behaviour during the live session"
+    },
+    {
+      "at": "2026-08-09T06:33:10.877215Z",
+      "owner_directive": "Tip card type is too small; scale the title, body, and expand control up",
+      "reason": "owner reviewed the running dev app and asked for larger type"
+    },
+    {
+      "at": "2026-08-09T06:39:53.543340Z",
+      "owner_directive": "At the panel's narrowest the tip title overflows the card, and the Blocks grid clips its tiles; truncate the title and raise the left panel's minimum width",
+      "reason": "owner found two narrow-panel defects while live-testing"
+    },
+    {
+      "at": "2026-08-09T08:34:32.462872Z",
+      "owner_directive": "Title may wrap to two lines on a narrow panel, and the expand control must release the title along with the body.",
+      "reason": "owner directives during the live session: title wraps to two lines and expands with the body; tips come out scattered rather than in authoring order; no per-tab scoping"
+    },
+    {
+      "at": "2026-08-09T08:34:32.463086Z",
+      "owner_directive": "Tips must come out mixed rather than chapter by chapter.",
+      "reason": "owner directives during the live session: title wraps to two lines and expands with the body; tips come out scattered rather than in authoring order; no per-tab scoping"
+    },
+    {
+      "at": "2026-08-09T08:34:32.463090Z",
+      "owner_directive": "Do not scope any tip to one of the Blocks / Data types / Project tabs; every tip may appear on all three.",
+      "reason": "owner directives during the live session: title wraps to two lines and expands with the body; tips come out scattered rather than in authoring order; no per-tab scoping"
+    },
+    {
+      "at": "2026-08-09T08:34:32.463091Z",
+      "owner_directive": "Stop authoring chapters here: terminal, interactive panel and settings tips are dropped; finish the feature and open the PR.",
+      "reason": "owner directives during the live session: title wraps to two lines and expands with the body; tips come out scattered rather than in authoring order; no per-tab scoping"
+    }
+  ],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1997,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement the palette tips surface from #1997, redesigned live: an overlay card pinned to the bottom of the shared left panel (Blocks / Data types / Project), 60s visible / 60s hidden rotation, x-dismiss with 5-minute snooze then session-off on the second dismiss, ember colour, placeholder tip content for now",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1997-guided-1997-palette-tips",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "496acf7b-24d3-4b85-b1b6-849de11831b4",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}
