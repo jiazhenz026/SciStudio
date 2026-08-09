@@ -189,6 +189,28 @@
       ],
       "guard": "worktree_write_guard",
       "status": "fail"
+    },
+    {
+      "at": "2026-08-09T10:36:09.591732Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1551/test_hook_payload_blocks_main_0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-09T10:36:10.117074Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1551/test_hook_payload_extracts_mul0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
     }
   ],
   "issues": [
