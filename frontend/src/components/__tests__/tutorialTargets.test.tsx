@@ -228,6 +228,19 @@ describe("route targets map onto this UI (FR-089 companion)", () => {
     expect(ROUTE_TARGET_LEFT_TABS.block_palette).toBe("blocks");
   });
 
+  it("declines to scroll rather than throwing when the host has no scrollIntoView", async () => {
+    // The scroll runs in a requestAnimationFrame callback, where a throw is
+    // uncatchable by any caller. jsdom omits the method, which makes this the
+    // real check it looks like rather than a hypothetical one.
+    RENDERERS.canvas();
+    applyStepRoute("canvas", { openBottomTab: vi.fn(), setLeftTab: vi.fn() });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    // Reaching here at all is the assertion: an unhandled rejection in the
+    // frame callback fails the run even when every expectation passed.
+    expect(document.querySelector(tutorialTargetSelector("canvas"))).not.toBeNull();
+  });
+
   it("switches no surface for canvas — it is already the main one", () => {
     const openBottomTab = vi.fn();
     const setLeftTab = vi.fn();

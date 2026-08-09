@@ -158,11 +158,21 @@ export function applyStepRoute(route: string, handlers: StepRouteHandlers): void
   scrollTutorialTargetIntoView(route);
 }
 
-/** Best-effort — a target that is not on screen is not an error. */
+/**
+ * Best-effort — a target that is not on screen is not an error.
+ *
+ * The `scrollIntoView` capability check is not ceremony. This runs inside a
+ * `requestAnimationFrame` callback, which is outside every caller's try/catch
+ * and outside React's error boundaries, so a host that does not implement the
+ * method turns a nicety that failed into an uncaught exception. Declining to
+ * scroll is what "best-effort" is supposed to mean.
+ */
 export function scrollTutorialTargetIntoView(target: string): void {
   if (typeof window === "undefined") return;
   window.requestAnimationFrame(() => {
     const element = findTutorialTarget(target);
-    element?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    if (typeof element?.scrollIntoView === "function") {
+      element.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
   });
 }

@@ -131,6 +131,33 @@ function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * The inbound engine events that can change whether the active step is done.
+ *
+ * This is FR-050's table read from the frontend's side. The backend subscribes
+ * to the same bus and is the one that judges; these are only the moments at
+ * which it is worth asking it again. `interactive_complete` is absent on
+ * purpose — it travels frontend to backend and is not in `_OUTBOUND_EVENTS`,
+ * so it never arrives here to react to.
+ *
+ * | Event               | Terms it can settle                                  |
+ * |---------------------|------------------------------------------------------|
+ * | `workflow.changed`  | `node_exists`, `edge_exists`, `config_equals`         |
+ * | `workflow_completed`, `block_done`, `block_error` | `run_succeeded`, `port_has_output` |
+ * | `blocks.reloaded`   | `block_registered`, `type_registered`, `previewer_registered`, `library_contains` |
+ * | `git.head_changed`  | `git_branch_exists`, `git_current_branch`             |
+ * | `file.changed`      | `file_exists`                                         |
+ */
+export const TUTORIAL_SYNC_EVENT_TYPES: ReadonlySet<string> = new Set([
+  "workflow.changed",
+  "workflow_completed",
+  "block_done",
+  "block_error",
+  "blocks.reloaded",
+  "git.head_changed",
+  "file.changed",
+]);
+
 export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningCenterSlice> = (
   set,
   get,
@@ -148,6 +175,21 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
       learningCenterError: session?.status === "error" ? (session.error ?? null) : null,
     });
   }
+
+  /*
+   * Coalescing state for `syncActiveTutorialSession`.
+   *
+   * `workflow.changed` arrives in bursts while a user drags a node around, and
+   * one request per event would put a queue of round trips behind a gesture
+   * that has already finished. Drop-while-in-flight with a single trailing
+   * re-run is used rather than a timed debounce: it issues no request the
+   * events did not ask for, it never delays the first one, and it still
+   * guarantees the last event in a burst is answered — which a leading-edge
+   * debounce does not, and which matters because the last event is the one
+   * that usually completes the step.
+   */
+  let syncInFlight = false;
+  let syncRequestedAgain = false;
 
   return {
     learningCenterOpen: false,
@@ -208,6 +250,63 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
         adoptSession(await learningCenterApi.getActiveTutorialSession());
       } catch (error) {
         set({ learningCenterError: describe(error) });
+      }
+    },
+
+    /**
+     * An engine event arrived — ask the backend where the step stands now.
+     *
+     * This is what makes a step advance on screen. The backend already judges
+     * and persists the advance the moment an event satisfies a condition, but
+     * nothing told the frontend, so a reader sat looking at a step they had
+     * finished until something else happened to fetch. User Story 1's third
+     * acceptance is explicit that the next step appears *without any further
+     * user action*, and this closes the half of it that was missing.
+     *
+     * No new WebSocket frame is introduced. Every event that matters is already
+     * in `_OUTBOUND_EVENTS` and already reaches this client, so the frontend
+     * reacts to "something changed" and the backend stays the sole judge — a
+     * frame carrying a verdict would be a second judging path, and a frame
+     * nobody reads is worse than no frame.
+     *
+     * It asks with `evaluate` rather than a plain read of the session. The two
+     * return the same view for the same cost, and `evaluate` additionally
+     * re-checks the conditions no event reaches: `file.changed` is filtered to
+     * an extension allowlist, so a `file_exists` condition on a TIFF or a Zarr
+     * store is never event-driven (FR-053). Evaluation is side-effect free
+     * (FR-055), so asking on every event is safe. What this still cannot cover
+     * is a change that fires *no* event at all — for that the reader has the
+     * explicit "Check again" button, which is the same call by hand.
+     */
+    syncActiveTutorialSession: async () => {
+      // Invisible to anyone who is not in a tutorial: no session, no request.
+      if (!get().learningCenterSession) return;
+
+      if (syncInFlight) {
+        syncRequestedAgain = true;
+        return;
+      }
+
+      syncInFlight = true;
+      try {
+        do {
+          syncRequestedAgain = false;
+          adoptSession(await learningCenterApi.evaluateActiveTutorialStep());
+        } while (syncRequestedAgain && get().learningCenterSession);
+      } catch (error) {
+        /*
+         * 404 means the session ended between the event and this request — the
+         * user left it, or it was invalidated because its project is gone. That
+         * is not an error to show anyone; it is the answer.
+         */
+        if (error instanceof ApiError && error.status === 404) {
+          set({ learningCenterSession: null });
+        } else {
+          set({ learningCenterError: describe(error) });
+        }
+      } finally {
+        syncInFlight = false;
+        syncRequestedAgain = false;
       }
     },
 
