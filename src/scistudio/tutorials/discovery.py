@@ -204,7 +204,11 @@ def installed_distribution_names() -> frozenset[str]:
     try:
         with prepared_plugin_import_roots():
             for dist in importlib.metadata.distributions():
-                raw = _distribution_name(dist)
+                # An unnamed distribution reads as "" rather than as the
+                # ``<unknown>`` string ``distribution_name`` defaults to for
+                # diagnostics, so it falls out of the set instead of being
+                # counted as an installed name.
+                raw = distribution_name(dist, default="")
                 if raw:
                     names.add(normalize_distribution_name(raw))
     except Exception:  # pragma: no cover - defensive; never fail discovery
@@ -544,7 +548,9 @@ def _package_sources(*, diagnostics: DiagnosticSink) -> Iterator[TutorialSource]
             directory = resolve_entry_point_directory(entry_point, diagnostics=diagnostics)
             if directory is None:
                 continue
-            name = _distribution_name(getattr(entry_point, "dist", None)) or entry_point_name(entry_point)
+            # "" rather than the ``<unknown>`` diagnostic default, so an
+            # unnamed distribution falls through to the entry point's own name.
+            name = distribution_name(getattr(entry_point, "dist", None), default="") or entry_point_name(entry_point)
             if not _holds_a_tutorial(directory):
                 # FR-028: a package that installed and contributed nothing must
                 # be distinguishable from one that had nothing to contribute.
@@ -686,16 +692,6 @@ def _reject_duplicate_ids(entries: tuple[DiscoveredTutorial, ...]) -> tuple[Disc
             )
         )
     return tuple(resolved)
-
-
-def _distribution_name(dist: Any) -> str:
-    """Return a distribution's declared name, or ``""``.
-
-    The lookup lives in :mod:`scistudio.core.entry_points` beside the rest of
-    the entry-point metadata handling; a tutorial source keyed on an unnamed
-    distribution wants an empty string rather than a diagnostic's placeholder.
-    """
-    return distribution_name(dist, default="")
 
 
 # ---------------------------------------------------------------------------

@@ -720,6 +720,27 @@ def validate_asset_containment(manifest: TutorialManifest) -> None:
                 raise ManifestValidationError(path=manifest.path, field_name=full_field, reason=str(exc)) from exc
 
 
+_EXECUTED_PATH_REASON = "a project path the product imports, executes, or reads to configure something it executes"
+"""Why a destination under :data:`~scistudio.tutorials.actions.EXECUTED_PROJECT_PATHS`
+is refused. Named once because two of the tier rejections give it — one for a
+destination that says the path and one for a copy that reaches it — and a reader
+comparing the two messages is comparing this sentence."""
+
+
+def _tier_rejection(manifest: TutorialManifest, *, field_name: str, may_not: str) -> ManifestValidationError:
+    """Build a tier rejection, naming the tier the same way in every one.
+
+    FR-020a is five separate restrictions — a ``driver`` field, a ``replay``
+    action, a write into an executed project path, a copy landing in one, and a
+    carried executable asset — and they are separate because they are judged at
+    different times against different things. What they share is the sentence
+    they open with: *a <tier>-level tutorial may not ...*. Composing it here is
+    what keeps five messages agreeing on how they name the tier and the field,
+    which is the part of them a reader compares when one fires.
+    """
+    return _fail(manifest.path, field_name, f"a {manifest.source_kind.value}-level tutorial may not {may_not}")
+
+
 def validate_tier_rules(manifest: TutorialManifest) -> None:
     """Apply the tier rules judgeable from the declaration alone (FR-020, FR-020a).
 
@@ -728,38 +749,31 @@ def validate_tier_rules(manifest: TutorialManifest) -> None:
     directory the product imports or executes. Each rejection names the tier,
     the field, and the restriction.
     """
-    tier = manifest.source_kind
-    if manifest.driver is not None and not tier.allows_executable_content:
-        raise ManifestValidationError(
-            path=manifest.path,
-            field_name="driver",
-            reason=(
-                f"a {tier.value}-level tutorial may not declare 'driver'; "
-                "code-driven tutorials are accepted only from core and packages"
-            ),
-        )
-    if tier.allows_executable_content:
+    if manifest.source_kind.allows_executable_content:
+        # The driver check is inside the gate rather than before it: a core or
+        # package tutorial may declare one, so there is nothing to reject.
         return
+    if manifest.driver is not None:
+        raise _tier_rejection(
+            manifest,
+            field_name="driver",
+            may_not="declare 'driver'; code-driven tutorials are accepted only from core and packages",
+        )
     for field_name, action in _all_actions(manifest):
         if isinstance(action, ReplayAction):
-            raise ManifestValidationError(
-                path=manifest.path,
+            raise _tier_rejection(
+                manifest,
                 field_name=f"{field_name}.replay",
-                reason=(
-                    f"a {tier.value}-level tutorial may not declare a 'replay' action; "
-                    "scripted replay material is accepted only from core and packages"
-                ),
+                may_not="declare a 'replay' action; scripted replay material is accepted only from core and packages",
             )
         for file_action in iter_file_actions([action]):
             hit = executed_project_path_hit(file_action.destination)
             if hit is not None:
-                raise ManifestValidationError(
-                    path=manifest.path,
+                raise _tier_rejection(
+                    manifest,
                     field_name=f"{field_name}.{file_action.kind}.destination",
-                    reason=(
-                        f"a {tier.value}-level tutorial may not write into {hit!r}, "
-                        "a project path the product imports, executes, or reads to configure "
-                        "something it executes; the restricted set is "
+                    may_not=(
+                        f"write into {hit!r}, {_EXECUTED_PATH_REASON}; the restricted set is "
                         f"{', '.join(sorted(EXECUTED_PROJECT_PATHS))}"
                     ),
                 )
@@ -774,19 +788,17 @@ def validate_tier_assets(manifest: TutorialManifest) -> None:
     project directory is rejected as well, because copying a directory to the
     project root reaches ``blocks/`` just as directly as naming it.
     """
-    tier = manifest.source_kind
-    if tier.allows_executable_content:
+    if manifest.source_kind.allows_executable_content:
         return
     for name in sorted(EXECUTABLE_ASSET_DIRS):
         candidate = manifest.assets_dir / name
         if candidate.is_dir() and any(entry.is_file() for entry in candidate.rglob("*")):
-            raise ManifestValidationError(
-                path=manifest.path,
+            raise _tier_rejection(
+                manifest,
                 field_name=f"{ASSETS_DIR_NAME}/{name}",
-                reason=(
-                    f"a {tier.value}-level tutorial may not carry assets under "
-                    f"{ASSETS_DIR_NAME}/{name}/; the product imports, executes, or plays back "
-                    f"the contents of {', '.join(sorted(EXECUTABLE_ASSET_DIRS))}"
+                may_not=(
+                    f"carry assets under {ASSETS_DIR_NAME}/{name}/; the product imports, executes, "
+                    f"or plays back the contents of {', '.join(sorted(EXECUTABLE_ASSET_DIRS))}"
                 ),
             )
     for field_name, action in _all_actions(manifest):
@@ -805,13 +817,11 @@ def _reject_executed_landing(manifest: TutorialManifest, action: CopyAction, *, 
         landing = base / entry.relative_to(source)
         hit = executed_project_path_hit(landing.as_posix())
         if hit is not None:
-            raise ManifestValidationError(
-                path=manifest.path,
+            raise _tier_rejection(
+                manifest,
                 field_name=f"{field_name}.copy.source",
-                reason=(
-                    f"a {manifest.source_kind.value}-level tutorial may not copy "
-                    f"{action.source!r} into {action.destination!r}: {landing.as_posix()!r} would land in "
-                    f"{hit!r}, a project path the product imports, executes, or reads to configure "
-                    "something it executes"
+                may_not=(
+                    f"copy {action.source!r} into {action.destination!r}: "
+                    f"{landing.as_posix()!r} would land in {hit!r}, {_EXECUTED_PATH_REASON}"
                 ),
             )

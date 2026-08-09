@@ -42,7 +42,7 @@ import shutil
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import Any, Protocol, TypeVar, cast, runtime_checkable
 
 __all__ = [
     "AI_CHAT_TERMINAL_SURFACE",
@@ -370,99 +370,145 @@ def _single_key(raw: Any, *, field_name: str, allowed: Sequence[str]) -> tuple[s
     return str(kind), body
 
 
-def _parse_file_action(kind: str, body: Any, *, field_name: str) -> FileAction:
-    if not isinstance(body, Mapping):
-        raise ActionValidationError(f"{field_name}.{kind}: expected a mapping with 'source' and 'destination'")
-    unknown = set(body) - {"source", "destination"}
+def _require_declaration(
+    raw: Any,
+    *,
+    field_name: str,
+    keys: tuple[str, ...],
+    also_accepts: tuple[str, ...] = (),
+) -> Mapping[str, Any]:
+    """Return ``raw`` as a mapping declaring ``keys``, rejecting any key outside them.
+
+    The three things this module parses out of a manifest — a file action, a
+    replay, a replay segment — each open with the same two rejections: a body
+    that is not a mapping, and a key the format does not define. Both messages
+    have to name the declaration's own field path for FR-013's errors to point
+    at the right place, so the caller passes that path in rather than three
+    parsers separately agreeing on how to build it.
+
+    ``keys`` are the ones the "expected a mapping with ..." message names.
+    ``also_accepts`` are accepted without being named, which is a segment's
+    optional ``do``.
+    """
+    if not isinstance(raw, Mapping):
+        raise ActionValidationError(f"{field_name}: expected a mapping with {' and '.join(repr(key) for key in keys)}")
+    unknown = set(raw) - set(keys) - set(also_accepts)
     if unknown:
-        raise ActionValidationError(f"{field_name}.{kind}: unknown key(s) {', '.join(sorted(unknown))}")
+        raise ActionValidationError(f"{field_name}: unknown key(s) {', '.join(sorted(unknown))}")
+    return raw
+
+
+def _require_text(body: Mapping[str, Any], key: str, *, field_name: str) -> str:
+    """Return ``body[key]`` as a non-empty string, or reject it naming the key."""
+    value = body.get(key)
+    if not isinstance(value, str) or not value:
+        raise ActionValidationError(f"{field_name}.{key}: expected a non-empty string")
+    return value
+
+
+def _parse_file_action(kind: str, body: Any, *, field_name: str) -> FileAction:
+    field = f"{field_name}.{kind}"
+    declared = _require_declaration(body, field_name=field, keys=("source", "destination"))
     for key in ("source", "destination"):
-        if key not in body:
-            raise ActionValidationError(f"{field_name}.{kind}: missing required key {key!r}")
-        if not isinstance(body[key], str):
-            raise ActionValidationError(f"{field_name}.{kind}.{key}: expected a string")
-    source = str(body["source"])
-    destination = str(body["destination"])
-    validate_relative_path(source, field_name=f"{field_name}.{kind}.source")
-    validate_relative_path(destination, field_name=f"{field_name}.{kind}.destination")
+        # Distinguished from _require_text on purpose: a write whose 'source' is
+        # missing and one whose 'source' is a number are different mistakes, and
+        # an empty string is left to validate_relative_path so the reason a path
+        # is unusable is always given by the path validator.
+        if key not in declared:
+            raise ActionValidationError(f"{field}: missing required key {key!r}")
+        if not isinstance(declared[key], str):
+            raise ActionValidationError(f"{field}.{key}: expected a string")
+    source = str(declared["source"])
+    destination = str(declared["destination"])
+    validate_relative_path(source, field_name=f"{field}.source")
+    validate_relative_path(destination, field_name=f"{field}.destination")
     if kind == "write":
         return WriteAction(source=source, destination=destination)
     return CopyAction(source=source, destination=destination)
 
 
 def _parse_replay(body: Any, *, field_name: str) -> ReplayAction:
-    if not isinstance(body, Mapping):
-        raise ActionValidationError(f"{field_name}.replay: expected a mapping with 'surface' and 'segments'")
-    unknown = set(body) - {"surface", "segments"}
-    if unknown:
-        raise ActionValidationError(f"{field_name}.replay: unknown key(s) {', '.join(sorted(unknown))}")
-    surface = body.get("surface")
-    if not isinstance(surface, str) or not surface:
-        raise ActionValidationError(f"{field_name}.replay.surface: expected a non-empty string")
+    field = f"{field_name}.replay"
+    declared = _require_declaration(body, field_name=field, keys=("surface", "segments"))
+    surface = _require_text(declared, "surface", field_name=field)
     if surface not in REPLAY_SURFACES:
         raise ActionValidationError(
-            f"{field_name}.replay.surface: {surface!r} is not a replay surface; "
+            f"{field}.surface: {surface!r} is not a replay surface; "
             f"the closed set is {', '.join(sorted(REPLAY_SURFACES))}"
         )
-    raw_segments = body.get("segments")
+    raw_segments = declared.get("segments")
     if not isinstance(raw_segments, Sequence) or isinstance(raw_segments, str) or not raw_segments:
-        raise ActionValidationError(f"{field_name}.replay.segments: expected a non-empty list")
-    segments: list[ReplaySegment] = []
+        raise ActionValidationError(f"{field}.segments: expected a non-empty list")
     seen: set[str] = set()
-    for index, raw_segment in enumerate(raw_segments):
-        segments.append(_parse_segment(raw_segment, field_name=f"{field_name}.replay.segments[{index}]", seen=seen))
-    return ReplayAction(surface=surface, segments=tuple(segments))
+    segments = tuple(
+        _parse_segment(raw_segment, field_name=f"{field}.segments[{index}]", seen=seen)
+        for index, raw_segment in enumerate(raw_segments)
+    )
+    return ReplayAction(surface=surface, segments=segments)
 
 
 def _parse_segment(raw: Any, *, field_name: str, seen: set[str]) -> ReplaySegment:
-    if not isinstance(raw, Mapping):
-        raise ActionValidationError(f"{field_name}: expected a mapping with 'id' and 'source'")
-    unknown = set(raw) - {"id", "source", "do"}
-    if unknown:
-        raise ActionValidationError(f"{field_name}: unknown key(s) {', '.join(sorted(unknown))}")
-    segment_id = raw.get("id")
-    if not isinstance(segment_id, str) or not segment_id:
-        raise ActionValidationError(f"{field_name}.id: expected a non-empty string")
+    declared = _require_declaration(raw, field_name=field_name, keys=("id", "source"), also_accepts=("do",))
+    segment_id = _require_text(declared, "id", field_name=field_name)
     if segment_id in seen:
         raise ActionValidationError(f"{field_name}.id: duplicate segment id {segment_id!r}")
     seen.add(segment_id)
-    source = raw.get("source")
-    if not isinstance(source, str) or not source:
-        raise ActionValidationError(f"{field_name}.source: expected a non-empty string")
+    source = _require_text(declared, "source", field_name=field_name)
     validate_relative_path(source, field_name=f"{field_name}.source")
-    bound = parse_file_actions(raw.get("do") or (), field_name=f"{field_name}.do")
+    bound = parse_file_actions(declared.get("do") or (), field_name=f"{field_name}.do")
     return ReplaySegment(id=segment_id, source=source, do=bound)
 
 
-def parse_action(raw: Any, *, field_name: str) -> Action:
-    """Parse one declared action, rejecting anything the format does not allow."""
-    kind, body = _single_key(raw, field_name=field_name, allowed=_ACTION_KINDS)
+def _parse_one_action(raw: Any, *, field_name: str, allowed: Sequence[str]) -> Action:
+    """Parse one declared action, restricted to the ``allowed`` kinds."""
+    kind, body = _single_key(raw, field_name=field_name, allowed=allowed)
     if kind == "replay":
         return _parse_replay(body, field_name=field_name)
     return _parse_file_action(kind, body, field_name=field_name)
 
 
-def parse_actions(raw: Any, *, field_name: str) -> tuple[Action, ...]:
-    """Parse an ordered ``do`` list. Order is preserved; it is execution order."""
+def parse_action(raw: Any, *, field_name: str) -> Action:
+    """Parse one declared action, rejecting anything the format does not allow."""
+    return _parse_one_action(raw, field_name=field_name, allowed=_ACTION_KINDS)
+
+
+def _parse_action_list(raw: Any, *, field_name: str, allowed: Sequence[str], expected: str) -> tuple[Action, ...]:
+    """Parse an ordered ``do`` list restricted to the ``allowed`` action kinds.
+
+    A step's ``do`` and a replay segment's ``do`` are the same walk over the
+    same declarations; they differ in which kinds are legal there and therefore
+    in what the message says a non-list should have been. Both are that walk
+    with those two arguments, so a change to how a ``do`` list is read cannot
+    reach one of them and miss the other.
+    """
     if raw is None:
         return ()
     if not isinstance(raw, Sequence) or isinstance(raw, str):
-        raise ActionValidationError(f"{field_name}: expected a list of actions")
-    return tuple(parse_action(item, field_name=f"{field_name}[{index}]") for index, item in enumerate(raw))
+        raise ActionValidationError(f"{field_name}: expected {expected}")
+    return tuple(
+        _parse_one_action(item, field_name=f"{field_name}[{index}]", allowed=allowed) for index, item in enumerate(raw)
+    )
+
+
+def parse_actions(raw: Any, *, field_name: str) -> tuple[Action, ...]:
+    """Parse an ordered ``do`` list. Order is preserved; it is execution order."""
+    return _parse_action_list(raw, field_name=field_name, allowed=_ACTION_KINDS, expected="a list of actions")
 
 
 def parse_file_actions(raw: Any, *, field_name: str) -> tuple[FileAction, ...]:
-    """Parse a ``do`` list restricted to write and copy — a replay segment's binding."""
-    if raw is None:
-        return ()
-    if not isinstance(raw, Sequence) or isinstance(raw, str):
-        raise ActionValidationError(f"{field_name}: expected a list of write or copy actions")
-    parsed: list[FileAction] = []
-    for index, item in enumerate(raw):
-        item_field = f"{field_name}[{index}]"
-        kind, body = _single_key(item, field_name=item_field, allowed=_FILE_ACTION_KINDS)
-        parsed.append(_parse_file_action(kind, body, field_name=item_field))
-    return tuple(parsed)
+    """Parse a ``do`` list restricted to write and copy — a replay segment's binding.
+
+    Narrowed rather than checked again: ``_FILE_ACTION_KINDS`` excludes
+    ``replay``, so :func:`_parse_action_list` can only have built write and copy
+    actions here.
+    """
+    parsed = _parse_action_list(
+        raw,
+        field_name=field_name,
+        allowed=_FILE_ACTION_KINDS,
+        expected="a list of write or copy actions",
+    )
+    return cast("tuple[FileAction, ...]", parsed)
 
 
 def iter_file_actions(actions: Iterable[Action]) -> Iterable[FileAction]:
