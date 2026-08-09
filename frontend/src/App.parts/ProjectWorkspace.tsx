@@ -24,6 +24,7 @@ import { BlockPalette } from "../components/BlockPalette";
 import { BottomPanel } from "../components/BottomPanel";
 import { CodeEditor } from "../components/CodeEditor";
 import { DataPreview } from "../components/DataPreview";
+import { PaletteTipCard } from "../components/palette/tips/PaletteTipCard";
 import { ProjectTree } from "../components/ProjectTree";
 import { useLibraryReveal } from "../components/promotion/revealInLibrary";
 import { TabBar } from "../components/TabBar";
@@ -183,7 +184,10 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
           Project
         </button>
       </div>
-      <div className="min-h-0 flex-1">
+      {/* `relative` anchors the tip overlay (#1997) to the pane body, so the
+          card floats over the bottom of whichever tab is open and never
+          covers the tab strip. */}
+      <div className="relative min-h-0 flex-1">
         {/* FR-027 — the Data types pane takes no props: it reads the type
             catalogue directly, so opening it neither waits for nor
             re-triggers a blocks fetch. */}
@@ -208,6 +212,10 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
             onReloadBlocks={onReloadBlocks}
           />
         )}
+        {/* #1997 — one card and one clock for all three tabs: mounted here
+            rather than inside a tab so switching tabs neither restarts the
+            rotation nor makes the card flicker. */}
+        <PaletteTipCard />
       </div>
     </div>
   );
@@ -390,8 +398,13 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
         }
       }}
     >
-      {/* Left Sidebar — tab switcher + content */}
-      <ResizablePanel defaultSize="15%" minSize="4%" maxSize="28%" collapsible collapsedSize="0%">
+      {/* Left Sidebar — tab switcher + content.
+          `minSize` is 10% rather than 4%: below roughly that the pane is
+          narrower than a single 80px tile plus the pane's own padding, so the
+          block grid clipped its tiles and the tip card had no room for a
+          title. The pane is still `collapsible` to 0%, so the narrow end of
+          the range is a real collapse instead of an unusable sliver. */}
+      <ResizablePanel defaultSize="15%" minSize="10%" maxSize="28%" collapsible collapsedSize="0%">
         <PaletteOrProjectPane {...props} />
       </ResizablePanel>
       <ResizableHandle withHandle />
