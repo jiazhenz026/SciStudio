@@ -34,6 +34,7 @@ export function resetAppStore() {
     learningCenterLoading: false,
     learningCenterError: null,
     learningCenterFirstRunDismissed: false,
+    learningCenterWorkImportOffer: false,
     panelSizes: { palette: 15, preview: 22, bottom: 30 },
     minimapVisible: true,
     lastError: null,
