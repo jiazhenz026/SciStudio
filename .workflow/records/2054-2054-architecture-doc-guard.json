@@ -282,6 +282,147 @@
       "tool_versions": {
         "mypy": "2.1.0"
       }
+    },
+    {
+      "at": "2026-08-09T06:35:34.611989Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ff60175f769204f1ebe7c88ee15661718c84fa654da2d88dfb87c224162f3c5c",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T06:35:35.569161Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c9ea424eb8f6bb92c0715afc8148c6301e1a5676335db10e6162d734a8c8b8b3",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T06:35:35.622670Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0de635e41b6221e818dffef7a8af2d2a1be6c1e6569d681608b28c7b951b8e8a",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-09T06:35:39.617593Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:43a90981c4bfd750cd12db3783edc3bc548347b950638606734e9e0845067e97",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T06:35:39.768686Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:30e87964b884bfa4c77e6ff5556b924935264888947a659c87faaeb175ba2fdf",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T06:35:39.792944Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6241fe89dd0e13ae4228516353df26c7cfb47ec28c3bb17aa29b74afdc40ae10",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-09T06:38:10.133526Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8d2378c60192e820c4511ed4c5f560456fb71785cff9fc99540ac433274d6a15",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T06:40:37.963181Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:79bfff7bc6c01e50e0359c0e08a1f9f31aa4a13756e204f541ac690ba8b07a2f",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T06:40:38.455957Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4bd6ce1e9d6d53f8997a5c19f8c63a80ee0c0a5cbae2839fe9e8238e39e0ec43",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
     }
   ],
   "check_na": [],
@@ -306,6 +447,11 @@
       "at": "2026-08-09T06:02:08.219720Z",
       "owner_directive": "Semantic-duplication ratchet rejected the copied helpers; extract one shared label-gated-surface implementation and route core_change_guard through it too.",
       "reason": "semantic-dup ratchet forced a shared implementation"
+    },
+    {
+      "at": "2026-08-09T06:40:47.971161Z",
+      "owner_directive": "Fix the Codex review finding on PR #2055.",
+      "reason": "Codex review P1 on PR #2055: the workflow's literal OVERRIDE_LABELS set drops the new label before the evaluator sees it, so the approval flag never authorizes anything"
     }
   ],
   "docs_events": [
@@ -879,6 +1025,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:40:38.499112Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:40:38.510944Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:40:38.523117Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:40:38.534809Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:40:38.546274Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:40:38.557411Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:40:38.569080Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:40:38.598138Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:40:38.632957Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:40:38.644506Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T06:40:38.656867Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -891,9 +1125,10 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "c8110edbd2205f87c3ec66804b875f50c796f38f",
-    "base_sha": "c8110edb",
+    "base": "origin/main",
+    "base_sha": "5f9f2b12",
     "changed_files": [
+      ".github/workflows/workflow-gate.yml",
       ".workflow/records/2054-2054-architecture-doc-guard.json",
       "CHANGELOG.md",
       "docs/ai-developer/gate-cli-command-set.md",
@@ -910,24 +1145,25 @@
       "src/scistudio/qa/governance/gate_record/labels.py",
       "src/scistudio/qa/governance/gate_record/surfaces.py",
       "tests/qa/test_gate_evaluator.py",
+      "tests/qa/test_gate_record_hooks.py",
       "tests/qa/test_governance_paths.py",
       "tests/qa/test_guard_calculators.py"
     ],
-    "diff_fingerprint": "sha256:6ca51c041cf7e3c062facfcfd8dafa375fbeade5b58676a28a1e0da8e1c8495d",
+    "diff_fingerprint": "sha256:d4d8cc88a427f31bc337a9560877bc803c2fffb163f06c04949fb92d35807ea3",
     "head": "HEAD",
-    "head_sha": "52ba3f3f",
+    "head_sha": "db87d3ed",
     "surfaces": {
       "docs": 5,
       "frontend": 0,
-      "governance": 12,
+      "governance": 13,
       "governed_docs": 4,
-      "implementation": 8,
+      "implementation": 9,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 12,
-      "test": 3,
-      "workflow_ci": 0
+      "sentrux": 14,
+      "test": 4,
+      "workflow_ci": 1
     }
   },
   "owner_directive": "Write a guard so that changing the architecture document fails CI unless an approval flag is present. Owner decisions: protect docs/architecture/ARCHITECTURE.md only; admin-approved:bypass and human-authored may still release it.",
@@ -982,6 +1218,16 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-08-09T06:40:38.656949Z",
+      "diff_fingerprint": "sha256:d4d8cc88a427f31bc337a9560877bc803c2fffb163f06c04949fb92d35807ea3",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "scope.out-of-scope"
+      ]
     }
   ],
   "record_id": "2054-2054-architecture-doc-guard",
@@ -1051,6 +1297,12 @@
       "at": "2026-08-09T05:45:16.692319Z",
       "pattern": "CHANGELOG.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-09T06:40:47.971282Z",
+      "pattern": ".github/workflows/workflow-gate.yml",
+      "reason": "Codex review P1 on PR #2055: the workflow's literal OVERRIDE_LABELS set drops the new label before the evaluator sees it, so the approval flag never authorizes anything"
     }
   ],
   "session_id": "eb0d6246-4932-42a5-adc8-21a6522a60e2",
