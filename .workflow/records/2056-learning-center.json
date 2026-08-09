@@ -327,6 +327,132 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T11:51:31.017257Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:daaa314880965d591c3c1bfce03fe56a5130705dfcd85dd5402afa174f17df70",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T11:51:31.066903Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b1c1a78d91d605028341725d0fc7368194d47933321aeca985b0e634e39862d0",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-09T11:51:35.100652Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9c2a5553d381911f6c88d2dea3ddad6bc2b2e52958a58a2dab29d30107707e35",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T11:51:35.210284Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b64614fc54215ecd5c6a3feb02133a9cc889b296577522cd2e9409dfeced322b",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T11:51:35.232400Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bddd56de125141bd7277e2eef40e64897102156462894779dd447555e07f2efa",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-09T11:54:04.229380Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cc65c2ba6adcf062f2be0f1788d546e9990bc06b9a968f496f961f669d19a22e",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T11:56:38.023643Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:3ed6f330b32755f7a2f836c18dec691a0d43efd003c34abad8b97589b586c66f",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T11:56:38.505496Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:25c01f62843700d23f04d1419fe9c365084d52902b76ec84858b17d059ae154a",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
     }
   ],
   "check_na": [],
@@ -993,6 +1119,394 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:56:38.551048Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:56:38.561695Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/registry/__init__.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/registry/__init__.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/registry/_scan.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/registry/_scan.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/dropins.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/dropins.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/entry_points.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/entry_points.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/types/registry.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/types/registry.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:56:38.572143Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:56:38.582176Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:56:38.592631Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:56:38.602038Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:56:38.611809Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:56:38.621582Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:56:38.631109Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:56:38.640310Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:56:38.650297Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:57:14.118029Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:57:14.128663Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/registry/__init__.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/registry/__init__.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/registry/_scan.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/registry/_scan.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/dropins.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/dropins.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/entry_points.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/entry_points.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/types/registry.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/types/registry.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:57:14.138927Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:57:14.149299Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:57:14.160437Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:57:14.170351Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:57:14.180592Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:57:14.191118Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:57:14.201827Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:57:14.212417Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T11:57:14.224588Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1141,9 +1655,9 @@
       "tests/tutorials/test_session_lifecycle.py",
       "tests/tutorials/test_tier_asset_rules.py"
     ],
-    "diff_fingerprint": "sha256:2ee22c99c066e7323ae3bdc12f8540f47dc5abb350939c5f95bb8afc86d2fbd3",
+    "diff_fingerprint": "sha256:afd1a92a3a5e0505a60fe5162a607b6f42ad76a4a03f921d369b22badf2bd4df",
     "head": "HEAD",
-    "head_sha": "ee228a89",
+    "head_sha": "3692ae08",
     "surfaces": {
       "docs": 5,
       "frontend": 41,
@@ -1182,6 +1696,26 @@
       "tier": 1,
       "unsatisfied": [
         "checks.python_tests",
+        "checks.semantic_dup"
+      ]
+    },
+    {
+      "at": "2026-08-09T11:56:38.650359Z",
+      "diff_fingerprint": "sha256:afd1a92a3a5e0505a60fe5162a607b6f42ad76a4a03f921d369b22badf2bd4df",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.semantic_dup"
+      ]
+    },
+    {
+      "at": "2026-08-09T11:57:14.224630Z",
+      "diff_fingerprint": "sha256:afd1a92a3a5e0505a60fe5162a607b6f42ad76a4a03f921d369b22badf2bd4df",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
         "checks.semantic_dup"
       ]
     }
