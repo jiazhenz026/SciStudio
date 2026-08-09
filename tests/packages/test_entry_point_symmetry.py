@@ -350,6 +350,58 @@ def test_a_non_callable_payload_is_refused_with_a_diagnostic(group: str) -> None
     assert [d.stage for d in diagnostics] == [STAGE_INVOKE]
 
 
+@pytest.mark.parametrize("group", [g for g in LIVE_ENTRY_POINT_GROUPS if g not in METADATA_ONLY_GROUPS])
+def test_a_bare_class_is_accepted_but_a_bare_list_is_refused(group: str) -> None:
+    """The FR-029 affordance is a bare *class*, and only that.
+
+    ``BlockRegistry._scan_tier2`` used to resolve its payload with
+    ``result = loaded() if callable(loaded) else loaded``, which accepted any
+    non-callable — so an entry point whose value resolved to a bare **list** of
+    block classes worked, undocumented and unintended. It is refused now, and
+    that decision is pinned here rather than left implicit.
+
+    Nothing published depends on the list form: the in-repo fixture package
+    declares callables for all three of its groups, and ADR-049's package
+    validator already enforces the callable return shape (PV-02-003), so a real
+    package shipping a bare list fails validation before it ever reaches a
+    registry. The bare *class*, by contrast, is a published form that installed
+    packages do depend on, which is why exactly one of these two survives.
+    """
+
+    class _Contribution:
+        """A block-like class an entry point could name directly."""
+
+    allowed = group in BARE_CLASS_GROUPS
+
+    class_diagnostics: list[EntryPointDiagnostic] = []
+    from_class = resolve_payload(
+        _Contribution,
+        group=group,
+        entry_point="bare-class",
+        allow_bare_class=allowed,
+        diagnostics=class_diagnostics,
+    )
+
+    list_diagnostics: list[EntryPointDiagnostic] = []
+    from_list = resolve_payload(
+        [_Contribution],
+        group=group,
+        entry_point="bare-list",
+        allow_bare_class=allowed,
+        diagnostics=list_diagnostics,
+    )
+
+    if allowed:
+        assert from_class is _Contribution, "the published bare-class form must keep working"
+        assert class_diagnostics == []
+    else:
+        assert class_diagnostics == [] or from_class is not _Contribution
+
+    assert from_list is None, "a bare list is not the contract and must not be accepted"
+    assert [d.stage for d in list_diagnostics] == [STAGE_INVOKE]
+    assert "list" in list_diagnostics[0].message
+
+
 # ---------------------------------------------------------------------------
 # FR-018 / FR-029a — the tutorial group resolves without importing
 # ---------------------------------------------------------------------------

@@ -180,8 +180,11 @@ def test_load_packages_activates_installed_plugin_roots_for_entry_points(
         return real_entry_points(*args, **kwargs)
 
     monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
+    # ADR-053 FR-030: resolving the plugin import roots is the shared
+    # entry-point helper's job now, applied to every group rather than to the
+    # previewer scan alone, so the seam to patch moved there with it.
     monkeypatch.setattr(
-        "scistudio.previewers.registry.installed_package_import_roots",
+        "scistudio.core.entry_points.installed_package_import_roots",
         lambda: [tmp_path],
     )
 

@@ -468,7 +468,13 @@ class TestTypeRegistryEntryPoints:
         assert "TypeB" in registry.all_types()
 
     def test_scan_load_failure_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
-        """An entry-point that fails to load logs a warning and does not crash."""
+        """An entry-point that fails to load logs a warning and does not crash.
+
+        ADR-053 FR-025: the message comes from the shared entry-point helper
+        now, not from this registry, and reads the same for every group. The
+        two spellings the block and type registries used for the same failure
+        were part of the divergence that helper exists to end.
+        """
         from unittest.mock import MagicMock, patch
 
         mock_ep = MagicMock()
@@ -478,11 +484,11 @@ class TestTypeRegistryEntryPoints:
         registry = TypeRegistry()
         with (
             patch("importlib.metadata.entry_points", return_value=[mock_ep]),
-            caplog.at_level("WARNING", logger="scistudio.core.types.registry"),
+            caplog.at_level("WARNING", logger="scistudio.core.entry_points"),
         ):
             registry._scan_entrypoint_types()
 
-        assert "Failed to load entry-point 'broken_load'" in caplog.text
+        assert "Failed to load entry_point 'broken_load'" in caplog.text
         assert len(registry.all_types()) == 0
 
     def test_scan_callable_exception_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
@@ -499,11 +505,12 @@ class TestTypeRegistryEntryPoints:
         registry = TypeRegistry()
         with (
             patch("importlib.metadata.entry_points", return_value=[mock_ep]),
-            caplog.at_level("WARNING", logger="scistudio.core.types.registry"),
+            caplog.at_level("WARNING", logger="scistudio.core.entry_points"),
         ):
             registry._scan_entrypoint_types()
 
-        assert "Entry-point 'broken_factory' callable raised an exception" in caplog.text
+        # FR-025: one message for a payload that raised, whichever group it is.
+        assert "Failed to process entry_point 'broken_factory'" in caplog.text
         assert len(registry.all_types()) == 0
 
     def test_scan_non_list_return_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
