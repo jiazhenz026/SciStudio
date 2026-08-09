@@ -124,7 +124,14 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-09T08:02:50.735284Z",
+      "pattern": "src/scistudio/blocks/registry/**",
+      "reason": "FR-028 requires the block registry to gain a diagnostic surface, and BlockRegistry lives in blocks/registry/__init__.py rather than _scan.py; the original include named only _scan.py. Also widening to the four test files whose expectations the shared entry-point contract changes."
+    }
+  ],
   "session_id": "b4be238d-ceba-4d3d-88fc-281a926395c6",
   "strictness_tier": null,
   "task_kind": "feature",

@@ -166,8 +166,8 @@ approves it.
 | `A4` | `implementer` | `N/A` | §7.4 | Frontend Learning Center | `feat/lc-frontend` | `.worktrees/lc-frontend` | `frontend/src/**` | `src/**`, `tests/**`, `docs/**` | #2057 | `[x]` |
 | `A5` | `implementer` | `N/A` | §7.5 | Discovery, driver, session | `feat/lc-runtime` | `.worktrees/lc-runtime` | `src/scistudio/tutorials/{discovery,driver,session}.py`, `tests/tutorials/**` | wave-1 files | #2057 | `[ ]` |
 | `A6` | `implementer` | `N/A` | §7.6 | API routes + replay | `feat/lc-routes` | `.worktrees/lc-routes` | `src/scistudio/api/routes/tutorials.py`, `src/scistudio/api/routes/ai_pty/**`, `src/scistudio/api/app.py`, `tests/api/**` | `src/scistudio/tutorials/**` except read | #2057 | `[ ]` |
-| `A7` | `implementer` | `N/A` | §7.7 | Core tutorial 1 + fixture tutorials | `feat/lc-tutorial-1` | `.worktrees/lc-tutorial-1` | `src/scistudio/tutorials/core/**`, `tests/tutorials/fixtures/**` | runtime modules | #2058 | `[ ]` |
-| `A8` | `adr_author` | `N/A` | §7.8 | ADR-053 revisions, spec sync, CHANGELOG | `feat/lc-docs` | `.worktrees/lc-docs` | `docs/adr/ADR-053.md`, `docs/specs/adr-053-learning-center.md`, `CHANGELOG.md` | `docs/architecture/ARCHITECTURE.md`, all code | #2057 | `[ ]` |
+| `A7` | `implementer` | `N/A` | §7.7 | Core tutorial 1 + fixture tutorials | `feat/lc-tutorial-1` | `.worktrees/lc-tutorial-1` | `src/scistudio/tutorials/core/**`, `tests/tutorials/fixtures/**` | runtime modules | #2058 | `[x]` |
+| `A8` | `adr_author` | `N/A` | §7.8 | ADR-053 revisions, spec sync, CHANGELOG | `feat/lc-docs` | `.worktrees/lc-docs` | `docs/adr/ADR-053.md`, `docs/specs/adr-053-learning-center.md`, `CHANGELOG.md` | `docs/architecture/ARCHITECTURE.md`, all code | #2057 | `[x]` |
 | `A9` | `audit_reviewer` | `no-context` | §7.9 | Independent conformance audit | `feat/lc-audit` | `.worktrees/lc-audit` | `docs/audit/**` | everything else (read-only) | #2057 | `[ ]` |
 
 ## 6.1 Shared contracts — the interfaces agents build against
@@ -497,8 +497,35 @@ replay must not accept user input back into the scripted session (FR-061a).
 
 #### 7.7.3 Implementation
 
-- [ ] Tutorial 1 manifest + assets -> `<artifact>`
-- [ ] Fixture tutorials -> `<artifact>`
+- [x] Tutorial 1 manifest + assets -> `feat/lc-tutorial-1` a0eeacfb; 13 steps; recovered block and plot sources verified to run (neg_control 0.0, pos_control 1.0, treated_1uM 0.33, treated_5uM 0.623)
+- [x] Fixture tutorials -> `full-vocabulary` (16/16 terms, both combinators, both `ui_event` names, all three `library_contains` kinds, all three action types, replay with segment-bound file actions), `driver-declared`, `malformed-manifest`, `unmet-requirements`, `future-manifest-version`
+- [x] Conformance test -> `tests/tutorials/test_core_tutorials.py`, directory-scanning rather than hardcoded; mutation-tested against six deliberate faults to confirm it does not pass vacuously
+- [x] Tests -> `tests/tutorials` 239/239; ruff clean; deferral scan clean
+
+#### 7.7.4 Gaps this track found
+
+Tutorial 1 was commissioned as a live test of whether the runtime is complete.
+It found ten gaps. Four are being closed in this PR; four are tracked; two were
+already fixed by another track or by the manager.
+
+| # | Gap | Disposition |
+|---|---|---|
+| 1 | `do` is entry-only; no user-triggered step action. 关卡 1 steps 2 and 5 are designed as "the user clicks and the tutorial generates it", which the retired tutorial supported via `actionLabel`. | Tracked: #2061. Needs a spec revision because FR-041 deliberately closes the step view. Tutorial 1 ships an inverted-but-working variant. |
+| 2 | `config_equals` is exact equality, but the Load `path` field is a native file browser yielding absolute paths. The retired frontend predicate normalised separators and accepted a suffix match; that was lost when judging moved to the backend. | **Closing in this PR.** The one step where the reader can silently get it wrong. |
+| 3 | `run_succeeded` cannot express "a *new* run". After Restore the step wants the reader to press Run, but a successful run already exists, so the condition is true on entry. | **Closing in this PR.** |
+| 4 | Nothing judges "the figure appeared" — `plot_exists` proves only that the card exists. | **Closing in this PR.** |
+| 5 | Node ids are runtime-generated, so `port_has_output`, `interaction_completed`, and the `node_id` arguments of `plot_exists`/`run_succeeded` are unusable by any tutorial where the reader drags the blocks. | Tracked: #2062. Blocks 关卡 2's interactive-block step outright. |
+| 6 | `ui_event: block_source_viewed` takes no target argument, so viewing any block satisfies it. | Tracked: #2063. |
+| 7 | No reserved asset directory for workflow definitions. | Tracked: #2063. 关卡 3 needs it. |
+| 8 | `history_restore_button` resolved to nothing. | Already fixed — A7 was working from a branch predating A4's annotations. Both independently chose the same element; verified at merge. |
+| 9 | `pyproject.toml` had no `package-data` entry for `tutorials/**`. | Already fixed by the manager before A7 reported it. |
+| 10 | `load_manifest` given a file path reports `.../tutorial.yaml/tutorial.yaml: cannot be read`. | **Closing in this PR.** |
+
+One core finding outside this spec, recorded rather than fixed: `Array.to_memory()`
+falls back to `_transient_data` when there is no storage ref, but the base
+`to_memory()` that `DataFrame`/`Series` use raises instead, so
+`DataFrame(data=table).to_pandas()` fails with "Cannot load data: no storage
+reference set." Does not affect the tutorial, because Load sets a storage ref.
 
 ### 7.8 Track A8 — ADR-053 revisions and spec sync (#2057)
 
@@ -510,9 +537,10 @@ replay must not accept user input back into the scripted session (FR-061a).
 
 #### 7.8.3 Implementation
 
-- [ ] ADR-053 revisions -> `<artifact>`
-- [ ] Spec frontmatter sync -> `<artifact>`
-- [ ] CHANGELOG -> `<artifact>`
+- [x] ADR-053 revisions -> `feat/lc-docs` bf8106af. FR-091 … FR-094's section bodies had already landed on `main` in 11c7ec96 under the now-closed #1999; what remained was the residue that closed issue could not carry — three unqualified restatements of the run-only completion claim (including the §2.1 heading), the §2.2 migration paragraph, and eleven stale #1998/#1999 attributions.
+- [x] Spec frontmatter sync -> `src/scistudio/core/entry_points.py`, the core tutorial tree, and the delivered-but-unlisted surfaces; §4.2 prose records the `core/` choice and its three reasons
+- [x] CHANGELOG -> breaking removal of `POST /api/tutorials/run-first-workflow/bootstrap` recorded as such
+- [x] Checks -> Full Audit exit 0 (**was failing with 6 errors before this track**, all `doc-drift.planned-file-is-resolved` on the spec frontmatter: `planned_governance.py` rates a resolved planned surface as ERROR regardless of Draft status); `tests/docs` 56 passed; `tests/qa` 409 passed
 
 ### 7.9 Track A9 — Independent audit (#2057)
 
@@ -560,10 +588,13 @@ layout. The manager does these after integrating, before the pre-PR check.
       tutorials, and the `wheel-release-smoke` CI job would not notice — it
       inspects the SPA bundle only. Add the patterns and an assertion that the
       shipped core tutorial is present. Same class of gap as #2032.
-- [ ] **ADR-053 §7 verification table.** Rows at `docs/adr/ADR-053.md:536-538`
+- [x] **ADR-053 §7 verification table.** Rows at `docs/adr/ADR-053.md:536-538`
       attribute Learning Center verification to #1998, which is closed. A8
       re-points them at #2056/#2057/#2058.
-- [ ] **Cross-track merge conflicts.** A1 and A3 both extend
+- [x] **Cross-track merge conflicts.** Resolved at each merge; both agents' additions survive.
+- [ ] **Close gaps 2, 3, 4, and 10 from §7.7.4** once the routes track lands, since three of them need a `ProductState` the routes agent implements.
+- [ ] **Spec `status` is still `Draft`.** ADR-042 §3.4 says a spec whose planned surfaces resolve should advance its implementation state, but advancing it turns on `governs` existence-checking and ADR↔spec alignment, and ADR-053's own `governs.files` covers none of `src/scistudio/tutorials/**`. Owner-visible consequence; left for the owner.
+- [x] ~~Cross-track merge conflicts~~ (superseded) A1 and A3 both extend
       `tests/api/test_registry_provisioning_parity.py` and
       `tests/api/test_registry_reload_symmetry.py` — A1 for the fourth
       entry-point group, A3 for the tutorial drop-in tier. Resolve

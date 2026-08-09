@@ -1,3 +1,11 @@
+"""The plot script the Learning Center writes into the tutorial project.
+
+A plot card runs this file and shows whatever ``render`` returns. It is
+ordinary Python the reader can open and change, which is the point: the first
+figure they see in SciStudio is one they could have written.
+"""
+
+
 def render(collection):
     """Plot normalized activity by condition.
 
