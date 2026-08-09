@@ -46,35 +46,25 @@ scope:
     - The work-import dialog, brief, and session, governed by the work-import spec. Only the unlock that routes to its entry point is specified here.
     - Provider configuration and the provider registry, governed by ADR-034.
 governs:
-  modules: []
-  contracts: []
-  entry_points: []
-  files:
-    - docs/specs/adr-053-learning-center.md
-    - docs/adr/ADR-053.md
-    - src/scistudio/api/routes/tutorials.py
-    - src/scistudio/api/routes/projects.py
-    - src/scistudio/api/runtime/_projects.py
-    - src/scistudio/blocks/registry/_scan.py
-    - src/scistudio/core/types/registry.py
-    - src/scistudio/previewers/registry.py
-    - src/scistudio/core/dropins.py
-    - frontend/src/store/tutorialSlice.ts
-    - frontend/src/components/TutorialPanel.tsx
-    - frontend/src/App.parts/WelcomePane.tsx
-    - frontend/src/App.parts/useRunFirstWorkflowTutorial.ts
-    - frontend/src/tutorials/runFirstWorkflow/content.ts
-    - frontend/src/lib/api/tutorials.ts
-  excludes:
-    - docs/user/reference/**
-    - docs/user/llms.txt
-planned_governs:
   modules:
     - scistudio.tutorials
   contracts: []
   entry_points:
     - scistudio.tutorials
   files:
+    - docs/specs/adr-053-learning-center.md
+    - docs/adr/ADR-053.md
+    - pyproject.toml
+    - src/scistudio/api/routes/tutorials.py
+    - src/scistudio/api/routes/projects.py
+    - src/scistudio/api/routes/ai_pty/**
+    - src/scistudio/api/runtime/_projects.py
+    - src/scistudio/api/runtime/models.py
+    - src/scistudio/blocks/registry/_scan.py
+    - src/scistudio/core/types/registry.py
+    - src/scistudio/previewers/registry.py
+    - src/scistudio/core/dropins.py
+    - src/scistudio/core/entry_points.py
     - src/scistudio/tutorials/__init__.py
     - src/scistudio/tutorials/manifest.py
     - src/scistudio/tutorials/discovery.py
@@ -85,11 +75,28 @@ planned_governs:
     - src/scistudio/tutorials/projects.py
     - src/scistudio/tutorials/progress.py
     - src/scistudio/tutorials/schema/tutorial.schema.json
-    - src/scistudio/packages/entry_points.py
+    - src/scistudio/tutorials/core/**
+    - frontend/src/store/tutorialSlice.ts
+    - frontend/src/components/TutorialPanel.tsx
+    - frontend/src/components/Toolbar.tsx
+    - frontend/src/components/WelcomeScreen.tsx
+    - frontend/src/App.tsx
+    - frontend/src/App.parts/WelcomePane.tsx
+    - frontend/src/App.parts/useRunFirstWorkflowTutorial.ts
+    - frontend/src/tutorials/runFirstWorkflow/content.ts
+    - frontend/src/lib/api/tutorials.ts
     - frontend/src/components/LearningCenter.tsx
     - frontend/src/components/LearningCenter.parts/ActiveStep.tsx
     - frontend/src/store/learningCenterSlice.ts
     - frontend/src/lib/api/learningCenter.ts
+  excludes:
+    - docs/user/reference/**
+    - docs/user/llms.txt
+planned_governs:
+  modules: []
+  contracts: []
+  entry_points: []
+  files: []
   excludes: []
 tests:
   - tests/packages/test_entry_point_symmetry.py
@@ -1124,21 +1131,22 @@ an evaluation (FR-053).
 | `src/scistudio/tutorials/projects.py` | Tutorial project creation, marking, deletion, scoped library (FR-062..FR-073) |
 | `src/scistudio/tutorials/progress.py` | Progress storage, grouping, unlock (FR-074..FR-081) |
 | `src/scistudio/tutorials/schema/tutorial.schema.json` | Published manifest schema (FR-013) |
-| `src/scistudio/packages/entry_points.py` | Shared enumeration, error containment, diagnostics, and import-root preparation for every `scistudio.*` group (FR-025..FR-030) |
+| `src/scistudio/core/entry_points.py` | Shared enumeration, error containment, diagnostics, and import-root preparation for every `scistudio.*` group (FR-025..FR-030) |
 
-`scistudio.packages` does not exist today; this opens a new top-level package
-beside `blocks`, `core`, `api`, and `previewers`. Two things decide the location
-and MUST be settled before the module is written. It is imported by the block,
-type, and previewer registries, so it has to sit where all three can reach it
-without a cycle — the reason `PackageInfo` lives in `blocks/base/` rather than
-with the code that uses it. And "package" already denotes an installed plugin
-distribution here, whose install, update, rollback, and delete code lives in
-`desktop/package_installer.py`, `desktop/package_manager.py`, and
-`desktop/package_ota.py`; a `scistudio.packages` holding only discovery
-plumbing invites that unrelated code to migrate into it later.
-`scistudio/entry_points.py` as a single module, or a home under `core/`, are the
-alternatives, and one of them may be chosen at implementation time without
-changing any requirement in §3.
+The shared helper lives under `core/`. Three things decide the location. It is
+imported by the block, type, and previewer registries, so it has to sit where all
+three can reach it without a cycle — the reason `PackageInfo` lives in
+`blocks/base/` rather than with the code that uses it — and import-linter permits
+every consumer to reach `scistudio.core`, which needs nothing from `blocks`,
+`engine`, `api`, `ai`, or `workflow` in return. `core/dropins.py` is already the
+settled precedent for one answer shared by those same three registries, so
+discovery's answer sits beside provisioning's. And "package" already denotes an
+installed plugin distribution here, whose install, update, rollback, and delete
+code lives in `desktop/package_installer.py`, `desktop/package_manager.py`, and
+`desktop/package_ota.py`; a `scistudio.packages` holding only discovery plumbing
+would invite that unrelated code to migrate into it later. A new top-level
+`scistudio.packages` and a single `scistudio/entry_points.py` were the
+alternatives; the choice among the three changes no requirement in §3.
 
 **Rewritten — backend**
 
