@@ -125,7 +125,13 @@
       "docs/planning/learning-center-scenarios.md"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-08-09T05:58:27.531299Z",
+      "owner_directive": "Owner reviewed the Codex audit and an independent re-audit; directed that the entry-point symmetry work stays in this spec, the tips strip moves out to its existing issue #1997, and every confirmed defect is fixed in one commit on the PR branch.",
+      "reason": "Owner directive after Codex review of PR #2046: fix the six Codex findings, move the palette tips strip out to issue #1997, and close the gaps found in an independent re-audit (replay action contract, manifest schema version, dropins.py in the affected-file surface, scistudio.packages placement rationale)."
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-08-07T23:18:02.264889Z",

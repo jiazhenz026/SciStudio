@@ -18,7 +18,6 @@ related_adrs:
 related_specs:
   - adr-053-personal-tool-library
   - adr-053-work-import
-  - frontend-block-palette
 scope:
   in:
     - Revising ADR-053 sections 2.1, 2.2, 4.2 and 8 - discarding rather than generalising the current tutorial implementation, admitting reading-only entries, and replacing the percentage unlock threshold with a named-tutorial milestone.
@@ -35,8 +34,8 @@ scope:
     - A tutorial-scoped library directory that tutorial projects scan and real projects do not.
     - Progress stored on the backend, grouped by source, with exactly one milestone unlock driven by the core group.
     - The Learning Center surface - a permanent toolbar entry, the first-run landing, and the unfinished-work dot.
-    - The block palette tips strip (#1997), inherited from the personal tool library spec.
   out:
+    - The block palette tips strip, tracked by #1997. The personal tool library spec routed it here, but it shares no mechanism with the tutorial runtime, depends on no Learning Center entry existing, and #1997 already carries its placement, behaviour, tip pool, and acceptance criteria in full. It ships on its own.
     - The six core tutorial scenarios themselves - their narratives, assets, copy, and step lists. Those are the Learning Center scenarios spec; this spec is the system they run on.
     - Any tutorial content shipped by a package.
     - Frontend assets supplied by a package tutorial. The shape of a tutorial step on screen stays core's.
@@ -54,6 +53,18 @@ governs:
     - docs/specs/adr-053-learning-center.md
     - docs/adr/ADR-053.md
     - src/scistudio/api/routes/tutorials.py
+    - src/scistudio/api/routes/projects.py
+    - src/scistudio/api/runtime/_projects.py
+    - src/scistudio/blocks/registry/_scan.py
+    - src/scistudio/core/types/registry.py
+    - src/scistudio/previewers/registry.py
+    - src/scistudio/core/dropins.py
+    - frontend/src/store/tutorialSlice.ts
+    - frontend/src/components/TutorialPanel.tsx
+    - frontend/src/App.parts/WelcomePane.tsx
+    - frontend/src/App.parts/useRunFirstWorkflowTutorial.ts
+    - frontend/src/tutorials/runFirstWorkflow/content.ts
+    - frontend/src/lib/api/tutorials.ts
   excludes:
     - docs/user/reference/**
     - docs/user/llms.txt
@@ -69,9 +80,16 @@ planned_governs:
     - src/scistudio/tutorials/discovery.py
     - src/scistudio/tutorials/driver.py
     - src/scistudio/tutorials/conditions.py
+    - src/scistudio/tutorials/actions.py
     - src/scistudio/tutorials/session.py
+    - src/scistudio/tutorials/projects.py
     - src/scistudio/tutorials/progress.py
+    - src/scistudio/tutorials/schema/tutorial.schema.json
+    - src/scistudio/packages/entry_points.py
     - frontend/src/components/LearningCenter.tsx
+    - frontend/src/components/LearningCenter.parts/ActiveStep.tsx
+    - frontend/src/store/learningCenterSlice.ts
+    - frontend/src/lib/api/learningCenter.ts
   excludes: []
 tests:
   - tests/packages/test_entry_point_symmetry.py
@@ -83,7 +101,6 @@ tests:
   - tests/api/test_tutorial_routes.py
   - tests/api/test_tutorial_project_visibility.py
   - frontend/src/components/__tests__/LearningCenter.test.tsx
-  - frontend/src/components/BlockPalette.parts/__tests__/tipsStrip.test.ts
 acceptance_source: adr
 language_source: en
 ---
@@ -119,7 +136,7 @@ replay scripts, and the reading pages. The manifest is the only required file.
 are drawn from a vocabulary core owns, evaluated against the registries, the
 workflow definition, the run records, git, and the filesystem. Re-evaluation is
 driven by the engine event bus the product already pushes to the frontend —
-`workflow.changed`, `workflow.completed`, `git.head_changed`, `blocks.reloaded`
+`workflow.changed`, `workflow_completed`, `git.head_changed`, `blocks.reloaded`
 and the rest — so no polling loop is introduced. An explicit evaluate request
 covers the conditions no event reaches.
 
@@ -140,12 +157,17 @@ were both made for this reason. A package's driver is imported only when the
 user opens that tutorial, so a broken tutorial breaks itself and nothing else.
 
 The capability is graded by source. Core and packages may point at a driver.
-User-level and project-level tutorials may not — the schema rejects the field —
-so a tutorial an agent writes into a project is structurally incapable of
-carrying executable code. This deliberately does not repeat the tradeoff made
-for drop-in blocks, where `{project}/blocks/*.py` is imported and executed with
-sandboxing deferred to #1531: tutorial code would be reached earlier and far
-more often, since merely listing the catalogue would touch it.
+User-level and project-level tutorials may not — the schema rejects the field.
+Rejecting the field is not sufficient on its own: a tutorial may ship source
+files as assets and write them anywhere in its project, so a project-level
+tutorial could drop a `.py` file into `blocks/` and have the product import it on
+the next refresh. The grading therefore covers assets and destinations as well as
+the driver field (FR-020a), and only with both does a tutorial an agent writes
+into a project become incapable of carrying executable code. This deliberately
+does not repeat the tradeoff made for drop-in blocks, where `{project}/blocks/*.py`
+is imported and executed with sandboxing deferred to #1531: tutorial code would be
+reached earlier and far more often, since merely listing the catalogue would touch
+it.
 
 Three smaller decisions follow from the scenarios rather than from the
 architecture. Tutorial projects are hidden from the recent-project surfaces and
@@ -168,10 +190,14 @@ them would make the disagreement the convention. §3's entry-point symmetry
 requirements state one contract and bring all four to it — the same argument the
 personal tool library spec makes about the refresh path, applied to discovery.
 
-The palette tips strip (#1997) is included here because the personal tool
-library spec routed it to this spec and because it belongs to the same problem:
-a user cannot go looking for a feature whose existence they have never been
-shown.
+The palette tips strip (#1997) was routed here by the personal tool library
+spec and is routed back out. It addresses the same problem — a user cannot go
+looking for a feature whose existence they have never been shown — but it shares
+no mechanism with anything specified here, the draft requirement for it already
+said it must not depend on a Learning Center entry existing, and #1997 already
+carries its placement, behaviour, tip pool, and acceptance criteria in full. Keeping it here
+would have coupled a strip that ships in an afternoon to a system that ships in
+eleven steps.
 
 ## 2. User Scenarios & Testing
 
@@ -473,6 +499,16 @@ and `pages/` for reading content.
 declare `cover` naming an image file in the tutorial directory, and `order` as an
 integer controlling position within its group.
 
+**FR-007a.** The manifest MUST declare a `manifest_version` integer, and a
+manifest whose version the running core does not support MUST be listed as
+unavailable naming the version it requires, on the same path as an unmet
+requirement (FR-024). The format is published for package authors to write
+against (FR-013) and ships inside distributions core does not control, so the
+first breaking change to it arrives as a manifest that parses into the wrong
+shape rather than as one that announces itself. A version field is the only thing
+that lets discovery tell "written for a newer core" apart from "malformed", and
+the two owe the user different messages.
+
 **FR-008.** The manifest MAY declare a `requires` block with `scistudio` as a
 version specifier, `agent` as a boolean, and `packages` as a list of
 distribution names. A tutorial whose requirements are unmet MUST still be listed
@@ -517,8 +553,12 @@ inside the distribution; packages, via entry points; the user directory
 
 **FR-017.** Package tutorials MUST be declared through a new entry-point group
 `scistudio.tutorials`. This is the fourth live group, alongside
-`scistudio.blocks`, `scistudio.types`, and `scistudio.previewers`;
-`scistudio.runners` was removed by ADR-052 §7A and is not a precedent.
+`scistudio.blocks`, `scistudio.types`, and `scistudio.previewers`. A fifth group,
+`scistudio.runners`, was removed and is not a precedent; the authority for its
+removal is not restated here, because the citation that `pyproject.toml` carries
+for it — "ADR-052 §7A" — names a section ADR-052 does not have, which FR-035
+requires correcting. Repeating it here would republish the same unverifiable
+authority this spec is removing.
 
 **FR-018.** Listing the catalogue MUST NOT import any package module. Titles,
 summaries, covers, order, and requirements MUST be read from manifests alone.
@@ -529,6 +569,19 @@ packages MAY ship tutorials with the same id.
 **FR-020.** The `driver` field MUST be accepted only for core and package
 tutorials. A user-level or project-level manifest declaring it MUST be rejected
 at validation with a message naming the field and the restriction.
+
+**FR-020a.** Rejecting `driver` alone does not make a tier incapable of carrying
+executable code, and the tier restriction MUST therefore extend to assets and
+destinations. A user-level or project-level manifest MUST be rejected at
+validation when it carries an asset under `assets/code/`, `assets/panels/`, or
+`assets/replay/`; when it declares a `replay` action; or when a write or copy
+action's destination resolves under a directory the product imports or executes,
+which is at minimum `blocks/`, `types/`, `previewers/`, and `plots/` in the
+tutorial project. Without this, a project-level tutorial could place a `.py` file
+under `blocks/` through an ordinary write action (FR-057) and have it imported and
+executed on the next registry refresh, which is exactly the exposure the tier
+grading exists to avoid. The rejection MUST name the tier, the field, and the
+restriction.
 
 **FR-021.** A package driver MUST be imported only when a user starts that
 tutorial. An import failure MUST be contained to that tutorial.
@@ -592,17 +645,33 @@ observable outcome of a silent failure is a package that installed successfully
 and contributed nothing, which the user cannot distinguish from a package that
 had nothing to contribute.
 
-**FR-029.** The accepted payload shape MUST be one contract across groups: a
-callable returning the contributed objects. `scistudio.blocks` MAY continue to
-accept a bare class because that form is already published and packages depend on
-it; that allowance MUST be documented as a compatibility affordance in one place
-rather than reproduced as a per-group convention, and MUST NOT be extended to
-`scistudio.tutorials`.
+**FR-029.** The accepted payload shape MUST be one contract across the groups
+that contribute objects: a callable returning the contributed objects.
+`scistudio.blocks` MAY continue to accept a bare class because that form is
+already published and packages depend on it; that allowance MUST be documented as
+a compatibility affordance in one place rather than reproduced as a per-group
+convention, and MUST NOT be extended to any group added later.
+
+**FR-029a.** `scistudio.tutorials` MUST be exempt from FR-029 and MUST declare a
+metadata-only payload: the entry point's value resolves to a directory containing
+tutorial directories, and resolution MUST NOT call `EntryPoint.load()` or
+otherwise import the module the value names. The exemption is required rather
+than convenient — the callable contract is implemented by importing the target,
+and FR-018 forbids importing a package module while listing the catalogue, so a
+tutorial group satisfying both is impossible. The exemption MUST be recorded
+beside FR-029 in the shared helper's documentation, with its reason, so it reads
+as a second contract rather than as one group ignoring the first. Enumeration,
+error containment (FR-026, FR-027), diagnostics (FR-028), and import-root
+preparation (FR-030) apply to `scistudio.tutorials` unchanged.
 
 **FR-030.** Plugin import-root preparation MUST be applied uniformly. If
 `sys.path` preparation is required for one group to import a plugin's modules, it
-is required for all of them; the current previewer-only application means the
-same package can resolve for previewers and fail for blocks.
+is required for all of them. Today only `scistudio.previewers` prepares import
+roots around its entry-point scan; `scistudio.blocks` and `scistudio.types` do
+prepare them elsewhere — around drop-in execution and source-package import — so
+the gap is specific to the entry-point path rather than to those registries as a
+whole. The observable consequence is that the same package can resolve for
+previewers and fail for blocks.
 
 **FR-031.** Package install, package uninstall, branch switch, and the
 working-tree rewrites that now trigger a registry refresh — restore, merge, and
@@ -718,11 +787,21 @@ event in a declared mapping is observed. The mapping MUST at minimum be:
 | Event | Terms re-evaluated |
 |---|---|
 | `workflow.changed` | `node_exists`, `edge_exists`, `config_equals` |
-| `workflow.completed`, `block.done`, `block.error` | `run_succeeded`, `port_has_output` |
+| `workflow_completed`, `block_done`, `block_error` | `run_succeeded`, `port_has_output` |
 | `blocks.reloaded` | `block_registered`, `type_registered`, `previewer_registered`, `library_contains` |
 | `git.head_changed` | `git_branch_exists`, `git_current_branch` |
 | `file.changed` | `file_exists` |
-| `interactive.complete` | `interaction_completed` |
+| `interactive_complete` | `interaction_completed` |
+
+The two naming conventions in that table are the product's, not a typo. Engine
+lifecycle events are declared in `src/scistudio/engine/events.py` with
+underscores — `WORKFLOW_COMPLETED = "workflow_completed"`, `BLOCK_DONE`,
+`BLOCK_ERROR`, `INTERACTIVE_COMPLETE` — while the events added later at the API
+and watcher layer use dots: `WORKFLOW_CHANGED = "workflow.changed"`,
+`GIT_HEAD_CHANGED = "git.head_changed"`, `BLOCKS_RELOADED = "blocks.reloaded"`,
+and `FILE_CHANGED_EVENT_TYPE = "file.changed"`. The runtime MUST subscribe using
+the declared constants rather than string literals, so this table cannot drift
+from the bus without the import failing.
 
 **FR-051.** The runtime MUST NOT poll for completion. Every re-evaluation MUST be
 caused by an event under FR-050, an explicit request under FR-053, or entry into
@@ -770,6 +849,29 @@ and the action, and MUST NOT silently advance.
 **FR-061.** Replay actions MUST NOT be able to reach any surface other than the
 one the action names. Replay is scripted content playback, not a general remote
 control for the product.
+
+**FR-061a.** The set of surfaces a replay action may name MUST be closed, owned
+by core, and declared in one place, and a manifest naming a surface outside it
+MUST be rejected at validation. FR-061 constrains replay to "the surface the action
+names" and is unimplementable and untestable until that set exists. The initial
+set MUST contain exactly one member: the AI Chat terminal. Its byte stream today
+comes from a PTY session over the WebSocket in
+`src/scistudio/api/routes/ai_pty/`, consumed by
+`frontend/src/components/AIChat/TerminalView.tsx`; a replay MUST be delivered as a
+scripted session through that same path, so the tab strip, the terminal component,
+and the tab lifecycle stay the product's real ones and only the byte source
+changes. A replay MUST NOT accept user input back into the scripted session.
+
+**FR-061b.** A replay MUST be expressible as an ordered sequence of segments,
+each of which MAY carry its own write or copy actions, and a segment's actions
+MUST complete before the next segment's bytes are delivered. A scripted agent
+that claims to have written a block has to be matched by the block existing at the
+moment the claim is readable, which a single opaque stream played to completion
+cannot guarantee.
+
+**FR-061c.** Ending a session mid-replay MUST terminate the scripted session and
+leave no replay session object behind, on the same path a real PTY session uses
+for termination.
 
 #### Tutorial projects
 
@@ -887,44 +989,31 @@ canvas or the palette.
 **FR-090.** Leaving a tutorial MUST be possible at any step and MUST preserve the
 session.
 
-#### The palette tips strip
-
-**FR-091.** The block palette MUST display a single-line tips strip positioned
-between the category chips and the scrolling section grid, outside the scroll
-container, so that neither scrolling nor an active category filter can hide it.
-
-**FR-092.** The strip MUST select a tip at random on mount and MUST offer a
-control that advances to another tip. It MUST NOT offer permanent dismissal.
-
-**FR-093.** The strip MUST NOT render in collapsed rail mode, MUST occupy one
-truncating line, and its tip pool MUST live in a single module.
-
-**FR-094.** The initial pool MUST prioritise the capabilities users have not been
-shown they have: interactive blocks, custom previewers, custom data types, saving
-a block to My Library, and splitting a long block into reusable pieces. A tip MAY
-link to a Learning Center entry; the strip MUST NOT depend on one existing.
-
 #### ADR-053 revisions
 
-**FR-095.** ADR-053 §2.1 MUST be revised. It records that the existing
+**FR-091.** ADR-053 §2.1 MUST be revised. It records that the existing
 single-tutorial implementation is generalised; the decision is now that it is
 discarded and replaced, with only the scenario narrative retained.
 
-**FR-096.** ADR-053 §2.2 MUST be revised. It records that completion is granted
+**FR-092.** ADR-053 §2.2 MUST be revised. It records that completion is granted
 only by running and that reading is not progress. A reading-only summary tutorial
 is part of the designed set, and it completes by being read. The revision MUST
 carry the distinction rather than deleting the principle: the summary tutorial
 names and organises capabilities the user has already exercised in earlier
 tutorials, so it is review rather than instruction, and the principle continues
-to hold for tutorials that teach.
+to hold for tutorials that teach. The revision MUST reach §1.1 and the §2 and
+§2.2 headings as well as the section body: the §1.1 problem table states that
+completion is granted only for a completed run, and both headings state the
+same, so revising the body alone would leave two normative answers in one
+document.
 
-**FR-097.** ADR-053 §4.2 MUST be revised. It sets an initial unlock threshold of
+**FR-093.** ADR-053 §4.2 MUST be revised. It sets an initial unlock threshold of
 40% of the catalogue, described as configuration rather than a constant. A
 percentage over a catalogue that packages can grow does not denote a fixed point
 in the user's experience; the trigger becomes completion of a named core
 tutorial (FR-079).
 
-**FR-098.** ADR-053 §8 MUST be revised to follow §4.2, and MUST record that
+**FR-094.** ADR-053 §8 MUST be revised to follow §4.2, and MUST record that
 tutorial project cleanup — which it currently lists as undesigned — is specified
 here (FR-066, FR-073, FR-088).
 
@@ -955,9 +1044,11 @@ frontend store. FR-001 through FR-004 remove all of it.
 
 **What does exist, and is why this design is affordable, is the event
 infrastructure.** `src/scistudio/api/ws.py` already pushes engine events to the
-frontend: block lifecycle events, `workflow.started` / `completed` / `changed`,
-`git.head_changed`, `interactive.prompt` / `complete`, `file.changed`, and
-`blocks.reloaded`. `src/scistudio/api/routes/workflow_watcher.py` runs a watchdog
+frontend: block lifecycle events, `workflow_started` / `workflow_completed`,
+`workflow.changed`, `git.head_changed`, `interactive_prompt`, `file.changed`,
+and `blocks.reloaded`. `interactive_complete` travels the other way, frontend to
+backend, and reaches the runtime on the bus rather than through the outbound
+set. `src/scistudio/api/routes/workflow_watcher.py` runs a watchdog
 observer over the active project — recursively over `workflows/` for
 `workflow.changed`, recursively over the project root for `file.changed`, and
 over `.git/HEAD` and `.git/refs/heads/` for `git.head_changed`. The tutorial
@@ -1012,10 +1103,10 @@ accept scan directories, so a tutorial project registers the tutorial library
 directory where a real project registers `~/.scistudio/`.
 
 **The frontend** gains a Learning Center component rendering the grouped
-catalogue, an active-step surface, the first-run landing, the toolbar entry and
-its dot, and the palette tips strip. It holds no judging logic and no step
-content: it renders the step view the backend returns, reports user-interface
-events (FR-052), and can request an evaluation (FR-053).
+catalogue, an active-step surface, the first-run landing, and the toolbar entry
+and its dot. It holds no judging logic and no step content: it renders the step
+view the backend returns, reports user-interface events (FR-052), and can request
+an evaluation (FR-053).
 
 ### 4.2 Affected Files
 
@@ -1035,6 +1126,20 @@ events (FR-052), and can request an evaluation (FR-053).
 | `src/scistudio/tutorials/schema/tutorial.schema.json` | Published manifest schema (FR-013) |
 | `src/scistudio/packages/entry_points.py` | Shared enumeration, error containment, diagnostics, and import-root preparation for every `scistudio.*` group (FR-025..FR-030) |
 
+`scistudio.packages` does not exist today; this opens a new top-level package
+beside `blocks`, `core`, `api`, and `previewers`. Two things decide the location
+and MUST be settled before the module is written. It is imported by the block,
+type, and previewer registries, so it has to sit where all three can reach it
+without a cycle — the reason `PackageInfo` lives in `blocks/base/` rather than
+with the code that uses it. And "package" already denotes an installed plugin
+distribution here, whose install, update, rollback, and delete code lives in
+`desktop/package_installer.py`, `desktop/package_manager.py`, and
+`desktop/package_ota.py`; a `scistudio.packages` holding only discovery
+plumbing invites that unrelated code to migrate into it later.
+`scistudio/entry_points.py` as a single module, or a home under `core/`, are the
+alternatives, and one of them may be chosen at implementation time without
+changing any requirement in §3.
+
 **Rewritten — backend**
 
 | File | Change |
@@ -1045,6 +1150,15 @@ events (FR-052), and can request an evaluation (FR-053).
 | `src/scistudio/blocks/registry/_scan.py` | Enumerate and load through the shared helper; gain diagnostics; keep the bare-class allowance as the documented exception (FR-025, FR-028, FR-029) |
 | `src/scistudio/core/types/registry.py` | Enumerate and load through the shared helper; stop propagating enumeration failures; gain diagnostics (FR-025, FR-026, FR-028) |
 | `src/scistudio/previewers/registry.py` | Enumerate and load through the shared helper; keep the companion fallback with its reason recorded (FR-025, FR-032) |
+| `src/scistudio/core/dropins.py` | Add the tutorial drop-in tier alongside blocks and types, and the tutorial-scoped library directory (FR-016, FR-031, FR-070..FR-073) |
+
+`core/dropins.py` is named per kind throughout — `BLOCKS_DIR_NAME` and
+`TYPES_DIR_NAME`, `user_blocks_dir` / `user_types_dir`, `project_blocks_dir` /
+`project_types_dir`, `block_scan_dirs` / `type_scan_dirs`,
+`register_block_scan_dirs` / `register_type_scan_dirs` — so a third drop-in kind
+cannot be added without editing it. FR-031 requires tutorials to join that path
+rather than build a fourth, which makes this file part of the change rather than
+a file the change happens to touch.
 
 **Deleted — frontend**
 
@@ -1060,19 +1174,15 @@ events (FR-052), and can request an evaluation (FR-053).
 | `src/components/LearningCenter.parts/ActiveStep.tsx` | Active step surface (FR-089, FR-090) |
 | `src/store/learningCenterSlice.ts` | Session view state only; no judging, no content |
 | `src/lib/api/learningCenter.ts` | API client |
-| `src/components/BlockPalette.parts/TipsStrip.tsx` | Tips strip (FR-091..FR-093) |
-| `src/components/BlockPalette.parts/tips.ts` | Tip pool (FR-094) |
 
 **Modified — frontend**
 
-`src/components/Toolbar.tsx` for the entry and dot; `src/components/BlockPalette.tsx`
-for the strip's position; `src/App.tsx` and `src/App.parts/WelcomePane.tsx` for
-the first-run landing.
+`src/components/Toolbar.tsx` for the entry and dot; `src/App.tsx` and
+`src/App.parts/WelcomePane.tsx` for the first-run landing.
 
 **Docs**
 
-`docs/adr/ADR-053.md` §2.1, §2.2, §4.2, §8 (FR-095..FR-098);
-`docs/specs/frontend-block-palette.md` for the new fixed-position region;
+`docs/adr/ADR-053.md` §1.1, §2, §2.1, §2.2, §4.2, §8 (FR-091..FR-094);
 `docs/architecture/ARCHITECTURE.md` §12.4 to drop the removed `scistudio.runners`
 row and add `scistudio.tutorials` (FR-034); `pyproject.toml` to correct the
 removal note's citation (FR-035).
@@ -1101,9 +1211,7 @@ removal note's citation (FR-035).
    same commit.
 9. **Frontend.** Learning Center, active step, toolbar entry and dot, first-run
    landing; delete the five old modules in the same commit.
-10. **Tips strip.** Independent of everything above and shippable at any point
-    after step 9's palette work settles.
-11. **ADR-053 revisions.**
+10. **ADR-053 revisions.**
 
 Step 0 should ship on its own. It touches three registries every package
 depends on and shares nothing with the rest of the sequence beyond the contract
@@ -1120,13 +1228,16 @@ vocabulary term and every action type is part of this spec's test material.
 
 | Area | Test | Asserts |
 |---|---|---|
-| Entry-point symmetry | `tests/packages/test_entry_point_symmetry.py` | All four groups behave identically under enumeration failure, single-entry-point load failure, and refresh (FR-033); no group propagates an enumeration failure (FR-026); every group records a diagnostic on load failure (FR-028); the bare-class allowance applies to `scistudio.blocks` only (FR-029) |
+| Entry-point symmetry | `tests/packages/test_entry_point_symmetry.py` | All four groups behave identically under enumeration failure, single-entry-point load failure, and refresh (FR-033); no group propagates an enumeration failure (FR-026); every group records a diagnostic on load failure (FR-028); the bare-class allowance applies to `scistudio.blocks` only (FR-029); the tutorial group is exempt from the callable payload and is resolved without import (FR-018, FR-029a) |
+| Drop-in parity | `tests/api/test_registry_provisioning_parity.py`, `tests/api/test_registry_reload_symmetry.py` | Extended, not duplicated: the tutorial drop-in tier resolves the same user and project directories as blocks and types, and every event that refreshes the block registry reaches tutorial discovery (FR-031) |
 | Manifest | `tests/tutorials/test_manifest_schema.py` | Required fields; `steps` xor `driver`; asset and destination containment; unknown vocabulary term rejected at validation (FR-049); `driver` rejected for user and project tiers (FR-020) |
 | Discovery | `tests/tutorials/test_discovery_tiers.py` | All four sources found; entry-point group read; duplicate ids within a source rejected; a malformed manifest does not empty its group (FR-022); unmet requirements still listed (FR-024) |
 | No-import | `tests/tutorials/test_discovery_no_import.py` | Listing a catalogue containing a driver-declaring package tutorial imports no package module, asserted with an import hook that fails the test on load (FR-018) |
 | Conditions | `tests/tutorials/test_conditions.py` | Each vocabulary term true and false against a constructed project; `all` / `any`; evaluation leaves no side effects (FR-055) |
 | Events | `tests/tutorials/test_condition_events.py` | Each mapped event re-evaluates its terms; no timer or poll exists (FR-051); explicit evaluation satisfies a `file_exists` condition on a non-allowlisted extension (FR-053) |
 | Actions | `tests/tutorials/test_actions.py` | Write and copy land before step text is exposed (FR-059); a path escaping the project is rejected; a failed action ends the session (FR-060) |
+| Replay | `tests/tutorials/test_replay.py` | A replay action naming a surface outside the declared set is rejected at validation (FR-061); a replay segment's bound actions complete before the next segment is delivered (FR-061b); a replay stream reaches only the surface the action names (FR-061) |
+| Tier assets | `tests/tutorials/test_tier_asset_rules.py` | A user-level or project-level manifest is rejected when it declares an executable asset, a replay action, or a destination under an executed directory (FR-020a) |
 | Session | `tests/tutorials/test_session_lifecycle.py` | Resume across restart (FR-037); one session at a time (FR-043); a raising driver ends the session without marking completion (FR-044); an already-true condition satisfies on entry (FR-054) |
 | Driver parity | `tests/tutorials/test_driver_parity.py` | A fixture package driver and a manifest tutorial produce API responses distinguishable only by content (FR-040); a driver cannot return fields outside the step view (FR-041) |
 | Projects | `tests/api/test_tutorial_project_visibility.py` | Marked projects absent from the listing route but operable through others (FR-065); restart deletes and recreates (FR-066); an externally deleted project invalidates its session (FR-069) |
@@ -1134,7 +1245,6 @@ vocabulary term and every action type is part of this spec's test material.
 | Progress | `tests/tutorials/test_progress.py` | Grouped counts; a growing total is not compensated (FR-077); package uninstall removes its group (FR-078); only the core group drives the unlock (FR-080) |
 | Routes | `tests/api/test_tutorial_routes.py` | Catalogue, start, resume, evaluate, user-interface event, leave, clear; the removed route returns 404 (FR-003) |
 | Frontend | `frontend/src/components/__tests__/LearningCenter.test.tsx` | Grouped rendering; entry states; the dot appears and clears per FR-086; the clear confirmation names directories (FR-088) |
-| Tips strip | `frontend/src/components/BlockPalette.parts/__tests__/tipsStrip.test.ts` | Non-empty well-formed pool; cycling advances; absent in rail mode (FR-092, FR-093) |
 
 Manual verification before the PR: a full pass of a fixture tutorial exercising
 every action type and every vocabulary term, a backend restart mid-tutorial, a
@@ -1188,12 +1298,12 @@ class form accepted by `scistudio.blocks` — is preserved rather than normalise
 away. The residual risk is a package relying on an undocumented accident of one
 registry's current error handling, which the shared helper would change.
 
-**Rollback.** Every part except the tips strip and the entry-point symmetry work
-is new surface plus one deletion.
+**Rollback.** Every part except the entry-point symmetry work is new surface plus
+one deletion.
 Rolling back means restoring the deleted modules and route from history and
 removing `scistudio.tutorials`; no data migration is involved, since progress is
-a new file and tutorial projects are disposable by construction. The tips strip
-and step 0 are each independently revertable.
+a new file and tutorial projects are disposable by construction. Step 0 is
+independently revertable.
 
 ## 5. Success Criteria
 
@@ -1235,11 +1345,15 @@ unlock, not the toolbar dot, not the availability of any capability.
 **SC-011.** The work-import toolbar entry is reachable with zero tutorials
 completed.
 
-**SC-012.** The tips strip stays visible while the palette grid scrolls and while
-any category filter is active.
+**SC-012.** A user-level or project-level tutorial cannot place an executable
+file anywhere the product imports or executes it, asserted by test against the
+asset, action, and destination rules rather than by the `driver` field alone.
 
-**SC-013.** ADR-053 §2.1, §2.2, §4.2, and §8 no longer describe a design this
-spec contradicts.
+**SC-013.** Every replayed surface appears in the closed surface set, and every
+replay segment's file writes are on disk before that segment is readable.
+
+**SC-014.** ADR-053 §1.1, §2, §2.1, §2.2, §4.2, and §8 no longer describe a
+design this spec contradicts.
 
 ## 6. Assumptions
 
