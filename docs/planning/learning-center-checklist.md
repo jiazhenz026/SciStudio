@@ -164,7 +164,7 @@ approves it.
 | `A2` | `implementer` | `N/A` | §7.2 | Manifest, conditions, actions | `feat/lc-manifest` | `.worktrees/lc-manifest` | `src/scistudio/tutorials/{__init__,manifest,conditions,actions}.py`, `src/scistudio/tutorials/schema/**`, `tests/tutorials/**` | everything else | #2057 | `[x]` |
 | `A3` | `implementer` | `N/A` | §7.3 | Tutorial projects, scoped library, progress | `feat/lc-projects` | `.worktrees/lc-projects` | `src/scistudio/tutorials/{projects,progress}.py`, `src/scistudio/core/dropins.py`, `src/scistudio/api/runtime/{_projects,models}.py`, `src/scistudio/api/routes/projects.py`, `tests/tutorials/**`, `tests/api/test_tutorial_project_visibility.py` | `src/scistudio/tutorials/{manifest,conditions,actions,discovery,driver,session}.py` | #2057 | `[x]` |
 | `A4` | `implementer` | `N/A` | §7.4 | Frontend Learning Center | `feat/lc-frontend` | `.worktrees/lc-frontend` | `frontend/src/**` | `src/**`, `tests/**`, `docs/**` | #2057 | `[x]` |
-| `A5` | `implementer` | `N/A` | §7.5 | Discovery, driver, session | `feat/lc-runtime` | `.worktrees/lc-runtime` | `src/scistudio/tutorials/{discovery,driver,session}.py`, `tests/tutorials/**` | wave-1 files | #2057 | `[ ]` |
+| `A5` | `implementer` | `N/A` | §7.5 | Discovery, driver, session | `feat/lc-runtime` | `.worktrees/lc-runtime` | `src/scistudio/tutorials/{discovery,driver,session}.py`, `tests/tutorials/**` | wave-1 files | #2057 | `[x]` |
 | `A6` | `implementer` | `N/A` | §7.6 | API routes + replay | `feat/lc-routes` | `.worktrees/lc-routes` | `src/scistudio/api/routes/tutorials.py`, `src/scistudio/api/routes/ai_pty/**`, `src/scistudio/api/app.py`, `tests/api/**` | `src/scistudio/tutorials/**` except read | #2057 | `[ ]` |
 | `A7` | `implementer` | `N/A` | §7.7 | Core tutorial 1 + fixture tutorials | `feat/lc-tutorial-1` | `.worktrees/lc-tutorial-1` | `src/scistudio/tutorials/core/**`, `tests/tutorials/fixtures/**` | runtime modules | #2058 | `[x]` |
 | `A8` | `adr_author` | `N/A` | §7.8 | ADR-053 revisions, spec sync, CHANGELOG | `feat/lc-docs` | `.worktrees/lc-docs` | `docs/adr/ADR-053.md`, `docs/specs/adr-053-learning-center.md`, `CHANGELOG.md` | `docs/architecture/ARCHITECTURE.md`, all code | #2057 | `[x]` |
@@ -466,9 +466,12 @@ replay must not accept user input back into the scripted session (FR-061a).
 
 #### 7.5.3 Implementation
 
-- [ ] Four-source discovery -> `<artifact>`
-- [ ] Driver interface + manifest driver + package driver loading -> `<artifact>`
-- [ ] Session lifecycle, persistence, event subscription -> `<artifact>`
+- [x] Four-source discovery -> `feat/lc-runtime`. FR-018 proved with a `sys.meta_path` finder that raises on any import of the guarded package, plus assertions that `EntryPoint.load()` was never called and nothing entered `sys.modules`; the tutorial under the hook declares a driver, and all five listing facts are read back so "imported nothing" cannot be satisfied by having skipped the package.
+- [x] Driver interface + manifest driver + package driver loading -> four members, with the FR-041 step-view boundary enforced structurally rather than by convention
+- [x] Session lifecycle, persistence, event subscription -> no timer, no thread, no self-waking loop; every re-evaluation traces to a mapped event, an explicit request, or step entry
+- [x] `do` before `done_when` on step entry -> evaluation sits inside `perform_step_entry`'s `reveal` callback, so the ordering is a property of the call rather than of remembering it. Pinned by a test whose step writes a break-marker its own condition reads from disk.
+- [x] All three `TODO(#2057)` parity markers discharged or ruled on
+- [x] Tests -> 376 in `tests/tutorials`, 49 in `tests/packages`, identical at `-n0` and `-n auto`
 
 ### 7.6 Track A6 — API routes and replay (#2057)
 
@@ -568,6 +571,9 @@ reference set." Does not affect the tutorial, because Load sets a storage ref.
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
 | Gate ledger check (local) | `python -m scistudio.qa.governance.gate_record check --mode local --base origin/main --head HEAD` | `[ ]` | pending |
+| Full suite, non-serial | `pytest tests/ -n0 -m "not serial"` in the `scistudio` env | `[x]` | exit 0, 6486 tests, zero failures |
+| Full suite, serial | `pytest tests/ -n0 -m serial` in the `scistudio` env | `[x]` | exit 0, 129 tests, zero failures |
+| mypy | `mypy src/scistudio/ --ignore-missing-imports` | `[x]` | 367 files; only `blocks/ai/providers.py:161`, which is untouched by this branch and fails identically on the main checkout (local Anthropic SDK newer than CI's pin) |
 | Targeted tests | `pytest tests/tutorials tests/packages tests/api/test_tutorial_routes.py tests/api/test_tutorial_project_visibility.py` | `[ ]` | pending |
 | Frontend tests | `npm --prefix frontend run test` | `[ ]` | pending |
 | Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[ ]` | pending |
