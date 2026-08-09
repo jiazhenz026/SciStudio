@@ -304,7 +304,16 @@ export function DataPreview({
           <button
             aria-label="Maximize preview"
             className="mt-1 shrink-0 rounded-full p-1.5 text-stone-500 hover:bg-white hover:text-ink"
-            onClick={() => setIsMaximized(true)}
+            onClick={() => {
+              setIsMaximized(true);
+              /*
+               * ADR-053 FR-052 (#2057) — `preview_expanded`, one of the two
+               * names in the closed `UI_EVENT_NAMES` set. Enlarging the preview
+               * leaves no backend state behind, so a step waiting on it has no
+               * other way to finish. A no-op when no tutorial is running.
+               */
+              void useAppStore.getState().reportTutorialUiEvent("preview_expanded");
+            }}
             title="Maximize preview"
             type="button"
           >

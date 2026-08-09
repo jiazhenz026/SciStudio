@@ -132,6 +132,14 @@ export interface LearningCenterSlice {
   clearLearningCenterStartConflict: () => void;
   refreshLearningCenter: () => Promise<void>;
   refreshActiveTutorialSession: () => Promise<void>;
+  /**
+   * React to an engine event by asking the backend where the step stands.
+   *
+   * A no-op when no tutorial is running, and coalesced so a burst of
+   * `workflow.changed` during a drag becomes one request plus one trailing
+   * catch-up rather than a queue of them.
+   */
+  syncActiveTutorialSession: () => Promise<void>;
   startTutorial: (request: TutorialStartRequest) => Promise<void>;
   evaluateActiveTutorialStep: () => Promise<void>;
   continueActiveTutorialStep: () => Promise<void>;
