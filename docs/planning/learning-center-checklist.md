@@ -378,10 +378,12 @@ replay must not accept user input back into the scripted session (FR-061a).
 
 #### 7.1.3 Implementation
 
-- [ ] Shared helper -> `<artifact>`
-- [ ] Three registries moved onto it -> `<artifact>`
-- [ ] Parity test -> `<artifact>`
-- [ ] `pyproject.toml` citation -> `<artifact>`
+- [x] Shared helper -> `feat/lc-entry-points` 889c14e5, `src/scistudio/core/entry_points.py`
+- [x] Three registries moved onto it -> same commit; `scistudio.types` no longer propagates an enumeration failure into its caller, and the block and type registries gained the diagnostic surface only previewers had
+- [x] Parity test -> `tests/packages/test_entry_point_symmetry.py`, parametrized over `LIVE_ENTRY_POINT_GROUPS` so a fifth group cannot be added divergently
+- [x] `pyproject.toml` citation -> corrected, see drift log
+- [x] Four test doubles moved onto the published contract -> ec310a19
+- [x] Tests -> 77 owned tests pass; full `tests/core tests/blocks tests/api tests/previewers tests/packages` run shows 3113 passed and only the 15 pre-existing failures, proved against the stashed tree; ruff, mypy, lint-imports (13 kept) clean
 
 ### 7.2 Track A2 — Manifest, conditions, actions (#2057)
 
@@ -592,6 +594,7 @@ layout. The manager does these after integrating, before the pre-PR check.
       attribute Learning Center verification to #1998, which is closed. A8
       re-points them at #2056/#2057/#2058.
 - [x] **Cross-track merge conflicts.** Resolved at each merge; both agents' additions survive.
+- [ ] **Correct the spec's FR-035 text**, which asserts ADR-052 mentions runners nowhere. The authority is real and lives in `docs/specs/adr-052-public-api-surface.md` §7A; `pyproject.toml` now cites it in full.
 - [ ] **Close gaps 2, 3, 4, and 10 from §7.7.4** once the routes track lands, since three of them need a `ProductState` the routes agent implements.
 - [ ] **Spec `status` is still `Draft`.** ADR-042 §3.4 says a spec whose planned surfaces resolve should advance its implementation state, but advancing it turns on `governs` existence-checking and ADR↔spec alignment, and ADR-053's own `governs.files` covers none of `src/scistudio/tutorials/**`. Owner-visible consequence; left for the owner.
 - [x] ~~Cross-track merge conflicts~~ (superseded) A1 and A3 both extend
