@@ -16,11 +16,17 @@ BYPASS_LABEL: Final[str] = "admin-approved:bypass"
 CORE_CHANGE_LABEL: Final[str] = "admin-approved:core-change"
 # AI-assisted merge authorization only (§7.8).
 MERGE_LABEL: Final[str] = "admin-approved:merge"
+# Architecture document authorization only (#2054). Separate from
+# ``CORE_CHANGE_LABEL`` because the two authorize different things and the
+# owner grants them on different evidence: a protected-core change is judged on
+# runtime risk, an architecture-document change on whether the owner wants that
+# text in their document at all.
+ARCHITECTURE_DOC_LABEL: Final[str] = "admin-approved:architecture-doc"
 # Human AI-harness bypass (PR-level CI signal, not a CLI field) (§7.5).
 HUMAN_AUTHORED_LABEL: Final[str] = "human-authored"
 
 # Labels the ``--admin-label`` CLI flag accepts (§7.5 table).
-ADMIN_LABELS: frozenset[str] = frozenset({BYPASS_LABEL, CORE_CHANGE_LABEL, MERGE_LABEL})
+ADMIN_LABELS: frozenset[str] = frozenset({BYPASS_LABEL, CORE_CHANGE_LABEL, MERGE_LABEL, ARCHITECTURE_DOC_LABEL})
 
 # Full valid label vocabulary including the CI-only ``human-authored`` signal.
 VALID_LABELS: frozenset[str] = ADMIN_LABELS | {HUMAN_AUTHORED_LABEL}

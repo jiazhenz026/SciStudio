@@ -1,0 +1,192 @@
+{
+  "branch": "guided/2054-architecture-doc-guard",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-09T05:45:16.692150Z",
+      "owner_directive": "Place the guard in Verify Workflow Compliance (gate evaluator), not Full Audit: it is the only CI job with PR context and can verify who applied the approval label. Protect docs/architecture/ARCHITECTURE.md only; bypass and human-authored still release it.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-09T05:45:16.692435Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-042-gate-ledger-runtime.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T05:45:16.692441Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/rules.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T05:45:16.692443Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/gate-cli-command-set.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T05:45:16.692444Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/specific_rules/gated-workflow.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T05:45:16.692445Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [
+    {
+      "at": "2026-08-09T05:40:43.602383Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1358/test_hook_payload_blocks_main_0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-09T05:40:44.072873Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1358/test_hook_payload_extracts_mul0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-09T05:44:45.264977Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1360/test_hook_payload_blocks_main_0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-09T05:44:45.683578Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-1360/test_hook_payload_extracts_mul0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2054,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Write a guard so that changing the architecture document fails CI unless an approval flag is present. Owner decisions: protect docs/architecture/ARCHITECTURE.md only; admin-approved:bypass and human-authored may still release it.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2054-2054-architecture-doc-guard",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-09T05:45:16.692303Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-09T05:45:16.692312Z",
+      "pattern": "tests/qa/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-09T05:45:16.692316Z",
+      "pattern": "docs/ai-developer/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-09T05:45:16.692318Z",
+      "pattern": "docs/specs/adr-042-gate-ledger-runtime.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-09T05:45:16.692319Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "eb0d6246-4932-42a5-adc8-21a6522a60e2",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-08-09T05:45:16.692449Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_guard_calculators.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T05:45:16.692451Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_governance_paths.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T05:45:16.692452Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_evaluator.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

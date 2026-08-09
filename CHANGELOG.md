@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- [#2054] **The architecture document is now owner-controlled in CI, not only by
+  convention.** `docs/architecture/ARCHITECTURE.md` may only change with the
+  owner's specific approval, and nothing enforced that: PR #2036 carried a
+  thirty-line addition to §12.5 through every check green — Full Audit
+  included — and it was caught by the owner reading the diff. The gap was less
+  an omission than an inversion. `surfaces.is_architecture_doc_path` already
+  existed, and its only consumer was `checks.py`'s test for whether a
+  *documentation obligation was satisfied*; touching the document made a PR look
+  better, not worse.
+  A new `architecture_doc_guard` blocks the change in CI unless the PR carries
+  `admin-approved:architecture-doc` applied by an authorized maintainer, or an
+  administrator has approved the PR — an owner who reviewed the diff has already
+  given the approval, and should not have to say yes twice. Locally, a
+  *requested* label downgrades the finding to a warning, so an agent is told
+  before it opens the PR while CI stays the authority; silence downgrades
+  nothing.
+  It is enforced in **Verify Workflow Compliance**, which is the only CI job
+  that runs the gate evaluator with PR context and can therefore verify *who*
+  applied a label — the whole difficulty of an approval flag. Full Audit and the
+  architecture tests have no PR context and could not check it without growing a
+  second label-reading pipeline. No CI workflow file changed; the guard registry
+  carries it.
+  The protected surface is the single file, not `docs/architecture/**`: that
+  directory also holds a generated `PROJECT_TREE.md` and a superseded
+  `ARCHITECTURE_legacy.md`, and `docs/adr/**` and `docs/specs/**` are ordinary
+  work product. `admin-approved:bypass` and `human-authored` release this guard
+  exactly as they release the others; it does not become the first
+  non-bypassable guard.
+
 ### Changed
 
 - [#2033] **Restore is now the single way back to a past state, and it actually

@@ -97,3 +97,35 @@ class TestSentruxApplicabilityIsSingleCiInclusivePredicate:
         # sentrux-applicable surface; the evaluator records the advisory, not a
         # block (sentrux is opt-in per the active addendum).
         assert not surfaces.sentrux_applies_to_changes([])
+
+
+class TestProtectedArchitectureDocument:
+    """``is_protected_architecture_path`` covers the owner's document only (#2054)."""
+
+    def test_the_architecture_document_matches(self) -> None:
+        assert surfaces.is_protected_architecture_path("docs/architecture/ARCHITECTURE.md")
+
+    def test_windows_separators_normalised(self) -> None:
+        assert surfaces.is_protected_architecture_path(r"docs\architecture\ARCHITECTURE.md")
+
+    def test_generated_and_legacy_siblings_do_not_match(self) -> None:
+        # Owner decision (#2054): the document, not the directory. Gating a
+        # PROJECT_TREE.md regeneration behind an owner label buys nothing, and
+        # the legacy file is superseded rather than governed.
+        assert not surfaces.is_protected_architecture_path("docs/architecture/PROJECT_TREE.md")
+        assert not surfaces.is_protected_architecture_path("docs/architecture/ARCHITECTURE_legacy.md")
+        assert not surfaces.is_protected_architecture_path("docs/architecture/sentrux-rules.md")
+
+    def test_adrs_and_specs_do_not_match(self) -> None:
+        # These are ordinary work product. Locking them would gate the normal
+        # development flow, which is the opposite of what the guard is for.
+        assert not surfaces.is_protected_architecture_path("docs/adr/ADR-053.md")
+        assert not surfaces.is_protected_architecture_path("docs/specs/adr-053-personal-tool-library.md")
+
+    def test_it_is_narrower_than_the_documentation_obligation_surface(self) -> None:
+        # ``is_architecture_doc_path`` answers "did this land documentation?";
+        # this one answers "does this need the owner's permission?". Every
+        # protected path is also a doc path, but not the reverse.
+        assert surfaces.is_architecture_doc_path("docs/architecture/ARCHITECTURE.md")
+        assert surfaces.is_architecture_doc_path("docs/adr/ADR-053.md")
+        assert not surfaces.is_protected_architecture_path("docs/adr/ADR-053.md")

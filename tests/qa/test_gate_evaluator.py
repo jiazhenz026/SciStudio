@@ -420,6 +420,39 @@ def test_blocking_guard_emits_repair_hint(git_repo: Path) -> None:
     assert "src/scistudio/core/foo.py" in hint
 
 
+def test_architecture_document_change_blocks_ci_and_names_the_label(git_repo: Path) -> None:
+    """#2054 end-to-end: the diff alone must produce the block and the obligation.
+
+    The regression this pins is PR #2036, where a thirty-line addition to the
+    architecture document passed every CI job. Here the only input is the file
+    appearing in the observed diff.
+    """
+
+    _add_change(git_repo, "docs/architecture/ARCHITECTURE.md")
+    ledger = _ledger(task_kind="feature", declared_scope=DeclaredScope(include=["docs/**"]))
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="ci", run_checks=False
+    )
+    assert "guard.architecture_doc_guard" in result.unsatisfied
+    assert "admin-approved:architecture-doc" in result.required_obligations.admin_labels
+    hints = [h for h in result.repair_hints if h.startswith("- guard.architecture_doc_guard")]
+    assert hints, result.repair_hints
+    assert "admin-approved:architecture-doc" in hints[0]
+    assert "docs/architecture/ARCHITECTURE.md" in hints[0]
+
+
+def test_ordinary_docs_change_does_not_trip_the_architecture_guard(git_repo: Path) -> None:
+    """A spec or ADR is work product; only the owner's document is gated."""
+
+    _add_change(git_repo, "docs/specs/adr-053-personal-tool-library.md")
+    ledger = _ledger(task_kind="feature", declared_scope=DeclaredScope(include=["docs/**"]))
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="ci", run_checks=False
+    )
+    assert "guard.architecture_doc_guard" not in result.unsatisfied
+    assert "admin-approved:architecture-doc" not in result.required_obligations.admin_labels
+
+
 def test_guard_repair_hint_uses_finding_message_when_no_action_mapped() -> None:
     # The helper falls back to the finding's own message/remediation; the
     # ``- guard.<name>`` header is always present.
