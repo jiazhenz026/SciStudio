@@ -64,7 +64,7 @@ from pydantic import BaseModel, Field
 from scistudio.ai.agent.mcp._context import _safe_under, get_context
 from scistudio.ai.agent.mcp._reload import broadcast_blocks_reloaded, refresh_context_registries
 from scistudio.ai.agent.mcp.server import mcp
-from scistudio.core.dropins import user_blocks_dir
+from scistudio.core.dropins import BLOCKS_DIR_NAME, library_root_for_project
 from scistudio.core.origins import PROJECT_ORIGIN, map_block_origin
 
 logger = logging.getLogger(__name__)
@@ -257,7 +257,13 @@ async def promote_to_user_library(
     if not source.is_file():
         raise FileNotFoundError(f"Block source file not found: {source}")
 
-    library = user_blocks_dir()
+    # ADR-053 FR-070/FR-071: resolve through the same helper the registries
+    # scan through, so a save made from inside a tutorial project lands in the
+    # tutorial-scoped library rather than the user's real one. Binding
+    # ``user_blocks_dir`` directly here would deposit a teaching block into
+    # every project the user opens afterwards, and clearing tutorial data would
+    # not remove it — the pollution the scoped library exists to prevent.
+    library = library_root_for_project(ctx.project_dir) / BLOCKS_DIR_NAME
     library.mkdir(parents=True, exist_ok=True)
     library_root = Path(os.path.realpath(str(library)))
 
