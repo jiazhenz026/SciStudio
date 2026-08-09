@@ -161,9 +161,9 @@ approves it.
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `A1` | `implementer` | `N/A` | §7.1 | Entry-point symmetry | `feat/lc-entry-points` | `.worktrees/lc-entry-points` | `src/scistudio/core/entry_points.py`, the three registries, `pyproject.toml`, `tests/packages/**`, `tests/api/test_registry_*` | `src/scistudio/tutorials/**`, `frontend/**`, `docs/architecture/**` | #2056 | `[ ]` |
-| `A2` | `implementer` | `N/A` | §7.2 | Manifest, conditions, actions | `feat/lc-manifest` | `.worktrees/lc-manifest` | `src/scistudio/tutorials/{__init__,manifest,conditions,actions}.py`, `src/scistudio/tutorials/schema/**`, `tests/tutorials/**` | everything else | #2057 | `[ ]` |
+| `A2` | `implementer` | `N/A` | §7.2 | Manifest, conditions, actions | `feat/lc-manifest` | `.worktrees/lc-manifest` | `src/scistudio/tutorials/{__init__,manifest,conditions,actions}.py`, `src/scistudio/tutorials/schema/**`, `tests/tutorials/**` | everything else | #2057 | `[x]` |
 | `A3` | `implementer` | `N/A` | §7.3 | Tutorial projects, scoped library, progress | `feat/lc-projects` | `.worktrees/lc-projects` | `src/scistudio/tutorials/{projects,progress}.py`, `src/scistudio/core/dropins.py`, `src/scistudio/api/runtime/_projects.py`, `src/scistudio/api/routes/projects.py`, `tests/tutorials/**`, `tests/api/test_tutorial_project_visibility.py` | `src/scistudio/tutorials/{manifest,conditions,actions,discovery,driver,session}.py` | #2057 | `[ ]` |
-| `A4` | `implementer` | `N/A` | §7.4 | Frontend Learning Center | `feat/lc-frontend` | `.worktrees/lc-frontend` | `frontend/src/**` | `src/**`, `tests/**`, `docs/**` | #2057 | `[ ]` |
+| `A4` | `implementer` | `N/A` | §7.4 | Frontend Learning Center | `feat/lc-frontend` | `.worktrees/lc-frontend` | `frontend/src/**` | `src/**`, `tests/**`, `docs/**` | #2057 | `[x]` |
 | `A5` | `implementer` | `N/A` | §7.5 | Discovery, driver, session | `feat/lc-runtime` | `.worktrees/lc-runtime` | `src/scistudio/tutorials/{discovery,driver,session}.py`, `tests/tutorials/**` | wave-1 files | #2057 | `[ ]` |
 | `A6` | `implementer` | `N/A` | §7.6 | API routes + replay | `feat/lc-routes` | `.worktrees/lc-routes` | `src/scistudio/api/routes/tutorials.py`, `src/scistudio/api/routes/ai_pty/**`, `src/scistudio/api/app.py`, `tests/api/**` | `src/scistudio/tutorials/**` except read | #2057 | `[ ]` |
 | `A7` | `implementer` | `N/A` | §7.7 | Core tutorial 1 + fixture tutorials | `feat/lc-tutorial-1` | `.worktrees/lc-tutorial-1` | `src/scistudio/tutorials/core/**`, `tests/tutorials/fixtures/**` | runtime modules | #2058 | `[ ]` |
@@ -402,9 +402,11 @@ replay must not accept user input back into the scripted session (FR-061a).
 
 #### 7.2.3 Implementation
 
-- [ ] Manifest model + schema + validation -> `<artifact>`
-- [ ] Condition vocabulary + evaluator -> `<artifact>`
-- [ ] Actions + containment + replay segments -> `<artifact>`
+- [x] Manifest model + schema + validation -> `feat/lc-manifest` c7777b3c
+- [x] Condition vocabulary + evaluator -> `feat/lc-manifest` c7777b3c
+- [x] Actions + containment + replay segments -> `feat/lc-manifest` c7777b3c
+- [x] Closed `ROUTE_TARGETS` / `HIGHLIGHT_TARGETS` / `UI_EVENT_NAMES` -> `feat/lc-manifest` 2d98a1b4
+- [x] Tests -> `pytest tests/tutorials` 224 passed; ruff, mypy, lint-imports (13 kept), deferral scan at baseline
 
 ### 7.3 Track A3 — Tutorial projects, scoped library, progress (#2057)
 
@@ -443,9 +445,11 @@ replay must not accept user input back into the scripted session (FR-061a).
 
 #### 7.4.3 Implementation
 
-- [ ] Old tutorial modules deleted with all their wiring -> `<artifact>`
-- [ ] Learning Center + active step surface -> `<artifact>`
-- [ ] Toolbar entry, dot, first-run landing -> `<artifact>`
+- [x] Old tutorial modules deleted with all their wiring -> `feat/lc-frontend` d5fcbd80 (8 files deleted; grep confirms no judging predicate and no `runFirstWorkflowTutorial*` localStorage key survives)
+- [x] Learning Center + active step surface -> `feat/lc-frontend` d5fcbd80
+- [x] Toolbar entry, dot, first-run landing -> `feat/lc-frontend` d5fcbd80
+- [x] Tests -> `npm run check:ci`: lint 0 errors, format clean, `tsc --noEmit` exit 0, 1581/1581 tests, `vite build` ok
+- [ ] `route_to` / `highlight` acted on rather than rendered as text -> follow-up, see drift log
 
 ### 7.5 Track A5 — Discovery, driver, session (#2057)
 
@@ -537,6 +541,31 @@ replay must not accept user input back into the scripted session (FR-061a).
 | Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[ ]` | pending |
 | Gate finalize (pre-PR) | `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#2056"` | `[ ]` | pending |
 | Wrapper preflight | `python scripts/scistudio_pr_create.py --dry-run --title <title> --body <body>` | `[ ]` | pending |
+
+## 8.1 Manager-owned integration tasks
+
+Work that belongs to no single track because it depends on the merged file
+layout. The manager does these after integrating, before the pre-PR check.
+
+- [ ] **Wheel packaging.** `[tool.setuptools.package-data]` in `pyproject.toml`
+      lists every non-Python file that ships. The new
+      `src/scistudio/tutorials/schema/tutorial.schema.json` and the whole core
+      tutorial tree (`tutorials/core/**`: `tutorial.yaml`, `assets/data/*.csv`,
+      `assets/code/*.py`, covers) are not covered by any existing pattern, and
+      `packages.find` will not pick up `assets/code/*.py` either because those
+      directories are deliberately not importable packages. Without explicit
+      entries a released wheel installs a Learning Center with no schema and no
+      tutorials, and the `wheel-release-smoke` CI job would not notice — it
+      inspects the SPA bundle only. Add the patterns and an assertion that the
+      shipped core tutorial is present. Same class of gap as #2032.
+- [ ] **ADR-053 §7 verification table.** Rows at `docs/adr/ADR-053.md:536-538`
+      attribute Learning Center verification to #1998, which is closed. A8
+      re-points them at #2056/#2057/#2058.
+- [ ] **Cross-track merge conflicts.** A1 and A3 both extend
+      `tests/api/test_registry_provisioning_parity.py` and
+      `tests/api/test_registry_reload_symmetry.py` — A1 for the fourth
+      entry-point group, A3 for the tutorial drop-in tier. Resolve
+      intentionally; both additions must survive.
 
 ## 9. Drift Log
 
