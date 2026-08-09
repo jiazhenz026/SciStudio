@@ -70,12 +70,15 @@ jobs:
 
           # Legacy override-label migration (§4.2).
           LABEL_MIGRATION = {"admin-approved:ai-override": "admin-approved:bypass"}
-          OVERRIDE_LABELS = {
-              "human-authored",
-              "admin-approved:bypass",
-              "admin-approved:core-change",
-              "admin-approved:merge",
-          }
+          # Derived, never restated (#2054). This set decides which labels reach
+          # the evaluator at all, so a label missing from it is invisible to every
+          # guard no matter what the guard was told to look for: the owner applies
+          # the label, CI filters it out here, and the guard reports missing
+          # approval. That is exactly what happened to
+          # `admin-approved:architecture-doc` when this was a literal — a second
+          # copy of a vocabulary `labels.py` already owns. Importing it means a
+          # label added there is forwarded here without anyone remembering to.
+          from scistudio.qa.governance.gate_record.labels import VALID_LABELS as OVERRIDE_LABELS
 
           def _gh_json(args):
               try:

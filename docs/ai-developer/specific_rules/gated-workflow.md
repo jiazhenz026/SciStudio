@@ -146,7 +146,7 @@ python -m scistudio.qa.governance.gate_record plan \
   [--test-na "<class>:<rationale>"] \
   [--check <check-name>] \
   [--check-na "<check-name>:<rationale>"] \
-  [--admin-label admin-approved:bypass|admin-approved:core-change|admin-approved:merge]
+  [--admin-label admin-approved:bypass|admin-approved:core-change|admin-approved:merge|admin-approved:architecture-doc]
 ```
 
 `plan` appends planning fields without running the full check set. It observes
@@ -178,7 +178,7 @@ python -m scistudio.qa.governance.gate_record amend \
   [--test-na "<class>:<rationale>"] \
   [--check <check-name>] \
   [--check-na "<check-name>:<rationale>"] \
-  [--admin-label admin-approved:bypass|admin-approved:core-change|admin-approved:merge]
+  [--admin-label admin-approved:bypass|admin-approved:core-change|admin-approved:merge|admin-approved:architecture-doc]
 ```
 
 `amend` is the dedicated low-cost correction command. It is append-only: it
@@ -212,7 +212,7 @@ python -m scistudio.qa.governance.gate_record check \
   [--test-na "<class>:<rationale>"] \
   [--check <check-name>] \
   [--check-na "<check-name>:<rationale>"] \
-  [--admin-label admin-approved:bypass|admin-approved:core-change|admin-approved:merge] \
+  [--admin-label admin-approved:bypass|admin-approved:core-change|admin-approved:merge|admin-approved:architecture-doc] \
   [--only <check-name>] \
   [--skip-execution]
 ```
@@ -354,6 +354,7 @@ The valid administrator bypass labels are:
 | `admin-approved:bypass` | Bypass AI gate workflow steps when CI verifies provenance |
 | `admin-approved:core-change` | Protected core path authorization only |
 | `admin-approved:merge` | Authorization for AI-assisted merge into `origin/main` only |
+| `admin-approved:architecture-doc` | Authorization for a change to `docs/architecture/ARCHITECTURE.md` only |
 | `human-authored` | Human AI-harness bypass at PR level |
 
 Local ledger records of requested labels are not authoritative; CI verifies the
@@ -738,7 +739,8 @@ evidence helps review; CI evidence is authoritative.
 - MUST treat CI evidence as authoritative.
 - MUST use bypass labels exactly as accepted by the gate CLI. The valid bypass
   labels are: `admin-approved:bypass`, `admin-approved:core-change`,
-  `admin-approved:merge`, `human-authored`.
+  `admin-approved:merge`, `admin-approved:architecture-doc`,
+  `human-authored`.
 - MUST use local bypass labels only when the owner authorizes that bypass.
 - MUST treat `admin-approved:core-change` as authorization for protected core
   paths only, not as a broad gate or bypass.

@@ -110,6 +110,10 @@ language_source: en
 
 - `admin-approved:merge` authorizes approved merge automation.
 
+- `admin-approved:architecture-doc` authorizes a change to
+  `docs/architecture/ARCHITECTURE.md` only. That document is owner-controlled:
+  do not edit it as part of implementation work. Propose the text and wait.
+
 - If the owner authorizes one of these actions in chat, the PR must carry the
   matching label before the action is considered approved.
 

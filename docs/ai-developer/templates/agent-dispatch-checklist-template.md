@@ -75,7 +75,7 @@ language_source: en
 
 ## 5. Local Gate Hook Bypass Evidence
 
-- Authorized bypass label: `<human-authored|admin-approved:bypass|admin-approved:core-change|admin-approved:merge|N/A>`
+- Authorized bypass label: `<human-authored|admin-approved:bypass|admin-approved:core-change|admin-approved:merge|admin-approved:architecture-doc|N/A>`
 - Owner authorization source: `<chat/date/link or N/A>`
 - Reason: `<why bypass was needed or N/A>`
 

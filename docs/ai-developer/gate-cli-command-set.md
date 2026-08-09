@@ -125,7 +125,7 @@ python -m scistudio.qa.governance.gate_record plan \
   [--docs-updated <path>] [--docs-na "<class>:<rationale>"] \
   [--test-path <path>] [--test-na "<class>:<rationale>"] \
   [--check <check-name>] [--check-na "<check-name>:<rationale>"] \
-  [--admin-label admin-approved:bypass|admin-approved:core-change|admin-approved:merge] \
+  [--admin-label admin-approved:bypass|admin-approved:core-change|admin-approved:merge|admin-approved:architecture-doc] \
   [--record .workflow/records/<record>.json]
 ```
 
@@ -738,7 +738,9 @@ PR body must close every gate-listed issue with a GitHub closing keyword
 - **Admin / bypass labels.** The valid labels are `admin-approved:bypass`
   (one-off AI gate workflow bypass), `admin-approved:core-change` (protected
   core path authorization only), `admin-approved:merge` (AI merge automation),
-  and the PR-level `human-authored` (human AI-harness bypass). Locally
+  `admin-approved:architecture-doc` (a change to
+  `docs/architecture/ARCHITECTURE.md` only), and the PR-level
+  `human-authored` (human AI-harness bypass). Locally
   recorded requested labels are intent only; CI verifies the observed PR label
   and the actor's administrator/maintainer permission. None of these bypass
   branch protection, normal repository CI, or owner review.
