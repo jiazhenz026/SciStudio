@@ -28,6 +28,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import sys
 from collections.abc import Coroutine, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -384,10 +385,25 @@ def test_every_non_project_origin_has_its_own_refusal_message() -> None:
 
 @pytest.mark.parametrize(
     "new_name",
-    ["../escaped.py", "sub/nested.py", "sub\\nested.py", "C:evil.py", "/etc/passwd.py", "notes.txt", "   "],
+    ["../escaped.py", "sub/nested.py", "sub\\nested.py", "/etc/passwd.py", "notes.txt", "   "],
 )
 def test_a_hostile_new_name_is_refused(ctx: _StubRuntime, new_name: str) -> None:
     """The destination name is caller-supplied, so it gets the same scrutiny."""
+    with pytest.raises((ValueError, PermissionError)):
+        _run(tools_library.promote_to_user_library(block_type="test.promotable", new_name=new_name))
+    assert list(user_blocks_dir().glob("*.py")) == []
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="drive-relative paths are a Windows path semantic")
+@pytest.mark.parametrize("new_name", ["C:evil.py", "C:\\Windows\\evil.py", "Z:\\elsewhere\\evil.py"])
+def test_a_windows_drive_new_name_is_refused(ctx: _StubRuntime, new_name: str) -> None:
+    """``C:evil.py`` is drive-relative and its ``Path.name`` looks innocent.
+
+    The drive test is a separate condition from the basename test, so it is a
+    separate case here — and a platform-scoped one, because ``C:evil.py`` is an
+    ordinary contained filename on POSIX, which is exactly how the HTTP half of
+    this constraint is covered in ``tests/api/test_user_library_write.py``.
+    """
     with pytest.raises((ValueError, PermissionError)):
         _run(tools_library.promote_to_user_library(block_type="test.promotable", new_name=new_name))
     assert list(user_blocks_dir().glob("*.py")) == []
