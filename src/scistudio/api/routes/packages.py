@@ -112,9 +112,47 @@ def _after_package_change(runtime: ApiRuntime) -> None:
     and all four routes below used to refresh only the block registry — so a
     package's types and previewers stayed invisible until the user switched
     projects, with no error to explain it.
+
+    Learning Center FR-078 is deliberately **not** here. All four routes call
+    this function, and only uninstall may drop a package's tutorial progress: an
+    update or a rollback moves the same package's code without the user losing
+    anything they completed, so forgetting their progress there would be a data
+    loss with no requirement behind it. :func:`_forget_package_progress` is
+    called from the delete route alone.
     """
     runtime.refresh_all_registries()
     _refresh_active_project_package_docs(runtime)
+
+
+def _forget_package_progress(package_name: str) -> None:
+    """Drop an uninstalled package's tutorial progress group (FR-078).
+
+    ADR-053 Learning Center FR-078: uninstalling a package deletes that
+    package's progress group, and reinstalling starts it from zero. Deleting
+    rather than retaining is the requirement — a retained record would make a
+    reinstalled package look already-finished to a user who has never seen its
+    tutorials.
+
+    The name is folded to its PEP 503 normalized form first, because that is the
+    spelling discovery records: a package tutorial's ``source_id`` comes from
+    :func:`scistudio.tutorials.discovery.normalize_distribution_name`, while the
+    name arriving here comes from the install manifest and may still carry
+    underscores or capitals. Folding at this boundary rather than inside
+    :meth:`~scistudio.tutorials.progress.ProgressStore.remove_package_group`
+    keeps one spelling of the rule: ``discovery`` imports ``progress``, so
+    ``progress`` cannot import the normaliser back without closing a cycle.
+
+    Best-effort. The package is already off disk by the time this runs, so
+    raising would fail a request whose work succeeded; the cost of a swallowed
+    failure is a stale progress group, which the user can still clear.
+    """
+    from scistudio.tutorials.discovery import normalize_distribution_name
+    from scistudio.tutorials.progress import ProgressStore
+
+    try:
+        ProgressStore().remove_package_group(normalize_distribution_name(package_name))
+    except Exception:
+        logger.warning("Learning Center: could not drop tutorial progress for %s", package_name, exc_info=True)
 
 
 @router.post("/local", response_model=LocalPackageInstallResponse)
@@ -247,6 +285,9 @@ async def delete_package_route(package_name: str, runtime: RuntimeDep) -> Packag
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Failed to delete package: {exc}") from exc
+    # FR-078, and only on this route — see ``_after_package_change`` for why
+    # update and rollback must not reach it.
+    _forget_package_progress(result.package_name)
     _after_package_change(runtime)
     return _action_response(result)
 

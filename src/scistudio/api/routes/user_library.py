@@ -1,4 +1,11 @@
-"""The write path into the user-wide library, ``~/.scistudio/`` (ADR-053 §4).
+"""The write path into the user library (ADR-053 §4).
+
+The destination is ``~/.scistudio/`` for an ordinary project and the
+tutorial-scoped library for a tutorial project. Which one is not decided here:
+:func:`scistudio.core.dropins.library_root_for_project` is the single answer to
+"which library does this project see", and both the block and type registries
+already scan through it, so the write resolving through it too is what makes
+the save and the scan agree (Learning Center FR-070, FR-071).
 
 ``docs/specs/adr-053-personal-tool-library.md`` §2.3: before this router the
 only file-write endpoint in the product was
@@ -79,19 +86,20 @@ from scistudio.api.schemas import (
     UserLibraryWriteRequest,
     UserLibraryWriteResponse,
 )
-from scistudio.core.dropins import user_blocks_dir, user_types_dir
+from scistudio.core.dropins import BLOCKS_DIR_NAME, TYPES_DIR_NAME, library_root_for_project
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/user-library", tags=["user-library"])
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 
-#: FR-006: the caller's ``target`` value to the ``core.dropins`` accessor for
-#: that tier. The mapping is the whole of the target selection — no other code
-#: in this module decides where a file goes.
-_TARGET_ROOTS = {
-    "blocks": user_blocks_dir,
-    "types": user_types_dir,
+#: FR-006: the caller's ``target`` value to the tier's child directory name.
+#: The mapping is the whole of the target selection — no other code in this
+#: module decides which tier a file goes to, and none of it decides which
+#: library root that tier hangs off (:func:`_library_root`).
+_TARGET_DIR_NAMES = {
+    "blocks": BLOCKS_DIR_NAME,
+    "types": TYPES_DIR_NAME,
 }
 
 #: Only Python sources belong in a drop-in tier; both registries scan for
@@ -209,20 +217,56 @@ def _validate_filename(filename: str) -> str:
     return name
 
 
-def _resolve_user_library_file(target: UserLibraryTarget, filename: str) -> tuple[Path, Path]:
+def _active_project_dir(runtime: ApiRuntime) -> Path | None:
+    """Return the open project's directory, or ``None`` when none is open.
+
+    The only input :func:`_library_root` needs, and the only reason both
+    endpoints take a runtime.
+    """
+    active = getattr(runtime, "active_project", None)
+    path = getattr(active, "path", None)
+    return Path(path) if path else None
+
+
+def _library_root(target: UserLibraryTarget, project_dir: Path | None) -> Path:
+    """Return the library directory *target* names for *project_dir*'s context.
+
+    ADR-053 Learning Center FR-070/FR-071. This is the **same** answer the two
+    registries scan: :func:`scistudio.core.dropins.library_root_for_project` is
+    the single decision of which library root a project sees, and both drop-in
+    scan-directory lists end with exactly ``<that root>/<tier name>``. Deciding
+    it once is the whole point — the read side already resolved through it while
+    this write path bound ``user_blocks_dir`` / ``user_types_dir`` directly, so
+    a reader who saved a block to My Library from inside a tutorial deposited a
+    teaching file into their real ``~/.scistudio`` library, where it was scanned
+    into every project they opened afterwards and survived clearing tutorial
+    data. It also made ``library_contains`` unsatisfiable: the save went to one
+    library and the scan looked in the other.
+
+    A real project is unaffected — ``library_root_for_project`` answers
+    ``user_library_dir()`` for every path outside the tutorial parent.
+    """
+    dir_name = _TARGET_DIR_NAMES.get(target)
+    if dir_name is None:  # pragma: no cover - FastAPI validates the Literal
+        raise _reject(422, f"Unknown user library target: {target!r}")
+    return library_root_for_project(project_dir) / dir_name
+
+
+def _resolve_user_library_file(target: UserLibraryTarget, filename: str, project_dir: Path | None) -> tuple[Path, Path]:
     """Return ``(root, target_path)`` for a validated user-library write.
 
     Rules 3 and 4 of the module docstring: real paths are compared, and the
     file must land directly in the root. The root is created if missing so a
     first-ever promotion works on a machine that has never had a user library,
     and so ``realpath`` resolves a real directory rather than a phantom.
+
+    *project_dir* selects the library (:func:`_library_root`); containment is
+    then decided against whichever root that returned, so the sandbox is as
+    tight for a tutorial save as for a real one.
     """
-    root_factory = _TARGET_ROOTS.get(target)
-    if root_factory is None:  # pragma: no cover - FastAPI validates the Literal
-        raise _reject(422, f"Unknown user library target: {target!r}")
+    declared_root = _library_root(target, project_dir)
     name = _validate_filename(filename)
 
-    declared_root = root_factory()
     try:
         declared_root.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
@@ -247,6 +291,7 @@ def _resolve_user_library_file(target: UserLibraryTarget, filename: str) -> tupl
 @router.get("/file", response_model=UserLibraryFileResponse)
 async def read_user_library_file(
     target: UserLibraryTarget,
+    runtime: RuntimeDep,
     filename: str = "",
 ) -> UserLibraryFileResponse:
     """Read one file from the user library, or 404 when it is absent.
@@ -255,8 +300,13 @@ async def read_user_library_file(
     before writing. It mirrors ``GET /api/projects/{project_id}/file`` exactly —
     200 means "exists, do not overwrite", 404 means "safe to create" — so the
     frontend probe helper is the same shape for both destinations.
+
+    It takes the runtime for the same reason the write does: the probe has to
+    look in the library the write will land in (:func:`_library_root`), or a
+    tutorial save would be checked for collisions against the user's real
+    library and reported against the wrong file.
     """
-    _root, resolved = _resolve_user_library_file(target, filename)
+    _root, resolved = _resolve_user_library_file(target, filename, _active_project_dir(runtime))
     if not resolved.exists():
         raise _reject(404, "File not found")
     if resolved.is_dir():
@@ -316,8 +366,12 @@ async def write_user_library_file(
     after a successful write, so it is removed on both paths, and cleanup
     catches every exception rather than only ``OSError`` because anything that
     escapes it leaves that file behind.
+
+    Which library the file lands in is decided by the open project
+    (:func:`_library_root`): a tutorial project writes to the tutorial-scoped
+    library and every other project to ``~/.scistudio`` (FR-070, FR-071).
     """
-    _root, resolved = _resolve_user_library_file(target, filename)
+    _root, resolved = _resolve_user_library_file(target, filename, _active_project_dir(runtime))
 
     encoded = body.content.encode("utf-8")
     if len(encoded) > ADR036_FILE_SIZE_CAP_BYTES:
