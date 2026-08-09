@@ -229,7 +229,15 @@ packages = ["scistudio"]
 # The in-project documentation tree (#1850) ships example block files as data,
 # not importable library modules. Several are named block.py and collide as
 # duplicate top-level modules under type checking; exclude the whole docs tree.
-exclude = ['/_user_guide/']
+#
+# ADR-053 Learning Center: the same case. A core tutorial ships its block and
+# plot sources under ``assets/code/`` as package data, and FR-020a keeps tutorial
+# material off every import path deliberately — so these are files the product
+# writes into a reader's project, not modules it imports. They are also written
+# to be read and edited by a bench scientist, which is why ``def render(collection):``
+# carries no annotations; requiring them would make the first Python a new user
+# meets less like the Python they write.
+exclude = ['/_user_guide/', '/tutorials/core/']
 
 # zarr 3.2+ uses PEP 695 generic syntax (`class Foo[T]:`) which is only valid
 # in Python 3.12+. Our mypy is pinned to python_version = "3.11", so it cannot
