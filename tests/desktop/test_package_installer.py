@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 import zipfile
 from pathlib import Path
@@ -242,6 +243,148 @@ def test_install_archive_rejects_path_traversal(tmp_path: Path) -> None:
 
     with pytest.raises(PackageInstallError, match="outside its install root"):
         install_local_package(archive_path, install_root=tmp_path / "installed")
+
+
+def test_install_source_directory_does_not_inherit_dependency_cache(tmp_path: Path) -> None:
+    """#2068: a source tree's ``site-packages`` must never be copied forward.
+
+    ``package_manager._repoint_install_source`` points every OTA-installed
+    package's ``source_path`` at its own install directory, so the "source" handed
+    to the installer is routinely a previous install. Copying its dependency cache
+    into the staging dir carried every prior generation of wheels along with it —
+    including files compiled for a Python ABI that no longer runs, which is what
+    made the ABI check fire on every launch forever.
+    """
+    source_root = _write_source_package(
+        tmp_path / "source",
+        dist_name="scistudio-blocks-inheritprobe",
+        module_name="scistudio_blocks_inheritprobe",
+        block_name="InheritProbeBlock",
+        package_name="Inherit Probe",
+    )
+    stale_cache = source_root / desktop_paths.PACKAGE_SITE_DIR_NAME / "numpy"
+    stale_cache.mkdir(parents=True)
+    (stale_cache / "_multiarray_umath.cpython-311-darwin.so").write_bytes(b"")
+    install_root = tmp_path / "installed"
+
+    result = install_local_package(source_root, install_root=install_root)
+
+    assert not (result.install_path / desktop_paths.PACKAGE_SITE_DIR_NAME).exists()
+
+
+def test_install_runtime_package_rebuilds_target_from_empty(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """#2068: pip ``--target`` overwrites same-named files and keeps the rest.
+
+    Installing into a populated directory therefore accumulates generations of
+    wheels rather than replacing them, so the cache must start empty.
+    """
+    target = tmp_path / desktop_paths.PACKAGE_SITE_DIR_NAME
+    target.mkdir()
+    (target / "stale.cpython-311-darwin.so").write_bytes(b"")
+    (target / "numpy-2.4.6.dist-info").mkdir()
+
+    def fake_run_pip(command: list[str]) -> None:
+        installed_into = Path(command[command.index("--target") + 1])
+        installed_into.mkdir(parents=True, exist_ok=True)
+        (installed_into / "fresh.cpython-312-darwin.so").write_bytes(b"")
+
+    monkeypatch.setattr(package_installer, "_run_pip", fake_run_pip)
+
+    package_installer._install_runtime_package(
+        tmp_path / "source",
+        runtime_dependencies=("numpy>=1.24",),
+        target_dir=target,
+        python_executable="python",
+    )
+
+    assert not (target / "stale.cpython-311-darwin.so").exists()
+    assert not (target / "numpy-2.4.6.dist-info").exists()
+    assert (target / "fresh.cpython-312-darwin.so").exists()
+
+
+def test_repair_of_self_sourced_install_drops_stale_abi_files(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """#2068: the repair has to clear the condition that triggered it.
+
+    An OTA-installed package's ``source_path`` is its own install directory, so
+    repair used to copy the stale cache into staging, layer pip's output on top,
+    and move the whole thing back — leaving the mismatched ``.so`` in place to
+    trigger the identical repair on the next launch, forever.
+    """
+    staged = _write_source_package(
+        tmp_path / "staging",
+        dist_name="scistudio-blocks-selfprobe",
+        module_name="scistudio_blocks_selfprobe",
+        block_name="SelfProbeBlock",
+        package_name="Self Probe",
+        dependencies=("numpy>=1.24",),
+    )
+    install_root = tmp_path / "installed"
+    install_path = install_root / "scistudio-blocks-selfprobe-0.1.0"
+    install_root.mkdir()
+    shutil.copytree(staged, install_path)
+
+    site_dir = install_path / desktop_paths.PACKAGE_SITE_DIR_NAME
+    (site_dir / "numpy").mkdir(parents=True)
+    (site_dir / "numpy" / "_multiarray_umath.cpython-311-darwin.so").write_bytes(b"")
+    (install_path / "scistudio-local-package.json").write_text(
+        json.dumps(
+            {
+                "format": "source-directory",
+                "installed_at": "2026-06-27T00:00:00+00:00",
+                "modules": ["scistudio_blocks_selfprobe"],
+                "package_name": "scistudio-blocks-selfprobe",
+                # The self-referential source_path that OTA installs record.
+                "source_path": str(install_path),
+                "version": "0.1.0",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_run_pip(command: list[str]) -> None:
+        installed_into = Path(command[command.index("--target") + 1])
+        installed_into.mkdir(parents=True, exist_ok=True)
+        (installed_into / "numpy").mkdir(exist_ok=True)
+        (installed_into / "numpy" / "_multiarray_umath.cpython-312-darwin.so").write_bytes(b"")
+
+    monkeypatch.setattr(package_installer, "_run_pip", fake_run_pip)
+    monkeypatch.setattr(
+        package_installer,
+        "_python_runtime_info",
+        lambda python: package_installer._PythonRuntimeInfo(
+            executable=str(Path(python)),
+            version="3.12.13",
+            cache_tag="cpython-312",
+        ),
+    )
+
+    results = package_installer.repair_installed_package_dependencies(
+        install_root=install_root,
+        python_executable=tmp_path / "python",
+    )
+
+    assert [(r.package_name, r.repaired) for r in results] == [("scistudio-blocks-selfprobe", True)]
+    assert results[0].reason == "compiled dependency targets cpython-311-darwin"
+
+    repaired_site = install_path / desktop_paths.PACKAGE_SITE_DIR_NAME
+    surviving = sorted(p.name for p in repaired_site.rglob("*.so"))
+    assert surviving == ["_multiarray_umath.cpython-312-darwin.so"]
+
+    # The trigger is now gone, so a second launch finds nothing to repair --
+    # without this the loop re-arms itself every time.
+    assert (
+        package_installer.repair_installed_package_dependencies(
+            install_root=install_root,
+            python_executable=tmp_path / "python",
+        )
+        == []
+    )
 
 
 def test_repair_installed_package_dependencies_reinstalls_mismatched_abi(
