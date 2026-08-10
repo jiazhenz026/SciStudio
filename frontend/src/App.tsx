@@ -380,7 +380,7 @@ export default function App() {
    * ADR-053 Learning Center (#2057) — start-up catalogue fetch, the FR-083
    * first-run landing, the reconnect refetch, and step-entry routing.
    */
-  useLearningCenter({ wsConnected, setLeftTab });
+  useLearningCenter({ wsConnected, setLeftTab, openProject });
   useAppKeyboardShortcuts({
     activeFileTab,
     cancelWorkflow,

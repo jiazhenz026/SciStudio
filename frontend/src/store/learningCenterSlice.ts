@@ -319,6 +319,16 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
       });
       try {
         adoptSession(await learningCenterApi.startTutorialSession(request));
+        /*
+         * Close the catalogue once a session is running.
+         *
+         * FR-089 requires the active step to be shown in a surface that does
+         * not occlude the canvas element it refers to, and the very first step
+         * asks the user to drag a block onto that canvas. Leaving the panel up
+         * covers the thing the step is pointing at, so the tutorial reads as
+         * stuck even though the session started correctly.
+         */
+        set({ learningCenterOpen: false });
         // The entry's state and the group's count both moved.
         const catalogue = await learningCenterApi.getTutorialCatalogue();
         set({ learningCenterCatalogue: catalogue });

@@ -20,6 +20,14 @@ interface UseLearningCenterArgs {
   /** Drives the reconnect refetch below. */
   wsConnected: boolean;
   /**
+   * `App`'s project opener.
+   *
+   * A tutorial that declares `bootstrap` gets a project created for it on the
+   * backend (FR-062), and the session names it. Opening it is the frontend's
+   * job: the backend has no way to move the window.
+   */
+  openProject: (projectIdOrPath: string) => Promise<void> | void;
+  /**
    * `App`'s own left-panel state setter.
    *
    * Passed in rather than read from the store because `leftTab` is React state
@@ -29,7 +37,11 @@ interface UseLearningCenterArgs {
   setLeftTab: (tab: LeftTab) => void;
 }
 
-export function useLearningCenter({ wsConnected, setLeftTab }: UseLearningCenterArgs): void {
+export function useLearningCenter({
+  wsConnected,
+  setLeftTab,
+  openProject,
+}: UseLearningCenterArgs): void {
   const refreshLearningCenter = useAppStore((state) => state.refreshLearningCenter);
   const refreshActiveTutorialSession = useAppStore((state) => state.refreshActiveTutorialSession);
   const openLearningCenter = useAppStore((state) => state.openLearningCenter);
@@ -63,6 +75,39 @@ export function useLearningCenter({ wsConnected, setLeftTab }: UseLearningCenter
     firstRunLandingShown.current = true;
     openLearningCenter();
   }, [learningCenterCatalogue, learningCenterFirstRunDismissed, openLearningCenter]);
+
+  /*
+   * Open the project the active session names.
+   *
+   * FR-062 gives a tutorial that declares `bootstrap` a project of its own, and
+   * FR-063 registers it, but nothing on the backend can move the user's window
+   * — so without this the session starts, the step renders, and the user is
+   * looking at whatever project they had open, or at the welcome pane with no
+   * project at all. The tutorial reads as stuck while being entirely healthy.
+   *
+   * Keyed on the session's project rather than on the start call, so it covers
+   * resuming as well: User Story 2 requires reopening a half-finished tutorial
+   * to put the user back on the same step *in the same project*, which is the
+   * same move made from a different direction.
+   *
+   * The ref guards against re-entry while the open is in flight, since opening
+   * a project refreshes the project list and the block catalogue and would
+   * otherwise re-trigger this effect before `currentProjectId` has caught up.
+   */
+  const tutorialProjectId = useAppStore((state) => state.learningCenterSession?.project_id ?? null);
+  const currentProjectId = useAppStore((state) => state.currentProject?.id ?? null);
+  const openingTutorialProject = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!tutorialProjectId) {
+      openingTutorialProject.current = null;
+      return;
+    }
+    if (tutorialProjectId === currentProjectId) return;
+    if (openingTutorialProject.current === tutorialProjectId) return;
+    openingTutorialProject.current = tutorialProjectId;
+    void openProject(tutorialProjectId);
+  }, [tutorialProjectId, currentProjectId, openProject]);
 
   /*
    * Spec edge case — the frontend disconnects mid-session. Evaluation carried
