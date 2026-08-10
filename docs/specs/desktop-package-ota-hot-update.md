@@ -135,6 +135,33 @@ new code requires a fresh interpreter. The Package Manager prompts a restart and
 calls the `scistudio:relaunch` IPC (`app.relaunch(); app.exit(0)`). Rollback
 restores the backup and discards the current version; delete removes both.
 
+### 5.1 Dependency cache is output, never input
+
+Because `source_path` is repointed at the install dir, the "source" handed to
+`install_local_package` is routinely a previous install of the same package. The
+staging copy therefore excludes `site-packages`, and the dependency target is
+rebuilt from empty before pip runs. Both are load-bearing rather than tidiness:
+pip's `--target` overwrites same-named files and leaves everything else in place,
+so a cache that is copied forward accumulates every prior generation of wheels.
+
+That accumulation was self-sustaining (#2068). A `.so` compiled for a retired
+Python ABI is exactly what `repair_installed_package_dependencies` looks for, and
+the repair used to carry that file into staging and back out again — so the
+repair re-created its own trigger and re-ran on every launch, costing a measured
+11.7s-36s each time. Rebuilding the cache from scratch means a repair clears the
+condition that caused it, and the next launch finds nothing to do.
+
+### 5.2 Repair runs off the startup path
+
+`ApiRuntime` scans its registries first and hands the repair to a background
+thread, refreshing the registries again only if a cache was actually rebuilt. A
+package whose compiled dependencies target a dead ABI is already unusable, so
+blocking every launch on the fix buys nothing — and at 36s it exceeded the
+desktop's 30s HTTP readiness timeout, turning a slow launch into a failed one.
+
+A package repaired mid-session reaches the frontend on the next reload, the same
+limitation tracked in #1791.
+
 ## 6. API and UI
 
 - `GET /api/packages/installed` — on-disk install records.
