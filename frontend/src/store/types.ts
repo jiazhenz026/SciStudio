@@ -890,6 +890,20 @@ export interface GitSlice {
   currentBranch: string | null;
   logCache: Record<string, GitCommit[]>;
   logLoading: Record<string, boolean>;
+  /**
+   * Keys whose last load failed, so the auto-fetch guards stop asking.
+   *
+   * `GitHistoryList` and `useGraphData` both auto-fetch on
+   * `commits === null && !loading`. A failed load leaves the cache undefined
+   * and clears the loading flag, so that guard reads "never attempted" and the
+   * `set()` that recorded the failure re-renders the consumer, which asks
+   * again. Deleting the open project — which is what clearing tutorial data
+   * does — turned that into 159,353 requests and a frozen window.
+   *
+   * Cleared by `invalidateHistory`, so anything that genuinely changes git
+   * state retries, and bypassed by an explicit refresh.
+   */
+  logFailed: Record<string, boolean>;
   historyFilter: GitHistoryFilter;
   status: GitStatus | null;
   mergeInProgress: GitMergeInProgress | null;
@@ -933,7 +947,7 @@ export interface GitSlice {
   setHistoryFilter: (filter: GitHistoryFilter) => void;
   invalidateHistory: () => void;
   loadBranches: () => Promise<void>;
-  loadLog: (branch?: string) => Promise<void>;
+  loadLog: (branch?: string, options?: { force?: boolean }) => Promise<void>;
   loadStatus: () => Promise<void>;
   commit: (message: string, files?: string[]) => Promise<string>;
   switchBranch: (name: string) => Promise<{ auto_commit_sha: string | null }>;

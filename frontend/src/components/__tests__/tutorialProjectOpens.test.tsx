@@ -204,3 +204,63 @@ describe("starting a tutorial gets the catalogue out of the way", () => {
     expect(useAppStore.getState().learningCenterOpen).toBe(false);
   });
 });
+
+describe("clearing tutorial data lets go of a deleted project", () => {
+  beforeEach(() => {
+    resetAppStore();
+    vi.mocked(learningCenterApi.getTutorialCatalogue).mockResolvedValue(EMPTY_CATALOGUE);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it("drops the open project when clearing deleted it", async () => {
+    /*
+     * FR-073 deletes the tutorial projects, and clearing is reachable from
+     * inside a running tutorial — so the project the user is looking at can be
+     * one of them. The backend stops treating it as active, every later call
+     * answers 409, and a frontend still holding it renders a project whose
+     * directory is gone.
+     */
+    const projectPath = "/Users/someone/SciStudio Tutorials/welcome-to-scistudio";
+    vi.mocked(learningCenterApi.clearTutorialData).mockResolvedValue({
+      deleted_directories: [projectPath, "/Users/someone/SciStudio Tutorials/.library"],
+    } as never);
+    useAppStore.setState({
+      currentProject: { id: "project-37f0822e", path: projectPath } as never,
+    });
+
+    await useAppStore.getState().clearTutorialData();
+
+    expect(useAppStore.getState().currentProject).toBeNull();
+  });
+
+  it("keeps a project clearing did not touch", async () => {
+    vi.mocked(learningCenterApi.clearTutorialData).mockResolvedValue({
+      deleted_directories: ["/Users/someone/SciStudio Tutorials/welcome-to-scistudio"],
+    } as never);
+    const mine = { id: "project-mine", path: "/Users/someone/work/my-analysis" };
+    useAppStore.setState({ currentProject: mine as never });
+
+    await useAppStore.getState().clearTutorialData();
+
+    expect(useAppStore.getState().currentProject).toEqual(mine);
+  });
+
+  it("does not mistake a sibling whose path merely starts the same", async () => {
+    vi.mocked(learningCenterApi.clearTutorialData).mockResolvedValue({
+      deleted_directories: ["/Users/someone/SciStudio Tutorials/welcome"],
+    } as never);
+    const sibling = {
+      id: "project-sibling",
+      path: "/Users/someone/SciStudio Tutorials/welcome-to-scistudio",
+    };
+    useAppStore.setState({ currentProject: sibling as never });
+
+    await useAppStore.getState().clearTutorialData();
+
+    expect(useAppStore.getState().currentProject).toEqual(sibling);
+  });
+});

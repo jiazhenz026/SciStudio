@@ -217,6 +217,7 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
   mergeFlowProjectId: null,
   lastError: null,
   lastNotice: null,
+  logFailed: {},
 
   setHistoryFilter: (filter) => set({ historyFilter: filter }),
 
@@ -224,7 +225,7 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
     // Clear cached log / status / branch list. Called from useWebSocket on
     // `git.head_changed` and from any other action that needs to discard
     // stale git state (commit, switch, restore, merge resolve).
-    set({ logCache: {}, status: null, branches: null });
+    set({ logCache: {}, status: null, branches: null, logFailed: {} });
     // #984 fix: actively re-fetch instead of waiting for "the next consumer
     // render" — no consumer (BranchPicker, GitHistoryList, GitStatusBadge)
     // is wired to re-fetch on state=null. They only call their respective
@@ -263,19 +264,37 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
     }
   },
 
-  loadLog: async (branch?: string) => {
+  loadLog: async (branch?: string, options?: { force?: boolean }) => {
     const key = logKey(branch);
+    /*
+     * Do not re-attempt a key whose last load failed unless asked to.
+     *
+     * `GitHistoryList` and `useGraphData` auto-fetch on
+     * `commits === null && !loading`. Without this guard a failure satisfies
+     * that condition again the instant it is recorded — the cache is still
+     * undefined, the loading flag is back to false — and the `set()` below
+     * re-renders the consumer, which asks again immediately. Deleting the
+     * currently open project, which is what clearing tutorial data does, made
+     * every git call 409 and turned that into an unbounded request loop that
+     * froze the window.
+     *
+     * `invalidateHistory` clears these, so a commit, branch switch, restore, or
+     * project change still retries; an explicit refresh passes `force`.
+     */
+    if (!options?.force && get().logFailed[key]) return;
     set((state) => ({ logLoading: { ...state.logLoading, [key]: true } }));
     try {
       const commits = await api.gitLog(branch ? { branch } : undefined);
       set((state) => ({
         logCache: { ...state.logCache, [key]: commits },
         logLoading: { ...state.logLoading, [key]: false },
+        logFailed: { ...state.logFailed, [key]: false },
         lastError: null,
       }));
     } catch (err) {
       set((state) => ({
         logLoading: { ...state.logLoading, [key]: false },
+        logFailed: { ...state.logFailed, [key]: true },
         lastError: describeApiError(err, "Failed to load commit history"),
       }));
     }

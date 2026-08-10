@@ -216,7 +216,10 @@ describe("GitHistoryList", () => {
     render(<GitHistoryList branch="main" />);
     flipToListView();
     fireEvent.click(screen.getByTestId("git-history-refresh"));
-    expect(loadLog).toHaveBeenCalledWith("main");
+    // `force` because a failed load now blocks the automatic re-fetch that this
+    // component's effect would otherwise make forever (#2057). An explicit
+    // Refresh is the user saying to try anyway, so it must bypass that block.
+    expect(loadLog).toHaveBeenCalledWith("main", { force: true });
   });
 
   // #1400: top-toolbar Diff/Restore work for both Graph and List views,

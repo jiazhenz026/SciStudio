@@ -439,9 +439,28 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
       set({ learningCenterLoading: true, learningCenterError: null });
       try {
         const result = await learningCenterApi.clearTutorialData();
+        /*
+         * Let go of the project if clearing just deleted it.
+         *
+         * FR-073 removes the tutorial projects, and the one the user is looking
+         * at may be among them — clearing is reachable from inside a running
+         * tutorial. The backend drops it as the active project, so every
+         * subsequent call answers 409, and a frontend still holding it renders
+         * a project whose directory is gone and asks git about it forever.
+         *
+         * Compared on the paths the backend says it deleted rather than on the
+         * marker, because this must also be right for a project the user opened
+         * before the marker existed.
+         */
+        const deleted = result.deleted_directories;
+        const openPath = get().currentProject?.path ?? null;
+        if (openPath && deleted.some((dir) => openPath === dir || openPath.startsWith(`${dir}/`))) {
+          get().setCurrentProject(null);
+          set({ tabs: [], activeTabId: null });
+        }
         const catalogue = await learningCenterApi.getTutorialCatalogue();
         set({ learningCenterCatalogue: catalogue, learningCenterSession: catalogue.active });
-        return result.deleted_directories;
+        return deleted;
       } catch (error) {
         set({ learningCenterError: describe(error) });
         return [];

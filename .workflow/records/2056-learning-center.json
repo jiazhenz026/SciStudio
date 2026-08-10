@@ -2001,6 +2001,30 @@
       "at": "2026-08-09T10:28:52.330474Z",
       "pattern": "tests/ai/**",
       "reason": "Audit follow-up: the save-to-library write path bound user_blocks_dir directly in three places, not two. The HTTP route and its collision probe were fixed in scope; the MCP agent tool at ai/agent/mcp/tools_library.py has the identical defect and is reachable from the designed AI tutorial, so a tutorial-project save through the agent would still pollute the user's real library and survive clearing."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-10T18:33:28.455238Z",
+      "pattern": "frontend/src/store/gitSlice.ts",
+      "reason": "Live testing found that clearing tutorial data while the tutorial project is open freezes the app with an unbounded git refetch loop (159,353 requests observed). The loop is a latent gitSlice defect \u2014 on a failed load the cache stays undefined and the loading flag clears, so the consumer guard reads 'never attempted' and re-fires on the re-render \u2014 but the Learning Center's clear action makes it reachable in one click, so shipping the feature means fixing it."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-10T18:33:28.455432Z",
+      "pattern": "frontend/src/components/Git/**",
+      "reason": "Live testing found that clearing tutorial data while the tutorial project is open freezes the app with an unbounded git refetch loop (159,353 requests observed). The loop is a latent gitSlice defect \u2014 on a failed load the cache stays undefined and the loading flag clears, so the consumer guard reads 'never attempted' and re-fires on the re-render \u2014 but the Learning Center's clear action makes it reachable in one click, so shipping the feature means fixing it."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-10T18:47:18.997973Z",
+      "pattern": "desktop/node_modules",
+      "reason": "Untrack a desktop/node_modules symlink that a live-testing step committed by accident, and stop the pattern from recurring"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-10T18:47:18.998271Z",
+      "pattern": ".gitignore",
+      "reason": "Untrack a desktop/node_modules symlink that a live-testing step committed by accident, and stop the pattern from recurring"
     }
   ],
   "session_id": "b4be238d-ceba-4d3d-88fc-281a926395c6",
