@@ -721,6 +721,15 @@ class CatalogueEntry:
     unavailable_reason: str | None
     project_directory: Path | None
     directory: Path
+    reading: bool = False
+    """Whether this tutorial only ever asks the reader to read on.
+
+    Derived from the manifest's steps rather than declared — see
+    :attr:`~scistudio.tutorials.manifest.TutorialManifest.is_reading_only`. The
+    Learning Center lists these apart from hands-on tutorials; a tutorial whose
+    manifest could not be read at all answers False, because nothing is known
+    about its steps.
+    """
 
     @property
     def key(self) -> TutorialKey:
@@ -811,6 +820,7 @@ def _entry(
         unavailable_reason=tutorial.unavailable_reason,
         project_directory=project if tutorial_project_exists(project) else None,
         directory=tutorial.directory,
+        reading=tutorial.manifest is not None and tutorial.manifest.is_reading_only,
     )
 
 

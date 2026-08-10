@@ -319,7 +319,7 @@ CatalogueResponse = {
 }
 CatalogueEntry = { source_kind, source_id, id, title, summary, cover_url|null,
                    order, state, unavailable_reason|null,
-                   project_directory|null }
+                   project_directory|null, reading }
 SessionResponse = { source_kind, source_id, tutorial_id, title,
                     project_id|null, project_path|null,
                     step: { id, index, total, say|null, highlight|null,

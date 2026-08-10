@@ -114,6 +114,28 @@ def test_core_tutorial_ids_are_unique_and_ordered() -> None:
     assert len(set(orders)) == len(orders), f"two core tutorials claim the same order: {orders}"
 
 
+def test_a_tutorial_that_builds_the_reader_a_project_is_not_filed_as_reading() -> None:
+    """Two independently declared things that must agree.
+
+    The Learning Center lifts reading tutorials into a tab of their own, and
+    decides which those are from the steps' conditions
+    (:attr:`TutorialManifest.is_reading_only`). ``bootstrap`` is declared
+    separately and decides whether the tutorial gets a project (FR-009).
+    Nothing in the code makes one follow from the other, which is what gives
+    this check something to catch: a tutorial that creates a working project
+    and then never checks whether anything was done in it is listed as
+    something to sit and read, and is not one.
+    """
+    for directory in CORE_TUTORIAL_DIRS:
+        manifest = _load(directory)
+        if not manifest.creates_project:
+            continue
+        assert not manifest.is_reading_only, (
+            f"{manifest.id} creates a tutorial project but judges nothing the reader does, "
+            "so the Learning Center would file it under Reading"
+        )
+
+
 # ---------------------------------------------------------------------------
 # Per-tutorial conformance
 # ---------------------------------------------------------------------------

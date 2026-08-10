@@ -1,12 +1,16 @@
 /**
  * ADR-053 Learning Center (#2057) — spec §4.4's frontend row.
  *
- * Asserts grouped rendering, the four entry states, the FR-086 dot appearing
- * and clearing, and that the FR-088 clear confirmation names the directories.
- * The last one is the point of the requirement rather than a detail of it: the
- * action's label describes the user's intent ("clear progress") while its
- * effect is deleting folders, and the two must not diverge silently — so the
- * test reads the directory strings, not the button.
+ * Asserts the per-source tabs and their own counts, the four entry states, the
+ * FR-086 dot appearing and clearing, and that the FR-088 clear confirmation
+ * names the directories. The last one is the point of the requirement rather
+ * than a detail of it: the action's label describes the user's intent ("clear
+ * progress") while its effect is deleting folders, and the two must not diverge
+ * silently — so the test reads the directory strings, not the button.
+ *
+ * The surface is three columns behind a tab strip, so selecting a tutorial and
+ * starting it are separate gestures. Tests that care about starting click the
+ * button that starts; tests that care about listing do not have to.
  */
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -17,6 +21,7 @@ import {
   learningCenterApi,
   type TutorialCatalogueEntry,
   type TutorialCatalogueResponse,
+  type TutorialSessionResponse,
 } from "../../lib/api/learningCenter";
 import { useAppStore } from "../../store";
 import { resetAppStore } from "../../testUtils";
@@ -56,6 +61,7 @@ function entry(overrides: Partial<TutorialCatalogueEntry> = {}): TutorialCatalog
     state: "not_started",
     unavailable_reason: null,
     project_directory: null,
+    reading: false,
     ...overrides,
   };
 }
@@ -125,6 +131,31 @@ function catalogue(overrides: Partial<TutorialCatalogueResponse> = {}): Tutorial
   };
 }
 
+function session(overrides: Partial<TutorialSessionResponse> = {}): TutorialSessionResponse {
+  return {
+    source_kind: "core",
+    source_id: "",
+    tutorial_id: "custom-block",
+    title: "Write a custom block",
+    project_id: "p1",
+    project_path: "/Users/rosalind/SciStudio Tutorials/custom-block",
+    step: {
+      id: "drag-load",
+      index: 4,
+      total: 9,
+      say: "Drag the Load block onto the canvas.",
+      highlight: null,
+      route_to: null,
+      awaiting_continue: false,
+    },
+    satisfied_step_ids: [],
+    status: "active",
+    error: null,
+    replay: null,
+    ...overrides,
+  };
+}
+
 function toolbarProps(): React.ComponentProps<typeof Toolbar> {
   return {
     currentProject: null,
@@ -165,6 +196,12 @@ async function renderOpenPanel(response: TutorialCatalogueResponse = catalogue()
   await waitFor(() => expect(learningCenterApi.getTutorialCatalogue).toHaveBeenCalled());
 }
 
+/** Select a tutorial in the left column so the middle column shows it. */
+async function select(testId: string) {
+  fireEvent.click(await screen.findByTestId(testId));
+  return screen.findByTestId("tutorial-detail");
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   resetAppStore();
@@ -172,33 +209,48 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-describe("Learning Center — grouped catalogue (FR-084, FR-076)", () => {
-  it("lists tutorials grouped by source, each group labelled with its own count", async () => {
+describe("Learning Center — one tab per source (FR-084, FR-076)", () => {
+  it("gives each source a tab carrying its own count, with no aggregate", async () => {
     await renderOpenPanel();
 
-    expect(await screen.findByTestId("tutorial-group-core-")).toBeInTheDocument();
-    expect(
-      screen.getByTestId("tutorial-group-package-scistudio-blocks-imaging"),
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId("tutorial-tab-core:")).toBeInTheDocument();
+    const imaging = screen.getByTestId("tutorial-tab-package:scistudio-blocks-imaging");
 
-    // Each group's own count, and no aggregate across them.
-    expect(screen.getByText("1 of 4 complete")).toBeInTheDocument();
-    expect(screen.getByText("2 of 2 complete")).toBeInTheDocument();
-    expect(screen.queryByText("3 of 6 complete")).not.toBeInTheDocument();
+    expect(screen.getByTestId("tutorial-tab-core:")).toHaveTextContent("1/4");
+    expect(imaging).toHaveTextContent("2/2");
+    // 3 of 6 is the number FR-076 forbids; it must appear nowhere.
+    expect(screen.queryByText(/3\/6/)).not.toBeInTheDocument();
 
-    // Group labels name their origin.
-    expect(screen.getByText("SciStudio")).toBeInTheDocument();
-    expect(screen.getByText("Imaging")).toBeInTheDocument();
+    // Tab labels name their origin.
+    expect(screen.getByTestId("tutorial-tab-core:")).toHaveTextContent("SciStudio");
+    expect(imaging).toHaveTextContent("Imaging");
   });
 
-  it("puts the core group first even when the backend returns it second", async () => {
+  it("puts the core tab first even when the backend returns it second", async () => {
     await renderOpenPanel();
 
-    const groups = await screen.findAllByTestId(/^tutorial-group-/);
-    expect(groups.map((node) => node.getAttribute("data-testid"))).toEqual([
-      "tutorial-group-core-",
-      "tutorial-group-package-scistudio-blocks-imaging",
+    const tabs = await screen.findAllByTestId(/^tutorial-tab-/);
+    expect(tabs.map((node) => node.getAttribute("data-testid"))).toEqual([
+      "tutorial-tab-core:",
+      "tutorial-tab-package:scistudio-blocks-imaging",
+      "tutorial-tab-reading",
     ]);
+  });
+
+  it("lists only the selected tab's tutorials", async () => {
+    await renderOpenPanel();
+
+    expect(await screen.findByTestId("tutorial-entry-core--first-workflow")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("tutorial-entry-package-scistudio-blocks-imaging-segmentation"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("tutorial-tab-package:scistudio-blocks-imaging"));
+
+    expect(
+      await screen.findByTestId("tutorial-entry-package-scistudio-blocks-imaging-segmentation"),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("tutorial-entry-core--first-workflow")).not.toBeInTheDocument();
   });
 
   it("states that tutorial projects are temporary (FR-068)", async () => {
@@ -208,27 +260,81 @@ describe("Learning Center — grouped catalogue (FR-084, FR-076)", () => {
   });
 });
 
-describe("Learning Center — entry states (FR-085)", () => {
-  it("shows title, summary, and each of the four states", async () => {
+describe("Learning Center — the Reading tab", () => {
+  function withReading(): TutorialCatalogueResponse {
+    const base = catalogue();
+    const core = base.groups.find((group) => group.source_kind === "core");
+    if (!core) throw new Error("fixture is missing its core group");
+    core.tutorials.push(
+      entry({ id: "what-there-is", title: "What SciStudio gives you", reading: true }),
+    );
+    core.total = 5;
+    return base;
+  }
+
+  it("is offered even with no reading tutorials, and says what belongs there", async () => {
     await renderOpenPanel();
 
-    const first = await screen.findByTestId("tutorial-entry-core--first-workflow");
-    expect(first).toHaveTextContent("Run your first workflow");
-    expect(first).toHaveTextContent("Load a dataset, normalise it, and plot the result.");
+    fireEvent.click(await screen.findByTestId("tutorial-tab-reading"));
 
-    expect(screen.getAllByText("Complete").length).toBeGreaterThan(0);
-    expect(screen.getByText("In progress")).toBeInTheDocument();
-    expect(screen.getByText("Not started")).toBeInTheDocument();
-    expect(screen.getByText("Unavailable")).toBeInTheDocument();
+    expect(await screen.findByTestId("tutorial-list-empty")).toHaveTextContent(
+      /Reading tutorials will appear here/,
+    );
   });
 
-  it("gives the reason on an unavailable entry, and does not let it be started", async () => {
+  it("collects reading tutorials out of their source's tab", async () => {
+    await renderOpenPanel(withReading());
+
+    // Not in the core tab, which is what is selected on open.
+    expect(await screen.findByTestId("tutorial-entry-core--first-workflow")).toBeInTheDocument();
+    expect(screen.queryByTestId("tutorial-entry-core--what-there-is")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("tutorial-tab-reading"));
+
+    expect(await screen.findByTestId("tutorial-entry-core--what-there-is")).toBeInTheDocument();
+  });
+
+  it("carries no count of its own, because its tutorials span sources (FR-076)", async () => {
+    await renderOpenPanel(withReading());
+
+    const reading = await screen.findByTestId("tutorial-tab-reading");
+    expect(reading.textContent).toBe("Reading");
+  });
+
+  it("rings the selected tutorial's own source rather than a total", async () => {
+    await renderOpenPanel(withReading());
+
+    fireEvent.click(await screen.findByTestId("tutorial-tab-reading"));
+    await select("tutorial-entry-core--what-there-is");
+
+    // The core group's own count — 1 of 5 once the reading tutorial widens it.
+    expect(await screen.findByTestId("learning-center-progress-ring")).toHaveTextContent("1/5");
+  });
+});
+
+describe("Learning Center — entry states (FR-085)", () => {
+  it("shows the selected tutorial's title, summary, and state", async () => {
     await renderOpenPanel();
 
-    expect(
-      await screen.findByText("Install the scistudio-blocks-lcms package to run this tutorial."),
-    ).toBeInTheDocument();
-    expect(screen.getByTestId("tutorial-entry-core--lcms-intro")).toBeDisabled();
+    const detail = await select("tutorial-entry-core--first-workflow");
+    expect(detail).toHaveTextContent("Run your first workflow");
+    expect(detail).toHaveTextContent("Load a dataset, normalise it, and plot the result.");
+    expect(detail).toHaveTextContent("Complete");
+
+    expect(await select("tutorial-entry-core--custom-block")).toHaveTextContent("In progress");
+    expect(await select("tutorial-entry-core--history")).toHaveTextContent("Not started");
+    expect(await select("tutorial-entry-core--lcms-intro")).toHaveTextContent("Unavailable");
+  });
+
+  it("gives the reason on an unavailable entry, and offers no way to start it", async () => {
+    await renderOpenPanel();
+
+    const detail = await select("tutorial-entry-core--lcms-intro");
+
+    expect(detail).toHaveTextContent(
+      "Install the scistudio-blocks-lcms package to run this tutorial.",
+    );
+    expect(screen.queryByTestId("tutorial-detail-start")).not.toBeInTheDocument();
   });
 
   it("shows a cover only when the tutorial declared one", async () => {
@@ -250,30 +356,30 @@ describe("Learning Center — entry states (FR-085)", () => {
       }),
     );
 
-    const covers = await screen.findAllByRole("presentation", { hidden: true }).catch(() => []);
-    void covers;
-    const images = document.querySelectorAll("img");
-    expect(images).toHaveLength(1);
-    expect(images[0].getAttribute("src")).toBe("/api/tutorials/core//with-cover/cover");
+    await select("tutorial-entry-core--with-cover");
+    expect(document.querySelectorAll("img")).toHaveLength(1);
+    expect(document.querySelector("img")?.getAttribute("src")).toBe(
+      "/api/tutorials/core//with-cover/cover",
+    );
+
+    await select("tutorial-entry-core--no-cover");
+    expect(document.querySelectorAll("img")).toHaveLength(0);
+  });
+
+  it("selecting a tutorial does not start it", async () => {
+    await renderOpenPanel();
+
+    await select("tutorial-entry-core--history");
+
+    expect(learningCenterApi.startTutorialSession).not.toHaveBeenCalled();
   });
 
   it("resumes an in-progress tutorial rather than restarting it (FR-087)", async () => {
     await renderOpenPanel();
-    vi.mocked(learningCenterApi.startTutorialSession).mockResolvedValue({
-      source_kind: "core",
-      source_id: "",
-      tutorial_id: "custom-block",
-      title: "Write a custom block",
-      project_id: "p1",
-      project_path: "/Users/rosalind/SciStudio Tutorials/custom-block",
-      step: null,
-      satisfied_step_ids: [],
-      status: "active",
-      error: null,
-      replay: null,
-    });
+    vi.mocked(learningCenterApi.startTutorialSession).mockResolvedValue(session());
 
-    fireEvent.click(await screen.findByTestId("tutorial-entry-core--custom-block"));
+    await select("tutorial-entry-core--custom-block");
+    fireEvent.click(screen.getByTestId("tutorial-detail-start"));
 
     await waitFor(() =>
       expect(learningCenterApi.startTutorialSession).toHaveBeenCalledWith({
@@ -287,29 +393,31 @@ describe("Learning Center — entry states (FR-085)", () => {
 });
 
 describe("Learning Center — restarting a completed tutorial (FR-087, FR-066, FR-067)", () => {
-  it("names the project directory the restart will delete, and waits for confirmation", async () => {
-    await renderOpenPanel(
-      catalogue({
-        groups: [
-          {
-            source_kind: "core",
-            source_id: "",
-            label: "SciStudio",
-            completed: 1,
-            total: 1,
-            tutorials: [
-              entry({
-                id: "first-workflow",
-                state: "complete",
-                project_directory: "/Users/rosalind/SciStudio Tutorials/first-workflow",
-              }),
-            ],
-          },
-        ],
-      }),
-    );
+  const oneComplete = () =>
+    catalogue({
+      groups: [
+        {
+          source_kind: "core",
+          source_id: "",
+          label: "SciStudio",
+          completed: 1,
+          total: 1,
+          tutorials: [
+            entry({
+              id: "first-workflow",
+              state: "complete",
+              project_directory: "/Users/rosalind/SciStudio Tutorials/first-workflow",
+            }),
+          ],
+        },
+      ],
+    });
 
-    fireEvent.click(await screen.findByTestId("tutorial-entry-core--first-workflow"));
+  it("names the project directory the restart will delete, and waits for confirmation", async () => {
+    await renderOpenPanel(oneComplete());
+
+    await select("tutorial-entry-core--first-workflow");
+    fireEvent.click(screen.getByTestId("tutorial-detail-start"));
 
     const confirmation = await screen.findByTestId("learning-center-restart-confirm");
     expect(confirmation).toHaveTextContent("/Users/rosalind/SciStudio Tutorials/first-workflow");
@@ -321,6 +429,59 @@ describe("Learning Center — restarting a completed tutorial (FR-087, FR-066, F
       expect(learningCenterApi.startTutorialSession).toHaveBeenCalledWith(
         expect.objectContaining({ tutorial_id: "first-workflow", restart: true }),
       ),
+    );
+  });
+
+  it("withdraws a standing confirmation when another tutorial is selected", async () => {
+    // Otherwise the confirmation names one project while accepting it deletes
+    // whichever tutorial the middle column has moved on to.
+    await renderOpenPanel();
+
+    await select("tutorial-entry-core--first-workflow");
+    fireEvent.click(screen.getByTestId("tutorial-detail-start"));
+    await screen.findByTestId("learning-center-restart-confirm");
+
+    await select("tutorial-entry-core--history");
+
+    expect(screen.queryByTestId("learning-center-restart-confirm")).not.toBeInTheDocument();
+    expect(learningCenterApi.startTutorialSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("Learning Center — where the running tutorial has got to (FR-043, FR-090)", () => {
+  it("reports the running tutorial and its position", async () => {
+    await renderOpenPanel(catalogue({ active: session() }));
+
+    const position = await screen.findByTestId("learning-center-current-position");
+    expect(position).toHaveTextContent("Write a custom block");
+    expect(position).toHaveTextContent("Step 4 of 9");
+  });
+
+  it("keeps reporting it while the user browses another source's tab", async () => {
+    await renderOpenPanel(catalogue({ active: session() }));
+    await screen.findByTestId("learning-center-current-position");
+
+    fireEvent.click(screen.getByTestId("tutorial-tab-package:scistudio-blocks-imaging"));
+
+    expect(await screen.findByTestId("learning-center-current-position")).toHaveTextContent(
+      "Step 4 of 9",
+    );
+  });
+
+  it("says so plainly when nothing is running", async () => {
+    await renderOpenPanel();
+
+    expect(await screen.findByText("No tutorial is running.")).toBeInTheDocument();
+  });
+
+  it("offers leaving at any step, which preserves the session (FR-090)", async () => {
+    await renderOpenPanel(catalogue({ active: session() }));
+    vi.mocked(learningCenterApi.leaveActiveTutorialSession).mockResolvedValue(undefined);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Leave tutorial" }));
+
+    await waitFor(() =>
+      expect(learningCenterApi.leaveActiveTutorialSession).toHaveBeenCalledTimes(1),
     );
   });
 });

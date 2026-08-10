@@ -971,10 +971,26 @@ existing surface rather than one this spec has to define.
 be what the user sees.
 
 **FR-084.** The Learning Center MUST list tutorials grouped by source, each group
-labelled with its origin and its own count, with core first.
+labelled with its origin and its own count, with core first. Groups are
+presented as tabs, one source per tab; a tab's tutorials, the selected
+tutorial's detail, and that source's progress occupy separate regions, so
+selecting a tutorial and starting it are distinct gestures. Selecting MUST NOT
+start a tutorial, because starting one can create or delete a project on disk.
+
+**FR-084a.** Tutorials that only ever ask the reader to read on MUST be listed
+in a Reading tab of their own rather than in their source's tab, and that tab
+MUST be present regardless of whether any such tutorial is installed. Which tutorials
+those are MUST be derived from their declared steps, not from a manifest field:
+the manifest already declares what each step waits on, and a second
+classification could contradict it. A tutorial is a reading one when every step
+either waits on an explicit continue or waits on a term that judges only the
+reader's own progress through the material. The Reading tab MUST NOT carry a
+count of its own, because its tutorials may come from several sources at once
+and FR-076 forbids reporting a count across them.
 
 **FR-085.** Each entry MUST show its title, summary, cover if declared, and
-state: not started, in progress, complete, or unavailable with the reason.
+state: not started, in progress, complete, or unavailable with the reason. An
+unavailable entry MUST remain selectable so that its reason can be read.
 
 **FR-086.** The toolbar entry MUST carry an unfinished-work indicator when the
 core group is not fully complete and the user has dismissed the first-run
@@ -1178,9 +1194,13 @@ a file the change happens to touch.
 
 | File | Purpose |
 |---|---|
-| `src/components/LearningCenter.tsx` | Grouped catalogue, states, clear action (FR-082..FR-088) |
+| `src/components/LearningCenter.tsx` | Tabbed catalogue shell, clear action (FR-082..FR-088) |
+| `src/components/LearningCenter.parts/TutorialList.tsx` | A tab's tutorials (FR-084, FR-084a) |
+| `src/components/LearningCenter.parts/TutorialDetail.tsx` | The selected tutorial and the restart confirmation (FR-085, FR-087) |
+| `src/components/LearningCenter.parts/GroupProgress.tsx` | One source's count and the running session's position (FR-076, FR-090) |
+| `src/components/LearningCenter.parts/ProgressRing.tsx` | That count, drawn |
 | `src/components/LearningCenter.parts/ActiveStep.tsx` | Active step surface (FR-089, FR-090) |
-| `src/store/learningCenterSlice.ts` | Session view state only; no judging, no content |
+| `src/store/learningCenterSlice.ts` | Session view state and the tab split; no judging, no content |
 | `src/lib/api/learningCenter.ts` | API client |
 
 **Modified — frontend**
@@ -1252,7 +1272,7 @@ vocabulary term and every action type is part of this spec's test material.
 | Library | `tests/tutorials/test_scoped_library.py` | A tutorial project sees the scoped library; a real project does not (FR-071); clearing removes it (FR-073) |
 | Progress | `tests/tutorials/test_progress.py` | Grouped counts; a growing total is not compensated (FR-077); package uninstall removes its group (FR-078); only the core group drives the unlock (FR-080) |
 | Routes | `tests/api/test_tutorial_routes.py` | Catalogue, start, resume, evaluate, user-interface event, leave, clear; the removed route returns 404 (FR-003) |
-| Frontend | `frontend/src/components/__tests__/LearningCenter.test.tsx` | Grouped rendering; entry states; the dot appears and clears per FR-086; the clear confirmation names directories (FR-088) |
+| Frontend | `frontend/src/components/__tests__/LearningCenter.test.tsx` | Per-source tabs and their own counts; the Reading tab and its lack of one (FR-084a); entry states; selecting does not start; the dot appears and clears per FR-086; the clear confirmation names directories (FR-088) |
 
 Manual verification before the PR: a full pass of a fixture tutorial exercising
 every action type and every vocabulary term, a backend restart mid-tutorial, a

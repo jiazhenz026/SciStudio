@@ -29,6 +29,7 @@ import { ApiError } from "../lib/api/core";
 import {
   learningCenterApi,
   TUTORIAL_SESSION_CONFLICT_STATUS,
+  type TutorialCatalogueEntry,
   type TutorialCatalogueGroup,
   type TutorialCatalogueResponse,
   type TutorialSessionResponse,
@@ -67,6 +68,71 @@ export function orderedTutorialGroups(
 function catalogueGroups(catalogue: TutorialCatalogueResponse | null): TutorialCatalogueGroup[] {
   if (!catalogue || !Array.isArray(catalogue.groups)) return [];
   return catalogue.groups;
+}
+
+/** The Reading tab's identity, which is not a source and so is not a group. */
+export const READING_TAB_ID = "reading";
+
+/** The label on the Reading tab, shared with the tests that assert it. */
+export const READING_TAB_LABEL = "Reading";
+
+/**
+ * One tab of the Learning Center: a source, or the Reading tab.
+ *
+ * `group` is the source group the tab's ring counts against. The Reading tab
+ * has none, because its tutorials can come from several sources at once and
+ * FR-076 forbids reporting a count across them — there, the ring follows the
+ * selected tutorial's own source instead.
+ */
+export interface LearningCenterTab {
+  id: string;
+  label: string;
+  group: TutorialCatalogueGroup | null;
+  tutorials: TutorialCatalogueEntry[];
+}
+
+/** The key identifying one catalogue entry across the three columns. */
+export function tutorialEntryKey(entry: {
+  source_kind: string;
+  source_id: string;
+  id: string;
+}): string {
+  return `${entry.source_kind}:${entry.source_id}:${entry.id}`;
+}
+
+/**
+ * The tabs, in display order: core first, then the other sources, Reading last.
+ *
+ * Reading tutorials are lifted out of their source tabs rather than listed
+ * twice. A tutorial that only ever asks the reader to read on is a different
+ * kind of thing to sit down to than one that asks them to build something, and
+ * showing it in both places would make each tab's list a poor answer to "what
+ * is there to do here".
+ *
+ * The Reading tab is present even when empty. It is the answer to "where did
+ * the reading material go", and a tab that appears only once content exists
+ * cannot answer that.
+ */
+export function learningCenterTabs(
+  catalogue: TutorialCatalogueResponse | null,
+): LearningCenterTab[] {
+  const reading: TutorialCatalogueEntry[] = [];
+  const tabs: LearningCenterTab[] = [];
+
+  for (const group of orderedTutorialGroups(catalogue)) {
+    const entries = Array.isArray(group.tutorials) ? group.tutorials : [];
+    const hands_on = entries.filter((entry) => !entry.reading);
+    reading.push(...entries.filter((entry) => entry.reading));
+    tabs.push({
+      id: `${group.source_kind}:${group.source_id}`,
+      label: group.label,
+      group,
+      tutorials: hands_on,
+    });
+  }
+
+  tabs.push({ id: READING_TAB_ID, label: READING_TAB_LABEL, group: null, tutorials: reading });
+  return tabs;
 }
 
 /** FR-080 — only the core group drives the unlock and the toolbar dot. */

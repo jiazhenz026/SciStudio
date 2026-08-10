@@ -68,6 +68,7 @@ __all__ = [
     "EVENT_TERM_MAP",
     "FILE_CHANGED_TERMS",
     "LIBRARY_KINDS",
+    "READING_TERMS",
     "TERM_SPECS",
     "UI_EVENT_NAMES",
     "UNSATISFIABLE_LIBRARY_KINDS",
@@ -237,6 +238,23 @@ validation. So an unlisted name is rejected while the tutorial is being listed.
 It grows by core change, not by a manifest author inventing a name: a new
 member is only meaningful once the frontend reports it, so adding one requires
 a matching frontend change in the same breath.
+"""
+
+READING_TERMS: frozenset[str] = frozenset({"page_reached"})
+"""Terms whose truth is the reader turning a page, not the user doing anything.
+
+Every other term judges a product fact — a registered block, a succeeded run, a
+branch, a file. ``page_reached`` judges only that someone read on, which is what
+makes it the one term a tutorial can be built entirely out of and still be
+reading rather than doing.
+
+This is what :attr:`~scistudio.tutorials.manifest.TutorialManifest.is_reading_only`
+tests a manifest against, so the Learning Center can list reading tutorials
+apart from hands-on ones **without a declared kind field**. The manifest module
+records why there is no such field: the step actions already say what each step
+does, and a second classification could contradict them. Deriving the answer
+from ``done_when`` keeps that true — a tutorial cannot claim to be reading while
+waiting on a run to succeed, because the claim is the conditions themselves.
 """
 
 LIBRARY_KINDS: frozenset[str] = frozenset({"block", "type", "previewer"})

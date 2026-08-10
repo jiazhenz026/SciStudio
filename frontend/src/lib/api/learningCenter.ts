@@ -52,6 +52,14 @@ export interface TutorialCatalogueEntry {
    * is about to delete (FR-066, FR-067, FR-087) without a second round trip.
    */
   project_directory: string | null;
+  /**
+   * Whether the tutorial only ever asks the reader to read on.
+   *
+   * Derived on the backend from the steps' own conditions rather than declared
+   * in the manifest — a tutorial cannot claim to be reading while waiting on a
+   * run to succeed. The Learning Center lists these under their own tab.
+   */
+  reading: boolean;
 }
 
 /** §6.1.6 — one source's group, with its own counts (FR-084, FR-076). */

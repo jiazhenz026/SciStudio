@@ -25,6 +25,12 @@ The presence of ``bootstrap`` is what decides whether a tutorial gets a project
 (FR-009). The spec rejects a second classification because the step actions
 already declare what each step does, and a ``kind`` could contradict them.
 
+The Learning Center nevertheless has to list reading tutorials apart from
+hands-on ones, and does it without such a field: :attr:`TutorialManifest.is_reading_only`
+reads the answer off the steps' own ``done_when``. Anyone arriving here to add
+``kind: reading`` should look at that property first — a derived answer cannot
+disagree with the steps, and a declared one can.
+
 Containment is checked while listing, not while writing
 -------------------------------------------------------
 
@@ -86,6 +92,7 @@ from scistudio.tutorials.actions import (
     resolve_contained_path,
 )
 from scistudio.tutorials.conditions import (
+    READING_TERMS,
     Condition,
     ConditionValidationError,
     parse_condition,
@@ -349,6 +356,26 @@ class TutorialManifest:
     def is_driver_driven(self) -> bool:
         """FR-010: exactly one of ``steps`` and ``driver`` is set."""
         return self.driver is not None
+
+    @property
+    def is_reading_only(self) -> bool:
+        """Whether this tutorial only ever asks the reader to read on.
+
+        True when every step either waits on an explicit continue or waits on a
+        term from :data:`~scistudio.tutorials.conditions.READING_TERMS`. A step
+        that judges any product fact — a registered block, a succeeded run, a
+        file on disk — makes the tutorial hands-on, however much prose it also
+        carries.
+
+        Derived rather than declared, for the reason "Why there is no
+        tutorial-kind field" gives above: a manifest saying it is a reading
+        tutorial could contradict its own steps, and this cannot. A
+        driver-driven tutorial answers False because its steps are the driver's
+        to produce and are not on disk to inspect.
+        """
+        if self.is_driver_driven or not self.steps:
+            return False
+        return all(step.done_when is None or step.done_when.terms() <= READING_TERMS for step in self.steps)
 
     @property
     def assets_dir(self) -> Path:

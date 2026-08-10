@@ -163,6 +163,10 @@ def test_an_entry_carries_every_field_the_learning_center_renders(client: TestCl
         "state": "not_started",
         "unavailable_reason": None,
         "project_directory": None,
+        # True because this fixture's single step waits on nothing but the
+        # reader — see `TutorialManifest.is_reading_only`, which derives the
+        # answer from the steps rather than from a declared field.
+        "reading": True,
     }
 
 

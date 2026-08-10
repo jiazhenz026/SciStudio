@@ -203,6 +203,7 @@ class CatalogueEntryResponse(BaseModel):
     state: str
     unavailable_reason: str | None = None
     project_directory: str | None = None
+    reading: bool = False
 
 
 class CatalogueGroupResponse(BaseModel):
@@ -821,6 +822,7 @@ def _entry_response(entry: CatalogueEntry) -> CatalogueEntryResponse:
         state=str(entry.state),
         unavailable_reason=entry.unavailable_reason,
         project_directory=None if entry.project_directory is None else str(entry.project_directory),
+        reading=entry.reading,
     )
 
 

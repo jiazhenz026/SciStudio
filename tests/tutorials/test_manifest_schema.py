@@ -469,3 +469,69 @@ def test_yaml_round_trip_of_the_fixture_matches_the_parsed_model() -> None:
         path=FIXTURES / "minimal-core" / "tutorial.yaml",
     )
     assert [step.id for step in manifest.steps] == [step["id"] for step in raw["steps"]]
+
+
+# ---------------------------------------------------------------------------
+# Reading tutorials, derived rather than declared
+# ---------------------------------------------------------------------------
+
+
+def test_a_tutorial_whose_steps_only_wait_on_the_reader_is_a_reading_tutorial(tmp_path: Path) -> None:
+    """The Learning Center's Reading tab is filled from this property.
+
+    A step with no ``done_when`` waits on an explicit continue, and
+    ``page_reached`` waits on the reader turning a page. Neither judges any
+    product fact, so a tutorial built only from them asks the user to read and
+    nothing else.
+    """
+    manifest = parse(
+        {
+            **MINIMAL_MANIFEST,
+            "steps": [
+                {"id": "open", "say": "Here is what SciStudio gives you."},
+                {"id": "blocks", "say": "Blocks.", "done_when": {"page_reached": {"page": "blocks"}}},
+            ],
+        },
+        tmp_path=tmp_path,
+    )
+
+    assert manifest.is_reading_only is True
+
+
+def test_one_step_judging_a_product_fact_makes_the_whole_tutorial_hands_on(tmp_path: Path) -> None:
+    """However much prose it carries. The judged step is work the user must do."""
+    manifest = parse(
+        {
+            **MINIMAL_MANIFEST,
+            "steps": [
+                {"id": "read", "say": "Blocks are the unit of work."},
+                {"id": "do-it", "say": "Now run it.", "done_when": {"run_succeeded": {}}},
+            ],
+        },
+        tmp_path=tmp_path,
+    )
+
+    assert manifest.is_reading_only is False
+
+
+def test_a_driver_driven_tutorial_is_not_classified_as_reading(tmp_path: Path) -> None:
+    """Its steps are the driver's to produce and are not on disk to inspect."""
+    manifest = parse(
+        {
+            "manifest_version": 1,
+            "id": "example",
+            "title": "Example",
+            "summary": "A tutorial used by the tests.",
+            "driver": "scistudio_blocks_imaging.tutorials:Driver",
+        },
+        tmp_path=tmp_path,
+        kind=TutorialSourceKind.PACKAGE,
+    )
+
+    assert manifest.is_reading_only is False
+
+
+def test_the_reading_terms_are_a_subset_of_the_vocabulary() -> None:
+    """A reading term that is not a term at all could never be written down."""
+    assert conditions_module.READING_TERMS <= conditions_module.VOCABULARY
+    assert frozenset({"page_reached"}) == conditions_module.READING_TERMS
