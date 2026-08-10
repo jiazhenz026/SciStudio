@@ -63,7 +63,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
@@ -520,6 +520,7 @@ class TutorialRuntime:
         sessions: SessionStore | None = None,
         open_replay: Callable[[str], ReplayHandle] | None = None,
         record_ui_event: Callable[[str], None] | None = None,
+        files_written: Callable[[Sequence[Path]], None] | None = None,
     ) -> None:
         """Wire the runtime to the API layer's implementations of its ports.
 
@@ -541,6 +542,11 @@ class TutorialRuntime:
             record_ui_event: Records a frontend-reported user-interface event
                 into product state before it is judged (FR-052). The API layer
                 owns that state, so recording is its job and this is the hook.
+            files_written: Called with the project paths a bootstrap or a step
+                just wrote, before the step's text becomes readable (FR-059).
+                Writing a block file is not the same as the product having the
+                block, and only the API layer knows which directories its
+                registries scan — see :meth:`_settle`.
         """
         self._product_state = product_state
         self._external = external_events
@@ -551,6 +557,7 @@ class TutorialRuntime:
         self._sessions = sessions or SessionStore()
         self._open_replay = open_replay
         self._record_ui_event = record_ui_event
+        self._files_written = files_written
         self._replay: ReplayHandle | None = None
 
     # -- discovery and the catalogue -------------------------------------
@@ -832,12 +839,13 @@ class TutorialRuntime:
         bootstrap = manifest.bootstrap
         if bootstrap is None or not bootstrap.do:
             return
-        execute_actions(
+        written = execute_actions(
             bootstrap.do,
             context=ActionContext(tutorial_dir=tutorial_dir, project_dir=record.project_path),
             step_id="bootstrap",
             delivery=self._delivery_for(bootstrap.do, step_id="bootstrap"),
         )
+        self._settle(written)
 
     def _discard(
         self,
@@ -981,7 +989,24 @@ class TutorialRuntime:
             step_id=step_id,
             reveal=_judge_then_reveal,
             delivery=delivery,
+            settle=self._settle,
         )
+
+    def _settle(self, written: Sequence[Path]) -> None:
+        """Let the product take in what a step just wrote, before its text is read.
+
+        A step that writes ``blocks/normalize_fluorescence.py`` and then says
+        "find Normalize Fluorescence in the palette" is unfollowable until the
+        block registry has re-scanned: the file is there and the block is not.
+        The API layer owns the registries and is the only side that knows which
+        directories they scan, so it decides what a written path means; this is
+        the hook it is handed. A runtime wired without one writes files and
+        nothing else, which is what every test that does not care about the
+        registries gets.
+        """
+        if self._files_written is None or not written:
+            return
+        self._files_written(tuple(written))
 
     def _delivery_for(self, actions: Iterable[Action], *, step_id: str) -> ReplayHandle | None:
         """Open a byte source when a step replays, and only then (checklist §6.1.7)."""

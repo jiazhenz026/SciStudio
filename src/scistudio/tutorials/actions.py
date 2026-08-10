@@ -589,7 +589,7 @@ def _require_project(context: ActionContext, action: Action, step_id: str) -> Pa
     return context.project_dir
 
 
-def _execute_file_action(action: FileAction, *, context: ActionContext, step_id: str) -> None:
+def _execute_file_action(action: FileAction, *, context: ActionContext, step_id: str) -> Path:
     project_dir = _require_project(context, action, step_id)
     try:
         source = resolve_contained_path(context.tutorial_dir, action.source, field_name="source")
@@ -610,6 +610,7 @@ def _execute_file_action(action: FileAction, *, context: ActionContext, step_id:
             shutil.copytree(source, destination, dirs_exist_ok=True)
     except OSError as exc:
         raise ActionExecutionError(step_id=step_id, action=action, reason=str(exc)) from exc
+    return destination
 
 
 def execute_replay(
@@ -618,13 +619,16 @@ def execute_replay(
     context: ActionContext,
     step_id: str,
     delivery: ReplayDelivery,
-) -> None:
+) -> tuple[Path, ...]:
     """Run a replay: for each segment, land its actions, then deliver its bytes.
 
     FR-061b in one line. A scripted agent that claims to have written a block
     is matched by the block existing at the moment the claim becomes readable,
     which is why the segment's own actions run *before* its bytes and not
     merely before the next segment's.
+
+    Returns the project paths the segments wrote, for the same reason
+    :func:`execute_actions` does.
     """
     if delivery.surface != action.surface:
         raise ActionExecutionError(
@@ -632,9 +636,10 @@ def execute_replay(
             action=action,
             reason=f"delivery is bound to {delivery.surface!r} but the action names {action.surface!r}",
         )
+    written: list[Path] = []
     for segment in action.segments:
         for bound in segment.do:
-            _execute_file_action(bound, context=context, step_id=step_id)
+            written.append(_execute_file_action(bound, context=context, step_id=step_id))
         try:
             source = resolve_contained_path(context.tutorial_dir, segment.source, field_name="segment source")
             payload = source.read_bytes()
@@ -645,6 +650,7 @@ def execute_replay(
                 reason=f"segment {segment.id!r}: {exc}",
             ) from exc
         delivery.deliver(segment, payload)
+    return tuple(written)
 
 
 def execute_action(
@@ -653,8 +659,11 @@ def execute_action(
     context: ActionContext,
     step_id: str,
     delivery: ReplayDelivery | None = None,
-) -> None:
-    """Run one action, raising :class:`ActionExecutionError` on any failure (FR-060)."""
+) -> tuple[Path, ...]:
+    """Run one action and return the project paths it wrote.
+
+    Raises :class:`ActionExecutionError` on any failure (FR-060).
+    """
     if isinstance(action, ReplayAction):
         if delivery is None:
             raise ActionExecutionError(
@@ -662,9 +671,8 @@ def execute_action(
                 action=action,
                 reason="no replay delivery was supplied for the declared surface",
             )
-        execute_replay(action, context=context, step_id=step_id, delivery=delivery)
-        return
-    _execute_file_action(action, context=context, step_id=step_id)
+        return execute_replay(action, context=context, step_id=step_id, delivery=delivery)
+    return (_execute_file_action(action, context=context, step_id=step_id),)
 
 
 def execute_actions(
@@ -673,10 +681,16 @@ def execute_actions(
     context: ActionContext,
     step_id: str,
     delivery: ReplayDelivery | None = None,
-) -> None:
-    """Run an ordered action list. Declaration order is execution order."""
+) -> tuple[Path, ...]:
+    """Run an ordered action list. Declaration order is execution order.
+
+    Returns every project path written, in the order it was written, so a
+    caller can react to what landed without re-deriving it from the manifest.
+    """
+    written: list[Path] = []
     for action in actions:
-        execute_action(action, context=context, step_id=step_id, delivery=delivery)
+        written.extend(execute_action(action, context=context, step_id=step_id, delivery=delivery))
+    return tuple(written)
 
 
 _Reveal = TypeVar("_Reveal")
@@ -689,14 +703,27 @@ def perform_step_entry(
     step_id: str,
     reveal: Callable[[], _Reveal],
     delivery: ReplayDelivery | None = None,
+    settle: Callable[[Sequence[Path]], None] | None = None,
 ) -> _Reveal:
-    """Run a step's entry actions, then produce the step's display payload (FR-059).
+    """Run a step's entry actions, let the product take them in, then reveal (FR-059).
 
     The only way to get at ``reveal()``'s result is through this call, so the
     ordering FR-059 requires is a property of the API rather than something a
     caller has to remember. If any action fails the exception propagates and
     ``reveal`` is never called, so the step's text cannot be read after a
     failed entry (FR-060).
+
+    ``settle`` is the third position in that ordering, and exists because
+    writing a file is not the same as the product having noticed it. A step
+    that says "we have written this block for you — find it in the palette"
+    reads as broken while the file sits on disk unscanned, which satisfies
+    FR-059's letter and misses what it is for. The hook is called with the
+    paths just written, before ``reveal``, so whatever the product has to do to
+    take them in has happened by the time the step's text can be read. It is
+    given no way to change the reveal, and a caller that supplies none gets the
+    plain write-then-reveal ordering.
     """
-    execute_actions(actions, context=context, step_id=step_id, delivery=delivery)
+    written = execute_actions(actions, context=context, step_id=step_id, delivery=delivery)
+    if settle is not None and written:
+        settle(written)
     return reveal()

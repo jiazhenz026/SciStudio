@@ -850,6 +850,16 @@ every claim must be matched by a real change on disk.
 that says "we have written this block for you" must not be readable before the
 block exists.
 
+**FR-059a.** Where an action writes into a directory the product's registries
+scan, those registries MUST be re-scanned before the step's text is displayed,
+and connected clients MUST be told to refresh. "The block exists" is a claim
+about the product holding the block, not about a file being on disk: a step that
+writes `blocks/x.py` and then says to find it in the palette is unfollowable
+while the palette does not list it, which satisfies FR-059's letter and defeats
+its purpose. A write outside those directories MUST NOT trigger a re-scan —
+a `.py` file under `data/` is teaching material, and an ordinary copy step must
+not pay for a scan it cannot benefit from.
+
 **FR-060.** An action failure MUST end the session with an error naming the step
 and the action, and MUST NOT silently advance.
 

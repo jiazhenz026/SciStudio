@@ -698,3 +698,115 @@ def test_a_package_tutorials_assets_use_the_named_source_in_the_url(client: Test
     mount(core_tier, "covered", manifest_for("covered", [{"id": "one", "say": "One."}], cover="assets/c.svg"))
 
     assert client.get("/api/tutorials/package/some-dist/covered/cover").status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# A step that writes a block gives the product the block, not just the file
+# ---------------------------------------------------------------------------
+
+
+_PROBE_BLOCK_SOURCE = (
+    "from scistudio.blocks.process.process_block import ProcessBlock\n"
+    "\n"
+    "\n"
+    "class TutorialProbeBlock(ProcessBlock):\n"
+    "    name = 'Tutorial Probe'\n"
+    "    type_name = 'tutorial_probe'\n"
+)
+
+
+def _writes_a_block(core: Path, tutorial_id: str, destination: str) -> None:
+    """Mount a tutorial whose first step writes a block and waits for it to register."""
+    mount(
+        core,
+        tutorial_id,
+        manifest_for(
+            tutorial_id,
+            [
+                {
+                    "id": "we-wrote-it",
+                    "say": "A block now exists in your project. Find it in the palette.",
+                    "do": [{"write": {"source": "assets/code/probe.py", "destination": destination}}],
+                    "done_when": {"block_registered": {"block_type": "tutorial_probe"}},
+                },
+                {"id": "found-it", "say": "There it is."},
+            ],
+            **BOOTSTRAP,
+        ),
+        files={"assets/code/probe.py": _PROBE_BLOCK_SOURCE},
+    )
+
+
+def test_a_step_that_writes_a_block_leaves_the_product_holding_the_block(client: TestClient, core_tier: Path) -> None:
+    """FR-059, for a claim only the registry can make true.
+
+    The step writes ``blocks/probe.py`` and says "find it in the palette". Its
+    own condition is ``block_registered``, so the step can only be satisfied if
+    the *registry* has the block by the time the step is revealed — a file on
+    disk is not enough, and was not enough: the scan happens when a project is
+    opened or when the palette's Reload button is pressed, neither of which a
+    tutorial step does.
+
+    Entry satisfies the condition immediately (FR-054), so a passing run lands
+    on the following step. Without the re-scan the session sits on
+    ``we-wrote-it`` forever, with the user looking at a palette that does not
+    contain what the step is telling them to find.
+    """
+    _writes_a_block(core_tier, "writes-a-block", "blocks/probe.py")
+
+    assert step_id(start(client, "writes-a-block").json()) == "found-it"
+
+
+def test_the_palette_lists_the_block_the_step_wrote(client: TestClient, core_tier: Path) -> None:
+    """The same fact from the surface the user is looking at."""
+    before = client.get("/api/blocks/").json()["blocks"]
+    assert not any(block["type_name"] == "tutorial_probe" for block in before)
+
+    _writes_a_block(core_tier, "writes-a-block", "blocks/probe.py")
+    start(client, "writes-a-block")
+
+    after = client.get("/api/blocks/").json()["blocks"]
+    probe = next(block for block in after if block["type_name"] == "tutorial_probe")
+    assert probe["base_category"] == "process"
+
+
+def test_only_a_write_into_a_scanned_directory_asks_for_a_re_scan(tmp_path: Path) -> None:
+    """Which writes are worth a registry re-scan.
+
+    Tested as the predicate rather than through a route, deliberately: dropping
+    the guard changes no outcome, because a ``.py`` file under ``data/`` is not
+    scanned as a block whether or not the registries refresh. What it changes is
+    that every copied CSV pays for a full re-scan and broadcasts
+    ``blocks.reloaded`` to every client — a bootstrap copying a data directory
+    would do it once per file. A route test would pass either way and would
+    quietly stop protecting anything.
+
+    The prefix case is the one worth writing down: ``blocksmith/`` starts with
+    ``blocks`` and is not it.
+    """
+    from scistudio.api.routes.tutorials import _wrote_into_a_scanned_dir
+
+    project = tmp_path / "proj"
+    (project / "blocks").mkdir(parents=True)
+    (project / "types").mkdir()
+    (project / "data" / "raw").mkdir(parents=True)
+    (project / "blocksmith").mkdir()
+
+    def wrote(*relatives: str) -> bool:
+        paths = [project / relative for relative in relatives]
+        for path in paths:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("", encoding="utf-8")
+        return _wrote_into_a_scanned_dir(paths, project_dir=project)
+
+    assert wrote("blocks/probe.py") is True
+    assert wrote("types/spectrum.py") is True
+    # One block among data files is still a block.
+    assert wrote("data/raw/cells.csv", "blocks/probe.py") is True
+
+    assert wrote("data/raw/cells.csv") is False
+    assert wrote("data/raw/probe.py") is False
+    assert wrote("blocksmith/probe.py") is False
+    assert _wrote_into_a_scanned_dir([tmp_path / "elsewhere" / "probe.py"], project_dir=project) is False
+    # No project means nothing to be inside of.
+    assert _wrote_into_a_scanned_dir([project / "blocks" / "probe.py"], project_dir=None) is False

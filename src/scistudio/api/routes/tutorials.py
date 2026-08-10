@@ -38,9 +38,10 @@ next read of ``/sessions/active``.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import mimetypes
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, TypeVar
@@ -707,9 +708,40 @@ class _TutorialWiring:
     recorded: _RecordedSignals
 
 
+#: Project subdirectories whose contents the registries scan (ADR-036 drop-ins).
+#:
+#: Named from ``scistudio.core.dropins`` rather than spelled here, so a tier
+#: that gains a directory does not need this list edited to keep working.
+_SCANNED_PROJECT_DIRS: frozenset[str] = frozenset({BLOCKS_DIR_NAME, TYPES_DIR_NAME})
+
+
+def _wrote_into_a_scanned_dir(written: Sequence[Path], *, project_dir: Path | None) -> bool:
+    """Whether any written path lands in a directory the registries scan.
+
+    Asked so that copying a CSV into ``data/raw`` does not re-scan every
+    registry. The test is on the path's position under the project rather than
+    on its suffix: a ``.py`` file under ``data/`` is not a block, and a block is
+    a block because of where it sits.
+    """
+    if project_dir is None:
+        return False
+    for path in written:
+        try:
+            relative = path.resolve().relative_to(project_dir.resolve())
+        except (OSError, ValueError):
+            continue
+        if relative.parts and relative.parts[0] in _SCANNED_PROJECT_DIRS:
+            return True
+    return False
+
+
 def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
-    """Construct the tutorial runtime with this app's four ports filled in."""
+    """Construct the tutorial runtime with this app's five ports filled in."""
     recorded = _RecordedSignals()
+    # Holds the in-flight broadcast tasks. Without a strong reference the loop
+    # keeps only a weak one and may collect a task mid-await, dropping the
+    # frame that tells open palettes to refetch.
+    broadcasts: set[asyncio.Task[None]] = set()
 
     def product_state() -> ProductState:
         return _ApiProductState(
@@ -719,6 +751,48 @@ def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
             tutorial_library_dir=tutorial_library_dir(),
         )
 
+    def files_written(written: Sequence[Path]) -> None:
+        """Re-scan the registries when a step writes a block or a type (FR-059).
+
+        A step that writes ``blocks/normalize_fluorescence.py`` and then says
+        "find Normalize Fluorescence in the palette" is unfollowable until this
+        runs: the file is on disk and the block is not in the registry. FR-059
+        orders actions before the step's text so that a step claiming something
+        exists is true when read, and for a block "exists" means the product
+        has it, not that a file does.
+
+        ``refresh_all_registries`` rather than a block-only re-scan, for the
+        reason ``POST /api/blocks/reload`` gives: a step may write a type
+        alongside its block, and a fresh block registry beside a stale type
+        registry is its own bug.
+
+        The broadcast that follows is what makes open palettes redraw. It is
+        scheduled rather than awaited because this is called from a synchronous
+        step-entry path; the *registry* is already correct before the step's
+        text is revealed, and the frame only tells clients to refetch. A
+        runtime with no event bus or no loop — every test, and any headless
+        run — simply skips it.
+        """
+        if not _wrote_into_a_scanned_dir(written, project_dir=runtime.project_dir):
+            return
+        runtime.refresh_all_registries()
+
+        event_bus = getattr(runtime, "event_bus", None)
+        if event_bus is None:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        specs: dict[str, Any] = _read_or(runtime.block_registry.all_specs, {})
+        event = EngineEvent(
+            event_type=BLOCKS_RELOADED,
+            data={"added": [], "removed": [], "reloaded": sorted(specs), "source": "tutorial"},
+        )
+        task = loop.create_task(_emit_quietly(event_bus, event))
+        broadcasts.add(task)
+        task.add_done_callback(broadcasts.discard)
+
     tutorials = TutorialRuntime(
         product_state=product_state,
         external_events=_EXTERNAL_EVENTS,
@@ -726,9 +800,18 @@ def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
         provisioner=_RuntimeProvisioner(runtime=runtime),
         open_replay=open_replay_tab,
         record_ui_event=recorded.record_ui_event,
+        files_written=files_written,
     )
     _subscribe(runtime, tutorials, recorded)
     return _TutorialWiring(tutorials=tutorials, recorded=recorded)
+
+
+async def _emit_quietly(event_bus: Any, event: EngineEvent) -> None:
+    """Emit *event*, logging rather than raising: a failed broadcast is not a failed step."""
+    try:
+        await event_bus.emit(event)
+    except Exception:
+        logger.exception("tutorial step: blocks.reloaded broadcast failed")
 
 
 def _subscribe(runtime: ApiRuntime, tutorials: TutorialRuntime, recorded: _RecordedSignals) -> None:
