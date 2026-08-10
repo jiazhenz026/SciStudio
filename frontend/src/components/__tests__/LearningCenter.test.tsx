@@ -140,6 +140,8 @@ function session(overrides: Partial<TutorialSessionResponse> = {}): TutorialSess
     project_id: "p1",
     project_path: "/Users/rosalind/SciStudio Tutorials/custom-block",
     step: {
+      // 0-based on the wire, so this is the fifth step of nine. Both surfaces
+      // that print a position have to agree about that.
       id: "drag-load",
       index: 4,
       total: 9,
@@ -454,7 +456,7 @@ describe("Learning Center — where the running tutorial has got to (FR-043, FR-
 
     const position = await screen.findByTestId("learning-center-current-position");
     expect(position).toHaveTextContent("Write a custom block");
-    expect(position).toHaveTextContent("Step 4 of 9");
+    expect(position).toHaveTextContent("Step 5 of 9");
   });
 
   it("keeps reporting it while the user browses another source's tab", async () => {
@@ -464,7 +466,7 @@ describe("Learning Center — where the running tutorial has got to (FR-043, FR-
     fireEvent.click(screen.getByTestId("tutorial-tab-package:scistudio-blocks-imaging"));
 
     expect(await screen.findByTestId("learning-center-current-position")).toHaveTextContent(
-      "Step 4 of 9",
+      "Step 5 of 9",
     );
   });
 

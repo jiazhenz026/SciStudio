@@ -52,8 +52,9 @@ export function GroupProgress({
             <p className="text-sm font-medium leading-6 text-ink">{session.title}</p>
             {step ? (
               <>
+                {/* `index` is 0-based on the wire; `ActiveStep` counts the same way. */}
                 <p className="mt-0.5 text-xs text-stone-500">
-                  Step {step.index} of {step.total}
+                  Step {step.index + 1} of {step.total}
                 </p>
                 {step.say ? (
                   <p className="mt-2 line-clamp-4 text-xs leading-5 text-stone-600">{step.say}</p>
