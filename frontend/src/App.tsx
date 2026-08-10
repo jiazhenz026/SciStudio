@@ -51,7 +51,6 @@ import { useWorkflowSync } from "./App.parts/useWorkflowSync";
 
 import { LearningCenter } from "./components/LearningCenter";
 import { ActiveStep } from "./components/LearningCenter.parts/ActiveStep";
-import { StepHighlight } from "./components/LearningCenter.parts/StepHighlight";
 import { WorkImportOffer } from "./components/LearningCenter.parts/WorkImportOffer";
 import { Toolbar } from "./components/Toolbar";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -547,13 +546,6 @@ export default function App() {
             onPromptClose={clearPrompt}
             onResolveWorkflowConflict={resolveWorkflowConflict}
           />
-
-          {/*
-           * ADR-053 (#2057) — the ring around the element the step points at.
-           * A pointer-events-none overlay, so it never intercepts the drag or
-           * click the step is asking for (FR-089).
-           */}
-          <StepHighlight />
 
           {/*
            * ADR-053 FR-079 — the single product behaviour progress drives.

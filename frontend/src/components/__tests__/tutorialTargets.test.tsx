@@ -262,18 +262,17 @@ describe("route targets map onto this UI (FR-089 companion)", () => {
   });
 });
 
-describe("the highlight ring does not occlude what it points at (FR-089)", () => {
-  it("is drawn pointer-events-none so clicks and drags reach the element", async () => {
-    const { StepHighlight } = await import("../LearningCenter.parts/StepHighlight");
-
+describe("nothing is drawn over the element a step points at", () => {
+  it("renders no highlight overlay for a step that names a target", () => {
+    /*
+     * The ring this used to assert is gone (owner's 2026-08-10 decision: it was
+     * an ember box over the user's canvas and was disliked on sight). The
+     * `highlight` vocabulary is kept — the targets above still have to resolve,
+     * because a later, quieter form of pointing would need exactly them — so
+     * this holds the line the removal has to keep: no overlay is painted over
+     * the surface the user is being asked to work on.
+     */
     RENDERERS.canvas();
-    // Give the canvas element a non-zero box; jsdom reports zeros otherwise and
-    // the ring correctly declines to draw around nothing.
-    const canvas = document.querySelector<HTMLElement>(tutorialTargetSelector("canvas"));
-    if (!canvas) throw new Error("canvas target did not render");
-    canvas.getBoundingClientRect = () =>
-      ({ top: 10, left: 20, width: 300, height: 200 }) as DOMRect;
-
     useAppStore.setState({
       learningCenterSession: {
         source_kind: "core",
@@ -298,9 +297,6 @@ describe("the highlight ring does not occlude what it points at (FR-089)", () =>
       },
     });
 
-    render(<StepHighlight />);
-
-    const ring = await screen.findByTestId("tutorial-step-highlight");
-    expect(ring.className).toContain("pointer-events-none");
+    expect(screen.queryByTestId("tutorial-step-highlight")).not.toBeInTheDocument();
   });
 });

@@ -77,12 +77,15 @@ export function ActiveStep() {
         {step?.say ? <p className="mt-1 text-sm leading-6 text-stone-700">{step.say}</p> : null}
 
         {/*
-         * `highlight` and `route_to` are not printed here any more. They used
-         * to render as "Look for: canvas" / "Go to: history", which named a
-         * thing instead of showing it — and printed the raw target id at that.
-         * Both now act: `App.tsx` routes to the surface on step entry, and
-         * `StepHighlight` rings the element. Re-adding the text would restate
-         * in words what the user is already being shown.
+         * `highlight` and `route_to` are not printed here. They used to render
+         * as "Look for: canvas" / "Go to: history", which named a thing instead
+         * of showing it — and printed the raw target id at that.
+         *
+         * `route_to` acts: `App.tsx` opens the surface on step entry.
+         * `highlight` currently does nothing. It drew a ring around the target
+         * element until the owner ruled that out on 2026-08-10; see the
+         * deferral note in `targets.ts`. Re-adding either as text would put
+         * back the wording that was the reason for removing it.
          */}
       </div>
 

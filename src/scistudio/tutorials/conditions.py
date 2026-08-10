@@ -552,6 +552,22 @@ def _addressed_config_values(args: Mapping[str, Any], state: ProductState) -> It
     A node that does not carry the key yields nothing rather than yielding
     ``None``: absent and present-but-null are different, and only the caller
     knows whether that difference matters to its comparison.
+
+    **Both levels of a node's config are searched**, because a block parameter
+    is stored one level down. A saved node reads::
+
+        config:
+          params:
+            path: data/raw/cells.csv
+
+    so a term reading ``node.config["path"]`` finds nothing for every parameter
+    a tutorial would ever name, and the step it guards can never advance. This
+    follows the product's own rule rather than inventing one: the scheduler's
+    pre-dispatch validation checks ``node.config["params"]`` and the top level
+    of ``node.config`` (``engine/scheduler/_dispatch.py``, #632), and the
+    subworkflow flattener walks the same two containers. A term that addressed
+    only one of them would disagree with the engine about what a node is
+    configured as.
     """
     workflow = state.workflow()
     if workflow is None:
@@ -560,8 +576,17 @@ def _addressed_config_values(args: Mapping[str, Any], state: ProductState) -> It
     for node in workflow.nodes:
         if not _node_matches(node, block_type=args.get("block_type"), node_id=args.get("node_id")):
             continue
-        if key in node.config:
-            yield node.config[key]
+        for container in _config_containers(node.config):
+            if key in container:
+                yield container[key]
+
+
+def _config_containers(config: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
+    """The places a node's configuration values live, outermost first."""
+    params = config.get("params")
+    if isinstance(params, Mapping):
+        return (config, params)
+    return (config,)
 
 
 def _eval_config_equals(args: Mapping[str, Any], state: ProductState) -> bool:

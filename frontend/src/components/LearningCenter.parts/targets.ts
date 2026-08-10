@@ -8,6 +8,17 @@
  * translated into this UI's internals — put a new target here, not inline at a
  * call site, or the next reader will find two half-mappings that disagree.
  *
+ * TODO(#2057): `highlight` currently renders nothing. It drew an ember ring
+ *   around the target element; the owner ruled that out on 2026-08-10 as too
+ *   intrusive over the user's own canvas, and the component was deleted rather
+ *   than restyled. The vocabulary, the `data-tutorial-target` attributes and
+ *   `findTutorialTarget` are kept because a quieter form of pointing would
+ *   need all three, and because removing the manifest field would break the
+ *   thirteen steps that declare one. Either give `highlight` a rendering the
+ *   owner accepts, or retire the field end to end — manifest, schema,
+ *   validation, spec and the shipped tutorial.
+ *   Followup: https://github.com/jiazhenz026/SciStudio/issues/2057
+ *
  * **Why some manifest names differ from the internal keys.** Manifests are
  * written by tutorial authors and read by users, so they use the names the
  * product shows on screen. Two of them do not match the code:

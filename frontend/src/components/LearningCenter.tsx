@@ -63,9 +63,7 @@ export const LEARNING_CENTER_ENTRY_LABEL = "Learning Center";
  *   ahead of the core summary tutorial that will fill it.
  *   Followup: https://github.com/jiazhenz026/SciStudio/issues/2057
  */
-const READING_TAB_EMPTY_MESSAGE =
-  "Reading tutorials will appear here. They walk through what SciStudio offers and where to " +
-  "find it, without asking you to build anything.";
+const READING_TAB_EMPTY_MESSAGE = "Reading tutorials will appear here.";
 
 const GROUP_TAB_EMPTY_MESSAGE = "This source ships no hands-on tutorials.";
 

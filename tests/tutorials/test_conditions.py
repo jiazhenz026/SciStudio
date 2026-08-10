@@ -323,12 +323,68 @@ def test_terms_reading_the_workflow_are_false_when_no_workflow_is_open(tmp_path:
 
 
 def _state_with_config_path(value: str) -> StubProductState:
+    """A node configured the way the product actually saves one.
+
+    Block parameters live under ``params``. Every fixture here used to write
+    ``config={"path": value}``, which is the one shape a saved workflow never
+    has — so the whole config-term suite passed while the shipped tutorial's
+    Load step could not advance no matter what the reader configured. The
+    flat form is covered separately below rather than by default.
+    """
     return StubProductState(
         workflow_definition=WorkflowDefinition(
             id="wf-1",
-            nodes=[NodeDef(id="load-1", block_type="LoadCSV", config={"path": value})],
+            nodes=[NodeDef(id="load-1", block_type="LoadCSV", config={"params": {"path": value}})],
         )
     )
+
+
+def test_a_config_term_reads_a_block_parameter_where_the_product_stores_it() -> None:
+    """The shape from a real ``workflows/main.yaml`` after configuring Load."""
+    state = StubProductState(
+        workflow_definition=WorkflowDefinition(
+            id="main",
+            nodes=[
+                NodeDef(
+                    id="load_data-1786389829055",
+                    block_type="load_data",
+                    config={
+                        "params": {
+                            "direction": "input",
+                            "path": "data/raw/cell_viability_fluorescence.csv",
+                            "capability_id": "core.dataframe.csv.load",
+                        }
+                    },
+                )
+            ],
+        )
+    )
+    condition = parse_condition(
+        {
+            "config_matches": {
+                "block_type": "load_data",
+                "key": "path",
+                "pattern": "data/raw/cell_viability_fluorescence.csv",
+            }
+        }
+    )
+
+    assert evaluate(condition, state) is True
+
+
+def test_a_config_term_still_reads_a_value_at_the_top_level() -> None:
+    """Extras sit beside ``params``, and the engine reads both. So does this."""
+    state = StubProductState(
+        workflow_definition=WorkflowDefinition(
+            id="wf-1",
+            nodes=[NodeDef(id="load-1", block_type="LoadCSV", config={"path": "data/raw/cells.csv"})],
+        )
+    )
+    condition = parse_condition(
+        {"config_matches": {"node_id": "load-1", "key": "path", "pattern": "data/raw/cells.csv"}}
+    )
+
+    assert evaluate(condition, state) is True
 
 
 def test_config_matches_judges_an_absolute_path_against_a_relative_declaration() -> None:
