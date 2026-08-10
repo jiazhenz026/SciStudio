@@ -40,11 +40,18 @@ import { GroupProgress } from "./LearningCenter.parts/GroupProgress";
 import { TutorialDetail } from "./LearningCenter.parts/TutorialDetail";
 import { TutorialList } from "./LearningCenter.parts/TutorialList";
 
-/** FR-068 — said plainly, on the surface, not buried in a tutorial's first step. */
+/**
+ * FR-068 — said plainly, on the surface, not buried in a tutorial's first step.
+ *
+ * It sits in the footer beside the clear action, which is the other thing here
+ * that concerns tutorial directories on disk. It was a paragraph under the
+ * title, where it was the first thing read on every visit and said nothing new
+ * after the first — and §6's risk analysis leans on this being stated, so the
+ * answer to that was to move it rather than drop it.
+ */
 export const TEMPORARY_PROJECTS_NOTICE =
-  "Tutorial projects are temporary. They are deleted when you restart a tutorial or clear " +
-  "tutorial data, and they are hidden from your recent projects. Do your own work in your own " +
-  "project.";
+  "Tutorial projects are temporary — restarting a tutorial or clearing tutorial data deletes " +
+  "them. Do your own work in your own project.";
 
 /** FR-082 — the permanent toolbar entry's label, shared with the toolbar. */
 export const LEARNING_CENTER_ENTRY_LABEL = "Learning Center";
@@ -181,16 +188,10 @@ export function LearningCenter() {
     >
       <div className="flex h-[min(42rem,88vh)] w-full max-w-5xl flex-col overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-panel">
         <header className="flex items-start justify-between gap-4 px-6 pt-4">
-          <div className="min-w-0">
-            <h2 className="inline-flex items-center gap-2 font-display text-2xl text-ink">
-              <BookOpen aria-hidden="true" className="size-5 text-ember" />
-              {LEARNING_CENTER_ENTRY_LABEL}
-            </h2>
-            {/* FR-068 */}
-            <p className="mt-1 max-w-2xl text-xs leading-5 text-stone-500">
-              {TEMPORARY_PROJECTS_NOTICE}
-            </p>
-          </div>
+          <h2 className="inline-flex min-w-0 items-center gap-2 font-display text-2xl text-ink">
+            <BookOpen aria-hidden="true" className="size-5 text-ember" />
+            {LEARNING_CENTER_ENTRY_LABEL}
+          </h2>
           <button
             aria-label="Close Learning Center"
             className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-ink"
@@ -202,33 +203,41 @@ export function LearningCenter() {
         </header>
 
         {/* FR-084 — one tab per source, core first, with the Reading tab last. */}
-        <div className="mt-3 flex gap-1 overflow-x-auto border-b border-stone-200 px-6">
-          {tabs.map((tab) => {
-            const selected = activeTab?.id === tab.id;
-            return (
-              <button
-                aria-selected={selected}
-                className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-medium transition ${
-                  selected
-                    ? "border-ember text-ink"
-                    : "border-transparent text-stone-500 hover:text-ink"
-                }`}
-                data-testid={`tutorial-tab-${tab.id}`}
-                key={tab.id}
-                onClick={() => setActiveTabId(tab.id)}
-                role="tab"
-                type="button"
-              >
-                {tab.label}
-                {/* A source's own count, never a total across sources (FR-076). */}
-                {tab.group ? (
-                  <span className="ml-2 text-xs font-normal tabular-nums text-stone-400">
-                    {tab.group.completed}/{tab.group.total}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
+        {/*
+         * The strip scrolls; the border sits on its parent. Putting both on one
+         * element made the tabs' own bottom border overflow it by the pixel it
+         * was pulled up by, and `overflow-x` turns `overflow-y` into `auto` —
+         * so a one-pixel overhang drew a full-height scrollbar down the side.
+         */}
+        <div className="mt-3 border-b border-stone-200 px-6">
+          <div className="-mb-px flex gap-1 overflow-x-auto">
+            {tabs.map((tab) => {
+              const selected = activeTab?.id === tab.id;
+              return (
+                <button
+                  aria-selected={selected}
+                  className={`shrink-0 border-b-2 px-3 py-2 text-sm font-medium transition ${
+                    selected
+                      ? "border-ember text-ink"
+                      : "border-transparent text-stone-500 hover:text-ink"
+                  }`}
+                  data-testid={`tutorial-tab-${tab.id}`}
+                  key={tab.id}
+                  onClick={() => setActiveTabId(tab.id)}
+                  role="tab"
+                  type="button"
+                >
+                  {tab.label}
+                  {/* A source's own count, never a total across sources (FR-076). */}
+                  {tab.group ? (
+                    <span className="ml-2 text-xs font-normal tabular-nums text-stone-400">
+                      {tab.group.completed}/{tab.group.total}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {error ? (
@@ -331,13 +340,19 @@ export function LearningCenter() {
 
           {/* FR-088 */}
           {clearPreview === null && clearedDirectories === null ? (
-            <button
-              className="rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 transition hover:border-red-400 hover:text-red-600"
-              onClick={() => void handleClearRequested()}
-              type="button"
-            >
-              Clear tutorial data
-            </button>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <button
+                className="shrink-0 rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 transition hover:border-red-400 hover:text-red-600"
+                onClick={() => void handleClearRequested()}
+                type="button"
+              >
+                Clear tutorial data
+              </button>
+              {/* FR-068 */}
+              <p className="min-w-0 flex-1 text-xs leading-5 text-stone-500">
+                {TEMPORARY_PROJECTS_NOTICE}
+              </p>
+            </div>
           ) : null}
 
           {clearPreview !== null ? (

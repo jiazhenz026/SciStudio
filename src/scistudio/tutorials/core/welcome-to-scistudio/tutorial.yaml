@@ -11,8 +11,8 @@ manifest_version: 1
 id: welcome-to-scistudio
 title: Welcome to SciStudio
 summary: >-
-  Build your first workflow, run it, plot the result, and recover the project
-  after something changes underneath you.
+  Your first tutorial. It introduces the ideas the rest of SciStudio rests on:
+  what a workflow is, what a block is, what a plot is, and what History is for.
 order: 1
 
 requires:
