@@ -114,6 +114,17 @@ _RUN_HISTORY_LIMIT = 25
 #: The reserved asset subdirectory holding a tutorial's reading pages (FR-006).
 _PAGES_DIR_NAME = "pages"
 
+#: Directory entries that do not make a leftover directory the user's work.
+#:
+#: ``.scistudio`` is the product's own runtime scaffolding — a pause marker, a
+#: lineage database — and the engine can recreate it while shutting down, after
+#: a restart has already deleted the project around it. A directory holding only
+#: these is a husk of the product's own making and may be cleared; anything else
+#: belongs to the user and is refused. ``.DS_Store`` is here for the same reason
+#: at one remove: it is the file manager's, not the user's, and on macOS it
+#: appears in any directory that was ever looked at.
+_PROJECT_HUSK_ENTRIES: frozenset[str] = frozenset({".scistudio", ".DS_Store"})
+
 
 # ---------------------------------------------------------------------------
 # Request bodies
@@ -156,16 +167,60 @@ class ClearDataRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class HighlightResponse(BaseModel):
+    """What the step points at, and which one of it.
+
+    ``args`` is empty for the targets whose name is already an address, and
+    carries the entity targets' selector — ``block_type`` for ``palette_block``
+    and ``node``, ``plot_id`` for ``plot_card``. Left as an open mapping rather
+    than a field per target so a new target does not need a matching change
+    here; the closed set and its required arguments are validated where they are
+    declared, in :data:`scistudio.tutorials.manifest.HIGHLIGHT_SPECS`.
+    """
+
+    target: str
+    args: dict[str, str] = Field(default_factory=dict)
+
+
+class PrefillResponse(BaseModel):
+    """A dialog this step seeds, and the values it opens holding.
+
+    The same target/args shape as :class:`HighlightResponse`, kept as its own
+    model because it means a different thing: a highlight points at something
+    already on screen, a prefill supplies a default to something not yet open.
+    ``args`` is left an open mapping for the same reason — the closed set and
+    each target's required values are validated where they are declared, in
+    :data:`scistudio.tutorials.manifest.PREFILL_SPECS`.
+    """
+
+    target: str
+    args: dict[str, str] = Field(default_factory=dict)
+
+
 class StepResponse(BaseModel):
     """The step a tutorial is currently on."""
 
     id: str
     index: int
     total: int
+    #: FR-011c — the step's own short heading, when it declares one.
+    title: str | None = None
     say: str | None = None
-    highlight: str | None = None
+    highlight: HighlightResponse | None = None
     route_to: str | None = None
+    #: FR-011b — dialogs this step seeds, in the same target/args shape as a
+    #: highlight and for the same reason: the closed set and its required
+    #: values are validated where they are declared, in
+    #: :data:`scistudio.tutorials.manifest.PREFILL_SPECS`.
+    prefill: list[PrefillResponse] = Field(default_factory=list)
     awaiting_continue: bool = False
+    #: FR-054a — whether this step's condition holds right now.
+    #:
+    #: What the Continue button reads to decide whether it is live. Reported
+    #: rather than inferred by the client, because inferring it would put a
+    #: second copy of the judgment in the frontend, which is the thing spec §4.1
+    #: exists to prevent.
+    satisfied: bool = False
 
 
 class ReplayResponse(BaseModel):
@@ -294,6 +349,17 @@ class _RecordedSignals:
 
     def record_ui_event(self, name: str) -> None:
         self.ui_events.add(name)
+
+    def forget_ui_events(self) -> None:
+        """Drop the recorded events, called when a step is entered.
+
+        A reported event is a moment rather than a state, and these accumulated
+        for the life of the session: once any step had seen ``node_selected``,
+        every later step waiting on one was satisfied before the reader arrived.
+        The other two sets are untouched — a submitted panel and a read page are
+        facts about the project that stay true.
+        """
+        self.ui_events.clear()
 
     def record_page(self, name: str) -> None:
         self.pages.add(name)
@@ -645,9 +711,24 @@ class _RuntimeProvisioner:
         write, because the save-to-library step a scenario teaches has to land
         somewhere and a step that fails on a missing directory teaches the wrong
         lesson.
+
+        An existing directory is adopted rather than rebuilt (FR-062a). The
+        session store and the tutorial parent directory are separate pieces of
+        state that can disagree — a `clear` whose directory removal failed, a
+        hand-deleted `tutorial-session.json`, a `~/SciStudio Tutorials` restored
+        from a backup without `~/.scistudio` — and every one of those leaves a
+        directory with no session record. Creating unconditionally raises
+        ``FileExistsError`` there, which reaches the user as a 500 on the button
+        that starts the tutorial, with the tutorial listed as never started.
+        Deleting instead would be worse: the directory is the user's work, and
+        FR-066 makes deleting it something they ask for by restarting.
         """
         ensure_tutorial_parent()
         ensure_scoped_library()
+        if plan.path.exists():
+            adopted = self._adopt(plan)
+            if adopted is not None:
+                return adopted
         project = self.runtime.create_project(
             plan.name,
             plan.description,
@@ -658,6 +739,62 @@ class _RuntimeProvisioner:
             tutorial_id=plan.key.tutorial_id,
         )
         return Path(project.path)
+
+    def _adopt(self, plan: TutorialProjectPlan) -> Path | None:
+        """Adopt an existing directory, clear a husk, or refuse — returning ``None``
+        when the caller should create the project fresh.
+
+        Registration is what makes a project operable — several routes resolve a
+        real path through the known-projects registry — so a directory that is
+        already registered needs nothing, and one that is not is re-adopted by
+        path. ``_load_project_from_path`` reads back the FR-064 marker written
+        into ``project.yaml``, which is why the adopted entry keeps its tutorial
+        identity and stays out of the listing surfaces FR-065 excludes it from.
+
+        **A directory with no ``project.yaml`` is not a project, and is usually a
+        husk this product left behind.** Restart deletes the directory and then
+        recreates it (FR-066), and the delete can lose a race: the engine writes
+        a pause marker under ``.scistudio/`` while shutting down, recreating the
+        very path that was just removed. The result is a directory holding
+        nothing but runtime scaffolding, and the next start used to fail on it —
+        first as ``FileExistsError``, then, once that was caught, as a refusal
+        that left the tutorial permanently unstartable with no way out through
+        the interface. Clearing it is safe precisely because the path is the
+        product's own: FR-062 derives it from the tutorial's identity, so
+        nothing at ``<tutorial parent>/<tutorial id>`` without a ``project.yaml``
+        is the user's work.
+
+        Anything else in there *is* treated as the user's, and refused as
+        :class:`TutorialUnavailableError` so the route answers 422 with the
+        reason rather than 500 with a stack trace.
+        """
+        entry = find_tutorial_project(self.runtime.list_projects(), plan.key)
+        if entry is not None and Path(entry.path) == plan.path:
+            return plan.path
+
+        if (plan.path / "project.yaml").is_file():
+            try:
+                adopted = self.runtime._load_project_from_path(plan.path)
+            except (OSError, ValueError) as exc:
+                raise TutorialUnavailableError(
+                    plan.key,
+                    f"its project at {plan.path} could not be read ({exc}); "
+                    "move or remove that directory, then start the tutorial again",
+                ) from exc
+            return Path(adopted.path)
+
+        leftovers = sorted(child.name for child in _read_or(lambda: list(plan.path.iterdir()), []))
+        unexpected = [name for name in leftovers if name not in _PROJECT_HUSK_ENTRIES]
+        if unexpected:
+            raise TutorialUnavailableError(
+                plan.key,
+                f"{plan.path} already exists, is not a SciStudio project, and holds "
+                f"{', '.join(unexpected)}; move or remove that directory, then start the tutorial again",
+            )
+
+        logger.info("Learning Center: clearing an empty project husk at %s before recreating it", plan.path)
+        _rmtree_force(plan.path)
+        return None
 
     def delete(self, key: TutorialKey, path: Path) -> None:
         """Remove the project directory and its known-projects entry (FR-066).
@@ -800,6 +937,7 @@ def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
         provisioner=_RuntimeProvisioner(runtime=runtime),
         open_replay=open_replay_tab,
         record_ui_event=recorded.record_ui_event,
+        forget_ui_events=recorded.forget_ui_events,
         files_written=files_written,
     )
     _subscribe(runtime, tutorials, recorded)
@@ -943,10 +1081,13 @@ def _session_response(runtime: ApiRuntime, view: SessionView | None) -> SessionR
             id=view.step.id,
             index=view.step.index,
             total=view.step.total,
+            title=view.step.title,
             say=view.step.say,
             highlight=view.step.highlight,
             route_to=view.step.route_to,
+            prefill=list(view.step.prefill),
             awaiting_continue=view.step.awaiting_continue,
+            satisfied=view.step.satisfied,
         )
     )
     return SessionResponse(

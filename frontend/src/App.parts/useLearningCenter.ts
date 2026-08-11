@@ -35,12 +35,23 @@ interface UseLearningCenterArgs {
    * component that owns it.
    */
   setLeftTab: (tab: LeftTab) => void;
+  /**
+   * `App`'s project closer, for the end of a tutorial.
+   *
+   * A finished tutorial leaves its project open, and a tutorial project looks
+   * like any other workspace: the reader carries on working in a directory the
+   * product created for a lesson, which restarting the tutorial deletes
+   * (FR-066). Closing it is the frontend's job for the same reason opening it
+   * is — the backend cannot move the window.
+   */
+  closeProject: () => void;
 }
 
 export function useLearningCenter({
   wsConnected,
   setLeftTab,
   openProject,
+  closeProject,
 }: UseLearningCenterArgs): void {
   const refreshLearningCenter = useAppStore((state) => state.refreshLearningCenter);
   const refreshActiveTutorialSession = useAppStore((state) => state.refreshActiveTutorialSession);
@@ -110,6 +121,21 @@ export function useLearningCenter({
   }, [tutorialProjectId, currentProjectId, openProject]);
 
   /*
+   * Ask again whenever the open project changes.
+   *
+   * A session is bound to its own project, and the backend answers "no session"
+   * while some other project is open — the tutorial is dormant, not over. That
+   * answer is only useful if it is asked for: without this, closing the tutorial
+   * project left the last session in this store, so the step card stayed over
+   * the user's own project and a step's `prefill` went on seeding dialogs there.
+   * Reopening the tutorial project asks again and the session comes back, which
+   * is the same request serving the resume.
+   */
+  useEffect(() => {
+    void refreshActiveTutorialSession();
+  }, [currentProjectId, refreshActiveTutorialSession]);
+
+  /*
    * Spec edge case — the frontend disconnects mid-session. Evaluation carried
    * on without it, so on reconnect the session is fetched and the current step
    * rendered. Nothing is replayed: the backend's answer is the whole truth, and
@@ -163,7 +189,18 @@ export function useLearningCenter({
     if (lastCompletionAsked.current === completedTutorialKey) return;
     lastCompletionAsked.current = completedTutorialKey;
     void checkWorkImportOffer();
-  }, [completedTutorialKey, checkWorkImportOffer]);
+    /*
+     * Finishing lands in the Learning Center rather than in a card saying so.
+     *
+     * "Tutorial complete." in the corner is a dead end: it reports the outcome
+     * and leaves the reader looking at a workspace with nothing to do next.
+     * The catalogue is where the next tutorial is, so finishing one opens it.
+     */
+    openLearningCenter();
+    // ...and out of the tutorial's project, before it looks like somewhere to
+    // keep working. See `closeProject` above.
+    closeProject();
+  }, [completedTutorialKey, checkWorkImportOffer, openLearningCenter, closeProject]);
 
   useEffect(() => {
     if (!tutorialStepKey || !tutorialStepRoute) return;

@@ -11,6 +11,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from scistudio.api.routes.projects import BLOCKS_RELOADED_EVENT_TYPE
+from scistudio.api.runtime import ApiRuntime
+from scistudio.engine.events import EngineEvent
+
 from scistudio.engine.events import WORKFLOW_CHANGED
 
 # ---------------------------------------------------------------------------
@@ -151,6 +155,30 @@ def test_restore_endpoint_soft_restore(client: TestClient, opened_project: Path)
     assert body["status"] == "ok"
     assert body["auto_commit_sha"] is None
     assert target.read_text(encoding="utf-8") == "A"
+
+
+def test_restore_announces_the_registry_refresh(
+    client: TestClient, opened_project: Path, runtime: ApiRuntime
+) -> None:
+    """A restore that may have rewritten a block must say the registries reloaded.
+
+    Restore already rebuilds them (#2033), but nothing heard: the palette's
+    catalogue refetch and the Learning Center's re-judging of a
+    ``block_registered`` condition both listen for ``blocks.reloaded``. Without
+    it a reader restored the block a tutorial step asked for and the step went
+    on saying no until they pressed Refresh by hand.
+    """
+    seen: list[EngineEvent] = []
+    runtime.event_bus.subscribe(BLOCKS_RELOADED_EVENT_TYPE, lambda event: seen.append(event))
+    target = opened_project / "file.yaml"
+    target.write_text("A", encoding="utf-8")
+    sha_a = client.post("/api/git/commit", json={"message": "A"}).json()["commit_sha"]
+    target.write_text("B", encoding="utf-8")
+    client.post("/api/git/commit", json={"message": "B"})
+
+    assert client.post("/api/git/restore", json={"commit_sha": sha_a, "files": ["file.yaml"]}).status_code == 200
+
+    assert [event.data.get("source") for event in seen] == ["restore"]
 
 
 def test_restore_endpoint_auto_commits_dirty_tree(client: TestClient, opened_project: Path) -> None:

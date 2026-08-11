@@ -154,6 +154,11 @@ def _runtime(
     return TutorialRuntime(
         product_state=lambda: product,
         external_events=ExternalEventNames(blocks_reloaded="blocks.reloaded", file_changed="file.changed"),
+        # The open project, read the same way the app reads it: the API wires
+        # both this port and the product state to `runtime.project_dir`, so a
+        # harness that let them disagree would be modelling a state the product
+        # cannot be in — and a session is only live in its own project.
+        project_dir=lambda: product.project_dir,
         provisioner=provisioner,
         environment=environment,
         progress=ProgressStore(home / ".scistudio"),
@@ -244,7 +249,8 @@ def test_a_session_survives_a_backend_restart(
     first = _runtime(home, product, provisioner, environment)
     _with_load(product)
     started = first.start(TutorialKey.core("welcome"))
-    assert started.step is not None and started.step.id == "two"
+    assert started.step is not None and started.step.id == "one" and started.step.satisfied
+    first.continue_active()
 
     second = _runtime(home, product, provisioner, environment)
     resumed = second.active_session()
@@ -282,7 +288,10 @@ def test_a_condition_satisfied_while_the_learning_center_is_closed_is_not_lost(
 
     reopened = _runtime(home, product, provisioner, environment).active_session()
     assert reopened is not None
-    assert reopened.step is not None and reopened.step.id == "two"
+    # FR-054a: the judgment was not lost — the step is reported satisfied and
+    # waiting. What a closed Learning Center must not do is miss the event.
+    assert reopened.step is not None and reopened.step.id == "one"
+    assert reopened.step.satisfied is True
     assert reopened.satisfied_step_ids == ("one",)
 
 
@@ -300,10 +309,12 @@ def test_evaluation_continues_when_the_frontend_disconnects(
     _with_load(product)
     pushed = runtime.handle_event("workflow.changed")
 
-    assert pushed is not None and pushed.step is not None and pushed.step.id == "two"
+    assert pushed is not None and pushed.step is not None and pushed.step.id == "one"
+    assert pushed.step.satisfied is True
     on_reconnect = runtime.active_session()
     assert on_reconnect is not None and on_reconnect.step is not None
-    assert on_reconnect.step.id == "two"
+    assert on_reconnect.step.id == "one"
+    assert on_reconnect.step.satisfied is True
 
 
 # ---------------------------------------------------------------------------
@@ -317,7 +328,9 @@ def test_a_condition_already_true_on_entry_satisfies_the_step_immediately(
     """FR-054: conditions are statements about state, not about having just acted.
 
     A user who dragged the Load block before the tutorial told them to must not
-    be stuck being told to do something already done.
+    be stuck being told to do something already done. Under FR-054a that shows
+    up as the step arriving already satisfied — its Continue is live from the
+    first frame — rather than as the session skipping past it.
     """
     _tutorial(core_dir, "welcome")
     _with_load(product)
@@ -325,7 +338,11 @@ def test_a_condition_already_true_on_entry_satisfies_the_step_immediately(
     view = runtime.start(TutorialKey.core("welcome"))
 
     assert view.satisfied_step_ids == ("one",)
-    assert view.step is not None and view.step.id == "two"
+    assert view.step is not None and view.step.id == "one"
+    assert view.step.satisfied is True
+
+    assert runtime.continue_active().step is not None
+    assert runtime.session_store.read().active is not None
 
 
 def test_a_step_whose_own_action_falsifies_its_condition_does_not_auto_complete(
@@ -350,6 +367,11 @@ def test_a_step_whose_own_action_falsifies_its_condition_does_not_auto_complete(
     """
     project = tutorial_project_path(TutorialKey.core("breaks-itself"))
     state = _BreakableWorkflowState(broken_marker=project / "workflows" / "broken.marker")
+    # The tutorial's own project is the open one, as it is in the product once
+    # the session has provisioned it. A session is judged only in its own
+    # project, so leaving this unset would model a tutorial running while the
+    # user is somewhere else — which is a dormant session, not this scenario.
+    state.project_dir = project
     write_tutorial(
         core_dir / "breaks-itself",
         {
@@ -382,7 +404,8 @@ def test_a_step_whose_own_action_falsifies_its_condition_does_not_auto_complete(
 
     (project / "workflows" / "broken.marker").unlink()  # the user restores from History
     recovered = runtime.evaluate_active()
-    assert recovered.status is SessionStatus.COMPLETE
+    assert recovered.step is not None and recovered.step.satisfied is True
+    assert runtime.continue_active().status is SessionStatus.COMPLETE
 
 
 def test_a_steps_actions_land_before_its_text_is_readable(
@@ -420,7 +443,11 @@ def test_a_steps_actions_land_before_its_text_is_readable(
     view = runtime.start(TutorialKey.core("writes"))
 
     assert (project / "blocks" / "threshold.py").is_file()
-    assert view.status is SessionStatus.COMPLETE
+    # The action ran before the step was revealed, so the step arrives already
+    # satisfied — and, under FR-054a, waits there for the reader.
+    assert view.status is SessionStatus.ACTIVE
+    assert view.step is not None and view.step.id == "written" and view.step.satisfied is True
+    assert runtime.continue_active().status is SessionStatus.COMPLETE
 
 
 def test_a_failed_action_ends_the_session_naming_the_step_and_the_action(
@@ -473,7 +500,9 @@ def test_a_reading_step_advances_on_an_explicit_continue(
     _tutorial(core_dir, "welcome")
     _with_load(product)
     view = runtime.start(TutorialKey.core("welcome"))
-    assert view.step is not None and view.step.awaiting_continue
+    assert view.step is not None and view.step.id == "one" and view.step.satisfied
+    reading = runtime.continue_active()
+    assert reading.step is not None and reading.step.awaiting_continue
 
     finished = runtime.continue_active()
 
@@ -487,9 +516,115 @@ def test_completion_is_recorded_once(runtime: TutorialRuntime, core_dir: Path, p
     _tutorial(core_dir, "welcome")
     _with_load(product)
     runtime.start(TutorialKey.core("welcome"))
-    runtime.continue_active()
+    runtime.continue_active()  # off the judged step
+    runtime.continue_active()  # off the reading step, ending the tutorial
 
     assert runtime.progress_store.mark_completed(TutorialKey.core("welcome")) is False
+
+
+# ---------------------------------------------------------------------------
+# A session is live only in its own project
+# ---------------------------------------------------------------------------
+
+
+def test_a_session_is_dormant_while_another_project_is_open(
+    runtime: TutorialRuntime, core_dir: Path, product: StubProductState
+) -> None:
+    """Closing the tutorial project stops the tutorial being the running one.
+
+    Everything that judges a step reads the *open* project, so a session left
+    running over the user's own project judges its conditions against their
+    work: a project of theirs that happens to hold the file a step waits for
+    would complete it. Reporting no session is what stops that, and what stops
+    every surface reading the session — a step's ``prefill``, the step card —
+    from acting inside a project the tutorial has nothing to do with.
+    """
+    _tutorial(core_dir, "welcome", bootstrap={"project_name": "Welcome"})
+    _with_load(product)
+    product.project_dir = tutorial_project_path(TutorialKey.core("welcome"))
+    runtime.start(TutorialKey.core("welcome"))
+    assert runtime.active_session() is not None
+
+    product.project_dir = Path("/somewhere/else/the-users-own-project")
+
+    assert runtime.active_session() is None
+
+
+def test_a_dormant_session_is_preserved_and_resumes_in_its_own_project(
+    runtime: TutorialRuntime, core_dir: Path, product: StubProductState
+) -> None:
+    """Dormant is not over: SC-007's resume is the same session, same step."""
+    _tutorial(core_dir, "welcome", bootstrap={"project_name": "Welcome"})
+    _with_load(product)
+    project = tutorial_project_path(TutorialKey.core("welcome"))
+    product.project_dir = project
+    started = runtime.start(TutorialKey.core("welcome"))
+    assert started.step is not None
+    step_id = started.step.id
+
+    product.project_dir = Path("/somewhere/else/the-users-own-project")
+    assert runtime.active_session() is None
+
+    product.project_dir = project
+    resumed = runtime.active_session()
+
+    assert resumed is not None
+    assert resumed.step is not None and resumed.step.id == step_id
+    assert resumed.status is SessionStatus.ACTIVE
+
+
+def test_no_project_open_at_all_is_not_the_tutorials_project(
+    runtime: TutorialRuntime, core_dir: Path, product: StubProductState
+) -> None:
+    """Closing without opening anything else is the same answer, for the same reason."""
+    _tutorial(core_dir, "welcome", bootstrap={"project_name": "Welcome"})
+    _with_load(product)
+    product.project_dir = tutorial_project_path(TutorialKey.core("welcome"))
+    runtime.start(TutorialKey.core("welcome"))
+
+    product.project_dir = None
+
+    assert runtime.active_session() is None
+
+
+def test_a_step_is_not_judged_against_someone_elses_project(
+    runtime: TutorialRuntime, core_dir: Path, product: StubProductState
+) -> None:
+    """The defect itself: product truth read elsewhere must not satisfy a step.
+
+    ``evaluate_active`` is reachable from an engine event as well as from an
+    explicit request, so the guard sits where judging happens rather than only
+    where the session is reported.
+    """
+    _tutorial(core_dir, "welcome", bootstrap={"project_name": "Welcome"})
+    product.project_dir = tutorial_project_path(TutorialKey.core("welcome"))
+    runtime.start(TutorialKey.core("welcome"))
+
+    # The user's own project happens to satisfy the tutorial's condition.
+    product.project_dir = Path("/somewhere/else/the-users-own-project")
+    _with_load(product)
+    judged = runtime.evaluate_active()
+
+    assert judged.step is not None and judged.step.satisfied is False
+    assert judged.satisfied_step_ids == ()
+
+
+def test_a_tutorial_with_no_project_of_its_own_is_never_gated(
+    runtime: TutorialRuntime, core_dir: Path, product: StubProductState
+) -> None:
+    """A reading tutorial declares no ``bootstrap``, so it belongs to no project.
+
+    Gating it on a project it does not have would make it unrunnable, which is
+    the opposite of the defect being fixed.
+    """
+    _tutorial(core_dir, "reading")
+    _with_load(product)
+    product.project_dir = Path("/the/users/own/project")
+
+    started = runtime.start(TutorialKey.core("reading"))
+
+    assert started.step is not None
+    assert runtime.active_session() is not None
 
 
 # ---------------------------------------------------------------------------
@@ -804,8 +939,11 @@ def test_clearing_removes_progress_sessions_and_directories(
     """FR-073/FR-088: clearing leaves no progress, no session, and no directories."""
     _tutorial(core_dir, "welcome", bootstrap={"project_name": "Welcome"})
     _with_load(product)
+    # The tutorial's project is the open one; a session is live only there.
+    product.project_dir = tutorial_project_path(TutorialKey.core("welcome"))
     runtime.start(TutorialKey.core("welcome"))
-    runtime.continue_active()
+    runtime.continue_active()  # off the judged step
+    runtime.continue_active()  # off the reading step, ending the tutorial
     assert runtime.progress_store.completed_keys()
 
     runtime.clear_data()

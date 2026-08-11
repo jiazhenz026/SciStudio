@@ -86,14 +86,55 @@ export interface TutorialCatalogueResponse {
  * (FR-012, the reading case). Every other step advances on its own the moment
  * its condition holds, with no confirmation click (User Story 1, acceptance 3).
  */
+/**
+ * What a step points at, and which one of it.
+ *
+ * `args` is empty for the targets whose name is already an address, and carries
+ * the selector for the ones that address an element among many of its kind:
+ * `block_type` for `palette_block` and `node`, `plot_id` for `plot_card`. Kept
+ * as an open record rather than a union per target so a new backend target does
+ * not need a matching type change here — the closed set lives in
+ * `scistudio.tutorials.manifest.HIGHLIGHT_SPECS` and is mirrored for lookup in
+ * `LearningCenter.parts/targets.ts`.
+ */
+export interface TutorialHighlightView {
+  target: string;
+  args: Record<string, string>;
+}
+
+/**
+ * FR-011b — a dialog this step seeds, and the values it opens holding.
+ *
+ * The same shape as a highlight, meaning something different: a highlight
+ * points at what is already on screen, a prefill supplies the default for
+ * something not yet open. The closed target set lives in
+ * `scistudio.tutorials.manifest.PREFILL_SPECS`; the frontend consumer for each
+ * target is what makes it do anything.
+ */
+export interface TutorialPrefillView {
+  target: string;
+  args: Record<string, string>;
+}
+
 export interface TutorialStepView {
   id: string;
   index: number;
   total: number;
+  /** FR-011c — the step's own short heading; null falls back to the tutorial's. */
+  title: string | null;
   say: string | null;
-  highlight: string | null;
+  highlight: TutorialHighlightView | null;
   route_to: string | null;
+  prefill: TutorialPrefillView[];
   awaiting_continue: boolean;
+  /**
+   * FR-054a — whether this step's condition holds right now.
+   *
+   * What Continue reads to decide whether it is live. Reported by the backend
+   * rather than worked out here: judging is spec §4.1's backend concern, and a
+   * second copy of the rule in the frontend is the thing FR-002 removed.
+   */
+  satisfied: boolean;
 }
 
 /** §6.1.7 — the single declared replay surface and the tab carrying it. */

@@ -104,13 +104,20 @@ export function BottomPanel({
           <TerminalTabs active={activeTab === "terminal"} surface="terminal" />
         </div>
         {activeTab === "config" ? (
-          <ConfigPanel
-            onUpdateConfig={onUpdateConfig}
-            schema={selectedSchema}
-            selectedNode={selectedNode}
-            blockOutputs={blockOutputs}
-            edges={edges}
-          />
+          // ADR-053 (#2057) — a step saying "set this block's path" points at
+          // the panel, not at the node: once a block is selected, the settings
+          // are what the reader acts on and the node is only where they came
+          // from. Wrapped here rather than inside `ConfigPanel`, which returns
+          // from four branches and would need the attribute on each.
+          <div className="h-full" data-tutorial-target="config_panel">
+            <ConfigPanel
+              onUpdateConfig={onUpdateConfig}
+              schema={selectedSchema}
+              selectedNode={selectedNode}
+              blockOutputs={blockOutputs}
+              edges={edges}
+            />
+          </div>
         ) : activeTab === "logs" ? (
           <LogViewer entries={logEntries} />
         ) : activeTab === "plots" ? (

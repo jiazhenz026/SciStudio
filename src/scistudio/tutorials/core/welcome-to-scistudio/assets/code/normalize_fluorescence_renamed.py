@@ -35,6 +35,11 @@ class NormaliseFluorescenceBlock(ProcessBlock):
     description: ClassVar[str] = "Normalise fluorescence with negative and positive controls."
     algorithm: ClassVar[str] = "fluorescence_control_normalization"
 
+    # Carried over unchanged, so the block still looks like itself in the
+    # palette. The rename above is the only thing that moved.
+    ui_color: ClassVar[str] = "#22c55e"
+    ui_icon: ClassVar[str] = "Sparkles"
+
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="table", accepted_types=[DataFrame], description="Raw fluorescence table"),
     ]

@@ -60,10 +60,13 @@ function activeSession(overrides: Record<string, unknown> = {}) {
       id: "drag-load",
       index: 1,
       total: 13,
+      title: null,
       say: "Find the Load block in the palette and drag it onto the canvas.",
       highlight: null,
       route_to: null,
+      prefill: [],
       awaiting_continue: false,
+      satisfied: false,
     },
     satisfied_step_ids: ["welcome"],
     status: "active" as const,
@@ -73,11 +76,14 @@ function activeSession(overrides: Record<string, unknown> = {}) {
   };
 }
 
-async function renderHarness(openProject: () => Promise<void> | void) {
+async function renderHarness(
+  openProject: () => Promise<void> | void,
+  closeProject: () => void = vi.fn(),
+) {
   const { useLearningCenter } = await import("../../App.parts/useLearningCenter");
 
   function Harness() {
-    useLearningCenter({ wsConnected: true, setLeftTab: vi.fn(), openProject });
+    useLearningCenter({ wsConnected: true, setLeftTab: vi.fn(), openProject, closeProject });
     return null;
   }
 
@@ -114,10 +120,13 @@ describe("the project a tutorial session names is opened", () => {
           id: "run-it",
           index: 7,
           total: 13,
+          title: null,
           say: "Press Run.",
           highlight: null,
           route_to: null,
+          prefill: [],
           awaiting_continue: false,
+          satisfied: false,
         },
       }),
     });
@@ -262,5 +271,62 @@ describe("clearing tutorial data lets go of a deleted project", () => {
     await useAppStore.getState().clearTutorialData();
 
     expect(useAppStore.getState().currentProject).toEqual(sibling);
+  });
+});
+describe("finishing a tutorial lands in the Learning Center", () => {
+  beforeEach(() => {
+    resetAppStore();
+    vi.mocked(learningCenterApi.getTutorialCatalogue).mockResolvedValue(EMPTY_CATALOGUE);
+    vi.mocked(learningCenterApi.getTutorialUnlock).mockResolvedValue({
+      work_import_offer_pending: false,
+    });
+    // FR-083's first-run landing opens the catalogue on its own for a user with
+    // no recorded progress. Dismissed here so what these two assert is the
+    // completion, and not that.
+    useAppStore.setState({ learningCenterFirstRunDismissed: true });
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it("closes the tutorial's project when the session completes", async () => {
+    /*
+     * A tutorial project looks like any other workspace once the card is gone,
+     * and restarting the tutorial deletes it (FR-066). Leaving it open invites
+     * the reader to keep working somewhere their work will not survive.
+     */
+    const closeProject = vi.fn();
+    await renderHarness(vi.fn(), closeProject);
+
+    useAppStore.setState({
+      learningCenterSession: activeSession({ status: "complete", step: null }),
+    });
+
+    await waitFor(() => expect(closeProject).toHaveBeenCalled());
+  });
+
+  it("opens the catalogue when the session completes", async () => {
+    // The last step used to leave a "Tutorial complete." card in the corner and
+    // a workspace with nothing to do next. The catalogue is where the next
+    // tutorial is, so that is where finishing one goes.
+    await renderHarness(vi.fn());
+    expect(useAppStore.getState().learningCenterOpen).toBe(false);
+
+    useAppStore.setState({
+      learningCenterSession: activeSession({ status: "complete", step: null }),
+    });
+
+    await waitFor(() => expect(useAppStore.getState().learningCenterOpen).toBe(true));
+  });
+
+  it("leaves it closed while the tutorial is still running", async () => {
+    await renderHarness(vi.fn());
+
+    useAppStore.setState({ learningCenterSession: activeSession() });
+
+    await waitFor(() => expect(useAppStore.getState().learningCenterSession).not.toBeNull());
+    expect(useAppStore.getState().learningCenterOpen).toBe(false);
   });
 });

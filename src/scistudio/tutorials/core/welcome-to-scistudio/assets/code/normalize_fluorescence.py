@@ -32,6 +32,13 @@ class NormalizeFluorescenceBlock(ProcessBlock):
     description: ClassVar[str] = "Normalize fluorescence with negative and positive controls."
     algorithm: ClassVar[str] = "fluorescence_control_normalization"
 
+    # A block chooses how it looks on the canvas and in the palette: a CSS hex
+    # and any Lucide icon name (#1839/#1847). Both are optional — leaving them
+    # out takes the category's default — and both are declared by the block
+    # itself, like everything else about it.
+    ui_color: ClassVar[str] = "#22c55e"
+    ui_icon: ClassVar[str] = "Sparkles"
+
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="table", accepted_types=[DataFrame], description="Raw fluorescence table"),
     ]

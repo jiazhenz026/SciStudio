@@ -80,16 +80,42 @@
       "description": "FR-011. A step omitting done_when advances on an explicit user continue (FR-012); reading steps are the common case and requiring a synthetic condition for them would be ceremony.",
       "properties": {
         "id": { "type": "string", "minLength": 1 },
-        "say": { "type": "string" },
-        "highlight": {
+        "title": {
           "type": "string",
           "minLength": 1,
-          "description": "An interface element to highlight. The set is closed, core-owned, and declared in exactly one place: scistudio.tutorials.manifest.HIGHLIGHT_TARGETS. It is not enumerated here so there is only one thing to keep in step. A name outside it is rejected at validation, because a highlight the frontend cannot resolve is guidance that silently disappears."
+          "description": "A short heading for this step, shown on the step card. Optional: a step without one is headed by the tutorial's own title, which is what every manifest written before this field got."
+        },
+        "say": { "type": "string" },
+        "highlight": {
+          "description": "What this step points at. Either a target name on its own ('run_button') for the targets whose name is already an address, or a single-key mapping naming the target and the argument that says which one ('palette_block: {block_type: load_data}'), which is the same shape done_when uses. The target set and each target's required arguments are closed, core-owned, and declared in exactly one place: scistudio.tutorials.manifest.HIGHLIGHT_SPECS. They are not enumerated here so there is only one thing to keep in step. A target outside the set, or one missing the argument that picks the element, is rejected at validation, because a highlight the frontend cannot resolve is guidance that silently disappears.",
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "object",
+              "minProperties": 1,
+              "maxProperties": 1,
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          ]
         },
         "route_to": {
           "type": "string",
           "minLength": 1,
           "description": "A tab or panel to take the user to. The set is closed, core-owned, and declared in exactly one place: scistudio.tutorials.manifest.ROUTE_TARGETS. Manifests name a tab the way the product names it to the user - 'ai_chat' and 'history', not the internal keys 'ai' and 'lineage' - and the frontend owns that mapping."
+        },
+        "prefill": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/prefill" },
+          "description": "What a dialog the reader is about to open should already be holding when it opens, so a step naming a value does not then ask the reader to retype it. A prefill is a default and stays editable; the step's done_when still judges the world rather than the dialog. The target set and each target's required values are closed, core-owned, and declared in exactly one place: scistudio.tutorials.manifest.PREFILL_SPECS. They are not enumerated here so there is only one thing to keep in step."
         },
         "do": {
           "type": "array",
@@ -104,6 +130,16 @@
       "minProperties": 1,
       "maxProperties": 1,
       "description": "A single-key mapping: {term: {args}} for one of the sixteen vocabulary terms of FR-047, or {all: [...]} / {any: [...]} for a combinator (FR-048). Negation is deliberately absent: a step that advances when something is absent advances by the user doing nothing. The term names and each term's arguments are owned by scistudio.tutorials.conditions and enforced there during this same validation pass, so an unknown term fails the author rather than the user (FR-049). The ui_event term's 'name' argument is itself a closed set, declared at scistudio.tutorials.conditions.UI_EVENT_NAMES."
+    },
+    "prefill": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": { "type": "string", "minLength": 1 }
+      },
+      "description": "A single-key mapping naming one prefill target and the values that seed it, the same shape an action uses. A target outside PREFILL_SPECS, or one missing a value it requires, is rejected at validation: a prefill the frontend cannot resolve is a manifest line that silently does nothing."
     },
     "action": {
       "type": "object",

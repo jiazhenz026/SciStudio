@@ -12,12 +12,13 @@
  * "something changed" and the backend remains the sole judge.
  */
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as LearningCenterModule from "../../lib/api/learningCenter";
 import { learningCenterApi, type TutorialSessionResponse } from "../../lib/api/learningCenter";
 import { dispatchWorkflowEvent } from "../../hooks/useWebSocket.parts/dispatchEvent";
+import { useBottomPanelControls } from "../../App.parts/useBottomPanelControls";
 import { useAppStore } from "../../store";
 import { TUTORIAL_SYNC_EVENT_TYPES } from "../../store/learningCenterSlice";
 import { resetAppStore } from "../../testUtils";
@@ -57,10 +58,13 @@ function session(stepId: string, say: string, index = 0): TutorialSessionRespons
       id: stepId,
       index,
       total: 4,
+      title: null,
       say,
       highlight: null,
       route_to: null,
+      prefill: [],
       awaiting_continue: false,
+      satisfied: false,
     },
     satisfied_step_ids: [],
     status: "active",
@@ -249,6 +253,29 @@ describe("interface events the backend cannot observe (FR-052)", () => {
 
     await waitFor(() =>
       expect(learningCenterApi.reportTutorialUiEvent).toHaveBeenCalledWith("block_source_viewed"),
+    );
+  });
+
+  it("reports node_selected when the reader clicks a node on the canvas", async () => {
+    // The step "click the block to view its output" waits on this: the backend
+    // is told which workflow is open and never which node is selected, so the
+    // frontend is the only place the fact exists (FR-052).
+    useAppStore.setState({ learningCenterSession: session("look", "Click the block.") });
+    vi.mocked(learningCenterApi.reportTutorialUiEvent).mockResolvedValue(
+      session("look", "Click the block."),
+    );
+
+    const { result } = renderHook(() =>
+      useBottomPanelControls({
+        bottomPanelPinned: false,
+        setSelectedNodeId: vi.fn(),
+        setActiveBottomTab: vi.fn(),
+      }),
+    );
+    result.current.handleNodeSelect("node-1");
+
+    await waitFor(() =>
+      expect(learningCenterApi.reportTutorialUiEvent).toHaveBeenCalledWith("node_selected"),
     );
   });
 

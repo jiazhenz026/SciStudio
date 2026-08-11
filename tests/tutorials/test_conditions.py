@@ -55,13 +55,20 @@ EXTERNAL = ExternalEventNames(blocks_reloaded="blocks.reloaded", file_changed="f
 # ---------------------------------------------------------------------------
 
 
-def test_the_vocabulary_is_fr_047s_sixteen_terms_plus_config_matches() -> None:
+def test_the_vocabulary_is_fr_047s_sixteen_terms_plus_the_two_core_added() -> None:
+    """FR-047 sets a floor; §4.5 records that core extends it as tutorials find it short.
+
+    ``config_matches`` closed the browser-picked-absolute-path gap;
+    ``run_failed`` closed the "watch it break" one, where a step that breaks
+    something on purpose has to wait for the reader to run it and see.
+    """
     assert set(VOCABULARY) == {
         "node_exists",
         "edge_exists",
         "config_equals",
         "config_matches",
         "run_succeeded",
+        "run_failed",
         "port_has_output",
         "block_registered",
         "type_registered",
@@ -75,7 +82,7 @@ def test_the_vocabulary_is_fr_047s_sixteen_terms_plus_config_matches() -> None:
         "page_reached",
         "ui_event",
     }
-    assert len(VOCABULARY) == 17
+    assert len(VOCABULARY) == 18
     assert set(TERM_SPECS) == VOCABULARY
 
 
@@ -172,7 +179,12 @@ def test_an_unknown_library_kind_still_says_it_is_not_a_kind() -> None:
 
 
 def test_the_ui_event_name_set_is_the_declared_one() -> None:
-    assert set(UI_EVENT_NAMES) == {"preview_expanded", "block_source_viewed"}
+    assert set(UI_EVENT_NAMES) == {
+        "preview_expanded",
+        "block_source_viewed",
+        "node_selected",
+        "plot_rendered",
+    }
 
 
 @pytest.mark.parametrize("name", sorted(UI_EVENT_NAMES))
@@ -225,7 +237,12 @@ def _state(tmp_path: Path, loaded_workflow: WorkflowDefinition) -> StubProductSt
         data_types=frozenset({"DataFrame"}),
         previewer_types=frozenset({"DataFrame"}),
         plots=(("plot-1", "save-1", "table"),),
-        runs=(RunSummary(run_id="r1", workflow_id="wf-1", succeeded=True, succeeded_node_ids=frozenset({"load-1"})),),
+        runs=(
+            # Newest first, which is the order the port promises. The reader ran
+            # it, it worked, then something broke and they ran it again.
+            RunSummary(run_id="r2", workflow_id="wf-1", succeeded=False),
+            RunSummary(run_id="r1", workflow_id="wf-1", succeeded=True, succeeded_node_ids=frozenset({"load-1"})),
+        ),
         ports_with_output=frozenset({("load-1", "table")}),
         branches=frozenset({"main", "imaging"}),
         current_branch="imaging",
@@ -242,6 +259,7 @@ TRUE_CASES: list[tuple[str, dict[str, object]]] = [
     ("config_equals", {"config_equals": {"node_id": "load-1", "key": "path", "value": "data/raw/cells.csv"}}),
     ("config_matches", {"config_matches": {"node_id": "load-1", "key": "path", "pattern": "raw/cells.csv"}}),
     ("run_succeeded", {"run_succeeded": {}}),
+    ("run_failed", {"run_failed": {}}),
     ("port_has_output", {"port_has_output": {"node_id": "load-1", "port": "table"}}),
     ("block_registered", {"block_registered": {"block_type": "LoadCSV"}}),
     ("type_registered", {"type_registered": {"type_name": "DataFrame"}}),
@@ -262,6 +280,8 @@ FALSE_CASES: list[tuple[str, dict[str, object]]] = [
     ("config_equals", {"config_equals": {"node_id": "load-1", "key": "path", "value": "elsewhere.csv"}}),
     ("config_matches", {"config_matches": {"node_id": "load-1", "key": "path", "pattern": "other/cells.csv"}}),
     ("run_succeeded", {"run_succeeded": {"node_id": "save-1"}}),
+    # No run of that workflow at all, so there is no latest one to have failed.
+    ("run_failed", {"run_failed": {"workflow_id": "wf-2"}}),
     ("port_has_output", {"port_has_output": {"node_id": "save-1", "port": "table"}}),
     ("block_registered", {"block_registered": {"block_type": "Cluster"}}),
     ("type_registered", {"type_registered": {"type_name": "Image"}}),
@@ -585,7 +605,7 @@ def test_the_engine_half_of_the_map_is_keyed_by_the_imported_constants() -> None
         INTERACTIVE_COMPLETE,
     }
     assert EVENT_TERM_MAP[WORKFLOW_CHANGED] == {"node_exists", "edge_exists", "config_equals", "config_matches"}
-    assert EVENT_TERM_MAP[WORKFLOW_COMPLETED] == {"run_succeeded", "port_has_output"}
+    assert EVENT_TERM_MAP[WORKFLOW_COMPLETED] == {"run_succeeded", "run_failed", "port_has_output"}
     assert EVENT_TERM_MAP[GIT_HEAD_CHANGED] == {"git_branch_exists", "git_current_branch"}
     assert EVENT_TERM_MAP[INTERACTIVE_COMPLETE] == {"interaction_completed"}
 
@@ -601,7 +621,8 @@ def test_the_two_api_layer_events_are_supplied_rather_than_written_down() -> Non
         "previewer_registered",
         "library_contains",
     }
-    assert set(FILE_CHANGED_TERMS) == {"file_exists"}
+    # A plot is files on disk, so the watcher event is what says one appeared.
+    assert set(FILE_CHANGED_TERMS) == {"file_exists", "plot_exists"}
     # Renaming the events on the API side moves the map with them.
     renamed = build_event_term_map(ExternalEventNames(blocks_reloaded="x.reloaded", file_changed="x.changed"))
     assert renamed["x.reloaded"] == BLOCKS_RELOADED_TERMS

@@ -146,6 +146,11 @@ _SPECS: tuple[TermSpec, ...] = (
         optional=("workflow_id", "node_id"),
     ),
     TermSpec(
+        name="run_failed",
+        judges="the most recent run ended without succeeding",
+        optional=("workflow_id",),
+    ),
+    TermSpec(
         name="port_has_output",
         judges="a given output port holds data",
         required=("node_id", "port"),
@@ -222,13 +227,17 @@ which :mod:`scistudio.tutorials.manifest` calls during validation (FR-049).
 COMBINATORS: frozenset[str] = frozenset({"all", "any"})
 """FR-048. Negation is not here and is not an omission; see the module docstring."""
 
-UI_EVENT_NAMES: frozenset[str] = frozenset({"preview_expanded", "block_source_viewed"})
+UI_EVENT_NAMES: frozenset[str] = frozenset(
+    {"preview_expanded", "block_source_viewed", "node_selected", "plot_rendered"}
+)
 """The closed set of frontend events a ``ui_event`` condition may name (FR-052).
 
-Both members are FR-052's own motivating case: real product actions that leave
+Every member is FR-052's own motivating case: real product actions that leave
 no backend state behind, which is the entire reason that requirement exists.
-Everything else a tutorial waits on is a backend fact and belongs to one of the
-other fifteen terms.
+Selecting a node is the clearest of the three — the backend is told which
+*workflow* is being edited and never which node is selected, so "the reader
+clicked the block" is knowable nowhere else. Everything else a tutorial waits on
+is a backend fact and belongs to one of the other fifteen terms.
 
 The set is closed for the reason FR-049 gives about terms. A free-form event
 name is a typo that fails the *user* on step nine — the step simply never
@@ -472,7 +481,15 @@ class ProductState(Protocol):
         """``(plot_id, node_id, output_port)`` for every plot that exists."""
         ...
 
-    def run_records(self) -> tuple[RunSummary, ...]: ...
+    def run_records(self) -> tuple[RunSummary, ...]:
+        """The recent runs, **most recent first**.
+
+        The order is part of the contract because ``run_failed`` asks about the
+        latest run rather than about any run: "it broke just now" and "it broke
+        once, earlier" are different facts, and only the first is what a step
+        watching the reader press Run means.
+        """
+        ...
 
     def port_has_output(self, node_id: str, port: str) -> bool: ...
 
@@ -657,6 +674,24 @@ def _eval_run_succeeded(args: Mapping[str, Any], state: ProductState) -> bool:
     return False
 
 
+def _eval_run_failed(args: Mapping[str, Any], state: ProductState) -> bool:
+    """Did the most recent run end without succeeding?
+
+    Not the negation of ``run_succeeded``, which FR-048 rules out and which
+    would be true before the reader had run anything at all — a step advancing
+    on that advances by doing nothing. This asks about a run that *happened*:
+    the latest record exists and did not complete. That is the positive fact a
+    step which breaks something and says "press Run and see what happens" is
+    waiting for, and it goes false again once the reader fixes it and re-runs.
+    """
+    workflow_id = args.get("workflow_id")
+    for record in state.run_records():
+        if workflow_id is not None and record.workflow_id != workflow_id:
+            continue
+        return not record.succeeded
+    return False
+
+
 def _eval_plot_exists(args: Mapping[str, Any], state: ProductState) -> bool:
     plot_id = args.get("plot_id")
     node_id = args.get("node_id")
@@ -703,6 +738,7 @@ _SIMPLE_EVALUATORS: Mapping[str, Any] = MappingProxyType(
         "config_equals": _eval_config_equals,
         "config_matches": _eval_config_matches,
         "run_succeeded": _eval_run_succeeded,
+        "run_failed": _eval_run_failed,
         "port_has_output": lambda args, state: state.port_has_output(str(args["node_id"]), str(args["port"])),
         "block_registered": lambda args, state: str(args["block_type"]) in state.block_type_names(),
         "type_registered": lambda args, state: str(args["type_name"]) in state.data_type_names(),
@@ -753,8 +789,14 @@ passes it in through :class:`ExternalEventNames` at wiring time. That is why
 this constant names only the terms.
 """
 
-FILE_CHANGED_TERMS: frozenset[str] = frozenset({"file_exists"})
+FILE_CHANGED_TERMS: frozenset[str] = frozenset({"file_exists", "plot_exists"})
 """Terms re-evaluated on a watcher file event.
+
+``plot_exists`` belongs here because a plot *is* files: creating one writes
+``plots/<id>/plot.yaml`` and a render script, both inside the watched project
+and both in the allowlist. Without it, the reader created the plot the step
+asked for and the step went on saying no until they pressed Refresh by hand —
+the condition was true and nothing had asked it.
 
 Same arrangement as :data:`BLOCKS_RELOADED_TERMS`: the event name is
 ``FILE_CHANGED_EVENT_TYPE`` in ``scistudio.api.file_contracts`` and is supplied
@@ -765,9 +807,9 @@ mapping does not cover every case FR-053 has to.
 EVENT_TERM_MAP: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         WORKFLOW_CHANGED: frozenset({"node_exists", "edge_exists", "config_equals", "config_matches"}),
-        WORKFLOW_COMPLETED: frozenset({"run_succeeded", "port_has_output"}),
-        BLOCK_DONE: frozenset({"run_succeeded", "port_has_output"}),
-        BLOCK_ERROR: frozenset({"run_succeeded", "port_has_output"}),
+        WORKFLOW_COMPLETED: frozenset({"run_succeeded", "run_failed", "port_has_output"}),
+        BLOCK_DONE: frozenset({"run_succeeded", "run_failed", "port_has_output"}),
+        BLOCK_ERROR: frozenset({"run_succeeded", "run_failed", "port_has_output"}),
         GIT_HEAD_CHANGED: frozenset({"git_branch_exists", "git_current_branch"}),
         INTERACTIVE_COMPLETE: frozenset({"interaction_completed"}),
     }

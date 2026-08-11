@@ -68,6 +68,8 @@ beforeEach(() => {
     blocks: [{ name: "Demo Block", type_name: "demo_block" } as BlockSummary],
     blockSchemas: {},
     highlightedNodeId: null,
+    // A session left by another test would seed this picker's name field.
+    learningCenterSession: null,
   });
 });
 
@@ -128,6 +130,68 @@ describe("PlotTargetPicker", () => {
       expect.objectContaining({ script_path: "plots/My_Plot/render.py" }),
     );
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens holding the plot name a tutorial step named (ADR-053 FR-011b)", async () => {
+    // The step's `done_when` waits for a plot called `normalized_activity`;
+    // offering `my_plot` would ask the reader to retype what the step chose.
+    listPlotTargets.mockResolvedValue({ count: 1, targets: [target({ target_id: "t1" })] });
+    useAppStore.setState({
+      learningCenterSession: {
+        source_kind: "core",
+        source_id: "",
+        tutorial_id: "welcome-to-scistudio",
+        title: "Welcome to SciStudio",
+        project_id: "p1",
+        project_path: "/proj",
+        step: {
+          id: "create-the-plot",
+          index: 10,
+          total: 15,
+          title: null,
+          say: "Press New.",
+          highlight: null,
+          route_to: "plots",
+          prefill: [{ target: "new_plot", args: { name: "normalized_activity" } }],
+          awaiting_continue: false,
+          satisfied: false,
+        },
+        satisfied_step_ids: [],
+        status: "active",
+        error: null,
+        replay: null,
+      },
+    });
+
+    render(
+      <PlotTargetPicker
+        defaultNodeId={null}
+        mode="new"
+        onClose={vi.fn()}
+        onCreated={vi.fn()}
+        workflowId="main"
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByDisplayValue("normalized_activity")).toBeInTheDocument(),
+    );
+  });
+
+  it("keeps the product default when no tutorial is running", async () => {
+    listPlotTargets.mockResolvedValue({ count: 1, targets: [target({ target_id: "t1" })] });
+
+    render(
+      <PlotTargetPicker
+        defaultNodeId={null}
+        mode="new"
+        onClose={vi.fn()}
+        onCreated={vi.fn()}
+        workflowId="main"
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByDisplayValue("my_plot")).toBeInTheDocument());
   });
 
   it("relinks an existing plot to the chosen target", async () => {

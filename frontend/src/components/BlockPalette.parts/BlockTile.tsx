@@ -32,6 +32,10 @@ export function BlockTile({ block, onDragStart, onAddBlock, onEnter, onLeave }: 
       onLeave={onLeave}
       swatch={{ background: visual.bg, border: visual.border }}
       testId="palette-block-tile"
+      // ADR-053 (#2057) — a step saying "drag the Load block" points at this
+      // entry. Keyed by `type_name` because that is what a manifest writes.
+      tutorialTarget="palette_block"
+      tutorialTargetKey={block.type_name}
     >
       <Icon color={visual.fg} size={44} strokeWidth={1.6} />
     </PaletteTile>

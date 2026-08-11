@@ -12,6 +12,7 @@
 import { useCallback } from "react";
 
 import type { PromptRequest } from "../components/PromptDialog";
+import { tutorialPrefillValue } from "../components/LearningCenter.parts/prefill";
 import { askFileDestination, type FileDestination } from "../components/promotion/dialogChannel";
 import { ApiError, api } from "../lib/api";
 import { chooseSubworkflowFile } from "../lib/chooseSubworkflowFile";
@@ -334,6 +335,12 @@ interface DropinFileDeps {
   promptInput: ProjectActionsDeps["promptInput"];
   openFileTab: ProjectActionsDeps["openFileTab"];
   openUserLibraryFileTab: (target: UserLibraryTarget, filename: string) => void;
+  /**
+   * ADR-053 FR-011b — the filename the dialog opens holding, when a running
+   * tutorial step seeds one. Falls back to the kind's own default, which is
+   * what every non-tutorial call gets.
+   */
+  defaultStem?: string;
 }
 
 /**
@@ -353,7 +360,7 @@ interface DropinFileDeps {
  *     can actually save back to.
  */
 async function createDropinFile(kind: DropinFileKind, deps: DropinFileDeps): Promise<void> {
-  const { project, promptInput, openFileTab, openUserLibraryFileTab } = deps;
+  const { project, promptInput, openFileTab, openUserLibraryFileTab, defaultStem } = deps;
 
   const destination: FileDestination | null = await askFileDestination({
     title: kind.title,
@@ -367,7 +374,7 @@ async function createDropinFile(kind: DropinFileKind, deps: DropinFileDeps): Pro
   const stem = await promptInput({
     title: kind.title,
     label: "Filename (without .py)",
-    defaultValue: kind.defaultStem,
+    defaultValue: defaultStem ?? kind.defaultStem,
     validate: validateDropinStem,
   });
   if (stem === null) return;
@@ -433,6 +440,14 @@ function useFileActions({ currentProject, openFileTab, promptInput }: FileAction
       promptInput,
       openFileTab,
       openUserLibraryFileTab,
+      // ADR-053 FR-011b — read at open time, from the session as it is now, so
+      // a step entered while this menu was already on screen still seeds the
+      // dialog it opens.
+      defaultStem: tutorialPrefillValue(
+        useAppStore.getState().learningCenterSession,
+        "new_custom_block",
+        "filename",
+      ),
     });
   }, [currentProject, openFileTab, openUserLibraryFileTab, promptInput]);
 

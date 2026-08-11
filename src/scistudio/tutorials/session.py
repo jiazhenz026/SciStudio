@@ -137,14 +137,6 @@ SESSION_FILENAME = "tutorial-session.json"
 
 _SCHEMA_VERSION = 1
 
-#: How many steps may satisfy themselves on entry before the run is called a fault.
-#:
-#: A tutorial whose every step is already true walks its whole length in one
-#: interaction, which is correct (FR-054) and finite. The bound exists for a
-#: package driver whose ``advance`` never returns ``None``: without it the
-#: runtime would loop inside one request rather than reporting a broken driver.
-_MAX_AUTO_ADVANCE = 1000
-
 
 class TutorialSessionError(RuntimeError):
     """Base for every session-lifecycle refusal the route layer maps to a status."""
@@ -520,6 +512,7 @@ class TutorialRuntime:
         sessions: SessionStore | None = None,
         open_replay: Callable[[str], ReplayHandle] | None = None,
         record_ui_event: Callable[[str], None] | None = None,
+        forget_ui_events: Callable[[], None] | None = None,
         files_written: Callable[[Sequence[Path]], None] | None = None,
     ) -> None:
         """Wire the runtime to the API layer's implementations of its ports.
@@ -542,6 +535,13 @@ class TutorialRuntime:
             record_ui_event: Records a frontend-reported user-interface event
                 into product state before it is judged (FR-052). The API layer
                 owns that state, so recording is its job and this is the hook.
+            forget_ui_events: Drops the recorded events on step entry, so a
+                ``ui_event`` condition asks whether the reader did the thing
+                *on this step*. A reported event is a moment, not a state: the
+                third step asks the reader to click a block, and without this
+                the tenth step — which asks them to click one again — was
+                satisfied before they arrived, by the click they made seven
+                steps earlier.
             files_written: Called with the project paths a bootstrap or a step
                 just wrote, before the step's text becomes readable (FR-059).
                 Writing a block file is not the same as the product having the
@@ -557,6 +557,7 @@ class TutorialRuntime:
         self._sessions = sessions or SessionStore()
         self._open_replay = open_replay
         self._record_ui_event = record_ui_event
+        self._forget_ui_events = forget_ui_events
         self._files_written = files_written
         self._replay: ReplayHandle | None = None
 
@@ -607,6 +608,14 @@ class TutorialRuntime:
         Invalidates and discards a session whose tutorial project has been
         deleted outside the product (FR-069) rather than reporting a session
         that cannot be acted on.
+
+        Judges the current step on the way out (FR-054a). Reporting the step
+        without judging it would answer "not yet" to a step the user finished
+        while the Learning Center was closed, and the continue control drawn
+        from that answer would be dead with no way to tell why — the reader did
+        the work and the product says they did not. Judging is a side-effect-free
+        read (FR-055), so asking on every render is a question rather than an
+        action.
         """
         try:
             _, record = self._active(self._sessions.read())
@@ -614,8 +623,15 @@ class TutorialRuntime:
             return None
         if record.status is not SessionStatus.ACTIVE:
             return self._view(record)
+        if not self._is_live(record):
+            # Dormant: the tutorial's project is not the open one, so nothing is
+            # running right now. Answering with the session would put its step
+            # card over the user's own project and let anything reading the
+            # session — a step's `prefill`, for one — act on it there. The
+            # record is untouched, and reopening the tutorial resumes it.
+            return None
         try:
-            _, record, driver, tutorial_dir = self._resolved()
+            state, record, driver, tutorial_dir = self._resolved()
         except NoActiveSessionError:
             return None
         except TutorialSessionError:
@@ -623,7 +639,7 @@ class TutorialRuntime:
             # reporting that is the whole point of asking.
             ended = self._sessions.read().active
             return None if ended is None else self._view(ended)
-        return self._view(record, step=self._step_of(record, driver, tutorial_dir))
+        return self._reevaluate(state, record, driver, tutorial_dir)
 
     def start(self, key: TutorialKey, *, restart: bool = False) -> SessionView:
         """Start, resume, or restart *key*'s tutorial (FR-043, FR-066, FR-087).
@@ -674,16 +690,22 @@ class TutorialRuntime:
         )
 
     def continue_active(self) -> SessionView:
-        """Advance a reading step on the user's explicit continue (FR-012).
+        """Advance to the next step on the user's explicit continue (FR-012, FR-054a).
 
-        Re-evaluates first, because a step that became satisfied while the user
-        was reading must not need the button; and a step that is *not* awaiting
-        a continue is returned unchanged rather than refused, since the frontend
-        may legitimately race a condition that has just fired.
+        The only thing that moves a session forward. Re-evaluates first so the
+        decision is made against the world as it is right now rather than
+        against whatever the last event left recorded, and refuses — by
+        returning the current step unchanged — when the step is neither
+        satisfied nor a reading step. That refusal is the same rule the frontend
+        draws the disabled button from, held on the side that owns the judgment
+        (spec §4.1), so a client that lets the button be pressed early cannot
+        skip a step.
         """
         state, record, driver, tutorial_dir = self._resolved()
         view = self._reevaluate(state, record, driver, tutorial_dir)
-        if view.status is not SessionStatus.ACTIVE or view.step is None or not view.step.awaiting_continue:
+        if view.status is not SessionStatus.ACTIVE or view.step is None:
+            return view
+        if not (view.step.satisfied or view.step.awaiting_continue):
             return view
         state = self._sessions.read()
         current = state.active
@@ -890,6 +912,39 @@ class TutorialRuntime:
         self._sessions.write(state)
         return self._reevaluate(state, record, driver, tutorial_dir)
 
+    def _is_live(self, record: SessionRecord) -> bool:
+        """Is this session's own project the one the product has open?
+
+        A session is bound to the project it created (FR-062). Everything that
+        judges a step reads *the open project* — the workflow being edited, the
+        registries, the run history, the files on disk — because that is where
+        product truth lives and there is no way to read another project's live
+        state. So while some other project is open, the tutorial is not merely
+        invisible: its conditions would be judged against the user's own work.
+        A user who happens to keep ``blocks/normalize_fluorescence.py`` in their
+        project would find tutorial steps completing themselves in it.
+
+        A session whose project is closed is dormant, not over. The record and
+        its progress survive, and reopening the tutorial puts the reader back on
+        the same step in the same project, which is what SC-007 already
+        promises.
+
+        A tutorial with no ``bootstrap`` has no project of its own and is never
+        gated: a reading tutorial belongs to no project, so there is nothing for
+        it to disagree with.
+        """
+        if record.project_path is None:
+            return True
+        open_dir = self._project_dir()
+        if open_dir is None:
+            return False
+        try:
+            return record.project_path.resolve() == open_dir.resolve()
+        except OSError:
+            # An unreadable path is not a match; judging is never the safe
+            # answer to a question that could not be asked (FR-055's spirit).
+            return False
+
     def _context(self, record: SessionRecord, tutorial_dir: Path, step_id: str | None) -> DriverContext:
         return DriverContext(
             key=record.key,
@@ -906,19 +961,31 @@ class TutorialRuntime:
         driver: GuardedDriver,
         tutorial_dir: Path,
     ) -> SessionView:
-        """Judge the current step; advance while it is satisfied (FR-053, FR-054)."""
+        """Judge the current step and report it, without moving (FR-053, FR-054a).
+
+        Judging and advancing are separate concerns as of FR-054a: this answers
+        "is this step's condition met" and records that on the step view, and
+        only :meth:`continue_active` moves the session. Every caller — the
+        explicit re-check, a mapped engine event, a reported UI event — lands
+        here, so none of them can move the user out from under a step they are
+        still reading.
+        """
         if record.status is not SessionStatus.ACTIVE or record.step_id is None:
             return self._view(record)
         context = self._context(record, tutorial_dir, record.step_id)
+        if not self._is_live(record):
+            # Report the step, judge nothing. See :meth:`_is_live`: the product
+            # state available right now describes a different project, and an
+            # answer read out of it would be about the user's own work.
+            return self._view(record, step=self._step_of(record, driver, tutorial_dir, satisfied=False))
         try:
             satisfied = driver.is_satisfied(context, self._product_state())
         except Exception as exc:
             return self._view(self._fail(state, record, self._driver_failure(record, exc)))
-        if not satisfied:
-            self._sessions.write(state.with_record(record).with_active(record.key))
-            return self._view(record, step=self._step_of(record, driver, tutorial_dir))
-        record = record.satisfied(record.step_id)
-        return self._advance_from(state, record, driver, tutorial_dir, context)
+        if satisfied:
+            record = record.satisfied(record.step_id)
+        self._sessions.write(state.with_record(record).with_active(record.key))
+        return self._view(record, step=self._step_of(record, driver, tutorial_dir, satisfied=satisfied))
 
     def _advance_from(
         self,
@@ -928,32 +995,33 @@ class TutorialRuntime:
         tutorial_dir: Path,
         context: DriverContext,
     ) -> SessionView:
-        """Walk forward from *context*, entering steps until one is unsatisfied.
+        """Enter the step after *context* and stop there (FR-054a).
 
-        Each step's entry is ``do`` → evaluate → reveal: the actions run to
+        One step per call, never a walk. Advancing is the user's action as of
+        FR-054a, so entering two steps because the first one's condition already
+        held would skip past text they never saw — which is exactly the failure
+        the old auto-advance loop produced when a step's own entry action left
+        its condition true.
+
+        The step's entry is ``do`` → evaluate → reveal: the actions run to
         completion first (FR-056, FR-059), the condition is judged afterwards so
-        a step whose own action falsifies its condition cannot auto-complete
+        the Continue button's state reflects the world the actions left behind
         (FR-054 against FR-058), and the step view is produced last, which is
         why the evaluation lives inside
         :func:`~scistudio.tutorials.actions.perform_step_entry`'s ``reveal``
         rather than around the call.
         """
         try:
-            for _ in range(_MAX_AUTO_ADVANCE):
-                next_id = driver.advance(context)
-                if next_id is None:
-                    return self._view(self._complete(state, record))
-                record = replace(record, step_id=next_id)
-                context = self._context(record, tutorial_dir, next_id)
-                satisfied = self._enter(record, driver, context, tutorial_dir)
-                if not satisfied:
-                    self._sessions.write(state.with_record(record).with_active(record.key))
-                    return self._view(record, step=self._step_of(record, driver, tutorial_dir))
+            next_id = driver.advance(context)
+            if next_id is None:
+                return self._view(self._complete(state, record))
+            record = replace(record, step_id=next_id)
+            context = self._context(record, tutorial_dir, next_id)
+            satisfied = self._enter(record, driver, context, tutorial_dir)
+            if satisfied:
                 record = record.satisfied(next_id)
-            raise DriverError(
-                f"'{record.title}' entered more than {_MAX_AUTO_ADVANCE} steps in one interaction; "
-                "its driver never reports the tutorial as ended"
-            )
+            self._sessions.write(state.with_record(record).with_active(record.key))
+            return self._view(record, step=self._step_of(record, driver, tutorial_dir, satisfied=satisfied))
         except ActionExecutionError as exc:
             # FR-060: name the step and the action, and do not advance.
             return self._view(self._fail(state, record, str(exc)))
@@ -973,6 +1041,10 @@ class TutorialRuntime:
         land, then the condition is judged, then the step becomes readable.
         """
         step_id = context.step_id or ""
+        # A ui_event belongs to the step that asked for it. See
+        # ``forget_ui_events`` in :meth:`__init__`.
+        if self._forget_ui_events is not None:
+            self._forget_ui_events()
         actions = driver.entry_actions(context)
         action_context = ActionContext(tutorial_dir=tutorial_dir, project_dir=record.project_path)
         delivery = self._delivery_for(actions, step_id=step_id)
@@ -1053,11 +1125,27 @@ class TutorialRuntime:
         """FR-044's message: the tutorial and the exception, both named."""
         return f"'{record.title}' stopped: {type(exc).__name__}: {exc}"
 
-    def _step_of(self, record: SessionRecord, driver: GuardedDriver, tutorial_dir: Path) -> StepView | None:
-        """Return the current step's view, or ``None`` when the session is not on one."""
+    def _step_of(
+        self,
+        record: SessionRecord,
+        driver: GuardedDriver,
+        tutorial_dir: Path,
+        *,
+        satisfied: bool = False,
+    ) -> StepView | None:
+        """Return the current step's view, or ``None`` when the session is not on one.
+
+        ``satisfied`` is supplied by the caller that just judged the step rather
+        than re-derived here, for the reason FR-055 gives: judging is a read of
+        the whole product, and rendering a response is not a place to run one
+        again. It is attached after the driver has produced the view because it
+        is not a driver's to report — it is the runtime's answer about the
+        driver's condition, and FR-041 keeps the driver's field set closed.
+        """
         if record.status is not SessionStatus.ACTIVE or record.step_id is None:
             return None
-        return driver.step_view(self._context(record, tutorial_dir, record.step_id))
+        view = driver.step_view(self._context(record, tutorial_dir, record.step_id))
+        return replace(view, satisfied=satisfied)
 
     def _view(self, record: SessionRecord, *, step: StepView | None = None) -> SessionView:
         """Render a record. The step view is supplied by whoever holds the driver.

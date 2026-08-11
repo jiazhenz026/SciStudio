@@ -379,7 +379,12 @@ export default function App() {
    * ADR-053 Learning Center (#2057) — start-up catalogue fetch, the FR-083
    * first-run landing, the reconnect refetch, and step-entry routing.
    */
-  useLearningCenter({ wsConnected, setLeftTab, openProject });
+  useLearningCenter({
+    wsConnected,
+    setLeftTab,
+    openProject,
+    closeProject: () => closeCurrentProject({ setCurrentProject, setWorkflow, resetExecution }),
+  });
   useAppKeyboardShortcuts({
     activeFileTab,
     cancelWorkflow,
@@ -458,10 +463,11 @@ export default function App() {
           <AppErrorBanner message={lastError} onDismiss={() => setLastError(null)} />
 
           {/*
-           * ADR-053 FR-089 — the active step sits in the layout, between the
-           * toolbar and the workspace, so it never covers the canvas element it
-           * is telling the user to act on. It renders nothing when no tutorial
-           * is running.
+           * ADR-053 FR-089 — the active step is a fixed-position card that
+           * follows the element the step points at, over a dimming overlay that
+           * lights only that element. It takes no space in this layout and its
+           * position here is only mount order; it renders nothing when no
+           * tutorial is running.
            */}
           <ActiveStep />
 

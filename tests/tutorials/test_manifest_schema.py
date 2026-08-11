@@ -22,10 +22,17 @@ from scistudio.tutorials import actions as actions_module
 from scistudio.tutorials import conditions as conditions_module
 from scistudio.tutorials import manifest as manifest_module
 from scistudio.tutorials.manifest import (
+    HIGHLIGHT_SPECS,
     HIGHLIGHT_TARGETS,
+    PREFILL_SPECS,
+    PREFILL_TARGETS,
     ROUTE_TARGETS,
     SCHEMA_PATH,
+    Highlight,
+    HighlightSpec,
     ManifestValidationError,
+    Prefill,
+    PrefillSpec,
     TutorialSourceKind,
     UnsupportedManifestVersionError,
     load_manifest,
@@ -168,7 +175,8 @@ def test_step_fields_round_trip(tmp_path: Path) -> None:
     data = copy.deepcopy(MINIMAL_MANIFEST)
     data["steps"] = [{"id": "one", "say": "Hello", "highlight": "block_palette", "route_to": "canvas"}]
     step = parse(data, tmp_path=tmp_path).steps[0]
-    assert (step.say, step.highlight, step.route_to) == ("Hello", "block_palette", "canvas")
+    assert (step.say, step.route_to) == ("Hello", "canvas")
+    assert step.highlight == Highlight(target="block_palette")
 
 
 # ---------------------------------------------------------------------------
@@ -203,9 +211,32 @@ def test_the_highlight_target_set_is_the_declared_one() -> None:
         "block_palette",
         "canvas",
         "run_button",
+        "new_menu_button",
         "plots_new_button",
         "history_restore_button",
         "data_preview",
+        "config_panel",
+        "palette_block",
+        "node",
+        "plot_card",
+    }
+
+
+def test_only_the_entity_targets_require_an_argument() -> None:
+    """Which targets need to say *which one*, and what they call it.
+
+    The split is the point of the vocabulary: a target naming a surface or a
+    control that exists exactly once is already an address, and one naming an
+    element among many of its kind is not. A target that grew a required
+    argument without the frontend learning to read it would silently stop
+    resolving, so the two sides are pinned here and in the frontend's parity
+    test.
+    """
+    required = {spec.name: spec.required for spec in HIGHLIGHT_SPECS}
+    assert {name: args for name, args in required.items() if args} == {
+        "palette_block": ("block_type",),
+        "node": ("block_type",),
+        "plot_card": ("plot_id",),
     }
 
 
@@ -216,11 +247,186 @@ def test_every_route_target_is_accepted(target: str, tmp_path: Path) -> None:
     assert parse(data, tmp_path=tmp_path).steps[0].route_to == target
 
 
-@pytest.mark.parametrize("target", sorted(HIGHLIGHT_TARGETS))
-def test_every_highlight_target_is_accepted(target: str, tmp_path: Path) -> None:
+@pytest.mark.parametrize("spec", HIGHLIGHT_SPECS, ids=lambda spec: spec.name)
+def test_every_highlight_target_is_accepted(spec: HighlightSpec, tmp_path: Path) -> None:
+    args = {name: f"fixture_{name}" for name in spec.required}
     data = copy.deepcopy(MINIMAL_MANIFEST)
-    data["steps"][0]["highlight"] = target
-    assert parse(data, tmp_path=tmp_path).steps[0].highlight == target
+    data["steps"][0]["highlight"] = spec.name if not args else {spec.name: args}
+
+    assert parse(data, tmp_path=tmp_path).steps[0].highlight == Highlight(target=spec.name, args=args)
+
+
+@pytest.mark.parametrize("spec", [spec for spec in HIGHLIGHT_SPECS if not spec.required], ids=lambda spec: spec.name)
+def test_an_argument_free_target_may_also_be_written_as_a_mapping(spec: HighlightSpec, tmp_path: Path) -> None:
+    """Both spellings mean the same thing, so neither is a trap.
+
+    ``highlight: canvas`` is what an author will write, but the mapping form is
+    the general one, and a target that accepted only the shorthand would make
+    the format's one nested syntax conditional on which target you picked.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["highlight"] = {spec.name: {}}
+
+    assert parse(data, tmp_path=tmp_path).steps[0].highlight == Highlight(target=spec.name)
+
+
+@pytest.mark.parametrize("spec", [spec for spec in HIGHLIGHT_SPECS if spec.required], ids=lambda spec: spec.name)
+def test_an_entity_target_without_its_argument_is_rejected(spec: HighlightSpec, tmp_path: Path) -> None:
+    """The failure this vocabulary exists to prevent, caught at authoring time.
+
+    ``highlight: palette_block`` with no ``block_type`` is an author asking to
+    point at "a block in the palette" — there are thirty. Accepting it would
+    light up the panel and leave the reader exactly as lost as the strip that
+    this replaced, with nothing anywhere saying the guidance was incomplete.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["highlight"] = spec.name
+
+    with pytest.raises(ManifestValidationError) as excinfo:
+        parse(data, tmp_path=tmp_path)
+
+    message = str(excinfo.value)
+    assert spec.name in message
+    for name in spec.required:
+        assert name in message
+
+
+def test_an_argument_the_target_does_not_take_is_rejected(tmp_path: Path) -> None:
+    """An argument nothing reads is an author believing they said more than they did.
+
+    Written with the required argument present, so this is the "and also" case
+    rather than the missing-argument one: ``block_type`` addresses the element
+    and ``block_name`` addresses nothing, and accepting it silently would let a
+    manifest carry guidance the frontend never sees.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["highlight"] = {"palette_block": {"block_type": "load_data", "block_name": "Load"}}
+
+    with pytest.raises(ManifestValidationError) as excinfo:
+        parse(data, tmp_path=tmp_path)
+
+    assert "block_name" in str(excinfo.value)
+
+
+def test_a_highlight_naming_two_targets_is_rejected(tmp_path: Path) -> None:
+    """One step points at one thing; a spotlight cannot be in two places."""
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["highlight"] = {"canvas": {}, "run_button": {}}
+
+    with pytest.raises(ManifestValidationError) as excinfo:
+        parse(data, tmp_path=tmp_path)
+
+    assert "exactly one target" in str(excinfo.value)
+
+
+# ---------------------------------------------------------------------------
+# The third closed step vocabulary: prefill (FR-011b)
+# ---------------------------------------------------------------------------
+
+
+def test_the_prefill_target_set_is_the_declared_one() -> None:
+    """The vocabulary is closed for the same reason highlight's is.
+
+    A prefill only does anything once the frontend seeds the dialog it names,
+    so a target with no consumer is a manifest line that silently does nothing.
+    """
+    assert set(PREFILL_TARGETS) == {"new_custom_block", "new_plot", "block_config"}
+
+
+@pytest.mark.parametrize("spec", PREFILL_SPECS, ids=lambda spec: spec.name)
+def test_every_prefill_target_is_accepted(spec: PrefillSpec, tmp_path: Path) -> None:
+    args = {name: f"fixture_{name}" for name in spec.required}
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["prefill"] = [{spec.name: args}]
+
+    assert parse(data, tmp_path=tmp_path).steps[0].prefill == (Prefill(target=spec.name, args=args),)
+
+
+def test_a_step_declares_no_prefill_by_default(tmp_path: Path) -> None:
+    """The field is optional, and its absence is an empty tuple rather than None."""
+    assert parse(copy.deepcopy(MINIMAL_MANIFEST), tmp_path=tmp_path).steps[0].prefill == ()
+
+
+@pytest.mark.parametrize("spec", [spec for spec in PREFILL_SPECS if spec.required], ids=lambda spec: spec.name)
+def test_a_prefill_missing_a_value_it_seeds_is_rejected(spec: PrefillSpec, tmp_path: Path) -> None:
+    """A target with nothing to seed would open the dialog on its own default.
+
+    Which is the state this field exists to fix, so accepting it silently would
+    leave the author believing they had fixed it.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["prefill"] = [{spec.name: {}}]
+
+    with pytest.raises(ManifestValidationError) as excinfo:
+        parse(data, tmp_path=tmp_path)
+
+    message = str(excinfo.value)
+    assert spec.name in message
+    for name in spec.required:
+        assert name in message
+
+
+def test_a_prefill_value_the_target_does_not_take_is_rejected(tmp_path: Path) -> None:
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["prefill"] = [{"new_custom_block": {"filename": "my_block", "destination": "library"}}]
+
+    with pytest.raises(ManifestValidationError) as excinfo:
+        parse(data, tmp_path=tmp_path)
+
+    assert "destination" in str(excinfo.value)
+
+
+@pytest.mark.parametrize("bad", ["new_block", "new-custom-block", "New custom block", "config_panel"])
+def test_a_prefill_target_outside_the_set_is_rejected(bad: str, tmp_path: Path) -> None:
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["prefill"] = [{bad: {"filename": "x"}}]
+
+    with pytest.raises(ManifestValidationError) as excinfo:
+        parse(data, tmp_path=tmp_path)
+
+    message = str(excinfo.value)
+    assert bad in message
+    for target in PREFILL_TARGETS:
+        assert target in message
+
+
+def test_one_step_prefilling_the_same_dialog_twice_is_rejected(tmp_path: Path) -> None:
+    """A dialog opens holding one set of values, so two answers is an author error."""
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["prefill"] = [
+        {"new_custom_block": {"filename": "first"}},
+        {"new_custom_block": {"filename": "second"}},
+    ]
+
+    with pytest.raises(ManifestValidationError) as excinfo:
+        parse(data, tmp_path=tmp_path)
+
+    assert "twice" in str(excinfo.value)
+
+
+def test_a_prefill_naming_two_targets_in_one_entry_is_rejected(tmp_path: Path) -> None:
+    """The single-key mapping shape ``do`` uses, enforced the way ``do`` enforces it.
+
+    Refused by the published schema before the parser sees it, which is why the
+    assertion is on the field path rather than on a message this module owns.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["prefill"] = [{"new_custom_block": {"filename": "x"}, "canvas": {}}]
+
+    with pytest.raises(ManifestValidationError) as excinfo:
+        parse(data, tmp_path=tmp_path)
+
+    assert "steps[0].prefill[0]" in str(excinfo.value)
+
+
+@pytest.mark.parametrize("bad", ["new_custom_block", {"new_custom_block": {"filename": "x"}}])
+def test_a_prefill_that_is_not_a_list_is_rejected(bad: Any, tmp_path: Path) -> None:
+    """A step may seed several dialogs, so the field is a list even for one."""
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"][0]["prefill"] = bad
+
+    with pytest.raises(ManifestValidationError):
+        parse(data, tmp_path=tmp_path)
 
 
 @pytest.mark.parametrize("bad", ["lineage", "ai", "preview", "Canvas", "settings_tab"])
@@ -447,6 +653,7 @@ def test_the_schema_does_not_restate_any_of_the_closed_sets() -> None:
         "replay surface": actions_module.REPLAY_SURFACES,
         "route target": manifest_module.ROUTE_TARGETS,
         "highlight target": manifest_module.HIGHLIGHT_TARGETS,
+        "prefill target": manifest_module.PREFILL_TARGETS,
         "ui event name": conditions_module.UI_EVENT_NAMES,
     }
     for label, members in owned.items():

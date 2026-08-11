@@ -42,7 +42,7 @@ scope:
     - A recording or authoring UI for user-level and project-level tutorials. This spec makes those tiers discoverable and runnable; the manifest is written by hand or by an agent.
     - Sandboxing drop-in execution, deferred by #1531 and unchanged here.
     - A user tier for previewers, excluded by the personal tool library spec and tracked separately. The scenarios spec depends on it; this spec does not.
-    - Adding `data/processed/` to the project scaffold, which the owner is handling separately.
+    - Format and storage choices behind a save. The scaffold gains `data/processed/` for results (owner decision, 2026-08-11) and a step names a filename whose suffix picks the format; nothing here specifies the capability resolution behind it.
     - The work-import dialog, brief, and session, governed by the work-import spec. Only the unlock that routes to its entry point is specified here.
     - Provider configuration and the provider registry, governed by ADR-034.
 governs:
@@ -534,12 +534,44 @@ conflict.
 
 **FR-011.** A step MUST declare an `id` unique within the tutorial. It MAY
 declare `say` as display text, `highlight` naming a user-interface element,
-`route_to` naming a tab or panel the user is taken to, `do` as an ordered list of
+`route_to` naming a tab or panel the user is taken to, `prefill` seeding a
+dialog the user is about to open (FR-011b), `do` as an ordered list of
 actions, and `done_when` as a completion condition.
+
+**FR-011c.** A step MAY declare `title` as a short heading for the step card.
+A step without one MUST fall back to the tutorial's own title. Heading every
+step with the tutorial's name tells the reader the one thing they already know
+and nothing about where they are.
+
+**FR-011b.** A step MAY declare `prefill` as a list of single-key mappings, each
+naming one dialog and the values it opens holding. A step that names a value and
+then presents a dialog offering a different one has the tutorial and the product
+saying different things, and makes the reader retype something the tutorial
+already decided.
+
+The target set and each target's required values MUST be closed, core-owned, and
+declared in exactly one place, on the same grounds as `highlight`'s: a prefill
+only does anything once the frontend seeds the dialog it names, so a target
+without a matching consumer is a manifest line that silently does nothing. A
+target outside the set, a missing required value, a value the target does not
+take, or the same target seeded twice in one step MUST be rejected at
+validation.
+
+A prefill MUST be a default and not a decision: what it seeds stays editable,
+and a reader who supplies something else MUST NOT be blocked, because the step's
+`done_when` judges the world rather than the dialog.
+
+A target that seeds a block's settings rather than a dialog MUST fill only a
+field the reader has left empty, and MUST NOT overwrite a value they supplied.
+A step using one MUST judge something the reader did rather than the field it
+seeded; a step that judges its own prefill judges the tutorial's work and
+completes itself.
 
 **FR-012.** A step omitting `done_when` MUST advance on an explicit user action
 to continue. Reading steps are the common case; requiring a synthetic condition
-for them would be ceremony.
+for them would be ceremony. Under FR-054a every step advances this way; what
+distinguishes a reading step is that it is ready to continue from the moment it
+is entered, having no condition to meet.
 
 **FR-013.** The manifest MUST be validated against a published schema at
 discovery. Validation failures MUST name the file, the field, and the reason.
@@ -829,6 +861,22 @@ not emit `blocks.reloaded` are likewise uncovered.
 **FR-054.** A condition already satisfied when its step is entered MUST satisfy
 that step immediately.
 
+**FR-054a.** A satisfied step MUST NOT advance the session on its own. Advancing
+MUST require an explicit user action to continue, for every step alike — the
+ones with a `done_when` and the reading ones of FR-012. The step view MUST
+report whether the current step's condition holds, so a client can present the
+continue control as live or inert without re-deriving the judgment that spec
+§4.1 places on the backend, and the backend MUST refuse to advance a step that
+is neither satisfied nor a reading step.
+
+This reverses the original design, in which a condition that came true advanced
+the session with no confirmation. Automatic advance replaces the text the reader
+is in the middle of with the next step's, and there is no way back to it: the
+tutorial takes an action the reader did not ask for, at the moment they are
+least able to follow it. Judging stays automatic and continuous — FR-050's
+mapped events and FR-053's explicit re-check both keep the reported state
+current — and only the move is the user's.
+
 **FR-055.** Condition evaluation MUST be side-effect free. Evaluating a condition
 MUST NOT create files, mutate registries, or trigger runs.
 
@@ -895,6 +943,18 @@ for termination.
 **FR-062.** A tutorial declaring `bootstrap` MUST receive a project created under
 a dedicated tutorial parent directory, defaulting to `~/SciStudio Tutorials/`.
 This preserves the location the current implementation already uses.
+
+**FR-062a.** Starting a tutorial whose project directory already exists, with no
+session record for it, MUST adopt that directory rather than fail or replace it.
+The session store and the tutorial parent directory are separate state and can
+disagree: a `clear` whose directory removal failed, a hand-deleted session file,
+a home directory restored from a backup without `~/.scistudio`. Each leaves the
+tutorial listed as never started beside a directory that is still on disk, and
+creating unconditionally raises through the start route — the user presses the
+only button offered and gets an Internal Server Error. Adopting rather than
+replacing, because the directory holds whatever work the user did last time and
+FR-066 makes deleting it something they ask for by restarting. A directory that
+is not a SciStudio project MUST still be refused, naming what it found.
 
 **FR-063.** Tutorial projects MUST be recorded in the known-projects registry.
 Several routes resolve a project's real path through that registry, including the
@@ -1016,11 +1076,53 @@ describes the user's intent while its effect is deleting directories, and the tw
 must not be allowed to diverge silently.
 
 **FR-089.** The active step MUST be displayed in a surface that does not occlude
-the canvas element it refers to, since most steps ask the user to act on the
-canvas or the palette.
+the element it refers to, since most steps ask the user to act on the canvas or
+the palette.
+
+**FR-089a.** A step that declares a `highlight` MUST point at that element
+directly: the named element is outlined where it sits, and the step's surface is
+placed beside it rather than over it. The outline MUST NOT intercept pointer
+events — it guides the reader and never confines them, because a target that
+resolves to the wrong element or has not rendered would otherwise leave the user
+unable to click anything at all, with no exit but abandoning the tutorial.
+
+Two heavier forms were built and rejected in use. A permanent ember ring drawn
+on the canvas was too intrusive over the user's own work (2026-08-10). Dimming
+the rest of the window to leave only the target lit was worse (2026-08-11):
+taking the whole product down to say one thing is up reads as the product having
+stopped working, and it hides the surroundings the tutorial is teaching the
+reader to navigate. Pointing at one element is a small claim and MUST be made
+with a correspondingly small mechanism.
+
+**FR-089b.** A `highlight` MUST be able to name one element among many of its
+kind, and its vocabulary MUST require the argument that picks it. Pointing at
+the containing surface — the palette, the canvas — is guidance only when the
+step is about that surface; for a step whose content is *which* block or *which*
+node, it names the haystack. Each target that addresses an entity therefore
+declares a required argument (`block_type` for a palette entry or a canvas node,
+`plot_id` for a plot card), a manifest naming such a target without its argument
+MUST be rejected at validation, and the frontend MUST annotate every candidate
+element with both the target name and that argument's value.
+
+**FR-089c.** A step that declares no `highlight`, and a step whose target is not
+on screen, MUST dock the step surface in the bottom-right corner and MUST NOT
+draw an outline anywhere. An outline around nothing points at nothing, and a
+target may legitimately be absent — a control that appears only once a run is
+selected, a panel not yet open. The corner
+rather than the center: a step with no target is prose to be read while looking
+at the workspace it describes, and centering it puts a block of text in the
+middle of the user's own canvas that must be dealt with before anything else.
 
 **FR-090.** Leaving a tutorial MUST be possible at any step and MUST preserve the
 session.
+
+**FR-090a.** Finishing a tutorial MUST open the Learning Center and MUST close
+the tutorial's project. A card reporting "complete" over the workspace is a dead
+end: it names the outcome and leaves the reader with nothing to do next, while
+the catalogue is where the next tutorial is. The project is closed for a
+separate reason — a tutorial project looks like any other workspace once the
+card is gone, and restarting the tutorial deletes it (FR-066), so leaving it
+open invites the reader to keep working somewhere their work will not survive.
 
 #### ADR-053 revisions
 
@@ -1210,6 +1312,9 @@ a file the change happens to touch.
 | `src/components/LearningCenter.parts/GroupProgress.tsx` | One source's count and the running session's position (FR-076, FR-090) |
 | `src/components/LearningCenter.parts/ProgressRing.tsx` | That count, drawn |
 | `src/components/LearningCenter.parts/ActiveStep.tsx` | Active step surface (FR-089, FR-090) |
+| `src/components/LearningCenter.parts/TargetHighlight.tsx` | The ring drawn around the step's target (FR-089a) |
+| `src/components/LearningCenter.parts/useHighlightRect.ts` | Following the target element as it moves (FR-089a) |
+| `src/components/LearningCenter.parts/placeCard.ts` | Placing the step card beside the target, or centered (FR-089, FR-089c) |
 | `src/store/learningCenterSlice.ts` | Session view state and the tab split; no judging, no content |
 | `src/lib/api/learningCenter.ts` | API client |
 

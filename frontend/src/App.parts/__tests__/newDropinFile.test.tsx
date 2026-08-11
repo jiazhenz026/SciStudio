@@ -62,6 +62,8 @@ const openFileTab = vi.fn();
 const openUserLibraryFileTab = vi.fn();
 /** Every `validate` the flows handed to the prompt, for the FR-033 check. */
 const validators: Array<(value: string) => string | null> = [];
+/** Every `defaultValue` the flows handed to the prompt, for the FR-011b check. */
+const defaults: Array<string | undefined> = [];
 let actions: ProjectActions;
 
 function Harness() {
@@ -79,6 +81,7 @@ function Harness() {
     setBusy: vi.fn(),
     promptInput: vi.fn(async (opts) => {
       if (opts.validate) validators.push(opts.validate);
+      defaults.push(opts.defaultValue);
       return "my_thing";
     }),
   });
@@ -94,6 +97,7 @@ beforeEach(() => {
   resetDialogChannel();
   vi.clearAllMocks();
   validators.length = 0;
+  defaults.length = 0;
   useAppStore.setState({ openUserLibraryFileTab });
   // 404 = "safe to create", for both probes.
   getProjectFile.mockRejectedValue(missing());
@@ -256,5 +260,63 @@ describe("FR-033 — the two flows share their steps", () => {
     }
     // The same function object — two copies could drift.
     expect(validators[0]).toBe(validators[1]);
+  });
+});
+
+describe("ADR-053 FR-011b — a tutorial step seeds the filename", () => {
+  /** A session parked on a step that prefills the New custom block dialog. */
+  function sessionSeeding(filename: string): void {
+    useAppStore.setState({
+      learningCenterSession: {
+        source_kind: "core",
+        source_id: "",
+        tutorial_id: "welcome-to-scistudio",
+        title: "Welcome to SciStudio",
+        project_id: "p1",
+        project_path: "/proj",
+        step: {
+          id: "create-the-block",
+          index: 4,
+          total: 15,
+          title: null,
+          say: "Press New, choose New custom block.",
+          highlight: null,
+          route_to: "canvas",
+          prefill: [{ target: "new_custom_block", args: { filename } }],
+          awaiting_continue: false,
+          satisfied: false,
+        },
+        satisfied_step_ids: [],
+        status: "active",
+        error: null,
+        replay: null,
+      },
+    });
+  }
+
+  it("opens the dialog holding the name the step named", async () => {
+    sessionSeeding("normalize_fluorescence");
+    render(<Harness />);
+
+    await run(() => actions.createNewCustomBlock(), "project");
+
+    expect(defaults).toEqual(["normalize_fluorescence"]);
+  });
+
+  it("leaves the product default alone when no tutorial is running", async () => {
+    render(<Harness />);
+
+    await run(() => actions.createNewCustomBlock(), "project");
+
+    expect(defaults).toEqual(["my_block"]);
+  });
+
+  it("seeds only the dialog it names, so the type flow keeps its own default", async () => {
+    sessionSeeding("normalize_fluorescence");
+    render(<Harness />);
+
+    await run(() => actions.createNewDataType(), "project");
+
+    expect(defaults).toEqual(["my_data_type"]);
   });
 });

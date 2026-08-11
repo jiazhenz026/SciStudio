@@ -118,17 +118,19 @@ class DriverContractError(DriverError):
 
 #: The fields a step view carries, and the only ones (FR-011, FR-041).
 #:
-#: ``say``, ``highlight``, ``route_to``, and the continue flag are the manifest
-#: format's whole rendering vocabulary; ``id``, ``index``, and ``total`` are
+#: ``say``, ``highlight``, ``route_to``, ``prefill``, and the continue flag are
+#: the manifest format's whole rendering vocabulary; ``id``, ``index``, and ``total`` are
 #: position, which the frontend needs to show progress through a tutorial and
 #: which no driver may misreport into a different shape.
 STEP_VIEW_FIELDS: tuple[str, ...] = (
     "id",
     "index",
     "total",
+    "title",
     "say",
     "highlight",
     "route_to",
+    "prefill",
     "awaiting_continue",
 )
 
@@ -140,10 +142,20 @@ class StepView:
     id: str
     index: int
     total: int
+    title: str | None = None
     say: str | None = None
-    highlight: str | None = None
+    highlight: Mapping[str, Any] | None = None
     route_to: str | None = None
+    prefill: tuple[Mapping[str, Any], ...] = ()
     awaiting_continue: bool = False
+    #: Whether this step's condition currently holds (FR-054a).
+    #:
+    #: Not a driver's field and not read by :meth:`of`: a driver reports what a
+    #: step *is*, and this is the runtime's answer about the world the step is
+    #: being judged against. The session attaches it after reducing the driver's
+    #: view, which is what keeps :data:`STEP_VIEW_FIELDS` the closed set a
+    #: driver may influence.
+    satisfied: bool = False
 
     @classmethod
     def of(cls, raw: Any) -> StepView:
@@ -172,9 +184,11 @@ class StepView:
             id=step_id,
             index=index,
             total=total,
+            title=_optional_text(read("title"), step_id=step_id, name="title"),
             say=_optional_text(read("say"), step_id=step_id, name="say"),
-            highlight=_optional_text(read("highlight"), step_id=step_id, name="highlight"),
+            highlight=_optional_highlight(read("highlight"), step_id=step_id),
             route_to=_optional_text(read("route_to"), step_id=step_id, name="route_to"),
+            prefill=_optional_prefill(read("prefill"), step_id=step_id),
             awaiting_continue=bool(read("awaiting_continue")),
         )
 
@@ -185,6 +199,74 @@ def _optional_text(value: Any, *, step_id: str, name: str) -> str | None:
     if not isinstance(value, str):
         raise DriverContractError(f"step {step_id!r}: {name} must be text or absent, got {type(value).__name__}")
     return value
+
+
+def _optional_highlight(value: Any, *, step_id: str) -> Mapping[str, Any] | None:
+    """Reduce a driver's ``highlight`` to the wire shape, or refuse it.
+
+    Accepts the three forms a driver can reasonably produce: a bare target name,
+    a :class:`~scistudio.tutorials.manifest.Highlight`, and the wire mapping
+    itself. The bare name is accepted for the same reason the manifest format
+    accepts it — a target whose name is already an address should not have to be
+    written as a mapping — and a driver author writing Python has exactly the
+    same claim on that shorthand as a manifest author writing YAML.
+
+    The target has to be a non-empty string and the arguments a mapping of
+    strings, because everything downstream — the API response, the frontend's
+    element lookup — treats both as given, and a driver is the one place that
+    shape is not already checked.
+    """
+    if value is None:
+        return None
+    as_json = getattr(value, "as_json", None)
+    if callable(as_json):
+        value = as_json()
+    if isinstance(value, str):
+        value = {"target": value, "args": {}}
+    if not isinstance(value, Mapping):
+        raise DriverContractError(
+            f"step {step_id!r}: highlight must be a target name, a mapping, or absent, got {type(value).__name__}"
+        )
+    target = value.get("target")
+    if not isinstance(target, str) or not target:
+        raise DriverContractError(f"step {step_id!r}: a highlight must carry a non-empty string target")
+    args = value.get("args") or {}
+    if not isinstance(args, Mapping):
+        raise DriverContractError(f"step {step_id!r}: highlight args must be a mapping, got {type(args).__name__}")
+    return {"target": target, "args": {str(key): str(item) for key, item in args.items()}}
+
+
+def _optional_prefill(value: Any, *, step_id: str) -> tuple[Mapping[str, Any], ...]:
+    """Reduce a driver's ``prefill`` to the wire shape, or refuse it.
+
+    A sequence, because a step may seed more than one dialog. Each member is
+    reduced the way a highlight is — a :class:`~scistudio.tutorials.manifest.Prefill`
+    or the wire mapping itself — minus the bare-name shorthand, which a prefill
+    has no use for: a target with no values to seed would seed nothing.
+    """
+    if value is None:
+        return ()
+    if isinstance(value, str | bytes) or not isinstance(value, Sequence):
+        raise DriverContractError(
+            f"step {step_id!r}: prefill must be a sequence or absent, got {type(value).__name__}"
+        )
+    reduced: list[Mapping[str, Any]] = []
+    for item in value:
+        as_json = getattr(item, "as_json", None)
+        if callable(as_json):
+            item = as_json()
+        if not isinstance(item, Mapping):
+            raise DriverContractError(
+                f"step {step_id!r}: each prefill must be a mapping, got {type(item).__name__}"
+            )
+        target = item.get("target")
+        if not isinstance(target, str) or not target:
+            raise DriverContractError(f"step {step_id!r}: a prefill must carry a non-empty string target")
+        args = item.get("args") or {}
+        if not isinstance(args, Mapping):
+            raise DriverContractError(f"step {step_id!r}: prefill args must be a mapping, got {type(args).__name__}")
+        reduced.append({"target": target, "args": {str(key): str(entry) for key, entry in args.items()}})
+    return tuple(reduced)
 
 
 # ---------------------------------------------------------------------------
@@ -301,9 +383,11 @@ class ManifestDriver:
             id=step.id,
             index=self._index(step.id),
             total=len(self.manifest.steps),
+            title=step.title,
             say=step.say,
-            highlight=step.highlight,
+            highlight=None if step.highlight is None else step.highlight.as_json(),
             route_to=step.route_to,
+            prefill=tuple(prefill.as_json() for prefill in step.prefill),
             awaiting_continue=step.awaiting_continue,
         )
 

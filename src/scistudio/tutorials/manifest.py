@@ -75,6 +75,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 import yaml
@@ -102,6 +103,7 @@ __all__ = [
     "ASSETS_DIR_NAME",
     "EXECUTABLE_ASSET_DIRS",
     "HIGHLIGHT_TARGETS",
+    "PREFILL_TARGETS",
     "RESERVED_ASSET_DIRS",
     "ROUTE_TARGETS",
     "SCHEMA_PATH",
@@ -182,22 +184,50 @@ next person to compare this set against ``BottomTab`` will find two names that
 do not appear there, and this paragraph is the answer.
 """
 
-HIGHLIGHT_TARGETS: frozenset[str] = frozenset(
-    {
-        "block_palette",
-        "canvas",
-        "run_button",
-        "plots_new_button",
-        "history_restore_button",
-        "data_preview",
-    }
+
+@dataclass(frozen=True)
+class HighlightSpec:
+    """One accepted ``highlight`` target and the arguments that address it."""
+
+    name: str
+    points_at: str
+    required: tuple[str, ...] = ()
+
+
+HIGHLIGHT_SPECS: tuple[HighlightSpec, ...] = (
+    # Surfaces. A whole panel is the right size only when the step is about the
+    # panel itself; pointing at one of these to mean "the Load block, which is
+    # somewhere in here" is the failure the entity targets below exist to fix.
+    HighlightSpec(name="block_palette", points_at="the block palette as a whole"),
+    HighlightSpec(name="canvas", points_at="the workflow canvas as a whole"),
+    HighlightSpec(name="data_preview", points_at="the data preview surface"),
+    HighlightSpec(name="config_panel", points_at="the selected block's settings panel"),
+    # Singleton controls. Exactly one of each exists on screen, so a name is
+    # already an address.
+    HighlightSpec(name="run_button", points_at="the toolbar's Run button"),
+    HighlightSpec(name="new_menu_button", points_at="the toolbar's New menu"),
+    HighlightSpec(name="plots_new_button", points_at="the Plots tab's new-plot button"),
+    HighlightSpec(name="history_restore_button", points_at="the Restore button on a run in History"),
+    # Entities. These take an argument because the element they address is one
+    # of many of its kind, and which one is the whole content of the guidance.
+    HighlightSpec(name="palette_block", points_at="one block's entry in the palette", required=("block_type",)),
+    HighlightSpec(name="node", points_at="one node on the canvas", required=("block_type",)),
+    HighlightSpec(name="plot_card", points_at="one plot's card in the Plots tab", required=("plot_id",)),
 )
 """The closed set of interface elements a step's ``highlight`` may name (FR-011).
 
 Deliberately small, and deliberately not a guess at a general vocabulary for
 the product's interface. Every member is something core tutorial 1 actually
-needs: drag from the palette, act on the canvas, press Run, create a plot,
-restore from History.
+needs: drag one named block out of the palette, configure one named node, press
+Run, create a plot, restore from History.
+
+**Why some targets take arguments.** A highlight is only useful if the reader
+can tell what to act on, and half of core tutorial 1's steps are about *one*
+element among many of its kind — the Load entry in a palette listing thirty
+blocks, the Normalize node among four on the canvas. A target that can only
+name the containing panel points at the haystack. The entity targets take the
+argument that picks the needle, and the frontend annotates each candidate
+element with both the target name and that argument's value.
 
 The set grows by core change rather than by a manifest author inventing a name.
 A highlight only does anything once the frontend annotates the element it
@@ -205,6 +235,104 @@ names, so a new member without a matching frontend annotation is a step whose
 guidance is silently dropped — which is exactly the failure this closure exists
 to stop.
 """
+
+@dataclass(frozen=True)
+class PrefillSpec:
+    """One accepted ``prefill`` target and the values it seeds."""
+
+    name: str
+    seeds: str
+    required: tuple[str, ...] = ()
+
+
+PREFILL_SPECS: tuple[PrefillSpec, ...] = (
+    PrefillSpec(
+        name="new_custom_block",
+        seeds="the New custom block dialog",
+        required=("filename",),
+    ),
+    PrefillSpec(
+        name="new_plot",
+        seeds="the new-plot dialog",
+        required=("name",),
+    ),
+    PrefillSpec(
+        name="block_config",
+        seeds="one field of a block's settings, for the named block type",
+        required=("block_type", "key", "value"),
+    ),
+)
+"""The closed set of dialogs a step's ``prefill`` may seed (FR-011b).
+
+``prefill`` says what a dialog the reader is about to open should already be
+holding when it opens. A step that asks for a block named
+``normalize_fluorescence`` and then presents a dialog offering ``my_block``
+makes the reader retype something the tutorial already decided; the step and
+the dialog were saying different things, and only one of them was the product.
+
+The mechanism is general — a step carries any number of prefills, each naming a
+target and the values that seed it — while the vocabulary is closed and
+core-owned, for the same reason :data:`HIGHLIGHT_SPECS` is: a prefill only does
+anything once the frontend seeds the dialog it names, so a member without a
+matching frontend consumer is a manifest line that silently does nothing. The
+set grows by core change as tutorials need it, never by an author inventing a
+name.
+
+A prefill is a *default*, not a decision. Whatever it seeds stays editable, and
+a reader who types something else is not fighting the tutorial: the step's
+``done_when`` still judges the world rather than the dialog.
+
+``block_config`` seeds a settings field rather than a dialog, and is therefore
+the one target that touches the workflow. It fills a field the reader has left
+empty, and never overwrites a value they have typed. A step using it must judge
+something the *reader* did — the folder they browsed to, the block they wired —
+and not the field it seeded, or the step judges the tutorial's own work.
+"""
+
+PREFILL_TARGETS: frozenset[str] = frozenset(spec.name for spec in PREFILL_SPECS)
+"""The accepted ``prefill`` target names, derived from :data:`PREFILL_SPECS`."""
+
+_PREFILL_SPECS_BY_NAME: Mapping[str, PrefillSpec] = MappingProxyType({spec.name: spec for spec in PREFILL_SPECS})
+
+
+@dataclass(frozen=True)
+class Prefill:
+    """One dialog a step seeds, and the values it seeds it with (FR-011b)."""
+
+    target: str
+    args: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+
+    def as_json(self) -> dict[str, Any]:
+        """The wire shape: the target name and its arguments, flat."""
+        return {"target": self.target, "args": dict(self.args)}
+
+
+HIGHLIGHT_TARGETS: frozenset[str] = frozenset(spec.name for spec in HIGHLIGHT_SPECS)
+"""The accepted ``highlight`` target names, derived from :data:`HIGHLIGHT_SPECS`.
+
+Kept as a name so the frontend parity test has one thing to compare against.
+"""
+
+_HIGHLIGHT_SPECS_BY_NAME: Mapping[str, HighlightSpec] = MappingProxyType({spec.name: spec for spec in HIGHLIGHT_SPECS})
+
+
+@dataclass(frozen=True)
+class Highlight:
+    """What a step points at, and which one of it (FR-011).
+
+    ``args`` is empty for the surface and singleton targets, whose name is
+    already an address. It carries the entity targets' required argument —
+    ``block_type`` for ``palette_block`` and ``node``, ``plot_id`` for
+    ``plot_card`` — which is what lets the frontend pick one element out of a
+    list of like elements rather than lighting up their container.
+    """
+
+    target: str
+    args: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+
+    def as_json(self) -> dict[str, Any]:
+        """The wire shape: the target name and its arguments, flat."""
+        return {"target": self.target, "args": dict(self.args)}
 
 
 class TutorialSourceKind(StrEnum):
@@ -312,9 +440,17 @@ class TutorialStep:
     """One step of a manifest-driven tutorial (FR-011)."""
 
     id: str
+    #: FR-011c — the short heading the step card shows.
+    #:
+    #: Without it every step of a tutorial is headed by the tutorial's own name,
+    #: which is the one thing the reader already knows and which says nothing
+    #: about where they are. Optional: a tutorial that does not title its steps
+    #: falls back to its own title, which is what every existing manifest gets.
+    title: str | None = None
     say: str | None = None
-    highlight: str | None = None
+    highlight: Highlight | None = None
     route_to: str | None = None
+    prefill: tuple[Prefill, ...] = ()
     do: tuple[Action, ...] = ()
     done_when: Condition | None = None
 
@@ -559,21 +695,164 @@ def _parse_steps(raw: Any, *, path: Path) -> tuple[TutorialStep, ...]:
             done_when = None if done_when_raw is None else parse_condition(done_when_raw, field_name="done_when")
         except ConditionValidationError as exc:
             raise ManifestValidationError(path=path, field_name=f"{field_name}.done_when", reason=str(exc)) from exc
-        highlight = _optional_str(item.get("highlight"))
+        highlight = _parse_highlight(item.get("highlight"), field_name=f"{field_name}.highlight", path=path)
         route_to = _optional_str(item.get("route_to"))
-        _check_closed_value(highlight, HIGHLIGHT_TARGETS, field_name=f"{field_name}.highlight", path=path)
         _check_closed_value(route_to, ROUTE_TARGETS, field_name=f"{field_name}.route_to", path=path)
         steps.append(
             TutorialStep(
                 id=step_id,
+                title=_optional_str(item.get("title")),
                 say=_optional_str(item.get("say")),
                 highlight=highlight,
                 route_to=route_to,
+                prefill=_parse_prefill(item.get("prefill"), field_name=f"{field_name}.prefill", path=path),
                 do=_parse_actions_or_fail(item.get("do"), field_name=f"{field_name}.do", path=path),
                 done_when=done_when,
             )
         )
     return tuple(steps)
+
+
+def _parse_prefill(raw: Any, *, field_name: str, path: Path) -> tuple[Prefill, ...]:
+    """Parse ``prefill``: a list of single-key mappings naming a dialog.
+
+    The shape ``do`` already uses, for the same reason it uses it — a step may
+    seed more than one dialog — rather than ``highlight``'s bare-or-single-key
+    form, which exists because a step points at exactly one thing.
+    """
+    if raw is None:
+        return ()
+    if not isinstance(raw, Sequence) or isinstance(raw, str | bytes):
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=f"prefill must be a list of single-key mappings, got {type(raw).__name__}",
+        )
+
+    prefills: list[Prefill] = []
+    seen: set[str] = set()
+    for index, item in enumerate(raw):
+        item_field = f"{field_name}[{index}]"
+        if not isinstance(item, Mapping) or len(item) != 1:
+            raise ManifestValidationError(
+                path=path,
+                field_name=item_field,
+                reason="each prefill names exactly one target, as a single-key mapping",
+            )
+        ((target_raw, args_raw),) = item.items()
+        target = str(target_raw)
+        spec = _PREFILL_SPECS_BY_NAME.get(target)
+        if spec is None:
+            raise ManifestValidationError(
+                path=path,
+                field_name=item_field,
+                reason=f"{target!r} is not accepted; the accepted values are {', '.join(sorted(PREFILL_TARGETS))}",
+            )
+        if target in seen:
+            raise ManifestValidationError(
+                path=path,
+                field_name=item_field,
+                reason=f"{target!r} is prefilled twice in one step; a dialog opens holding one set of values",
+            )
+        seen.add(target)
+        if not isinstance(args_raw, Mapping):
+            raise ManifestValidationError(
+                path=path,
+                field_name=f"{item_field}.{target}",
+                reason=f"a prefill target's values must be a mapping, got {type(args_raw).__name__}",
+            )
+        args = {str(key): str(value) for key, value in args_raw.items()}
+        missing = [name for name in spec.required if not args.get(name)]
+        if missing:
+            raise ManifestValidationError(
+                path=path,
+                field_name=f"{item_field}.{target}",
+                reason=f"{target!r} seeds {spec.seeds} and needs {', '.join(missing)}",
+            )
+        unexpected = sorted(set(args) - set(spec.required))
+        if unexpected:
+            raise ManifestValidationError(
+                path=path,
+                field_name=f"{item_field}.{target}",
+                reason=(
+                    f"{target!r} takes {', '.join(spec.required) or 'no values'}; "
+                    f"got unexpected {', '.join(unexpected)}"
+                ),
+            )
+        prefills.append(Prefill(target=target, args=MappingProxyType(args)))
+    return tuple(prefills)
+
+
+def _parse_highlight(raw: Any, *, field_name: str, path: Path) -> Highlight | None:
+    """Parse ``highlight`` in either of its two written forms.
+
+    A bare string for the targets whose name is already an address
+    (``highlight: run_button``), and a single-key mapping for the ones that need
+    to say *which* (``highlight: {palette_block: {block_type: load_data}}``).
+
+    The mapping form is the shape ``done_when`` already uses for conditions, on
+    purpose: a tutorial author who has written one ``done_when`` has learned the
+    only nested syntax this format has, and a second spelling for the same idea
+    would be a second thing to get wrong.
+    """
+    if raw is None:
+        return None
+
+    if isinstance(raw, str):
+        target, args_raw = raw, {}
+    elif isinstance(raw, Mapping):
+        if len(raw) != 1:
+            raise ManifestValidationError(
+                path=path,
+                field_name=field_name,
+                reason=(
+                    f"a highlight names exactly one target, got {len(raw)} "
+                    f"({', '.join(sorted(str(key) for key in raw))})"
+                ),
+            )
+        ((target_raw, args_raw),) = raw.items()
+        target = str(target_raw)
+        if args_raw is None:
+            args_raw = {}
+        if not isinstance(args_raw, Mapping):
+            raise ManifestValidationError(
+                path=path,
+                field_name=f"{field_name}.{target}",
+                reason=f"a highlight target's arguments must be a mapping, got {type(args_raw).__name__}",
+            )
+    else:
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=f"a highlight must be a target name or a single-key mapping, got {type(raw).__name__}",
+        )
+
+    spec = _HIGHLIGHT_SPECS_BY_NAME.get(target)
+    if spec is None:
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=f"{target!r} is not accepted; the accepted values are {', '.join(sorted(HIGHLIGHT_TARGETS))}",
+        )
+
+    args = {str(key): str(value) for key, value in args_raw.items()}
+    missing = [name for name in spec.required if not args.get(name)]
+    if missing:
+        raise ManifestValidationError(
+            path=path,
+            field_name=f"{field_name}.{target}",
+            reason=(f"{target!r} points at {spec.points_at} and needs {', '.join(missing)} to say which one"),
+        )
+    unexpected = sorted(set(args) - set(spec.required))
+    if unexpected:
+        raise ManifestValidationError(
+            path=path,
+            field_name=f"{field_name}.{target}",
+            reason=(
+                f"{target!r} takes {', '.join(spec.required) or 'no arguments'}; got unexpected {', '.join(unexpected)}"
+            ),
+        )
+    return Highlight(target=target, args=MappingProxyType(args))
 
 
 def _check_closed_value(value: str | None, accepted: frozenset[str], *, field_name: str, path: Path) -> None:

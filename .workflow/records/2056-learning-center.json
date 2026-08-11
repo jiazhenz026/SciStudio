@@ -486,6 +486,191 @@
       "at": "2026-08-09T07:23:14.371837Z",
       "owner_directive": "Manager dispatch plan: nine agent tracks (A1 entry-point symmetry, A2 manifest/conditions/actions, A3 tutorial projects/scoped library/progress, A4 frontend Learning Center, A5 discovery/driver/session, A6 API routes and replay, A7 core tutorial 1 and fixtures, A8 ADR-053 revisions, A9 no-context conformance audit). One gate ledger, manager-owned; dispatched agents do not create ledgers. Shared interface contracts are fixed in docs/planning/learning-center-checklist.md section 6.1.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-08-10T20:29:13.488968Z",
+      "owner_directive": "\u7ee7\u7eed\u624b\u52a8\u8c03 tutorial\uff1a\u6539\u574f->restore \u8fd9\u4e00\u6b65\u524d\u7aef\u5b8c\u5168\u6ca1\u6709\u770b\u5230\uff08\u6b65\u9aa4\u6574\u4e2a\u6ca1\u51fa\u73b0\uff09\u3002\u5148\u67e5\u8fd9\u4e2a bug\u3002",
+      "reason": "owner resumed live tutorial debugging on the open PR branch; folding into the existing ledger rather than opening a second one"
+    },
+    {
+      "at": "2026-08-10T20:46:20.423027Z",
+      "owner_directive": "\u5bf9 tutorial \u505a\u5927\u6539\uff1a\u9876\u90e8\u6761\u5e45\u6539\u6210\u8ddf\u968f\u7528\u6237\u64cd\u4f5c\u4f4d\u7f6e\u79fb\u52a8\u7684\u60ac\u6d6e\u7a97\uff0c\u53ea\u4eae\u8d77\u8981\u70b9\u7684\u5730\u65b9\u3001\u7070\u6389\u5c4f\u5e55\u5176\u4ed6\u533a\u57df\u3002\u6539 spec\uff1b\u906e\u7f69\u4e0d\u62e6\u622a\u70b9\u51fb\uff1b\u4eae\u7684\u7c92\u5ea6\u8981\u6307\u5411\u5177\u4f53\u5b9e\u4f53\uff1b\u6ca1\u6709\u76ee\u6807\u7684\u6b65\u9aa4\u60ac\u6d6e\u5230\u5c4f\u5e55\u4e2d\u95f4\u3002\u4e0d\u5f00\u65b0 issue\uff0c\u8ddf PR #2060 \u4e00\u8d77\u4e0a\u7ebf\u3002",
+      "reason": "owner redirected the Learning Center's step surface from a top strip to a following spotlight; FR-089 is being rewritten rather than worked around"
+    },
+    {
+      "at": "2026-08-10T21:13:13.928514Z",
+      "owner_directive": "\u6ca1\u6709\u64cd\u4f5c\u9700\u8981\u7684\u6b65\u9aa4\uff08\u65e0 highlight\uff09\u4e0d\u8981\u5c45\u4e2d\u5f39\u5728\u5c4f\u5e55\u6b63\u4e2d\uff0c\u50cf\u8001 tutorial \u90a3\u6837\u653e\u4e00\u4e2a\u9762\u677f\u5230\u53f3\u4e0b\u89d2\u3002",
+      "reason": "owner reviewed the running build: a centered card for a step with no target reads badly for long prose; FR-089c is being revised to dock instead"
+    },
+    {
+      "at": "2026-08-10T21:15:26.773712Z",
+      "owner_directive": "\u7b2c3\u6b65 select \u4e4b\u540e\u5e94\u8be5\u9ad8\u4eae\u6574\u4e2a config \u9762\u677f\uff0c\u800c\u4e0d\u662f\u4ecd\u7136\u9ad8\u4eae block\u3002\u53e6\u5916\u6c38\u9a7b\u4e00\u4e2a Continue \u548c\u4e00\u4e2a Refresh \u6309\u94ae\uff1aContinue \u5728\u53ef\u4ee5\u7684\u65f6\u5019\u4eae\u8d77\u6765\uff0c\u7528\u6237\u81ea\u5df1\u624b\u52a8\u70b9\u4e0b\u4e00\u6b65\uff0c\u522b\u81ea\u52a8\u5207\u6b65\uff1b\u4e0d\u80fd\u70b9\u7684\u65f6\u5019\u7070\u6389\u3002",
+      "reason": "owner reviewed the running build and redirected two more behaviours: highlight must follow progress within a step, and step advance becomes user-driven rather than automatic (reverses User Story 1 acceptance 3)"
+    },
+    {
+      "at": "2026-08-10T21:36:19.504562Z",
+      "owner_directive": "tutorial \u62a5 Internal Server Error (HTTP 500) \u9519\u8bef",
+      "reason": "owner hit a 500 starting the tutorial: a leftover project directory with no session record made create_project raise; FR-062a added"
+    },
+    {
+      "at": "2026-08-10T21:43:11.529652Z",
+      "owner_directive": "\u7070\u6389\u4f53\u9a8c\u5f88\u5dee\uff0c\u60ac\u6d6e\u7a97\u4fdd\u7559\uff0c\u4f46\u522b\u7070\u6389\u4e86\uff0c\u6539\u7528\u4e00\u4e2a\u9ad8\u4eae\u6846\u4e4b\u7c7b\u7684\u3002",
+      "reason": "owner tried the dimming overlay in the running build and rejected it; the pointing mechanism changes from a dimmed screen to an outline on the target, keeping the following card"
+    },
+    {
+      "at": "2026-08-10T22:05:01.926834Z",
+      "owner_directive": "\u91cd\u542f\u4e00\u4e0b\u524d\u540e\u7aef\uff0c\u628a\u8fd9\u4e2a\uff08add-save \u5c11\u68c0\u67e5 config\uff09\u4fee\u4e86",
+      "reason": "owner hit an unconfigured Save block: add-save judged the node and the edge but never the path the step asks for"
+    },
+    {
+      "at": "2026-08-10T22:05:11.030665Z",
+      "owner_directive": "\u91cd\u542f\u524d\u540e\u7aef\uff0c\u628a add-save \u5c11\u68c0\u67e5 config \u8fd9\u4e2a\u4fee\u4e86\u3002",
+      "reason": "owner hit an unconfigured Save block: add-save judged the node and the edge but never the path its own text asks for"
+    },
+    {
+      "at": "2026-08-10T22:05:18.699806Z",
+      "owner_directive": "restart both, and fix the add-save config gap",
+      "reason": "add-save judged the node and the edge but never the path its own text asks for; owner hit an unconfigured Save block"
+    },
+    {
+      "at": "2026-08-10T22:13:52.231843Z",
+      "owner_directive": "tutorial start reports HTTP 500",
+      "reason": "the adopt path refused a directory holding only a pause marker and raised an unmapped FileExistsError, so the tutorial became permanently unstartable behind a 500"
+    },
+    {
+      "at": "2026-08-10T22:14:06.164429Z",
+      "owner_directive": "tutorial start reports HTTP 500",
+      "reason": "the adopt path refused a directory holding only a pause marker and raised an unmapped FileExistsError, leaving the tutorial permanently unstartable behind a 500"
+    },
+    {
+      "at": "2026-08-11T18:48:39.096382Z",
+      "owner_directive": "\u4eca\u5929\u5bf9\u5173\u53611\uff08welcome-to-scistudio\uff09\u505a\u5927\u91cd\u6784\uff0c\u5305\u62ec\u6587\u6848\u548c\u6d41\u7a0b\uff1bowner \u4e00\u8fb9\u6d4b\u8bd5\u4e00\u8fb9\u7ed9\u5177\u4f53\u53cd\u9988\u3002",
+      "reason": "owner opened a live session to refactor core tutorial 1 (welcome-to-scistudio): copy and step flow, driven by live testing"
+    },
+    {
+      "at": "2026-08-11T18:54:38.932008Z",
+      "owner_directive": "\u5173\u53611 \u7b2c1\u6b65(welcome)\u6587\u6848\u5e9f\u8bdd\u592a\u591a\uff0c\u538b\u6210\u4e00\u53e5\uff1aWelcome to SciStudio\uff0c\u8fd9\u4e2a tutorial \u6559\u4f60\u57fa\u672c\u6982\u5ff5\u548c\u57fa\u672c\u64cd\u4f5c\u3002",
+      "reason": "owner reviewed step 1 copy in the live app"
+    },
+    {
+      "at": "2026-08-11T18:55:50.576665Z",
+      "owner_directive": "\u5173\u53611 \u7b2c2\u6b65(drag-load)\u6587\u6848\u6539\u6210\uff1aA block \u662f SciStudio \u6570\u636e\u5904\u7406\u7684\u57fa\u672c\u5355\u5143\uff1b\u62d6 Load \u8fdb canvas \u6765\u52a0\u8f7d\u6570\u636e\u3002",
+      "reason": "owner reviewed step 2 copy in the live app"
+    },
+    {
+      "at": "2026-08-11T18:56:20.560378Z",
+      "owner_directive": "\u7b2c1\u6b65\u4e0d\u8981\u7528 teach\uff0c\u63aa\u8f9e\u5bf9\u7528\u6237\u66f4\u53cb\u597d\u4e00\u70b9\u3002",
+      "reason": "owner refined step 1 wording for tone"
+    },
+    {
+      "at": "2026-08-11T19:11:00.815679Z",
+      "owner_directive": "\u5173\u53611 \u7b2c3\u6b65(select-the-load-block)\u6587\u6848\u8fd8\u662f\u592a\u957f\uff0c\u538b\u6210\uff1a\u76f4\u63a5\u70b9\u51fb block \u6765\u4fee\u6539 config\u3002",
+      "reason": "owner reviewed step 3 copy in the live app"
+    },
+    {
+      "at": "2026-08-11T19:12:41.464818Z",
+      "owner_directive": "\u5173\u53611 \u7b2c4\u6b65(point-load-at-the-data)\uff1a\u6587\u6848\u7f29\u6210\u4e00\u53e5\uff1b\u5e76\u63d0\u51fa\u7528\u6237\u4e0d\u60f3\u624b\u52a8 set path\uff0c\u95ee\u80fd\u5426 auto fill\uff08\u5b9e\u73b0\u65b9\u5f0f\u5f85 owner \u786e\u8ba4\uff09\u3002",
+      "reason": "owner reviewed step 4 in the live app"
+    },
+    {
+      "at": "2026-08-11T19:18:15.238592Z",
+      "owner_directive": "\u4e0d\u540c\u610f\u6539\u6559\u7a0b\u5916\u7684\u884c\u4e3a\uff0c\u4e5f\u4e0d\u540c\u610f\u7ed9\u6559\u7a0b\u968f\u610f\u52a0\u5b57\u6bb5\u3002\u7b2c4\u6b65\u53ea\u6539\u6587\u6848\uff1a\u8ba9\u7528\u6237 Browse \u2192 data \u2192 raw \u81ea\u5df1\u9009\u6570\u636e\u6587\u4ef6\u3002",
+      "reason": "owner rejected both auto-fill designs"
+    },
+    {
+      "at": "2026-08-11T19:23:22.419046Z",
+      "owner_directive": "\u7b2c4\u6b65\u6587\u6848\u8fd8\u8981\u52a0\u4e0a set format to CSV\u3002",
+      "reason": "owner spotted a config field the step never mentions"
+    },
+    {
+      "at": "2026-08-11T19:26:31.515215Z",
+      "owner_directive": "\u7b2c5\u6b65\u884c\u4e3a\u6539\uff1a\u8ba9\u7528\u6237\u7528 New \u2192 New custom block \u81ea\u5df1\u65b0\u5efa block\uff0c\u6559\u7a0b\u518d\u81ea\u52a8\u628a\u5b83\u586b\u6210 normalize fluorescence\uff1b\u5e76\u7ed9 normalize fluorescence \u52a0\u81ea\u5b9a\u4e49\u989c\u8272\u548c\u56fe\u6807\u3002",
+      "reason": "owner redirected step 5 from read-only to a make-it-yourself step"
+    },
+    {
+      "at": "2026-08-11T19:37:11.616440Z",
+      "owner_directive": "\u6559\u7a0b\u6587\u6848\u6c38\u8fdc\u4fdd\u6301 2 \u53e5\u8bdd\u4ee5\u5185\uff08\u9002\u7528\u4e8e\u5173\u53611 \u6bcf\u4e00\u6b65\uff0c\u4e0d\u53ea\u662f\u7b2c6\u6b65\uff09\uff1b\u53e6\u5916 New custom block \u7684\u6587\u4ef6\u540d\u8981\u81ea\u52a8\u586b\u5145\u3002",
+      "reason": "owner set a standing copy rule for the whole tutorial and asked for the new-block filename to be prefilled"
+    },
+    {
+      "at": "2026-08-11T19:39:54.174792Z",
+      "owner_directive": "\u540c\u610f\u7ed9\u6b65\u9aa4\u52a0\u4e00\u4e2a\u901a\u7528 prefill \u5b57\u6bb5\uff08\u4e0d\u662f\u53ea\u4e3a block \u6587\u4ef6\u540d\u7684\u4e00\u6b21\u6027\u5b57\u6bb5\uff09\uff0c\u7528\u5b83\u9884\u586b New custom block \u7684\u6587\u4ef6\u540d\u3002",
+      "reason": "owner authorised a new step-level manifest field after weighing the alternatives"
+    },
+    {
+      "at": "2026-08-11T19:54:10.003138Z",
+      "owner_directive": "\u7b2c5\u6b65\u540e\u534a\u53e5\u6539\u6210'\u628a\u8fd9\u4e2a block \u4fdd\u5b58\u5230\u5f53\u524d project'\uff1bNew custom block \u5f39\u7a97\u5728\u6559\u7a0b\u8fdb\u884c\u4e2d\u5fc5\u987b\u7f6e\u9876\uff1bbug\uff1a\u6559\u7a0b\u8fdb\u884c\u4e2d close project \u540e\u6559\u7a0b\u4ecd\u5728\uff0c\u6253\u5f00\u81ea\u5df1\u7684 project \u6559\u7a0b\u8fd8\u5728\u8dd1\u4e14 prefill \u4ecd\u751f\u6548\u3002",
+      "reason": "owner reported two defects and one copy fix from live testing"
+    },
+    {
+      "at": "2026-08-11T19:56:00.187512Z",
+      "owner_directive": "bug\uff1a\u67d0\u4e9b\u7a97\u53e3\u5c3a\u5bf8\u4e0b tutorial \u60ac\u6d6e\u5361\u7247\u4f1a\u88ab\u7a97\u53e3\u8fb9\u6846\u6321\u4f4f\u4e00\u90e8\u5206\uff1b\u5fc5\u987b\u6c38\u8fdc\u5b8c\u6574\u663e\u793a\u5728\u7a97\u53e3\u5185\u3002",
+      "reason": "owner reported a fourth defect from live testing"
+    },
+    {
+      "at": "2026-08-11T20:22:49.313210Z",
+      "owner_directive": "\u5220\u6389\u7b2c6\u6b65(read-the-block)\uff1b\u7b2c5\u6b65\u9ad8\u4eae toolbar \u7684 New\uff1bwire-the-block \u6587\u6848\u53ea\u7559\u4e00\u53e5 'Drag Normalize Fluorescence onto the canvas, then connect the Load block's data output to its input.'",
+      "reason": "owner cut a step and asked for a new highlight target"
+    },
+    {
+      "at": "2026-08-11T20:27:15.108060Z",
+      "owner_directive": "\u7b2c5\u6b65\u7684\u6559\u7a0b\u60ac\u6d6e\u7a97\u6321\u4f4f\u4e86 New \u4e0b\u62c9\u83dc\u5355\u7684\u4e00\u90e8\u5206\u3002",
+      "reason": "owner found the card covering the menu its own step tells the reader to use"
+    },
+    {
+      "at": "2026-08-11T20:27:50.360897Z",
+      "owner_directive": "\u7b2c7\u6b65(add-save)\u6587\u6848\u53ea\u7559\u4e00\u53e5 'Drag a Save block onto the canvas and connect the normalized output to it.'\uff1b\u5176\u540e\u65b0\u589e\u4e00\u6b65\uff0c\u50cf load \u90a3\u6837\u53bb config \u914d\u7f6e\u4fdd\u5b58\u8def\u5f84\u3002",
+      "reason": "owner reshaped the save half of the tutorial to mirror the load half"
+    },
+    {
+      "at": "2026-08-11T20:33:20.416369Z",
+      "owner_directive": "\u7b2c10\u6b65(look-at-the-numbers)\u6587\u6848\u6539\u6210 'Click the block'\u3002",
+      "reason": "owner trimmed the preview step"
+    },
+    {
+      "at": "2026-08-11T20:40:27.851962Z",
+      "owner_directive": "\u7167\u505a\uff1a\u9879\u76ee\u521b\u5efa\u65f6\u591a\u5efa data/processed \u76ee\u5f55\uff1b\u7b2c8\u6b65\u8ba9\u7528\u6237\u9009\u5230 processed\uff1bfilename \u81ea\u52a8\u586b\u5145 result.csv\u3002",
+      "reason": "owner directed the save step's design and told me to stop proposing alternatives"
+    },
+    {
+      "at": "2026-08-11T20:47:54.860946Z",
+      "owner_directive": "\u7b2c6\u6b65\uff1a\u7528\u6237\u5efa\u5b8c block \u540e\u7126\u70b9\u5728 editor tab \u4e0a\uff0c\u8981\u5f15\u5bfc\u4ed6\u70b9\u4e00\u4e0b canvas tab\uff1b\u7b2c11\u6b65\u538b\u6210\u4e24\u53e5\uff1aplot card \u662f\u505a\u4ec0\u4e48\u7684 + \u70b9 New \u521b\u5efa\u3002",
+      "reason": "owner found the reader stranded on the editor tab, and trimmed the plot step"
+    },
+    {
+      "at": "2026-08-11T21:01:45.300292Z",
+      "owner_directive": "Run \u7684\u5f15\u5bfc\u632a\u5230\u7b2c12\u6b65\uff1b\u7b2c11\u6b65 Continue \u5361\u6b7b\u4e14\u4e0d\u4f1a\u81ea\u52a8\u5224\u5b9a\uff0c\u8981\u4fee\uff1b\u7b2c13\u6b65\u6539\u6210\u6e38\u620f\u5316\uff1a\u544a\u8bc9\u7528\u6237\u6211\u4eec\u5199 run \u65f6\u4e0d\u5c0f\u5fc3\u628a block \u6539\u574f\u4e86\uff0c\u8ba9\u7528\u6237\u81ea\u5df1\u8dd1\u4e00\u6b21\u770b\u5230\u5931\u8d25\uff0c\u518d\u5f15\u5bfc\u53bb History restore\u3002",
+      "reason": "owner reported the plot step stuck and reshaped the break/restore steps"
+    },
+    {
+      "at": "2026-08-11T21:05:22.977222Z",
+      "owner_directive": "restore \u90a3\u6b65\u4e0a\u534a\u53e5\u76f4\u63a5\u8bf4\u6211\u4eec\u6539\u9519\u4e86\u8fd9\u4e2a block\uff1brun-it-yourself \u53bb\u6389 'so nothing ran without your say-so'\u3002",
+      "reason": "owner tightened the restore copy"
+    },
+    {
+      "at": "2026-08-11T21:05:51.262609Z",
+      "owner_directive": "\u6700\u540e\u4e00\u6b65\u6587\u6848\u6539\u6210\uff1a\u606d\u559c\u4f60\u5b8c\u6210\u4e86\u8fd9\u4e2a\u6559\u7a0b\uff01",
+      "reason": "owner replaced the recap with a congratulation"
+    },
+    {
+      "at": "2026-08-11T21:13:50.661844Z",
+      "owner_directive": "\u6559\u7a0b\u7ed3\u675f\u4e0d\u8981\u90a3\u4e2a complete \u6846\uff0c\u6539\u6210\u5f39\u51fa Learning Center\uff0c\u5e76\u81ea\u52a8\u5173\u95ed\u6559\u7a0b project\uff1b\u6bcf\u4e00\u6b65\u8981\u6709\u81ea\u5df1\u7684\u77ed\u6807\u9898\uff08\u73b0\u5728\u6bcf\u6b65\u90fd\u9876\u7740\u6559\u7a0b\u6807\u9898\uff09\u3002",
+      "reason": "owner reshaped what finishing a tutorial does, and asked for per-step headings"
+    },
+    {
+      "at": "2026-08-11T21:22:55.144951Z",
+      "owner_directive": "13-14 \u6ca1 rerun \u5c31\u80fd continue\uff1b11 \u6b65\u521b\u5efa plot \u540e\u7126\u70b9\u56de\u5230 New\uff0c\u5bb9\u6613\u518d\u5efa\u4e00\u4e2a\uff1b12 \u6b65\u6ca1\u70b9 Run \u4e4b\u524d continue \u5c31\u53ef\u7528\u3002",
+      "reason": "owner found three steps whose Continue was live before the reader had done the thing"
+    },
+    {
+      "at": "2026-08-11T21:30:29.463128Z",
+      "owner_directive": "\u70b9 block \u9884\u89c8\u90a3\u4e00\u6b65\u4e0d\u5224\u5b9a\u5c31\u80fd continue\u3002",
+      "reason": "owner found a ui_event step satisfied by a click made seven steps earlier"
+    },
+    {
+      "at": "2026-08-11T21:36:38.647278Z",
+      "owner_directive": "\u7b2c14\u6b65 restore \u4e4b\u540e continue \u6ca1\u4eae\uff0c\u8981\u624b\u52a8\u5237\u65b0\u3002",
+      "reason": "owner found the restore step unsatisfied until a manual refresh"
     }
   ],
   "docs_events": [
@@ -2025,6 +2210,36 @@
       "at": "2026-08-10T18:47:18.998271Z",
       "pattern": ".gitignore",
       "reason": "Untrack a desktop/node_modules symlink that a live-testing step committed by accident, and stop the pattern from recurring"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-10T20:29:13.489213Z",
+      "pattern": "tests/api/test_tutorial_routes.py",
+      "reason": "owner resumed live tutorial debugging on the open PR branch; folding into the existing ledger rather than opening a second one"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-10T20:46:20.423185Z",
+      "pattern": "docs/specs/adr-053-learning-center.md",
+      "reason": "owner redirected the Learning Center's step surface from a top strip to a following spotlight; FR-089 is being rewritten rather than worked around"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-10T20:46:20.423189Z",
+      "pattern": "src/scistudio/tutorials/**",
+      "reason": "owner redirected the Learning Center's step surface from a top strip to a following spotlight; FR-089 is being rewritten rather than worked around"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-10T20:46:20.423190Z",
+      "pattern": "frontend/src/**",
+      "reason": "owner redirected the Learning Center's step surface from a top strip to a following spotlight; FR-089 is being rewritten rather than worked around"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-10T20:46:20.423193Z",
+      "pattern": "tests/**",
+      "reason": "owner redirected the Learning Center's step surface from a top strip to a following spotlight; FR-089 is being rewritten rather than worked around"
     }
   ],
   "session_id": "b4be238d-ceba-4d3d-88fc-281a926395c6",

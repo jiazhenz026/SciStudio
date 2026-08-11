@@ -220,6 +220,11 @@ def create_project(
     for subdir in (
         "workflows",
         "data/raw",
+        # The counterpart to data/raw: where a workflow's results land. Named
+        # for what the files are rather than for how they are stored, so a user
+        # saving a result does not have to know what parquet is to choose a
+        # folder for it (owner decision, 2026-08-11).
+        "data/processed",
         "data/zarr",
         "data/parquet",
         "data/artifacts",

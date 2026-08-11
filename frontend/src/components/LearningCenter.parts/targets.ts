@@ -8,16 +8,12 @@
  * translated into this UI's internals — put a new target here, not inline at a
  * call site, or the next reader will find two half-mappings that disagree.
  *
- * TODO(#2057): `highlight` currently renders nothing. It drew an ember ring
- *   around the target element; the owner ruled that out on 2026-08-10 as too
- *   intrusive over the user's own canvas, and the component was deleted rather
- *   than restyled. The vocabulary, the `data-tutorial-target` attributes and
- *   `findTutorialTarget` are kept because a quieter form of pointing would
- *   need all three, and because removing the manifest field would break the
- *   thirteen steps that declare one. Either give `highlight` a rendering the
- *   owner accepts, or retire the field end to end — manifest, schema,
- *   validation, spec and the shipped tutorial.
- *   Followup: https://github.com/jiazhenz026/SciStudio/issues/2057
+ * `highlight` renders as FR-089's pointing: the target is ringed where it sits
+ * and the step's card is placed beside it. Two earlier forms were tried and
+ * rejected by the owner — a permanent ember outline drawn on the canvas at all
+ * times (2026-08-10), and dimming the rest of the window (2026-08-11, which
+ * made the product read as having stopped working). What is left exists only
+ * while a step is pointing at something and touches nothing else.
  *
  * **Why some manifest names differ from the internal keys.** Manifests are
  * written by tutorial authors and read by users, so they use the names the
@@ -67,12 +63,41 @@ export const HIGHLIGHT_TARGETS = [
   "block_palette",
   "canvas",
   "run_button",
+  "new_menu_button",
   "plots_new_button",
   "history_restore_button",
   "data_preview",
+  "config_panel",
+  "palette_block",
+  "node",
+  "plot_card",
 ] as const;
 
 export type HighlightTarget = (typeof HIGHLIGHT_TARGETS)[number];
+
+/**
+ * The argument each entity target is addressed by, mirroring the backend's
+ * `HIGHLIGHT_SPECS[].required`.
+ *
+ * A target listed here annotates many elements, and the value of this argument
+ * is what tells them apart: the palette renders one entry per block and every
+ * one of them carries `data-tutorial-target="palette_block"`, so the lookup
+ * needs `data-tutorial-target-key="load_data"` to pick one. A target absent
+ * from this map annotates a single element and its name is the whole address.
+ *
+ * Exhaustive against the backend by a parity test rather than by construction,
+ * because the two sides are in different languages; a target that grew a
+ * required argument the frontend does not read would resolve to nothing and the
+ * step would point at empty space.
+ */
+export const HIGHLIGHT_TARGET_KEYS: Partial<Record<HighlightTarget, string>> = {
+  palette_block: "block_type",
+  node: "block_type",
+  plot_card: "plot_id",
+};
+
+/** The attribute carrying an entity target's selector value. */
+export const TUTORIAL_TARGET_KEY_ATTRIBUTE = "data-tutorial-target-key";
 
 /**
  * Manifest route name → bottom-panel tab key, or `null` for the two targets
@@ -114,13 +139,20 @@ export function isHighlightTarget(value: string): value is HighlightTarget {
 }
 
 /** The selector that finds an annotated element. */
-export function tutorialTargetSelector(target: string): string {
-  return `[${TUTORIAL_TARGET_ATTRIBUTE}="${target}"]`;
+export function tutorialTargetSelector(target: string, args: Record<string, string> = {}): string {
+  const base = `[${TUTORIAL_TARGET_ATTRIBUTE}="${CSS.escape(target)}"]`;
+  const keyName = HIGHLIGHT_TARGET_KEYS[target as HighlightTarget];
+  const key = keyName === undefined ? undefined : args[keyName];
+  if (key === undefined) return base;
+  return `${base}[${TUTORIAL_TARGET_KEY_ATTRIBUTE}="${CSS.escape(key)}"]`;
 }
 
-export function findTutorialTarget(target: string): HTMLElement | null {
+export function findTutorialTarget(
+  target: string,
+  args: Record<string, string> = {},
+): HTMLElement | null {
   if (typeof document === "undefined") return null;
-  return document.querySelector<HTMLElement>(tutorialTargetSelector(target));
+  return document.querySelector<HTMLElement>(tutorialTargetSelector(target, args));
 }
 
 export interface StepRouteHandlers {
@@ -178,10 +210,13 @@ export function applyStepRoute(route: string, handlers: StepRouteHandlers): void
  * method turns a nicety that failed into an uncaught exception. Declining to
  * scroll is what "best-effort" is supposed to mean.
  */
-export function scrollTutorialTargetIntoView(target: string): void {
+export function scrollTutorialTargetIntoView(
+  target: string,
+  args: Record<string, string> = {},
+): void {
   if (typeof window === "undefined") return;
   window.requestAnimationFrame(() => {
-    const element = findTutorialTarget(target);
+    const element = findTutorialTarget(target, args);
     if (typeof element?.scrollIntoView === "function") {
       element.scrollIntoView({ block: "nearest", inline: "nearest" });
     }

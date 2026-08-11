@@ -93,6 +93,12 @@ _TERMS: dict[str, tuple[dict[str, Any], Callable[[StubProductState], None]]] = {
         {"run_succeeded": {}},
         lambda state: setattr(state, "runs", (RunSummary(run_id="r-1", workflow_id="wf", succeeded=True),)),
     ),
+    # The latest run exists and did not complete — the positive fact a step that
+    # breaks something on purpose waits for.
+    "run_failed": (
+        {"run_failed": {}},
+        lambda state: setattr(state, "runs", (RunSummary(run_id="r-2", workflow_id="wf", succeeded=False),)),
+    ),
     "port_has_output": (
         {"port_has_output": {"node_id": "load-1", "port": "table"}},
         lambda state: setattr(state, "ports_with_output", frozenset({("load-1", "table")})),
@@ -128,6 +134,12 @@ _TERMS: dict[str, tuple[dict[str, Any], Callable[[StubProductState], None]]] = {
     "interaction_completed": (
         {"interaction_completed": {"node_id": "ai-1"}},
         lambda state: setattr(state, "interactions", frozenset({"ai-1"})),
+    ),
+    # Creating a plot writes plots/<id>/plot.yaml and a render script into the
+    # watched project, so the watcher event is what says one appeared.
+    "plot_exists": (
+        {"plot_exists": {"plot_id": "normalized_activity"}},
+        lambda state: setattr(state, "plots", (("normalized_activity", "norm-1", "normalized"),)),
     ),
 }
 
@@ -225,18 +237,24 @@ def test_each_mapped_event_reevaluates_its_terms(
     core_dir: Path,
     product: StubProductState,
 ) -> None:
-    """FR-050: an observed event re-judges every term it maps to, and no other."""
+    """FR-050: an observed event re-judges every term it maps to, and no other.
+
+    The event moves the *judgment*, not the session (FR-054a): the step is
+    reported satisfied and stays on screen until the reader continues.
+    """
     done_when, make_true = _TERMS[term]
     _judged_by(core_dir, done_when)
     started = runtime.start(TutorialKey.core("judged"))
     assert started.step is not None and started.step.id == "judged"
+    assert started.step.satisfied is False
 
     make_true(product)
     view = runtime.handle_event(event)
 
     assert view is not None, f"{event} did not re-evaluate {term}"
     assert "judged" in view.satisfied_step_ids
-    assert view.step is not None and view.step.id == "after"
+    assert view.step is not None and view.step.id == "judged"
+    assert view.step.satisfied is True, f"{event} did not report {term} as satisfied"
 
 
 def test_an_event_mapping_to_none_of_the_steps_terms_does_nothing(
@@ -337,7 +355,8 @@ def test_explicit_evaluation_satisfies_a_file_condition_no_event_reaches(
     view = runtime.evaluate_active()
 
     assert "judged" in view.satisfied_step_ids
-    assert view.step is not None and view.step.id == "after"
+    assert view.step is not None and view.step.id == "judged"
+    assert view.step.satisfied is True
 
 
 def test_a_reported_user_interface_event_satisfies_a_ui_event_condition(
@@ -375,6 +394,62 @@ def test_a_reported_user_interface_event_satisfies_a_ui_event_condition(
 
     assert reported == ["preview_expanded"]
     assert "judged" in view.satisfied_step_ids
+
+
+def test_a_reported_event_belongs_to_the_step_that_asked_for_it(
+    home: Path, core_dir: Path, product: StubProductState
+) -> None:
+    """Entering a step forgets the events reported under the previous one.
+
+    The defect: core tutorial 1 asks the reader to click a block on its third
+    step and again on its tenth. A reported event is a moment, not a state, and
+    the recorded set lived for the whole session — so the tenth step was
+    satisfied on arrival by the click they made seven steps earlier, and its
+    Continue was live before they had done anything.
+    """
+
+    def _record(name: str) -> None:
+        product.events = frozenset({*product.events, name})
+
+    def _forget() -> None:
+        product.events = frozenset()
+
+    runtime = TutorialRuntime(
+        product_state=lambda: product,
+        external_events=EXTERNAL,
+        environment=DiscoveryEnvironment(
+            scistudio_version="0.3.1",
+            installed_distributions=frozenset(),
+            agent_available=True,
+            git_available=True,
+        ),
+        progress=ProgressStore(home / ".scistudio"),
+        sessions=SessionStore(home / ".scistudio"),
+        record_ui_event=_record,
+        forget_ui_events=_forget,
+    )
+    write_tutorial(
+        core_dir / "twice",
+        {
+            "manifest_version": 1,
+            "id": "twice",
+            "title": "Twice",
+            "summary": "Asks for the same interface event on two different steps.",
+            "steps": [
+                {"id": "click-once", "say": "Click it.", "done_when": {"ui_event": {"name": "node_selected"}}},
+                {"id": "click-again", "say": "Click it again.", "done_when": {"ui_event": {"name": "node_selected"}}},
+            ],
+        },
+    )
+    runtime.start(TutorialKey.core("twice"))
+    first = runtime.report_ui_event("node_selected")
+    assert first.step is not None and first.step.satisfied is True
+
+    second = runtime.continue_active()
+
+    assert second.step is not None and second.step.id == "click-again"
+    assert second.step.satisfied is False, "the earlier click must not satisfy this step"
+    assert runtime.report_ui_event("node_selected").step.satisfied is True
 
 
 # ---------------------------------------------------------------------------

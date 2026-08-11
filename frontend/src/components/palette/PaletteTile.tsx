@@ -29,6 +29,17 @@ export interface PaletteTileProps {
   children?: ReactNode;
   /** `data-testid` for the outer cell. */
   testId?: string;
+  /**
+   * ADR-053 (#2057) — the tutorial highlight target this cell answers to, and
+   * the value that picks it out of the other cells.
+   *
+   * Taken from the caller rather than assumed, because this tile renders in two
+   * palettes whose entries are addressed differently: a block by `block_type`,
+   * a data type by its type name. A tile with no tutorial meaning passes
+   * neither and carries no attribute.
+   */
+  tutorialTarget?: string;
+  tutorialTargetKey?: string;
   draggable?: boolean;
   /** Click / keyboard activation (add the item to the canvas). */
   onActivate: () => void;
@@ -47,6 +58,8 @@ export function PaletteTile({
   swatch,
   children,
   testId,
+  tutorialTarget,
+  tutorialTargetKey,
   draggable,
   onActivate,
   onDragStart,
@@ -57,6 +70,8 @@ export function PaletteTile({
     <div
       className="rounded-xl border border-transparent p-1.5 transition hover:-translate-y-0.5 hover:border-stone-200 hover:bg-white/70 hover:shadow-sm"
       data-testid={testId}
+      data-tutorial-target={tutorialTarget}
+      data-tutorial-target-key={tutorialTargetKey}
       draggable={draggable}
       onDragStart={(event) => {
         onLeave();

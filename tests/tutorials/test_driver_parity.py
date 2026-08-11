@@ -283,10 +283,16 @@ def test_a_driver_cannot_return_fields_outside_the_step_view(runtime: TutorialRu
         "id",
         "index",
         "total",
+        "title",
         "say",
         "highlight",
         "route_to",
+        "prefill",
         "awaiting_continue",
+        # Not a driver's field: the runtime attaches it after reducing the
+        # driver's view (FR-054a), which is why it survives this reduction
+        # while `custom_widget` does not.
+        "satisfied",
     }
 
 
@@ -358,8 +364,10 @@ def test_a_package_driver_may_call_the_core_condition_evaluator(
     view = runtime.evaluate_active()
 
     assert view.step is not None
-    assert view.step.id == "read", "the core evaluator judged the driver's condition true"
+    assert view.step.id == "drag-load"
+    assert view.step.satisfied is True, "the core evaluator judged the driver's condition true"
     assert "drag-load" in view.satisfied_step_ids
+    assert runtime.continue_active().step is not None
 
 
 def test_a_driver_that_will_not_import_breaks_only_its_own_tutorial(runtime: TutorialRuntime, core_dir: Path) -> None:

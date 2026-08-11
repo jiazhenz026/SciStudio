@@ -218,6 +218,123 @@ def test_starting_a_tutorial_creates_a_registered_project_and_reports_its_id(
     assert (entry.tutorial_source_kind, entry.tutorial_source_id, entry.tutorial_id) == ("core", "", "makes-a-project")
 
 
+def _forget_session(runtime: ApiRuntime) -> None:
+    """Drop the session record while leaving the project directory alone.
+
+    The state every "directory outlived its record" case shares. Leaving a
+    tutorial preserves its session (FR-090), so a start that followed would
+    resume rather than provision, and never reach the code these tests are
+    about.
+    """
+    from scistudio.tutorials.session import SESSION_FILENAME
+
+    (Path(runtime.project_dir or ".").home() / ".scistudio" / SESSION_FILENAME).unlink(missing_ok=True)
+
+
+def test_starting_over_a_leftover_project_directory_adopts_it(
+    client: TestClient, runtime: ApiRuntime, core_tier: Path
+) -> None:
+    """FR-062a: a directory with no session record is adopted, not a 500.
+
+    The session store and the tutorial parent directory are separate state and
+    can disagree — a `clear` whose directory removal failed, a hand-deleted
+    `tutorial-session.json`, a home directory restored from a backup without
+    `~/.scistudio`. The tutorial then lists as never started while its directory
+    is still on disk, and creating unconditionally raises `FileExistsError`
+    straight through the start route: the user presses the one button offered
+    and gets Internal Server Error.
+
+    Adopted rather than replaced, because the directory holds whatever work the
+    user did last time and FR-066 makes deleting it something they ask for by
+    restarting. Simulated by clearing the session and progress stores while
+    leaving the directory alone, which is exactly the state those failures
+    produce.
+    """
+    mount(core_tier, "leftover", manifest_for("leftover", [{"id": "one", "say": "One."}], **BOOTSTRAP))
+    first = start(client, "leftover").json()
+    project_path = Path(first["project_path"])
+    (project_path / "workflows" / "mine.yaml").write_text("kept: true\n", encoding="utf-8")
+
+    # Lose the record, keep the directory.
+    client.post("/api/tutorials/sessions/active/leave")
+    runtime.known_projects.pop(first["project_id"], None)
+    _forget_session(runtime)
+
+    restarted = start(client, "leftover")
+
+    assert restarted.status_code == 200, restarted.text
+    payload = restarted.json()
+    assert payload["status"] == "active"
+    assert Path(payload["project_path"]) == project_path
+    assert (project_path / "workflows" / "mine.yaml").exists(), "adopting must not wipe the user's work"
+    assert payload["project_id"] in runtime.known_projects
+
+
+def test_starting_over_a_husk_left_by_a_failed_delete_recreates_the_project(
+    client: TestClient, runtime: ApiRuntime, core_tier: Path
+) -> None:
+    """FR-062a: a directory holding only runtime scaffolding is cleared, not refused.
+
+    Restart deletes the project and recreates it, and the delete can lose a
+    race — the engine writes a pause marker under `.scistudio/` while shutting
+    down, recreating the path that was just removed. What is left is a directory
+    containing nothing but `.scistudio`, which is not a project: it has no
+    `project.yaml`, so there is nothing to adopt.
+
+    Refusing there is what the owner hit: the tutorial became permanently
+    unstartable, with the only button in the interface returning an error every
+    time and no way to clear it from inside the product. Clearing is safe
+    because the path is the product's own — FR-062 derives it from the
+    tutorial's identity — so a husk at it cannot be the user's work.
+    """
+    mount(core_tier, "husk", manifest_for("husk", [{"id": "one", "say": "One."}], **BOOTSTRAP))
+    first = start(client, "husk").json()
+    project_path = Path(first["project_path"])
+
+    # Exactly the state a lost delete race leaves behind.
+    client.post("/api/tutorials/sessions/active/leave")
+    runtime.known_projects.pop(first["project_id"], None)
+    _forget_session(runtime)
+    shutil.rmtree(project_path)
+    (project_path / ".scistudio" / "pause").mkdir(parents=True)
+    (project_path / ".scistudio" / "pause" / "main").write_text("", encoding="utf-8")
+
+    restarted = start(client, "husk")
+
+    assert restarted.status_code == 200, restarted.text
+    assert (Path(restarted.json()["project_path"]) / "project.yaml").is_file()
+
+
+def test_starting_over_a_directory_holding_the_users_own_files_refuses_readably(
+    client: TestClient, runtime: ApiRuntime, core_tier: Path
+) -> None:
+    """The other half: refuse, but as a stated reason rather than a 500.
+
+    A directory at the tutorial's path that is not a project and holds
+    something other than runtime scaffolding is not this product's to delete.
+    The refusal has to arrive as a status the frontend renders — the first
+    version of this raised `FileExistsError`, which no handler mapped, so the
+    user got Internal Server Error and the actual sentence was only in the
+    backend log.
+    """
+    mount(core_tier, "occupied", manifest_for("occupied", [{"id": "one", "say": "One."}], **BOOTSTRAP))
+    first = start(client, "occupied").json()
+    project_path = Path(first["project_path"])
+
+    client.post("/api/tutorials/sessions/active/leave")
+    runtime.known_projects.pop(first["project_id"], None)
+    _forget_session(runtime)
+    shutil.rmtree(project_path)
+    project_path.mkdir(parents=True)
+    (project_path / "my-notes.txt").write_text("mine", encoding="utf-8")
+
+    refused = start(client, "occupied")
+
+    assert refused.status_code == 422, refused.text
+    assert "my-notes.txt" in refused.json()["detail"]
+    assert (project_path / "my-notes.txt").exists(), "refusing must not delete what it refused over"
+
+
 def test_a_tutorial_without_a_bootstrap_starts_without_a_project(client: TestClient, core_tier: Path) -> None:
     """FR-009: a tutorial that declares no bootstrap never needs a project."""
     mount(core_tier, "no-project", manifest_for("no-project", [{"id": "one", "say": "One."}]))
@@ -346,7 +463,10 @@ def test_an_explicit_evaluation_satisfies_a_step_no_event_reaches(client: TestCl
     scan.parent.mkdir(parents=True, exist_ok=True)
     scan.write_bytes(b"II*\x00")
 
-    assert step_id(client.post("/api/tutorials/sessions/active/evaluate").json()) == "done"
+    judged = client.post("/api/tutorials/sessions/active/evaluate").json()
+    assert step_id(judged) == "make-it"
+    assert judged["step"]["satisfied"] is True
+    assert step_id(client.post("/api/tutorials/sessions/active/continue").json()) == "done"
 
 
 def test_a_reported_interface_event_satisfies_its_step(client: TestClient, core_tier: Path) -> None:
@@ -371,7 +491,10 @@ def test_a_reported_interface_event_satisfies_its_step(client: TestClient, core_
     reported = client.post("/api/tutorials/sessions/active/ui-event", json={"name": "preview_expanded"})
 
     assert reported.status_code == 200, reported.text
-    assert step_id(reported.json()) == "done"
+    # FR-054a: the event satisfies the step; the reader still presses Continue.
+    assert step_id(reported.json()) == "expand"
+    assert reported.json()["step"]["satisfied"] is True
+    assert step_id(client.post("/api/tutorials/sessions/active/continue").json()) == "done"
 
 
 def test_an_unknown_interface_event_name_is_refused(client: TestClient, core_tier: Path) -> None:
@@ -430,12 +553,18 @@ def test_a_condition_is_judged_against_the_products_own_registry(client: TestCli
         ),
     )
 
-    # The first step's condition is already true, so entering satisfies it
-    # immediately (FR-054) and the session stops on the one that is not.
-    assert step_id(start(client, "reads-the-registry").json()) == "missing"
+    # The first step's condition is already true, so it is satisfied on entry
+    # (FR-054) and waits for the reader (FR-054a); the step after it is not.
+    started = start(client, "reads-the-registry").json()
+    assert step_id(started) == "installed"
+    assert started["step"]["satisfied"] is True
+
+    after = client.post("/api/tutorials/sessions/active/continue").json()
+    assert step_id(after) == "missing"
+    assert after["step"]["satisfied"] is False
 
 
-def test_an_engine_event_advances_the_step_without_anyone_asking(
+def test_an_engine_event_judges_the_step_without_anyone_asking(
     client: TestClient, runtime: ApiRuntime, core_tier: Path
 ) -> None:
     """FR-050: a mapped event re-judges the active step, with no poll and no request.
@@ -473,8 +602,48 @@ def test_an_engine_event_advances_the_step_without_anyone_asking(
         )
     )
 
-    # Nothing was asked for: the session that comes back has already moved on.
-    assert step_id(client.get("/api/tutorials/sessions/active").json()) == "done"
+    # Nothing was asked for: the session that comes back has already judged the
+    # step true, and is holding there for the reader (FR-054a).
+    waiting = client.get("/api/tutorials/sessions/active").json()
+    assert step_id(waiting) == "submit-it"
+    assert waiting["step"]["satisfied"] is True
+    assert step_id(client.post("/api/tutorials/sessions/active/continue").json()) == "done"
+
+
+def test_continuing_an_unsatisfied_step_does_not_move_the_session(client: TestClient, core_tier: Path) -> None:
+    """FR-054a: the backend owns the refusal, not just the button's `disabled`.
+
+    The frontend greys Continue out while `satisfied` is false, and a greyed
+    button is a rendering choice — a stale client, a replayed request, or a
+    keyboard activation on a control that has not re-rendered yet would all
+    reach this route with the step still unmet. Judging is spec §4.1's backend
+    concern, so the refusal has to live where the judgment does; otherwise the
+    one rule that makes a step mandatory is enforced only by CSS.
+
+    Refuses by returning the current step rather than by erroring: a client
+    racing a condition that has just fired is not doing anything wrong, and the
+    honest answer to "can I move on" is the step it is still on.
+    """
+    mount(
+        core_tier,
+        "needs-a-run",
+        manifest_for(
+            "needs-a-run",
+            [
+                {"id": "run-it", "say": "Run the workflow.", "done_when": {"run_succeeded": {}}},
+                {"id": "after", "say": "Done."},
+            ],
+        ),
+    )
+    started = start(client, "needs-a-run").json()
+    assert step_id(started) == "run-it"
+    assert started["step"]["satisfied"] is False
+
+    pressed = client.post("/api/tutorials/sessions/active/continue").json()
+
+    assert step_id(pressed) == "run-it"
+    assert pressed["step"]["satisfied"] is False
+    assert step_id(client.get("/api/tutorials/sessions/active").json()) == "run-it"
 
 
 def test_serving_a_page_is_what_reaches_it(client: TestClient, core_tier: Path) -> None:
@@ -502,7 +671,10 @@ def test_serving_a_page_is_what_reaches_it(client: TestClient, core_tier: Path) 
 
     assert page.status_code == 200, page.text
     assert "Introduction" in page.text
-    assert step_id(client.post("/api/tutorials/sessions/active/evaluate").json()) == "done"
+    judged = client.post("/api/tutorials/sessions/active/evaluate").json()
+    assert step_id(judged) == "read-it"
+    assert judged["step"]["satisfied"] is True
+    assert step_id(client.post("/api/tutorials/sessions/active/continue").json()) == "done"
 
 
 # ---------------------------------------------------------------------------
@@ -747,14 +919,18 @@ def test_a_step_that_writes_a_block_leaves_the_product_holding_the_block(client:
     opened or when the palette's Reload button is pressed, neither of which a
     tutorial step does.
 
-    Entry satisfies the condition immediately (FR-054), so a passing run lands
-    on the following step. Without the re-scan the session sits on
-    ``we-wrote-it`` forever, with the user looking at a palette that does not
-    contain what the step is telling them to find.
+    Entry satisfies the condition immediately (FR-054), so a passing run reports
+    the step as satisfied and its Continue as live. Without the re-scan the
+    session sits on ``we-wrote-it`` with Continue dead forever, and the user
+    looking at a palette that does not contain what the step tells them to find.
     """
     _writes_a_block(core_tier, "writes-a-block", "blocks/probe.py")
 
-    assert step_id(start(client, "writes-a-block").json()) == "found-it"
+    started = start(client, "writes-a-block").json()
+
+    assert step_id(started) == "we-wrote-it"
+    assert started["step"]["satisfied"] is True
+    assert step_id(client.post("/api/tutorials/sessions/active/continue").json()) == "found-it"
 
 
 def test_the_palette_lists_the_block_the_step_wrote(client: TestClient, core_tier: Path) -> None:
@@ -810,3 +986,78 @@ def test_only_a_write_into_a_scanned_directory_asks_for_a_re_scan(tmp_path: Path
     assert _wrote_into_a_scanned_dir([tmp_path / "elsewhere" / "probe.py"], project_dir=project) is False
     # No project means nothing to be inside of.
     assert _wrote_into_a_scanned_dir([project / "blocks" / "probe.py"], project_dir=None) is False
+
+
+# ---------------------------------------------------------------------------
+# A step that writes a block *away* is readable too
+# ---------------------------------------------------------------------------
+
+
+_RENAMED_PROBE_BLOCK_SOURCE = (
+    "from scistudio.blocks.process.process_block import ProcessBlock\n"
+    "\n"
+    "\n"
+    "class TutorialProbeBlock(ProcessBlock):\n"
+    "    name = 'Tutorial Probe Renamed'\n"
+    "    type_name = 'tutorial_probe_renamed'\n"
+)
+
+
+def test_a_step_that_renames_the_block_it_wrote_is_not_skipped(client: TestClient, core_tier: Path) -> None:
+    """The other direction of FR-059a, and the shape core tutorial 1 is built on.
+
+    ``something-changed-underneath-you`` overwrites the block it gave the reader
+    earlier with a copy whose ``type_name`` is spelled differently, and asks them
+    to recover it with Restore. Its condition is ``block_registered`` on the
+    *original* name, so the step is unsatisfied for exactly as long as the rename
+    stands — which is the whole lesson.
+
+    That only holds if the re-scan runs. A registry still holding the pre-write
+    registration answers "yes, it is registered", the step is satisfied the
+    instant it is entered, and it auto-advances before the frontend ever renders
+    it: the reader is told to press Run on a workflow nobody told them was
+    broken. This is that failure, reproduced in the shape a manifest can express
+    — a step whose own action falsifies its own condition.
+
+    The companion test above covers a step's action *satisfying* its condition.
+    Both orderings matter and only one of them was covered.
+    """
+    mount(
+        core_tier,
+        "renames-a-block",
+        manifest_for(
+            "renames-a-block",
+            [
+                {
+                    "id": "we-wrote-it",
+                    "say": "A block now exists in your project.",
+                    "do": [{"write": {"source": "assets/code/probe.py", "destination": "blocks/probe.py"}}],
+                    "done_when": {"block_registered": {"block_type": "tutorial_probe"}},
+                },
+                {
+                    "id": "we-renamed-it",
+                    "say": "We renamed it underneath you. Put it back with Restore.",
+                    "do": [{"write": {"source": "assets/code/renamed.py", "destination": "blocks/probe.py"}}],
+                    "done_when": {"block_registered": {"block_type": "tutorial_probe"}},
+                },
+                {"id": "you-restored-it", "say": "Your workflow is whole again."},
+            ],
+            **BOOTSTRAP,
+        ),
+        files={
+            "assets/code/probe.py": _PROBE_BLOCK_SOURCE,
+            "assets/code/renamed.py": _RENAMED_PROBE_BLOCK_SOURCE,
+        },
+    )
+
+    started = start(client, "renames-a-block").json()
+    assert step_id(started) == "we-wrote-it" and started["step"]["satisfied"] is True
+
+    renamed = client.post("/api/tutorials/sessions/active/continue").json()
+    assert step_id(renamed) == "we-renamed-it"
+    assert renamed["step"]["satisfied"] is False, "the rename must leave this step unfinished"
+
+    blocks = client.get("/api/blocks/").json()["blocks"]
+    type_names = {block["type_name"] for block in blocks}
+    assert "tutorial_probe_renamed" in type_names
+    assert "tutorial_probe" not in type_names

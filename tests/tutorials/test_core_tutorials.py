@@ -198,7 +198,8 @@ class TestEveryShippedCoreTutorial:
             if step.route_to is not None:
                 assert step.route_to in ROUTE_TARGETS, f"step {step.id!r} routes to unknown {step.route_to!r}"
             if step.highlight is not None:
-                assert step.highlight in HIGHLIGHT_TARGETS, f"step {step.id!r} highlights unknown {step.highlight!r}"
+                target = step.highlight.target
+                assert target in HIGHLIGHT_TARGETS, f"step {step.id!r} highlights unknown {target!r}"
 
     def test_every_referenced_asset_exists_on_disk(self, directory: Path) -> None:
         """A manifest naming a missing asset is a tutorial that breaks at that step."""
@@ -351,6 +352,52 @@ class TestEveryShippedCoreTutorial:
         for step in manifest.steps:
             if step.done_when is not None:
                 walk(step.done_when, step.id)
+
+    def test_a_block_that_needs_configuring_is_checked_for_it(self, directory: Path) -> None:
+        """A step that has the reader place an IO block must judge its configuration.
+
+        The failure this catches, found by the owner running tutorial 1: the
+        step said "drag a Save block, connect it, and set its path", and its
+        ``done_when`` checked only ``node_exists`` and ``edge_exists``. Dragging
+        and connecting lit Continue, the reader moved on with an unconfigured
+        Save block, and the workflow they were then told to Run could not run.
+        Nothing in the tutorial was in a position to notice.
+
+        The rule is narrow on purpose. It applies to the IO blocks below, whose
+        whole job is a path the reader supplies, and it asks only that *some*
+        step judges that path — not which step, and not which value. A process
+        block that runs on defaults is not covered, because requiring a
+        configuration check for a block that needs no configuration would be
+        ceremony.
+        """
+        needs_a_path = {"load_data", "save_data"}
+        manifest = _load(directory)
+
+        placed: set[str] = set()
+        configured: set[str] = set()
+
+        def walk(condition, _step_id: str) -> None:
+            if condition.is_combinator:
+                for operand in condition.operands:
+                    walk(operand, _step_id)
+                return
+            block_type = condition.args.get("block_type")
+            if not isinstance(block_type, str):
+                return
+            if condition.term == "node_exists":
+                placed.add(block_type)
+            elif condition.term in ("config_equals", "config_matches"):
+                configured.add(block_type)
+
+        for step in manifest.steps:
+            if step.done_when is not None:
+                walk(step.done_when, step.id)
+
+        unchecked = sorted((placed & needs_a_path) - configured)
+        assert not unchecked, (
+            f"{manifest.id}: has the reader place {', '.join(unchecked)} but never judges "
+            f"the configuration, so they can continue with a block that cannot run"
+        )
 
 
 def test_every_shipped_tutorial_is_startable_in_this_tree() -> None:
