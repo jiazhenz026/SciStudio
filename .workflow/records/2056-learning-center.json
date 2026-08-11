@@ -842,6 +842,11 @@
       "at": "2026-08-11T21:36:38.647278Z",
       "owner_directive": "\u7b2c14\u6b65 restore \u4e4b\u540e continue \u6ca1\u4eae\uff0c\u8981\u624b\u52a8\u5237\u65b0\u3002",
       "reason": "owner found the restore step unsatisfied until a manual refresh"
+    },
+    {
+      "at": "2026-08-11T21:56:42.719827Z",
+      "owner_directive": "\u62ac\u5230150\uff08semantic-dup ratchet \u7684\u7c07\u4e0a\u9650\uff09\u3002",
+      "reason": "owner authorised raising the semantic-duplication ratchet after seeing the cluster inventory"
     }
   ],
   "docs_events": [
