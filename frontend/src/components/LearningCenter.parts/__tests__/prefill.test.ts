@@ -5,10 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import type {
-  TutorialPrefillView,
-  TutorialSessionResponse,
-} from "../../../lib/api/learningCenter";
+import type { TutorialPrefillView, TutorialSessionResponse } from "../../../lib/api/learningCenter";
 import { tutorialPrefillArgs, tutorialPrefillValue } from "../prefill";
 
 function session(prefill: TutorialPrefillView[]): TutorialSessionResponse {
@@ -40,7 +37,9 @@ function session(prefill: TutorialPrefillView[]): TutorialSessionResponse {
 
 describe("tutorialPrefillArgs", () => {
   it("finds the values the step declared for a target", () => {
-    const payload = session([{ target: "new_custom_block", args: { filename: "normalize_fluorescence" } }]);
+    const payload = session([
+      { target: "new_custom_block", args: { filename: "normalize_fluorescence" } },
+    ]);
 
     expect(tutorialPrefillArgs(payload, "new_custom_block")).toEqual({
       filename: "normalize_fluorescence",

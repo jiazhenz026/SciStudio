@@ -798,8 +798,9 @@ def _parse_highlight(raw: Any, *, field_name: str, path: Path) -> Highlight | No
     if raw is None:
         return None
 
+    args_raw: Any = {}
     if isinstance(raw, str):
-        target, args_raw = raw, {}
+        target = raw
     elif isinstance(raw, Mapping):
         if len(raw) != 1:
             raise ManifestValidationError(

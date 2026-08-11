@@ -660,11 +660,8 @@ def _eval_config_matches(args: Mapping[str, Any], state: ProductState) -> bool:
 
 
 def _eval_run_succeeded(args: Mapping[str, Any], state: ProductState) -> bool:
-    workflow_id = args.get("workflow_id")
     node_id = args.get("node_id")
-    for record in state.run_records():
-        if workflow_id is not None and record.workflow_id != workflow_id:
-            continue
+    for record in _runs_for(args, state):
         if node_id is not None:
             if node_id in record.succeeded_node_ids:
                 return True
@@ -672,6 +669,18 @@ def _eval_run_succeeded(args: Mapping[str, Any], state: ProductState) -> bool:
         if record.succeeded:
             return True
     return False
+
+
+def _runs_for(args: Mapping[str, Any], state: ProductState) -> Iterator[RunSummary]:
+    """The run records this condition is about, newest first.
+
+    Shared by the two run terms so the workflow filter is written once: they ask
+    different questions of the same list, and only the questions differ.
+    """
+    workflow_id = args.get("workflow_id")
+    for record in state.run_records():
+        if workflow_id is None or record.workflow_id == workflow_id:
+            yield record
 
 
 def _eval_run_failed(args: Mapping[str, Any], state: ProductState) -> bool:
@@ -684,10 +693,7 @@ def _eval_run_failed(args: Mapping[str, Any], state: ProductState) -> bool:
     step which breaks something and says "press Run and see what happens" is
     waiting for, and it goes false again once the reader fixes it and re-runs.
     """
-    workflow_id = args.get("workflow_id")
-    for record in state.run_records():
-        if workflow_id is not None and record.workflow_id != workflow_id:
-            continue
+    for record in _runs_for(args, state):
         return not record.succeeded
     return False
 

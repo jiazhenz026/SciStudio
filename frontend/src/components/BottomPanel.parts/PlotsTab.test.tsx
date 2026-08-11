@@ -242,7 +242,9 @@ describe("PlotsTab", () => {
     const reportTutorialUiEvent = vi.fn().mockResolvedValue(undefined);
     useAppStore.setState({ reportTutorialUiEvent });
     listPlots.mockResolvedValue({ plots: [makePlot()], count: 1, warnings: [] });
-    runPlotJob.mockResolvedValue(plotRunResponse({ status: "failed", source: null, errors: ["boom"] }));
+    runPlotJob.mockResolvedValue(
+      plotRunResponse({ status: "failed", source: null, errors: ["boom"] }),
+    );
 
     render(<PlotsTab />);
     fireEvent.click(await screen.findByRole("button", { name: "Run plot My Plot" }));

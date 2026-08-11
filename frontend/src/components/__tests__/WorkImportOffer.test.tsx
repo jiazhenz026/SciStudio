@@ -219,7 +219,12 @@ describe("the offer is triggered by a tutorial completing", () => {
     const { useLearningCenter } = await import("../../App.parts/useLearningCenter");
 
     function Harness() {
-      useLearningCenter({ closeProject: vi.fn(), wsConnected: true, setLeftTab: vi.fn(), openProject: vi.fn() });
+      useLearningCenter({
+        closeProject: vi.fn(),
+        wsConnected: true,
+        setLeftTab: vi.fn(),
+        openProject: vi.fn(),
+      });
       return <WorkImportOffer />;
     }
 
@@ -235,7 +240,12 @@ describe("the offer is triggered by a tutorial completing", () => {
     const { useLearningCenter } = await import("../../App.parts/useLearningCenter");
 
     function Harness() {
-      useLearningCenter({ closeProject: vi.fn(), wsConnected: true, setLeftTab: vi.fn(), openProject: vi.fn() });
+      useLearningCenter({
+        closeProject: vi.fn(),
+        wsConnected: true,
+        setLeftTab: vi.fn(),
+        openProject: vi.fn(),
+      });
       return <WorkImportOffer />;
     }
 

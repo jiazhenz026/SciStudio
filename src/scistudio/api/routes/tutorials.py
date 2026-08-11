@@ -783,7 +783,8 @@ class _RuntimeProvisioner:
                 ) from exc
             return Path(adopted.path)
 
-        leftovers = sorted(child.name for child in _read_or(lambda: list(plan.path.iterdir()), []))
+        entries: list[Path] = _read_or(lambda: list(plan.path.iterdir()), [])
+        leftovers = sorted(child.name for child in entries)
         unexpected = [name for name in leftovers if name not in _PROJECT_HUSK_ENTRIES]
         if unexpected:
             raise TutorialUnavailableError(
@@ -1083,9 +1084,9 @@ def _session_response(runtime: ApiRuntime, view: SessionView | None) -> SessionR
             total=view.step.total,
             title=view.step.title,
             say=view.step.say,
-            highlight=view.step.highlight,
+            highlight=None if view.step.highlight is None else HighlightResponse(**view.step.highlight),
             route_to=view.step.route_to,
-            prefill=list(view.step.prefill),
+            prefill=[PrefillResponse(**entry) for entry in view.step.prefill],
             awaiting_continue=view.step.awaiting_continue,
             satisfied=view.step.satisfied,
         )
