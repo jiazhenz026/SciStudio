@@ -35,6 +35,7 @@ import importlib.metadata
 import sys
 import types
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -397,6 +398,128 @@ def test_branch_switch_refreshes_project_types_and_previewers(
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# ADR-053 (Learning Center) FR-031 — the refresh path reaches every live group
+# ---------------------------------------------------------------------------
+
+#: Which registry a live entry-point group is refreshed through.
+#:
+#: The tests above are written per registry kind, in paired assertions; this
+#: map is the same claim stated once against the live group set, so a group
+#: added to :data:`~scistudio.core.entry_points.LIVE_ENTRY_POINT_GROUPS`
+#: cannot quietly sit outside the refresh path.
+#:
+#: ``scistudio.tutorials`` has no row, and that is the design rather than a gap.
+#: The other three groups each populate a registry object that is built once and
+#: then has to be rebuilt when something invalidates it — which is what a
+#: refresh site *is*. Tutorial discovery holds nothing:
+#: :meth:`scistudio.tutorials.session.TutorialRuntime.discover` recomputes the
+#: catalogue on every call, from the four source directories and the entry-point
+#: group, so a package installed, uninstalled, or swapped by a branch switch is
+#: reflected in the very next listing with no hook of any kind. That satisfies
+#: FR-031 more strongly than a cache plus an invalidation would, because there
+#: is nothing that can go stale between the two.
+#:
+#: So do not add a cached catalogue to ``ApiRuntime`` in order to give this map
+#: a fourth row. It would introduce the staleness the row exists to guard
+#: against, in a group that currently cannot have it.
+_GROUP_REFRESH_SITES: dict[str, str] = {
+    "scistudio.blocks": "block_registry",
+    "scistudio.types": "type_registry",
+    "scistudio.previewers": "preview_service",
+}
+
+
+def test_the_refresh_map_covers_every_live_entry_point_group() -> None:
+    """FR-031: every group either has a refresh site or holds no state.
+
+    ``scistudio.tutorials`` is the one group outside the map, because tutorial
+    discovery caches nothing and so has nothing to refresh — see the reasoning
+    recorded above :data:`_GROUP_REFRESH_SITES`.
+
+    The assertion is still exact in both directions. A fifth group appearing
+    without a row fails here, and so does tutorials growing a cache and joining
+    the map without the note above being revisited.
+    """
+    from scistudio.core.entry_points import LIVE_ENTRY_POINT_GROUPS, TUTORIALS_ENTRY_POINT_GROUP
+
+    uncovered = frozenset(LIVE_ENTRY_POINT_GROUPS) - set(_GROUP_REFRESH_SITES)
+
+    assert uncovered == frozenset({TUTORIALS_ENTRY_POINT_GROUP}), (
+        "update _GROUP_REFRESH_SITES and the note above it when a group joins or leaves the refresh path"
+    )
+
+
+def test_tutorial_discovery_reflects_a_change_without_any_refresh_call() -> None:
+    """The claim the missing row rests on, asserted rather than asserted-by-comment.
+
+    A tutorial that appears on disk is in the next listing with nothing called
+    in between — no ``refresh_all_registries``, no reopened project, no restart.
+    That is what "holds no state" has to mean for FR-031 to be satisfied by its
+    absence from the map, so it is checked here rather than argued.
+    """
+    import tempfile
+
+    from scistudio.tutorials import discovery
+    from scistudio.tutorials.manifest import TUTORIAL_MANIFEST_FILENAME
+    from scistudio.tutorials.session import TutorialRuntime
+
+    with tempfile.TemporaryDirectory() as raw:
+        core = Path(raw)
+        original = discovery.core_tutorials_dir
+        discovery.core_tutorials_dir = lambda: core  # type: ignore[assignment]
+        try:
+            runtime = TutorialRuntime(
+                product_state=lambda: None,  # type: ignore[arg-type,return-value]
+                external_events=discovery_external_events(),
+            )
+            assert runtime.discover().tutorials == ()
+
+            appeared = core / "appeared"
+            appeared.mkdir()
+            (appeared / TUTORIAL_MANIFEST_FILENAME).write_text(
+                "manifest_version: 1\nid: appeared\ntitle: Appeared\n"
+                "summary: Written after the first listing.\nsteps:\n  - id: one\n    say: One.\n",
+                encoding="utf-8",
+            )
+
+            assert [found.id for found in runtime.discover().tutorials] == ["appeared"]
+        finally:
+            discovery.core_tutorials_dir = original  # type: ignore[assignment]
+
+
+def discovery_external_events() -> Any:
+    """The two API-layer event names, as the route layer supplies them."""
+    from scistudio.api.file_contracts import FILE_CHANGED_EVENT_TYPE
+    from scistudio.api.ws import BLOCKS_RELOADED
+    from scistudio.tutorials.conditions import ExternalEventNames
+
+    return ExternalEventNames(blocks_reloaded=BLOCKS_RELOADED, file_changed=FILE_CHANGED_EVENT_TYPE)
+
+
+@pytest.mark.parametrize("group", sorted(_GROUP_REFRESH_SITES))
+def test_refresh_all_registries_rebuilds_the_registry_behind_every_group(
+    group: str,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """Every mapped group's registry is a different object after a refresh.
+
+    The behavioural tests above pin the user-visible half — a type or previewer
+    that was not there before the event is there afterwards. This pins the
+    structural half for every group at once, so a registry that
+    ``refresh_all_registries`` stopped rebuilding is caught even when no test
+    happens to ship a package for that group.
+    """
+    attribute = _GROUP_REFRESH_SITES[group]
+    before = getattr(runtime, attribute) if attribute != "preview_service" else runtime.get_preview_service()
+
+    runtime.refresh_all_registries()
+
+    after = getattr(runtime, attribute) if attribute != "preview_service" else runtime.get_preview_service()
+    assert after is not before, f"{group} was not rebuilt by refresh_all_registries()"
+
+
 def test_refresh_all_registries_picks_up_a_user_library_write(
     runtime: ApiRuntime,
     opened_project: Path,
@@ -418,3 +541,46 @@ def test_refresh_all_registries_picks_up_a_user_library_write(
     assert "PromotedType" not in _type_names(runtime)
     runtime.refresh_all_registries()
     assert "PromotedType" in _type_names(runtime)
+
+
+# ---------------------------------------------------------------------------
+# ADR-053 Learning Center FR-031 — the tutorial tier joins this refresh path
+# rather than building a fourth. Appended to the symmetry this file already
+# holds (spec §4.4, "Extended, not duplicated").
+# ---------------------------------------------------------------------------
+
+
+def test_tutorial_tier_follows_the_active_project(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+    project_parent: Path,
+) -> None:
+    """FR-031: a project switch moves the tutorial tier with the others.
+
+    The project-level tutorial source is ``{project}/tutorials``, resolved
+    through the same :func:`scistudio.core.dropins._tier_dirs` definition as the
+    block and type tiers. Pinning it here is what stops a later change giving
+    tutorials their own provisioning path, where a switch would move two tiers
+    and leave the third pointing at the previous project.
+    """
+    from scistudio.core.dropins import tutorial_scan_dirs
+
+    def _active_tutorial_dirs() -> list[Path]:
+        active = runtime.active_project
+        assert active is not None
+        return list(tutorial_scan_dirs(Path(active.path)))
+
+    assert _active_tutorial_dirs()[0] == opened_project / "tutorials"
+
+    second = client.post(
+        "/api/projects/",
+        json={"name": "Second Project", "description": "", "path": str(project_parent)},
+    )
+    assert second.status_code == 200, second.text
+    second_path = Path(second.json()["path"])
+
+    assert _active_tutorial_dirs()[0] == second_path / "tutorials"
+    # The user tier is unconditional and unchanged by the switch, exactly as it
+    # is for blocks and types (FR-060).
+    assert _active_tutorial_dirs()[1] == Path.home() / ".scistudio" / "tutorials"

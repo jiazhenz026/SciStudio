@@ -152,7 +152,7 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
         <HistoryToolbar
           historyFilter={historyFilter}
           onFilterChange={setHistoryFilter}
-          onRefresh={() => void loadLog(branch)}
+          onRefresh={() => void loadLog(branch, { force: true })}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           selectedCommit={selectedCommit}

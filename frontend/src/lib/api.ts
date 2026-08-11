@@ -36,10 +36,10 @@ import { codeApi } from "./api/code";
 import { dataApi } from "./api/data";
 import { filesystemApi } from "./api/filesystem";
 import { gitApi } from "./api/git";
+import { learningCenterApi } from "./api/learningCenter";
 import { lineageApi } from "./api/lineage";
 import { packagesApi } from "./api/packages";
 import { projectsApi } from "./api/projects";
-import { tutorialsApi } from "./api/tutorials";
 import { userLibraryApi } from "./api/userLibrary";
 import { workflowsApi } from "./api/workflows";
 
@@ -66,7 +66,9 @@ export const api = {
   ...lineageApi,
   ...packagesApi,
   ...gitApi,
-  ...tutorialsApi,
+  // ADR-053 Learning Center (#2057) — replaces the single-tutorial bootstrap
+  // client removed by FR-001.
+  ...learningCenterApi,
   // ADR-053 §4 — the user-wide library read/write door (FR-006, FR-031).
   ...userLibraryApi,
 };

@@ -153,6 +153,12 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
     <div
       ref={shellRef}
       data-testid="block-node-shell"
+      // ADR-053 (#2057) — a step saying "select the Load block you dropped"
+      // points at this node. Keyed by block type rather than node id, because a
+      // manifest is written before the workflow exists and cannot know the ids
+      // the canvas will mint (#2062).
+      data-tutorial-target="node"
+      data-tutorial-target-key={data.blockType}
       className="relative"
       onMouseEnter={showActions}
       onMouseLeave={scheduleHideActions}

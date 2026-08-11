@@ -98,7 +98,14 @@ def test_per_test_injection_still_overrides_isolation() -> None:
     ep = MagicMock()
     ep.name = "injected"
     ep.value = "mock_module:injected"
-    ep.load.return_value = [block_cls]
+    # The double loads to a *callable* returning the block list because that is
+    # the published ADR-025 / ADR-053 FR-029 payload contract, and the one the
+    # in-repo fixture package and ADR-049's validator (PV-02-003) enforce. A
+    # bare list used to be tolerated by an accident of the old scan and is
+    # refused now: do not "simplify" this back to ``[block_cls]``. The payload
+    # shape is incidental to what this test covers, which is that per-test
+    # injection still overrides the session-wide isolation wrapper.
+    ep.load.return_value = lambda: [block_cls]
     mock_eps = MagicMock()
     mock_eps.select.return_value = [ep]
 

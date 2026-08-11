@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { describeReadableTargets } from "../../lib/plotTargetLabel";
 import { useAppStore } from "../../store";
+import { tutorialPrefillArgs } from "../LearningCenter.parts/prefill";
 import type {
   PlotCreateResponse,
   PlotLanguage,
@@ -74,7 +75,20 @@ export function PlotTargetPicker({
   const blockSchemas = useAppStore((s) => s.blockSchemas);
   const setHighlightedNodeId = useAppStore((s) => s.setHighlightedNodeId);
 
-  const [title, setTitle] = useState("my_plot");
+  /*
+   * ADR-053 FR-011b — the name a tutorial step has already decided on.
+   *
+   * A step whose `done_when` waits for a plot called `normalized_activity` and
+   * whose dialog offers `my_plot` is asking the reader to retype something the
+   * tutorial chose; it stays editable, and a reader who renames it is judged on
+   * what they made rather than on what the step suggested.
+   */
+  const prefilledPlotName = useAppStore(
+    (s) => tutorialPrefillArgs(s.learningCenterSession, "new_plot")?.name,
+  );
+  const defaultTitle = prefilledPlotName || "my_plot";
+
+  const [title, setTitle] = useState(defaultTitle);
   const [language, setLanguage] = useState<PlotLanguage>("python");
   const [targets, setTargets] = useState<PlotTargetItem[]>([]);
   const [targetId, setTargetId] = useState("");
@@ -111,7 +125,7 @@ export function PlotTargetPicker({
 
   useEffect(() => {
     let cancelled = false;
-    setTitle("my_plot");
+    setTitle(defaultTitle);
     setLanguage("python");
     setTargetId("");
     setError(null);

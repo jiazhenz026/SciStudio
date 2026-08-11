@@ -149,6 +149,16 @@ export function createOpenBlockSourceTab(
     const state = get();
     const id = `block-source:${blockType}`;
 
+    /*
+     * ADR-053 FR-052 (#2057) — `block_source_viewed`, one of the two names in
+     * the closed `UI_EVENT_NAMES` set. Reported here rather than at the call
+     * sites because every route into a block's source runs through this action,
+     * and reported before the already-open early return below, since re-opening
+     * the tab is still the user looking at the source. A no-op when no tutorial
+     * is running.
+     */
+    void state.reportTutorialUiEvent("block_source_viewed");
+
     const existing = state.tabs.find((t) => t.id === id);
     const needsRefetch = Boolean(existing && existing.kind === "file" && existing.loading);
     if (existing && !needsRefetch) {

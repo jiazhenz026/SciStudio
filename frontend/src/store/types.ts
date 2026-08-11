@@ -18,6 +18,11 @@ import type {
   WorkflowResponse,
 } from "../types/api";
 import type { DeclaredTypeColors } from "../config/typeColorMap";
+import type {
+  TutorialCatalogueResponse,
+  TutorialSessionResponse,
+  TutorialStartRequest,
+} from "../lib/api/learningCenter";
 import type { LineageRunDetail, LineageRunSummary } from "../types/lineage";
 import type { BottomTab } from "../types/ui";
 
@@ -89,47 +94,69 @@ export interface ProjectSlice {
   updateProjectDialog: (patch: Partial<ProjectDialogState>) => void;
 }
 
-export type RunFirstWorkflowTutorialStep =
-  | "inspect-data"
-  | "create-custom-block"
-  | "build-workflow"
-  | "configure-controls"
-  | "run-workflow"
-  | "create-plot-card"
-  | "view-history"
-  | "finish";
-
-export interface RunFirstWorkflowTutorialInstance {
-  tutorialId: "run-first-scistudio-workflow";
-  projectId: string;
-  datasetPath: string;
-  workflowId: string;
-  customBlockPath: string;
-  customBlockType: string;
-  customBlockName: string;
-  plotId: string;
-  plotTitle: string;
-  negativeControl: string;
-  positiveControl: string;
-}
-
-export interface RunFirstWorkflowTutorialPrefs {
-  completedAt?: string;
-  dismissedAt?: string;
-  suppressAutoStart?: boolean;
-}
-
-export interface TutorialSlice {
-  runFirstWorkflowTutorialActive: boolean;
-  runFirstWorkflowTutorialStep: RunFirstWorkflowTutorialStep;
-  runFirstWorkflowTutorialInstance: RunFirstWorkflowTutorialInstance | null;
-  runFirstWorkflowTutorialPrefs: RunFirstWorkflowTutorialPrefs;
-  startRunFirstWorkflowTutorial: (instance: RunFirstWorkflowTutorialInstance) => void;
-  setRunFirstWorkflowTutorialStep: (step: RunFirstWorkflowTutorialStep) => void;
-  exitRunFirstWorkflowTutorial: () => void;
-  completeRunFirstWorkflowTutorial: () => void;
-  dismissRunFirstWorkflowTutorialPrompt: () => void;
-  suppressRunFirstWorkflowTutorialPrompt: () => void;
+/**
+ * ADR-053 Learning Center (#2057) — session view state, and nothing else.
+ *
+ * Spec §4.1 keeps every judgement on the backend, so this slice holds copies of
+ * backend answers plus two facts about the panel itself. It replaced
+ * `TutorialSlice`, whose eight hardcoded step ids and per-tutorial instance
+ * fields were the frontend-as-judge assumption FR-001 removes.
+ */
+export interface LearningCenterSlice {
+  learningCenterOpen: boolean;
+  learningCenterCatalogue: TutorialCatalogueResponse | null;
+  learningCenterSession: TutorialSessionResponse | null;
+  learningCenterLoading: boolean;
+  learningCenterError: string | null;
+  /**
+   * FR-086 — half of the toolbar dot's condition.
+   *
+   * Session-lifetime only, and deliberately so: it is a fact about this run of
+   * the surface, not progress. Progress lives on the backend (FR-074), and a
+   * persisted copy of anything tutorial-shaped is what FR-001 removed.
+   */
+  learningCenterFirstRunDismissed: boolean;
+  /**
+   * The start request the backend answered with 409 because another tutorial
+   * is running. Held rather than discarded so the surface can say that one
+   * tutorial runs at a time and offer to leave the current one — the spec's
+   * edge case — and then retry this exact request.
+   */
+  learningCenterStartConflict: TutorialStartRequest | null;
+  /**
+   * FR-079 — whether the product should volunteer the work-import offer.
+   *
+   * The backend's answer held for rendering, never the frontend's own record
+   * of what it has already shown. `GET /unlock` is the single place that knows
+   * whether the offer is still owed.
+   */
+  learningCenterWorkImportOffer: boolean;
+  openLearningCenter: () => void;
+  closeLearningCenter: () => void;
+  setLearningCenterCatalogue: (catalogue: TutorialCatalogueResponse | null) => void;
+  setLearningCenterSession: (session: TutorialSessionResponse | null) => void;
+  setLearningCenterLoading: (loading: boolean) => void;
+  setLearningCenterError: (error: string | null) => void;
+  clearLearningCenterStartConflict: () => void;
+  refreshLearningCenter: () => Promise<void>;
+  refreshActiveTutorialSession: () => Promise<void>;
+  /**
+   * React to an engine event by asking the backend where the step stands.
+   *
+   * A no-op when no tutorial is running, and coalesced so a burst of
+   * `workflow.changed` during a drag becomes one request plus one trailing
+   * catch-up rather than a queue of them.
+   */
+  syncActiveTutorialSession: () => Promise<void>;
+  startTutorial: (request: TutorialStartRequest) => Promise<void>;
+  evaluateActiveTutorialStep: () => Promise<void>;
+  continueActiveTutorialStep: () => Promise<void>;
+  reportTutorialUiEvent: (name: string) => Promise<void>;
+  leaveActiveTutorial: () => Promise<void>;
+  /** Resolves to the directories the backend reports it deleted. */
+  clearTutorialData: () => Promise<string[]>;
+  checkWorkImportOffer: () => Promise<void>;
+  dismissWorkImportOffer: () => Promise<void>;
 }
 
 export interface WorkflowSlice {
@@ -863,6 +890,20 @@ export interface GitSlice {
   currentBranch: string | null;
   logCache: Record<string, GitCommit[]>;
   logLoading: Record<string, boolean>;
+  /**
+   * Keys whose last load failed, so the auto-fetch guards stop asking.
+   *
+   * `GitHistoryList` and `useGraphData` both auto-fetch on
+   * `commits === null && !loading`. A failed load leaves the cache undefined
+   * and clears the loading flag, so that guard reads "never attempted" and the
+   * `set()` that recorded the failure re-renders the consumer, which asks
+   * again. Deleting the open project — which is what clearing tutorial data
+   * does — turned that into 159,353 requests and a frozen window.
+   *
+   * Cleared by `invalidateHistory`, so anything that genuinely changes git
+   * state retries, and bypassed by an explicit refresh.
+   */
+  logFailed: Record<string, boolean>;
   historyFilter: GitHistoryFilter;
   status: GitStatus | null;
   mergeInProgress: GitMergeInProgress | null;
@@ -906,7 +947,7 @@ export interface GitSlice {
   setHistoryFilter: (filter: GitHistoryFilter) => void;
   invalidateHistory: () => void;
   loadBranches: () => Promise<void>;
-  loadLog: (branch?: string) => Promise<void>;
+  loadLog: (branch?: string, options?: { force?: boolean }) => Promise<void>;
   loadStatus: () => Promise<void>;
   commit: (message: string, files?: string[]) => Promise<string>;
   switchBranch: (name: string) => Promise<{ auto_commit_sha: string | null }>;
@@ -961,7 +1002,8 @@ export interface LineageSlice {
 }
 
 export type AppStore = ProjectSlice &
-  TutorialSlice &
+  // ADR-053 Learning Center (#2057) — replaces the removed TutorialSlice.
+  LearningCenterSlice &
   WorkflowSlice &
   ExecutionSlice &
   UISlice &

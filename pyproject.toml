@@ -115,9 +115,21 @@ scistudio = "scistudio.cli.main:app"
 [project.entry-points."scistudio.types"]
 
 # The ``scistudio.runners`` entry-point group was removed with the dead legacy
-# CodeBlock runner layer (ADR-052 §7A): CodeBlock resolves interpreters through
+# CodeBlock runner layer: CodeBlock resolves interpreters through
 # ``scistudio.blocks.code.backends`` / ``_backends_registry``, not the deleted
 # ``runners/*`` modules. The group had no runtime consumer.
+#
+# ADR-053 FR-035: this note used to cite "ADR-052 §7A", which reads as a section
+# of ``docs/adr/ADR-052.md`` — a document whose sections stop at §10 and which
+# never mentions runners. The decision is real and is recorded one document
+# over: ``docs/specs/adr-052-public-api-surface.md`` §7A, whose decision table
+# carries the owner's 2026-06-27 ruling to delete ``runner_registry.py`` and
+# ``runners/*`` as dead code with zero production importers, delivered in #1817.
+# The citation is spelled in full here so a reader can follow it.
+#
+# The live entry-point groups are listed in exactly one place,
+# ``src/scistudio/core/entry_points.py`` (ADR-053 FR-034). This group is not
+# among them and must not be reintroduced by inference from this note.
 
 [build-system]
 requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]
@@ -143,6 +155,16 @@ scistudio = [
     # provisioning can copy them into each project (user-guide/ + agent docs).
     "_user_guide/**/*",
     "_agent_reference/**/*",
+    # ADR-053 Learning Center: the published manifest schema and the shipped
+    # core tutorials. Neither is reachable by ``packages.find``: the schema is
+    # data, and a tutorial's ``assets/code/*.py`` sources live in directories
+    # that are deliberately not importable packages (spec FR-020a keeps tutorial
+    # material off every import path). Without these patterns an installed wheel
+    # has a Learning Center whose schema fails to load and whose catalogue is
+    # empty, and ``wheel-release-smoke`` would not notice because it inspects
+    # the SPA bundle only. Same failure class as #824 and #2032.
+    "tutorials/schema/*.json",
+    "tutorials/core/**/*",
 ]
 
 [tool.ruff]
@@ -207,7 +229,15 @@ packages = ["scistudio"]
 # The in-project documentation tree (#1850) ships example block files as data,
 # not importable library modules. Several are named block.py and collide as
 # duplicate top-level modules under type checking; exclude the whole docs tree.
-exclude = ['/_user_guide/']
+#
+# ADR-053 Learning Center: the same case. A core tutorial ships its block and
+# plot sources under ``assets/code/`` as package data, and FR-020a keeps tutorial
+# material off every import path deliberately — so these are files the product
+# writes into a reader's project, not modules it imports. They are also written
+# to be read and edited by a bench scientist, which is why ``def render(collection):``
+# carries no annotations; requiring them would make the first Python a new user
+# meets less like the Python they write.
+exclude = ['/_user_guide/', '/tutorials/core/']
 
 # zarr 3.2+ uses PEP 695 generic syntax (`class Foo[T]:`) which is only valid
 # in Python 3.12+. Our mypy is pinned to python_version = "3.11", so it cannot

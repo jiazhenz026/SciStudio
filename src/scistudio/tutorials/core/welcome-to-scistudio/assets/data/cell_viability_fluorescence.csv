@@ -1,0 +1,13 @@
+condition,replicate,fluorescence
+neg_control,1,3120
+neg_control,2,3280
+neg_control,3,3010
+treated_1uM,1,8240
+treated_1uM,2,7910
+treated_1uM,3,8460
+treated_5uM,1,12650
+treated_5uM,2,13120
+treated_5uM,3,12380
+pos_control,1,18400
+pos_control,2,19150
+pos_control,3,17980

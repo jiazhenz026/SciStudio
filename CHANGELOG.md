@@ -9,6 +9,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
+  that are real, runnable projects, reached from a permanent toolbar entry and
+  shown on first launch. The first core tutorial, *Welcome to SciStudio*, ships
+  with it.
+  A tutorial is now a **directory with a `tutorial.yaml` manifest**, so adding
+  one takes a directory and a manifest rather than a code change. They are
+  discovered from four places — this repository, installed packages through a new
+  `scistudio.tutorials` entry-point group, `~/.scistudio/tutorials/`, and the open
+  project — which is what lets a package teach its own blocks. Listing the
+  catalogue reads manifests and imports nothing, so a package with a broken
+  tutorial breaks that one entry and nothing else.
+  **The backend decides when a step is done**, by reading what actually
+  happened: whether a node exists, a run succeeded, a type registered, a branch
+  exists, a file landed. It re-checks when the engine events the product already
+  emits arrive — `workflow.changed`, `workflow_completed`, `git.head_changed`,
+  `blocks.reloaded` and the rest — so nothing polls, and a step you satisfied
+  while the panel was closed is already satisfied when you open it. A step whose
+  condition is true the moment you reach it passes immediately, because the
+  question is what the workflow looks like rather than whether you just acted.
+  Steps may **write files into the tutorial project at any point**, not only at
+  the start, and the files are on disk before the step's text is readable — a
+  step that says "we wrote this block for you" cannot be read before the block
+  exists.
+  Tutorial projects are **kept out of the recent-project list, the projects
+  dropdown, and the welcome pane**, and are reachable only through the Learning
+  Center, so a disposable teaching project cannot be mistaken for your own work.
+  They scan an isolated library directory rather than your real one, so a type
+  you save to My Library during a tutorial does not follow you into every project
+  afterwards. Restarting a tutorial deletes its project and says which directory
+  it is deleting first.
+  Progress lives on the **backend**, grouped by where the tutorials came from,
+  each group counting its own. A group's total growing because its source shipped
+  new material is shown as new material rather than compensated away. Package
+  tutorials never drive product behaviour. Exactly one thing depends on progress:
+  finishing a named core tutorial offers to bring your existing work across, and
+  "Bring in my work" stays in the toolbar whether or not you ever open the
+  Learning Center. The Learning Center can also clear tutorial data outright,
+  naming the directories it will delete — "clear my progress" and "delete these
+  folders" are the same action here, and the confirmation says so.
+
+- [#2056] **Every `scistudio.*` entry-point group now fails the same way.** Three
+  groups had drifted apart: `scistudio.types` propagated an enumeration failure
+  that `scistudio.blocks` and `scistudio.previewers` absorbed, only the previewer
+  registry recorded a load failure anywhere a user could see it, and only the
+  previewer registry prepared `sys.path` for plugin import roots — so the same
+  installed package could resolve for previewers and fail for blocks. Adding a
+  fourth group for tutorials on top of that would have made the disagreement the
+  convention.
+  Enumeration, per-entry-point error containment, diagnostic reporting, and
+  import-root preparation now come from one contract in
+  `src/scistudio/core/entry_points.py`, and each registry keeps only its own
+  registration logic. A group that cannot be enumerated is logged, reported, and
+  treated as empty instead of raising into whoever asked. A package that
+  installed successfully and contributed nothing is now distinguishable from a
+  package that had nothing to contribute, which it was not before.
+  `scistudio.blocks` keeps accepting a bare class, documented in one place as a
+  compatibility affordance for packages already published against it. A parity
+  test covers all four groups, so a fifth cannot be added divergently without
+  failing.
+
+### Removed
+
+- [#2057] **Breaking: `POST /api/tutorials/run-first-workflow/bootstrap` is
+  deleted**, with no alias, along with the single-tutorial implementation behind
+  it — one backend route that created one named project and wrote one CSV, and
+  five frontend modules holding eight steps of prose and five judging predicates
+  that read the frontend's copy of the workflow. None of it generalised to a
+  second tutorial, and its judging assumption is the one the Learning Center
+  replaces.
+  The removal lands in the same change as the Learning Center rather than being
+  staged behind a compatibility window. That tutorial never shipped in a release
+  users receive updates for, so no window is owed, and keeping two judging paths
+  alive at once would have produced drift with no beneficiary. It is recorded as
+  breaking regardless, because a route leaves the API surface.
+
+### Added
+
 - [#2054] **The architecture document is now owner-controlled in CI, not only by
   convention.** `docs/architecture/ARCHITECTURE.md` may only change with the
   owner's specific approval, and nothing enforced that: PR #2036 carried a

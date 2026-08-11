@@ -41,6 +41,16 @@ from scistudio.core.dropins import (
     evict_cached_bytecode,
     guard_dropin_type_roots,
 )
+from scistudio.core.entry_points import (
+    BLOCKS_ENTRY_POINT_GROUP,
+    STAGE_REGISTER,
+    EntryPointDiagnostic,
+    entry_point_name,
+    enumerate_group,
+    load_entry_point,
+    prepared_plugin_import_roots,
+    resolve_payload,
+)
 from scistudio.core.types.base import DataObject
 from scistudio.desktop.paths import (
     candidate_package_dirs,
@@ -342,103 +352,162 @@ def _scan_tier2(registry: BlockRegistry) -> None:
       entry-point name as the package display name)
 
     See ADR-025 for the full specification.
+
+    ADR-053 FR-025: enumeration, per-entry-point error containment, payload
+    shape, diagnostics, and ``sys.path`` preparation are
+    :mod:`scistudio.core.entry_points`'s answer, shared with the type and
+    previewer registries. What stays here is registration: what a
+    :class:`PackageInfo` means, which classes are eligible, and what a
+    ``BlockSpec`` carries. ``allow_bare_class=True`` below is the FR-029
+    compatibility affordance for this group alone; the reason it exists and
+    the reason it is not extended are recorded in that module, not repeated
+    here.
+    """
+    diagnostics: list[EntryPointDiagnostic] = []
+    # FR-030: the plugin import roots carry the ``dist-info`` that makes a
+    # user-installed package's entry points visible at all. The previewer
+    # registry has always activated them; scanning this group without them is
+    # what let the same package resolve for previewers and vanish for blocks.
+    with prepared_plugin_import_roots():
+        block_eps = enumerate_group(BLOCKS_ENTRY_POINT_GROUP, diagnostics=diagnostics)
+        for ep in block_eps:
+            _register_entry_point_blocks(registry, ep, diagnostics=diagnostics)
+    _record_entry_point_diagnostics(registry, diagnostics)
+
+
+def _register_entry_point_blocks(
+    registry: BlockRegistry,
+    ep: Any,
+    *,
+    diagnostics: list[EntryPointDiagnostic],
+) -> None:
+    """Load one ``scistudio.blocks`` entry point and register what it returns.
+
+    The registration half of :func:`_scan_tier2`: which payload shapes carry
+    blocks, which classes are eligible, and what a ``BlockSpec`` records. The
+    ``(PackageInfo, list)`` pair, the plain list, and the FR-029 bare class are
+    the shapes this group accepts.
     """
     from scistudio.blocks.base.block import Block
     from scistudio.blocks.base.package_info import PackageInfo
     from scistudio.blocks.registry._spec import _spec_from_class
 
-    try:
-        eps = importlib.metadata.entry_points()
-    except Exception:
-        logger.warning("Failed to load entry_points for block discovery", exc_info=True)
+    ep_name = entry_point_name(ep)
+
+    loaded = load_entry_point(ep, BLOCKS_ENTRY_POINT_GROUP, diagnostics=diagnostics)
+    if loaded is None:
         return
 
-    eps_any: Any = eps
-    block_eps: Any = (
-        eps_any.select(group="scistudio.blocks") if hasattr(eps_any, "select") else eps_any.get("scistudio.blocks", [])
+    result = resolve_payload(
+        loaded,
+        group=BLOCKS_ENTRY_POINT_GROUP,
+        entry_point=ep_name,
+        allow_bare_class=True,
+        diagnostics=diagnostics,
     )
+    if result is None:
+        return
 
-    for ep in block_eps:
-        try:
-            loaded = ep.load()
-        except Exception:
-            logger.warning(
-                "Failed to load entry_point '%s'",
-                ep.name,
-                exc_info=True,
-            )
-            continue
+    try:
+        info: Any = None
+        block_classes: list[type] = []
 
-        try:
-            # Entry-points may point at a concrete block class directly.
-            # Classes are callable, so detect them before invoking.
-            if isinstance(loaded, type) and issubclass(loaded, Block):
-                result = loaded
+        if isinstance(result, tuple) and len(result) == 2:
+            first, second = result
+            if isinstance(first, PackageInfo) and isinstance(second, list):
+                info = first
+                block_classes = second
             else:
-                result = loaded() if callable(loaded) else loaded
-
-            info: PackageInfo | None = None
-            block_classes: list[type] = []
-
-            if isinstance(result, tuple) and len(result) == 2:
-                first, second = result
-                if isinstance(first, PackageInfo) and isinstance(second, list):
-                    info = first
-                    block_classes = second
-                else:
-                    logger.warning(
-                        "Entry-point '%s' returned unexpected tuple format",
-                        ep.name,
+                message = "returned unexpected tuple format"
+                logger.warning("Entry-point '%s' %s", ep_name, message)
+                diagnostics.append(
+                    EntryPointDiagnostic(
+                        group=BLOCKS_ENTRY_POINT_GROUP,
+                        entry_point=ep_name,
+                        stage=STAGE_REGISTER,
+                        message=message,
                     )
-                    continue
-            elif isinstance(result, list):
-                block_classes = result
-            else:
-                # Legacy path: entry-point points directly to a class.
-                if isinstance(result, type) and issubclass(result, Block):
-                    block_classes = [result]
-                else:
-                    logger.warning(
-                        "Entry-point '%s' returned unsupported type: %s",
-                        ep.name,
-                        type(result).__name__,
-                    )
-                    continue
-
-            pkg_name = info.name if info is not None else ep.name
-            if info is not None:
-                registry._packages[info.name] = info
-
-            for cls in block_classes:
-                if isinstance(cls, type) and issubclass(cls, Block) and not inspect.isabstract(cls):
-                    block_spec = _spec_from_class(cls, source="entry_point")
-                    block_spec.module_path = cls.__module__
-                    block_spec.class_name = cls.__name__
-                    block_spec.package_name = pkg_name
-                    # #1772: surface shared user-site deps (installed via the
-                    # in-app Python terminal) to the worker for entry-point
-                    # blocks too, matching the source-package path.
-                    block_spec.runtime_import_roots = [str(path) for path in _desktop_user_python_import_roots()]
-                    _register_spec(registry, block_spec)
-                elif isinstance(cls, type) and issubclass(cls, Block) and inspect.isabstract(cls):
-                    logger.warning(
-                        "Entry-point '%s' contained abstract Block subclass: %s",
-                        ep.name,
-                        cls,
-                    )
-                else:
-                    logger.warning(
-                        "Entry-point '%s' contained non-Block item: %s",
-                        ep.name,
-                        cls,
-                    )
-        except Exception:
-            logger.warning(
-                "Failed to process entry_point '%s'",
-                ep.name,
-                exc_info=True,
+                )
+                return
+        elif isinstance(result, list):
+            block_classes = result
+        elif isinstance(result, type) and issubclass(result, Block):
+            # The FR-029 compatibility affordance: the entry point named a
+            # block class directly rather than a factory.
+            block_classes = [result]
+        else:
+            message = f"returned unsupported type: {type(result).__name__}"
+            logger.warning("Entry-point '%s' %s", ep_name, message)
+            diagnostics.append(
+                EntryPointDiagnostic(
+                    group=BLOCKS_ENTRY_POINT_GROUP,
+                    entry_point=ep_name,
+                    stage=STAGE_REGISTER,
+                    message=message,
+                )
             )
-            continue
+            return
+
+        pkg_name = info.name if info is not None else ep_name
+        if info is not None:
+            registry._packages[info.name] = info
+
+        for cls in block_classes:
+            if isinstance(cls, type) and issubclass(cls, Block) and not inspect.isabstract(cls):
+                block_spec = _spec_from_class(cls, source="entry_point")
+                block_spec.module_path = cls.__module__
+                block_spec.class_name = cls.__name__
+                block_spec.package_name = pkg_name
+                # #1772: surface shared user-site deps (installed via the
+                # in-app Python terminal) to the worker for entry-point
+                # blocks too, matching the source-package path.
+                block_spec.runtime_import_roots = [str(path) for path in _desktop_user_python_import_roots()]
+                _register_spec(registry, block_spec)
+            elif isinstance(cls, type) and issubclass(cls, Block) and inspect.isabstract(cls):
+                message = f"contained abstract Block subclass: {cls}"
+                logger.warning("Entry-point '%s' %s", ep_name, message)
+                diagnostics.append(
+                    EntryPointDiagnostic(
+                        group=BLOCKS_ENTRY_POINT_GROUP,
+                        entry_point=ep_name,
+                        stage=STAGE_REGISTER,
+                        message=message,
+                    )
+                )
+            else:
+                message = f"contained non-Block item: {cls}"
+                logger.warning("Entry-point '%s' %s", ep_name, message)
+                diagnostics.append(
+                    EntryPointDiagnostic(
+                        group=BLOCKS_ENTRY_POINT_GROUP,
+                        entry_point=ep_name,
+                        stage=STAGE_REGISTER,
+                        message=message,
+                    )
+                )
+    except Exception as exc:
+        logger.warning("Failed to process entry_point '%s'", ep_name, exc_info=True)
+        diagnostics.append(
+            EntryPointDiagnostic(
+                group=BLOCKS_ENTRY_POINT_GROUP,
+                entry_point=ep_name,
+                stage=STAGE_REGISTER,
+                message=f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__,
+            )
+        )
+
+
+def _record_entry_point_diagnostics(
+    registry: BlockRegistry,
+    diagnostics: list[EntryPointDiagnostic],
+) -> None:
+    """Publish this scan's entry-point diagnostics on the registry (FR-028).
+
+    Replaces the previous pass's list rather than appending to it, so the
+    surface always describes the most recent scan the way
+    :meth:`BlockRegistry.dropin_failures` does.
+    """
+    registry._entry_point_diagnostics = [str(diagnostic) for diagnostic in diagnostics]
 
 
 def _desktop_resource_package_dirs() -> list[Path]:

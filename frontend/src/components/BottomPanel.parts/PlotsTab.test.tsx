@@ -186,4 +186,70 @@ describe("PlotsTab", () => {
     expect(screen.getByText(/Bind to a block output/i)).toBeInTheDocument();
     expect(useAppStore.getState().plotPicker).toEqual({ mode: "new" });
   });
+  it("asks the backend to re-judge the tutorial step after a plot is created", async () => {
+    /*
+     * ADR-053 FR-053. The plot files are written by the product through its own
+     * API, and the watcher suppresses first-party writes, so no `file.changed`
+     * ever reaches the tutorial runtime. Without this request the reader
+     * created the plot the step asked for, Continue stayed dead, and pressing
+     * New again only produced a 409 saying it already existed.
+     */
+    const evaluateActiveTutorialStep = vi.fn().mockResolvedValue(undefined);
+    useAppStore.setState({ evaluateActiveTutorialStep });
+    listPlotTargets.mockResolvedValue({
+      targets: [
+        {
+          target_id: "t1",
+          workflow_path: "workflows/main.yaml",
+          workflow_id: "main",
+          node_id: "node-1",
+          node_label: "",
+          block_type: "process_block",
+          output_port: "output",
+          output_type: "DataFrame",
+          is_collection: false,
+          latest_run_id: "run-1",
+          latest_output_available: true,
+          diagnostics: [],
+        },
+      ],
+    });
+    createPlot.mockResolvedValue({ script_path: "plots/p1/render.py", warnings: [] });
+
+    render(<PlotsTab />);
+    fireEvent.click(await screen.findByRole("button", { name: /New plot/i }));
+    await screen.findByLabelText("Name");
+    fireEvent.click(screen.getByRole("button", { name: /^Create$/i }));
+
+    await waitFor(() => expect(createPlot).toHaveBeenCalled());
+    await waitFor(() => expect(evaluateActiveTutorialStep).toHaveBeenCalled());
+  });
+  it("reports plot_rendered after a run that produced a figure", async () => {
+    // ADR-053 FR-052. The step says "press Run on the plot card"; without this
+    // its Continue was live before the reader had pressed anything.
+    const reportTutorialUiEvent = vi.fn().mockResolvedValue(undefined);
+    useAppStore.setState({ reportTutorialUiEvent });
+    listPlots.mockResolvedValue({ plots: [makePlot()], count: 1, warnings: [] });
+    runPlotJob.mockResolvedValue(plotRunResponse());
+
+    render(<PlotsTab />);
+    fireEvent.click(await screen.findByRole("button", { name: "Run plot My Plot" }));
+
+    await waitFor(() => expect(reportTutorialUiEvent).toHaveBeenCalledWith("plot_rendered"));
+  });
+
+  it("reports nothing when the run produced no figure", async () => {
+    const reportTutorialUiEvent = vi.fn().mockResolvedValue(undefined);
+    useAppStore.setState({ reportTutorialUiEvent });
+    listPlots.mockResolvedValue({ plots: [makePlot()], count: 1, warnings: [] });
+    runPlotJob.mockResolvedValue(
+      plotRunResponse({ status: "failed", source: null, errors: ["boom"] }),
+    );
+
+    render(<PlotsTab />);
+    fireEvent.click(await screen.findByRole("button", { name: "Run plot My Plot" }));
+
+    await waitFor(() => expect(runPlotJob).toHaveBeenCalled());
+    expect(reportTutorialUiEvent).not.toHaveBeenCalled();
+  });
 });

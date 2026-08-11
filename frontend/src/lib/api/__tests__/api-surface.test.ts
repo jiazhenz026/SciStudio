@@ -83,8 +83,22 @@ const EXPECTED_API_KEYS = [
   "updatePackage",
   "rollbackPackage",
   "deletePackage",
-  // tutorials
-  "bootstrapRunFirstWorkflowTutorial",
+  // tutorials — ADR-053 Learning Center (#2057). The single-tutorial
+  // `bootstrapRunFirstWorkflowTutorial` was removed with the hardcoded
+  // implementation (FR-001, FR-003); these are the general surface that
+  // replaced it, one per row of the HTTP contract the frontend calls.
+  "getTutorialCatalogue",
+  "getActiveTutorialSession",
+  "startTutorialSession",
+  "evaluateActiveTutorialStep",
+  "reportTutorialUiEvent",
+  "continueActiveTutorialStep",
+  "leaveActiveTutorialSession",
+  "getTutorialProgress",
+  "previewTutorialDataClear",
+  "clearTutorialData",
+  "getTutorialUnlock",
+  "dismissTutorialUnlock",
 ] as const;
 
 describe("api public surface (#1422 split)", () => {

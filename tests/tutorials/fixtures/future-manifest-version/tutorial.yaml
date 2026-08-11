@@ -1,0 +1,21 @@
+# A manifest written against a format version this core does not support
+# (FR-007a). The outcome is UNAVAILABLE naming the version it requires, on the
+# same path as an unmet requirement (FR-024) — deliberately not "malformed".
+#
+# The distinction is the whole point of this fixture. "Your SciStudio is too
+# old for this tutorial" and "this tutorial is broken" send the reader to
+# different places, and the code already tells them apart via
+# UnsupportedManifestVersionError. Everything below manifest_version is
+# well-formed against version 1 precisely so that nothing else can be blamed.
+manifest_version: 99
+id: future-manifest-version
+title: A tutorial from a later format
+summary: Declares a manifest_version beyond what this core supports.
+order: 94
+requires:
+  scistudio: ">=0.3.0"
+  agent: false
+  packages: []
+steps:
+  - id: unreachable-step
+    say: This core never parses far enough to display this.

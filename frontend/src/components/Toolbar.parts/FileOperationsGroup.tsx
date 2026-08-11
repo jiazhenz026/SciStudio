@@ -83,6 +83,10 @@ export function FileOperationsGroup({
             disabled={!currentProject}
             type="button"
             aria-label="New"
+            /* ADR-053 FR-011 — the `new_menu_button` highlight target. A step
+             * that says "press New" points at the trigger, not at the menu it
+             * opens: the menu does not exist until the reader acts. */
+            data-tutorial-target="new_menu_button"
           >
             <FilePlus2 className="size-3.5" />
             <span className="hidden xl:inline">New</span>
