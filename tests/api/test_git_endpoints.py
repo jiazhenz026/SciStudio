@@ -13,9 +13,7 @@ from fastapi.testclient import TestClient
 
 from scistudio.api.routes.projects import BLOCKS_RELOADED_EVENT_TYPE
 from scistudio.api.runtime import ApiRuntime
-from scistudio.engine.events import EngineEvent
-
-from scistudio.engine.events import WORKFLOW_CHANGED
+from scistudio.engine.events import WORKFLOW_CHANGED, EngineEvent
 
 # ---------------------------------------------------------------------------
 # Commit / log / diff / restore
@@ -157,9 +155,7 @@ def test_restore_endpoint_soft_restore(client: TestClient, opened_project: Path)
     assert target.read_text(encoding="utf-8") == "A"
 
 
-def test_restore_announces_the_registry_refresh(
-    client: TestClient, opened_project: Path, runtime: ApiRuntime
-) -> None:
+def test_restore_announces_the_registry_refresh(client: TestClient, opened_project: Path, runtime: ApiRuntime) -> None:
     """A restore that may have rewritten a block must say the registries reloaded.
 
     Restore already rebuilds them (#2033), but nothing heard: the palette's

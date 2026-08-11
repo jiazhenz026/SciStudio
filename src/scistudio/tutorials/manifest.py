@@ -236,6 +236,7 @@ guidance is silently dropped — which is exactly the failure this closure exist
 to stop.
 """
 
+
 @dataclass(frozen=True)
 class PrefillSpec:
     """One accepted ``prefill`` target and the values it seeds."""

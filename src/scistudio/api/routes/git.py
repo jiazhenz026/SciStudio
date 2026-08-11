@@ -11,9 +11,9 @@ from typing import Any, TypeVar
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from scistudio.api.routes.projects import BLOCKS_RELOADED_EVENT_TYPE
 from scistudio.core.versioning.git_binary import BundledGitMissing
 from scistudio.core.versioning.git_engine import GitEngine, GitError
-from scistudio.api.routes.projects import BLOCKS_RELOADED_EVENT_TYPE
 from scistudio.engine.events import WORKFLOW_CHANGED, EngineEvent
 
 logger = logging.getLogger(__name__)

@@ -247,18 +247,14 @@ def _optional_prefill(value: Any, *, step_id: str) -> tuple[Mapping[str, Any], .
     if value is None:
         return ()
     if isinstance(value, str | bytes) or not isinstance(value, Sequence):
-        raise DriverContractError(
-            f"step {step_id!r}: prefill must be a sequence or absent, got {type(value).__name__}"
-        )
+        raise DriverContractError(f"step {step_id!r}: prefill must be a sequence or absent, got {type(value).__name__}")
     reduced: list[Mapping[str, Any]] = []
     for item in value:
         as_json = getattr(item, "as_json", None)
         if callable(as_json):
             item = as_json()
         if not isinstance(item, Mapping):
-            raise DriverContractError(
-                f"step {step_id!r}: each prefill must be a mapping, got {type(item).__name__}"
-            )
+            raise DriverContractError(f"step {step_id!r}: each prefill must be a mapping, got {type(item).__name__}")
         target = item.get("target")
         if not isinstance(target, str) or not target:
             raise DriverContractError(f"step {step_id!r}: a prefill must carry a non-empty string target")
