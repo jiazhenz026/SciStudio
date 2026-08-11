@@ -355,7 +355,8 @@ class _RecordedSignals:
 
         A reported event is a moment rather than a state, and these accumulated
         for the life of the session: once any step had seen ``node_selected``,
-        every later step waiting on one was satisfied before the reader arrived.
+        every subsequent step waiting on one was satisfied before the reader
+        arrived.
         The other two sets are untouched — a submitted panel and a read page are
         facts about the project that stay true.
         """
