@@ -274,7 +274,8 @@ report rather than diverge from it.
   | `workflow_description` | `str \| None` |
   | `interaction_wishes` | `str \| None` |
   | `other_software` | `str \| None` |
-  | `skipped` | `frozenset[str]` over `{"workflow_description", "interaction_wishes", "other_software"}` |
+  | `anything_else` | `str \| None` |
+  | `skipped` | `frozenset[str]` over `{"workflow_description", "interaction_wishes", "other_software", "anything_else"}` |
   | `provider` | `str` (provider-registry key) |
   | `permission_mode` | `Literal["safe", "bypass"]` |
 
@@ -1070,6 +1071,7 @@ Append only.
 | 2026-08-07 | manager | Owner drove the live desktop build and found the dialog too long to fill in: "一个长问卷用户看着很难受，也懒得填". | Paged it, one question per page, page 1 for setup — which is also the shape #2001 already describes, separating "dialog, page one" from "the four questions". The single scrolling page was A4's own reading. §11.6. | `#2001` |
 | 2026-08-08 | manager | Owner's copy pass on the paged build: nine strings were prose explaining the control beside them, the required-field message read as condescending and was too quiet to see, and the unusable-agent list was filler. | Cut all nine. Required fields say `Required: …` in the red banner `CommitDialog` already uses, on every blocking page. Unusable agents moved into the one dropdown, greyed with a short suffix — the pattern the AI chat already uses, which the owner named. §11.7. | `#2001` |
 | 2026-08-08 | manager | Lifting `ProviderPicker.tsx` out of scope was mine to authorise and I did. FR-042 forbids a second provider implementation. | Extending the shared component serves FR-042's purpose better than a fork: one optional prop, absent for the AI chat, whose behaviour is pinned by a new regression test fixing the whole option list as data. `SetupScreen.tsx` has zero diff lines, verified independently. | `#2001` |
+| 2026-08-17 | implementer | Owner directive after the feature shipped: *"加一个问用户的问题放最后：问用户在开始之前还有别的想和 agent 说的东西吗？然后这个问题的答案一起放进 prompt，允许跳过这个问题"* — the four questions each ask about one specific thing, so a user whose most important fact is none of those four has nowhere to put it. | Added question 5 as FR-019a: free text, asked last, skippable like questions 3 and 4, carried to the brief as `anything_else` through the same skipped/answered machinery. Contract C2's field table above is updated with it; nothing about the existing four questions changed. | `#2070` |
 | 2026-08-08 | manager | The dialog agent declined to fix `Install the Qoder CLI CLI` because it lives in `availability.py`, outside the scope I gave it. That was correct. | Fixed by the manager. My first attempt wrote a literal backspace byte into the source — a regex escape eaten between the heredoc and Python — which `grep` showed as fine and `cat -A` showed as `^H`. Rewritten without a regex. The test walks the whole registry rather than the two known offenders. | `#2000` |
 
 ## 13.1 Dormant Preconditions

@@ -6,7 +6,7 @@
  * the dialog is paged, so almost every assertion about it now needs the dialog
  * driven to a particular page first. Two files each carrying their own idea of
  * how to page forward would drift, and a drifted walker is the failure mode this
- * whole exercise is trying to avoid — a test that thinks it exercised five pages
+ * whole exercise is trying to avoid — a test that thinks it exercised every page
  * while exercising one.
  *
  * `walkTo` is therefore the only way these tests move between pages, and it
@@ -110,7 +110,7 @@ export async function settled(): Promise<void> {
  * imported the page list from the implementation would agree with it by
  * construction, including about a page that went missing.
  */
-export const PAGE_IDS = ["setup", "q1", "q2", "q3", "q4"] as const;
+export const PAGE_IDS = ["setup", "q1", "q2", "q3", "q4", "q5"] as const;
 export type PageId = (typeof PAGE_IDS)[number];
 
 export const LAST_PAGE: PageId = PAGE_IDS[PAGE_IDS.length - 1];
@@ -127,8 +127,8 @@ export function currentPage(): PageId {
 export type PageAnswers = Partial<Record<PageId, () => void>>;
 
 /**
- * FR-020's required answers, and nothing else. Questions 2 (with a source), 3
- * and 4 are skippable, so the default walk pages straight past them — which is
+ * FR-020's required answers, and nothing else. Questions 2 (with a source), 3,
+ * 4 and 5 are skippable, so the default walk pages straight past them — which is
  * also the state FR-021 has to survive.
  *
  * Both are IDEMPOTENT, because a walk may cross a page more than once: a test
@@ -158,7 +158,7 @@ const REQUIRED_ANSWERS: PageAnswers = {
  *
  * THROWS RATHER THAN GIVING UP QUIETLY, naming the page that refused and the
  * reason it gave. A walker that silently stayed put would let a test assert
- * against page one in the belief it was on page five — which is the whole
+ * against page one in the belief it was on the last page — which is the whole
  * failure mode paging introduces to this suite.
  */
 export function walkTo(target: PageId, answers: PageAnswers = {}): void {

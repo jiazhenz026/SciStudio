@@ -1,0 +1,119 @@
+{
+  "branch": "claude/bring-in-work-final-prompt-6ol8hj",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/specs/adr-053-work-import.md",
+      "docs/planning/adr-053-work-import-checklist.md",
+      "src/scistudio/ai/work_import/**",
+      "src/scistudio/api/routes/work_import.py",
+      "frontend/src/components/BringInMyWorkDialog.tsx",
+      "frontend/src/components/BringInMyWorkDialog.parts/**",
+      "frontend/src/components/__tests__/**",
+      "frontend/src/lib/api/workImport.ts",
+      "tests/ai/test_work_import_brief.py",
+      "tests/api/test_work_import_session.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-17T22:05:51.850547Z",
+      "owner_directive": "Question 5 (FR-019a): free text, asked last, skippable, carried to the brief as anything_else. Spec \u00a74.6 gains its question block and the template is re-transcribed from it.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-17T22:05:51.850598Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-work-import.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-17T22:05:51.850610Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-053-work-import-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2070,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "\u52a0\u4e00\u4e2a\u95ee\u7528\u6237\u7684\u95ee\u9898\u653e\u6700\u540e\uff1a\u95ee\u7528\u6237\u5728\u5f00\u59cb\u4e4b\u524d\u8fd8\u6709\u522b\u7684\u60f3\u548cagent\u8bf4\u7684\u4e1c\u897f\u5417\uff1f\u7136\u540e\u8fd9\u4e2a\u95ee\u9898\u7684\u7b54\u6848\u4e00\u8d77\u653e\u8fdbprompt\uff0c\u5141\u8bb8\u8df3\u8fc7\u8fd9\u4e2a\u95ee\u9898",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2070-work-import-final-open-question",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "c4158111-59cb-44e5-96ba-84c3ab4ba157",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-08-17T22:05:51.850618Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_work_import_brief.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-17T22:05:51.850624Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_work_import_session.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-17T22:05:51.850631Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/BringInMyWorkDialog.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-17T22:05:51.850634Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/BringInMyWorkDialogPaging.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-17T22:05:51.850641Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/workImport.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
