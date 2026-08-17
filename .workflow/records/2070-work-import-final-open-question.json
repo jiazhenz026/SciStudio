@@ -213,7 +213,13 @@
       "rationale": "huggingface.co is denied by this environment's egress policy (agent proxy answers 403 to CONNECT), so fastembed cannot fetch the embedding model here; the repository's semantic-dup-scan.yml CI job runs it against this PR."
     }
   ],
-  "commit": null,
+  "commit": {
+    "sha": "6718270af1f836780111f6930564c595c460e9ab",
+    "shas": [
+      "6718270af1f836780111f6930564c595c460e9ab"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -563,6 +569,182 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:33:20.556514Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:33:20.558636Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:33:20.560795Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:33:20.562883Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:33:20.565306Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:33:20.567301Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:33:20.569406Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:33:20.571420Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:33:20.573737Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:33:20.575815Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:33:20.587812Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:35:32.988536Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:35:32.990791Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:35:32.993096Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:35:32.995482Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:35:32.997914Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:35:32.999966Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:35:33.002579Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:35:33.004745Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:35:33.006980Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:35:33.009261Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-17T22:35:33.022211Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -575,7 +757,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "8b9eab746f5fa9fa0de0323265debd6485754f0e",
     "base_sha": "8b9eab7",
     "changed_files": [
       ".workflow/records/2070-work-import-final-open-question.json",
@@ -598,9 +780,9 @@
       "tests/ai/test_work_import_brief.py",
       "tests/api/test_work_import_session.py"
     ],
-    "diff_fingerprint": "sha256:050d351e86cb24a2965e11fb4944d05895d0c2d1ab86330ba279706f9a314dbb",
+    "diff_fingerprint": "sha256:0c8d2298ddd9e531d024d8c4a641f7844bc9bb6c4a2ef2d79edd78b08643b6be",
     "head": "HEAD",
-    "head_sha": "d6b9704",
+    "head_sha": "6718270",
     "surfaces": {
       "docs": 2,
       "frontend": 10,
@@ -617,7 +799,14 @@
   },
   "owner_directive": "\u52a0\u4e00\u4e2a\u95ee\u7528\u6237\u7684\u95ee\u9898\u653e\u6700\u540e\uff1a\u95ee\u7528\u6237\u5728\u5f00\u59cb\u4e4b\u524d\u8fd8\u6709\u522b\u7684\u60f3\u548cagent\u8bf4\u7684\u4e1c\u897f\u5417\uff1f\u7136\u540e\u8fd9\u4e2a\u95ee\u9898\u7684\u7b54\u6848\u4e00\u8d77\u653e\u8fdbprompt\uff0c\u5141\u8bb8\u8df3\u8fc7\u8fd9\u4e2a\u95ee\u9898",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2070
+    ],
+    "number": 2071,
+    "url": "https://github.com/jiazhenz026/SciStudio/pull/2071"
+  },
   "reconcile_events": [
     {
       "at": "2026-08-17T22:31:18.729273Z",
@@ -644,6 +833,26 @@
     {
       "at": "2026-08-17T22:32:51.702421Z",
       "diff_fingerprint": "sha256:050d351e86cb24a2965e11fb4944d05895d0c2d1ab86330ba279706f9a314dbb",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.semantic_dup"
+      ]
+    },
+    {
+      "at": "2026-08-17T22:33:20.587843Z",
+      "diff_fingerprint": "sha256:0c8d2298ddd9e531d024d8c4a641f7844bc9bb6c4a2ef2d79edd78b08643b6be",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.semantic_dup"
+      ]
+    },
+    {
+      "at": "2026-08-17T22:35:33.022243Z",
+      "diff_fingerprint": "sha256:0c8d2298ddd9e531d024d8c4a641f7844bc9bb6c4a2ef2d79edd78b08643b6be",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 1,
