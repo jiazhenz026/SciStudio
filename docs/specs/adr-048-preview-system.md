@@ -245,7 +245,9 @@ Acceptance Scenarios:
   select the highest priority previewer and must report ambiguity when priority
   ties remain unresolved.
 - FR-005: Projects must be able to declare explicit default previewers for a
-  target type to resolve otherwise ambiguous project or package matches.
+  target type to resolve otherwise ambiguous matches. The default is consulted
+  for a priority tie in any tier (project, user, package, or core), matching
+  the project-first precedence direction.
 - FR-006: Previewers must declare stable IDs, owner kind, target type,
   collection support, priority, capabilities, backend provider, and optional
   frontend manifest.

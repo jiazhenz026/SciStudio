@@ -9,11 +9,11 @@ types already follow (ADR-053 FR-058/FR-060, :mod:`scistudio.core.dropins`).
 
 Discovery surface (kept deliberately small per spec §4.5 risk mitigation):
 
-* ``<project>/.scistudio/previewers.json`` — a declarative manifest listing
-  project previewer specs and default-previewer declarations. Backend provider
-  code is referenced by a ``module:callable`` import path resolved lazily, with
-  the project-local ``previewers/`` directory re-activated on ``sys.path`` for
-  the duration of the lazy import
+* ``<project>/.scistudio/previewers.json`` — a declarative manifest declaring
+  default-previewer tie-breakers (FR-005); it does not register previewer
+  specs. Drop-in provider code may also be referenced by a ``module:callable``
+  import path resolved lazily, with the project-local ``previewers/``
+  directory re-activated on ``sys.path`` for the duration of the lazy import
   (:meth:`scistudio.previewers.session.PreviewSessionManager._resolve_provider`).
   The manifest-defaults path is project-only: FR-005 declares a *project*
   default, and the user tier deliberately has no manifest.

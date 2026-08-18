@@ -1955,7 +1955,7 @@ my_project/
 | `workflows/` | User workflow YAML files. Workflow IDs map to `workflows/<id>.yaml`. |
 | `blocks/` | Project-local custom blocks. Saving a clean Python file here can hot-reload the block registry. |
 | `types/` | Project-local custom data type definitions. |
-| `previewers/` | Project-local previewer drop-ins (`previewers/*.py` exposing get_previewers()); a `.scistudio/previewers.json` manifest can also register them (§9.6). Created on first use. |
+| `previewers/` | Project-local previewer drop-ins (`previewers/*.py` exposing get_previewers()); a `.scistudio/previewers.json` manifest can declare default-previewer tie-breakers (§9.6). Created on first use. |
 | `plots/` | Plot cards — each plot is `plots/<id>/plot.yaml` plus its render script (§10). Created on first use. |
 | `data/raw/` | Uploaded or imported raw files. File uploads land here after filename sanitization. |
 | `data/zarr/` | Zarr-backed array-style data. |
@@ -2178,7 +2178,7 @@ the registries at startup and on project open — no packaging required.
 | Location | Modules | Notes |
 |---|---|---|
 | `<project>/blocks/`, `<project>/types/` | blocks, types | Drop-in `*.py`; saving a clean file can hot-reload the block registry. |
-| `<project>/previewers/` | previewers | `*.py` exposing get_previewers(); a `.scistudio/previewers.json` manifest can also register them. |
+| `<project>/previewers/` | previewers | `*.py` exposing get_previewers(); a `.scistudio/previewers.json` manifest can declare default-previewer tie-breakers (FR-005). |
 | `~/.scistudio/blocks/`, `~/.scistudio/types/` | blocks, types | User-wide drop-ins reused across that user's projects. |
 | `~/.scistudio/previewers/` | previewers | User-wide drop-ins loaded in every project, no project open required (#2017). |
 

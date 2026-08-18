@@ -933,7 +933,7 @@ File checklist:
 - [x] `helpers.py` — public author helper home; `sanitize_svg` (relocated #1823, §8.3)
 - [x] `fallbacks.py` — 8 core providers + `core_previewer_specs` internal; `sanitize_svg`
   back-compat re-export only (out of `__all__`) (§8.3)
-- [x] `__init__.py` (164), `registry.py` (282), `router.py` (234), `session.py` (617), `project.py` (120), `assets.py` (161) — operational layer, Internal (§8.4)
+- [x] `__init__.py` (188), `registry.py` (293), `router.py` (223), `session.py` (700), `project.py` (200), `assets.py` (161) — operational layer, Internal (§8.4)
 - [x] `_raster.py` (101), `_table_cache.py` (127) — underscore-private internals
 
 ### 8.1 `models.py`

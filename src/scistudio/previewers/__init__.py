@@ -4,8 +4,9 @@ A *preview* turns a stored data object, collection, or artifact into a bounded,
 JSON-safe view the frontend can display. The core owns routing, session
 lifecycle, safety limits, bounded data access, API compatibility, and the
 generic fallback viewers. Installed packages add their own previewers through
-the ``scistudio.previewers`` entry point, and a project may register
-project-local previewers and defaults.
+the ``scistudio.previewers`` entry point, the user library registers
+previewers for every project (``~/.scistudio/previewers``), and a project may
+register project-local previewers and defaults.
 
 If you are writing a previewer, import the public types from the canonical
 author roots — :mod:`scistudio.previewers.models`,

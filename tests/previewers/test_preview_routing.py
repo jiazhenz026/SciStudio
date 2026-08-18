@@ -220,6 +220,17 @@ def test_user_priority_tie_raises_ambiguity() -> None:
     assert set(exc.value.detail["candidates"]) == {"user.a", "user.b"}
 
 
+def test_project_default_resolves_user_tier_tie() -> None:
+    """FR-005: a declared project default breaks a tie in any tier, user included."""
+    a = _spec("user.a", OwnerKind.USER, "MyType", priority=5)
+    b = _spec("user.b", OwnerKind.USER, "MyType", priority=5)
+    reg = _registry(a, b)
+    reg.set_project_default("MyType", "user.b")
+    router = PreviewRouter(reg)
+    spec = router.resolve(_data_target("MyType", ("DataObject", "MyType")))
+    assert spec.previewer_id == "user.b"
+
+
 def test_collection_routes_to_collection_capable_previewer() -> None:
     """US4 scenario 1: a collection-capable package previewer wins for Collection[Image]."""
     coll = _spec("pkg.image.collection", OwnerKind.PACKAGE, "Image", collection=True)
