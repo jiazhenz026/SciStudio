@@ -14,11 +14,11 @@
  * four requirements at risk, which is what this module exists to keep true.
  *
  * FR-020 — REQUIRED VS SKIPPABLE IS NOW A NAVIGATION RULE. On one page, a
- * missing required answer disabled the start action. On five pages, the start
- * action is not even rendered until page five, so a user could answer nothing
- * and page straight past it. `pageGate` is therefore what enforces FR-020: a
- * page whose answer is required cannot be left, and the reason is the same
- * sentence the whole-form check would have given.
+ * missing required answer disabled the start action. Paged, the start action is
+ * not even rendered until the last page, so a user could answer nothing and page
+ * straight past it. `pageGate` is therefore what enforces FR-020: a page whose
+ * answer is required cannot be left, and the reason is the same sentence the
+ * whole-form check would have given.
  *
  * FR-016 / FR-017 — QUESTION 2'S REQUIREMENT IS DECIDED ON A DIFFERENT PAGE
  * FROM WHERE IT IS ENFORCED. "I don't have a codebase" is ticked on page one;
@@ -28,7 +28,7 @@
  *
  * FR-005 — AVAILABILITY HAS TO SURFACE EARLY. On one page the guidance replaced
  * the start action and the user saw it immediately. Paged, that guidance would
- * sit on the last page, and a user with no usable agent would answer five pages
+ * sit on the last page, and a user with no usable agent would answer every page
  * before finding out none of it can run. The provider is chosen on page one, so
  * page one is where "no agent can run this" blocks — the user meets it before
  * the questions rather than after them.
@@ -43,6 +43,7 @@ import {
   Q2_STEP_TITLE,
   Q3_STEP_TITLE,
   Q4_STEP_TITLE,
+  Q5_STEP_TITLE,
   SETUP_STEP_TITLE,
 } from "./copy";
 import {
@@ -56,10 +57,14 @@ import {
   type WorkImportFormState,
 } from "./formState";
 
-export type WorkImportPageId = "setup" | "q1" | "q2" | "q3" | "q4";
+export type WorkImportPageId = "setup" | "q1" | "q2" | "q3" | "q4" | "q5";
 
-/** The form-state keys holding an answer a user may skip (FR-020). */
-export type SkippableAnswerKey = "workflowDescription" | "interactionWishes" | "otherSoftware";
+/** The form-state keys holding an answer a user may skip (FR-020, FR-019a). */
+export type SkippableAnswerKey =
+  | "workflowDescription"
+  | "interactionWishes"
+  | "otherSoftware"
+  | "anythingElse";
 
 export interface WorkImportPage {
   id: WorkImportPageId;
@@ -77,8 +82,10 @@ export interface WorkImportPage {
 
 /**
  * Page one is the setup the owner asked for — browse, the no-codebase option,
- * destination, provider, permission mode — and the four questions then get a
- * page each, in the order spec §4.6 reproduces them to the agent.
+ * destination, provider, permission mode — and the five questions then get a
+ * page each, in the order spec §4.6 reproduces them to the agent. Question 5 is
+ * last because it is the open one (FR-019a): asked before the specific
+ * questions it would collect what they collect, and worse.
  */
 export const WORK_IMPORT_PAGES: readonly WorkImportPage[] = [
   { id: "setup", title: SETUP_STEP_TITLE, skips: null },
@@ -86,6 +93,7 @@ export const WORK_IMPORT_PAGES: readonly WorkImportPage[] = [
   { id: "q2", title: Q2_STEP_TITLE, skips: "workflowDescription" },
   { id: "q3", title: Q3_STEP_TITLE, skips: "interactionWishes" },
   { id: "q4", title: Q4_STEP_TITLE, skips: "otherSoftware" },
+  { id: "q5", title: Q5_STEP_TITLE, skips: "anythingElse" },
 ];
 
 export const LAST_PAGE_INDEX = WORK_IMPORT_PAGES.length - 1;
@@ -140,7 +148,7 @@ export function pageGate(
         focusId = "work-import-source";
       }
       // FR-005 — the agent is chosen here, so this is where a user learns that
-      // none can run the session, rather than five pages later.
+      // none can run the session, rather than at the end of the questions.
       if (!opts.probing) {
         if (!opts.agentUsable) {
           reasons.push(REASON_NO_AGENT);
@@ -163,8 +171,9 @@ export function pageGate(
       }
       return { reasons: [REASON_NO_WORKFLOW_DESCRIPTION], focusId: "work-import-q2-input" };
     default:
-      // FR-018 / FR-019 — questions 3 and 4 are skippable, so paging past them
-      // without answering is a legitimate choice and never blocked.
+      // FR-018 / FR-019 / FR-019a — questions 3, 4 and 5 are skippable, so
+      // paging past them without answering is a legitimate choice, never
+      // blocked.
       return NO_BLOCK;
   }
 }

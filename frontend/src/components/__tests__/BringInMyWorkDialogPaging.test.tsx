@@ -17,6 +17,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BringInMyWorkDialog } from "../BringInMyWorkDialog";
 import {
+  Q5_HELP,
+  Q5_LABEL,
   SETUP_STEP_TITLE,
   SKIP_LABEL,
   SKIPPED_MARKER,
@@ -46,6 +48,7 @@ const QUESTION_TESTIDS = {
   q2: "work-import-q2",
   q3: "work-import-q3",
   q4: "work-import-q4",
+  q5: "work-import-q5",
 } as const;
 
 beforeEach(() => {
@@ -91,7 +94,7 @@ describe("the page layout the owner asked for", () => {
     renderDialog();
     await settled();
 
-    for (const page of ["q1", "q2", "q3", "q4"] as const) {
+    for (const page of ["q1", "q2", "q3", "q4", "q5"] as const) {
       walkTo(page);
       expect(currentPage()).toBe(page);
       // Exactly one question is on screen: the point of the change.
@@ -106,7 +109,7 @@ describe("the page layout the owner asked for", () => {
   });
 
   it("says where the user is and how much is left, on every page", async () => {
-    // Five pages of unknown length is its own kind of unpleasant.
+    // A run of pages of unknown length is its own kind of unpleasant.
     renderDialog();
     await settled();
     expect(screen.getByTestId("work-import-step-status").textContent).toBe(
@@ -396,10 +399,16 @@ describe("FR-020 / FR-021 — a skip is a choice, and it reaches the request", (
 
     await waitFor(() => expect(startSession).toHaveBeenCalledTimes(1));
     const body = startSession.mock.calls[0][0];
-    expect(body.skipped).toEqual(["workflow_description", "interaction_wishes", "other_software"]);
+    expect(body.skipped).toEqual([
+      "workflow_description",
+      "interaction_wishes",
+      "other_software",
+      "anything_else",
+    ]);
     expect(body.workflow_description).toBeNull();
     expect(body.interaction_wishes).toBeNull();
     expect(body.other_software).toBeNull();
+    expect(body.anything_else).toBeNull();
   });
 
   it("offers no skip on a question that is required", async () => {
@@ -526,5 +535,50 @@ describe("FR-005 — a user learns there is no usable agent on page one, not pag
     fireEvent.change(screen.getByTestId("setup-provider-select"), { target: { value: "codex" } });
     walkTo(LAST_PAGE);
     expect(screen.getByTestId("work-import-start")).toBeTruthy();
+  });
+});
+
+/**
+ * FR-019a — question 5, added after the feature shipped (owner, 2026-08-17).
+ *
+ * It lives here rather than with the other questions because what is new about
+ * it is where it sits: it is the page the start action is now on, and the last
+ * thing the dialog asks. What it collects is asserted the same way every other
+ * answer is.
+ */
+describe("FR-019a — the last question is the open one", () => {
+  it("is asked last, names no subject, and offers a skip", async () => {
+    renderDialog();
+    await settled();
+
+    walkTo("q5");
+    // Last, and last for a reason: asked earlier, an open question collects the
+    // answers the specific questions were going to collect, and worse ones.
+    expect(currentPage()).toBe(LAST_PAGE);
+    expect(screen.getByTestId("work-import-q5-skip")).toBeTruthy();
+
+    // It names no subject — that is the whole of what makes it question 5
+    // rather than a sixth specific question. Its help line offers kinds of
+    // thing to say, and deliberately not an example answer, which would narrow
+    // exactly the question that exists not to be narrow.
+    expect(screen.getByTestId("work-import-q5").textContent).toContain(Q5_LABEL);
+    expect(screen.getByTestId("work-import-q5-help").textContent).toBe(Q5_HELP);
+  });
+
+  it("FR-023: its answer reaches the request like any other", async () => {
+    const startSession = vi.fn<StartSession>(async () => sessionResponse());
+    renderDialog(ready(CLAUDE), { startSession });
+    await settled();
+
+    walkTo(LAST_PAGE);
+    fireEvent.change(screen.getByTestId("work-import-q5-input"), {
+      target: { value: "Ask me before you touch anything under raw/." },
+    });
+    fireEvent.click(screen.getByTestId("work-import-start"));
+
+    await waitFor(() => expect(startSession).toHaveBeenCalledTimes(1));
+    const body = startSession.mock.calls[0][0];
+    expect(body.anything_else).toBe("Ask me before you touch anything under raw/.");
+    expect(body.skipped).not.toContain("anything_else");
   });
 });

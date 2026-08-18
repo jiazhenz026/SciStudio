@@ -3,7 +3,7 @@
  * you move.
  *
  * The owner's complaint about the single scrolling page was that it is
- * unpleasant and users will not bother. Five pages of unknown length is its own
+ * unpleasant and users will not bother. A run of pages of unknown length is its own
  * version of that, so the progress indicator is not decoration: it is the thing
  * that makes a paged form bearable. The user can see how many steps there are,
  * which one they are on, and — because completed steps are clickable — that

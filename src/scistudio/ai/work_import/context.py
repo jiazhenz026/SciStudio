@@ -43,6 +43,7 @@ SKIPPABLE_QUESTIONS: Final[tuple[str, ...]] = (
     "workflow_description",
     "interaction_wishes",
     "other_software",
+    "anything_else",
 )
 """The questions FR-020 allows the user to skip.
 
@@ -50,7 +51,9 @@ Question 1 (``data_kinds``), the destination tier, and the source-or-no-codebase
 choice are required, so they are not members here. Question 2
 (``workflow_description``) is skippable only in codebase mode (FR-016, FR-017);
 that conditionality is enforced by the dialog, not by this dataclass, which
-records what the user actually did.
+records what the user actually did. Question 5 (``anything_else``) is skippable
+unconditionally (FR-019a): it is the open question, and having nothing to add to
+four specific ones is an ordinary answer to it.
 """
 
 
@@ -81,6 +84,7 @@ class ImportSessionContext:
     workflow_description: str | None
     interaction_wishes: str | None
     other_software: str | None
+    anything_else: str | None
     skipped: frozenset[str]
     provider: str
     permission_mode: PermissionMode

@@ -7,9 +7,10 @@
  * with the most to gain from SciStudio and the highest cost of entry. This
  * dialog is everything the product does before handing that user to an agent:
  * it collects where their work is, where the results should go, which agent
- * runs, how much that agent may do without asking, and four questions about
- * their own world. Then it says plainly that the result is not verified, and
- * starts an ordinary chat session (FR-025) with all of it already loaded.
+ * runs, how much that agent may do without asking, and five questions about
+ * their own world — the last of which asks for anything the other four did not
+ * (FR-019a). Then it says plainly that the result is not verified, and starts an
+ * ordinary chat session (FR-025) with all of it already loaded.
  *
  * IT IS PAGED, AND THE REASON IS THE USER, NOT THE CODE. Owner directive,
  * 2026-08-07: a long questionnaire is unpleasant to look at and users will not
@@ -34,7 +35,7 @@
  * why questions 3 and 4 are also a discovery surface. Because only one page is
  * on screen at a time, the guard test for those two FRs walks EVERY page — a
  * test that rendered the dialog and searched it once would now be checking page
- * one and reporting on five.
+ * one and reporting on all of them.
  */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
@@ -75,6 +76,9 @@ import {
   Q4_HELP,
   Q4_LABEL,
   Q4_PLACEHOLDER,
+  Q5_HELP,
+  Q5_LABEL,
+  Q5_PLACEHOLDER,
   START_LABEL,
   STARTING_LABEL,
 } from "./BringInMyWorkDialog.parts/copy";
@@ -248,7 +252,7 @@ export function BringInMyWorkDialog({
     const request = buildRequest(state, projectDir);
     /*
      * A2's `ImportSessionContext` rejects a body that breaks any of its rules,
-     * and a 422 at this point is a dead end: the user has answered five pages
+     * and a 422 at this point is a dead end: the user has answered every page
      * and gets an HTTP status back. The page rules and `blockingReasons` should
      * already have made every violation unreachable, so this is a backstop that
      * turns a regression in the form's own rules into a readable sentence
@@ -432,6 +436,21 @@ export function BringInMyWorkDialog({
             placeholder={Q4_PLACEHOLDER}
             value={state.otherSoftware}
             onChange={(otherSoftware) => patch({ otherSoftware })}
+          />
+        );
+      // FR-019a — the open question, and the last one asked. It shares the
+      // free-text shape of questions 2 to 4 deliberately: it is another question
+      // about the user's own world, not a different kind of control, and the
+      // only thing that makes it the last word is where it sits.
+      case "q5":
+        return (
+          <FreeTextQuestion
+            id="q5"
+            label={Q5_LABEL}
+            help={Q5_HELP}
+            placeholder={Q5_PLACEHOLDER}
+            value={state.anythingElse}
+            onChange={(anythingElse) => patch({ anythingElse })}
           />
         );
     }

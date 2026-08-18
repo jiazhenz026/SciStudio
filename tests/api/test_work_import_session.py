@@ -163,6 +163,7 @@ def _payload(project_root: Path, **overrides: Any) -> dict[str, Any]:
         "workflow_description": "I run a MATLAB script over every folder, then paste the numbers into Excel.",
         "interaction_wishes": "I want to change the baseline window and see the fit update.",
         "other_software": None,
+        "anything_else": "Please ask before you touch anything under raw/.",
         "skipped": ["other_software"],
         "provider": "claude-code",
         "permission_mode": "safe",
@@ -182,6 +183,7 @@ def _expected_brief(body: dict[str, Any]) -> str:
         workflow_description=body["workflow_description"],
         interaction_wishes=body["interaction_wishes"],
         other_software=body["other_software"],
+        anything_else=body["anything_else"],
         skipped=frozenset(body["skipped"]),
         provider=body["provider"],
         permission_mode=body["permission_mode"],
@@ -684,11 +686,45 @@ def test_a_blank_answer_is_a_valid_session_not_an_error(
         opened_project,
         interaction_wishes="   ",
         other_software=None,
+        anything_else="   ",
         skipped=[],
     )
 
     assert spawn.calls[0]["brief_text_at_spawn"] == _expected_brief(body)
     assert (opened_project / data["brief_path"]).is_file()
+
+
+def test_the_final_open_answer_reaches_the_brief_the_agent_reads(
+    client: TestClient, opened_project: Path, spawn: _SpawnRecorder
+) -> None:
+    """FR-019a with FR-023: question 5 is an answer like any other, not a note.
+
+    It is the one question the user was not told what to say to, so it is also
+    the one most likely to carry the fact that changes how the session should go
+    — asserted against the file on disk rather than the composed string, because
+    the file is what the agent opens.
+    """
+    body, data = _start(client, opened_project, anything_else="Please ask before you touch anything under raw/.")
+
+    written = (opened_project / data["brief_path"]).read_text(encoding="utf-8")
+    assert body["anything_else"] in written
+    assert written == _expected_brief(body)
+
+
+def test_the_final_open_question_can_be_skipped(
+    client: TestClient, opened_project: Path, spawn: _SpawnRecorder
+) -> None:
+    """FR-019a: having nothing to add is an answer, and the brief says so."""
+    body, data = _start(
+        client,
+        opened_project,
+        anything_else=None,
+        skipped=["other_software", "anything_else"],
+    )
+
+    written = (opened_project / data["brief_path"]).read_text(encoding="utf-8")
+    assert written == _expected_brief(body)
+    assert written.count("Skipped. They did not answer this.") == 2
 
 
 def test_no_codebase_session_is_a_first_class_path(

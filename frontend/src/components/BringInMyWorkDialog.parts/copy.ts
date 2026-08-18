@@ -32,6 +32,11 @@
  * is a discovery surface as well as a form. A future editor optimising these
  * purely as data collection would remove that second effect without noticing
  * it — please do not be that editor (spec §3, preamble to FR-013).
+ *
+ * Question 5 is the exception that proves the rule: it names nothing, because
+ * its job is to catch whatever the four named questions filtered out (FR-019a).
+ * It is not a replacement for any of them — an open question collects far less
+ * than a specific one — so it may not be used as grounds for dropping one.
  */
 
 /** The toolbar entry's label (FR-001). Never say "code" here — FR-009 users have none. */
@@ -234,6 +239,34 @@ export const Q4_HELP =
 export const Q4_PLACEHOLDER = "e.g. Fiji for the segmentation, Prism for the final figures";
 
 /**
+ * FR-019a — question 5, and the last thing the dialog asks.
+ *
+ * The four questions above it each ask about one specific thing, which is what
+ * makes them answerable — and also what makes them a filter. A user whose most
+ * important fact is not their data, their workflow, an interactive step or
+ * another program has, until this question, nowhere to put it, and the session
+ * starts without it.
+ *
+ * SO THIS ONE NAMES NOTHING AND ASKS FOR EVERYTHING. The help line lists kinds
+ * of things rather than an example answer, because an example here would narrow
+ * exactly the question that exists not to. It is skippable for the same reason
+ * questions 3 and 4 are: having nothing to add to four specific questions is an
+ * ordinary answer to an open one, not a field the user gave up on.
+ *
+ * Both strings are reproduced in the brief (spec §4.6) as the user saw them —
+ * the label and the help line together form the question the agent is shown,
+ * so an edit to either without the matching edit to §4.6 makes the brief
+ * misreport what was asked.
+ */
+export const Q5_LABEL = "Is there anything else you want to tell the agent before it starts?";
+export const Q5_HELP =
+  "Anything the questions above did not ask for — something about your data, a constraint " +
+  "you work under, a preference, or how you would like it to work with you.";
+export const Q5_PLACEHOLDER =
+  "e.g. the instrument writes one folder per run and the folder names matter, and I would " +
+  "rather be asked than have it guess.";
+
+/**
  * FR-020 — the skip affordance.
  *
  * A skip must read as a legitimate choice — the user telling the agent to work
@@ -423,11 +456,12 @@ export const Q1_STEP_TITLE = "Your data";
 export const Q2_STEP_TITLE = "Your workflow";
 export const Q3_STEP_TITLE = "Stepping in";
 export const Q4_STEP_TITLE = "Other software";
+export const Q5_STEP_TITLE = "Anything else";
 
 export const PROGRESS_LABEL = "Progress";
 
 /**
- * "Five pages of unknown length is its own kind of unpleasant." The user can
+ * "A run of pages of unknown length is its own kind of unpleasant." The user can
  * see where they are and how much is left at every step, which is the whole
  * reason a paged form is bearable at all.
  */

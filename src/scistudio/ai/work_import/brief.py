@@ -57,11 +57,12 @@ _ANSWER_SLOTS: Final[tuple[str, ...]] = (
     "workflow_description",
     "interaction_wishes",
     "other_software",
+    "anything_else",
 )
 """The template's answer substitution points, in the order §4.6 presents them.
 
-Two of them — question 2's and question 4's — carry identical text, so slots are
-matched positionally rather than by their contents.
+Three of them — question 2's, question 4's and question 5's — carry identical
+text, so slots are matched positionally rather than by their contents.
 """
 
 _MARKER_RE: Final = re.compile(r"\{[^{}]*\}", re.DOTALL)

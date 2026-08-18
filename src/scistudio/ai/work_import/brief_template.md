@@ -337,6 +337,19 @@ is being made, and propose it."}
 
 **They said:** {answer, or "Skipped. They did not answer this."}
 
+---
+
+**We asked:** *Is there anything else you want to tell the agent before it
+starts? Anything the questions above did not ask for — something about your
+data, a constraint you work under, a preference, or how you would like it to
+work with you.*
+
+**They said:** {answer, or "Skipped. They did not answer this."}
+
+This one was open, so read what is there and do not read anything into what is
+not: they were given no list to answer against, and a blank means only that
+nothing came to mind.
+
 # When things come up
 
 You already know what SciStudio is and that `mcp__scistudio__*` is how you reach
