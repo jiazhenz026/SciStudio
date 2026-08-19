@@ -87,6 +87,13 @@ export function PlotsTab() {
         return;
       }
       setPlotPreviewTarget(nextTarget);
+      /*
+       * ADR-053 FR-052 — `plot_rendered`, one of the four names in the closed
+       * `UI_EVENT_NAMES` set. Reported on a run that produced a figure, so a
+       * step saying "press Run on the plot card" waits for the figure rather
+       * than offering Continue to a reader who has not pressed anything.
+       */
+      void useAppStore.getState().reportTutorialUiEvent("plot_rendered");
       // #1713 followup — select the plot's linked block so the Preview header
       // shows the block name (not "Select a block") and the result sits beside
       // its source. Skip broken plots: the bound node no longer exists.
@@ -119,6 +126,19 @@ export function PlotsTab() {
           openFileTab(created.script_path);
           setLastError(created.warnings.length > 0 ? created.warnings.join("\n") : null);
           setRefreshToken((token) => token + 1);
+          /*
+           * ADR-053 FR-053 — ask the backend to re-judge the step.
+           *
+           * A plot is files, but these files are written by the product itself
+           * through its own API, and the watcher suppresses first-party writes
+           * to avoid echoing them back. So no `file.changed` reaches the
+           * tutorial runtime, and a step waiting on `plot_exists` stayed unmet
+           * after the reader did exactly what it asked — they created the plot,
+           * Continue stayed dead, and pressing New again only produced a 409
+           * saying the plot already existed. This is FR-053's explicit request:
+           * the frontend asks, the backend still judges.
+           */
+          void useAppStore.getState().evaluateActiveTutorialStep();
         }}
         onRelinked={(result) => {
           if (!result.valid && relinkPlot) {
@@ -147,6 +167,8 @@ export function PlotsTab() {
         </p>
         <button
           className="inline-flex items-center gap-1 rounded-full border border-stone-300 bg-white px-3 py-1 text-xs font-medium text-stone-700 hover:border-ink disabled:opacity-50"
+          // ADR-053 (#2057) — tutorial highlight target.
+          data-tutorial-target="plots_new_button"
           disabled={!workflowId}
           onClick={() => openNewPlotPicker()}
           title="Create a new plot"
@@ -195,6 +217,10 @@ export function PlotsTab() {
                     : "border-stone-200 bg-white"
               }`}
               data-testid={`plot-card-${plot.plot_id}`}
+              // ADR-053 (#2057) — a step saying "render the plot you just made"
+              // points at that plot's card.
+              data-tutorial-target="plot_card"
+              data-tutorial-target-key={plot.plot_id}
               key={plot.plot_id}
             >
               <div className="flex min-w-0 items-start gap-1.5">

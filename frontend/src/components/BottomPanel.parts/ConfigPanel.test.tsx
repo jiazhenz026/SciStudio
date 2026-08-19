@@ -2,6 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { FormatCapabilityResponse } from "../../types/api";
+import { useAppStore } from "../../store";
+import { resetAppStore } from "../../testUtils";
 import { ConfigPanel } from "./ConfigPanel";
 
 const apiMocks = vi.hoisted(() => ({
@@ -681,6 +683,114 @@ describe("ConfigPanel", () => {
 // references the deleted inline-node-config modules. This guards the
 // config-ownership seam: config lives in BottomPanel, never inline on the node.
 // ---------------------------------------------------------------------------
+describe("ADR-053 FR-011b — a tutorial step seeds a settings field", () => {
+  /** A session parked on a step that seeds the Save block's filename. */
+  function seedFilename(value: string): void {
+    useAppStore.setState({
+      learningCenterSession: {
+        source_kind: "core",
+        source_id: "",
+        tutorial_id: "welcome-to-scistudio",
+        title: "Welcome to SciStudio",
+        project_id: "p1",
+        project_path: "/proj",
+        step: {
+          id: "point-save-at-a-file",
+          index: 7,
+          total: 15,
+          title: null,
+          say: "Press Browse and choose the data/processed folder.",
+          highlight: { target: "config_panel", args: {} },
+          route_to: "config",
+          prefill: [
+            { target: "block_config", args: { block_type: "save_data", key: "filename", value } },
+          ],
+          awaiting_continue: false,
+          satisfied: false,
+        },
+        satisfied_step_ids: [],
+        status: "active",
+        error: null,
+        replay: null,
+      },
+    });
+  }
+
+  const SAVE_SCHEMA = {
+    name: "Save",
+    type_name: "save_data",
+    base_category: "io",
+    subcategory: "",
+    description: "",
+    version: "0.1.0",
+    input_ports: [],
+    output_ports: [],
+    direction: "save",
+    config_schema: {
+      properties: { filename: { type: "string", title: "Filename", ui_priority: 2 } },
+    },
+    type_hierarchy: [],
+  } as never;
+
+  function renderSave(params: Record<string, unknown>, onUpdateConfig = vi.fn()) {
+    render(
+      <ConfigPanel
+        onUpdateConfig={onUpdateConfig}
+        schema={SAVE_SCHEMA}
+        selectedNode={{ id: "save-1", block_type: "save_data", config: { params } }}
+      />,
+    );
+    return onUpdateConfig;
+  }
+
+  afterEach(() => {
+    // This file disables RTL's automatic cleanup by calling it explicitly.
+    cleanup();
+    resetAppStore();
+  });
+
+  it("fills the empty field the step named", async () => {
+    seedFilename("result.csv");
+
+    const onUpdateConfig = renderSave({});
+
+    await waitFor(() => expect(onUpdateConfig).toHaveBeenCalledWith({ filename: "result.csv" }));
+  });
+
+  it("leaves a value the reader typed alone", async () => {
+    // Their answer wins: a prefill is a default, not a decision.
+    seedFilename("result.csv");
+
+    const onUpdateConfig = renderSave({ filename: "mine.csv" });
+
+    await waitFor(() => expect(screen.getByDisplayValue("mine.csv")).toBeInTheDocument());
+    expect(onUpdateConfig).not.toHaveBeenCalled();
+  });
+
+  it("seeds only the block type the step named", async () => {
+    seedFilename("result.csv");
+
+    const onUpdateConfig = vi.fn();
+    render(
+      <ConfigPanel
+        onUpdateConfig={onUpdateConfig}
+        schema={SAVE_SCHEMA}
+        selectedNode={{ id: "other-1", block_type: "load_data", config: { params: {} } }}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByText("Filename")).toBeInTheDocument());
+    expect(onUpdateConfig).not.toHaveBeenCalled();
+  });
+
+  it("changes nothing when no tutorial is running", async () => {
+    const onUpdateConfig = renderSave({});
+
+    await waitFor(() => expect(screen.getByText("Filename")).toBeInTheDocument());
+    expect(onUpdateConfig).not.toHaveBeenCalled();
+  });
+});
+
 describe("BottomPanel config surface — no inline-config imports (SC-002)", () => {
   const ownedFiles = [
     "BottomPanel.tsx",

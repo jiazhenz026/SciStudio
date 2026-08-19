@@ -109,7 +109,12 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from scistudio.ai.agent.providers_registry import CONFIG_ROOT, ProviderDescriptor, resolve_binary
+from scistudio.ai.agent.providers_registry import (
+    CONFIG_ROOT,
+    ProviderDescriptor,
+    resolve_binary,
+    session_unsupported_reason,
+)
 from scistudio.ai.agent.providers_registry import get as get_descriptor
 
 logger = logging.getLogger(__name__)
@@ -709,38 +714,19 @@ def login_hint(descriptor: ProviderDescriptor) -> str:
     return f"Start `{binary}` in a terminal and complete its sign-in; SciStudio reads {where} to confirm it."
 
 
-def session_unsupported_reason(descriptor: ProviderDescriptor) -> str | None:
-    """Why a SciStudio-started session cannot use *descriptor*, or ``None``.
-
-    The single place this question is answered. Every SciStudio-started session
-    — an AI Block run, a Bring In My Work session — hands its agent an opening
-    instruction as a positional command-line argument, because four of the five
-    registry agents have no per-session prompt channel at all. A CLI that parses
-    its first positional as a *subcommand* cannot be reached that way, and the
-    registry records exactly that with ``prompt_argv_prefix is None`` plus a
-    sentence explaining it.
-
-    Consumers ask here rather than reading ``prompt_argv_prefix`` themselves so
-    the meaning of that field is interpreted once. Availability carries the
-    answer because availability is already the shared report every
-    agent-dependent surface reads (FR-036), and a surface that must not offer a
-    provider it cannot launch needs this at the same moment it needs the grade.
-
-    **The AI Block has the same defect and is not fixed here.** ``#2014`` (open,
-    P2) records that ``AIBlock.config_schema`` derives its ``provider`` enum
-    from ``agent_keys()`` and therefore advertises a provider that
-    ``AIBlock.validate_config`` will reject — the identical shape of bug this
-    function exists to close on the work-import surface, from the identical
-    cause. Its own first suggested fix is a shared provider capability, which is
-    what this is; adopting it there is out of scope for this change and stays
-    tracked on that issue.
-    """
-    if descriptor.prompt_argv_prefix is not None:
-        return None
-    return descriptor.prompt_unsupported_reason or (
-        f"{descriptor.label} has no positional prompt argument, so a SciStudio-started session "
-        f"cannot hand it the instructions it needs."
-    )
+# ``session_unsupported_reason`` is defined in ``providers_registry`` and
+# re-exported here (it stays in this module's ``__all__``). It lived here first,
+# because availability is the shared report every agent-dependent surface reads
+# and a surface that must not offer a provider it cannot launch needs the answer
+# at the same moment it needs the grade. #2014 gave it a second consumer,
+# ``AIBlock.config_schema``, and that is what moved it: ``blocks`` may not
+# import ``scistudio.ai`` except for one carved-out lazy edge to the registry,
+# and this module runs subprocesses to probe auth — far more than a block layer
+# should be able to reach for a question that reads three descriptor fields and
+# calls nothing. The registry is where per-CLI facts already live and is the
+# leaf both layers may depend on, so the predicate moved there and every caller
+# here, in ``api``, and in the tests keeps importing it from wherever it was
+# already importing it.
 
 
 def _next_step(descriptor: ProviderDescriptor, state: AvailabilityState) -> str | None:

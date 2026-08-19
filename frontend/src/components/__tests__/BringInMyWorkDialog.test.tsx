@@ -33,6 +33,7 @@ import {
   Q2_LABEL,
   Q3_LABEL,
   Q4_LABEL,
+  Q5_LABEL,
   SOURCE_LABEL,
 } from "../BringInMyWorkDialog.parts/copy";
 import { validateWorkImportRequest } from "../../lib/api/workImport";
@@ -305,6 +306,9 @@ describe("FR-006 / FR-007 — who the questions are written for", () => {
     /\bschema\b/i,
   ];
 
+  /** What the walk below must have actually read, or it read nothing. */
+  const MUST_READ = [SOURCE_LABEL, Q1_LABEL, Q2_LABEL, Q3_LABEL, Q4_LABEL, Q5_LABEL, CAVEAT_BODY];
+
   /**
    * Everything the user can read on the page currently rendered.
    *
@@ -325,10 +329,10 @@ describe("FR-006 / FR-007 — who the questions are written for", () => {
    *
    * THIS IS THE POINT OF THE TEST AND IT IS EASY TO LOSE. Before paging, one
    * render put the whole dialog on screen and one search covered it. Paged, a
-   * search after a single render reads page one and reports on five — the guard
-   * would keep passing while guarding almost nothing. So the walk visits each
-   * page in turn, and then asserts BOTH that it reached all five and that what
-   * it read contains the actual questions: an empty page, or a page that
+   * search after a single render reads page one and reports on all of them — the
+   * guard would keep passing while guarding almost nothing. So the walk visits
+   * each page in turn, and then asserts BOTH that it reached every page and that
+   * what it read contains the actual questions: an empty page, or a page that
    * silently stopped rendering, must fail here rather than pass by vacuity.
    */
   function everyPageIsAnswerableByAScientist(answers: PageAnswers = {}): void {
@@ -343,10 +347,8 @@ describe("FR-006 / FR-007 — who the questions are written for", () => {
     }
 
     expect(visited).toEqual([...PAGE_IDS]);
-    // The walk read real content, not five blanks.
-    for (const label of [SOURCE_LABEL, Q1_LABEL, Q2_LABEL, Q3_LABEL, Q4_LABEL, CAVEAT_BODY]) {
-      expect(everything).toContain(label);
-    }
+    // The walk read real content, not a run of blanks.
+    for (const label of MUST_READ) expect(everything).toContain(label);
   }
 
   it("asks nothing that needs SciStudio or software-development knowledge", async () => {
@@ -824,8 +826,9 @@ describe("starting the session (FR-021 – FR-025)", () => {
         fireEvent.change(screen.getByTestId("work-import-q2-input"), {
           target: { value: "Load the export, drop blanks, normalise to the control." },
         }),
-      // Question 3 is skipped by the control that says so; question 4 is simply
-      // paged past. FR-021 makes those the same claim, and the payload agrees.
+      // Question 3 is skipped by the control that says so; questions 4 and 5
+      // are simply paged past. FR-021 makes those the same claim, and the
+      // payload agrees.
       q3: () => fireEvent.click(screen.getByTestId("work-import-q3-skip")),
     });
     fireEvent.click(screen.getByTestId("work-import-start"));
@@ -841,7 +844,8 @@ describe("starting the session (FR-021 – FR-025)", () => {
       workflow_description: "Load the export, drop blanks, normalise to the control.",
       interaction_wishes: null,
       other_software: null,
-      skipped: ["interaction_wishes", "other_software"],
+      anything_else: null,
+      skipped: ["interaction_wishes", "other_software", "anything_else"],
       provider: "claude-code",
       permission_mode: "safe",
     });
@@ -864,7 +868,8 @@ describe("starting the session (FR-021 – FR-025)", () => {
     await settled();
 
     // FR-020 under paging: the block is on the page that asks, not on a start
-    // action five pages away that the user would otherwise never have reached.
+    // action several pages away that the user would otherwise never have
+    // reached.
     walkTo("q2", { setup: () => fireEvent.click(screen.getByTestId("work-import-no-codebase")) });
     fireEvent.click(screen.getByTestId("work-import-next"));
     expect(currentPage()).toBe("q2");
@@ -896,9 +901,11 @@ describe("starting the session (FR-021 – FR-025)", () => {
         fireEvent.change(screen.getByTestId("work-import-q3-input"), {
           target: { value: "Let me pick the background patch." },
         }),
+      q4: () =>
+        fireEvent.change(screen.getByTestId("work-import-q4-input"), { target: { value: "Fiji" } }),
     });
     // The last page is where the walk stops, so its answer is typed in place.
-    fireEvent.change(screen.getByTestId("work-import-q4-input"), { target: { value: "Fiji" } });
+    fireEvent.change(screen.getByTestId("work-import-q5-input"), { target: { value: "Nothing." } });
     fireEvent.click(screen.getByTestId("work-import-start"));
     await waitFor(() => expect(withSource).toHaveBeenCalledTimes(1));
     expect(validateWorkImportRequest(withSource.mock.calls[0][0])).toEqual([]);

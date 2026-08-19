@@ -139,6 +139,20 @@ previewer tier exists at all because FR-060's rule — user-tier discovery is
 unconditional, project-tier requires a project — applies to previewers
 exactly as it does to types.
 
+**The Learning Center adds a third kind and a second user-tier root**
+(``docs/specs/adr-053-learning-center.md`` FR-016, FR-031, FR-070 to FR-073).
+Tutorials are discovered from ``<project>/tutorials`` and
+``~/.scistudio/tutorials`` through the same :func:`_tier_dirs` definition
+(:func:`tutorial_scan_dirs`), so every event that already refreshes the block
+and type registries reaches tutorial discovery too rather than needing a fourth
+provisioning path. And a project under :func:`tutorial_parent_dir` scans
+:func:`tutorial_library_dir` where a real project scans
+:func:`user_library_dir` — one root swapped by
+:func:`library_root_for_project`, not a new tier, which is why nothing above
+this module has to learn what a tutorial project is. The tutorial tier's
+absence from :func:`dropin_import_roots` is a decision rather than an omission;
+that function records it.
+
 Layering: this module lives in ``scistudio.core`` because
 :mod:`scistudio.core.types.serialization` is one of the four consumers and the
 ``Core must not depend on blocks, engine, api, ai, or workflow`` import-linter
@@ -167,6 +181,9 @@ __all__ = [
     "BLOCKS_DIR_NAME",
     "PREVIEWERS_DIR_NAME",
     "PROJECT_DIR_ENV_VAR",
+    "TUTORIALS_DIR_NAME",
+    "TUTORIAL_LIBRARY_DIR_NAME",
+    "TUTORIAL_PARENT_DIR_NAME",
     "TYPES_DIR_NAME",
     "USER_LIBRARY_DIR_NAME",
     "DropinTypeCollision",
@@ -178,18 +195,25 @@ __all__ = [
     "evict_cached_bytecode",
     "guard_dropin_roots",
     "guard_dropin_type_roots",
+    "is_tutorial_location",
+    "library_root_for_project",
     "previewer_import_roots",
     "previewer_scan_dirs",
     "project_blocks_dir",
     "project_dir_from_env",
     "project_previewers_dir",
+    "project_tutorials_dir",
     "project_types_dir",
     "register_block_scan_dirs",
     "register_type_scan_dirs",
+    "tutorial_library_dir",
+    "tutorial_parent_dir",
+    "tutorial_scan_dirs",
     "type_scan_dirs",
     "user_blocks_dir",
     "user_library_dir",
     "user_previewers_dir",
+    "user_tutorials_dir",
     "user_types_dir",
 ]
 
@@ -207,6 +231,22 @@ TYPES_DIR_NAME = "types"
 #: definition, collision guard, and bytecode eviction that blocks and types
 #: use, applied to ``<project>/previewers`` and ``~/.scistudio/previewers``.
 PREVIEWERS_DIR_NAME = "previewers"
+
+#: Child directory holding drop-in tutorial directories, in both tiers
+#: (ADR-053 Learning Center FR-016).
+TUTORIALS_DIR_NAME = "tutorials"
+
+#: Directory under :func:`pathlib.Path.home` holding every tutorial project and
+#: the tutorial-scoped library (ADR-053 Learning Center FR-062). The name the
+#: single-tutorial implementation already used, kept so no user-visible location
+#: changes (spec assumption A-002).
+TUTORIAL_PARENT_DIR_NAME = "SciStudio Tutorials"
+
+#: The tutorial-scoped library, a child of :func:`tutorial_parent_dir`
+#: (ADR-053 Learning Center FR-070). Leading dot so it does not read as one more
+#: tutorial project in a directory listing, and so clearing can tell the two
+#: apart without consulting the known-projects registry.
+TUTORIAL_LIBRARY_DIR_NAME = ".library"
 
 #: Environment variable carrying the active project root into processes that
 #: do not own an ``ApiRuntime`` (worker subprocesses, the standalone MCP
@@ -270,27 +310,124 @@ def project_dir_from_env() -> Path | None:
     return Path(raw) if raw else None
 
 
-def _tier_dirs(child: str, project_dir: str | Path | None) -> tuple[Path, ...]:
+def tutorial_parent_dir() -> Path:
+    """Return the tutorial project parent, ``~/SciStudio Tutorials`` (FR-062)."""
+    return Path.home() / TUTORIAL_PARENT_DIR_NAME
+
+
+def tutorial_library_dir() -> Path:
+    """Return the tutorial-scoped library root (FR-070).
+
+    The user tier a tutorial project sees *in place of* :func:`user_library_dir`.
+    One scenario has the user save a custom type to My Library so the next
+    scenario can reuse it, and that must not deposit a teaching type into every
+    real project the user opens afterwards (FR-071).
+    """
+    return tutorial_parent_dir() / TUTORIAL_LIBRARY_DIR_NAME
+
+
+def is_tutorial_location(path: str | Path) -> bool:
+    """Return whether *path* sits under :func:`tutorial_parent_dir` (FR-070).
+
+    Location is the definition of a tutorial project, not a second opinion about
+    it: FR-062 puts every tutorial project under one parent and FR-070 puts the
+    scoped library there too, so the answer to "does this project scan the
+    tutorial library" is decidable from the path alone. It has to be, because
+    this module may not import :mod:`scistudio.api` and the known-projects
+    marker (FR-064) lives there. The two markers answer different questions from
+    the same rule: this one selects the library tier for a directory, and the
+    known-projects one records *which* tutorial a project belongs to so the
+    listing filter (FR-065) and the restart deletion (FR-066) can act on it.
+
+    Non-resolvable paths answer ``False`` rather than raising: a caller asking
+    about a path the filesystem will not resolve gets the real-project answer,
+    which is the conservative one — it never routes a real project's writes into
+    the tutorial library.
+    """
+    with suppress(OSError, ValueError):
+        parent = tutorial_parent_dir().expanduser().resolve()
+        return Path(path).expanduser().resolve().is_relative_to(parent)
+    return False
+
+
+def library_root_for_project(project_dir: str | Path | None) -> Path:
+    """Return the user-tier library root *project_dir* scans (FR-070, FR-071).
+
+    :func:`tutorial_library_dir` for a project under the tutorial parent and
+    :func:`user_library_dir` for every other project, including the no-project
+    case. The tier *shape* is unchanged — ``<root>/blocks`` and ``<root>/types``
+    either way — so the swap is one root rather than a fourth tier, which is
+    what keeps :func:`block_scan_dirs`, :func:`type_scan_dirs`,
+    :func:`dropin_import_roots`, and :func:`dropin_type_roots_for_block_dirs`
+    correct for tutorial projects without any of them learning what a tutorial
+    is.
+    """
+    if project_dir is not None and is_tutorial_location(project_dir):
+        return tutorial_library_dir()
+    return user_library_dir()
+
+
+def user_tutorials_dir() -> Path:
+    """Return the user tutorial tier, ``~/.scistudio/tutorials`` (FR-016)."""
+    return user_library_dir() / TUTORIALS_DIR_NAME
+
+
+def project_tutorials_dir(project_dir: str | Path) -> Path:
+    """Return the project tutorial tier, ``<project>/tutorials`` (FR-016)."""
+    return Path(project_dir) / TUTORIALS_DIR_NAME
+
+
+def _tier_dirs(child: str, project_dir: str | Path | None, user_root: Path | None = None) -> tuple[Path, ...]:
     """Return the drop-in directories named *child* for a project context.
 
     The one place the tier definition lives (FR-058): the project tier when a
     project context exists, then the user tier unconditionally (FR-060).
+
+    *user_root* names the root the user tier lives under, defaulting to
+    :func:`user_library_dir`. Only the two library kinds pass anything else —
+    see :func:`library_root_for_project`.
     """
     dirs: list[Path] = []
     if project_dir is not None:
         dirs.append(Path(project_dir) / child)
-    dirs.append(user_library_dir() / child)
+    dirs.append((user_root or user_library_dir()) / child)
     return tuple(dirs)
 
 
 def block_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:
-    """Return the drop-in block scan dirs for *project_dir*'s context."""
-    return _tier_dirs(BLOCKS_DIR_NAME, project_dir)
+    """Return the drop-in block scan dirs for *project_dir*'s context.
+
+    A tutorial project's user tier is the tutorial-scoped library
+    (:func:`library_root_for_project`, FR-070/FR-071).
+    """
+    return _tier_dirs(BLOCKS_DIR_NAME, project_dir, library_root_for_project(project_dir))
 
 
 def type_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:
-    """Return the drop-in type scan dirs for *project_dir*'s context."""
-    return _tier_dirs(TYPES_DIR_NAME, project_dir)
+    """Return the drop-in type scan dirs for *project_dir*'s context.
+
+    A tutorial project's user tier is the tutorial-scoped library
+    (:func:`library_root_for_project`, FR-070/FR-071).
+    """
+    return _tier_dirs(TYPES_DIR_NAME, project_dir, library_root_for_project(project_dir))
+
+
+def tutorial_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:
+    """Return the drop-in tutorial scan dirs for *project_dir*'s context.
+
+    FR-016's user and project tutorial sources, resolved through the same tier
+    definition as blocks and types so package install, package uninstall, branch
+    switch, and the working-tree rewrites that refresh the registries reach
+    tutorial discovery by the path they already travel (FR-031) rather than a
+    fourth one.
+
+    The user tier is ``~/.scistudio/tutorials`` for **every** project, tutorial
+    projects included: :func:`library_root_for_project` swaps the root the user
+    saves *into* during a tutorial (FR-070), and applying that swap here as well
+    would make the user's own tutorials disappear from the catalogue for as long
+    as a tutorial was running.
+    """
+    return _tier_dirs(TUTORIALS_DIR_NAME, project_dir)
 
 
 def previewer_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:
@@ -312,6 +449,20 @@ def dropin_import_roots(project_dir: str | Path | None = None) -> tuple[Path, ..
     packages the user installed through the in-app Python terminal. The type
     tiers come first and in :func:`type_scan_dirs` order, so a project type
     shadows a user-library type of the same module name.
+
+    For a tutorial project the type tiers come from the tutorial-scoped library
+    rather than ``~/.scistudio`` (:func:`library_root_for_project`), so FR-071
+    holds for module resolution and not only for registration: a teaching type
+    is importable inside the tutorial and nowhere else.
+
+    **The tutorial drop-in tier is deliberately not here** (ADR-053 Learning
+    Center FR-016 with FR-020a). A tutorial directory holds a ``tutorial.yaml``
+    and an ``assets/`` tree, nothing the product imports by module name, so it
+    has no claim to make on ``sys.path`` — and putting ``<project>/tutorials``
+    there would hand a project-level tutorial exactly the exposure FR-020a
+    exists to close, since any ``.py`` beside a manifest would become an
+    importable top-level module. Discovery reads those directories as files
+    (:func:`tutorial_scan_dirs`); it never imports out of them.
     """
     return (*type_scan_dirs(project_dir), *user_python_import_roots())
 
@@ -332,6 +483,12 @@ def dropin_type_roots_for_block_dirs(block_dirs: Iterable[str | Path]) -> tuple[
 
     An empty input yields no type roots, so a registry that was given no scan
     directory stays inert rather than reaching into the user's home.
+
+    A tutorial project's block dirs carry the swap with them: each tier root is
+    the block dir's parent, and :func:`type_scan_dirs` re-applies
+    :func:`library_root_for_project` to it, so a registry handed a tutorial
+    project's directories resolves the tutorial library's types and never the
+    user's (FR-071).
     """
     roots = [root for block_dir in block_dirs for root in type_scan_dirs(Path(block_dir).parent)]
     return tuple(dict.fromkeys(roots))
@@ -666,6 +823,16 @@ def guard_dropin_roots(
     so. Binding is once per process per name, so a ``tensorflow.py`` collision
     does not re-import TensorFlow on every palette refresh. Pass ``bind=False``
     when the caller only needs the verdict and never touches ``sys.path``.
+
+    The ``path.name == TYPES_DIR_NAME`` filter needs no widening for the
+    tutorial tiers and must not get one. The tutorial-scoped library keeps the
+    tier shape — its types dir is ``<tutorial parent>/.library/types`` — so it
+    is already selected here and a teaching type shadowing ``numpy`` is refused
+    exactly as a user-library one is. The tutorial *drop-in* tier
+    (:func:`tutorial_scan_dirs`) is never on ``sys.path``
+    (:func:`dropin_import_roots`), so it claims no module name and there is
+    nothing for this guard to protect; selecting it here would only report
+    collisions nobody can suffer.
 
     A pass also ends the refusals its own roots no longer warrant
     (:meth:`_RefusedNameFinder.reconcile`), which is what lets the user act on

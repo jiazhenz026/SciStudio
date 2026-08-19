@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scistudio.org/schema/tutorial.schema.json",
+  "title": "SciStudio tutorial manifest (tutorial.yaml)",
+  "description": "The published format package authors, users, and agents write a tutorial against. ADR-053 Learning Center spec FR-005 to FR-015. A tutorial is a directory containing this manifest; the manifest is the only file required for the tutorial to be listed. Assets live under assets/ with the reserved subdirectories data/, code/, panels/, replay/ and pages/. Two things this document deliberately does NOT restate, because each is declared exactly once in core and a second copy would be a second thing to keep in step: the completion-condition vocabulary (scistudio.tutorials.conditions.VOCABULARY, FR-045/FR-049) and the closed replay surface set (scistudio.tutorials.actions.REPLAY_SURFACES, FR-061a). Both are enforced during the same validation pass that applies this schema.",
+  "type": "object",
+  "required": ["manifest_version", "id", "title", "summary"],
+  "additionalProperties": false,
+  "properties": {
+    "manifest_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "FR-007a. A manifest whose version the running core does not support is listed as unavailable naming the version it requires, on the same path as an unmet requirement (FR-024) - it is not reported as malformed. The two owe the user different messages."
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "description": "Unique within its source. Identity is the pair (source, id), so two packages may ship the same id (FR-019)."
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "cover": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relative path to an image inside the tutorial directory. A path escaping the directory is rejected at validation (FR-014)."
+    },
+    "order": {
+      "type": "integer",
+      "description": "Position within the tutorial's group."
+    },
+    "requires": { "$ref": "#/$defs/requires" },
+    "bootstrap": { "$ref": "#/$defs/bootstrap" },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/step" },
+      "description": "Exactly one of steps or driver must be declared (FR-010)."
+    },
+    "driver": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Dotted path to a driver class. Accepted only for core and package tutorials; a user-level or project-level manifest declaring it is rejected naming the field and the tier restriction (FR-020)."
+    }
+  },
+  "$defs": {
+    "requires": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "FR-008. Parsed and exposed by the manifest layer; evaluated by discovery. A tutorial whose requirements are unmet is still listed (FR-024).",
+      "properties": {
+        "scistudio": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A version specifier, e.g. '>=0.3.0'."
+        },
+        "agent": { "type": "boolean" },
+        "packages": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "bootstrap": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "FR-009. The PRESENCE of this block is what decides whether the tutorial gets a project: a tutorial declaring it receives a freshly created tutorial project, and a tutorial omitting it runs without one. There is no tutorial-kind field, because the step actions already declare what each step does and a second classification would be able to contradict them.",
+      "properties": {
+        "project_name": { "type": "string", "minLength": 1 },
+        "do": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/action" }
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "description": "FR-011. A step omitting done_when advances on an explicit user continue (FR-012); reading steps are the common case and requiring a synthetic condition for them would be ceremony.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A short heading for this step, shown on the step card. Optional: a step without one is headed by the tutorial's own title, which is what every manifest written before this field got."
+        },
+        "say": { "type": "string" },
+        "highlight": {
+          "description": "What this step points at. Either a target name on its own ('run_button') for the targets whose name is already an address, or a single-key mapping naming the target and the argument that says which one ('palette_block: {block_type: load_data}'), which is the same shape done_when uses. The target set and each target's required arguments are closed, core-owned, and declared in exactly one place: scistudio.tutorials.manifest.HIGHLIGHT_SPECS. They are not enumerated here so there is only one thing to keep in step. A target outside the set, or one missing the argument that picks the element, is rejected at validation, because a highlight the frontend cannot resolve is guidance that silently disappears.",
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "object",
+              "minProperties": 1,
+              "maxProperties": 1,
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          ]
+        },
+        "route_to": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A tab or panel to take the user to. The set is closed, core-owned, and declared in exactly one place: scistudio.tutorials.manifest.ROUTE_TARGETS. Manifests name a tab the way the product names it to the user - 'ai_chat' and 'history', not the internal keys 'ai' and 'lineage' - and the frontend owns that mapping."
+        },
+        "prefill": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/prefill" },
+          "description": "What a dialog the reader is about to open should already be holding when it opens, so a step naming a value does not then ask the reader to retype it. A prefill is a default and stays editable; the step's done_when still judges the world rather than the dialog. The target set and each target's required values are closed, core-owned, and declared in exactly one place: scistudio.tutorials.manifest.PREFILL_SPECS. They are not enumerated here so there is only one thing to keep in step."
+        },
+        "do": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/action" },
+          "description": "Ordered. Runs on entry, before the step's text is displayed (FR-056, FR-059)."
+        },
+        "done_when": { "$ref": "#/$defs/condition" }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "description": "A single-key mapping: {term: {args}} for one of the sixteen vocabulary terms of FR-047, or {all: [...]} / {any: [...]} for a combinator (FR-048). Negation is deliberately absent: a step that advances when something is absent advances by the user doing nothing. The term names and each term's arguments are owned by scistudio.tutorials.conditions and enforced there during this same validation pass, so an unknown term fails the author rather than the user (FR-049). The ui_event term's 'name' argument is itself a closed set, declared at scistudio.tutorials.conditions.UI_EVENT_NAMES."
+    },
+    "prefill": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": { "type": "string", "minLength": 1 }
+      },
+      "description": "A single-key mapping naming one prefill target and the values that seed it, the same shape an action uses. A target outside PREFILL_SPECS, or one missing a value it requires, is rejected at validation: a prefill the frontend cannot resolve is a manifest line that silently does nothing."
+    },
+    "action": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "additionalProperties": false,
+      "description": "A single-key mapping naming one action. FR-057.",
+      "properties": {
+        "write": { "$ref": "#/$defs/write" },
+        "copy": { "$ref": "#/$defs/copy" },
+        "replay": { "$ref": "#/$defs/replay" }
+      }
+    },
+    "file_action": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "additionalProperties": false,
+      "description": "The subset of actions a replay segment may bind: the ones that put files on disk.",
+      "properties": {
+        "write": { "$ref": "#/$defs/write" },
+        "copy": { "$ref": "#/$defs/copy" }
+      }
+    },
+    "write": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "destination"],
+      "description": "Write one asset file into the tutorial project. Available at any step, not only at bootstrap (FR-058). A destination the user has edited is overwritten: tutorial projects are disposable and the designed scenarios depend on the tutorial controlling their contents.",
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Relative to the tutorial directory; must resolve inside it (FR-014)."
+        },
+        "destination": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Relative to the tutorial project; must resolve inside it (FR-015)."
+        }
+      }
+    },
+    "copy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "destination"],
+      "description": "Copy one asset directory into the tutorial project. Same containment rules as write.",
+      "properties": {
+        "source": { "type": "string", "minLength": 1 },
+        "destination": { "type": "string", "minLength": 1 }
+      }
+    },
+    "replay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["surface", "segments"],
+      "description": "Replay scripted material into one named surface (FR-061). A replay never accepts user input back into the scripted session.",
+      "properties": {
+        "surface": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The set of nameable surfaces is closed, core-owned, and declared in exactly one place: scistudio.tutorials.actions.REPLAY_SURFACES (FR-061a). It is not enumerated here so there is only one thing to keep in step. A manifest naming a surface outside it is rejected at validation."
+        },
+        "segments": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/replay_segment" }
+        }
+      }
+    },
+    "replay_segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source"],
+      "description": "FR-061b. A segment's bound actions complete before its bytes are delivered, and therefore before the next segment's: a scripted agent that claims to have written a block has to be matched by the block existing at the moment the claim is readable.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Relative path to the segment's scripted bytes inside the tutorial directory."
+        },
+        "do": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/file_action" }
+        }
+      }
+    }
+  }
+}

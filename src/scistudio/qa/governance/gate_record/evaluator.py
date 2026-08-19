@@ -91,6 +91,7 @@ _SURFACE_CLASSIFIERS = {
     "test": surfaces.is_test_path,
     "governance": surfaces.is_governance_path,
     "protected_core": surfaces.is_protected_core_path,
+    "protected_architecture": surfaces.is_protected_architecture_path,
     "frontend": surfaces.is_frontend_path,
     "packaging": surfaces.is_packaging_path,
     "workflow_ci": surfaces.is_workflow_ci_path,
@@ -415,6 +416,9 @@ def _infer_obligations(
     # Protected-core authorization.
     if grouped["protected_core"]:
         admin_labels.append("admin-approved:core-change")
+    # Architecture-document authorization (#2054).
+    if grouped["protected_architecture"]:
+        admin_labels.append("admin-approved:architecture-doc")
 
     return RequiredObligations(
         checks=list(required_checks),
@@ -435,6 +439,12 @@ _GUARD_REPAIR_ACTIONS: dict[str, str] = {
         "Request the admin-approved:core-change label (owner applies it; the "
         "actor-permission provenance is verified in CI), or move the change out "
         "of the protected-core surface."
+    ),
+    "architecture_doc_guard": (
+        "The architecture document is owner-controlled: ask the owner to approve "
+        "this specific change and apply admin-approved:architecture-doc (or to "
+        "approve the PR as an administrator), or drop the change and put the "
+        "content in a spec instead."
     ),
     "human_bypass_guard": (
         "Use a valid ADR-042 override label applied by an authorized maintainer; "

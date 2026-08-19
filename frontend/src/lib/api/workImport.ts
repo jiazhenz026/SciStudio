@@ -31,11 +31,12 @@ export type WorkImportDestinationTier = "project" | "user_library";
  */
 export type BackendPermissionMode = "safe" | "bypass";
 
-/** C2 — the three questions that may be skipped rather than answered. */
+/** C2 — the four questions that may be skipped rather than answered. */
 export type WorkImportSkippableQuestion =
   | "workflow_description"
   | "interaction_wishes"
-  | "other_software";
+  | "other_software"
+  | "anything_else";
 
 /**
  * The request body: `ImportSessionContext` in snake_case plus `project_dir`.
@@ -58,6 +59,8 @@ export interface WorkImportSessionRequest {
   workflow_description: string | null;
   interaction_wishes: string | null;
   other_software: string | null;
+  /** FR-019a — the open question asked last, or null when it was skipped. */
+  anything_else: string | null;
   /**
    * FR-021 — questions the user did not answer, conveyed as skipped rather
    * than omitted, so the agent can tell "the user did not say" from "the user
@@ -93,11 +96,12 @@ export function fromBackendPermissionMode(mode: BackendPermissionMode): Permissi
   return mode === "bypass" ? "dangerous" : "safe";
 }
 
-/** C2 — the only three questions the backend accepts in `skipped`. */
+/** C2 — the only four questions the backend accepts in `skipped`. */
 export const WORK_IMPORT_SKIPPABLE_QUESTIONS: readonly WorkImportSkippableQuestion[] = [
   "workflow_description",
   "interaction_wishes",
   "other_software",
+  "anything_else",
 ];
 
 /**
@@ -170,6 +174,7 @@ export function validateWorkImportRequest(request: WorkImportSessionRequest): st
     workflow_description: request.workflow_description,
     interaction_wishes: request.interaction_wishes,
     other_software: request.other_software,
+    anything_else: request.anything_else,
   };
   for (const key of WORK_IMPORT_SKIPPABLE_QUESTIONS) {
     const answer = answers[key];

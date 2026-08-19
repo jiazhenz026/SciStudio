@@ -11,7 +11,9 @@
  */
 import type { VersionedWorkflowResponse } from "../../lib/api";
 import { useAppStore } from "../../store";
+import { TUTORIAL_SYNC_EVENT_TYPES } from "../../store/learningCenterSlice";
 import type { InteractivePrompt } from "../../store/types";
+import { invalidateTypeCatalog } from "../../store/useTypeCatalog";
 import type { LogEntry, WorkflowEventMessage } from "../../types/api";
 
 import { handleBlockPtyClosed, handleBlockPtyOpened } from "./handleBlockPty";
@@ -35,6 +37,21 @@ export interface DispatchDeps {
  *   ``consumeEvent`` (workflow lifecycle / unknown types).
  */
 export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: DispatchDeps): boolean {
+  /*
+   * ADR-053 Learning Center (#2057) — a running tutorial re-checks its step
+   * whenever one of FR-050's events lands.
+   *
+   * Before the branches below, not inside one: the events that matter are
+   * split across them, and `block_done` / `workflow_completed` are not handled
+   * here at all — they return `false` and fall through to `consumeEvent`. This
+   * is also a notification rather than a handler, so it does not consume the
+   * event; every existing consumer still sees it. The call returns immediately
+   * when no tutorial is running.
+   */
+  if (TUTORIAL_SYNC_EVENT_TYPES.has(payload.type)) {
+    void useAppStore.getState().syncActiveTutorialSession();
+  }
+
   if (payload.type === "interactive_prompt") {
     handleInteractivePrompt(payload, { setInteractivePrompt: deps.setInteractivePrompt });
     return true;
@@ -61,6 +78,13 @@ export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: Dispa
     // palette and canvas nodes pick up the new/changed block without a manual
     // palette reload.
     useAppStore.getState().bumpBlockCatalogRefresh();
+    // ADR-053 FR-062: every emitter of this event reaches it through
+    // `refresh_all_registries()`, which rebuilds the *type* registry too — a
+    // palette reload, a project file save, a package install, an agent
+    // promotion. Bumping only the block counter left the Data types tab and
+    // the declared canvas colours on their first-ever listing until the user
+    // pressed Reload by hand.
+    invalidateTypeCatalog();
     return true;
   }
   if (payload.type === "git.head_changed") {

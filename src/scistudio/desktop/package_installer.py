@@ -23,6 +23,16 @@ from scistudio.desktop import paths
 _MANIFEST_NAME = "scistudio-local-package.json"
 _SUPPORTED_ARCHIVE_SUFFIXES = {".zip", ".tar", ".tgz", ".tar.gz", ".tar.bz2", ".tar.xz"}
 
+# Issue #2068: the dependency cache is pip's output, never installer input. An
+# OTA install repoints ``source_path`` at the install dir itself
+# (``package_manager._repoint_install_source``), so a source tree handed to this
+# module can *be* a previous install — copying its ``site-packages`` forward
+# would carry every prior generation of wheels along with it, including files
+# compiled for a Python ABI that no longer runs. That is what made
+# ``_first_mismatched_binary_tag`` fire on every launch: the repair kept
+# re-importing the very files that triggered it.
+_STAGE_IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", paths.PACKAGE_SITE_DIR_NAME)
+
 
 class PackageInstallError(ValueError):
     """Raised when a local package cannot be installed."""
@@ -91,7 +101,7 @@ def install_local_package(
                 raise PackageInstallError(f"No SciStudio block package found in {resolved_source}")
             metadata = _source_metadata(package_root)
             dependencies = _source_dependencies(package_root)
-            shutil.copytree(package_root, prepared_dir, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            shutil.copytree(package_root, prepared_dir, ignore=_STAGE_IGNORE)
             install_source = prepared_dir
         elif _is_wheel(resolved_source):
             metadata = _wheel_metadata(resolved_source)
@@ -111,7 +121,7 @@ def install_local_package(
                 raise PackageInstallError(f"No SciStudio block package found in {resolved_source}")
             metadata = _source_metadata(package_root)
             dependencies = _source_dependencies(package_root)
-            shutil.copytree(package_root, prepared_dir, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            shutil.copytree(package_root, prepared_dir, ignore=_STAGE_IGNORE)
             install_source = prepared_dir
         else:
             suffixes = "".join(resolved_source.suffixes) or resolved_source.suffix
@@ -410,6 +420,14 @@ def _install_runtime_package(
     target_dir: Path,
     python_executable: str,
 ) -> None:
+    # Issue #2068: pip's ``--target`` overwrites same-named files and leaves
+    # every other file in place, so installing into a populated directory
+    # accumulates generations of wheels instead of replacing them. Rebuilding
+    # from empty keeps the cache the output of exactly one dependency resolve.
+    # ``_STAGE_IGNORE`` already keeps an inherited cache out of the staging dir;
+    # this is the second line of defence for callers that stage differently.
+    if target_dir.exists():
+        shutil.rmtree(target_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
     _run_pip(
         [

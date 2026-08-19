@@ -468,7 +468,13 @@ class TestTypeRegistryEntryPoints:
         assert "TypeB" in registry.all_types()
 
     def test_scan_load_failure_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
-        """An entry-point that fails to load logs a warning and does not crash."""
+        """An entry-point that fails to load logs a warning and does not crash.
+
+        ADR-053 FR-025: the message comes from the shared entry-point helper
+        now, not from this registry, and reads the same for every group. The
+        two spellings the block and type registries used for the same failure
+        were part of the divergence that helper exists to end.
+        """
         from unittest.mock import MagicMock, patch
 
         mock_ep = MagicMock()
@@ -478,11 +484,11 @@ class TestTypeRegistryEntryPoints:
         registry = TypeRegistry()
         with (
             patch("importlib.metadata.entry_points", return_value=[mock_ep]),
-            caplog.at_level("WARNING", logger="scistudio.core.types.registry"),
+            caplog.at_level("WARNING", logger="scistudio.core.entry_points"),
         ):
             registry._scan_entrypoint_types()
 
-        assert "Failed to load entry-point 'broken_load'" in caplog.text
+        assert "Failed to load entry_point 'broken_load'" in caplog.text
         assert len(registry.all_types()) == 0
 
     def test_scan_callable_exception_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
@@ -499,11 +505,12 @@ class TestTypeRegistryEntryPoints:
         registry = TypeRegistry()
         with (
             patch("importlib.metadata.entry_points", return_value=[mock_ep]),
-            caplog.at_level("WARNING", logger="scistudio.core.types.registry"),
+            caplog.at_level("WARNING", logger="scistudio.core.entry_points"),
         ):
             registry._scan_entrypoint_types()
 
-        assert "Entry-point 'broken_factory' callable raised an exception" in caplog.text
+        # FR-025: one message for a payload that raised, whichever group it is.
+        assert "Failed to process entry_point 'broken_factory'" in caplog.text
         assert len(registry.all_types()) == 0
 
     def test_scan_non_list_return_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
@@ -637,6 +644,64 @@ class TestTypeRegistryEntryPoints:
             registry._scan_entrypoint_types()
 
         assert "TupleType" in registry.all_types()
+
+
+# ---------------------------------------------------------------------------
+# ADR-053 FR-040 — which distribution registered a type
+# ---------------------------------------------------------------------------
+
+
+class TestTypePackageAttribution:
+    """The scan records the distribution that delivered a type, never infers it.
+
+    ``TypeSpec.package_root`` is what the types listing joins against the block
+    registry's own package names, so the Data types tab can split per-package
+    sections spelled exactly as the Blocks tab spells them. Recording it at
+    scan time is the point: only the discovery pass knows which distribution's
+    hook produced a class, and a name guessed from a file path afterwards could
+    contradict the block side for the very same package.
+    """
+
+    def _through_entrypoint(self, value: str) -> TypeRegistry:
+        import importlib.metadata
+        from unittest.mock import patch
+
+        class EntryPointType(DataObject):
+            """Registered through a ``scistudio.types`` entry-point."""
+
+        ep = importlib.metadata.EntryPoint(name="probe", value=value, group="scistudio.types")
+        registry = TypeRegistry()
+        with (
+            patch("importlib.metadata.entry_points", return_value=[ep]),
+            patch.object(importlib.metadata.EntryPoint, "load", lambda _self: lambda: [EntryPointType]),
+        ):
+            registry._scan_entrypoint_types()
+        return registry
+
+    def test_an_entry_point_type_records_the_distribution_that_declared_it(self) -> None:
+        registry = self._through_entrypoint("scistudio_blocks_probe:get_types")
+        assert registry.resolve("EntryPointType").package_root == "scistudio_blocks_probe"
+
+    def test_a_nested_registration_hook_still_roots_at_the_distribution(self) -> None:
+        """``pkg.registration:get_types`` belongs to ``pkg``, not ``pkg.registration``."""
+        registry = self._through_entrypoint("scistudio_blocks_probe.registration:get_types")
+        assert registry.resolve("EntryPointType").package_root == "scistudio_blocks_probe"
+
+    def test_core_types_belong_to_no_distribution(self) -> None:
+        """A builtin has no package root, so it can never claim a package section."""
+        registry = TypeRegistry()
+        registry.scan_builtins()
+        assert all(spec.package_root == "" for spec in registry.all_types().values())
+
+    def test_registering_a_class_directly_attributes_it_to_nothing(self) -> None:
+        """The default is "no distribution" — attribution is opt-in, per pass."""
+
+        class LooseType(DataObject):
+            """Registered by a caller that is not one of the package passes."""
+
+        registry = TypeRegistry()
+        registry.register_class(LooseType)
+        assert registry.resolve("LooseType").package_root == ""
 
 
 # ---------------------------------------------------------------------------

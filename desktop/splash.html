@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>Starting SciStudio</title>
+    <style>
+      :root {
+        --splash-bg: #f7f8fb;
+        --splash-fg: #1c2333;
+        --splash-muted: #6b7488;
+        --splash-track: #e2e6ef;
+        --splash-accent: #3b6ef5;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --splash-bg: #171a21;
+          --splash-fg: #eef1f7;
+          --splash-muted: #98a1b5;
+          --splash-track: #2a2f3a;
+          --splash-accent: #6d94ff;
+        }
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background: var(--splash-bg);
+        color: var(--splash-fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        user-select: none;
+        cursor: default;
+        -webkit-app-region: drag;
+      }
+
+      img {
+        width: 64px;
+        height: 64px;
+        border-radius: 14px;
+      }
+
+      h1 {
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+
+      #status {
+        font-size: 12.5px;
+        color: var(--splash-muted);
+        min-height: 16px;
+        text-align: center;
+        padding: 0 24px;
+      }
+
+      #track {
+        width: 190px;
+        height: 3px;
+        border-radius: 999px;
+        background: var(--splash-track);
+        overflow: hidden;
+      }
+
+      #bar {
+        width: 40%;
+        height: 100%;
+        border-radius: 999px;
+        background: var(--splash-accent);
+        animation: slide 1.35s ease-in-out infinite;
+      }
+
+      @keyframes slide {
+        0% { transform: translateX(-105%); }
+        100% { transform: translateX(255%); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #bar {
+          animation: none;
+          width: 100%;
+          opacity: 0.55;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <img src="assets/icon.png" alt="" />
+    <h1>SciStudio</h1>
+    <div id="status">Starting&#8230;</div>
+    <div id="track"><div id="bar"></div></div>
+    <script>
+      // Issue #2068: the main process drives this via executeJavaScript rather
+      // than IPC, so the splash needs no preload script and can stay sandboxed
+      // with scripting limited to this one function.
+      window.__scistudioSplashStatus = (text) => {
+        document.getElementById("status").textContent = text;
+      };
+    </script>
+  </body>
+</html>

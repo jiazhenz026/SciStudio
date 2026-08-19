@@ -7,7 +7,270 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
+  that are real, runnable projects, reached from a permanent toolbar entry and
+  shown on first launch. The first core tutorial, *Welcome to SciStudio*, ships
+  with it.
+  A tutorial is now a **directory with a `tutorial.yaml` manifest**, so adding
+  one takes a directory and a manifest rather than a code change. They are
+  discovered from four places — this repository, installed packages through a new
+  `scistudio.tutorials` entry-point group, `~/.scistudio/tutorials/`, and the open
+  project — which is what lets a package teach its own blocks. Listing the
+  catalogue reads manifests and imports nothing, so a package with a broken
+  tutorial breaks that one entry and nothing else.
+  **The backend decides when a step is done**, by reading what actually
+  happened: whether a node exists, a run succeeded, a type registered, a branch
+  exists, a file landed. It re-checks when the engine events the product already
+  emits arrive — `workflow.changed`, `workflow_completed`, `git.head_changed`,
+  `blocks.reloaded` and the rest — so nothing polls, and a step you satisfied
+  while the panel was closed is already satisfied when you open it. A step whose
+  condition is true the moment you reach it passes immediately, because the
+  question is what the workflow looks like rather than whether you just acted.
+  Steps may **write files into the tutorial project at any point**, not only at
+  the start, and the files are on disk before the step's text is readable — a
+  step that says "we wrote this block for you" cannot be read before the block
+  exists.
+  Tutorial projects are **kept out of the recent-project list, the projects
+  dropdown, and the welcome pane**, and are reachable only through the Learning
+  Center, so a disposable teaching project cannot be mistaken for your own work.
+  They scan an isolated library directory rather than your real one, so a type
+  you save to My Library during a tutorial does not follow you into every project
+  afterwards. Restarting a tutorial deletes its project and says which directory
+  it is deleting first.
+  Progress lives on the **backend**, grouped by where the tutorials came from,
+  each group counting its own. A group's total growing because its source shipped
+  new material is shown as new material rather than compensated away. Package
+  tutorials never drive product behaviour. Exactly one thing depends on progress:
+  finishing a named core tutorial offers to bring your existing work across, and
+  "Bring in my work" stays in the toolbar whether or not you ever open the
+  Learning Center. The Learning Center can also clear tutorial data outright,
+  naming the directories it will delete — "clear my progress" and "delete these
+  folders" are the same action here, and the confirmation says so.
+
+- [#2056] **Every `scistudio.*` entry-point group now fails the same way.** Three
+  groups had drifted apart: `scistudio.types` propagated an enumeration failure
+  that `scistudio.blocks` and `scistudio.previewers` absorbed, only the previewer
+  registry recorded a load failure anywhere a user could see it, and only the
+  previewer registry prepared `sys.path` for plugin import roots — so the same
+  installed package could resolve for previewers and fail for blocks. Adding a
+  fourth group for tutorials on top of that would have made the disagreement the
+  convention.
+  Enumeration, per-entry-point error containment, diagnostic reporting, and
+  import-root preparation now come from one contract in
+  `src/scistudio/core/entry_points.py`, and each registry keeps only its own
+  registration logic. A group that cannot be enumerated is logged, reported, and
+  treated as empty instead of raising into whoever asked. A package that
+  installed successfully and contributed nothing is now distinguishable from a
+  package that had nothing to contribute, which it was not before.
+  `scistudio.blocks` keeps accepting a bare class, documented in one place as a
+  compatibility affordance for packages already published against it. A parity
+  test covers all four groups, so a fifth cannot be added divergently without
+  failing.
+
+### Removed
+
+- [#2057] **Breaking: `POST /api/tutorials/run-first-workflow/bootstrap` is
+  deleted**, with no alias, along with the single-tutorial implementation behind
+  it — one backend route that created one named project and wrote one CSV, and
+  five frontend modules holding eight steps of prose and five judging predicates
+  that read the frontend's copy of the workflow. None of it generalised to a
+  second tutorial, and its judging assumption is the one the Learning Center
+  replaces.
+  The removal lands in the same change as the Learning Center rather than being
+  staged behind a compatibility window. That tutorial never shipped in a release
+  users receive updates for, so no window is owed, and keeping two judging paths
+  alive at once would have produced drift with no beneficiary. It is recorded as
+  breaking regardless, because a route leaves the API surface.
+
+### Added
+
+- [#2054] **The architecture document is now owner-controlled in CI, not only by
+  convention.** `docs/architecture/ARCHITECTURE.md` may only change with the
+  owner's specific approval, and nothing enforced that: PR #2036 carried a
+  thirty-line addition to §12.5 through every check green — Full Audit
+  included — and it was caught by the owner reading the diff. The gap was less
+  an omission than an inversion. `surfaces.is_architecture_doc_path` already
+  existed, and its only consumer was `checks.py`'s test for whether a
+  *documentation obligation was satisfied*; touching the document made a PR look
+  better, not worse.
+  A new `architecture_doc_guard` blocks the change in CI unless the PR carries
+  `admin-approved:architecture-doc` applied by an authorized maintainer, or an
+  administrator has approved the PR — an owner who reviewed the diff has already
+  given the approval, and should not have to say yes twice. Locally, a
+  *requested* label downgrades the finding to a warning, so an agent is told
+  before it opens the PR while CI stays the authority; silence downgrades
+  nothing.
+  The workflow's label filter is now **derived** from `labels.py` rather than
+  restating it. That set decides which labels reach the evaluator at all, so a
+  label missing from it is invisible to every guard no matter what the guard
+  looks for — the owner applies the label, CI drops it, and the guard reports
+  missing approval. The new label was born into exactly that state while the set
+  was a literal; a Codex review caught it. Any label added to the vocabulary is
+  forwarded from now on without anyone having to remember a second list.
+  It is enforced in **Verify Workflow Compliance**, which is the only CI job
+  that runs the gate evaluator with PR context and can therefore verify *who*
+  applied a label — the whole difficulty of an approval flag. Full Audit and the
+  architecture tests have no PR context and could not check it without growing a
+  second label-reading pipeline. No CI workflow file changed; the guard registry
+  carries it.
+  The protected surface is the single file, not `docs/architecture/**`: that
+  directory also holds a generated `PROJECT_TREE.md` and a superseded
+  `ARCHITECTURE_legacy.md`, and `docs/adr/**` and `docs/specs/**` are ordinary
+  work product. `admin-approved:bypass` and `human-authored` release this guard
+  exactly as they release the others; it does not become the first
+  non-bypassable guard.
+
 ### Changed
+
+- [#1995] **Saving to My Library now moves the file instead of copying it**, and
+  the action says so: it reads **Move to My Library**. The block or data type
+  keeps working in the project you promoted it from — your personal library is
+  on every project's scan path — so what moves is where the file lives, not what
+  the project can use.
+
+  Copying turned out to be the worse behaviour, and not in a small way. It left
+  the same class name registered in two places at once, and which one actually
+  loaded came down to a scan-order rule that isn't even the same for the two
+  registries: for blocks the library copy wins, for data types the project copy
+  wins. So the same action appeared to work for a block and to do nothing at all
+  for a type — the type stayed listed under *This Project*, *My Library* stayed
+  empty, and pressing the button again just wrote another file nothing would
+  ever load. Moving removes the clash rather than arbitrating it.
+
+  If the original can't be removed — it's locked, or read-only — the promotion
+  is **not** failed: the library copy is there, so you're told the result was a
+  copy and which file to delete by hand. The agent's `promote_to_user_library`
+  tool moves on exactly the same terms, so asking Claude to do it and clicking
+  the button do the same thing.
+
+### Fixed
+
+- [#1995] The Data types tab's **Reload** button now actually re-scans. It used
+  to re-fetch the type listing, which is answered from the registry already in
+  memory and costs no directory scan — so a data type you had just written to
+  `{project}/types/` stayed invisible no matter how many times you pressed it,
+  and then appeared minutes later when some unrelated action (opening a project,
+  switching a branch, installing a package, saving to My Library, or the *other*
+  tab's Reload) happened to rebuild the registry. A button that does nothing is
+  worse than no button, because you stop looking for another cause. Reload now
+  calls `POST /api/types/reload`, the Data types counterpart of the fix the
+  Blocks tab got in #1910, and re-scans through the same whole-registry rebuild
+  so a type and a block written side by side in one project both appear.
+
+### Added
+
+- [#1995] Double-clicking a data type opens its source. Which kind of tab you
+  get follows where the type lives, and it is not a stylistic choice: types in
+  your project and in My Library are your own files and open **editable**, each
+  wired to the write path that can save it back — the library sits outside every
+  project root, so it needs its own. A built-in or packaged type opens
+  **read-only**, because its file belongs to an installed distribution and an
+  edit there is discarded by the next upgrade. The endpoint behind the read-only
+  case takes a registered type *name*, never a path, so it can only ever serve a
+  file this process already loaded.
+
+### Changed
+
+- [#1995] Saving a block or data type to My Library no longer types its name
+  into the palette search box. The intent was to reveal the item by leaving it
+  as the only thing on screen, but nobody watching it happen reads it that way:
+  the user did not type that search, so what they see is a palette that has
+  suddenly lost every other block, with the cause sitting in a box they were not
+  looking at — and any search they *had* typed is gone as well. The reveal now
+  stops where it stops being helpful: the catalogue is re-read, the palette
+  panel opens, and the left panel switches to the item's own tab, where
+  `My Library` is showing with the item in it. The inline "Saved to My Library"
+  notice still names the item and the file it was written to.
+
+- [#1995] The Data types tab now lists types one per row instead of laying them
+  out as a grid of tiles. The grid was borrowed from the Blocks tab, where a
+  tile means *a thing you drag onto the canvas* — block tiles are `draggable`
+  and carry a drag payload. Data types have never been draggable, so the two
+  tabs looking identical amounted to advertising an interaction that silently
+  did nothing when you tried it. Each row now carries the type's colour as a
+  small framed square left of the name — the same fill-plus-ring the canvas port
+  handle draws, so the palette and the canvas still agree — and uses the width
+  the grid did not have to show the type's immediate parent in grey on the
+  right. `DataObject` is left off there, for the same reason the popover does
+  not print `Array (Array)`: repeating the universal root down the whole right
+  edge tells you nothing. The full inheritance chain, description, extensions,
+  origin, and the promotion action stay in the hover card, unchanged.
+
+- [#1996][#2026] A block or data type you wrote in one project can now be saved
+  into your personal library, and a new file can be created there directly.
+  **Save to My Library** appears wherever you are already looking at the thing:
+  the code editor toolbar beside Save, the canvas node's action menu, and the
+  palette hover cards on both the Blocks and Data types tabs. All three call one
+  implementation (`components/promotion/promoteToUserLibrary.ts`, reached
+  through `runPromotion`), whose semantics match the agent's
+  `promote_to_user_library` MCP tool refusal for refusal — four copies of this
+  logic is exactly the drift ADR-053 was written to prevent. Promotion
+  **copies**: the originating project keeps its file and keeps working. The
+  action is offered only for items whose resolved origin is `project`, and for
+  anything else — built-in, packaged, or already in your library — it is
+  **hidden rather than greyed out**, because those can never become promotable.
+  A name collision in the destination is reported by the server as a 409 and
+  turned into a prompt offering **Overwrite** or **Save as new name**; nothing
+  in the flow can reach an overwrite the user did not ask for. Promoting a block
+  first works out which project-local data types it imports — a static parse of
+  its import statements, resolved against the registered type listing and
+  classified by the backend's own origin resolver — and offers to bring them
+  along as one confirmed action. Declining still promotes the block, with an
+  explicit warning that it will fail to load elsewhere. The cascade is one level
+  deep, and the level below it is **reported**, never silently dropped: a type
+  that itself imports another project-local type is named in the dialog and in
+  the result, so the limit leaves visible residue instead of a block that
+  mysteriously breaks in the next project. On success the palette expands,
+  switches to the item's tab, re-reads its catalogue and narrows to the promoted
+  name, so you land looking at it inside **My Library** — the container the
+  feature exists to teach — with an inline confirmation beside it rather than a
+  modal covering it. Creating files changes too: **New custom block** now asks
+  where the file should live before anything else, and a **New data type** entry
+  joins it in the New menu. Both run one flow — prompt, Python-identifier
+  validation, collision probe against the chosen destination, template fetch,
+  write, open for editing — differing only in the target subdirectory and the
+  template kind, and a file created in the library opens in a tab that reads and
+  saves through the library endpoint rather than the project one. Tests:
+  `frontend/src/components/promotion/__tests__/` (action, cascade, import parse,
+  entry points, dialogs, reveal, promotable),
+  `frontend/src/App.parts/__tests__/newDropinFile.test.tsx`,
+  `frontend/src/lib/__tests__/userLibrary.test.ts`,
+  `frontend/src/store/__tests__/userLibraryTab.test.ts`.
+  (@claude, 2026-08-07, branch: feat/1996-promotion-and-new-file-flows)
+
+- [#1995][#2025] The block palette now names the two places a block of your own
+  can live instead of collapsing them into one `Custom` bucket. The user-wide
+  library (`~/.scistudio/blocks/`) and the project-local one
+  (`{project}/blocks/`) become **My Library** and **This Project**, ordered
+  `Data I/O → Built-in → My Library → This Project → plugin packages A→Z`; My
+  Library sits above This Project because it is the container the product is
+  asking you to build a habit around. Both sections **render even when empty**,
+  each carrying one line saying what it is for — for a user who has never heard
+  of a personal library that empty section is the only moment they are
+  guaranteed to be looking at the place it would live, so it is treated as
+  load-bearing rather than as polish. Every other section keeps omitting itself
+  when empty, and the teaching copy steps aside while a search or category chip
+  is narrowing the grid, where an empty section says nothing about the library
+  and everything about the query. Underneath, `buildPaletteSections` changes
+  grouping *dimension* rather than gaining two entries: it groups by the
+  backend-resolved origin tier first and by package only inside the package
+  family. A tier-1 block whose file path resolves to neither root reports
+  `custom` and renders under This Project, and a payload from a backend that
+  predates the tier split falls back to the legacy `source` label and lands in
+  the same place, so the palette degrades rather than breaking. The hover
+  popover also becomes interactive: it no longer carries `pointer-events-none`,
+  keeps itself open while the pointer is inside it, and survives the gap between
+  tile and card, which is what lets it hold the promotion action; dragging a
+  tile is unchanged. The section/filter/tile/chip/popover machinery moves into a
+  shared `components/palette/` set so the forthcoming Data types tab reuses one
+  implementation instead of growing a parallel one. Tests:
+  `frontend/src/components/BlockPalette.parts/__tests__/paletteModel.test.ts`,
+  `frontend/src/components/BlockPalette.test.tsx`,
+  `frontend/src/components/palette/__tests__/sections.test.ts`,
+  `frontend/src/components/palette/__tests__/useHoverPopover.test.tsx`.
+  (@claude, 2026-08-07, branch: feat/1995-palette-tiers-and-popover)
 
 - [#2033] **Restore is now the single way back to a past state, and it actually
   gets you there.** Restoring a run used to rewrite one file —
@@ -127,6 +390,133 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [#1915] Load/save native file dialogs now default to the active project root instead of the user home directory. The backend `native_file_dialog` route resolves the start directory through a new pure helper `_resolve_dialog_start_dir` (project-scope: valid `initial_dir` → `runtime.project_dir` → session last-used → home; home-scope → last-used → home). A `prefer_home` request flag is the only per-caller opt-out, used by the create/open-project dialog (picks a project *location*) and the diagnostic-bundle export (a machine artifact, not a project file); every other load/save caller now defaults to the project root with no code change. Tests: `tests/api/test_native_dialog.py` (`_resolve_dialog_start_dir` matrix), `frontend/src/lib/api/__tests__/filesystem.test.ts`, `frontend/src/lib/__tests__/logger.test.ts`. (@claude, 2026-07-02, branch: guided/1915-dialog-project-root)
 ### Added
 
+- [#2025][#2024] The Data types tab now splits one section per installed
+  package, A→Z, instead of collecting every packaged type under a single
+  `Packages` heading. The tab shipped with that heading because a type had no
+  way to say which distribution it came from — the owning package was known
+  during the scan and then thrown away — and the heading was the honest answer
+  at the time: naming a package by reading a file path would have produced a
+  title the backend never supplied, and one that could disagree with the Blocks
+  tab's real name for the very same distribution. So the name is now carried
+  rather than guessed. The type registry records which distribution's discovery
+  hook delivered each type, and the types listing turns that into a
+  `package_name` by reading the string the *block* registry already resolved
+  for that distribution. Reading one string rather than deriving two is the
+  whole point: a packaged type and a packaged block from one package are
+  titled identically and cannot drift apart. Where no name exists — a package
+  the Blocks tab does not name either — the type keeps the lumped `Packages`
+  section rather than disappearing, so the tab degrades the way it did before
+  instead of losing a type to a missing attribution. Tests:
+  `tests/api/test_types_routes.py`, `tests/core/test_types.py`,
+  `frontend/src/components/TypePalette.parts/__tests__/typeModel.test.ts`.
+  (@claude, 2026-08-07, branch: feat/2025-type-package-attribution)
+
+- [#2025][#2024] The left panel gains a third tab, **Data types**, and the
+  canvas starts reading type colour from the same place it does. Until now the
+  data types a workflow is built from had no surface at all: you could see the
+  blocks you owned but not the types they exchange, and a type's colour existed
+  only as a hand-written frontend table plus a hash of its name. The new tab
+  mirrors the Blocks tab — search, filter chips, and tier sections ordered
+  `Core (pinned) → My Library → This Project → Packages`, with both tier
+  sections rendering even when empty so the personal library teaches itself in
+  the same moment on both tabs. It reuses the shared palette machinery rather
+  than growing a parallel one, and it fetches types independently, so opening it
+  neither waits for nor re-triggers a blocks request and its Reload refreshes
+  only types. Search matches a type's registered extensions as well as its name
+  and description, so typing `.csv` answers "which type do I get if I load a
+  CSV?", and the chips filter by the core base family a type descends from.
+  Hovering a tile opens the same interactive card the Blocks tab uses, carrying
+  the type's parent — annotated with its core base when the two differ, so
+  `SRSImage` reads `Image (Array)` and `Image` never reads `Array (Array)` — its
+  description, its loadable-from and saveable-to extensions **reported
+  separately** so a type saveable to a format it cannot be loaded from reads as
+  exactly that, or one explicit `No file formats registered` line when it has
+  neither, and which tier it came from. Underneath, canvas port and edge colour
+  change source: a type's *declared* colour now comes from the types listing
+  rather than from `type_hierarchy`, which carries no fill colour at all and
+  would otherwise have shown a declaring type in its own colour in the palette
+  and a hashed one on the canvas. Precedence is declared colour → the existing
+  colour table → the hash fallback, applied identically on both surfaces, so a
+  type that declares nothing looks exactly as it did before, and a malformed
+  hex in a hand-edited type file is warned once and ignored rather than
+  breaking either surface. Colour and block data used to arrive together and
+  now arrive as two responses; the window between them is handled by ports
+  keeping their existing colour until a complete listing lands, so nothing
+  flashes and no port moves when it does. Tests:
+  `frontend/src/components/__tests__/TypePalette.test.tsx`,
+  `frontend/src/components/__tests__/typeColorSource.test.tsx`,
+  `frontend/src/components/TypePalette.parts/__tests__/typeModel.test.ts`,
+  `frontend/src/config/__tests__/typeColorMap.test.ts`. (@claude, 2026-08-07,
+  branch: feat/2025-data-types-tab-and-canvas-colour)
+
+- [#2023][#2024] A data type can now say how it looks and what files it reads,
+  and there is an endpoint that answers both. Type information used to reach the
+  frontend only as `type_hierarchy` riding on the block *schema* response, so
+  the only way to draw types was to ask for blocks; it carried no origin tier
+  and no file path, and its `ui_ring_color` field was populated by nothing,
+  which meant every type colour in the product was decided frontend-side from a
+  hand-written table plus a hash of the type name. A type could not influence
+  its own colour even though a block already could. `DataObject` now carries
+  optional `ui_color` / `ui_ring_color` class attributes, mirroring the block
+  precedent, and the type registry collects and validates them at registration
+  time: all four CSS hex forms are accepted and normalised to `#rrggbb` /
+  `#rrggbbaa`, and a value that is not a hex colour is dropped with a warning so
+  the type falls back to the appearance it would have had anyway — a typo in a
+  file in your own library costs you your chosen colour and nothing else. Both
+  attributes default to `None`, so every existing type renders exactly as
+  before. New `GET /api/types/` returns, per registered type, its name, base
+  type, description, origin tier (`core` / `user` / `project` / `package`, with
+  `custom` as the unresolvable-path fallback), the file it came from, the
+  declared colours, and the file extensions it can be **loaded from** and
+  **saved to** as two separate lists — a type readable from a format it cannot
+  be written back to is a real asymmetry, and merging the directions would
+  report `Series` as round-trippable through JSON when it is not. A type with no
+  format capability reports empty lists rather than omitting the field, because
+  "no file formats registered" is information. The endpoint is independent of
+  the block listing, so the Data types tab neither waits for a palette fetch nor
+  triggers one; `type_hierarchy` is left exactly as it was, including its dead
+  colour field, which is deliberately not revived — one fact supplied from two
+  places is the drift this work exists to remove. Origin resolution goes through
+  the same shared resolver the block palette uses, so a type's tier and a
+  block's tier cannot disagree. New `GET /api/types/template` returns a starter
+  data-type file in the same response shape as the block template, with the
+  colour attributes shown as commented-out lines so an author discovers the
+  capability exists. Tests: `tests/core/test_type_colour.py`,
+  `tests/api/test_types_routes.py`. (@claude, 2026-08-07, branch:
+  feat/2023-type-colour-and-types-api)
+
+- [#1995][#1996] The personal tool library is now a place the product can see
+  and write to. The block palette's single `custom` origin covered two different
+  directories — `~/.scistudio/blocks/` and `{project}/blocks/` — so the
+  user-wide tier existed on disk, worked, and was invisible; and nothing in the
+  product could put a file there, which meant the only way to promote a block
+  from "code in this project" to "a tool I own" was a file manager. Blocks now
+  resolve to distinct `builtin` / `user` / `project` / `package` origins, with
+  `custom` kept as the fallback for a path that resolves under neither drop-in
+  root (an absent path, a symlink escaping both, a differing Windows drive) so
+  behaviour degrades instead of breaking. Resolution is one shared function that
+  also serves the data-type surface, comparing **resolved real paths** rather
+  than string prefixes; the pre-existing `source` field is untouched, so existing
+  consumers of `custom` keep working. New `GET`/`PUT /api/user-library/file`
+  write into the two library directories with the **inverse** of the project
+  endpoint's path constraint — the target must be inside the library root — and
+  `PUT /api/projects/{project_id}/file` is unchanged: this adds a second door
+  rather than widening the first. The caller names the target tier explicitly and
+  supplies a bare `.py` filename; traversal, absolute and drive-relative paths,
+  nested and symlinked subdirectories, and non-Python extensions are refused, and
+  an existing file is reported as a 409 rather than silently overwritten
+  (overwriting takes an explicit opt-in). Every registry is rebuilt after a
+  write, so a new block or type is discoverable without a restart. A new
+  `promote_to_user_library` MCP tool gives the agent the same action — it copies
+  rather than moves, and refuses a built-in, packaged, or already-promoted block
+  — and the standalone `scistudio mcp-bridge` gained the invalidation channel it
+  never had: it used to build its registries once and hold them for the whole
+  session, so a file written by any other process stayed invisible until
+  restart, and it now re-reads the drop-in directories before handing a registry
+  out. Tests: `tests/api/test_block_origin_tiers.py`,
+  `tests/api/test_user_library_write.py`, `tests/ai/test_mcp_tools_library.py`.
+  (@claude, 2026-08-07, branch: feat/1995-origin-tiers-and-user-library-write)
+
 - [#1974] Canvas block nodes now show how long a block has been running: a
   compact elapsed-time counter appears beside the spinner on the node's status
   surface the moment the block enters the running state, counts up (`7s`,
@@ -166,6 +556,243 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   (@claude, 2026-07-02, branch: guided/1910-workflow-id-filename-palette-reload)
 
 ### Fixed
+
+- [#1996] Saving into My Library can no longer destroy a file another process
+  created a moment earlier. ADR-053 FR-008 says an existing file is reported,
+  never silently overwritten, and the endpoint checked for one before writing —
+  then wrote with `os.replace`, which overwrites unconditionally. Anything that
+  created the same library filename between those two steps was gone without a
+  message, even though the request had asked not to overwrite. That window is
+  reachable because of this same release: FR-065 wired the API process and the
+  standalone MCP bridge to share `~/.scistudio`, so two SciStudio processes
+  writing the same name is now an ordinary situation rather than a theoretical
+  one. A create now lands the file with a link, which the filesystem refuses
+  when the name is already taken, so the refusal is decided at the moment of
+  the write and the other writer's file survives; you get the same 409 and the
+  same **Overwrite / Save as new name** prompt you would have got a moment
+  earlier. An explicit `overwrite: true` still replaces, because that request
+  has said so. The file still appears complete or not at all — never
+  half-written — which is what keeps a palette refresh from importing a block
+  mid-save. Found by an external review of PR #2036. Tests:
+  `tests/api/test_user_library_write.py`. (@claude, 2026-08-08, branch:
+  fix/1996-codex-review-findings)
+
+- [#1996] Cancelling a promotion after its data types were already copied now
+  tells you so. **Save to My Library** writes a block's project-local data
+  types before the block itself, so that a failure never leaves a block in your
+  library whose types are missing. If you then hit an overwrite prompt for the
+  block and chose Cancel, those type files stayed in My Library — added, or
+  overwritten — and the app showed nothing at all, because a cancellation is
+  the user's own decision and needs no confirmation. That reasoning is right
+  for a cancellation that changed nothing and wrong for this one. The outcome
+  is now reported as a partial result: the notice reads **Partly saved to My
+  Library**, names the type files that are still there, and says to delete them
+  if you did not mean to keep them. They are reported rather than rolled back
+  because a dependency write that took the Overwrite branch replaced a file
+  that cannot be restored, so undoing would be a second silent change rather
+  than an undo. Found by an external review of PR #2036. Tests:
+  `frontend/src/components/promotion/__tests__/promoteToUserLibrary.test.ts`,
+  `frontend/src/components/promotion/__tests__/runPromotion.test.ts`. (@claude,
+  2026-08-08, branch: fix/1996-codex-review-findings)
+
+- [#2024] The Data types tab and the declared port colours now notice when the
+  types change. The frontend fetched the type listing once and then answered
+  every later question from that copy — for the rest of the session, unless you
+  pressed **Reload** on the tab yourself. Nothing else ever asked it to look
+  again: the websocket event that fires whenever the backend rebuilds its
+  registries refreshed only the *block* palette, and saving a file into your
+  library refreshed nothing at all. So editing a data type, creating one,
+  promoting a block that brought its types along, installing a package, or
+  pressing the palette's Reload left the tab and the canvas showing a registry
+  that no longer existed, with colours to match. Every one of those events now
+  drops the cached listing and re-reads it, and a reload asked for after a
+  write no longer gets folded into a request that was already on the wire
+  before the write landed. Found by an external review of PR #2036. Tests:
+  `frontend/src/store/__tests__/typeCatalogInvalidation.test.ts`. (@claude,
+  2026-08-08, branch: fix/1996-codex-review-findings)
+
+- [#1996] Promoting a block whose code contains a bracket inside a string now
+  still brings its data types along. The cascade detector joins multi-line
+  `import` statements by counting brackets, and it counted the ones inside
+  string literals too — so a single line like `pattern = "("` made every line
+  after it read as one continuation of that statement, and the block's real
+  `from spectrum import Spectrum` was never seen. **Save to My Library** then
+  copied the block without the type it depends on and said nothing, which is
+  exactly the silent outcome the one-level cascade limit is written to avoid:
+  the promoted block fails to load in the next project with no clue why. The
+  parse now removes string literals and comments before it counts anything,
+  including triple-quoted strings, escaped quotes and raw strings, so only real
+  brackets are counted and a `#` inside a string is no longer read as a
+  comment. Found by an external review of PR #2036. Tests:
+  `frontend/src/components/promotion/__tests__/pythonImports.test.ts`.
+  (@claude, 2026-08-08, branch: fix/1996-codex-review-findings)
+
+- [#2022] Reloading blocks and data types now runs the file you just edited.
+  Python caches compiled bytecode next to a source file and decides the cache
+  is still good by comparing the source's timestamp **in whole seconds** and
+  its size. A drop-in edited within a second of the last scan, to the same
+  length — renaming a field, flipping a boolean, changing a colour — matched
+  both, so the reload re-executed the previous version. It failed silently: the
+  type registry was emptied and then refilled with the definition it had just
+  removed, so the palette, the port colours and any experiment run afterwards
+  used code that is no longer on disk, with no error to notice. Both drop-in
+  scans now drop that cache entry before loading, from one shared helper, so an
+  edit is always compiled from source. The block scan is included because the
+  defect is the same defect — it was verified there against a real registry
+  after being found on the type side, and ADR-053's reload requirement is
+  written about registry-invalidating *events*, which cover both. Found by an
+  external review of PR #2035. Tests:
+  `tests/core/test_type_registry_scan_dirs.py`,
+  `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-08, branch:
+  fix/1996-codex-review-findings)
+
+- [#2022] The drop-in type name-collision guard now fails closed when it cannot
+  bind the module a drop-in would shadow. ADR-053 FR-016 refuses a file in
+  `{project}/types/` or `~/.scistudio/types/` whose name would shadow an
+  installed top-level module, and enforces the refusal by importing that module
+  first, so the installed package keeps winning while you rename the file. An
+  installed module can have a perfectly good spec and still raise on import — a
+  missing native dependency is the everyday case — and the guard swallowed that
+  failure. The name was then left unbound while the drop-in `types/` directory
+  joined `sys.path` anyway, so the next import of that name resolved the very
+  file the guard had just refused. FR-016 failed in exactly the situation it
+  exists for, and whether your machine was safe came down to the import health
+  of an unrelated package. Such a name is now refused outright for the life of
+  the process, scoped to the one colliding name so the rest of the drop-in
+  directory keeps working, and with a message naming both the collision and the
+  import failure it stands in for. Raising is also what the un-shadowed process
+  does: without the drop-in on `sys.path`, that import fails too. Found by an
+  external review of PR #2035. Tests:
+  `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-08, branch:
+  fix/1996-codex-review-findings)
+
+- [#2022] The drop-in type name-collision guard now looks at private names too.
+  ADR-053 FR-016 refuses a file in `{project}/types/` or `~/.scistudio/types/`
+  whose name would shadow an installed top-level module, because those
+  directories join `sys.path`. The implementation skipped every entry whose
+  name began with `_`, on the stated premise that private files are not
+  importable by name. They are: the underscore is a convention about what a
+  registry *registers*, not about what `import` can find. The exemption
+  therefore covered the names most worth protecting, because several of the
+  standard library's private modules are imported lazily by ordinary calls long
+  after any scan has run — so a file a user meant as a private helper could
+  quietly take a standard-library module's place for the rest of the API and
+  worker process lifetime, with no palette error, no log line, and no recorded
+  failure. The guard now asks the collision question of every entry the
+  directory makes importable, excluding only the two that structurally are not
+  importable by name, `__init__.py` and `__pycache__`. The registries keep
+  skipping `_` files for the separate question of which files declare types, so
+  a private helper whose name is free is still not refused. A test asserted the
+  exemption was correct and has been replaced by tests that assert the refusal,
+  for both the file and the package shape. Found by the independent no-context
+  write-path audit; the finding and its reproduction are in
+  `docs/audit/2026-08-07-adr-053-spec1-write-path.md` (P1-1). Tests:
+  `tests/blocks/test_dropin_type_import.py`. (@claude, 2026-08-07, branch:
+  fix/1996-track-b-audit-findings)
+
+- [#1996] The agent now refuses exactly the blocks the palette refuses. ADR-053
+  FR-019 offers **Save to My Library** only for a block whose resolved origin is
+  `project`, and the code editor, the canvas node and both palette tabs apply
+  that one condition. The agent's `promote_to_user_library` MCP tool asked two
+  narrower questions of its own instead — "is there a source file" and "is that
+  file's parent the library root" — so a drop-in block whose file resolved
+  under neither the project tier nor the user tier (the FR-002 `custom`
+  fallback: a symlinked drop-in escaping the project, a file on a different
+  Windows drive) was hidden by all three frontend entry points and accepted by
+  the agent. FR-003 asks for one origin implementation precisely so the two
+  cannot say different things, and this is the divergence it was written to
+  prevent.
+  The cause was layering rather than carelessness: the resolver lived in
+  `scistudio.api`, and the import-linter contract "AI must not depend on api"
+  put it out of the tool's reach. It now lives in `scistudio.core.origins`,
+  which both layers may import — the same reason `scistudio.core.dropins` sits
+  where it does — and `scistudio.api._block_source` re-exports every name, so
+  no API-side call site changed. The tool calls `map_block_origin`, the same
+  function that fills the `origin` field the frontend condition reads, and each
+  refused tier now has its own message telling the agent what to do next. All
+  13 import-linter contracts stay kept.
+  The FR-025 correspondence table in `promoteToUserLibrary.ts` is rewritten
+  around the resolved origin and now lists the `custom` row it omitted, and a
+  new test walks the entire origin vocabulary asserting the tool's accept set
+  is the frontend predicate's — reading the vocabulary out of
+  `frontend/src/types/api.ts` so neither side can add a value alone. The FR-003
+  anti-drift test, which asserted only that two constants carried the expected
+  labels, now asserts that every surface resolves through the same function
+  object. Found by the with-context Track B audit,
+  `docs/audit/2026-08-07-adr-053-spec1-track-b.md` (P2-2, P3-6). Tests:
+  `tests/ai/test_mcp_tools_library.py`, `tests/api/test_block_origin_tiers.py`.
+  (@claude, 2026-08-07, branch: fix/1996-track-b-audit-findings)
+
+- [#2024] The FR-066 dead-field guard can now fail. ADR-053 rejected supplying
+  type colour from a second place, so `TypeHierarchyEntry.ui_ring_color` on the
+  block schema response stays `None` while the types listing carries the
+  declared value. The test written to stop that decision being quietly reversed
+  ran against a fixture whose only registered types are the six core bases, and
+  none of those declares a colour — so the field was already `None` for reasons
+  that had nothing to do with the contract, and reintroducing the rejected
+  design would have left the test green. It now registers a type that really
+  does declare `ui_color` and `ui_ring_color`, asserts the listing carries them,
+  and only then asserts the hierarchy entry for that same type is still `None`.
+  Verified by reintroducing the rejected line: the new guard fails, the old one
+  passes. Found by the with-context Track B audit,
+  `docs/audit/2026-08-07-adr-053-spec1-track-b.md` (P2-1). Tests:
+  `tests/api/test_types_routes.py`. (@claude, 2026-08-07, branch:
+  fix/1996-track-b-audit-findings)
+
+- [#1996, #2022] Hardening across the drop-in write path and the drop-in scan,
+  from the independent no-context write-path audit
+  (`docs/audit/2026-08-07-adr-053-spec1-write-path.md`). Its verdict on the new
+  endpoint's containment was that it held against every escape the auditor could
+  execute — traversal, absolute, UNC, extended-length, device-namespace,
+  drive-relative, cross-drive, trailing-separator, and reparse-point — so what
+  follows is the edges around it rather than the rule itself.
+  **A drop-in that exits no longer takes the scan with it.** The scan isolated
+  `Exception` but not `SystemExit`, so a script turned into a block that kept
+  its `sys.exit(main())` or its `argparse` error path killed the palette refresh
+  on every startup, recorded no failure, and left the user no way to find the
+  file — the palette that would have shown the error is what died. Both drop-in
+  passes now record it and carry on. Two things stay outside that boundary and
+  are now said so plainly instead of being covered by a claim of isolation:
+  `os._exit()`, which no handler can intercept, and a module that never returns
+  from import. Both need the out-of-process sandbox deferred at #1531.
+  **The atomic write's temp file is no longer a drop-in.** It has to share the
+  destination directory for the rename to be atomic, and that directory is
+  scanned for `*.py` and executed — so a save concurrent with a palette refresh
+  could import a half-written temp file, and a failed write could leave one
+  behind for good. It now carries a `.tmp` suffix, and cleanup catches
+  everything the write can raise rather than only `OSError`.
+  **The filename rule refuses four more things that are never what the user
+  meant**: control characters (an embedded NUL passed every path check and then
+  broke the write), a leading dot (a live drop-in that most file listings hide),
+  a Windows reserved device stem, and an uppercase `.PY` (a live drop-in on
+  Windows and dead on POSIX). The basename test now asks both path flavours, so
+  the same rule holds whichever operating system opens the library.
+  **The two `sys.path` windows undo their own edits** instead of restoring a
+  snapshot taken on entry, which discarded anything the body added and, when two
+  windows overlapped, both lost the inner roots and leaked them.
+  The standalone bridge's change detector now sees package-shaped drop-ins and
+  uppercase suffixes; a collision with a namespace package no longer reports its
+  origin as `built-in`; and `_safe_under`'s refusal no longer says "outside
+  project root" for a path that has nothing to do with a project. Four
+  containment rules with no test that would fail if they were deleted now have
+  one each. Tests: `tests/api/test_user_library_write.py`,
+  `tests/blocks/test_dropin_type_import.py`, `tests/ai/test_mcp_tools_library.py`.
+  (@claude, 2026-08-07, branch: fix/1996-track-b-audit-findings)
+
+- [#1996] Three follow-ups from the with-context Track B audit
+  (`docs/audit/2026-08-07-adr-053-spec1-track-b.md`), none of them behaviour
+  changes. The Data types popover now walks all three non-promotable origins
+  when asserting FR-019 hides the action, matching the Blocks side, which had
+  the full sweep while the type side tested only `core` (P3-5).
+  `resolveRingColor`'s `typeHierarchy` parameter, unread since FR-066 removed
+  the branch that read it and kept only for positional parity with
+  `resolveTypeColor`, is renamed to `_typeHierarchy` so the signature says so
+  (P3-4). And the editor-toolbar entry point records, where it infers `project`
+  from a tab's path shape, that this is a claim about the path rather than the
+  backend's resolved answer, the one case where the two can differ, and why the
+  inference is not replaced by a lookup (P3-2). Tests:
+  `frontend/src/components/promotion/__tests__/entryPoints.test.tsx`.
+  (@claude, 2026-08-07, branch: fix/1996-track-b-audit-findings)
 
 - [#2021, #2009] Installing a package or switching a branch now re-discovers
   data types and previewers, not just blocks. The block registry was rebuilt

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, session } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, nativeTheme, session } = require("electron");
 const { spawn, spawnSync } = require("child_process");
 const crypto = require("crypto");
 const fs = require("fs");
@@ -39,6 +39,7 @@ const OTA_DOWNLOAD_TIMEOUT_MS = 120000;
 const OTA_MAX_REDIRECTS = 5;
 
 let mainWindow = null;
+let splashWindow = null;
 let runtimeProcess = null;
 let isQuitting = false;
 let cachedMacLoginShellEnv = null;
@@ -1106,6 +1107,31 @@ function startRuntimeOnPort(port) {
   });
 }
 
+function cacheBuildPath() {
+  return path.join(app.getPath("userData"), "cache-build.json");
+}
+
+// #2068: this used to be an unconditional clearCache() on every launch, which
+// threw away the frontend bundle each time and made every start pay a full
+// re-download and re-parse. The served assets only change when the effective
+// build changes (a new baseline or a newly applied OTA patch), so that is the
+// only moment the cache has to be dropped — which is what e538c071 was after.
+async function clearCacheOnBuildChange() {
+  const build = effectiveBuild();
+  if (!ota.shouldClearCache(readJsonSafe(cacheBuildPath()), build)) {
+    return;
+  }
+  safeLog(`[scistudio] clearing HTTP cache for build ${build}`);
+  await session.defaultSession.clearCache();
+  try {
+    writeJsonAtomic(cacheBuildPath(), { build });
+  } catch (error) {
+    // Best-effort: failing to record it only costs the next launch one more
+    // cache clear, which must not stop this one from starting.
+    safeError(`[scistudio] failed to record cache build: ${error.message}`);
+  }
+}
+
 function launchUrl(runtimeUrl) {
   const frontendUrl = process.env.SCISTUDIO_DESKTOP_FRONTEND_URL;
   const url = frontendUrl && frontendUrl.trim() ? frontendUrl.trim() : runtimeUrl;
@@ -1184,6 +1210,9 @@ function loadBeforeShowing(window, url, attempt = 0) {
     if (!window.isDestroyed() && !window.isVisible()) {
       window.show();
     }
+    // #2068: hand over only once the real window is up, so the two are never
+    // both absent and the user sees no gap.
+    closeSplash();
   };
 
   window.webContents.once("did-finish-load", async () => {
@@ -1207,6 +1236,78 @@ function loadBeforeShowing(window, url, attempt = 0) {
   });
 
   window.loadURL(url);
+}
+
+// #2068: the main window is deliberately hidden until the SPA has painted, and
+// everything before that — mandatory-update check, interpreter start, import
+// chain, registry scans — is silent. Measured at ~16s on a healthy launch, all
+// of it with nothing on screen. The splash owns that window of time and reports
+// the phase the main process is already in.
+function createSplashWindow() {
+  const splash = new BrowserWindow({
+    width: 380,
+    height: 260,
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    fullscreenable: false,
+    frame: false,
+    show: false,
+    center: true,
+    skipTaskbar: true,
+    title: "SciStudio",
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#171a21" : "#f7f8fb",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  });
+
+  splash.once("ready-to-show", () => {
+    if (!splash.isDestroyed()) {
+      splash.show();
+    }
+  });
+  // The status set before the page finished loading would have been dropped by
+  // executeJavaScript, so replay the latest one once the function exists.
+  splash.webContents.on("did-finish-load", () => {
+    applySplashStatus(splash);
+  });
+  splash.loadFile(path.join(__dirname, "splash.html"));
+  return splash;
+}
+
+let splashStatusText = "Starting…";
+
+function applySplashStatus(splash) {
+  if (!splash || splash.isDestroyed()) {
+    return;
+  }
+  splash.webContents
+    .executeJavaScript(
+      `window.__scistudioSplashStatus && window.__scistudioSplashStatus(${JSON.stringify(splashStatusText)})`,
+      true
+    )
+    .catch(() => {
+      // The splash is cosmetic; a failed status update must never break startup.
+    });
+}
+
+function splashStatus(message) {
+  splashStatusText = message;
+  safeLog(`[scistudio] splash: ${message}`);
+  applySplashStatus(splashWindow);
+}
+
+function closeSplash() {
+  if (!splashWindow || splashWindow.isDestroyed()) {
+    splashWindow = null;
+    return;
+  }
+  const splash = splashWindow;
+  splashWindow = null;
+  splash.close();
 }
 
 function createWindow(url) {
@@ -1276,15 +1377,20 @@ app.whenReady().then(async () => {
   }
   try {
     safeLog("[scistudio] electron ready");
+    splashWindow = createSplashWindow();
     // #1868: enforce a mandatory OTA update before starting the runtime/window.
     // Fail-open: returns true (continue) unless a fetched manifest marks the
     // update mandatory and the user declines or it cannot be applied.
+    splashStatus("Checking for updates…");
     const proceed = await maybeEnforceMandatoryUpdate();
     if (!proceed) {
+      closeSplash();
       return;
     }
+    splashStatus("Starting the SciStudio runtime…");
     const { ready } = await startRuntimeWithRollback();
     safeLog(`[scistudio] waiting for HTTP readiness at ${ready.url}`);
+    splashStatus("Loading blocks and data types…");
     await waitForHttpReady(ready.url);
     // #1986: the runtime answered on this port, so it is worth reusing next
     // launch to keep the renderer origin (and its persisted UI state) stable.
@@ -1292,9 +1398,10 @@ app.whenReady().then(async () => {
     // #1775: the runtime reached ready, so whatever patch is active booted
     // cleanly; remember it as the rollback target for future launches.
     recordKnownGood(effectiveBuild());
-    await session.defaultSession.clearCache();
+    await clearCacheOnBuildChange();
     const url = launchUrl(ready.url);
     safeLog(`[scistudio] creating window for ${url}`);
+    splashStatus("Loading the interface…");
     createWindow(url);
     // #1775: check for an OTA update after the window is up so startup is never
     // blocked on the network. Fire-and-forget; failures are logged, not fatal.
@@ -1303,6 +1410,7 @@ app.whenReady().then(async () => {
     });
   } catch (error) {
     safeError(`[scistudio] startup failed: ${error instanceof Error ? error.stack : String(error)}`);
+    closeSplash();
     await dialog.showMessageBox({
       type: "error",
       title: "SciStudio failed to start",

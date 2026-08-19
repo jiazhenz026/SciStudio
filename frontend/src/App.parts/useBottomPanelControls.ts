@@ -11,6 +11,7 @@
 import { useCallback, useRef } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 
+import { useAppStore } from "../store";
 import type { BottomTab } from "../types/ui";
 
 export interface BottomPanelControlsDeps {
@@ -52,6 +53,15 @@ export function useBottomPanelControls(deps: BottomPanelControlsDeps): BottomPan
       if (nodeId) {
         setActiveBottomTab("config");
         expandBottomPanel();
+        /*
+         * ADR-053 FR-052 (#2057) — `node_selected`, one of the three names in
+         * the closed `UI_EVENT_NAMES` set. Reported here rather than from
+         * `setSelectedNodeId`, which is also how the error badge and the plot
+         * picker move the selection: this callback is the user clicking a node
+         * on the canvas, which is what a step saying "click the block" waits
+         * for. A no-op when no tutorial is running.
+         */
+        void useAppStore.getState().reportTutorialUiEvent("node_selected");
       }
     },
     [expandBottomPanel, setSelectedNodeId, setActiveBottomTab],

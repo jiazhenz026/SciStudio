@@ -183,6 +183,12 @@ class BlockSummary(BaseModel):
     output_ports: list[BlockPortResponse] = Field(default_factory=list)
     direction: str | None = None
     source: str = ""
+    # ADR-053 FR-001/FR-002/FR-004: the resolved origin tier —
+    # ``builtin`` | ``user`` | ``project`` | ``package`` | ``custom``, where
+    # ``custom`` is the unresolvable-path fallback only. Additive rather than a
+    # redefinition of ``source``, which keeps its pre-ADR-053 collapsed
+    # vocabulary so existing consumers of ``custom`` keep working (FR-002).
+    origin: str = ""
     package_name: str = ""
     # ADR-029 D8: variadic port flags so the frontend palette can show [+]
     # affordances for variadic blocks even before the full schema is fetched.
@@ -217,6 +223,79 @@ class BlockListResponse(BaseModel):
     dropin_failures: list[DropinFailureResponse] = Field(default_factory=list)
 
 
+class TypeSummary(BaseModel):
+    """One registered ``DataObject`` type, as the Data types tab sees it.
+
+    ADR-053 FR-026. Deliberately not an extension of :class:`TypeHierarchyEntry`
+    on the block response: FR-027 makes the types listing independent of the
+    block listing, so the Data types tab neither waits for nor re-triggers a
+    palette fetch.
+    """
+
+    name: str = Field(description="Registered type name, e.g. 'DataFrame'.")
+    base_type: str = Field(default="", description="Immediate parent type name, or '' for DataObject itself.")
+    description: str = Field(default="", description="First line of the class docstring.")
+    origin: str = Field(
+        description=(
+            "ADR-053 FR-005 resolved origin tier: 'core' | 'user' | 'project' | "
+            "'package' | 'custom', where 'custom' is the unresolvable-path fallback."
+        )
+    )
+    file_path: str | None = Field(
+        default=None,
+        description="Absolute path of the file defining the type, or null when unresolvable.",
+    )
+    # ADR-053 FR-040: the Data types tab splits per-package sections the way the
+    # Blocks tab does, which means a package-tier type has to name its
+    # distribution. The value is the very string ``BlockSummary.package_name``
+    # reports for that distribution — looked up, not derived a second time — so
+    # the two tabs cannot title one package two different ways. Null everywhere
+    # else, including a distribution the block side does not name either.
+    package_name: str | None = Field(
+        default=None,
+        description=(
+            "Owning distribution, exactly as BlockSummary.package_name reports it. "
+            "Null for core, user-tier, project-tier, and unattributable types."
+        ),
+    )
+    # ADR-053 FR-049/FR-050: the colours the type itself declared, already
+    # validated and normalised to long-form CSS hex by the registry (FR-052),
+    # so an unusable value arrives here as null rather than as a string no
+    # consumer can parse. Null means "this type declared nothing" and the
+    # frontend applies the rest of the FR-051 precedence.
+    ui_color: str | None = Field(default=None, description="Type-declared fill colour, or null.")
+    ui_ring_color: str | None = Field(default=None, description="Type-declared ring colour, or null.")
+    # ADR-053 FR-054/FR-055/FR-056: always present, possibly empty. An empty
+    # list means "no format capability registered for this direction", which
+    # the popover states outright — absence of IO support is information.
+    load_extensions: list[str] = Field(
+        default_factory=list,
+        description="File extensions this type can be loaded from, sorted. Empty when none.",
+    )
+    save_extensions: list[str] = Field(
+        default_factory=list,
+        description="File extensions this type can be saved to, sorted. Empty when none.",
+    )
+
+
+class TypeListResponse(BaseModel):
+    """Response body for the registered data type listing (ADR-053 FR-026)."""
+
+    types: list[TypeSummary] = Field(default_factory=list)
+
+
+class TypeTemplateResponse(BaseModel):
+    """Response shape for ``GET /api/types/template`` (ADR-053 FR-028).
+
+    Identical in shape to ``BlockTemplateResponse`` so the new-block and
+    new-data-type flows can share their fetch-write-open steps (FR-033).
+    """
+
+    kind: str
+    content: str
+    suggested_filename: str
+
+
 class BlockSourceResponse(BaseModel):
     """Read-only source code backing a registered block type (#1758)."""
 
@@ -224,7 +303,12 @@ class BlockSourceResponse(BaseModel):
     path: str = Field(description="Absolute filesystem path of the block's source file.")
     source: str = Field(description="Full source text of the block's file.")
     language: str = Field(default="python", description="Source language (always 'python' today).")
-    origin: str = Field(description="Block origin: 'builtin' | 'package' | 'custom'.")
+    origin: str = Field(
+        description=(
+            "ADR-053 FR-001 resolved origin tier: 'builtin' | 'user' | 'project' | "
+            "'package' | 'custom', where 'custom' is the unresolvable-path fallback."
+        )
+    )
 
 
 class BlockSchemaResponse(BlockSummary):
@@ -599,3 +683,113 @@ class ErrorResponse(BaseModel):
 
     detail: str
     error_code: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# ADR-053 §4 — the user-wide library write path (FR-006 to FR-008).
+#
+# The user library is the one place in the product that lives outside every
+# project root, so its request shapes are deliberately narrow: the caller names
+# the target tier explicitly (FR-006 forbids inferring it from file content)
+# and supplies a bare filename, never a path. Nothing here can express a
+# directory, which is what makes the route's containment check a confirmation
+# rather than the only line of defence.
+# ---------------------------------------------------------------------------
+
+#: FR-006: the two user-library targets, chosen by the caller and never
+#: inferred. The values are the drop-in child directory names from
+#: :mod:`scistudio.core.dropins`.
+UserLibraryTarget = Literal["blocks", "types"]
+
+
+class MoveSourceRef(BaseModel):
+    """The project file a library write should consume (ADR-053 FR-017).
+
+    Promotion **moves**: the copy in the library becomes the only copy, so the
+    write that creates it is also what removes the original. Naming the source
+    here rather than adding a general project-file delete endpoint keeps the
+    blast radius at exactly this operation — there is no way to reach the
+    removal except by first writing that file's content somewhere else.
+    """
+
+    project_id: str = Field(description="Project whose root the path is resolved against.")
+    path: str = Field(
+        description=(
+            "Project-relative path of the file to remove once the write has succeeded. "
+            "Sandboxed by the same resolver the project file read and write use."
+        )
+    )
+
+
+class UserLibraryWriteRequest(BaseModel):
+    """Request body for ``PUT /api/user-library/file`` (ADR-053 FR-006)."""
+
+    content: str = Field(description="Full UTF-8 text to write to the file.")
+    overwrite: bool = Field(
+        default=False,
+        description=(
+            "ADR-053 FR-008: writing over an existing file requires this explicit "
+            "opt-in. Without it an existing target is reported as a 409 conflict so "
+            "the UI can prompt for overwrite or save-as-new-name."
+        ),
+    )
+    move_from: MoveSourceRef | None = Field(
+        default=None,
+        description=(
+            "ADR-053 FR-017: when set, the named project file is removed after the write "
+            "succeeds, which is what makes promotion a move rather than a copy. Omitted "
+            "by callers creating a new file rather than promoting an existing one."
+        ),
+    )
+
+
+class UserLibraryFileResponse(BaseModel):
+    """Response body for ``GET /api/user-library/file`` (ADR-053 FR-031).
+
+    The user-library counterpart of the project file read: a 200 means the file
+    exists, a 404 means it does not, which is exactly the signal the frontend's
+    existence probe needs before offering to create or promote.
+    """
+
+    target: UserLibraryTarget
+    filename: str
+    path: str = Field(description="Absolute path of the file inside the user library.")
+    content: str
+    mtime: float
+    size: int
+    encoding: str = "utf-8"
+
+
+class UserLibraryWriteResponse(BaseModel):
+    """Response body for ``PUT /api/user-library/file`` (ADR-053 FR-006/FR-010)."""
+
+    target: UserLibraryTarget
+    filename: str
+    path: str = Field(description="Absolute path of the file inside the user library.")
+    mtime: float
+    size: int
+    kind: str = Field(description="'created' for a new file, 'modified' for an accepted overwrite.")
+    registries_refreshed: bool = Field(
+        description=(
+            "ADR-053 FR-010: whether the post-write registry refresh succeeded, so the "
+            "new block or type is discoverable without a restart. False means the file "
+            "landed but the caller should trigger a palette reload."
+        )
+    )
+    moved_from: str | None = Field(
+        default=None,
+        description=(
+            "ADR-053 FR-017: the project file that was removed, making this a move. "
+            "None when the request named no source, or when removing it failed — in "
+            "which case ``move_error`` says why and the original is still there."
+        ),
+    )
+    move_error: str | None = Field(
+        default=None,
+        description=(
+            "Why the source could not be removed, or None. A failure here never fails "
+            "the request: the library copy exists, so the promotion succeeded, and the "
+            "outcome is a copy rather than a move — which the UI reports rather than "
+            "hides."
+        ),
+    )

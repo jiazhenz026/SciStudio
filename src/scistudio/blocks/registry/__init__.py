@@ -357,6 +357,7 @@ class BlockRegistry:
         self._package_src_dirs: list[Path] = []
         self._packages: dict[str, PackageInfo] = {}
         self._dropin_failures: list[DropinFailure] = []
+        self._entry_point_diagnostics: list[str] = []
 
     def add_scan_dir(self, directory: str | Path) -> None:
         """Register a directory of drop-in block files to scan.
@@ -611,6 +612,21 @@ class BlockRegistry:
         :meth:`hot_reload`.
         """
         return list(self._dropin_failures)
+
+    @property
+    def diagnostics(self) -> list[str]:
+        """Return what the most recent ``scistudio.blocks`` entry-point scan refused.
+
+        ADR-053 FR-028: a package that installed successfully and contributed
+        nothing is indistinguishable, from the user's side, from a package that
+        had nothing to contribute — unless the failure is recorded somewhere
+        the product can show it. The previewer registry has always kept this
+        list; the block and type registries now keep the same one, in the same
+        ``list[str]`` shape, from the same shared helper.
+
+        Rebuilt by every entry-point pass, like :meth:`dropin_failures`.
+        """
+        return list(self._entry_point_diagnostics)
 
     def all_specs(self) -> dict[str, BlockSpec]:
         """Return every registered block keyed by name.

@@ -26,6 +26,8 @@ import type { BlockNodeData } from "../../types/ui";
 import { computeEffectivePorts } from "../../utils/computeEffectivePorts";
 
 import { BlockDetailPopover, type PopoverAnchor } from "../BlockDetailPopover";
+import { PromoteToLibraryAction } from "../promotion/PromoteToLibraryAction";
+import { promotableBlock } from "../promotion/promotable";
 import { NodeActionToolbar } from "./BlockNode.parts/NodeActionToolbar";
 import { NodeStatusSurface } from "./BlockNode.parts/NodeStatusSurface";
 import { PortHandles } from "./BlockNode.parts/PortHandles";
@@ -151,12 +153,35 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
     <div
       ref={shellRef}
       data-testid="block-node-shell"
+      // ADR-053 (#2057) — a step saying "select the Load block you dropped"
+      // points at this node. Keyed by block type rather than node id, because a
+      // manifest is written before the workflow exists and cannot know the ids
+      // the canvas will mint (#2062).
+      data-tutorial-target="node"
+      data-tutorial-target-key={data.blockType}
       className="relative"
       onMouseEnter={showActions}
       onMouseLeave={scheduleHideActions}
     >
-      {/* Floating actions — outside the square body (ADR-050 §2.2). */}
-      <NodeActionToolbar visible={actionsVisible} onRun={data.onRun} onDelete={data.onDelete} />
+      {/* Floating actions — outside the square body (ADR-050 §2.2).
+          ADR-053 §6.2 E2: "Move to My Library" joins the same menu, from the
+          block's own summary — the shared action hides itself for anything
+          whose resolved origin is not `project` (FR-019), so a built-in or
+          already-promoted node's menu is unchanged. */}
+      <NodeActionToolbar
+        visible={actionsVisible}
+        onRun={data.onRun}
+        onDelete={data.onDelete}
+        trailing={
+          summary ? (
+            <PromoteToLibraryAction
+              entryPoint="E2"
+              item={promotableBlock(summary)}
+              variant="icon"
+            />
+          ) : null
+        }
+      />
 
       {/* Hover detail popover beside the node (#1887). Shared with the palette;
           pointer-events-none + fixed positioning keep it out of layout flow.

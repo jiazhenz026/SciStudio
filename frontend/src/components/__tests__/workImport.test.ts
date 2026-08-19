@@ -42,7 +42,8 @@ function validRequest(overrides: Partial<WorkImportSessionRequest> = {}): WorkIm
     workflow_description: null,
     interaction_wishes: null,
     other_software: null,
-    skipped: ["workflow_description", "interaction_wishes", "other_software"],
+    anything_else: null,
+    skipped: ["workflow_description", "interaction_wishes", "other_software", "anything_else"],
     provider: "claude-code",
     permission_mode: "safe",
     ...overrides,
@@ -78,6 +79,7 @@ describe("buildRequest (FR-021, FR-023)", () => {
         workflowDescription: { text: "Load the export, drop blanks, normalise.", skipped: false },
         interactionWishes: { text: "", skipped: true },
         otherSoftware: { text: "", skipped: false },
+        anythingElse: { text: " Ask before touching raw/. ", skipped: false },
       }),
       "/projects/demo",
     );
@@ -92,6 +94,7 @@ describe("buildRequest (FR-021, FR-023)", () => {
       workflow_description: "Load the export, drop blanks, normalise.",
       interaction_wishes: null,
       other_software: null,
+      anything_else: "Ask before touching raw/.",
       // An explicit skip and a box the user walked past are the same claim —
       // "they did not say" — and both must reach the agent as skipped.
       skipped: ["interaction_wishes", "other_software"],
@@ -107,12 +110,14 @@ describe("buildRequest (FR-021, FR-023)", () => {
         workflowDescription: { text: "", skipped: true },
         interactionWishes: { text: "Let me pick the background patch.", skipped: false },
         otherSoftware: { text: "Fiji", skipped: false },
+        anythingElse: { text: "", skipped: true },
       }),
       "/p",
     );
-    expect(request.skipped).toEqual(["workflow_description"]);
+    expect(request.skipped).toEqual(["workflow_description", "anything_else"]);
     expect(request.interaction_wishes).toBe("Let me pick the background patch.");
     expect(request.other_software).toBe("Fiji");
+    expect(request.anything_else).toBeNull();
   });
 
   it("FR-010: no-codebase mode sends a null source and leaves the destination in effect", () => {
@@ -140,7 +145,7 @@ describe("blockingReasons (FR-017, FR-020)", () => {
     expect(reasons.some((r) => /at least one kind of data/.test(r))).toBe(true);
   });
 
-  it("questions 3 and 4 never block", () => {
+  it("questions 3, 4 and 5 never block", () => {
     const reasons = blockingReasons(form({ sourceLocation: "/repo", dataKinds: ["Array"] }), {
       projectDir: "/p",
       agentUsable: true,
@@ -224,6 +229,7 @@ describe("validateWorkImportRequest — A2's ImportSessionContext rules", () => 
           "workflow_description",
           "interaction_wishes",
           "other_software",
+          "anything_else",
         ],
       }),
     );
@@ -239,7 +245,7 @@ describe("validateWorkImportRequest — A2's ImportSessionContext rules", () => 
 
   it("rejects a blank answer that is not marked as skipped", () => {
     const problems = validateWorkImportRequest(
-      validRequest({ skipped: ["workflow_description", "interaction_wishes"] }),
+      validRequest({ skipped: ["workflow_description", "interaction_wishes", "anything_else"] }),
     );
     expect(problems).toContain('"other_software" has no answer and is not marked as skipped.');
   });
@@ -248,7 +254,7 @@ describe("validateWorkImportRequest — A2's ImportSessionContext rules", () => 
     const problems = validateWorkImportRequest(
       validRequest({
         other_software: "   ",
-        skipped: ["workflow_description", "interaction_wishes"],
+        skipped: ["workflow_description", "interaction_wishes", "anything_else"],
       }),
     );
     expect(problems).toContain('"other_software" has no answer and is not marked as skipped.');
@@ -266,6 +272,7 @@ describe("buildRequest always satisfies A2's rules", () => {
         workflowDescription: { text: "in, out", skipped: false },
         interactionWishes: { text: "background patch", skipped: false },
         otherSoftware: { text: "Fiji", skipped: false },
+        anythingElse: { text: "ask before touching raw/", skipped: false },
       }),
     ],
     [

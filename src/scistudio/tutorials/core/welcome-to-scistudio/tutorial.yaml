@@ -1,0 +1,262 @@
+# Core tutorial 1 — "Welcome to SciStudio" (scenarios doc, 关卡 1).
+#
+# Teaches four things by doing them once each: what a workflow is, what a block
+# is, what a plot is, and what History is for. The reader writes no code — the
+# block source and the plot script are shipped under assets/code/ and written
+# into the project by step actions.
+#
+# Zero external configuration (ADR-053 §5.2): no AI provider, no package
+# install, no network. Everything it touches is core.
+manifest_version: 1
+id: welcome-to-scistudio
+title: Welcome to SciStudio
+summary: >-
+  Your first tutorial. It introduces the ideas the rest of SciStudio rests on:
+  what a workflow is, what a block is, what a plot is, and what History is for.
+order: 1
+
+requires:
+  # to_memory() and the ergonomic table accessors the shipped block source
+  # relies on are stable from 0.3.1 (ADR-052 §10).
+  scistudio: ">=0.3.1"
+  agent: false
+  packages: []
+
+bootstrap:
+  project_name: Welcome to SciStudio
+  do:
+    # Lands as data/raw/cell_viability_fluorescence.csv, the path every step
+    # below names.
+    - copy:
+        source: assets/data
+        destination: data/raw
+
+steps:
+  - id: welcome
+    title: Welcome
+    route_to: canvas
+    say: >-
+      Welcome to SciStudio. This tutorial walks you through the basic concepts
+      and the basic moves.
+
+  - id: drag-load
+    title: Blocks
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: load_data
+    say: >-
+      A block is SciStudio's basic unit of data processing. Drag Load onto the
+      canvas to load your data.
+    done_when:
+      node_exists:
+        block_type: load_data
+
+  # Two steps rather than one, because the thing to look at changes halfway
+  # through: first the node on the canvas, then the settings panel that
+  # selecting it fills in. One step could only point at one of them.
+  - id: select-the-load-block
+    title: Config
+    route_to: canvas
+    highlight:
+      node:
+        block_type: load_data
+    say: >-
+      Click the block to edit its config.
+
+  - id: point-load-at-the-data
+    title: Point Load at your data
+    route_to: config
+    highlight: config_panel
+    say: >-
+      Press Browse, open data then raw, pick
+      cell_viability_fluorescence.csv, leave core_type as DataFrame, and set
+      format to CSV.
+    done_when:
+      config_matches:
+        block_type: load_data
+        key: path
+        pattern: data/raw/cell_viability_fluorescence.csv
+
+  - id: create-the-block
+    title: Make a block of your own
+    route_to: canvas
+    highlight: new_menu_button
+    prefill:
+      - new_custom_block:
+          filename: normalize_fluorescence
+    say: >-
+      Next you make a block of your own. Press New, choose New custom block,
+      keep the offered name, and save the block to this project.
+    done_when:
+      file_exists:
+        path: blocks/normalize_fluorescence.py
+
+  # The block the reader just created is empty. Filling it in is this step's
+  # entry action rather than the previous step's, because actions run on entry
+  # (FR-059): writing the file in the step that asks for it to be created would
+  # put it there first, and the New custom block flow would refuse the name as
+  # already taken. Landing here, the block is registered before this step's text
+  # is readable, which is what lets the text name it in the palette.
+  - id: wire-the-block
+    title: Wire it up
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: normalize_fluorescence
+    do:
+      - write:
+          source: assets/code/normalize_fluorescence.py
+          destination: blocks/normalize_fluorescence.py
+    say: >-
+      Click the canvas tab — creating the block left your editor open on it.
+      Then drag Normalize Fluorescence onto the canvas and connect the Load
+      block's data output to its input.
+    done_when:
+      all:
+        - node_exists:
+            block_type: normalize_fluorescence
+        - edge_exists:
+            source_block_type: load_data
+            target_block_type: normalize_fluorescence
+
+  - id: add-save
+    title: Save the result
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: save_data
+    say: >-
+      Drag a Save block onto the canvas and connect the normalized output to it.
+    done_when:
+      all:
+        - node_exists:
+            block_type: save_data
+        - edge_exists:
+            source_block_type: normalize_fluorescence
+            target_block_type: save_data
+
+  # The save half mirrors the load half: place it, then say what it points at.
+  # Two steps rather than one because the thing to look at changes — the node on
+  # the canvas, then the settings panel selecting it fills in — and because a
+  # single step asking for three things and judging two let a reader continue
+  # with an unconfigured Save block that then could not run.
+  - id: point-save-at-a-file
+    title: Choose where it lands
+    route_to: config
+    highlight: config_panel
+    prefill:
+      # The filename is named by the step, so the reader chooses a folder rather
+      # than inventing a name. Its .csv suffix is what picks the format.
+      - block_config:
+          block_type: save_data
+          key: filename
+          value: result.csv
+    say: >-
+      Select the Save block, then press Browse and choose the data/processed
+      folder.
+    done_when:
+      # The folder, which is what the reader does here — not the filename, which
+      # the step above filled in. Relative patterns match from the right, so this
+      # judges the browsed path wherever the project lives.
+      config_matches:
+        block_type: save_data
+        key: path
+        pattern: data/processed
+
+  - id: run-the-workflow
+    title: Run it
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      Press Run. SciStudio walks the graph in order and records what happened;
+      if a block fails, the canvas marks it and the Logs tab carries the error.
+    done_when:
+      run_succeeded: {}
+
+  - id: look-at-the-numbers
+    title: Read the output
+    route_to: canvas
+    highlight:
+      node:
+        block_type: normalize_fluorescence
+    say: Click the block to view its output in the previewer.
+    done_when:
+      ui_event:
+        name: node_selected
+
+  - id: create-the-plot
+    title: Plots
+    route_to: plots
+    highlight: plots_new_button
+    prefill:
+      - new_plot:
+          name: normalized_activity
+    say: >-
+      Press New and bind the plot to the Normalize Fluorescence block's
+      normalized output.
+    done_when:
+      plot_exists:
+        plot_id: normalized_activity
+
+  - id: render-the-plot
+    title: Draw it
+    route_to: plots
+    highlight:
+      plot_card:
+        plot_id: normalized_activity
+    do:
+      - write:
+          source: assets/code/normalized_activity_render.py
+          destination: plots/normalized_activity/render.py
+    say: >-
+      We filled in the drawing code at plots/normalized_activity/render.py.
+      Press Run on the plot card.
+    done_when:
+      ui_event:
+        name: plot_rendered
+
+  # Two steps, because the reader has to *meet* the break before being told how
+  # to recover from it. A single step that announced the damage and the cure in
+  # one breath asked them to trust both; running it themselves and watching the
+  # node go red is the part that makes Restore mean something.
+  - id: something-changed-underneath-you
+    title: Something breaks
+    route_to: canvas
+    highlight: run_button
+    do:
+      - write:
+          source: assets/code/normalize_fluorescence_renamed.py
+          destination: blocks/normalize_fluorescence.py
+    say: >-
+      While writing that plot code we slipped and renamed your block. Click the
+      workflow tab, press Run, and see what happens.
+    done_when:
+      # The break has to be met, not announced: without this the step advanced
+      # on a Continue the reader could press without ever running anything, and
+      # Restore then fixed something they had not seen go wrong.
+      run_failed: {}
+
+  - id: restore-what-broke
+    title: History
+    route_to: history
+    highlight: history_restore_button
+    say: >-
+      That was us: we changed your block wrongly, and your workflow can no
+      longer find it. Open History, select the run you made earlier, and press
+      Restore.
+    done_when:
+      block_registered:
+        block_type: normalize_fluorescence
+
+  - id: run-it-yourself
+    title: Run it again
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      Restore put the files back and stopped. Press Run and watch the workflow
+      complete again.
+
+  - id: what-you-learned
+    title: Done
+    say: Congratulations — you have finished this tutorial!

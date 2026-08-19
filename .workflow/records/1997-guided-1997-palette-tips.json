@@ -1,0 +1,746 @@
+{
+  "branch": "guided/1997-palette-tips",
+  "check_events": [
+    {
+      "at": "2026-08-09T08:35:40.360156Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-09T08:36:11.267408Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e27198bd9051ef643e1cbde36e9feefeafc847c3321d23e865a134ee3eebfc89",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T08:36:16.325180Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cbb30fa2b0eb4fcb03f2743dc5e91dfa18f32630b1e2d15c97ccd7fc2b34b4ae",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-09T08:36:16.435053Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-09T08:39:02.906330Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:210ce1ff23b0a69c312820a3e32a20635cb67354dca03daefcc232ffc67d0f6b",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": null,
+    "shas": [],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/**",
+      "docs/specs/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-09T06:17:25.302242Z",
+      "owner_directive": "On panel resize the tip overlay keeps a constant height (title + two clamped lines); text that no longer fits gets an expand control instead of growing the card",
+      "reason": "owner refined the tip overlay's resize behaviour during the live session"
+    },
+    {
+      "at": "2026-08-09T06:33:10.877215Z",
+      "owner_directive": "Tip card type is too small; scale the title, body, and expand control up",
+      "reason": "owner reviewed the running dev app and asked for larger type"
+    },
+    {
+      "at": "2026-08-09T06:39:53.543340Z",
+      "owner_directive": "At the panel's narrowest the tip title overflows the card, and the Blocks grid clips its tiles; truncate the title and raise the left panel's minimum width",
+      "reason": "owner found two narrow-panel defects while live-testing"
+    },
+    {
+      "at": "2026-08-09T08:34:32.462872Z",
+      "owner_directive": "Title may wrap to two lines on a narrow panel, and the expand control must release the title along with the body.",
+      "reason": "owner directives during the live session: title wraps to two lines and expands with the body; tips come out scattered rather than in authoring order; no per-tab scoping"
+    },
+    {
+      "at": "2026-08-09T08:34:32.463086Z",
+      "owner_directive": "Tips must come out mixed rather than chapter by chapter.",
+      "reason": "owner directives during the live session: title wraps to two lines and expands with the body; tips come out scattered rather than in authoring order; no per-tab scoping"
+    },
+    {
+      "at": "2026-08-09T08:34:32.463090Z",
+      "owner_directive": "Do not scope any tip to one of the Blocks / Data types / Project tabs; every tip may appear on all three.",
+      "reason": "owner directives during the live session: title wraps to two lines and expands with the body; tips come out scattered rather than in authoring order; no per-tab scoping"
+    },
+    {
+      "at": "2026-08-09T08:34:32.463091Z",
+      "owner_directive": "Stop authoring chapters here: terminal, interactive panel and settings tips are dropped; finish the feature and open the PR.",
+      "reason": "owner directives during the live session: title wraps to two lines and expands with the body; tips come out scattered rather than in authoring order; no per-tab scoping"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-09T08:39:10.533004Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/frontend-block-palette.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-08-09T08:39:02.941266Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:02.954978Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "frontend/src/App.parts/ProjectWorkspace.tsx",
+              "frontend/src/components/palette/tips/PaletteTipCard.tsx",
+              "frontend/src/components/palette/tips/__tests__/PaletteTipCard.test.tsx",
+              "frontend/src/components/palette/tips/__tests__/tipPool.test.ts",
+              "frontend/src/components/palette/tips/__tests__/useTipRotation.test.ts",
+              "frontend/src/components/palette/tips/tipPool.ts",
+              "frontend/src/components/palette/tips/useTipRotation.ts"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-09T08:39:02.965761Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:02.976372Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:02.986470Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:02.997133Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:03.007320Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:03.020279Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:03.030945Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:03.045083Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:17.872072Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:17.882625Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:17.893538Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:17.904329Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:17.915093Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:17.926318Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:17.937248Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:17.947942Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:17.958952Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:17.974464Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:59.937802Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:59.948181Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:59.958745Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:59.970301Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:59.980571Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:39:59.990940Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:00.001441Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:00.014370Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:00.025203Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:00.040368Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:21.698457Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:21.709528Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:21.720767Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:21.732513Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:21.744366Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:21.755079Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:21.766393Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:21.777517Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:21.788713Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:21.804517Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:28.742376Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:28.754169Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:28.765747Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:28.777041Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:28.788501Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:28.800216Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:28.811959Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:28.823636Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:28.835548Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-09T08:40:28.851106Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1997,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "5f9f2b120c70bf69d8870d77af4cc0a5f55404e3",
+    "base_sha": "5f9f2b12",
+    "changed_files": [
+      ".workflow/records/1997-guided-1997-palette-tips.json",
+      "docs/specs/frontend-block-palette.md",
+      "frontend/src/App.parts/ProjectWorkspace.tsx",
+      "frontend/src/components/palette/tips/PaletteTipCard.tsx",
+      "frontend/src/components/palette/tips/__tests__/PaletteTipCard.test.tsx",
+      "frontend/src/components/palette/tips/__tests__/tipPool.test.ts",
+      "frontend/src/components/palette/tips/__tests__/useTipRotation.test.ts",
+      "frontend/src/components/palette/tips/tipPool.ts",
+      "frontend/src/components/palette/tips/useTipRotation.ts"
+    ],
+    "diff_fingerprint": "sha256:a5fddc863e63f397882b53641c7e5d090825a9bd88d21aacce61b89ec4a10ef1",
+    "head": "HEAD",
+    "head_sha": "69a62e0e",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 7,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 7,
+      "packaging": 0,
+      "protected_core": 0,
+      "sentrux": 8,
+      "test": 3,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Implement the palette tips surface from #1997, redesigned live: an overlay card pinned to the bottom of the shared left panel (Blocks / Data types / Project), 60s visible / 60s hidden rotation, x-dismiss with 5-minute snooze then session-off on the second dismiss, ember colour, placeholder tip content for now",
+  "persona": "live_implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      1997
+    ],
+    "number": 2065,
+    "url": "https://github.com/jiazhenz026/SciStudio/pull/2065"
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-08-09T08:39:03.045133Z",
+      "diff_fingerprint": "sha256:896103ef060a6f3033688565832c1d1224112f8b7887b2a7cb1443790186b6b1",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "tests.changed_test_required"
+      ]
+    },
+    {
+      "at": "2026-08-09T08:39:17.974494Z",
+      "diff_fingerprint": "sha256:000bbbac8363b15980bf40caa9d48601156a4d6835b35af4b134a133d8246b0d",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-09T08:40:00.040420Z",
+      "diff_fingerprint": "sha256:000bbbac8363b15980bf40caa9d48601156a4d6835b35af4b134a133d8246b0d",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-09T08:40:21.804546Z",
+      "diff_fingerprint": "sha256:a5fddc863e63f397882b53641c7e5d090825a9bd88d21aacce61b89ec4a10ef1",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-09T08:40:28.851144Z",
+      "diff_fingerprint": "sha256:a5fddc863e63f397882b53641c7e5d090825a9bd88d21aacce61b89ec4a10ef1",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1997-guided-1997-palette-tips",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "frontend",
+      "full_audit",
+      "lint_format",
+      "semantic_dup"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "496acf7b-24d3-4b85-b1b6-849de11831b4",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-08-09T08:39:10.533176Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/palette/tips/__tests__/tipPool.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T08:39:10.533182Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/palette/tips/__tests__/useTipRotation.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-09T08:39:10.533183Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/palette/tips/__tests__/PaletteTipCard.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

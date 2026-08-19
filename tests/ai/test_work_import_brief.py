@@ -76,6 +76,7 @@ def make_context(**overrides: object) -> ImportSessionContext:
         "workflow_description": "Load TIFFs, subtract background, segment, then measure per-cell intensity.",
         "interaction_wishes": "Picking the background region by eye.",
         "other_software": "Fiji and CellProfiler",
+        "anything_else": "The folder names carry the plate id, so please keep them.",
         "skipped": frozenset(),
         "provider": "claude-code",
         "permission_mode": "safe",
@@ -88,6 +89,7 @@ ALL_SKIPPED: dict[str, object] = {
     "workflow_description": None,
     "interaction_wishes": None,
     "other_software": None,
+    "anything_else": None,
     "skipped": frozenset(SKIPPABLE_QUESTIONS),
 }
 """Overrides for the user who skipped every skippable question (SC-006)."""
@@ -109,9 +111,9 @@ def test_loaded_template_is_the_transcribed_file() -> None:
 
 
 def test_template_answers_section_carries_exactly_the_expected_placeholders() -> None:
-    """§4.6 defines seven substitution points, all inside "What they told us"."""
+    """§4.6 defines eight substitution points, all inside "What they told us"."""
     template = load_brief_template()
-    assert len(PLACEHOLDER_RE.findall(_answers_section(template))) == 7
+    assert len(PLACEHOLDER_RE.findall(_answers_section(template))) == 8
 
     before, after = _outside_answers_section(template)
     # The only braces elsewhere are the literal ``{project}`` destination paths
@@ -136,7 +138,8 @@ def test_template_answers_section_carries_exactly_the_expected_placeholders() ->
                 data_kinds_other=None,
                 interaction_wishes=None,
                 other_software=None,
-                skipped=frozenset({"interaction_wishes", "other_software"}),
+                anything_else=None,
+                skipped=frozenset({"interaction_wishes", "other_software", "anything_else"}),
                 provider="codex",
                 permission_mode="bypass",
             ),
@@ -174,6 +177,7 @@ def test_no_placeholder_survives_composition(context: ImportSessionContext) -> N
         "*Briefly describe your analysis workflow",
         "*Which steps would you like to be able to interact with, or see the",
         "*Which other data analysis software do you use regularly?*",
+        "*Is there anything else you want to tell the agent before it",
     ],
 )
 def test_each_question_is_reproduced_as_the_user_saw_it(question_text: str) -> None:
@@ -260,6 +264,46 @@ def test_the_dialogs_preset_labels_are_the_ones_the_brief_reproduces() -> None:
     assert _dialog_preset_labels() == DATA_KIND_PRESETS
 
 
+def _dialog_string_constant(name: str) -> str:
+    """The value of a single ``export const <name> = "…" + "…";`` in ``copy.ts``.
+
+    Read out of the TypeScript source for the same reason
+    :func:`_dialog_preset_labels` is: the property being pinned spans the two
+    languages, and this side is the one that can read a ``.ts`` file with no
+    toolchain. The copy module wraps its longer strings across lines with ``+``,
+    so the segments are concatenated back together here.
+    """
+    source = COPY_TS_PATH.read_text(encoding="utf-8")
+    start = source.index(f"export const {name} =")
+    declaration = source[start : source.index(";", start)]
+    segments = re.findall(r'"((?:[^"\\]|\\.)*)"', declaration)
+    assert segments, f"{name} not found as a string constant in {COPY_TS_PATH}"
+    return "".join(segments)
+
+
+def _unwrapped(text: str) -> str:
+    """Collapse the template's soft line wrapping, as the dialog's copy has none."""
+    return re.sub(r"\s+", " ", text)
+
+
+@pytest.mark.parametrize("constant", ["Q5_LABEL", "Q5_HELP"])
+def test_question_5_reaches_the_agent_in_the_dialogs_own_words(constant: str) -> None:
+    """FR-019a: question 5 is open, so its wording is the whole of what was asked.
+
+    The other four questions each name a subject, and an agent reading a short
+    answer to one of them can tell what it is an answer to. Question 5 names
+    nothing: without the prompt the user actually saw — the question and the
+    line under it listing the kinds of thing it wanted — an answer like "the
+    plate ids matter" arrives with no indication of what it was a reply to.
+
+    So both strings are pinned, and they are pinned in the direction that can
+    silently go wrong: the dialog is what the user read, and §4.6 is what the
+    agent is told they read.
+    """
+    answers = _unwrapped(_answers_section(compose_brief(make_context())))
+    assert _unwrapped(_dialog_string_constant(constant)) in answers
+
+
 @pytest.mark.parametrize("preset", DATA_KIND_PRESETS)
 def test_each_preset_label_appears_in_spec_section_4_6(preset: str) -> None:
     """The third copy — the spec's own prose list — agrees with the other two.
@@ -293,6 +337,7 @@ SKIP_WORDING = {
         "Work out for yourself where a human judgement is being made, and propose it."
     ),
     "other_software": "Skipped. They did not answer this.",
+    "anything_else": "Skipped. They did not answer this.",
 }
 
 
@@ -328,10 +373,10 @@ def test_interaction_skip_tells_the_agent_to_work_it_out_itself() -> None:
     assert "Work out for yourself where a human judgement is being made" in answers
 
 
-def test_all_three_optional_questions_can_be_skipped_at_once() -> None:
+def test_every_optional_question_can_be_skipped_at_once() -> None:
     """SC-006: skipping everything still produces a brief that distinguishes skips."""
     answers = _answers_section(compose_brief(make_context(**ALL_SKIPPED)))
-    assert answers.count("Skipped. They did not answer this.") == 2
+    assert answers.count("Skipped. They did not answer this.") == 3
     assert SKIP_WORDING["interaction_wishes"] in answers
 
 
@@ -395,6 +440,7 @@ def test_both_tiers_carry_the_full_destination_guidance(tier: str) -> None:
         "Load TIFFs, subtract background, segment, then measure per-cell intensity.",
         "Picking the background region by eye.",
         "Fiji and CellProfiler",
+        "The folder names carry the plate id, so please keep them.",
     ],
 )
 def test_every_collected_answer_reaches_the_brief(answer: str) -> None:
@@ -438,6 +484,7 @@ def test_context_matches_contract_c2_field_names_and_order() -> None:
         "workflow_description",
         "interaction_wishes",
         "other_software",
+        "anything_else",
         "skipped",
         "provider",
         "permission_mode",

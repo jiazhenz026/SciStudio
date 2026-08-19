@@ -37,6 +37,8 @@ export interface WorkImportFormState {
   workflowDescription: OptionalAnswer;
   interactionWishes: OptionalAnswer;
   otherSoftware: OptionalAnswer;
+  /** FR-019a — the open question, asked last and skippable. */
+  anythingElse: OptionalAnswer;
   /** FR-040 / FR-043 — null until a usable provider is chosen or preselected. */
   provider: string | null;
   /** FR-041 — the safe mode is the default; the user opts out of it. */
@@ -52,6 +54,7 @@ export const INITIAL_FORM_STATE: WorkImportFormState = {
   workflowDescription: { ...EMPTY_ANSWER },
   interactionWishes: { ...EMPTY_ANSWER },
   otherSoftware: { ...EMPTY_ANSWER },
+  anythingElse: { ...EMPTY_ANSWER },
   provider: null,
   permissionMode: "safe",
 };
@@ -72,7 +75,7 @@ function trimmedOrNull(value: string): string | null {
  */
 export function markSkipped(
   state: WorkImportFormState,
-  key: "workflowDescription" | "interactionWishes" | "otherSoftware",
+  key: "workflowDescription" | "interactionWishes" | "otherSoftware" | "anythingElse",
 ): WorkImportFormState {
   const next: WorkImportFormState = { ...state };
   next[key] = { ...state[key], skipped: true };
@@ -199,6 +202,7 @@ export function buildRequest(
   );
   const interactionWishes = resolve("interaction_wishes", state.interactionWishes, false);
   const otherSoftware = resolve("other_software", state.otherSoftware, false);
+  const anythingElse = resolve("anything_else", state.anythingElse, false);
 
   return {
     project_dir: projectDir,
@@ -210,6 +214,7 @@ export function buildRequest(
     workflow_description: workflowDescription,
     interaction_wishes: interactionWishes,
     other_software: otherSoftware,
+    anything_else: anythingElse,
     skipped,
     // `canStart` guarantees a provider before this runs; the fallback keeps the
     // function total without inventing a default provider (ADR-034 FR-020c).

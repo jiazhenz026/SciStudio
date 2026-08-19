@@ -11,6 +11,7 @@ from typing import Any, TypeVar
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from scistudio.api.routes.projects import BLOCKS_RELOADED_EVENT_TYPE
 from scistudio.core.versioning.git_binary import BundledGitMissing
 from scistudio.core.versioning.git_engine import GitEngine, GitError
 from scistudio.engine.events import WORKFLOW_CHANGED, EngineEvent
@@ -319,6 +320,7 @@ async def _apply_worktree_op(
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
     _refresh_registries_after_worktree_write(runtime, op)
+    await _announce_registry_refresh(runtime, op)
     await _emit_workflow_diff(
         runtime,
         project_dir,
@@ -328,6 +330,40 @@ async def _apply_worktree_op(
         source_id=source_id_of(result),
     )
     return result
+
+
+async def _announce_registry_refresh(runtime: Any, op: str) -> None:
+    """Tell clients the registries were rebuilt, after a git op rewrote the tree.
+
+    :func:`_refresh_registries_after_worktree_write` fixes the *backend's* view
+    and nothing else hears about it. Everything downstream that reacts to a
+    block appearing or disappearing listens for ``blocks.reloaded``: the
+    palette's catalogue refetch, and the Learning Center's re-judging of a
+    ``block_registered`` condition. So a Restore that recovered a deleted block
+    left the palette showing the pre-restore catalogue, and left a tutorial step
+    waiting on that block unsatisfied until something else happened to ask —
+    the reader restored the file the step asked for and the step went on saying
+    no.
+
+    Best-effort for the same reason the refresh is: the git operation has
+    landed, and a failed broadcast must not undo it or fail the request.
+    """
+    event_bus = getattr(runtime, "event_bus", None)
+    if event_bus is None:
+        return
+    try:
+        specs = runtime.block_registry.all_specs()
+    except Exception:
+        specs = {}
+    try:
+        await event_bus.emit(
+            EngineEvent(
+                event_type=BLOCKS_RELOADED_EVENT_TYPE,
+                data={"added": [], "removed": [], "reloaded": sorted(specs), "source": op},
+            )
+        )
+    except Exception:
+        logger.warning("%s: blocks.reloaded emit failed (non-fatal)", op, exc_info=True)
 
 
 def _refresh_registries_after_worktree_write(runtime: Any, op: str) -> None:
@@ -507,6 +543,7 @@ async def restore(request: Request, body: RestoreRequest) -> dict[str, Any]:
     # ADR-038 Addendum 1 §11.1 (#2033) — the restore may have rewritten a
     # custom block's source; rebuild the registry before the canvas reloads.
     _refresh_registries_after_worktree_write(runtime, "restore")
+    await _announce_registry_refresh(runtime, "restore")
     # Hotfix #988 / ADR-045 §5.1 #5: emit per-file workflow.changed so the
     # canvas reloads, deriving the affected set from git rather than a hash diff.
     await _emit_workflow_diff(runtime, project_dir, engine, before_ref, source="gitRestore", source_id=body.commit_sha)
@@ -587,6 +624,7 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
     # working tree changes. Shared with every other worktree-rewriting
     # endpoint since ADR-038 Addendum 1 §11.1 (#2033).
     _refresh_registries_after_worktree_write(runtime, "branch_switch")
+    await _announce_registry_refresh(runtime, "branch_switch")
     # Hotfix #988 / ADR-045 §5.1 #5: emit per-file workflow.changed so the
     # canvas reloads each workflow YAML the branch switch rewrote. The affected
     # set is derived from git (committed-range + working-tree diff) rather than

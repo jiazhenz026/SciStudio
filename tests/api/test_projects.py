@@ -127,6 +127,25 @@ def test_list_projects_sorted_by_last_opened(client: TestClient, project_parent:
     assert names.index("Newer") < names.index("Older")
 
 
+def test_create_project_scaffolds_a_folder_for_results(client: TestClient, project_parent: Path) -> None:
+    """A new project has somewhere to save results, next to where inputs land.
+
+    ``data/raw`` had no counterpart, so the only folders a user could save into
+    were named after storage formats — ``data/parquet``, ``data/zarr`` — which
+    asks them to know what a parquet is before they can choose where their
+    result goes (owner decision, 2026-08-11).
+    """
+    resp = client.post(
+        "/api/projects/",
+        json={"name": "WithProcessed", "description": "", "path": str(project_parent)},
+    )
+    assert resp.status_code == 200
+
+    project_path = Path(resp.json()["path"])
+    assert (project_path / "data" / "processed").is_dir()
+    assert (project_path / "data" / "raw").is_dir()
+
+
 def test_create_project_scaffolds_empty_main_workflow(client: TestClient, project_parent: Path) -> None:
     """#879: ``POST /api/projects/`` must scaffold ``workflows/main.yaml``.
 

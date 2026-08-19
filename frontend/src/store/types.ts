@@ -10,11 +10,19 @@ import type {
   PreviewTarget,
   ProjectResponse,
   ResolvedSubworkflowPorts,
+  TypeSummary,
+  UserLibraryTarget,
   WorkflowEdge,
   WorkflowEventMessage,
   WorkflowNode,
   WorkflowResponse,
 } from "../types/api";
+import type { DeclaredTypeColors } from "../config/typeColorMap";
+import type {
+  TutorialCatalogueResponse,
+  TutorialSessionResponse,
+  TutorialStartRequest,
+} from "../lib/api/learningCenter";
 import type { LineageRunDetail, LineageRunSummary } from "../types/lineage";
 import type { BottomTab } from "../types/ui";
 
@@ -86,47 +94,69 @@ export interface ProjectSlice {
   updateProjectDialog: (patch: Partial<ProjectDialogState>) => void;
 }
 
-export type RunFirstWorkflowTutorialStep =
-  | "inspect-data"
-  | "create-custom-block"
-  | "build-workflow"
-  | "configure-controls"
-  | "run-workflow"
-  | "create-plot-card"
-  | "view-history"
-  | "finish";
-
-export interface RunFirstWorkflowTutorialInstance {
-  tutorialId: "run-first-scistudio-workflow";
-  projectId: string;
-  datasetPath: string;
-  workflowId: string;
-  customBlockPath: string;
-  customBlockType: string;
-  customBlockName: string;
-  plotId: string;
-  plotTitle: string;
-  negativeControl: string;
-  positiveControl: string;
-}
-
-export interface RunFirstWorkflowTutorialPrefs {
-  completedAt?: string;
-  dismissedAt?: string;
-  suppressAutoStart?: boolean;
-}
-
-export interface TutorialSlice {
-  runFirstWorkflowTutorialActive: boolean;
-  runFirstWorkflowTutorialStep: RunFirstWorkflowTutorialStep;
-  runFirstWorkflowTutorialInstance: RunFirstWorkflowTutorialInstance | null;
-  runFirstWorkflowTutorialPrefs: RunFirstWorkflowTutorialPrefs;
-  startRunFirstWorkflowTutorial: (instance: RunFirstWorkflowTutorialInstance) => void;
-  setRunFirstWorkflowTutorialStep: (step: RunFirstWorkflowTutorialStep) => void;
-  exitRunFirstWorkflowTutorial: () => void;
-  completeRunFirstWorkflowTutorial: () => void;
-  dismissRunFirstWorkflowTutorialPrompt: () => void;
-  suppressRunFirstWorkflowTutorialPrompt: () => void;
+/**
+ * ADR-053 Learning Center (#2057) — session view state, and nothing else.
+ *
+ * Spec §4.1 keeps every judgement on the backend, so this slice holds copies of
+ * backend answers plus two facts about the panel itself. It replaced
+ * `TutorialSlice`, whose eight hardcoded step ids and per-tutorial instance
+ * fields were the frontend-as-judge assumption FR-001 removes.
+ */
+export interface LearningCenterSlice {
+  learningCenterOpen: boolean;
+  learningCenterCatalogue: TutorialCatalogueResponse | null;
+  learningCenterSession: TutorialSessionResponse | null;
+  learningCenterLoading: boolean;
+  learningCenterError: string | null;
+  /**
+   * FR-086 — half of the toolbar dot's condition.
+   *
+   * Session-lifetime only, and deliberately so: it is a fact about this run of
+   * the surface, not progress. Progress lives on the backend (FR-074), and a
+   * persisted copy of anything tutorial-shaped is what FR-001 removed.
+   */
+  learningCenterFirstRunDismissed: boolean;
+  /**
+   * The start request the backend answered with 409 because another tutorial
+   * is running. Held rather than discarded so the surface can say that one
+   * tutorial runs at a time and offer to leave the current one — the spec's
+   * edge case — and then retry this exact request.
+   */
+  learningCenterStartConflict: TutorialStartRequest | null;
+  /**
+   * FR-079 — whether the product should volunteer the work-import offer.
+   *
+   * The backend's answer held for rendering, never the frontend's own record
+   * of what it has already shown. `GET /unlock` is the single place that knows
+   * whether the offer is still owed.
+   */
+  learningCenterWorkImportOffer: boolean;
+  openLearningCenter: () => void;
+  closeLearningCenter: () => void;
+  setLearningCenterCatalogue: (catalogue: TutorialCatalogueResponse | null) => void;
+  setLearningCenterSession: (session: TutorialSessionResponse | null) => void;
+  setLearningCenterLoading: (loading: boolean) => void;
+  setLearningCenterError: (error: string | null) => void;
+  clearLearningCenterStartConflict: () => void;
+  refreshLearningCenter: () => Promise<void>;
+  refreshActiveTutorialSession: () => Promise<void>;
+  /**
+   * React to an engine event by asking the backend where the step stands.
+   *
+   * A no-op when no tutorial is running, and coalesced so a burst of
+   * `workflow.changed` during a drag becomes one request plus one trailing
+   * catch-up rather than a queue of them.
+   */
+  syncActiveTutorialSession: () => Promise<void>;
+  startTutorial: (request: TutorialStartRequest) => Promise<void>;
+  evaluateActiveTutorialStep: () => Promise<void>;
+  continueActiveTutorialStep: () => Promise<void>;
+  reportTutorialUiEvent: (name: string) => Promise<void>;
+  leaveActiveTutorial: () => Promise<void>;
+  /** Resolves to the directories the backend reports it deleted. */
+  clearTutorialData: () => Promise<string[]>;
+  checkWorkImportOffer: () => Promise<void>;
+  dismissWorkImportOffer: () => Promise<void>;
 }
 
 export interface WorkflowSlice {
@@ -389,6 +419,28 @@ export interface PaletteSlice {
   setBlocks: (blocks: BlockSummary[]) => void;
   setBlockSchema: (schema: BlockSchemaResponse) => void;
   setPaletteSearch: (search: string) => void;
+}
+
+/**
+ * ADR-053 §7 — the registered data type catalogue.
+ *
+ * Separate from `PaletteSlice` because FR-027 makes the types listing
+ * independent of the block listing: the Data types tab must not have to fetch
+ * blocks to draw types, and refreshing types must not mean refreshing the
+ * palette. Loading is driven by `store/useTypeCatalog.ts`.
+ */
+export interface TypesSlice {
+  types: TypeSummary[];
+  /** True once `GET /api/types/` has landed at least once. */
+  typesLoaded: boolean;
+  /**
+   * FR-051 step 1 — `name → declared colours`, derived from `types` at set
+   * time. `undefined` until the listing lands (FR-067), which the colour
+   * resolvers read as "declares nothing" and answer with the pre-ADR-053
+   * fallback.
+   */
+  declaredTypeColors: DeclaredTypeColors | undefined;
+  setTypes: (types: TypeSummary[]) => void;
 }
 
 /**
@@ -709,6 +761,20 @@ export interface FileTab {
    * tab is not persisted across reload (see ``partializeTabs``).
    */
   blockSourceType?: string;
+  /**
+   * ADR-053 FR-032 — set when this tab edits a file in the user-wide library
+   * (``~/.scistudio/blocks`` or ``~/.scistudio/types``) rather than a project
+   * file.
+   *
+   * The new-file flow may write into either destination (FR-030), and FR-032
+   * requires the created file to open **for editing** in both cases — so the
+   * tab needs to know which door to read and write through. ``filePath`` holds
+   * the absolute library path for display; the target plus the basename is
+   * what the endpoint takes. Like a block-source tab, it is not persisted
+   * across reload (see ``partializeTabs``): it lives outside every project, so
+   * the project-file rehydrate path cannot restore it.
+   */
+  userLibraryTarget?: UserLibraryTarget;
 }
 
 /**
@@ -763,6 +829,25 @@ export interface TabSlice {
    */
   openBlockSourceTab: (blockType: string) => void;
   /**
+   * ADR-053 FR-068 — open a read-only tab on a core or packaged type's source.
+   *
+   * Reads ``GET /api/types/{type_name}/source``. Read-only structurally: that
+   * response carries an absolute path and no save route accepts one. A project
+   * or user-library type is opened through `openFileTab` /
+   * `openUserLibraryFileTab` instead, which produce genuinely editable tabs.
+   */
+  openTypeSourceTab: (typeName: string) => void;
+  /**
+   * ADR-053 FR-032 — open (or focus) an editable tab on a user-library file.
+   *
+   * The library sits outside every project root, so the project-file fetch
+   * path cannot reach it; this reads ``GET /api/user-library/file`` and saves
+   * through the matching PUT. Used by the new-file flow when the user chose
+   * the library destination (FR-029/FR-030) — without it, choosing the library
+   * would write a template the user could not then edit.
+   */
+  openUserLibraryFileTab: (target: UserLibraryTarget, filename: string) => void;
+  /**
    * ADR-036 §3.10 — save a file tab's content to disk.
    *
    *   1. Look up the tab by id.
@@ -805,6 +890,20 @@ export interface GitSlice {
   currentBranch: string | null;
   logCache: Record<string, GitCommit[]>;
   logLoading: Record<string, boolean>;
+  /**
+   * Keys whose last load failed, so the auto-fetch guards stop asking.
+   *
+   * `GitHistoryList` and `useGraphData` both auto-fetch on
+   * `commits === null && !loading`. A failed load leaves the cache undefined
+   * and clears the loading flag, so that guard reads "never attempted" and the
+   * `set()` that recorded the failure re-renders the consumer, which asks
+   * again. Deleting the open project — which is what clearing tutorial data
+   * does — turned that into 159,353 requests and a frozen window.
+   *
+   * Cleared by `invalidateHistory`, so anything that genuinely changes git
+   * state retries, and bypassed by an explicit refresh.
+   */
+  logFailed: Record<string, boolean>;
   historyFilter: GitHistoryFilter;
   status: GitStatus | null;
   mergeInProgress: GitMergeInProgress | null;
@@ -848,7 +947,7 @@ export interface GitSlice {
   setHistoryFilter: (filter: GitHistoryFilter) => void;
   invalidateHistory: () => void;
   loadBranches: () => Promise<void>;
-  loadLog: (branch?: string) => Promise<void>;
+  loadLog: (branch?: string, options?: { force?: boolean }) => Promise<void>;
   loadStatus: () => Promise<void>;
   commit: (message: string, files?: string[]) => Promise<string>;
   switchBranch: (name: string) => Promise<{ auto_commit_sha: string | null }>;
@@ -903,12 +1002,15 @@ export interface LineageSlice {
 }
 
 export type AppStore = ProjectSlice &
-  TutorialSlice &
+  // ADR-053 Learning Center (#2057) — replaces the removed TutorialSlice.
+  LearningCenterSlice &
   WorkflowSlice &
   ExecutionSlice &
   UISlice &
   PreviewSlice &
   PaletteSlice &
+  // ADR-053 §7 — the registered data type catalogue.
+  TypesSlice &
   TabSlice &
   TerminalTabsSlice &
   // ADR-038 §3.8 — Lineage tab client state.

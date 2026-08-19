@@ -19,6 +19,7 @@ from scistudio.api.runtime import FILE_ENTITY_CLASS, ApiRuntime
 from scistudio.api.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
 from scistudio.core.dropins import BLOCKS_DIR_NAME, TYPES_DIR_NAME
 from scistudio.engine.events import EngineEvent
+from scistudio.tutorials.projects import is_tutorial_entry
 
 # ADR-036 搂3.5 (I36c) 鈥?string event type for the WS-broadcast that fires
 # after a successful, lint-passing PUT to ``blocks/*.py``. Declared here
@@ -46,8 +47,28 @@ async def create_project(request: Request, body: ProjectCreate, runtime: Runtime
 
 @router.get("/", response_model=list[ProjectResponse])
 async def list_projects(runtime: RuntimeDep) -> list[ProjectResponse]:
-    """List all projects accessible to the current user."""
-    return [ProjectResponse(**runtime.project_response(project)) for project in runtime.list_projects()]
+    """List the user's projects, excluding tutorial projects.
+
+    ADR-053 Learning Center FR-065: this one response feeds all three surfaces
+    the requirement names — the recent-project list, the projects dropdown, and
+    the welcome pane — so filtering it is the whole of the hiding. A tutorial
+    project is a disposable teaching artifact that restarting and clearing both
+    delete (FR-066, FR-073); a user who wandered into one and started real
+    analysis would lose it, so the only way back in is the Learning Center.
+
+    The filter is here rather than in
+    :meth:`scistudio.api.runtime.ApiRuntime.list_projects` because that method
+    is the runtime's answer to "which projects exist", which the Learning Center
+    needs unfiltered, and because FR-065 also requires marked projects to stay
+    fully operable through every other route — ``GET``/``PUT``/``DELETE`` and
+    the file endpoints all resolve through ``runtime.known_projects``, which
+    this leaves untouched.
+    """
+    return [
+        ProjectResponse(**runtime.project_response(project))
+        for project in runtime.list_projects()
+        if not is_tutorial_entry(project)
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -339,8 +360,14 @@ async def write_project_file(
     entity_id = _project_relative_entity_id(project_root, target)
     kind = "modified" if existed else "created"
 
-    # Atomic write: tempfile in same dir + os.replace.
-    tmp_fd, tmp_path = tempfile.mkstemp(prefix=".__scistudio_write_", suffix=target.suffix, dir=str(target.parent))
+    # Atomic write: tempfile in same dir + os.replace. The temp file must share
+    # the destination's directory for ``os.replace`` to be atomic, and since
+    # ADR-053 that directory may be ``<project>/blocks`` or ``<project>/types``
+    # — globbed for ``*.py`` and executed on every scan. It therefore carries a
+    # fixed ``.tmp`` suffix rather than the destination's, so it is never itself
+    # a drop-in while it exists
+    # (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P2-2).
+    tmp_fd, tmp_path = tempfile.mkstemp(prefix=".__scistudio_write_", suffix=".tmp", dir=str(target.parent))
     try:
         with os.fdopen(tmp_fd, "wb") as tmp_file:
             tmp_file.write(encoded)
@@ -381,9 +408,12 @@ async def write_project_file(
         except OSError:
             pass
         raise
-    except OSError as exc:
+    except Exception as exc:
         # Disk full / permissions / simulated rename failures: clean up
-        # the tmpfile and surface a 500 instead of a raw traceback.
+        # the tmpfile and surface a 500 instead of a raw traceback. Not
+        # ``except OSError``: a filename carrying an embedded NUL makes
+        # ``os.replace`` raise ``ValueError``, which slipped past the narrower
+        # handler and left the temp file behind for good.
         try:
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)

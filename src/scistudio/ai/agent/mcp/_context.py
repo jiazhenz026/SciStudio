@@ -121,7 +121,10 @@ def _safe_under(root: Path, target: Path) -> Path:
 
     Used by tools that accept user-supplied paths (``get_doc``,
     ``get_workflow``, etc.) so the agent cannot read arbitrary files
-    via the path argument.
+    via the path argument. *root* is whatever the caller is confining to —
+    usually the active project root, but ``promote_to_user_library`` passes the
+    user library root — so the refusal names *root* rather than asserting it is
+    a project (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P3-4).
 
     Both *root* and *target* are normalised through :func:`os.path.realpath`
     (via :meth:`Path.resolve`) before comparison. This is critical on
@@ -141,7 +144,7 @@ def _safe_under(root: Path, target: Path) -> Path:
     try:
         target_resolved.relative_to(root_resolved)
     except ValueError as exc:
-        raise PermissionError(f"Path {target} resolves outside project root {root}") from exc
+        raise PermissionError(f"Path {target} resolves outside {root}") from exc
     return target_resolved
 
 

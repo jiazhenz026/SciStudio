@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 import type {
   BlockSchemaResponse,
   FormatCapabilityResponse,
@@ -5,6 +7,8 @@ import type {
   WorkflowEdge,
   WorkflowNode,
 } from "../../types/api";
+import { tutorialPrefillArgs } from "../LearningCenter.parts/prefill";
+import { useAppStore } from "../../store";
 import { type PortRow, PortEditorTable } from "../PortEditorTable";
 import {
   INTERACTIVE_MEMORY_KEY,
@@ -143,6 +147,36 @@ function isSaveDirectionIoNode(schema: BlockSchemaResponse): boolean {
   );
 }
 
+/**
+ * ADR-053 FR-011b — fill a settings field a tutorial step has named.
+ *
+ * A step that tells the reader to save their result somewhere should not also
+ * make them invent a filename; the step names one, and the field it names opens
+ * holding it. This is the one prefill target that touches the workflow rather
+ * than a dialog, so it is deliberately narrow: it fills only an empty field,
+ * only on the block type the step named, and it never overwrites a value the
+ * reader has typed. Their own answer always wins.
+ */
+function useTutorialConfigPrefill(
+  selectedNode: WorkflowNode | null,
+  params: Record<string, unknown>,
+  onUpdateConfig: (patch: Record<string, unknown>) => void,
+): void {
+  const session = useAppStore((state) => state.learningCenterSession);
+  const args = tutorialPrefillArgs(session, "block_config");
+  const blockType = selectedNode?.block_type ?? null;
+  const key = args?.key ?? null;
+  const value = args?.value ?? null;
+  const matches = args != null && blockType === args.block_type;
+  const current = key === null ? undefined : params[key];
+  const empty = current === undefined || current === null || current === "";
+
+  useEffect(() => {
+    if (!matches || key === null || value === null || !empty) return;
+    onUpdateConfig({ [key]: value });
+  }, [matches, key, value, empty, onUpdateConfig]);
+}
+
 export function ConfigPanel({
   selectedNode,
   schema,
@@ -169,6 +203,7 @@ export function ConfigPanel({
   const params = ((selectedNode?.config.params as Record<string, unknown> | undefined) ??
     {}) as Record<string, unknown>;
   const ordered = orderedConfigEntries(schema, selectedNode);
+  useTutorialConfigPrefill(selectedNode, params, onUpdateConfig);
 
   if (!selectedNode) {
     return <div className="text-sm text-stone-500">Select a block to edit its settings.</div>;

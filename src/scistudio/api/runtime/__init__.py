@@ -95,18 +95,31 @@ def _desktop_package_dependency_repair_enabled() -> bool:
     return raw not in {"0", "false", "no", "off"}
 
 
-def _repair_desktop_package_dependencies() -> None:
+def _repair_desktop_package_dependencies() -> bool:
+    """Rebuild package dependency caches whose compiled artefacts target another ABI.
+
+    Returns ``True`` when at least one cache was rebuilt, so the caller knows the
+    registries it already scanned are now stale.
+
+    Issue #2068: this ends in ``pip install`` subprocesses and has been measured
+    at 11.7s-36s, so it must never run on the startup critical path — 36s alone
+    exceeds the desktop's 30s HTTP readiness timeout and turns a slow launch into
+    a failed one. :meth:`ApiRuntime._configure_static_registries` therefore hands
+    it to a background thread and refreshes the registries again once it lands.
+    """
     if not _is_bundled_desktop_run() or not _desktop_package_dependency_repair_enabled():
-        return
+        return False
     try:
         from scistudio.desktop.package_installer import repair_installed_package_dependencies
 
         results = repair_installed_package_dependencies()
     except Exception:
-        logger.warning("desktop package dependency repair failed before registry refresh", exc_info=True)
-        return
+        logger.warning("desktop package dependency repair failed", exc_info=True)
+        return False
+    repaired_any = False
     for result in results:
         if result.repaired:
+            repaired_any = True
             logger.info(
                 "desktop package dependency cache repaired for %s %s: %s",
                 result.package_name,
@@ -121,6 +134,7 @@ def _repair_desktop_package_dependencies() -> None:
                 result.reason,
                 f" ({result.error})" if result.error else "",
             )
+    return repaired_any
 
 
 # #1551 / DSN-12: the per-session ``data_catalog`` and ``workflow_runs`` registries
@@ -414,9 +428,42 @@ class ApiRuntime:
         self._workflow_runs = registry
 
     def _configure_static_registries(self) -> None:
-        _repair_desktop_package_dependencies()
         self.refresh_type_registry()
         self.refresh_block_registry()
+        self._start_background_package_repair()
+
+    def _start_background_package_repair(self) -> None:
+        """Repair desktop package dependency caches without blocking startup.
+
+        Issue #2068: this used to be the first statement of this method, which
+        put a ``pip install`` on the path between ``Waiting for application
+        startup.`` and ``Application startup complete.`` — measured at 11.7s in
+        the common case and 36s at worst, against a 30s desktop HTTP readiness
+        timeout. A package whose compiled dependencies target a dead ABI is
+        already unusable, so nothing is gained by making every launch wait for
+        the fix; the registries are scanned immediately and rebuilt afterwards
+        only if a repair actually changed something.
+
+        The frontend is not told about the second refresh, so a package repaired
+        mid-session appears after the next reload — same limitation as #1791.
+        """
+        if not _is_bundled_desktop_run() or not _desktop_package_dependency_repair_enabled():
+            return
+
+        def _repair_then_refresh() -> None:
+            if not _repair_desktop_package_dependencies():
+                return
+            try:
+                self.refresh_type_registry()
+                self.refresh_block_registry()
+            except Exception:
+                logger.warning("registry refresh after package dependency repair failed", exc_info=True)
+
+        threading.Thread(
+            target=_repair_then_refresh,
+            name="scistudio-package-repair",
+            daemon=True,
+        ).start()
 
     def _bind_event_logging(self) -> None:
         async def _emit_log(event: Any) -> None:

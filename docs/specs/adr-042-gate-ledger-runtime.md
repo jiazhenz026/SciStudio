@@ -121,7 +121,7 @@ to each existing component:
 | `gate_record/checks.py` | CI-graph parser + tier-selected check-set inference + check execution in the parity environment (§7). Produces sanitized `check_event`s and writes raw transcripts to ignored local paths. | **new** (no current equivalent; supersedes `gate_receipt.infer_required_checks` and its hand-written `CHECK_COMMANDS`). |
 | `gate_record/parity.py` | Tool-version + environment parity (§7.10): resolve CI tool versions, set up/validate the isolated per-worktree environment or the `PYTHONPATH=src` invocation, fail closed when parity cannot be reproduced. | **new**. |
 | `gate_record/guards/` | Each guard as an evaluator-owned calculator returning `AuditReport`/`Finding` via `qa.schemas.report`. One module per guard. No guard keeps its own task-kind rules, required-check sets, local/CI differences, bypass vocab, or protected-path lists. | **rewrite/modify** of the current top-level guard modules (see §4). |
-| `gate_record/labels.py` | Single label vocabulary (`admin-approved:bypass`, `admin-approved:core-change`, `admin-approved:merge`, `human-authored`) and the bypass/authorization semantics. | **port** of the shared constants currently exported from `human_bypass_guard`. |
+| `gate_record/labels.py` | Single label vocabulary (`admin-approved:bypass`, `admin-approved:core-change`, `admin-approved:merge`, `admin-approved:architecture-doc`, `human-authored`) and the bypass/authorization semantics. | **port** of the shared constants currently exported from `human_bypass_guard`. |
 | `gate_record/instructions.py` | The `init` task-specific instruction generator (§5) rendering the §7.7.4/§7.7.5 argument profiles. | **new**. |
 | `gate_record/workflow.py` | The five workflow command implementations (`init`/`plan`/`amend`/`check`/`finalize`) and the `--mode` dispatcher; thin orchestration over `evaluator`. | **rewrite** of current `stages.py` + `workflow.py`. |
 | `gate_record/cli.py` | Argparse surface for the five commands plus compatibility aliases (§5.6). | **rewrite**. |
@@ -269,6 +269,7 @@ tier, `requested_admin_labels`, `observed_admin_labels`, `governance_touch`,
 | Guard | Evaluator-supplied inputs | Findings produced |
 |---|---|---|
 | `core_change_guard` | protected-core surfaces, `observed_admin_labels`, `requested_admin_labels`, runtime, pr_context | AI-authored protected-core change lacks `admin-approved:core-change` provenance. |
+| `architecture_doc_guard` | protected-architecture surface, `observed_admin_labels`, `requested_admin_labels`, pr_context | Change to `docs/architecture/ARCHITECTURE.md` lacks `admin-approved:architecture-doc` provenance or an administrator approval review (#2054). |
 | `human_bypass_guard` | pr_context (labels + actor permission), runtime, AI-evidence facts from `runtime`/`check_events` | `human-authored`/`admin-approved:bypass` claimed without verified maintainer/admin provenance. |
 | `pr_merge_guard` | merge intent from the real GitHub event, `observed_admin_labels`, actor | AI merge attempt without authorized `admin-approved:merge` provenance. |
 | `mod_guard` (`governance_mod_guard`) | governance surfaces, `governance_touch`, `requested/observed_admin_labels` | Governance-file change without declared governance-touch + verified authorization. Env-var bypass channels removed. |

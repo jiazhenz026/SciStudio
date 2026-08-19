@@ -1,0 +1,190 @@
+// Loading and reading the registered data type catalogue (ADR-053 §7).
+//
+// Spec: docs/specs/adr-053-personal-tool-library.md
+//   §7 FR-026/FR-027 (the listing, independent of the block listing),
+//   §7.1 FR-050 (single source of type colour), FR-066 (the canvas reads it),
+//   FR-067 (the loading window must be invisible).
+//
+// The load is demand-driven and shared. Any surface that needs the catalogue
+// asks for it; the first ask fetches, later asks are answered from the store.
+// That is what keeps FR-027 true without the canvas having to know the Data
+// types tab exists, or the tab having to know a canvas is open: neither
+// surface owns the fetch, and neither waits on a blocks request for it.
+//
+// Cached is not the same as permanent. What the registry holds is runtime
+// truth, so this cache is valid only until something rebuilds the registries —
+// and `invalidateTypeCatalog` is how every such event says so.
+//
+// FR-067 lives in what this module does NOT do. It never publishes a partial
+// or placeholder catalogue: `declaredTypeColors` stays `undefined` until a
+// complete listing lands, the colour resolvers read `undefined` as "declares
+// nothing", and ports therefore render the pre-ADR-053 resolution during the
+// window. Colour is a paint-only property — port geometry comes from
+// `portRailOffset` and never from colour — so the transition cannot re-layout,
+// and for a type that declares nothing the two answers are the same string, so
+// there is nothing to see.
+//
+// Lives beside the slice rather than inside it because a zustand slice creator
+// cannot reference the store it is being assembled into; importing
+// `useAppStore` here (and never from `typesSlice.ts`) keeps `store/index.ts`
+// the only module that assembles slices.
+
+import { useEffect } from "react";
+
+import { codeApi } from "../lib/api/code";
+import type { DeclaredTypeColors } from "../config/typeColorMap";
+import type { TypeSummary } from "../types/api";
+
+import { useAppStore } from "./index";
+
+/**
+ * The in-flight request, so N mounting surfaces produce one fetch rather than
+ * N. Module-level rather than store state on purpose: a "loading" flag in the
+ * store would be a render-visible state change that no surface reads, and
+ * writing it would be the one thing capable of introducing the flash FR-067
+ * forbids.
+ */
+let inFlight: Promise<void> | null = null;
+
+/**
+ * One round trip, unconditionally.
+ *
+ * A failure is warned and swallowed: the catalogue is a colour and listing
+ * *enhancement*, and every consumer already renders correctly without it
+ * (FR-067). Blocking or throwing here would turn a types-endpoint hiccup into
+ * a broken canvas, which is precisely the failure mode FR-067 exists to
+ * prevent. The attempt is not latched, so the next surface to mount retries.
+ */
+async function fetchTypeCatalog(): Promise<void> {
+  try {
+    const payload = await codeApi.listTypes();
+    useAppStore.getState().setTypes(payload.types ?? []);
+  } catch (error) {
+    console.warn(
+      "[types] type catalogue unavailable; keeping the default colour resolution",
+      error,
+    );
+  }
+}
+
+/**
+ * Fetch the type catalogue into the store unless it is already there.
+ *
+ * `force` is how a caller says the cached answer is no longer true; every such
+ * caller should go through {@link invalidateTypeCatalog}, which names the
+ * reason. Concurrent asks share one request so N mounting surfaces produce one
+ * fetch — except a forced one, which must not be answered by a request that
+ * predates whatever invalidated the cache.
+ */
+export function loadTypeCatalog(options?: { force?: boolean }): Promise<void> {
+  const force = options?.force === true;
+  if (!force && useAppStore.getState().typesLoaded) {
+    return Promise.resolve();
+  }
+  const pending = inFlight;
+  if (pending && !force) {
+    return pending;
+  }
+  // A forced reload queues *behind* an in-flight request instead of joining
+  // it. A fetch already on the wire may have left before the write that
+  // invalidated this cache landed, so its answer is not an answer to this
+  // question — joining it would report the state the caller just changed.
+  const request = pending ? pending.then(fetchTypeCatalog, fetchTypeCatalog) : fetchTypeCatalog();
+  const tracked: Promise<void> = request.finally(() => {
+    if (inFlight === tracked) inFlight = null;
+  });
+  inFlight = tracked;
+  return tracked;
+}
+
+/**
+ * The registries changed — drop this cache and re-read it (FR-010 / FR-062).
+ *
+ * The backend answer to "a write invalidates every registry" is
+ * `refresh_all_registries()`, named for the *event* rather than for a registry
+ * set. This is the frontend half of the same sentence, and it exists so that
+ * every caller who causes such an event says one thing rather than reaching
+ * for the loader's `force` flag and hoping it remembered. It is deliberately
+ * fire-and-forget: the catalogue is an enhancement every consumer already
+ * renders without (FR-067), so nothing a write does should wait on it or fail
+ * with it.
+ *
+ * The callers are the three places a user-library write happens
+ * (`promotionIo.write`, the library tab's save, the new-file flow) and the
+ * `blocks.reloaded` websocket event, which is the backend telling every
+ * connected client that `refresh_all_registries()` ran — a palette reload, a
+ * project file save, a package install, an agent promotion. Without that last
+ * one the Data types tab and the declared canvas colours stayed on the first
+ * listing they ever fetched until someone pressed Reload by hand, which is
+ * runtime truth living in frontend state.
+ */
+export function invalidateTypeCatalog(): void {
+  void loadTypeCatalog({ force: true });
+}
+
+/** Test seam — drop any in-flight request so each test starts clean. */
+export function resetTypeCatalogLoader(): void {
+  inFlight = null;
+}
+
+/**
+ * The declared-colour lookup for the FR-051 precedence, loading it on first
+ * use.
+ *
+ * Returns `undefined` until the listing lands. Callers pass the result
+ * straight to `resolveTypeColor` / `resolveRingColor`, which treat `undefined`
+ * as "nothing declared" — so a caller needs no loading branch of its own and
+ * cannot accidentally invent a placeholder colour.
+ */
+export function useDeclaredTypeColors(): DeclaredTypeColors | undefined {
+  const declared = useAppStore((state) => state.declaredTypeColors);
+  useEffect(() => {
+    void loadTypeCatalog();
+  }, []);
+  return declared;
+}
+
+/**
+ * Re-scan the drop-in type directories, then re-read the listing (FR-062).
+ *
+ * The scan is the part that matters. `loadTypeCatalog({ force: true })` only
+ * bypasses *this module's* cache; the endpoint behind it answers from the
+ * in-memory registry and costs no scan, so on its own it re-fetches the same
+ * stale answer for as long as the process lives. A type the user wrote to
+ * `{project}/types/` five seconds ago is not in that registry until something
+ * rebuilds it, and a button labelled Reload has to be one of the things that
+ * does — which is the whole of the defect owner review hit: a new type "did
+ * not show up no matter how many times I reloaded", then appeared later
+ * because some unrelated action happened to rebuild the registry.
+ *
+ * The re-fetch still runs when the scan fails. A reload that cannot reach the
+ * backend should leave the tab showing what it had rather than emptying it.
+ */
+export async function rescanTypes(): Promise<void> {
+  try {
+    await codeApi.reloadTypes();
+  } catch (error) {
+    console.error("Data types reload: backend re-scan failed", error);
+  }
+  await loadTypeCatalog({ force: true });
+}
+
+export interface TypeCatalog {
+  types: TypeSummary[];
+  /** False until the first listing lands — the tab's own loading window. */
+  loaded: boolean;
+  declared: DeclaredTypeColors | undefined;
+  /** Re-scan the drop-in dirs, then re-fetch. Backs the tab's Reload button. */
+  reload: () => Promise<void>;
+}
+
+/** The full catalogue, for the Data types tab. */
+export function useTypeCatalog(): TypeCatalog {
+  const types = useAppStore((state) => state.types);
+  const loaded = useAppStore((state) => state.typesLoaded);
+  const declared = useAppStore((state) => state.declaredTypeColors);
+  useEffect(() => {
+    void loadTypeCatalog();
+  }, []);
+  return { types, loaded, declared, reload: rescanTypes };
+}

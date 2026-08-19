@@ -142,6 +142,20 @@ function pythonPathFor({ isPackaged, patchSrc, stagedSrc, checkoutSrc }) {
   return [patchSrc, stagedSrc, checkoutSrc].filter(Boolean);
 }
 
+// #2068: the renderer's HTTP cache used to be cleared on every launch, so each
+// start re-downloaded and re-parsed the whole frontend bundle. The served assets
+// only change when the effective build changes — a new baseline or a newly
+// applied OTA patch — which is the case e538c071 was actually guarding against.
+//
+// An unreadable or missing record clears, so a first run after this lands (and
+// any corrupted pointer) still starts from a known-clean cache.
+function shouldClearCache(recorded, build) {
+  if (!recorded || typeof recorded.build !== "number") {
+    return true;
+  }
+  return recorded.build !== build;
+}
+
 module.exports = {
   VERSION_RE,
   parseVersion,
@@ -151,5 +165,6 @@ module.exports = {
   evaluateUpdate,
   resolveActivePatch,
   pythonPathFor,
+  shouldClearCache,
   displayBuildVersion
 };

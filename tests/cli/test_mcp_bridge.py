@@ -129,7 +129,7 @@ def test_run_standalone_mode_returns_tools_list(tmp_path: Path, monkeypatch: pyt
     Verifies:
 
     * Bridge exits 0 (clean EOF).
-    * Stdout contains a JSON-RPC response with ``result.tools`` of 35
+    * Stdout contains a JSON-RPC response with ``result.tools`` of 36
       entries — the full registered tool count (26 baseline +
       get_active_workflow_context + 6 ADR-048 plot tools + edit_workflow
       #1912 + open_gui #1947).
@@ -149,9 +149,10 @@ def test_run_standalone_mode_returns_tools_list(tmp_path: Path, monkeypatch: pyt
     assert response.get("id") == 1
     tools = response.get("result", {}).get("tools")
     assert isinstance(tools, list), response
-    assert len(tools) == 35, (
-        f"expected 35 tools (26 baseline + get_active_workflow_context per ADR-040 Addendum 5 "
-        f"+ 6 ADR-048 SPEC 2 plot tools + edit_workflow #1912 + open_gui #1947), got {len(tools)}"
+    assert len(tools) == 36, (
+        f"expected 36 tools (26 baseline + get_active_workflow_context per ADR-040 Addendum 5 "
+        f"+ 6 ADR-048 SPEC 2 plot tools + edit_workflow #1912 + open_gui #1947 "
+        f"+ promote_to_user_library per ADR-053 FR-011), got {len(tools)}"
     )
 
 
@@ -188,7 +189,9 @@ def test_run_attached_mode_proxies_to_backend(tmp_path: Path, monkeypatch: pytes
     async def _start_backend() -> None:
         nonlocal server, runtime
         runtime = make_mcp_runtime(project)
-        _context.set_context(runtime)
+        # ADR-053 FR-065 made the registries read-through properties, which a
+        # Protocol declaring them as plain variables reads as read-only.
+        _context.set_context(runtime)  # type: ignore[arg-type]
         server = MCPServer(socket_path=socket_path, project_dir=project)
         await server.start()
         server_ready.set()
@@ -220,8 +223,8 @@ def test_run_attached_mode_proxies_to_backend(tmp_path: Path, monkeypatch: pytes
         assert response.get("id") == 99
         tools = response.get("result", {}).get("tools")
         assert (
-            isinstance(tools, list) and len(tools) == 35
-        )  # ADR-040 Addendum 5 + ADR-048 SPEC 2 plot + edit_workflow #1912 + open_gui #1947
+            isinstance(tools, list) and len(tools) == 36
+        )  # ADR-040 Addendum 5 + ADR-048 SPEC 2 plot + #1912 + #1947 + ADR-053 FR-011
     finally:
         _shutdown.set()
         if server_thread is not None:
@@ -257,7 +260,7 @@ def test_try_connect_attached_uses_project_socket_pointer(tmp_path: Path) -> Non
 
     project = _make_project(tmp_path)
     actual_socket = Path(tempfile.gettempdir()) / f"mcp-{os.getpid()}-{threading.get_ident()}.sock"
-    server_sock = socket_mod.socket(socket_mod.AF_UNIX, socket_mod.SOCK_STREAM)
+    server_sock = socket_mod.socket(socket_mod.AF_UNIX, socket_mod.SOCK_STREAM)  # type: ignore[attr-defined]
 
     client_sock = None
     try:

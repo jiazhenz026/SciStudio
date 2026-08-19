@@ -288,7 +288,11 @@ export function DataPreview({
   );
 
   return (
-    <aside className="flex h-full flex-col overflow-hidden border-l border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(245,241,232,0.98))] p-4">
+    <aside
+      className="flex h-full flex-col overflow-hidden border-l border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(245,241,232,0.98))] p-4"
+      // ADR-053 (#2057) — tutorial highlight target.
+      data-tutorial-target="data_preview"
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Preview</p>
@@ -300,7 +304,16 @@ export function DataPreview({
           <button
             aria-label="Maximize preview"
             className="mt-1 shrink-0 rounded-full p-1.5 text-stone-500 hover:bg-white hover:text-ink"
-            onClick={() => setIsMaximized(true)}
+            onClick={() => {
+              setIsMaximized(true);
+              /*
+               * ADR-053 FR-052 (#2057) — `preview_expanded`, one of the two
+               * names in the closed `UI_EVENT_NAMES` set. Enlarging the preview
+               * leaves no backend state behind, so a step waiting on it has no
+               * other way to finish. A no-op when no tutorial is running.
+               */
+              void useAppStore.getState().reportTutorialUiEvent("preview_expanded");
+            }}
             title="Maximize preview"
             type="button"
           >

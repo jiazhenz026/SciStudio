@@ -137,6 +137,10 @@ class WorkImportSessionRequest(BaseModel):
         default=None,
         description="Other software the work has to fit alongside.",
     )
+    anything_else: str | None = Field(
+        default=None,
+        description="Anything else the user wanted the agent to know before it starts (FR-019a).",
+    )
     skipped: list[str] = Field(
         default_factory=list,
         description="Optional questions the user explicitly skipped.",
@@ -268,6 +272,7 @@ def create_work_import_session(request: WorkImportSessionRequest) -> WorkImportS
             workflow_description=request.workflow_description,
             interaction_wishes=request.interaction_wishes,
             other_software=request.other_software,
+            anything_else=request.anything_else,
             skipped=frozenset(request.skipped),
             provider=request.provider,
             permission_mode=request.permission_mode,

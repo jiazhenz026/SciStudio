@@ -38,6 +38,7 @@
       "ota.js",
       "runtime-port.js",
       "preload.js",
+      "splash.html",
       "package.json",
       "assets/icon.png"
     ],

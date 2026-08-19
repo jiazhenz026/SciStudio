@@ -26,9 +26,16 @@ import importlib.metadata
 import logging
 from typing import Any
 
+from scistudio.core.entry_points import (
+    EntryPointDiagnostic,
+    entry_point_module,
+    entry_point_name,
+    enumerate_group,
+    load_entry_point,
+    prepared_plugin_import_roots,
+)
 from scistudio.desktop.paths import (
     candidate_package_dirs,
-    installed_package_import_roots,
     iter_source_package_module_candidates,
     prepended_sys_paths,
 )
@@ -133,33 +140,35 @@ class PreviewerRegistry:
         plugins' ``scistudio.previewers`` entry points. Without this the
         canonical entry-point path silently finds nothing in the packaged app —
         the plugin ``site-packages`` is off ``sys.path`` — and previewer
-        discovery falls entirely to the source-dir scan fallback (#1752). The
-        block/type registries already activate these roots the same way.
+        discovery falls entirely to the source-dir scan fallback (#1752).
+
+        ADR-053 FR-030: that activation is no longer this registry's private
+        arrangement. :func:`scistudio.core.entry_points.prepared_plugin_import_roots`
+        is the one answer and the block and type scans now use it too, so the
+        same installed package cannot resolve for previewers and vanish for
+        blocks.
         """
-        try:
-            plugin_roots = tuple(installed_package_import_roots())
-        except Exception:  # pragma: no cover - defensive; never fail discovery
-            logger.debug("Failed to resolve installed plugin import roots", exc_info=True)
-            plugin_roots = ()
-        with prepended_sys_paths(plugin_roots):
+        with prepared_plugin_import_roots():
             self._scan_entry_points()
             self._scan_companion_entry_point_packages()
         self._scan_package_src_dirs()
 
     def _scan_entry_points(self) -> None:
-        try:
-            eps = importlib.metadata.entry_points(group=PREVIEWER_ENTRY_POINT_GROUP)
-        except Exception:
-            logger.warning("Failed to enumerate '%s' entry points", PREVIEWER_ENTRY_POINT_GROUP, exc_info=True)
-            return
+        """Scan the canonical ``scistudio.previewers`` group (FR-002).
+
+        ADR-053 FR-025: enumeration, load, and error containment come from
+        :mod:`scistudio.core.entry_points`. What stays here is registration —
+        which ids win, what a :class:`PreviewerSpec` must be — in
+        :meth:`_register_from_factory`.
+        """
+        diagnostics: list[EntryPointDiagnostic] = []
+        eps = enumerate_group(PREVIEWER_ENTRY_POINT_GROUP, diagnostics=diagnostics)
         for ep in eps:
-            try:
-                factory = ep.load()
-            except Exception:
-                logger.warning("Failed to load previewer entry point '%s'", ep.name, exc_info=True)
-                self._diagnostics.append(f"entry point '{ep.name}' failed to load")
+            factory = load_entry_point(ep, PREVIEWER_ENTRY_POINT_GROUP, diagnostics=diagnostics)
+            if factory is None:
                 continue
-            self._register_from_factory(ep.name, factory)
+            self._register_from_factory(entry_point_name(ep), factory)
+        self._diagnostics.extend(str(diagnostic) for diagnostic in diagnostics)
 
     def _scan_companion_entry_point_packages(self) -> None:
         """Discover previewers re-exported by installed block/type packages.
@@ -170,14 +179,26 @@ class PreviewerRegistry:
         package as an authoritative companion source and call its conventional
         ``get_previewers()`` factory when present. Explicit previewer entry
         points remain authoritative because existing ids are skipped silently.
+
+        **This is the one permitted asymmetry (ADR-053 FR-032), and it is
+        history rather than a pattern.** Reading one group's entry points to
+        find another group's contribution exists only because installed
+        metadata written before ``scistudio.previewers`` existed cannot declare
+        it, and rewriting a user's installed ``dist-info`` is not something the
+        product may do. That reason expires with those installs; it does not
+        generalise. A subsequent group has no such history, so this fallback
+        MUST NOT be extended to ``scistudio.tutorials`` or to any other new
+        group — for tutorials it could not be, in any case, because it works by
+        importing the companion module and FR-018 forbids importing a package
+        module while listing the catalogue.
+
+        Enumeration still goes through the shared helper: the exemption is
+        about *what* is scanned, never about error containment.
         """
+        diagnostics: list[EntryPointDiagnostic] = []
         seen_modules: set[str] = set()
         for group in COMPANION_ENTRY_POINT_GROUPS:
-            try:
-                eps = importlib.metadata.entry_points(group=group)
-            except Exception:
-                logger.warning("Failed to enumerate '%s' entry points", group, exc_info=True)
-                continue
+            eps = enumerate_group(group, diagnostics=diagnostics)
 
             for ep in eps:
                 root_name = _entry_point_root_module(ep)
@@ -209,11 +230,12 @@ class PreviewerRegistry:
                     if not callable(factory):
                         continue
                     self._register_from_factory(
-                        f"{group}:{ep.name}:{module_name}",
+                        f"{group}:{entry_point_name(ep)}:{module_name}",
                         factory,
                         skip_existing=True,
                     )
                     break
+        self._diagnostics.extend(str(diagnostic) for diagnostic in diagnostics)
 
     def _scan_package_src_dirs(self) -> None:
         """Discover desktop/installed source-package previewers via ``get_previewers()``."""
@@ -281,10 +303,15 @@ class PreviewerRegistry:
 
 
 def _entry_point_root_module(ep: importlib.metadata.EntryPoint) -> str | None:
-    """Return the top-level module named by an entry point value."""
-    value = getattr(ep, "value", "")
-    module_name = str(value).split(":", 1)[0].strip()
-    module_name = module_name.split("[", 1)[0].strip()
+    """Return the top-level module named by an entry point value.
+
+    The companion fallback wants the distribution's *root* package so it can
+    try ``pkg`` and ``pkg.previewers``, where the rest of the product wants the
+    module the value actually names. ADR-053 FR-025 puts that shared parse in
+    :func:`scistudio.core.entry_points.entry_point_module`; the extra step here
+    is the truncation to the first segment, which is this fallback's own.
+    """
+    module_name = entry_point_module(ep)
     if not module_name:
         return None
     return module_name.split(".", 1)[0]

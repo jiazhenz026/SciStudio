@@ -7,6 +7,7 @@ import type { ProjectResponse } from "../types/api";
 
 import { ProjectDialog } from "../components/ProjectDialog";
 import { PromptDialog, type PromptRequest } from "../components/PromptDialog";
+import { UserLibraryDialogs } from "../components/promotion/UserLibraryDialogs";
 import { WorkflowConflictDialog } from "../components/WorkflowConflictDialog";
 
 interface AppDialogsProps {
@@ -61,6 +62,12 @@ export function AppDialogs({
       <PromptDialog request={promptRequest} onClose={onPromptClose} />
 
       <WorkflowConflictDialog conflict={workflowConflict} onResolve={onResolveWorkflowConflict} />
+
+      {/* ADR-053 §6 / §8 — the promotion collision + cascade prompts (FR-018,
+          FR-023), the new-file destination choice (FR-029), and the inline
+          success confirmation (FR-020). Mounted once and driven through
+          `dialogChannel`, so every entry point asks the same questions. */}
+      <UserLibraryDialogs />
     </>
   );
 }

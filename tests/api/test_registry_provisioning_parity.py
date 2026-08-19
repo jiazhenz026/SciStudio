@@ -19,9 +19,10 @@ orders and duplicate policies must stay as recorded (FR-061).
 
 from __future__ import annotations
 
+import sys
 import types
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -401,6 +402,175 @@ def test_dropin_type_cannot_shadow_a_core_type(tmp_path: Path) -> None:
     assert registry.resolve("Array").module_path == "scistudio.core.types.array"
 
 
+# ---------------------------------------------------------------------------
+# ADR-053 (Learning Center) FR-030 / FR-031 — the entry-point half
+#
+# The drop-in half above answers "which directories does this process see?".
+# The same question has a second half — "which import roots does an
+# entry-point scan see?" — that was answered by the previewer registry alone.
+# A package's ``site-packages`` carries the ``dist-info`` that makes its entry
+# points visible at all, so a group scanned without those roots reports the
+# package as absent. The observable consequence was a package that resolved
+# for previewers and vanished for blocks (#1752).
+# ---------------------------------------------------------------------------
+
+
+def _entry_point_visible_only_with(sentinel: str, group: str, ep: Any) -> Any:
+    """Metadata that appears only while *sentinel* is on ``sys.path``.
+
+    Mirrors a packaged install: the plugin's ``dist-info`` is unreadable until
+    its root is activated, so a scan that skips the activation finds nothing
+    and reports no error.
+    """
+
+    def _entry_points(*_args: object, **kwargs: object) -> object:
+        if kwargs.get("group") != group:
+            return ()
+        return (ep,) if sentinel in sys.path else ()
+
+    return _entry_points
+
+
+@pytest.mark.parametrize("kind", ["blocks", "types", "previewers", "tutorials"])
+def test_every_entry_point_scan_activates_the_plugin_import_roots(
+    kind: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FR-030: one answer to "which import roots does a scan run under".
+
+    Written per site, like the drop-in assertions above, because that is what
+    makes divergence visible: each scan is run against metadata that only
+    exists while the plugin root is active, so a scan that forgot the
+    activation returns an empty group rather than failing loudly.
+
+    ``scistudio.tutorials`` joins on the same terms with one difference in
+    where the probe sits. FR-029a makes it a metadata-only group: its payload
+    is a *directory resolved from distribution metadata*, never a loaded
+    callable, because FR-018 forbids importing a package module while listing
+    the catalogue. Its probe therefore records from ``Distribution.locate_file``
+    and its ``load`` raises, so a scan that reached ``load`` at all would fail
+    here rather than pass.
+    """
+    import importlib.metadata
+
+    from scistudio.core import entry_points as shared
+
+    sentinel = str(tmp_path)
+    monkeypatch.setattr(shared, "installed_package_import_roots", lambda: [tmp_path])
+
+    seen: list[str] = []
+
+    class _Probe:
+        """Records that the scan reached the point of reading the payload."""
+
+        def __call__(self) -> list[object]:
+            seen.append(kind)
+            return []
+
+    class _MetadataProbe:
+        """The same record, taken from metadata resolution (FR-029a)."""
+
+        name = "scistudio-blocks-probe"
+        files: ClassVar[list[object]] = []
+
+        def locate_file(self, path: object) -> Path:
+            seen.append("tutorials")
+            return tmp_path / str(path)
+
+    def _must_not_load() -> object:
+        raise AssertionError("the tutorial group must not load an entry point (FR-018/FR-029a)")
+
+    group, scan = {
+        "blocks": (shared.BLOCKS_ENTRY_POINT_GROUP, lambda: _run_block_entry_point_scan()),
+        "types": (shared.TYPES_ENTRY_POINT_GROUP, lambda: _run_type_entry_point_scan()),
+        "previewers": (shared.PREVIEWERS_ENTRY_POINT_GROUP, lambda: _run_previewer_entry_point_scan()),
+        "tutorials": (shared.TUTORIALS_ENTRY_POINT_GROUP, lambda: _run_tutorial_entry_point_scan()),
+    }[kind]
+
+    if kind == "tutorials":
+        (tmp_path / "pkg_probe" / "tutorials").mkdir(parents=True)
+        ep = types.SimpleNamespace(
+            name="probe",
+            value="pkg_probe.tutorials",
+            module="pkg_probe.tutorials",
+            group=group,
+            dist=_MetadataProbe(),
+            load=_must_not_load,
+        )
+    else:
+        ep = types.SimpleNamespace(
+            name="probe",
+            value="pkg_probe:contribute",
+            group=group,
+            load=lambda: _Probe(),
+        )
+    monkeypatch.setattr(
+        importlib.metadata,
+        "entry_points",
+        _entry_point_visible_only_with(sentinel, group, ep),
+    )
+
+    scan()
+
+    assert seen == [kind], (
+        f"the {kind} entry-point scan did not run with the plugin import roots active, "
+        "so an installed package's metadata was invisible to it"
+    )
+
+
+def _run_block_entry_point_scan() -> None:
+    from scistudio.blocks.registry import BlockRegistry
+
+    BlockRegistry()._scan_tier2()
+
+
+def _run_type_entry_point_scan() -> None:
+    from scistudio.core.types.registry import TypeRegistry
+
+    TypeRegistry()._scan_entrypoint_types()
+
+
+def _run_previewer_entry_point_scan() -> None:
+    from scistudio.previewers.registry import PreviewerRegistry
+
+    PreviewerRegistry().load_packages()
+
+
+def _run_tutorial_entry_point_scan() -> None:
+    """Run the tutorial catalogue scan, with the environment stated.
+
+    ``DiscoveryEnvironment`` otherwise probes this machine for installed
+    distributions, an agent binary, and git. None of that is the entry-point
+    path this test is about, and probing it would make the assertion depend on
+    what happens to be installed on the runner.
+    """
+    from scistudio.tutorials.discovery import DiscoveryEnvironment, discover_tutorials
+
+    discover_tutorials(
+        environment=DiscoveryEnvironment(
+            scistudio_version="0.0.0",
+            installed_distributions=frozenset(),
+            agent_available=False,
+            git_available=False,
+        )
+    )
+
+
+def test_plugin_import_roots_are_one_answer_for_every_group() -> None:
+    """FR-030: no registry keeps its own copy of the resolution.
+
+    The drop-in half of this file makes the same claim about
+    :func:`scistudio.core.dropins.dropin_import_roots`; this is the
+    entry-point half, and the two are deliberately separate answers because
+    they cover different directories.
+    """
+    from scistudio.core import entry_points as shared
+    from scistudio.desktop.paths import installed_package_import_roots
+
+    assert tuple(installed_package_import_roots()) == shared.plugin_import_roots()
+
+
 def test_dropin_block_overrides_a_builtin_of_the_same_name() -> None:
     """FR-061: the block drop-in tier registers unconditionally.
 
@@ -418,3 +588,78 @@ def test_dropin_block_overrides_a_builtin_of_the_same_name() -> None:
     assert spec is not None
     assert spec.class_name == "DropInLoad"
     assert spec.source == "tier1"
+
+
+# ---------------------------------------------------------------------------
+# ADR-053 Learning Center FR-016 / FR-031 / FR-070 — the tutorial drop-in tier
+# and the tutorial-scoped library, appended to the parity this file already
+# holds rather than pinned in a file of their own (spec §4.4, "Extended, not
+# duplicated"). The library swap's own behaviour is
+# ``tests/tutorials/test_scoped_library.py``; what belongs here is that the
+# tutorial tier resolves through the same tier definition as blocks and types.
+# ---------------------------------------------------------------------------
+
+
+def test_tutorial_tier_resolves_the_same_two_tiers_as_blocks_and_types(home: Path, project: Path) -> None:
+    """FR-016: tutorials join the existing tier definition, not a fourth one.
+
+    Same shape and same order as the two library kinds — project first, then
+    user — so every event that already reaches the block and type tiers reaches
+    tutorial discovery by the path it already travels (FR-031).
+    """
+    assert list(dropins.tutorial_scan_dirs(project)) == [
+        project / dropins.TUTORIALS_DIR_NAME,
+        home / ".scistudio" / dropins.TUTORIALS_DIR_NAME,
+    ]
+    assert list(dropins.tutorial_scan_dirs(None)) == [home / ".scistudio" / dropins.TUTORIALS_DIR_NAME]
+    assert dropins.user_tutorials_dir() == dropins.user_library_dir() / dropins.TUTORIALS_DIR_NAME
+    assert dropins.project_tutorials_dir(project) == project / dropins.TUTORIALS_DIR_NAME
+
+
+def test_tutorial_tier_is_deliberately_not_an_import_root(
+    home: Path, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FR-020a: a tutorial directory claims no top-level module name.
+
+    ``dropin_import_roots`` carries the *types* tiers onto ``sys.path``. A
+    tutorial directory holds a manifest and an assets tree, so it has nothing to
+    contribute there — and adding it would make any ``.py`` beside a manifest an
+    importable module, which is the exposure the tier grading exists to close.
+    """
+    monkeypatch.setattr(dropins, "user_python_import_roots", tuple)
+
+    roots = set(dropins.dropin_import_roots(project))
+
+    assert roots == {project / "types", home / ".scistudio" / "types"}
+    assert project / dropins.TUTORIALS_DIR_NAME not in roots
+    assert dropins.user_tutorials_dir() not in roots
+
+
+def test_a_tutorial_project_swaps_its_user_tier_at_every_registration_point(
+    home: Path,
+    recorders: dict[str, list[_RecordingRegistry]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FR-070/FR-071: the swap is in the tier definition, so all four sites get it.
+
+    A tutorial project scans the tutorial-scoped library where a real project
+    scans ``~/.scistudio``. Because that is one root inside
+    :func:`scistudio.core.dropins.library_root_for_project` rather than a
+    decision at each call site, no registration point has to learn what a
+    tutorial project is.
+    """
+    tutorial_project = dropins.tutorial_parent_dir() / "welcome"
+    library = dropins.tutorial_library_dir()
+    expected_blocks = [tutorial_project / "blocks", library / "blocks"]
+    expected_types = [tutorial_project / "types", library / "types"]
+
+    assert list(dropins.block_scan_dirs(tutorial_project)) == expected_blocks
+    assert _api_block_dirs(tutorial_project) == expected_blocks
+    assert _agent_block_dirs(tutorial_project) == expected_blocks
+    assert _dispatch_block_dirs(tutorial_project, monkeypatch) == expected_blocks
+
+    assert list(dropins.type_scan_dirs(tutorial_project)) == expected_types
+    assert _api_type_dirs(tutorial_project) == expected_types
+    assert _agent_type_dirs(tutorial_project) == expected_types
+    assert _worker_type_dirs(tutorial_project, monkeypatch) == expected_types
+    assert _dispatch_type_dirs(tutorial_project, monkeypatch) == expected_types

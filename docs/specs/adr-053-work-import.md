@@ -149,7 +149,7 @@ in that repository.
 
 1. **Given** a project is open and an agent is ready, **when** the user activates
    the toolbar entry, **then** the dialog opens with the source, destination, and
-   four questions.
+   five questions.
 2. **Given** the user supplies a repository directory and answers question 1,
    **when** they start the session, **then** a brief file is written under
    `.scistudio/` carrying the source location and every answer given, and the
@@ -352,7 +352,7 @@ control stays visible so the user can see which agent will run.
 (FR-022). A choice the dialog collects but does not apply is worse than not
 offering it.
 
-#### The four questions
+#### The five questions
 
 Each question serves two purposes at once, and the second is easy to lose.
 
@@ -411,9 +411,17 @@ regularly?* — MUST be free text and MUST be skippable. It informs app-block
 integration and tells the user that integrating external applications is possible
 at all.
 
-**FR-020.** Questions 3 and 4, and question 2 in codebase mode, MUST each offer an
-explicit skip that reads as a legitimate choice — the user is telling the agent to
-work it out — rather than as an abandoned field. The source or the no-codebase
+**FR-019a.** Question 5 — *anything else you want to tell the agent before it
+starts?* — MUST be free text, MUST be skippable, and MUST be asked last, after
+question 4. Questions 1 to 4 each ask about one specific thing, so a user whose
+most important fact is not one of those four has nowhere to put it and the
+session starts without it. This one is deliberately open: it is the only question
+that does not tell the user what to say, which is also why it cannot substitute
+for any of the others and MUST NOT be used to justify dropping them.
+
+**FR-020.** Questions 3, 4 and 5, and question 2 in codebase mode, MUST each offer
+an explicit skip that reads as a legitimate choice — the user is telling the agent
+to work it out — rather than as an abandoned field. The source or the no-codebase
 option, the destination, and question 1 are required.
 
 **FR-021.** Every collected answer MUST reach the brief, and skipped questions
@@ -525,7 +533,7 @@ block without a test would produce an empty one.
 
 | Entity | Description | Attributes | Relationships |
 |---|---|---|---|
-| `ImportSessionContext` | Everything the dialog collects, composed into the brief before the session is spawned | `source_location` (nullable), `has_no_codebase` (bool), `destination_tier` (`project` \| `user_library`), `data_kinds` (preset selections + free text), `workflow_description`, `interaction_wishes`, `other_software`, a skipped/answered marker per optional question, plus `provider` and `permission_mode` | Written into the brief file before spawn (FR-023, FR-024, FR-027); per-session, gitignored, not product state |
+| `ImportSessionContext` | Everything the dialog collects, composed into the brief before the session is spawned | `source_location` (nullable), `has_no_codebase` (bool), `destination_tier` (`project` \| `user_library`), `data_kinds` (preset selections + free text), `workflow_description`, `interaction_wishes`, `other_software`, `anything_else`, a skipped/answered marker per optional question, plus `provider` and `permission_mode` | Written into the brief file before spawn (FR-023, FR-024, FR-027); per-session, gitignored, not product state |
 | `AgentAvailability` | The graded result of probing a provider | `state` (`not_installed` \| `not_authenticated` \| `call_failed` \| `ready`), `cause` (populated for `call_failed`), `providers` (populated for `ready`) | Derived from the #1994 provider registry rows plus a live call (FR-032, FR-033); consumed by this dialog and by any other agent-dependent surface (FR-036) |
 
 ## 4. Implementation Plan
@@ -585,7 +593,7 @@ feature adds a brief file rather than a second prompt-assembly path.
 |---|---|---|
 | `docs/adr/ADR-053.md` | modify | Revise §4.1 and §5; generalise §4 to users without code; synchronise §1.1, §6, §7, §8, §9.5 |
 | `docs/specs/adr-053-work-import.md` | create | This spec |
-| `frontend/src/components/BringInMyWorkDialog.tsx` | create | The framing dialog and its four questions (FR-003 – FR-021), the provider and permission-mode controls (FR-040 – FR-044), the caveat copy (FR-037, FR-038), and per-state availability guidance shown in place of a start action (FR-005, FR-031, FR-034) |
+| `frontend/src/components/BringInMyWorkDialog.tsx` | create | The framing dialog and its five questions (FR-003 – FR-021), the provider and permission-mode controls (FR-040 – FR-044), the caveat copy (FR-037, FR-038), and per-state availability guidance shown in place of a start action (FR-005, FR-031, FR-034) |
 | `frontend/src/components/AIChat/SetupScreen.parts/ProviderPicker.tsx` | reuse | Provider selection, unchanged (FR-042) |
 | `frontend/src/components/AIChat/SetupScreen.parts/PermissionModePicker.tsx` | reuse | Permission mode, unchanged (FR-042) |
 | Toolbar component | modify | The entry and its enablement rule (FR-001, FR-002) |
@@ -605,7 +613,7 @@ unresolved rather than guessed.
 | T-003 | Toolbar entry and enablement | US1, US2 | — | Enabled with a project open, disabled without |
 | T-004 | Dialog shell, source/destination page, caveat copy | US1, US2, US4 | T-003 | Caveat present and not bypassable; directory picker accepts a directory |
 | T-005 | No-codebase option and its conditional field behaviour | US2 | T-004 | Source field disabled; question 2 becomes required |
-| T-006 | The four questions, presets, grouping, and skip semantics | US1, US2 | T-004 | Preset grouping renders; skips are distinguishable from answers |
+| T-006 | The five questions, presets, grouping, and skip semantics | US1, US2 | T-004 | Preset grouping renders; skips are distinguishable from answers |
 | T-007 | Prompt composition from the collected context | US1, US2 | T-004, T-006 | Every answer and the mode appear in the composed brief |
 | T-008 | Session spawn wired to the composed brief | US1, US2 | T-007 | A session opens carrying the brief |
 | T-009 | Availability guidance surfaced in the dialog | US3 | T-002, T-004 | Each state shows its own guidance in place of a start action |
@@ -629,7 +637,7 @@ settled by a single review (see §4.5).
 | Library-mode constraint | In personal-library mode the composed brief carries the project-local-type warning (FR-026) |
 | Preset grouping | Generic shapes and domain options are visually grouped so both can be selected (FR-014) |
 | Question 2 conditionality | Skippable with a source location, required without one (FR-016, FR-017) |
-| Required vs skippable | Source-or-no-codebase, destination, and question 1 required; questions 3 and 4 each offer an explicit skip (FR-020) |
+| Required vs skippable | Source-or-no-codebase, destination, and question 1 required; questions 3, 4 and 5 each offer an explicit skip (FR-019a, FR-020) |
 | Skip is conveyed | A skipped question reaches the brief marked as skipped rather than being omitted (FR-021) |
 | Brief composition | Every dialog answer and the source location appear in the composed brief (FR-023) |
 | Brief location | The brief is written under `.scistudio/` and is not picked up by git in a project using the default ignore file (FR-027) |
@@ -1042,6 +1050,19 @@ is being made, and propose it."}
 
 **They said:** {answer, or "Skipped. They did not answer this."}
 
+---
+
+**We asked:** *Is there anything else you want to tell the agent before it
+starts? Anything the questions above did not ask for — something about your
+data, a constraint you work under, a preference, or how you would like it to
+work with you.*
+
+**They said:** {answer, or "Skipped. They did not answer this."}
+
+This one was open, so read what is there and do not read anything into what is
+not: they were given no list to answer against, and a blank means only that
+nothing came to mind.
+
 # When things come up
 
 You already know what SciStudio is and that `mcp__scistudio__*` is how you reach
@@ -1136,6 +1157,7 @@ are already provisioned as skills. Measured by review at each prompt change.
 | The feature is a permanently available toolbar entry, enabled with a project open | owner |
 | The flow is a preconfigured agent session, not a scan-then-select pipeline | owner |
 | The dialog collects a fixed question set that becomes part of the system prompt | owner |
+| The last question is an open one — anything else the user wants to tell the agent before it starts — and it is skippable like the other optional questions | owner |
 | Verification is prompt-driven and not system-enforced | owner |
 | Checks are saved in the project directory | owner |
 | The import surface states plainly that correctness is not guaranteed | owner |

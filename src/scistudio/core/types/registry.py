@@ -34,6 +34,27 @@ Each core base class carries per-base ``reconstruct_extra_kwargs`` /
 the worker subprocess call site wires them. Both rely on the resolver and
 the validation hook added here.
 
+Declared colour and the single spec-construction site
+-----------------------------------------------------
+
+ADR-053 FR-050. A type may declare its own appearance
+(:attr:`scistudio.core.types.base.DataObject.ui_color` /
+``ui_ring_color``, FR-049), and this registry is where those declarations are
+read off the class and validated. Reading them here rather than at render time
+is FR-052: the types listing endpoint is the single source of type colour for
+the product, so a malformed value must be dropped before it reaches that
+endpoint, not after each consumer has had a chance to choke on it.
+
+Collecting a new per-type fact used to mean editing four places. ``TypeSpec``
+was built inline in :meth:`TypeRegistry.scan_builtins`, in
+:meth:`TypeRegistry._scan_entrypoint_types`, and in
+:meth:`TypeRegistry.register_class` (which the source-package and drop-in
+passes share), each repeating the same ``__mro__``/``__doc__`` derivation. The
+three now route through :func:`_spec_for_class`, so origin, file path, and
+colour are populated for every tier at once and a tier cannot silently miss a
+field. The passes still differ in what they do about a bad class — builtins
+raise, plugins log and skip — because that difference is real.
+
 Scan order versus BlockRegistry
 -------------------------------
 
@@ -80,13 +101,26 @@ import hashlib
 import importlib
 import importlib.metadata
 import importlib.util
+import inspect
 import logging
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, overload
 
 from scistudio.core.dropins import evict_cached_bytecode, guard_dropin_type_roots
+from scistudio.core.entry_points import (
+    STAGE_REGISTER,
+    TYPES_ENTRY_POINT_GROUP,
+    EntryPointDiagnostic,
+    entry_point_module,
+    entry_point_name,
+    enumerate_group,
+    load_entry_point,
+    prepared_plugin_import_roots,
+    resolve_payload,
+)
 from scistudio.desktop.paths import (
     candidate_package_dirs,
     iter_source_package_module_candidates,
@@ -97,6 +131,20 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+#: Module-name prefix the drop-in pass registers file-loaded type modules
+#: under. It is also the marker that identifies a drop-in :class:`TypeSpec`
+#: afterwards: a drop-in belongs to no distribution, so a spec carrying this
+#: prefix must resolve to the ADR-053 FR-002 ``custom`` fallback rather than to
+#: ``package``. Named here because the same string is written by
+#: :meth:`TypeRegistry._scan_filesystem_dirs` and read back by
+#: :func:`_spec_for_class`.
+DROPIN_MODULE_PREFIX = "_scistudio_type_dropin_"
+
+#: The CSS hex forms ADR-053 FR-049 accepts for a declared colour: ``#RGB``,
+#: ``#RGBA``, ``#RRGGBB``, ``#RRGGBBAA``. Short forms are expanded on
+#: collection so every value that reaches a consumer is the long form.
+_HEX_COLOUR_RE = re.compile(r"#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})")
 
 
 @dataclass
@@ -112,6 +160,127 @@ class TypeSpec:
     class_name: str = ""
     base_type: str = ""
     description: str = ""
+    file_path: str = ""
+    """The ``.py`` file the class is defined in, or ``""`` when unresolvable.
+
+    ADR-053 FR-026: the types listing reports this so a drop-in type can be
+    opened and promoted. Recorded for every tier, not only drop-ins — a core
+    or plugin type has a real file too, and the origin split reads
+    :attr:`is_dropin` rather than the presence of a path.
+    """
+
+    is_dropin: bool = False
+    """Whether this type came from a drop-in file rather than an installed one.
+
+    The one thing :func:`scistudio.api._block_source.resolve_origin` cannot
+    infer for a type: a drop-in registers under a synthetic
+    :data:`DROPIN_MODULE_PREFIX` module name, which is not an import path and
+    so would otherwise read as a plugin distribution.
+    """
+
+    ui_color: str | None = None
+    """The fill colour the class declared, validated, or ``None`` (FR-049)."""
+
+    ui_ring_color: str | None = None
+    """The ring colour the class declared, validated, or ``None`` (FR-049)."""
+
+    package_root: str = ""
+    """Top-level import module of the distribution that registered this type.
+
+    ADR-053 FR-040 needs the Data types tab to split per-package sections the
+    way the Blocks tab does, and a section title the backend never supplied is
+    exactly the drift this spec removes — so the scan records *which*
+    distribution delivered the type, first-hand, and never infers it from a
+    file path afterwards. Only the two package passes set it; builtins and
+    drop-ins belong to no distribution and leave it ``""``.
+
+    It is the discovering package, not ``module_path``'s root: a plugin that
+    re-exports a class defined elsewhere still owns the registration, and the
+    class's own ``__module__`` would attribute it to the wrong distribution or
+    to none. The root — rather than a display name — is what
+    :mod:`scistudio.api.routes.types` joins on, because
+    :attr:`scistudio.blocks.registry.BlockSpec.module_path` is the only handle
+    the block side shares; the name itself is read from there so both surfaces
+    report one string rather than two independently derived ones.
+    """
+
+
+def _class_file(cls: type) -> str:
+    """Return the file *cls* is defined in, or ``""`` when there is none."""
+    try:
+        return inspect.getfile(cls)
+    except (OSError, TypeError):  # dynamically built or C-defined class
+        return ""
+
+
+def _declared_colour(cls: type, attribute: str) -> str | None:
+    """Return the CSS hex colour *cls* declares on *attribute*, else ``None``.
+
+    ADR-053 FR-052 is the whole point of this function existing at collection
+    time rather than at render time: a hand-edited type file in the user
+    library is an ordinary place for a typo, and one typo must not be able to
+    reach the palette or the canvas. An unusable value is logged and dropped,
+    which puts the type back on the FR-051 fallback it would have used had it
+    declared nothing.
+
+    Short hex forms are expanded to their long equivalent so every consumer
+    receives ``#rrggbb`` or ``#rrggbbaa`` and none of them has to parse two
+    shapes.
+    """
+    raw = getattr(cls, attribute, None)
+    if raw is None:
+        return None
+    value = raw.strip() if isinstance(raw, str) else ""
+    if not _HEX_COLOUR_RE.fullmatch(value):
+        logger.warning(
+            "TypeRegistry: ignoring %s.%s=%r — expected a CSS hex colour such as '#4f8ef7'",
+            cls.__name__,
+            attribute,
+            raw,
+        )
+        return None
+    digits = value[1:].lower()
+    if len(digits) in (3, 4):
+        digits = "".join(digit * 2 for digit in digits)
+    return f"#{digits}"
+
+
+# ADR-053 FR-025: the module an entry point names is read by every group, so the
+# lookup lives in ``scistudio.core.entry_points`` rather than once per registry.
+# The behaviour this registry depends on is unchanged: anything that is not a
+# real string — an entry-point double in a test, a shim without the property —
+# yields ``""``, and an unattributed type still registers and still lists, it
+# simply falls back to the lumped section. That is the FR-040 degradation and
+# not a failure.
+_entrypoint_module = entry_point_module
+
+
+def _spec_for_class(cls: type, *, package_root: str = "") -> TypeSpec:
+    """Describe *cls* as a :class:`TypeSpec`.
+
+    The single construction site. Every discovery pass — builtins,
+    entry-points, source packages, drop-ins — routes through here, so a field
+    added to :class:`TypeSpec` is populated for all four tiers at once instead
+    of for whichever pass the author happened to be editing.
+
+    ``package_root`` is the one fact this function cannot read off the class:
+    which distribution's discovery pass delivered it. A pass that knows it
+    hands it in; the rest leave it empty and the type belongs to no
+    distribution.
+    """
+    module_path = getattr(cls, "__module__", "") or ""
+    return TypeSpec(
+        name=cls.__name__,
+        module_path=module_path,
+        class_name=cls.__name__,
+        base_type=cls.__mro__[1].__name__ if len(cls.__mro__) > 2 else "",
+        description=cls.__doc__.split("\n")[0] if cls.__doc__ else "",
+        file_path=_class_file(cls),
+        is_dropin=module_path.startswith(DROPIN_MODULE_PREFIX),
+        ui_color=_declared_colour(cls, "ui_color"),
+        ui_ring_color=_declared_colour(cls, "ui_ring_color"),
+        package_root=package_root.split(".")[0],
+    )
 
 
 class TypeRegistry:
@@ -135,6 +304,22 @@ class TypeRegistry:
         # and consumed by :meth:`scan_all` (after entry-points / monorepo).
         self._scan_dirs: list[Path] = []
         self._package_src_dirs: list[Path] = []
+        self._entry_point_diagnostics: list[str] = []
+
+    @property
+    def diagnostics(self) -> list[str]:
+        """Return what the most recent ``scistudio.types`` entry-point scan refused.
+
+        ADR-053 FR-028. Same shape and same reason as
+        :attr:`scistudio.blocks.registry.BlockRegistry.diagnostics` and
+        :attr:`scistudio.previewers.registry.PreviewerRegistry.diagnostics`: a
+        package that contributed nothing has to be distinguishable from a
+        package that had nothing to contribute, and a log line the user never
+        sees does not distinguish them.
+
+        Rebuilt by every :meth:`_scan_entrypoint_types` pass.
+        """
+        return list(self._entry_point_diagnostics)
 
     def add_scan_dir(self, directory: str | Path) -> None:
         """Add a directory to the filesystem scan path (issue #1332).
@@ -164,7 +349,7 @@ class TypeRegistry:
         """Register *spec* under *name*."""
         self._registry[name] = spec
 
-    def register_class(self, cls: type) -> None:
+    def register_class(self, cls: type, *, package_root: str = "") -> None:
         """Validate *cls* and register it by its ``__name__``.
 
         Convenience helper for callers that already have the class object
@@ -177,17 +362,17 @@ class TypeRegistry:
         :meth:`_validate_meta_class`, and validation happens here at
         registration time so broken ``Meta`` classes never enter the
         registry.
+
+        Args:
+            cls: The :class:`~scistudio.core.types.base.DataObject` subclass.
+            package_root: Import root of the distribution delivering *cls*,
+                for a caller that is one of the two package passes. See
+                :attr:`TypeSpec.package_root`; the default leaves the type
+                attributed to no distribution, which is correct for every
+                other caller.
         """
         self._validate_meta_class(cls)
-        base = cls.__mro__[1].__name__ if len(cls.__mro__) > 2 else ""
-        spec = TypeSpec(
-            name=cls.__name__,
-            module_path=cls.__module__,
-            class_name=cls.__name__,
-            base_type=base,
-            description=cls.__doc__.split("\n")[0] if cls.__doc__ else "",
-        )
-        self.register(cls.__name__, spec)
+        self.register(cls.__name__, _spec_for_class(cls, package_root=package_root))
 
     # -- resolve: overloaded on argument type -------------------------------
 
@@ -409,19 +594,11 @@ class TypeRegistry:
             CompositeData,
         ]
         for cls in builtins:
-            # ADR-027 Addendum 1 §3: reject broken Meta declarations.
-            self._validate_meta_class(cls)
-            base = cls.__mro__[1].__name__ if len(cls.__mro__) > 2 else ""
-            self.register(
-                cls.__name__,
-                TypeSpec(
-                    name=cls.__name__,
-                    module_path=cls.__module__,
-                    class_name=cls.__name__,
-                    base_type=base,
-                    description=cls.__doc__.split("\n")[0] if cls.__doc__ else "",
-                ),
-            )
+            # ADR-027 Addendum 1 §3: reject broken Meta declarations. A core
+            # type with a broken ``Meta`` is a SciStudio bug, so this pass
+            # keeps letting the ValueError out rather than logging and
+            # skipping the way the plugin passes do.
+            self.register_class(cls)
 
     def _scan_entrypoint_types(self) -> None:
         """Discover and register DataObject subtypes from ``scistudio.types`` entry-points.
@@ -434,74 +611,89 @@ class TypeRegistry:
         Addendum 1 §3 for the ``Meta`` constraints enforced here. A plugin
         shipping a broken ``Meta`` is logged as a warning and skipped;
         the rest of its entry-point payload still registers successfully.
+
+        ADR-053 FR-025/FR-026: enumeration, load, payload shape, and
+        diagnostics come from :mod:`scistudio.core.entry_points`, shared with
+        the block and previewer registries. This pass used to call
+        ``importlib.metadata.entry_points(group=...)`` unguarded and was the
+        only group able to raise an enumeration failure into its caller — for
+        a registry scan, that is the whole process's type catalogue lost to
+        one unreadable ``dist-info``. It is contained like every other group
+        now. FR-029: the payload contract here is the callable one, with no
+        bare-class allowance, so ``allow_bare_class=False``.
         """
         from scistudio.core.types.base import DataObject
 
-        eps = importlib.metadata.entry_points(group="scistudio.types")
-        for ep in eps:
-            try:
-                factory = ep.load()
-            except Exception:
-                logger.warning(
-                    "Failed to load entry-point '%s' from group 'scistudio.types'",
-                    ep.name,
-                    exc_info=True,
-                )
-                continue
+        diagnostics: list[EntryPointDiagnostic] = []
+        # FR-030: the same plugin import-root activation the previewer and
+        # block scans use, so one installed package resolves for every group
+        # rather than for whichever registry happened to prepare sys.path.
+        with prepared_plugin_import_roots():
+            eps = enumerate_group(TYPES_ENTRY_POINT_GROUP, diagnostics=diagnostics)
+            for ep in eps:
+                ep_name = entry_point_name(ep)
+                factory = load_entry_point(ep, TYPES_ENTRY_POINT_GROUP, diagnostics=diagnostics)
+                if factory is None:
+                    continue
 
-            try:
-                type_classes = factory()
-            except Exception:
-                logger.warning(
-                    "Entry-point '%s' callable raised an exception",
-                    ep.name,
-                    exc_info=True,
+                type_classes = resolve_payload(
+                    factory,
+                    group=TYPES_ENTRY_POINT_GROUP,
+                    entry_point=ep_name,
+                    allow_bare_class=False,
+                    diagnostics=diagnostics,
                 )
-                continue
+                if type_classes is None:
+                    continue
 
-            if not isinstance(type_classes, (list, tuple)):
-                logger.warning(
-                    "Entry-point '%s' returned %s instead of a list of type classes; skipping",
-                    ep.name,
-                    type(type_classes).__name__,
-                )
-                continue
-
-            for cls in type_classes:
-                if not isinstance(cls, type) or not issubclass(cls, DataObject):
-                    logger.warning(
-                        "Entry-point '%s' returned item %r which is not a DataObject subclass; skipping",
-                        ep.name,
-                        cls,
+                if not isinstance(type_classes, (list, tuple)):
+                    message = f"returned {type(type_classes).__name__} instead of a list of type classes"
+                    logger.warning("Entry-point '%s' %s; skipping", ep_name, message)
+                    diagnostics.append(
+                        EntryPointDiagnostic(
+                            group=TYPES_ENTRY_POINT_GROUP,
+                            entry_point=ep_name,
+                            stage=STAGE_REGISTER,
+                            message=message,
+                        )
                     )
                     continue
 
-                # ADR-027 Addendum 1 §3: Meta validation. Reject broken
-                # Meta with a warning (log + skip) instead of raising so
-                # one bad plugin does not take down the whole registry.
-                try:
-                    self._validate_meta_class(cls)
-                except ValueError:
-                    logger.warning(
-                        "Entry-point '%s' type %r has a Meta class that violates ADR-027 Addendum 1 §3; skipping",
-                        ep.name,
-                        cls,
-                        exc_info=True,
-                    )
-                    continue
+                for cls in type_classes:
+                    if not isinstance(cls, type) or not issubclass(cls, DataObject):
+                        message = f"returned item {cls!r} which is not a DataObject subclass"
+                        logger.warning("Entry-point '%s' %s; skipping", ep_name, message)
+                        diagnostics.append(
+                            EntryPointDiagnostic(
+                                group=TYPES_ENTRY_POINT_GROUP,
+                                entry_point=ep_name,
+                                stage=STAGE_REGISTER,
+                                message=message,
+                            )
+                        )
+                        continue
 
-                base = cls.__mro__[1].__name__ if len(cls.__mro__) > 2 else ""
-                self.register(
-                    cls.__name__,
-                    TypeSpec(
-                        name=cls.__name__,
-                        module_path=cls.__module__,
-                        class_name=cls.__name__,
-                        base_type=base,
-                        description=cls.__doc__.split("\n")[0] if cls.__doc__ else "",
-                    ),
-                )
-                logger.info("Registered external type '%s' from entry-point '%s'", cls.__name__, ep.name)
+                    # ADR-027 Addendum 1 §3: Meta validation. Reject broken
+                    # Meta with a warning (log + skip) instead of raising so
+                    # one bad plugin does not take down the whole registry.
+                    try:
+                        self.register_class(cls, package_root=_entrypoint_module(ep))
+                    except ValueError:
+                        message = f"type {cls!r} has a Meta class that violates ADR-027 Addendum 1 §3"
+                        logger.warning("Entry-point '%s' %s; skipping", ep_name, message, exc_info=True)
+                        diagnostics.append(
+                            EntryPointDiagnostic(
+                                group=TYPES_ENTRY_POINT_GROUP,
+                                entry_point=ep_name,
+                                stage=STAGE_REGISTER,
+                                message=message,
+                            )
+                        )
+                        continue
+
+                    logger.info("Registered external type '%s' from entry-point '%s'", cls.__name__, ep_name)
+
+        self._entry_point_diagnostics = [str(diagnostic) for diagnostic in diagnostics]
 
     def scan_all(self) -> None:
         """Register built-in types and then scan entry-points for external types.
@@ -531,6 +723,13 @@ class TypeRegistry:
         would keep its first definition forever. Clearing first is what makes a
         type edit behave the way a block edit already does.
 
+        Clearing is necessary and not sufficient. The re-scan reloads each file
+        through :meth:`_scan_filesystem_dirs`, which evicts that file's cached
+        bytecode first — otherwise an edit made within one second of the last
+        load, to the same length, is re-executed from the stale ``.pyc`` and
+        this method registers the very definition it just removed, silently.
+        See :func:`scistudio.core.dropins.evict_cached_bytecode`.
+
         Holders of an :class:`~scistudio.api.runtime.ApiRuntime` should call
         ``refresh_all_registries()`` instead: it also rebuilds the block and
         previewer registries, and it can swap in a fresh instance. This method
@@ -552,7 +751,7 @@ class TypeRegistry:
         # the plugin's .dist-info on sys.path. Entry-point registrations still
         # win: the loop below skips any cls.__name__ already registered.
         package_dirs = [*self._package_src_dirs, *candidate_package_dirs()]
-        for _root_name, module_name, import_roots in iter_source_package_module_candidates(package_dirs):
+        for root_name, module_name, import_roots in iter_source_package_module_candidates(package_dirs):
             try:
                 with prepended_sys_paths(import_roots):
                     module = importlib.import_module(module_name)
@@ -585,7 +784,7 @@ class TypeRegistry:
                 if cls.__name__ in self._registry:
                     continue
                 try:
-                    self.register_class(cls)
+                    self.register_class(cls, package_root=root_name)
                 except Exception:
                     logger.warning(
                         "Failed to register source plugin type %r from '%s'",
@@ -661,15 +860,7 @@ class TypeRegistry:
                     # collisions when two scan dirs contain files with the same
                     # stem and the same mtime (issue #1374).
                     path_hash = hashlib.sha256(str(py_file.resolve()).encode()).hexdigest()[:8]
-                    mod_name = f"_scistudio_type_dropin_{py_file.stem}_{int(mtime)}_{path_hash}"
-                    # A fresh module object is not a fresh *definition*: the
-                    # loader would still take the class body from a stale
-                    # ``.pyc``. CPython keys freshness on mtime seconds plus
-                    # size, so an edit made within one second to the same
-                    # length reloads the old code. See
-                    # :func:`scistudio.core.dropins.evict_cached_bytecode`
-                    # (Codex P1 on PR #2035).
-                    evict_cached_bytecode(py_file)
+                    mod_name = f"{DROPIN_MODULE_PREFIX}{py_file.stem}_{int(mtime)}_{path_hash}"
                     spec = importlib.util.spec_from_file_location(mod_name, py_file)
                     if spec is None or spec.loader is None:
                         continue
@@ -682,6 +873,12 @@ class TypeRegistry:
                     # this insert every drop-in type is registerable but
                     # un-loadable (Codex P1 finding on PR #1339).
                     sys.modules[spec.name] = module
+                    # A fresh module object is not a fresh *definition*: the
+                    # loader would still take the class body from a stale
+                    # ``.pyc``. See
+                    # :func:`scistudio.core.dropins.evict_cached_bytecode`
+                    # (Codex P1 on PR #2035).
+                    evict_cached_bytecode(py_file)
                     spec.loader.exec_module(module)
                 except KeyboardInterrupt:
                     # The operator's own signal, not the drop-in's failure.

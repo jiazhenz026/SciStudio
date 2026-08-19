@@ -117,6 +117,15 @@ ARCHITECTURE_DOC_PATTERNS: tuple[str, ...] = (
     "docs/architecture/**",
 )
 
+# The owner-controlled architecture document (#2054). Deliberately one file
+# rather than a reuse of ``ARCHITECTURE_DOC_PATTERNS``, which serves the
+# opposite purpose: that surface tells ``checks.py`` a documentation obligation
+# was *satisfied*, and it covers ``docs/adr/**`` and ``docs/specs/**``, which
+# are ordinary work product. ``docs/architecture/`` also holds a generated
+# ``PROJECT_TREE.md`` and a superseded ``ARCHITECTURE_legacy.md``; locking the
+# directory would gate a regeneration behind an owner label for no benefit.
+PROTECTED_ARCHITECTURE_PATTERNS: tuple[str, ...] = ("docs/architecture/ARCHITECTURE.md",)
+
 FRONTEND_PATTERNS: tuple[str, ...] = ("frontend/**",)
 
 PACKAGING_PATTERNS: tuple[str, ...] = (
@@ -251,6 +260,17 @@ def is_architecture_doc_path(path: str) -> bool:
     """Return True for ADR/spec/architecture docs."""
 
     return matches_any(path, ARCHITECTURE_DOC_PATTERNS)
+
+
+def is_protected_architecture_path(path: str) -> bool:
+    """Return True for the owner-controlled architecture document (#2054).
+
+    Narrower than :func:`is_architecture_doc_path` and answering a different
+    question: that one asks "did this change land documentation?", this one
+    asks "does this change need the owner's permission to exist?".
+    """
+
+    return matches_any(path, PROTECTED_ARCHITECTURE_PATTERNS)
 
 
 def is_docs_path(path: str) -> bool:

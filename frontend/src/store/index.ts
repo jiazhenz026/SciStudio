@@ -5,13 +5,14 @@ import { postActiveWorkflowContext } from "../lib/api/ai";
 
 import { createExecutionSlice } from "./executionSlice";
 import { createGitSlice } from "./gitSlice";
+import { createLearningCenterSlice } from "./learningCenterSlice";
 import { createLineageSlice } from "./lineageSlice";
 import { createPaletteSlice } from "./paletteSlice";
 import { createPreviewSlice } from "./previewSlice";
 import { createProjectSlice } from "./projectSlice";
 import { createTabSlice } from "./tabSlice";
 import { createTerminalTabsSlice, rehydrateTerminalTabs } from "./terminalTabsSlice";
-import { createTutorialSlice } from "./tutorialSlice";
+import { createTypesSlice } from "./typesSlice";
 import type { AppStore, FileTab, TabState } from "./types";
 import { createUISlice } from "./uiSlice";
 import { createWorkflowSlice } from "./workflowSlice";
@@ -46,7 +47,11 @@ function partializeTabs(tabs: TabState[]): TabState[] {
       // comes from the block registry, not a project file, and has no
       // rehydrate-refetch path. Drop them from persistence so a reload does not
       // leave a permanently-empty placeholder.
-      .filter((tab) => !(tab.kind === "file" && tab.blockSourceType))
+      //
+      // ADR-053 FR-032: user-library tabs are dropped for the same reason.
+      // Their file lives outside every project root, so the project-file
+      // rehydrate path cannot restore it either.
+      .filter((tab) => !(tab.kind === "file" && (tab.blockSourceType || tab.userLibraryTarget)))
       .map((tab) => (tab.kind === "file" ? partializeFileTab(tab) : tab))
   );
 }
@@ -63,12 +68,15 @@ export const useAppStore = create<AppStore>()(
   persist(
     (...args) => ({
       ...createProjectSlice(...args),
-      ...createTutorialSlice(...args),
+      // ADR-053 Learning Center (#2057) — view state only; not persisted.
+      ...createLearningCenterSlice(...args),
       ...createWorkflowSlice(...args),
       ...createExecutionSlice(...args),
       ...createUISlice(...args),
       ...createPreviewSlice(...args),
       ...createPaletteSlice(...args),
+      // ADR-053 §7 — registered data type catalogue (FR-026 / FR-027).
+      ...createTypesSlice(...args),
       ...createTabSlice(...args),
       ...createTerminalTabsSlice(...args),
       // ADR-038 §3.8 — Lineage tab state.
@@ -89,10 +97,10 @@ export const useAppStore = create<AppStore>()(
         // with synthetic exit code -1 so the user sees the Reopen button.
         terminalTabs: state.terminalTabs,
         activeTerminalTabId: state.activeTerminalTabId,
-        runFirstWorkflowTutorialActive: state.runFirstWorkflowTutorialActive,
-        runFirstWorkflowTutorialStep: state.runFirstWorkflowTutorialStep,
-        runFirstWorkflowTutorialInstance: state.runFirstWorkflowTutorialInstance,
-        runFirstWorkflowTutorialPrefs: state.runFirstWorkflowTutorialPrefs,
+        // ADR-053 FR-001 / FR-074 — the four `runFirstWorkflowTutorial*` keys
+        // that used to be persisted here are gone. Tutorial progress lives on
+        // the backend under `~/.scistudio/`; a browser copy would be a second
+        // source of truth that survives a backend which has moved on.
         // ADR-036 §3.11: persist file-tab METADATA only (not content).
         // Workflow tabs are NOT persisted here because their canvas state
         // re-derives from project open + workflow load.

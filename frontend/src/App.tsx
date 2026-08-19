@@ -33,7 +33,7 @@ import type { ProjectResponse, WorkflowResponse } from "./types/api";
 import { AppLevelMergeFlow } from "./App.parts/AppLevelMergeFlow";
 import { AppDialogs } from "./App.parts/AppDialogs";
 import { InteractiveModals } from "./App.parts/InteractiveModals";
-import { ProjectWorkspace } from "./App.parts/ProjectWorkspace";
+import { ProjectWorkspace, type LeftTab } from "./App.parts/ProjectWorkspace";
 import { WelcomePane } from "./App.parts/WelcomePane";
 import { useActiveTab } from "./App.parts/useActiveTab";
 import { useAppKeyboardShortcuts } from "./App.parts/useAppKeyboardShortcuts";
@@ -42,14 +42,16 @@ import { useBottomPanelControls } from "./App.parts/useBottomPanelControls";
 import { useCanvasHandlers } from "./App.parts/useCanvasHandlers";
 import { useCanvasReadability } from "./App.parts/useCanvasReadability";
 import { useFileTabsAutosave } from "./App.parts/useFileTabsAutosave";
+import { useLearningCenter } from "./App.parts/useLearningCenter";
 import { usePromptInput } from "./App.parts/usePromptInput";
 import { useBlockCatalogSync } from "./App.parts/useBlockCatalogSync";
 import { useProjectActions } from "./App.parts/useProjectActions";
-import { useRunFirstWorkflowTutorial } from "./App.parts/useRunFirstWorkflowTutorial";
 import { useWorkflowExecutionActions } from "./App.parts/useWorkflowExecutionActions";
 import { useWorkflowSync } from "./App.parts/useWorkflowSync";
 
-import { TutorialPanel } from "./components/TutorialPanel";
+import { LearningCenter } from "./components/LearningCenter";
+import { ActiveStep } from "./components/LearningCenter.parts/ActiveStep";
+import { WorkImportOffer } from "./components/LearningCenter.parts/WorkImportOffer";
 import { Toolbar } from "./components/Toolbar";
 import { TooltipProvider } from "./components/ui/tooltip";
 
@@ -240,7 +242,7 @@ export default function App() {
   const openBlockSourceTab = useAppStore((state) => state.openBlockSourceTab);
   const { activeFileTab, activeTabKind } = useActiveTab(tabs as AnyTab[], activeTabId);
   const [busy, setBusy] = useState(false);
-  const [leftTab, setLeftTab] = useState<"blocks" | "project">("blocks");
+  const [leftTab, setLeftTab] = useState<LeftTab>("blocks");
   const openNewPlotPicker = useAppStore((state) => state.openNewPlotPicker);
   const { promptRequest, promptInput, clearPrompt } = usePromptInput();
   const {
@@ -311,19 +313,10 @@ export default function App() {
     deleteProject,
     newWorkflow,
     createNewCustomBlock,
+    createNewDataType,
     createNewNote,
     importWorkflow,
   } = projectActions;
-  const {
-    tutorialPromptVisible,
-    startTutorial,
-    dismissRunFirstWorkflowTutorialPrompt,
-    suppressRunFirstWorkflowTutorialPrompt,
-  } = useRunFirstWorkflowTutorial({
-    openProject,
-    setBusy,
-    setLastError,
-  });
   const {
     runWorkflow,
     pauseWorkflow,
@@ -381,6 +374,17 @@ export default function App() {
     tabs: tabs as AnyTab[],
     saveFileTab,
   });
+
+  /*
+   * ADR-053 Learning Center (#2057) — start-up catalogue fetch, the FR-083
+   * first-run landing, the reconnect refetch, and step-entry routing.
+   */
+  useLearningCenter({
+    wsConnected,
+    setLeftTab,
+    openProject,
+    closeProject: () => closeCurrentProject({ setCurrentProject, setWorkflow, resetExecution }),
+  });
   useAppKeyboardShortcuts({
     activeFileTab,
     cancelWorkflow,
@@ -399,6 +403,12 @@ export default function App() {
     togglePreview,
     undoWorkflow,
   });
+  // The New-menu entries are project-scoped: `undefined` is what makes the
+  // toolbar hide/disable them. ADR-053 FR-032 adds a third one, so the shape is
+  // written once rather than three times.
+  const whenProjectOpen = (run: () => Promise<void>) =>
+    currentProject ? () => void run() : undefined;
+
   return (
     <ReactFlowProvider>
       <TooltipProvider delayDuration={300}>
@@ -422,20 +432,9 @@ export default function App() {
               closeCurrentProject({ setCurrentProject, setWorkflow, resetExecution })
             }
             onNewWorkflow={newWorkflow}
-            onNewCustomBlock={
-              currentProject
-                ? () => {
-                    void createNewCustomBlock();
-                  }
-                : undefined
-            }
-            onNewNote={
-              currentProject
-                ? () => {
-                    void createNewNote();
-                  }
-                : undefined
-            }
+            onNewCustomBlock={whenProjectOpen(createNewCustomBlock)}
+            onNewDataType={whenProjectOpen(createNewDataType)}
+            onNewNote={whenProjectOpen(createNewNote)}
             onNewPlot={
               currentProject
                 ? () => {
@@ -462,6 +461,15 @@ export default function App() {
           />
 
           <AppErrorBanner message={lastError} onDismiss={() => setLastError(null)} />
+
+          {/*
+           * ADR-053 FR-089 — the active step is a fixed-position card that
+           * follows the element the step points at, over a dimming overlay that
+           * lights only that element. It takes no space in this layout and its
+           * position here is only mount order; it renders nothing when no
+           * tutorial is running.
+           */}
+          <ActiveStep />
 
           {currentProject ? (
             <>
@@ -518,12 +526,6 @@ export default function App() {
                 selectedNodeLabel={selectedNodeLabel}
                 setPanelSize={setPanelSize}
               />
-              <TutorialPanel
-                onOpenFile={openFileTab}
-                onReloadBlocks={reloadBlocks}
-                onSaveWorkflow={saveWorkflow}
-                onShowBlocks={() => setLeftTab("blocks")}
-              />
             </>
           ) : (
             <WelcomePane
@@ -532,10 +534,6 @@ export default function App() {
               onOpenProject={() => openProjectDialog("open")}
               onOpenRecent={(projectId) => void openProject(projectId)}
               recentProjects={recentProjects}
-              tutorialPromptVisible={tutorialPromptVisible}
-              onStartTutorial={() => void startTutorial()}
-              onDismissTutorial={dismissRunFirstWorkflowTutorialPrompt}
-              onSuppressTutorial={suppressRunFirstWorkflowTutorialPrompt}
             />
           )}
 
@@ -554,6 +552,15 @@ export default function App() {
             onPromptClose={clearPrompt}
             onResolveWorkflowConflict={resolveWorkflowConflict}
           />
+
+          {/*
+           * ADR-053 FR-079 — the single product behaviour progress drives.
+           * Renders nothing unless the backend says the offer is still owed.
+           */}
+          <WorkImportOffer />
+
+          {/* ADR-053 FR-082 … FR-088 — mounted once; the toolbar only opens it. */}
+          <LearningCenter />
 
           <InteractiveModals />
 

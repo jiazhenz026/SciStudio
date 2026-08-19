@@ -190,3 +190,21 @@ test("pythonPathFor: dev uses only the worktree checkout src", () => {
     ["/repo/src"]
   );
 });
+
+// #2068: the HTTP cache was cleared on every launch, so each start threw away
+// the frontend bundle and paid a full re-download and re-parse. It only has to
+// be dropped when the served assets change, which is a build change.
+test("shouldClearCache: only when the effective build changed", () => {
+  assert.equal(ota.shouldClearCache({ build: 22 }, 22), false);
+  assert.equal(ota.shouldClearCache({ build: 21 }, 22), true);
+  assert.equal(ota.shouldClearCache({ build: 22 }, 0), true);
+});
+
+test("shouldClearCache: a missing or unusable record clears", () => {
+  // First launch after this lands, and any corrupted pointer, must still start
+  // from a known-clean cache rather than trusting an unreadable record.
+  assert.equal(ota.shouldClearCache(null, 22), true);
+  assert.equal(ota.shouldClearCache(undefined, 22), true);
+  assert.equal(ota.shouldClearCache({}, 22), true);
+  assert.equal(ota.shouldClearCache({ build: "22" }, 22), true);
+});

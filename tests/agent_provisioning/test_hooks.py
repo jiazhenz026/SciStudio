@@ -90,6 +90,36 @@ def test_write_hooks_excludes_worktree_write_guard(tmp_project_dir: Path) -> Non
     assert not any("worktree_write_guard" in command for command in commands)
 
 
+def test_write_hooks_writes_nothing_for_kimi_code(tmp_project_dir: Path) -> None:
+    """#2045: Kimi hooks are user scope, so provisioning must stay out of the project.
+
+    Kimi Code *does* have a hook system, and its contract is ours exactly —
+    JSON on stdin, exit 2 blocks, regex matchers on the tool name — so the
+    seven scripts above would run under it unchanged. That similarity is the
+    trap: it makes "just provision Kimi too" look like a one-line addition.
+    It is not, because the only place Kimi reads hook declarations from is
+    ``<KIMI_CODE_HOME>/config.toml``. There is no project-scope file to write,
+    and the owner decision is that SciStudio does not edit a user's global CLI
+    configuration — entries there would fire in every unrelated project the
+    user opens. The AI Chat setup screen discloses the gap instead.
+
+    This test exists so that decision fails loudly if it is ever quietly
+    reversed by a provisioning change rather than by amending the spec.
+    """
+    written = write_hooks(tmp_project_dir, force=True)
+
+    assert not any("kimi" in path.lower() for path in written), (
+        f"write_hooks reported a Kimi path: {written}. Kimi reads hook "
+        "declarations only from <KIMI_CODE_HOME>/config.toml."
+    )
+    # ``<project>/.kimi-code/`` is a legitimate directory — the chat spawn path
+    # writes Kimi's MCP config there — so the assertion is about hook *config*
+    # landing in it, not about the directory existing.
+    assert not (tmp_project_dir / ".kimi-code" / "config.toml").exists()
+    assert not (tmp_project_dir / ".kimi-code" / "local.toml").exists()
+    assert not (tmp_project_dir / ".kimi-code" / "settings.json").exists()
+
+
 def test_write_hooks_idempotent_when_all_canonical_present(tmp_project_dir: Path) -> None:
     """force=False does not rewrite settings.json when nothing is missing."""
     settings = _build_settings_json(".claude/hooks")

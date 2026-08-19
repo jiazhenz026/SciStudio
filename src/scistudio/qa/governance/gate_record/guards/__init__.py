@@ -17,6 +17,7 @@ from __future__ import annotations
 
 # GuardInputs and Guard live in _base to avoid import cycles: guard submodules
 # import from _base directly; __init__ re-exports them for external callers.
+import scistudio.qa.governance.gate_record.guards.architecture_doc_guard as architecture_doc_guard
 import scistudio.qa.governance.gate_record.guards.core_change_guard as core_change_guard
 import scistudio.qa.governance.gate_record.guards.docs_landing as docs_landing
 import scistudio.qa.governance.gate_record.guards.human_bypass_guard as human_bypass_guard
@@ -37,6 +38,7 @@ from scistudio.qa.governance.gate_record.guards._base import Guard, GuardInputs
 # stable contract for B2/B3/B4.
 GUARD_REGISTRY: dict[str, Guard] = {
     "core_change_guard": core_change_guard.check,
+    "architecture_doc_guard": architecture_doc_guard.check,
     "human_bypass_guard": human_bypass_guard.check,
     "pr_merge_guard": pr_merge_guard.check,
     "mod_guard": mod_guard.check,

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "captured_at": "2026-06-10T00:00:00+00:00",
+  "captured_at": "2026-08-11T00:00:00+00:00",
   "config": {
     "root": "src/scistudio",
     "model": "BAAI/bge-small-en-v1.5",
@@ -8,18 +8,18 @@
     "min_loc": 5
   },
   "current": {
-    "functions_scanned": 1522,
-    "clusters": 94,
-    "duplicate_loc": 5427,
-    "total_loc": 41222,
-    "duplicate_pct": 13.17,
+    "functions_scanned": 2361,
+    "clusters": 126,
+    "duplicate_loc": 7150,
+    "total_loc": 62846,
+    "duplicate_pct": 11.38,
     "max_cluster_size": 8
   },
   "ratchet": {
-    "max_clusters": 120,
+    "max_clusters": 150,
     "max_duplicate_pct": 13.83,
     "max_cluster_size": 8,
-    "max_duplicate_loc": 7000
+    "max_duplicate_loc": 8500
   },
-  "ratchet_policy": "Bumped 2026-06-20 to 120 clusters / 7000 duplicate LOC (owner-authorized, #1711) to absorb the plot relink feature (bug#7) — RelinkOutcome and relink_plot are structurally similar to the existing scaffold/validation outcomes in the same tools_plot package, adding ~1 cluster / +30 LOC (scan: 100 clusters / 5729 LOC). The duplicate PERCENTAGE stays under ratchet (12.69% < 13.83%) and max_cluster_size is unchanged at 8. Generous headroom set per owner directive. NOTE: the `current` snapshot above is stale (last refreshed 2026-06-10); CI should re-run `--write-baseline` to refresh it and re-ratchet DOWN. Follow-up: consolidate tools_plot outcome dataclasses + provider envelope boilerplate and ratchet down (#1578). Prior bumps: 2026-06-10 ADR-048 SPEC 1 (#1574) previewers; 2026-05-22 ADR-045 (#1401) version-vector wrappers."
+  "ratchet_policy": "Bumped 2026-08-11 to 150 clusters / 8500 duplicate LOC (owner-authorized, #2057) to absorb the ADR-053 Learning Center. The package is a new subsystem: the scanned function count went from 1522 to 2361, and the two absolute ratchets were set against the smaller codebase. The duplicate PERCENTAGE went DOWN — 11.38% against a 13.17% baseline and a 13.83% ratchet — and max_cluster_size is unchanged at 8, so the code added is less duplicative than what was already here; only the absolute counts moved. The seven clusters the new package contributes were inventoried before the bump rather than assumed: two are `TutorialDriver`'s Protocol method stubs paired with `ManifestDriver`'s implementations (an interface beside what implements it, which the embedding cannot tell from a copy); one is the tutorial's own teaching material, `assets/code/normalize_fluorescence.py` and its `_renamed` twin, whose whole lesson is that they differ by one `type_name` line; three are small genuine similarities inside the package (`_eval_node_exists`/`_eval_edge_exists`, `execute_action`/`execute_replay`, `StartSessionRequest.key`/`tutorial_key_of`, 10-22 LOC each); and the seventh, `_eval_run_succeeded`/`_eval_run_failed`, was consolidated onto one `_runs_for` walk before this bump was requested. Follow-ups: consolidate the three remaining in-package pairs and ratchet down (#1578 already tracks the tools_plot outcome dataclasses and provider envelope boilerplate); and decide whether `src/scistudio/tutorials/core/**/assets/**` belongs in the scanned root at all, since it is authored teaching content rather than product code. NOTE: the `current` snapshot above was refreshed by this bump; CI should re-run `--write-baseline` after the follow-ups land and re-ratchet DOWN. Prior bumps: 2026-06-20 (#1711) plot relink; 2026-06-10 ADR-048 SPEC 1 (#1574) previewers; 2026-05-22 ADR-045 (#1401) version-vector wrappers."
 }

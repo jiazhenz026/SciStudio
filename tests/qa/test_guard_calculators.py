@@ -16,6 +16,7 @@ import pytest
 
 from scistudio.qa.governance.gate_record.guards import (
     GuardInputs,
+    architecture_doc_guard,
     core_change_guard,
     docs_landing,
     human_bypass_guard,
@@ -37,6 +38,7 @@ _SURFACE_CLASSES = (
     "test",
     "governance",
     "protected_core",
+    "protected_architecture",
     "frontend",
     "packaging",
     "workflow_ci",
@@ -143,6 +145,109 @@ def test_core_change_local_requested_label_is_warning_not_block() -> None:
     # A requested (unverified) label downgrades the local finding to a warning.
     assert not report.blocks_merge
     assert any(f.severity == Severity.WARNING for f in report.findings)
+
+
+# ---------------------------------------------------------------------------
+# architecture_doc_guard (#2054)
+# ---------------------------------------------------------------------------
+
+ARCH_DOC = "docs/architecture/ARCHITECTURE.md"
+
+
+def test_architecture_doc_passes_when_the_document_is_untouched() -> None:
+    report = architecture_doc_guard.check(_inputs(mode="ci", surfaces={"protected_architecture": []}))
+    assert report.status is AuditStatus.PASS
+    assert not report.blocks_merge
+
+
+def test_architecture_doc_blocks_ci_change_without_approval() -> None:
+    """The case that motivated the guard: PR #2036 went green with this diff."""
+
+    report = architecture_doc_guard.check(_inputs(mode="ci", surfaces={"protected_architecture": [ARCH_DOC]}))
+    assert report.blocks_merge
+    assert "architecture_doc_guard.missing-owner-approval" in _rule_ids(report)
+    assert report.findings[0].file == ARCH_DOC
+
+
+def test_architecture_doc_passes_with_verified_label() -> None:
+    report = architecture_doc_guard.check(
+        _inputs(
+            mode="ci",
+            surfaces={"protected_architecture": [ARCH_DOC]},
+            observed_admin_labels=[AdminLabel(name="admin-approved:architecture-doc", actor_permission="admin")],
+        )
+    )
+    assert report.status is AuditStatus.PASS
+    assert not report.blocks_merge
+
+
+def test_architecture_doc_label_without_provenance_does_not_release_ci() -> None:
+    """An agent can put a label on its own PR; only CI can say who applied it."""
+
+    report = architecture_doc_guard.check(
+        _inputs(
+            mode="ci",
+            surfaces={"protected_architecture": [ARCH_DOC]},
+            observed_admin_labels=[AdminLabel(name="admin-approved:architecture-doc")],
+        )
+    )
+    assert report.blocks_merge
+
+
+def test_architecture_doc_core_change_label_does_not_release_it() -> None:
+    """The two authorizations are distinct; one does not stand in for the other."""
+
+    report = architecture_doc_guard.check(
+        _inputs(
+            mode="ci",
+            surfaces={"protected_architecture": [ARCH_DOC]},
+            observed_admin_labels=[AdminLabel(name="admin-approved:core-change", actor_permission="admin")],
+        )
+    )
+    assert report.blocks_merge
+
+
+def test_architecture_doc_passes_with_admin_approval_review() -> None:
+    """An owner who approved the PR read the diff; do not make them say yes twice."""
+
+    report = architecture_doc_guard.check(
+        _inputs(
+            mode="ci",
+            surfaces={"protected_architecture": [ARCH_DOC]},
+            pr_context={"reviews": [{"state": "APPROVED", "permission": "admin"}]},
+        )
+    )
+    assert report.status is AuditStatus.PASS
+
+
+def test_architecture_doc_non_admin_review_does_not_release_it() -> None:
+    report = architecture_doc_guard.check(
+        _inputs(
+            mode="ci",
+            surfaces={"protected_architecture": [ARCH_DOC]},
+            pr_context={"reviews": [{"state": "APPROVED", "permission": "read"}]},
+        )
+    )
+    assert report.blocks_merge
+
+
+def test_architecture_doc_local_requested_label_is_warning_not_block() -> None:
+    report = architecture_doc_guard.check(
+        _inputs(
+            mode="local",
+            surfaces={"protected_architecture": [ARCH_DOC]},
+            requested_admin_labels=[AdminLabel(name="admin-approved:architecture-doc")],
+        )
+    )
+    assert not report.blocks_merge
+    assert any(f.severity == Severity.WARNING for f in report.findings)
+
+
+def test_architecture_doc_local_without_any_label_still_blocks() -> None:
+    """Local mode warns only when the intent was recorded; silence is not intent."""
+
+    report = architecture_doc_guard.check(_inputs(mode="local", surfaces={"protected_architecture": [ARCH_DOC]}))
+    assert report.blocks_merge
 
 
 # ---------------------------------------------------------------------------
