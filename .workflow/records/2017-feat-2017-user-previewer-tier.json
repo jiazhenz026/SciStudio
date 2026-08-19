@@ -411,9 +411,9 @@
     }
   ],
   "commit": {
-    "sha": "f4f15604",
+    "sha": "3d1a9c88",
     "shas": [
-      "f4f15604"
+      "3d1a9c88"
     ],
     "trailers": []
   },
@@ -2308,6 +2308,110 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:54:43.992706Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/dropins.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/dropins.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:54:44.006035Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:54:44.019658Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:54:44.032322Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:54:44.045179Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:54:44.057848Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:54:44.070864Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:54:44.083499Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:54:44.095918Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:54:44.117241Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -2326,7 +2430,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "1844cc437829d2f90a7c9a69b00eb57ebd907911",
     "base_sha": "1844cc43",
     "changed_files": [
       ".workflow/records/2017-feat-2017-user-previewer-tier.json",
@@ -2349,9 +2453,9 @@
       "tests/previewers/test_preview_routing.py",
       "tests/previewers/test_previewer_dropins.py"
     ],
-    "diff_fingerprint": "sha256:b2d2ea036a616720dfdad4a905f4d9ae036992e5e8a6703599a99a9c49b6022d",
+    "diff_fingerprint": "sha256:d04efef95dd2965d7d08b1368ef1c2449f9a8685dfa72ba3f49fb6c55c60b5b9",
     "head": "HEAD",
-    "head_sha": "ca92d9b1",
+    "head_sha": "3d1a9c88",
     "surfaces": {
       "docs": 7,
       "frontend": 0,
@@ -2373,7 +2477,7 @@
       2017,
       2044
     ],
-    "number": null,
+    "number": 2072,
     "url": null
   },
   "reconcile_events": [
@@ -2536,6 +2640,16 @@
     {
       "at": "2026-08-19T00:52:50.616216Z",
       "diff_fingerprint": "sha256:b2d2ea036a616720dfdad4a905f4d9ae036992e5e8a6703599a99a9c49b6022d",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.semantic_dup"
+      ]
+    },
+    {
+      "at": "2026-08-19T00:54:44.117264Z",
+      "diff_fingerprint": "sha256:d04efef95dd2965d7d08b1368ef1c2449f9a8685dfa72ba3f49fb6c55c60b5b9",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 1,
