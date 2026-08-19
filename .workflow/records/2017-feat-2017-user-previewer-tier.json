@@ -2665,6 +2665,12 @@
       "applied_at": null,
       "applied_by": null,
       "name": "admin-approved:core-change"
+    },
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:architecture-doc"
     }
   ],
   "required_obligations": {
