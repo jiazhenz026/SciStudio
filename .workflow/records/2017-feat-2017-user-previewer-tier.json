@@ -2204,6 +2204,110 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:52:50.479336Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/dropins.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/dropins.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:52:50.493524Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:52:50.507556Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:52:50.521750Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:52:50.535749Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:52:50.550555Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:52:50.564802Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:52:50.579552Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:52:50.593539Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-19T00:52:50.616193Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -2245,9 +2349,9 @@
       "tests/previewers/test_preview_routing.py",
       "tests/previewers/test_previewer_dropins.py"
     ],
-    "diff_fingerprint": "sha256:2a8b812656e6b50894fa5b0620f9d920f24bc46f4c19827c5b36ea603b174ab4",
+    "diff_fingerprint": "sha256:b2d2ea036a616720dfdad4a905f4d9ae036992e5e8a6703599a99a9c49b6022d",
     "head": "HEAD",
-    "head_sha": "f4f15604",
+    "head_sha": "ca92d9b1",
     "surfaces": {
       "docs": 7,
       "frontend": 0,
@@ -2422,6 +2526,16 @@
     {
       "at": "2026-08-19T00:51:34.854466Z",
       "diff_fingerprint": "sha256:2a8b812656e6b50894fa5b0620f9d920f24bc46f4c19827c5b36ea603b174ab4",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.semantic_dup"
+      ]
+    },
+    {
+      "at": "2026-08-19T00:52:50.616216Z",
+      "diff_fingerprint": "sha256:b2d2ea036a616720dfdad4a905f4d9ae036992e5e8a6703599a99a9c49b6022d",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 1,
