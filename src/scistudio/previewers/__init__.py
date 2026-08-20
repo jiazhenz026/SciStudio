@@ -117,8 +117,6 @@ def build_preview_service(
     previewer shadows a user previewer with the same id, matching the
     project-first registration order the type registry uses.
     """
-    from scistudio.core.dropins import previewer_import_roots
-
     registry = PreviewerRegistry()
     registry.load_core()
     registry.load_packages()
@@ -129,7 +127,7 @@ def build_preview_service(
     sessions = PreviewSessionManager(
         registry,
         child_context_resolver=child_context_resolver,
-        dropin_import_roots=previewer_import_roots(project_dir),
+        project_dir=project_dir,
     )
     return PreviewService(registry=registry, router=router, sessions=sessions)
 

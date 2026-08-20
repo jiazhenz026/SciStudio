@@ -268,3 +268,154 @@ def test_lazy_string_provider_resolves_with_scoped_import_roots(user_home: Path)
     assert envelope.payload == {"content": "from-user-dropin"}
     assert envelope.previewer_id == "user.lazy"
     assert str(previewers_dir) not in sys.path
+
+
+# -- PR #2072 audit: cross-tier module-cache isolation -------------------------
+
+
+def _render_body(content: str) -> str:
+    return (
+        "from scistudio.previewers.models import EnvelopeKind, PreviewEnvelope\n"
+        "def render(request):\n"
+        "    return PreviewEnvelope(previewer_id=request.spec.previewer_id, target=request.target,\n"
+        f"        kind=EnvelopeKind.TEXT, payload={{'content': {content!r}}})\n"
+    )
+
+
+def _lazy_dropin_body(owner: str, previewer_id: str, provider: str = "renderer:render") -> str:
+    return (
+        "from scistudio.previewers.models import OwnerKind, PreviewerSpec\n"
+        "def get_previewers():\n"
+        "    return [PreviewerSpec(\n"
+        f"        previewer_id={previewer_id!r},\n"
+        f"        owner_kind=OwnerKind.{owner},\n"
+        f"        owner_name={owner.lower()!r},\n"
+        "        target_type='Image',\n"
+        f"        backend_provider={provider!r})]\n"
+    )
+
+
+def _image_target() -> PreviewTarget:
+    return PreviewTarget(
+        kind=TargetKind.DATA_REF,
+        ref="r",
+        recorded_type="Image",
+        type_chain=("DataObject", "Array", "Image"),
+    )
+
+
+def test_user_lazy_provider_never_executes_project_same_name_module(
+    project_dir: Path, user_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A user spec's ``renderer:render`` resolves against the *user* root, even
+    when the project has a same-named module (PR #2072 audit P1)."""
+    _write(project_dir / "previewers" / "renderer.py", _render_body("project-renderer"))
+    previewers_dir = user_home / ".scistudio" / "previewers"
+    _write(previewers_dir / "renderer.py", _render_body("user-renderer"))
+    _write(previewers_dir / "mine.py", _lazy_dropin_body("USER", "user.lazy"))
+    monkeypatch.setattr(PreviewerRegistry, "load_packages", lambda self: None)
+    service = build_preview_service(project_dir=project_dir)
+    envelope = service.sessions.create_session(_image_target())
+    assert envelope.kind is EnvelopeKind.TEXT
+    assert envelope.payload == {"content": "user-renderer"}
+    assert envelope.previewer_id == "user.lazy"
+    assert "renderer" not in sys.modules
+
+
+def test_user_lazy_provider_survives_project_close(
+    project_dir: Path, user_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rebuilding with ``project_dir=None`` must not keep serving the closed
+    project's provider module from the ``sys.modules`` cache (PR #2072 audit)."""
+    _write(project_dir / "previewers" / "renderer.py", _render_body("project-renderer"))
+    previewers_dir = user_home / ".scistudio" / "previewers"
+    _write(previewers_dir / "renderer.py", _render_body("user-renderer"))
+    _write(previewers_dir / "mine.py", _lazy_dropin_body("USER", "user.lazy"))
+    monkeypatch.setattr(PreviewerRegistry, "load_packages", lambda self: None)
+    with_project = build_preview_service(project_dir=project_dir)
+    assert with_project.sessions.create_session(_image_target()).payload == {"content": "user-renderer"}
+    without_project = build_preview_service(project_dir=None)
+    envelope = without_project.sessions.create_session(_image_target())
+    assert envelope.payload == {"content": "user-renderer"}
+    assert envelope.previewer_id == "user.lazy"
+
+
+def test_sibling_helper_import_does_not_leak_across_tiers(
+    project_dir: Path, user_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Both tiers sibling-import a same-named ``helpers.py``; each must get its
+    own, with no false FR-016 refusal on the second scan (PR #2072 audit P1)."""
+    _write(project_dir / "previewers" / "helpers.py", "PREVIEWER_ID = 'project.with.helper'\n")
+    _write(
+        project_dir / "previewers" / "mine.py",
+        "import helpers\n"
+        "from scistudio.previewers.models import OwnerKind, PreviewerSpec\n"
+        "def get_previewers():\n"
+        "    return [PreviewerSpec(previewer_id=helpers.PREVIEWER_ID, owner_kind=OwnerKind.PROJECT,"
+        " owner_name='project', target_type='Image')]\n",
+    )
+    _write(user_home / ".scistudio" / "previewers" / "helpers.py", "PREVIEWER_ID = 'user.with.helper'\n")
+    _write(
+        user_home / ".scistudio" / "previewers" / "mine.py",
+        "import helpers\n"
+        "from scistudio.previewers.models import OwnerKind, PreviewerSpec\n"
+        "def get_previewers():\n"
+        "    return [PreviewerSpec(previewer_id=helpers.PREVIEWER_ID, owner_kind=OwnerKind.USER,"
+        " owner_name='user', target_type='Image')]\n",
+    )
+    monkeypatch.setattr(PreviewerRegistry, "load_packages", lambda self: None)
+    service = build_preview_service(project_dir=project_dir)
+    project_spec = service.registry.get("project.with.helper")
+    user_spec = service.registry.get("user.with.helper")
+    assert project_spec is not None and project_spec.owner_kind is OwnerKind.PROJECT
+    assert user_spec is not None and user_spec.owner_kind is OwnerKind.USER
+    assert not any("rejected" in message for message in service.registry.diagnostics)
+    assert "helpers" not in sys.modules
+
+
+def test_failed_dropin_exec_leaves_no_sys_modules_residue(project_dir: Path) -> None:
+    """A drop-in that raises during exec must not leave its half-executed
+    module in ``sys.modules`` (PR #2072 audit)."""
+    previewers_dir = project_dir / "previewers"
+    _write(previewers_dir / "broken.py", "raise RuntimeError('boom')\n")
+    registry = PreviewerRegistry()
+    load_project_previewers(registry, project_dir)
+    assert "_scistudio_project_previewer_broken" not in sys.modules
+    assert any("broken.py" in message for message in registry.diagnostics)
+
+
+def test_owner_kind_mismatch_is_recorded_on_diagnostics(user_home: Path) -> None:
+    """A wrong-tier spec is skipped *and* surfaced, not only logged."""
+    _write(user_home / ".scistudio" / "previewers" / "wrong.py", _dropin_body("PROJECT", "project.wrong"))
+    registry = PreviewerRegistry()
+    load_user_previewers(registry)
+    assert registry.get("project.wrong") is None
+    assert any("project.wrong" in message and "owner_kind" in message for message in registry.diagnostics)
+
+
+def test_refused_name_is_not_reimported_on_every_guard_pass(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A collision whose installed module raises on import is bound (refused)
+    once per process, not retried on every guard pass (PR #2072 audit P2)."""
+    counter = tmp_path / "counter.txt"
+    counter.write_text("0", encoding="utf-8")
+    site = tmp_path / "site"
+    site.mkdir()
+    _write(
+        site / "boommod_pr2072.py",
+        "import pathlib\n"
+        f"p = pathlib.Path({str(counter)!r})\n"
+        "p.write_text(str(int(p.read_text()) + 1))\n"
+        "raise RuntimeError('boom')\n",
+    )
+    monkeypatch.syspath_prepend(str(site))
+    dropin_dir = tmp_path / "previewers"
+    dropin_dir.mkdir()
+    colliding = _write(dropin_dir / "boommod_pr2072.py", _dropin_body("PROJECT", "project.boom"))
+    try:
+        guard_dropin_roots((dropin_dir,), dir_name=PREVIEWERS_DIR_NAME)
+        guard_dropin_roots((dropin_dir,), dir_name=PREVIEWERS_DIR_NAME)
+        assert counter.read_text(encoding="utf-8") == "1"
+    finally:
+        # Release the process-wide refusal so it cannot leak into other tests.
+        colliding.unlink()
+        guard_dropin_roots((dropin_dir,), dir_name=PREVIEWERS_DIR_NAME)

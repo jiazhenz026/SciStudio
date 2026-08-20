@@ -808,9 +808,11 @@ codeblock_config_payload(config: 'Mapping[str, Any]') -> 'dict[str, Any]'
 Extract just the saved Code Block settings from a raw config mapping.
 
 A config may arrive with its fields at the top level or nested under a
-``params`` key, and may carry runtime-only keys the runtime injects (such as
-the project directory). This returns the script settings only, flattened and
-with those runtime-only keys removed.
+``params`` key, and may carry keys that are not part of the script config:
+runtime-only keys the runtime injects (such as the project directory) and
+the ADR-029 variadic canvas-port keys (``input_ports`` / ``output_ports``)
+the port editor persists. This returns the script settings only, flattened
+and with those non-script keys removed.
 
 Args:
     config: The raw configuration mapping.
@@ -1298,4 +1300,3 @@ Args:
 
 Returns:
     A list of diagnostics; empty when the configuration is valid.
-

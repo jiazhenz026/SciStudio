@@ -2,7 +2,7 @@
 
 # SciStudio API Reference
 
-**Version:** `0.3.2a0` — single-version reference for this release (ADR-052 §7; multi-version hosting via `mike` is a tracked follow-up, #1817).
+**Version:** `0.3.3a0` — single-version reference for this release (ADR-052 §7; multi-version hosting via `mike` is a tracked follow-up, #1817).
 
 This reference is **generated** from the public API's docstrings and the `scistudio.stability` decorators (ADR-052 §7). It contains only the public surface — the symbols declared in each canonical root's `__all__`; `internal` symbols are excluded. Do not hand-edit; regenerate with `scripts/docs/build_reference.py`.
 
@@ -25,4 +25,3 @@ A handful of public constants and type-aliases (a bare `str`, a `list[...]` or `
 - [`scistudio.blocks.code`](scistudio.blocks.code.md) — 60 public symbols (59 stability-marked)
 - [`scistudio.previewers.models`](scistudio.previewers.models.md) — 21 public symbols (17 stability-marked)
 - [`scistudio.previewers.data_access`](scistudio.previewers.data_access.md) — 11 public symbols (11 stability-marked)
-

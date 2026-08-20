@@ -12,8 +12,9 @@ Discovery surface (kept deliberately small per spec §4.5 risk mitigation):
 * ``<project>/.scistudio/previewers.json`` — a declarative manifest declaring
   default-previewer tie-breakers (FR-005); it does not register previewer
   specs. Drop-in provider code may also be referenced by a ``module:callable``
-  import path resolved lazily, with the project-local ``previewers/``
-  directory re-activated on ``sys.path`` for the duration of the lazy import
+  import path resolved lazily at render time against the spec's **owning**
+  tier directory — imported by file path under a synthetic name, so no
+  bare-stem ``sys.modules`` entry crosses tier boundaries
   (:meth:`scistudio.previewers.session.PreviewSessionManager._resolve_provider`).
   The manifest-defaults path is project-only: FR-005 declares a *project*
   default, and the user tier deliberately has no manifest.
@@ -52,6 +53,7 @@ from scistudio.core.dropins import (
     evict_cached_bytecode,
     guard_dropin_roots,
     project_previewers_dir,
+    transient_dropin_modules,
     user_previewers_dir,
 )
 from scistudio.desktop.paths import prepended_sys_paths
@@ -151,7 +153,11 @@ def _scan_previewer_dropins(
         try:
             # Scoped sys.path activation so the drop-in's sibling imports
             # resolve during exec — never a permanent sys.path.insert (#2044).
-            with prepended_sys_paths((previewers_dir,)):
+            # The sibling imports leave with the window too: a bare-stem
+            # module cached from this tier's directory would otherwise answer
+            # for the next tier's same-named file and turn the FR-016 guard's
+            # verdicts into false refusals (#2017, PR #2072 audit).
+            with prepended_sys_paths((previewers_dir,)), transient_dropin_modules((previewers_dir,)):
                 spec.loader.exec_module(module)
         except KeyboardInterrupt:
             # The operator's own signal, not the drop-in's failure.
@@ -159,7 +165,10 @@ def _scan_previewer_dropins(
         except BaseException:
             # Skip-don't-crash on a failing/hostile drop-in. ``BaseException``
             # rather than ``Exception`` so a ``sys.exit()`` carried over from a
-            # script is recorded and skipped instead of killing the scan.
+            # script is recorded and skipped instead of killing the scan. The
+            # half-executed module leaves ``sys.modules`` with it, so its
+            # residue cannot answer for anything afterwards.
+            sys.modules.pop(spec.name, None)
             message = f"previewer drop-in '{py_file.name}' failed to import; skipping"
             logger.warning("Failed to import %s previewer drop-in %s", expected_owner.value, py_file, exc_info=True)
             registry.record_diagnostic(message)
@@ -183,6 +192,13 @@ def _scan_previewer_dropins(
             if isinstance(ps, PreviewerSpec) and ps.owner_kind is expected_owner:
                 registry.register(ps)
             elif isinstance(ps, PreviewerSpec):
+                # Recorded like every other refusal in this pass: a silently
+                # log-only skip would contradict the "every refusal is
+                # surfaced on diagnostics" contract the scan documents.
+                message = (
+                    f"previewer {ps.previewer_id!r} declared owner_kind={ps.owner_kind.value}, "
+                    f"expected {expected_owner.value}; skipping"
+                )
                 logger.warning(
                     "%s previewer %r declared owner_kind=%s, expected %s; skipping",
                     expected_owner.value.capitalize(),
@@ -190,6 +206,7 @@ def _scan_previewer_dropins(
                     ps.owner_kind.value,
                     expected_owner.value,
                 )
+                registry.record_diagnostic(message)
 
 
 __all__ = [

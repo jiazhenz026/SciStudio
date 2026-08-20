@@ -206,6 +206,7 @@ __all__ = [
     "project_types_dir",
     "register_block_scan_dirs",
     "register_type_scan_dirs",
+    "transient_dropin_modules",
     "tutorial_library_dir",
     "tutorial_parent_dir",
     "tutorial_scan_dirs",
@@ -870,7 +871,18 @@ def guard_dropin_roots(
                 # One import attempt per name per pass: the same broken package
                 # colliding in both tiers is one failure, not two. Which tiers
                 # those were is recorded by the warrants above, not here.
-                if bind and stem not in sys.modules and stem not in bound_in_this_pass:
+                # A stem already refused outright is not retried either: its
+                # binding failed once this process, and re-attempting it on
+                # every later pass re-runs the broken module's top-level side
+                # effects on hot paths such as per-render guard passes. The
+                # reconcile above is what releases the refusal once the user
+                # renames the colliding file, so the retry door stays open.
+                if (
+                    bind
+                    and stem not in sys.modules
+                    and stem not in bound_in_this_pass
+                    and stem not in _REFUSED_NAMES.reasons
+                ):
                     bound_in_this_pass.add(stem)
                     _bind_or_refuse(collision)
     _REFUSED_NAMES.reconcile({warrant: frozenset(stems) for warrant, stems in colliding_by_root.items()})
@@ -897,6 +909,32 @@ def _bind_or_refuse(collision: DropinTypeCollision) -> None:
         )
     else:
         _REFUSED_NAMES.allow(collision.stem)
+
+
+@contextmanager
+def transient_dropin_modules(import_roots: Iterable[str | Path]) -> Iterator[None]:
+    """Evict the ``sys.modules`` entries a scoped drop-in import window leaks.
+
+    :func:`scistudio.desktop.paths.prepended_sys_paths` reverts ``sys.path``
+    when its window closes but not what the window imported: a sibling
+    ``import helpers`` stays cached under its bare stem, where the *next*
+    tier's scan or render resolves that stale binding instead of its own
+    file. The result is cross-tier wrong-code execution and false FR-016
+    refusals that survive even closing the project (PR #2072 audit, #2017).
+    On exit, every entry *added* inside the window whose ``__file__`` lives
+    under one of *import_roots* is removed. Entries that predate the window
+    are left alone: their verdicts belong to :func:`guard_dropin_roots`, not
+    to this window.
+    """
+    roots = tuple(Path(root) for root in import_roots)
+    before = set(sys.modules)
+    try:
+        yield
+    finally:
+        for name in set(sys.modules).difference(before):
+            module = sys.modules.get(name)
+            if module is not None and _is_within(getattr(module, "__file__", None), roots):
+                del sys.modules[name]
 
 
 def evict_cached_bytecode(py_file: Path) -> None:
