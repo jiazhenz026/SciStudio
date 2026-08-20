@@ -873,10 +873,11 @@ def guard_dropin_roots(
                 # those were is recorded by the warrants above, not here.
                 # A stem already refused outright is not retried either: its
                 # binding failed once this process, and re-attempting it on
-                # every later pass re-runs the broken module's top-level side
-                # effects on hot paths such as per-render guard passes. The
-                # reconcile above is what releases the refusal once the user
-                # renames the colliding file, so the retry door stays open.
+                # every subsequent pass re-runs the broken module's top-level
+                # side effects on hot paths such as per-render guard passes.
+                # The reconcile above is what releases the refusal once the
+                # user renames the colliding file, so the retry door stays
+                # open.
                 if (
                     bind
                     and stem not in sys.modules

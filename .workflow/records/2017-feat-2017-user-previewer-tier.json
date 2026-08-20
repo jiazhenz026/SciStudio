@@ -612,9 +612,9 @@
     }
   ],
   "commit": {
-    "sha": "3d1a9c88",
+    "sha": "HEAD",
     "shas": [
-      "3d1a9c88"
+      "HEAD"
     ],
     "trailers": []
   },
@@ -742,6 +742,14 @@
       "kind": "path",
       "path": "docs/audit/2026-08-08-previewer-user-tier-no-context.md",
       "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-20T06:30:22.702851Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "comment-only rephrase; docs landed in f1f70e31",
       "verified_in_diff": null
     }
   ],
@@ -3146,6 +3154,138 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-20T06:23:41.510722Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "docs/architecture/ARCHITECTURE.md",
+          "finding_class": "architecture_doc_guard",
+          "git_evidence": null,
+          "id": "architecture_doc_guard.missing-owner-approval",
+          "line": null,
+          "message": "the architecture document is owner-controlled and this change has no owner approval: apply admin-approved:architecture-doc as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "docs/architecture/ARCHITECTURE.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "architecture_doc_guard.missing-owner-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T06:23:41.523645Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/dropins.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/dropins.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T06:23:41.536493Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T06:23:41.549279Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T06:23:41.563220Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T06:23:41.579586Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T06:23:41.594284Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T06:23:41.607903Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T06:23:41.621288Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T06:23:41.634230Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T06:23:41.658047Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -3164,7 +3304,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "6b0a5b666be4aec53c5252dd7c8db341b88b4359",
     "base_sha": "6b0a5b66",
     "changed_files": [
       ".workflow/records/2017-feat-2017-user-previewer-tier.json",
@@ -3175,6 +3315,10 @@
       "docs/specs/adr-052-public-api-surface.md",
       "docs/specs/adr-053-personal-tool-library.md",
       "docs/specs/adr-053-work-import.md",
+      "docs/user/reference/index.md",
+      "src/scistudio/_user_guide/api-reference/index.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.blocks.code.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.previewers.models.md",
       "src/scistudio/ai/work_import/brief_template.md",
       "src/scistudio/core/dropins.py",
       "src/scistudio/previewers/__init__.py",
@@ -3187,19 +3331,19 @@
       "tests/previewers/test_preview_routing.py",
       "tests/previewers/test_previewer_dropins.py"
     ],
-    "diff_fingerprint": "sha256:ba72f75b65684cb8ef2683fc8ff79c99081de1cd4bc43c435ca20fada21509d7",
+    "diff_fingerprint": "sha256:186571e27c243f2d9490f6bef03c308d2fec3d250d111078537831c6e528f034",
     "head": "HEAD",
-    "head_sha": "4ee1f4f2",
+    "head_sha": "f1f70e31",
     "surfaces": {
-      "docs": 7,
+      "docs": 8,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 8,
+      "implementation": 11,
       "packaging": 0,
       "protected_architecture": 1,
       "protected_core": 1,
-      "sentrux": 17,
+      "sentrux": 20,
       "test": 3,
       "workflow_ci": 0
     }
@@ -3436,6 +3580,24 @@
         "checks.python_tests",
         "guard.architecture_doc_guard"
       ]
+    },
+    {
+      "at": "2026-08-20T06:23:41.658072Z",
+      "diff_fingerprint": "sha256:186571e27c243f2d9490f6bef03c308d2fec3d250d111078537831c6e528f034",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.architecture_tests",
+        "checks.deferral_discipline",
+        "checks.format_check",
+        "checks.full_audit",
+        "checks.import_contracts",
+        "checks.lint_format",
+        "checks.python_tests",
+        "checks.semantic_dup",
+        "checks.type_check"
+      ]
     }
   ],
   "record_id": "2017-feat-2017-user-previewer-tier",
@@ -3551,6 +3713,22 @@
       "kind": "path",
       "path": "tests/previewers/test_preview_routing.py",
       "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-20T06:30:22.702873Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_previewer_dropins.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-20T06:31:39.942581Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "comment-only rephrase to clear the deferral-diff gate; tests landed in f1f70e31",
       "verified_in_diff": null
     }
   ]
