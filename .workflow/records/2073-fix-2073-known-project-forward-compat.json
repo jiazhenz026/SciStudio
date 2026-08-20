@@ -1,0 +1,94 @@
+{
+  "branch": "fix/2073-known-project-forward-compat",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/runtime/_projects.py",
+      "tests/api/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-20T05:10:11.651828Z",
+      "owner_directive": "Fix scoped to the loader tolerance only; save-side field omission, desktop-side self-healing, and the identical checkpoint deserialisation pattern are recorded as out of scope in issue #2073.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-20T05:10:11.651859Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-20T05:10:11.651868Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "No spec describes the user-level project registry entry schema; the fix restores the documented startup contract rather than changing one.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-20T05:10:11.651877Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "Loader robustness inside an existing contract, not an architectural decision \u2014 no ADR-level tradeoff is introduced.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2073,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner: root-fix the known-project registry loader so a projects.json written by a newer build cannot brick an older runtime, then ship it as an urgent PR ahead of an OTA build25 hot update.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2073-fix-2073-known-project-forward-compat",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-20T05:10:11.651847Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "792e9a91-9817-42f5-9801-41961feb0018",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-08-20T05:10:11.651881Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_known_project_registry.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

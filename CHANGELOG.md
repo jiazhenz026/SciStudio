@@ -84,6 +84,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   alive at once would have produced drift with no beneficiary. It is recorded as
   breaking regardless, because a route leaves the API surface.
 
+### Fixed
+
+- [#2073] **A project registry written by a newer build no longer stops an older
+  runtime from starting.** `~/.scistudio/projects.json` outlives the runtime that
+  reads it — it survives uninstall and reinstall, and the desktop client's OTA
+  rollback can put an older runtime in front of a file a newer one wrote. Since
+  every `KnownProject` field is persisted, that file carried keys the older
+  runtime had never heard of, and passing them to the dataclass raised
+  `TypeError` inside the FastAPI lifespan. Startup aborted rather than the
+  project list degrading: the desktop client reported only an HTTP timeout, and
+  because the file is user-level, every relaunch, reinstall, and further rollback
+  read it again with no route back for the user.
+  Unrecognised keys are now ignored and logged once, and an entry that still
+  cannot be constructed is skipped with a warning instead of taking the registry,
+  and the process, down with it.
+
 ### Added
 
 - [#2054] **The architecture document is now owner-controlled in CI, not only by

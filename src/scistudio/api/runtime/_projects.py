@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote
@@ -40,17 +40,49 @@ logger = logging.getLogger(__name__)
 
 
 def _load_known_projects(self: ApiRuntime) -> None:
+    """Load the user-level project registry, tolerating a file a newer build wrote.
+
+    Issue #2073: ``~/.scistudio/projects.json`` outlives the runtime that reads
+    it. It survives uninstall and reinstall, and the desktop client's OTA
+    rollback can move the runtime *backwards* past the build that wrote the
+    file. Because :func:`_save_known_projects` persists every dataclass field,
+    a registry written by a newer build carries keys this ``KnownProject`` has
+    never heard of, and passing them straight to the constructor raises
+    ``TypeError``.
+
+    That exception used to be fatal rather than local. This runs from
+    ``ApiRuntime.__init__``, which runs inside the FastAPI lifespan, so one
+    unrecognised key aborted server startup — leaving the desktop client to
+    report nothing but an HTTP timeout while every relaunch read the same file
+    and failed the same way, with no path back for the user.
+
+    So unknown keys are dropped instead of rejected, and an entry that still
+    cannot be constructed (a missing required field, say) is skipped with a
+    warning rather than taking the registry, and the process, down with it.
+    """
     from .models import KnownProject
 
     if not self.known_projects_path.exists():
         self.known_projects = {}
         return
     raw = json.loads(self.known_projects_path.read_text(encoding="utf-8"))
-    self.known_projects = {
-        entry["id"]: KnownProject(**entry)
-        for entry in raw.get("projects", [])
-        if isinstance(entry, dict) and entry.get("id") and entry.get("path")
-    }
+    accepted = {f.name for f in fields(KnownProject)}
+    unrecognised: set[str] = set()
+    known: dict[str, KnownProject] = {}
+    for entry in raw.get("projects", []):
+        if not isinstance(entry, dict) or not entry.get("id") or not entry.get("path"):
+            continue
+        unrecognised.update(entry.keys() - accepted)
+        try:
+            known[entry["id"]] = KnownProject(**{k: v for k, v in entry.items() if k in accepted})
+        except TypeError:
+            logger.warning("Skipping unusable project registry entry %r", entry["id"])
+    if unrecognised:
+        logger.info(
+            "Ignoring unrecognised project registry field(s) %s; the registry was written by a newer build",
+            ", ".join(sorted(unrecognised)),
+        )
+    self.known_projects = known
 
 
 def _save_known_projects(self: ApiRuntime) -> None:
