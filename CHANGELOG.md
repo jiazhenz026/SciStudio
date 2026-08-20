@@ -98,7 +98,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   read it again with no route back for the user.
   Unrecognised keys are now ignored and logged once, and an entry that still
   cannot be constructed is skipped with a warning instead of taking the registry,
-  and the process, down with it.
+  and the process, down with it. They are ignored rather than discarded: the
+  registry is rewritten in full on every project open, create and delete, so
+  parsing past a field and then writing without it would have erased a newer
+  build's metadata on the first project the user touched. The keys are carried
+  through untouched, which keeps a downgrade readable in both directions.
 
 ### Added
 

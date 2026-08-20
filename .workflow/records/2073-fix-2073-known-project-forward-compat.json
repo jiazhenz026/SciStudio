@@ -119,7 +119,13 @@
       "rationale": "Cannot pass locally on Windows. Eight Learning Center tests fail identically on unmodified origin/main (issue #2075) for test-side reasons: shutil.rmtree over read-only git objects, CRLF text fixtures, an OS-separator path comparison, and a symlink privilege. None is touched by this diff, whose own tests pass. CI is Ubuntu-only, green on the same base, and runs this check authoritatively."
     }
   ],
-  "commit": null,
+  "commit": {
+    "sha": "4a86121b741eca3bc9f68163b818860e651f871b",
+    "shas": [
+      "4a86121b741eca3bc9f68163b818860e651f871b"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -337,6 +343,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-20T05:46:09.381259Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T05:46:09.396007Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T05:46:09.417752Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T05:46:09.433980Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T05:46:09.449194Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T05:46:09.462875Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T05:46:09.476287Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T05:46:09.490305Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T05:46:09.504787Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T05:46:09.518992Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-20T05:46:09.535435Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -357,9 +451,9 @@
       "src/scistudio/api/runtime/_projects.py",
       "tests/api/test_known_project_registry.py"
     ],
-    "diff_fingerprint": "sha256:1f9f69720b66ad7e8124cfeac69027da948a1f8e602ca2657d4a3781eb97ac29",
+    "diff_fingerprint": "sha256:d7e464a07f435aab1ec3cd715cab1baaffefd617ef8a7ae140a0af35bd6b25bb",
     "head": "HEAD",
-    "head_sha": "dbf1f935",
+    "head_sha": "4a86121b",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -376,7 +470,14 @@
   },
   "owner_directive": "Owner: root-fix the known-project registry loader so a projects.json written by a newer build cannot brick an older runtime, then ship it as an urgent PR ahead of an OTA build25 hot update.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2073
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-20T05:25:34.283154Z",
@@ -395,6 +496,17 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-08-20T05:46:09.535458Z",
+      "diff_fingerprint": "sha256:d7e464a07f435aab1ec3cd715cab1baaffefd617ef8a7ae140a0af35bd6b25bb",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests",
+        "checks.semantic_dup"
+      ]
     }
   ],
   "record_id": "2073-fix-2073-known-project-forward-compat",
@@ -438,6 +550,12 @@
       "at": "2026-08-20T05:10:11.651847Z",
       "pattern": "CHANGELOG.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-20T05:58:00.658060Z",
+      "pattern": "src/scistudio/api/runtime/__init__.py",
+      "reason": "Review finding on PR #2076: dropping unknown keys at load makes the next full-file rewrite erase them, so a downgraded runtime silently deletes a newer build's per-project metadata. Carrying the keys aside at load and splicing them back at save needs one new attribute declared on ApiRuntime."
     }
   ],
   "session_id": "792e9a91-9817-42f5-9801-41961feb0018",

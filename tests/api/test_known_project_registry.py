@@ -121,3 +121,80 @@ def test_the_api_starts_against_a_registry_from_a_newer_build(isolated_home: Pat
 
     with TestClient(create_app()) as client:
         assert client.get("/api/projects/").status_code == 200
+
+
+def test_the_registry_round_trips_unchanged_through_this_build(isolated_home: Path) -> None:
+    """Loading and saving is not allowed to be lossy.
+
+    ``_save_known_projects`` rewrites the whole file, so a build that parsed
+    past a field it does not model and then wrote without it would erase that
+    field from every entry at once. The keys are carried instead, which is what
+    makes a downgrade readable in both directions rather than destructive in
+    one.
+    """
+    original = [
+        {
+            "id": "project-1",
+            "name": "Demo",
+            "path": str(isolated_home / "demo"),
+            "description": "",
+            "last_opened": "2026-08-20T00:00:00+00:00",
+            "some_field_added_later": "value",
+            "another_field_added_later": None,
+        },
+        {
+            "id": "project-2",
+            "name": "Other",
+            "path": str(isolated_home / "other"),
+            "description": "no later fields at all",
+            "last_opened": None,
+        },
+    ]
+    _write_registry(isolated_home, original)
+
+    runtime = ApiRuntime()
+    runtime._save_known_projects()
+
+    written = json.loads((isolated_home / ".scistudio" / "projects.json").read_text(encoding="utf-8"))["projects"]
+    by_id = {entry["id"]: entry for entry in written}
+
+    assert set(by_id) == {entry["id"] for entry in original}
+    for entry in original:
+        # A superset rather than equality: this build legitimately writes its
+        # own defaults for fields the file omitted. What it may not do is lose
+        # or alter anything the file already said.
+        assert by_id[entry["id"]].items() >= entry.items()
+
+
+def test_creating_a_project_does_not_erase_another_entrys_later_fields(isolated_home: Path, tmp_path: Path) -> None:
+    """The realistic path: the erasure would have happened on ordinary use.
+
+    Every project open, create and delete rewrites the file, so this is what a
+    downgraded runtime does within seconds of starting — not an edge case that
+    needs an unusual sequence to reach.
+    """
+    _write_registry(
+        isolated_home,
+        [
+            {
+                "id": "project-1",
+                "name": "Demo",
+                "path": str(isolated_home / "demo"),
+                "some_field_added_later": "value",
+            }
+        ],
+    )
+    parent = tmp_path / "projects"
+    parent.mkdir()
+
+    with TestClient(create_app()) as client:
+        response = client.post("/api/projects/", json={"name": "New", "description": "", "path": str(parent)})
+        assert response.status_code == 200
+
+    written = json.loads((isolated_home / ".scistudio" / "projects.json").read_text(encoding="utf-8"))["projects"]
+    by_id = {entry["id"]: entry for entry in written}
+    assert len(by_id) == 2
+    assert by_id["project-1"]["some_field_added_later"] == "value"
+    # The project this build created has nothing to carry.
+    created = next(entry for entry in written if entry["id"] != "project-1")
+    assert "some_field_added_later" not in created

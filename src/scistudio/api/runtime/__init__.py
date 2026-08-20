@@ -315,6 +315,9 @@ class ApiRuntime:
         self.registry_dir.mkdir(parents=True, exist_ok=True)
         self.known_projects_path = self.registry_dir / "projects.json"
         self.known_projects: dict[str, KnownProject] = {}
+        # #2073: per-project registry keys this build does not model, kept
+        # aside at load so saving cannot erase a newer build's metadata.
+        self._known_project_extras: dict[str, dict[str, Any]] = {}
 
         self.active_project: KnownProject | None = None
         # #1551 / DSN-12: both registries are LRU-bounded so a long session does
