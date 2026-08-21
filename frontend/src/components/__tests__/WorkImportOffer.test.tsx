@@ -228,8 +228,16 @@ describe("the offer is triggered by a tutorial completing", () => {
       return <WorkImportOffer />;
     }
 
-    useAppStore.setState({ learningCenterSession: completedSession("welcome") });
     render(<Harness />);
+    // A completion the app run never witnessed is history, not news (#2079):
+    // the session is seen running before it completes, as in a real finish.
+    useAppStore.setState({
+      learningCenterSession: { ...completedSession("welcome"), status: "active" },
+    });
+    await waitFor(() =>
+      expect(useAppStore.getState().learningCenterSession?.status).toBe("active"),
+    );
+    useAppStore.setState({ learningCenterSession: completedSession("welcome") });
 
     expect(await screen.findByTestId("work-import-offer")).toBeInTheDocument();
     expect(learningCenterApi.getTutorialUnlock).toHaveBeenCalledTimes(1);
