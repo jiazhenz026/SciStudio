@@ -24,7 +24,7 @@ scope:
     - A shared section/filter/tile/chip/popover helper set the Data types tab reuses (ADR-053 §10.1).
     - The category sub-grouping layer, the always-on description line, and the "X in / Y out" text line are removed from the tile.
     - A one-shot opacity blink confirming a completed Reload, via a shared `useReloadFlash` hook also wired to the project tree Refresh.
-    - A tip overlay pinned to the bottom of the shared left panel, rotating one curated tip at a time across all three tabs (§12, #1997).
+    - A tip overlay pinned to the bottom of the shared left panel, rotating one curated tip at a time across all left-panel sections (§12, #1997; the panel gained the §13 activity-bar form in #2090).
   out:
     - Backend or schema changes (none — base_category, subcategory, ports, direction already exist on BlockSummary).
     - Per-block custom icons (still tracked as the categoryVisuals follow-up; palette keeps the category-icon fallback).
@@ -46,6 +46,8 @@ governs:
     - frontend/src/hooks/useReloadFlash.ts
     - frontend/src/components/ProjectTree.tsx
     - frontend/src/App.parts/ProjectWorkspace.tsx
+    - frontend/src/components/ActivityBar.tsx
+    - frontend/src/components/WorkflowPanel.tsx
   excludes:
     - frontend/src/components/nodes/BlockNode.parts/categoryVisuals.ts
 tests:
@@ -57,6 +59,8 @@ tests:
   - frontend/src/components/palette/tips/__tests__/tipPool.test.ts
   - frontend/src/components/palette/tips/__tests__/useTipRotation.test.ts
   - frontend/src/components/palette/tips/__tests__/PaletteTipCard.test.tsx
+  - frontend/src/components/ActivityBar.test.tsx
+  - frontend/src/components/WorkflowPanel.test.tsx
 acceptance_source: issue
 language_source: en
 ---
@@ -391,6 +395,9 @@ abstract standing alone next to `Blocks`; the internal `leftTab` key stays
 `types`. `frontend/src/components/TypePalette.tsx` is the pane, with its
 `TypePalette.parts/` model, row, and popover siblings.
 
+(#2090 later replaced the tab strip itself with the §13 activity bar; the
+`types` section, its label, and everything else in §11 still stand.)
+
 ### 11.1 It Mirrors The Blocks Tab, Reusing Its Machinery
 
 The tab reuses §4.3's shared skeleton rather than restating it: `filterItems`
@@ -541,20 +548,23 @@ hints are built on that assumption.
 
 ### 12.1 It Belongs To The Panel, Not To A Tab
 
-The overlay is mounted in `App.parts/ProjectWorkspace.tsx` on the pane body that
-holds all three left tabs (`Blocks`, `Data types`, `Project`), as a sibling of
-the active tab's content rather than inside any one of them.
+The overlay is mounted in `App.parts/ProjectWorkspace.tsx` on the pane body
+that holds the left-panel sections, as a sibling of the active section's
+content rather than inside any one of them. (The panel held three text tabs —
+`Blocks`, `Data types`, `Project` — when this section was written; #2090
+replaced the tab strip with the §13 activity bar and added a fourth section,
+`Workflows`.)
 
-That placement is what makes one card and one clock serve three tabs. Switching
-tabs neither remounts the card nor restarts the rotation, so a user moving
-between Blocks and Data types sees one continuous schedule instead of a card
-that flickers on every switch. It also keeps all three panes unmodified: the
-overlay is positioned against the pane body, so the block grid, the type list,
-and the project tree each keep their full height.
+That placement is what makes one card and one clock serve every section.
+Switching sections neither remounts the card nor restarts the rotation, so a
+user moving between Blocks and Data types sees one continuous schedule instead
+of a card that flickers on every switch. It also keeps all panes unmodified:
+the overlay is positioned against the pane body, so the block grid, the type
+list, the workflow list, and the project tree each keep their full height.
 
 The card is anchored to the **bottom** of the pane body, above the pane's own
-content and below the tab strip. The tab strip stays reachable while a tip is
-up.
+content. (Before #2090 it sat below the tab strip; with the strip gone there
+is nothing above the pane content to collide with.)
 
 ### 12.2 Rotation, And The Two-Step Way Out
 
@@ -669,3 +679,49 @@ the hidden state carrying both `opacity-0` and `pointer-events-none`, dismissal
 and return after the snooze, the card disappearing entirely after the second
 dismissal, the expand control appearing only when something overflows, and a
 long title wrapping to two lines and being released along with the body.
+
+## 13. Activity Bar And Workflows Panel (#2090)
+
+The left panel's text tab strip (`Blocks` / `Data types` / `Project` along the
+panel's top edge) is replaced by a VS Code-style **activity bar**: a 48px
+vertical icon rail at the far left of the workspace,
+`frontend/src/components/ActivityBar.tsx`. The rail sits *outside* the
+`ResizablePanelGroup`, so it never resizes and stays visible while the panel is
+collapsed — which is what makes the collapsed state discoverable.
+
+### 13.1 Sections, Not Tabs
+
+`leftTab` widens from `"blocks" | "types" | "project"` to include `"workflows"`.
+The rail's icon order is Blocks, Data types, Workflows, Project; hovering an
+icon shows the section name in a tooltip (the shared `ui/tooltip`). The active
+section carries a short accent bar on the rail's left edge; a collapsed panel
+shows no active marker at all, same as VS Code.
+
+Clicking an icon opens that section. Clicking the *active* section's icon
+collapses the whole panel; clicking it again (or pressing Ctrl+B) reopens it.
+This wires up the store's `paletteCollapsed` state, which the Ctrl+B shortcut
+and ADR-053 FR-020's library reveal had been writing since the live hotfix
+batch without anything reading it: `ProjectWorkspace` now drives the left
+`ResizablePanel`'s imperative handle from it. Programmatic section switches —
+the FR-020 library reveal and Learning Center step routing — always expand the
+panel, because a section switch that lands behind a collapsed panel is
+invisible.
+
+### 13.2 The Workflows Section
+
+`frontend/src/components/WorkflowPanel.tsx` lists every workflow in the open
+project with the `description` from its YAML, single-click to open it on the
+canvas. It reads the existing endpoints — `GET /api/workflows/list` for the
+ids, then one `GET /api/workflows/{id}` per workflow for the description — so
+the section needed no backend change. A workflow whose detail fetch fails
+(e.g. a mid-write YAML) still appears, without a description. The workflow
+currently on the canvas is highlighted (`aria-current`), and a Refresh button
+matches the project tree's affordance.
+
+### 13.3 Test Plan
+
+`frontend/src/components/ActivityBar.test.tsx` covers the rail: one icon per
+section, click reporting, the active marker appearing only while the panel is
+open, and the hover tooltip. `frontend/src/components/WorkflowPanel.test.tsx`
+covers the list: ids plus descriptions, click-to-open, the active highlight,
+the failed-detail fallback, the empty state, and Refresh.

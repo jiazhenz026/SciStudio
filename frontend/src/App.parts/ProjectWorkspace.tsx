@@ -8,7 +8,7 @@
 // state wiring.
 
 import type { PanelImperativeHandle } from "react-resizable-panels";
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 
 import type { useAppStore } from "../store";
 import type { AnyTab, FileTab } from "../store/types";
@@ -20,6 +20,7 @@ import type {
   WorkflowNode,
 } from "../types/api";
 
+import { ActivityBar } from "../components/ActivityBar";
 import { BlockPalette } from "../components/BlockPalette";
 import { BottomPanel } from "../components/BottomPanel";
 import { CodeEditor } from "../components/CodeEditor";
@@ -29,6 +30,7 @@ import { ProjectTree } from "../components/ProjectTree";
 import { useLibraryReveal } from "../components/promotion/revealInLibrary";
 import { TabBar } from "../components/TabBar";
 import { TypePalette } from "../components/TypePalette";
+import { WorkflowPanel } from "../components/WorkflowPanel";
 import { WorkflowCanvas } from "../components/WorkflowCanvas";
 import { resolveVariadicPorts } from "../components/WorkflowCanvas.parts/flowNodeBuilder";
 import { buildScopedBlockOutputs } from "../components/WorkflowCanvas.parts/subworkflowRunView";
@@ -49,20 +51,31 @@ export interface CanvasReadabilityWiring {
 }
 
 /**
- * Left-panel tabs (ADR-053 §9, FR-034 / FR-039).
+ * Left-panel sections (ADR-053 §9, FR-034 / FR-039; #2090).
  *
- * `blocks` is the renamed first tab. `types` is the `Data types` tab that sits
- * between `Blocks` and `Project`; the key is widened here ahead of the pane so
- * both tab surfaces read one union.
+ * `blocks` is the renamed first section. `types` is the `Data types` section
+ * that sits between `Blocks` and `Workflows`. #2090 replaced the text tab
+ * strip with the VS Code-style `ActivityBar` icon rail and added the
+ * `workflows` section; the union is widened here ahead of the pane so all
+ * section surfaces read one union.
  */
-export type LeftTab = "blocks" | "types" | "project";
+export type LeftTab = "blocks" | "types" | "workflows" | "project";
 
 export interface ProjectWorkspaceProps {
   // Project / workflow context
   currentProject: ProjectResponse;
+  /** The workflow currently on the canvas (WorkflowPanel highlight). */
+  workflowId: string | null;
   // Left panel
   leftTab: LeftTab;
+  /** Programmatic section switch (library reveal, tutorial routing): always
+   * expands the panel, never collapses it. */
   onLeftTabChange: (tab: LeftTab) => void;
+  /** Activity-bar icon click: clicking the active section collapses the
+   * panel, anything else opens that section. */
+  onActivitySelect: (tab: LeftTab) => void;
+  /** Store-backed left-panel collapse state (#2090 wires it to the panel). */
+  paletteCollapsed: boolean;
   blocks: BlockSummary[];
   paletteSearch: string;
   setPaletteSearch: (search: string) => void;
@@ -146,9 +159,10 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
   } = props;
 
   // ADR-053 FR-020 — a promotion has to leave the user looking at the item in
-  // `My Library`, and the item's section lives on its own tab. The rest of the
-  // reveal (expanding the panel, refreshing the catalogue, narrowing to the
-  // item) is store-side; only the tab switch needs the component that owns it.
+  // `My Library`, and the item's section lives on its own surface. The rest of
+  // the reveal (expanding the panel, refreshing the catalogue, narrowing to
+  // the item) is store-side; only the section switch needs the component that
+  // owns it.
   const revealed = useLibraryReveal();
   useEffect(() => {
     if (revealed) {
@@ -156,67 +170,45 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
     }
   }, [revealed, onLeftTabChange]);
 
+  // #2090 — the text tab strip is gone; the `ActivityBar` rail outside the
+  // resizable group picks the section, and each pane identifies itself
+  // (search + chips for Blocks / Data types, titles for Workflows / Project).
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex shrink-0 border-b border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))]">
-        <button
-          className={`flex-1 px-3 py-2 text-xs font-medium transition ${leftTab === "blocks" ? "border-b-2 border-ember text-ink" : "text-stone-400 hover:text-stone-600"}`}
-          onClick={() => onLeftTabChange("blocks")}
-          type="button"
-        >
-          Blocks
-        </button>
-        {/* ADR-053 FR-039 — the third tab sits between `Blocks` and `Project`.
-            The user-facing label is `Data types`; `Types` is too abstract
-            standing alone next to `Blocks`. The internal key stays `types`. */}
-        <button
-          className={`flex-1 px-3 py-2 text-xs font-medium transition ${leftTab === "types" ? "border-b-2 border-ember text-ink" : "text-stone-400 hover:text-stone-600"}`}
-          onClick={() => onLeftTabChange("types")}
-          type="button"
-        >
-          Data types
-        </button>
-        <button
-          className={`flex-1 px-3 py-2 text-xs font-medium transition ${leftTab === "project" ? "border-b-2 border-ember text-ink" : "text-stone-400 hover:text-stone-600"}`}
-          onClick={() => onLeftTabChange("project")}
-          type="button"
-        >
-          Project
-        </button>
-      </div>
-      {/* `relative` anchors the tip overlay (#1997) to the pane body, so the
-          card floats over the bottom of whichever tab is open and never
-          covers the tab strip. */}
-      <div className="relative min-h-0 flex-1">
-        {/* FR-027 — the Data types pane takes no props: it reads the type
-            catalogue directly, so opening it neither waits for nor
-            re-triggers a blocks fetch. */}
-        {leftTab === "types" ? (
-          <TypePalette />
-        ) : leftTab === "blocks" ? (
-          <BlockPalette
-            blocks={blocks}
-            collapsed={false}
-            onAddBlock={onAddBlockFromPalette}
-            onReload={onReloadBlocks}
-            onSearch={setPaletteSearch}
-            search={paletteSearch}
-          />
-        ) : (
-          <ProjectTree
-            projectId={currentProject.id}
-            projectPath={currentProject.path}
-            onLoadWorkflow={(workflowId, displayName) =>
-              onLoadWorkflowById(workflowId, displayName)
-            }
-            onReloadBlocks={onReloadBlocks}
-          />
-        )}
-        {/* #1997 — one card and one clock for all three tabs: mounted here
-            rather than inside a tab so switching tabs neither restarts the
-            rotation nor makes the card flicker. */}
-        <PaletteTipCard />
-      </div>
+    /* `relative` anchors the tip overlay (#1997) to the pane body, so the
+       card floats over the bottom of whichever section is open. */
+    <div className="relative h-full overflow-hidden">
+      {/* FR-027 — the Data types pane takes no props: it reads the type
+          catalogue directly, so opening it neither waits for nor
+          re-triggers a blocks fetch. */}
+      {leftTab === "types" ? (
+        <TypePalette />
+      ) : leftTab === "blocks" ? (
+        <BlockPalette
+          blocks={blocks}
+          collapsed={false}
+          onAddBlock={onAddBlockFromPalette}
+          onReload={onReloadBlocks}
+          onSearch={setPaletteSearch}
+          search={paletteSearch}
+        />
+      ) : leftTab === "workflows" ? (
+        <WorkflowPanel
+          projectId={currentProject.id}
+          activeWorkflowId={props.workflowId}
+          onOpenWorkflow={(workflowId, displayName) => onLoadWorkflowById(workflowId, displayName)}
+        />
+      ) : (
+        <ProjectTree
+          projectId={currentProject.id}
+          projectPath={currentProject.path}
+          onLoadWorkflow={(workflowId, displayName) => onLoadWorkflowById(workflowId, displayName)}
+          onReloadBlocks={onReloadBlocks}
+        />
+      )}
+      {/* #1997 — one card and one clock for all sections: mounted here rather
+          than inside a pane so switching sections neither restarts the
+          rotation nor makes the card flicker. */}
+      <PaletteTipCard />
     </div>
   );
 }
@@ -345,6 +337,9 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
     switchTab,
     closeTab,
     onNewWorkflowTab,
+    leftTab,
+    onActivitySelect,
+    paletteCollapsed,
     bottomPanelRef,
     bottomPanelPinned,
     toggleBottomPanelPinned,
@@ -360,6 +355,20 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
     workflowEdges,
     selectedNodeLabel,
   } = props;
+
+  // #2090 — the store's `paletteCollapsed` (toggled by the activity bar and
+  // Ctrl+B) was disconnected from the actual panel before; this handle is
+  // what makes the collapse real.
+  const leftPanelRef = useRef<PanelImperativeHandle>(null);
+  useEffect(() => {
+    const panel = leftPanelRef.current;
+    if (!panel) return;
+    if (paletteCollapsed) {
+      panel.collapse();
+    } else {
+      panel.expand();
+    }
+  }, [paletteCollapsed]);
 
   // ADR-044 — preview panels read the same run-scoped, exposed-mapped outputs as
   // the canvas, so selecting a subworkflow node (or a node in an expanded child
@@ -383,157 +392,177 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
       : undefined;
 
   return (
-    <ResizablePanelGroup
-      orientation="horizontal"
-      className="min-h-0 flex-1"
-      onLayoutChanged={(layout) => {
-        const sizes = Object.values(layout);
-        const palette = sizes[0];
-        const preview = sizes[2];
-        if (palette !== null && palette !== undefined && palette >= 4) {
-          setPanelSize("palette", palette);
-        }
-        if (preview !== null && preview !== undefined && preview >= 4) {
-          setPanelSize("preview", preview);
-        }
-      }}
-    >
-      {/* Left Sidebar — tab switcher + content.
-          `minSize` is 10% rather than 4%: below roughly that the pane is
-          narrower than a single 80px tile plus the pane's own padding, so the
-          block grid clipped its tiles and the tip card had no room for a
-          title. The pane is still `collapsible` to 0%, so the narrow end of
-          the range is a real collapse instead of an unusable sliver. */}
-      <ResizablePanel defaultSize="15%" minSize="10%" maxSize="28%" collapsible collapsedSize="0%">
-        <PaletteOrProjectPane {...props} />
-      </ResizablePanel>
-      <ResizableHandle withHandle />
+    <div className="flex min-h-0 flex-1">
+      {/* #2090 — the VS Code-style icon rail sits OUTSIDE the resizable
+          group: it never resizes and stays visible when the panel is
+          collapsed, which is what makes the collapsed state discoverable. */}
+      <ActivityBar activeTab={leftTab} panelOpen={!paletteCollapsed} onSelect={onActivitySelect} />
+      <ResizablePanelGroup
+        orientation="horizontal"
+        className="min-h-0 flex-1"
+        onLayoutChanged={(layout) => {
+          const sizes = Object.values(layout);
+          const palette = sizes[0];
+          const preview = sizes[2];
+          if (palette !== null && palette !== undefined && palette >= 4) {
+            setPanelSize("palette", palette);
+          }
+          if (preview !== null && preview !== undefined && preview >= 4) {
+            setPanelSize("preview", preview);
+          }
+        }}
+      >
+        {/* Left Sidebar — section content picked by the activity bar.
+            `minSize` is 10% rather than 4%: below roughly that the pane is
+            narrower than a single 80px tile plus the pane's own padding, so
+            the block grid clipped its tiles and the tip card had no room for
+            a title. The pane is still `collapsible` to 0%, so the narrow end
+            of the range is a real collapse instead of an unusable sliver. */}
+        <ResizablePanel
+          panelRef={leftPanelRef}
+          // Start collapsed when the persisted store says so, so reopening
+          // the app does not flash an open panel before the effect above
+          // can collapse it.
+          defaultSize={paletteCollapsed ? "0%" : "15%"}
+          minSize="10%"
+          maxSize="28%"
+          collapsible
+          collapsedSize="0%"
+        >
+          <PaletteOrProjectPane {...props} />
+        </ResizablePanel>
+        <ResizableHandle withHandle />
 
-      {/* Center: Tab Bar + Canvas + Bottom Panel vertical split */}
-      <ResizablePanel defaultSize="63%">
-        <div className="flex h-full flex-col">
-          <TabBar
-            tabs={tabs}
-            activeTabId={activeTabId}
-            onSwitchTab={switchTab}
-            onCloseTab={closeTab}
-            onNewTab={onNewWorkflowTab}
-          />
-          <ResizablePanelGroup
-            orientation="vertical"
-            className="min-h-0 flex-1"
-            onLayoutChanged={(layout) => {
-              const sizes = Object.values(layout);
-              const bottom = sizes[1];
-              if (bottom !== null && bottom !== undefined && bottom >= 10) {
-                setPanelSize("bottom", bottom);
-              }
-            }}
-          >
-            <ResizablePanel defaultSize="70%" minSize="20%">
-              <CanvasOrEditor {...props} />
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel
-              panelRef={bottomPanelRef}
-              // collapsedSize is in % of the canvas-column height. 8% on a
-              // typical 800–1000px column ≈ 64–80px, which accommodates the
-              // ~60px tab strip without clipping it. The previous 3%
-              // (~24–30px) cut off the bottom half of the tab buttons.
-              collapsedSize="8%"
-              collapsible
-              // 45% gives Git / Lineage / Logs tabs enough vertical room
-              // for their list + detail content out-of-the-box. 30% (prior
-              // default) made the Git history list unreadable on a 1080p
-              // canvas column.
-              defaultSize="45%"
-              minSize="10%"
+        {/* Center: Tab Bar + Canvas + Bottom Panel vertical split */}
+        <ResizablePanel defaultSize="63%">
+          <div className="flex h-full flex-col">
+            <TabBar
+              tabs={tabs}
+              activeTabId={activeTabId}
+              onSwitchTab={switchTab}
+              onCloseTab={closeTab}
+              onNewTab={onNewWorkflowTab}
+            />
+            <ResizablePanelGroup
+              orientation="vertical"
+              className="min-h-0 flex-1"
+              onLayoutChanged={(layout) => {
+                const sizes = Object.values(layout);
+                const bottom = sizes[1];
+                if (bottom !== null && bottom !== undefined && bottom >= 10) {
+                  setPanelSize("bottom", bottom);
+                }
+              }}
             >
-              <BottomPanel
-                activeTab={activeBottomTab}
-                blockOutputs={scopedBlockOutputs}
-                edges={workflowEdges}
-                logEntries={logEntries}
-                onTabChange={onBottomTabChange}
-                onTogglePin={toggleBottomPanelPinned}
-                onUpdateConfig={(patch) => {
-                  if (selectedNodeId) {
-                    onUpdateNodeConfig(selectedNodeId, patch);
-                  }
-                }}
-                pinned={bottomPanelPinned}
-                selectedNode={selectedNode}
-                selectedSchema={selectedSchema}
-                unreadLogsCount={unreadLogsCount}
-              />
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </div>
-      </ResizablePanel>
-      <ResizableHandle withHandle />
+              <ResizablePanel defaultSize="70%" minSize="20%">
+                <CanvasOrEditor {...props} />
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+              <ResizablePanel
+                panelRef={bottomPanelRef}
+                // collapsedSize is in % of the canvas-column height. 8% on a
+                // typical 800–1000px column ≈ 64–80px, which accommodates the
+                // ~60px tab strip without clipping it. The previous 3%
+                // (~24–30px) cut off the bottom half of the tab buttons.
+                collapsedSize="8%"
+                collapsible
+                // 45% gives Git / Lineage / Logs tabs enough vertical room
+                // for their list + detail content out-of-the-box. 30% (prior
+                // default) made the Git history list unreadable on a 1080p
+                // canvas column.
+                defaultSize="45%"
+                minSize="10%"
+              >
+                <BottomPanel
+                  activeTab={activeBottomTab}
+                  blockOutputs={scopedBlockOutputs}
+                  edges={workflowEdges}
+                  logEntries={logEntries}
+                  onTabChange={onBottomTabChange}
+                  onTogglePin={toggleBottomPanelPinned}
+                  onUpdateConfig={(patch) => {
+                    if (selectedNodeId) {
+                      onUpdateNodeConfig(selectedNodeId, patch);
+                    }
+                  }}
+                  pinned={bottomPanelPinned}
+                  selectedNode={selectedNode}
+                  selectedSchema={selectedSchema}
+                  unreadLogsCount={unreadLogsCount}
+                />
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </div>
+        </ResizablePanel>
+        <ResizableHandle withHandle />
 
-      {/* Data Preview — full height right column */}
-      <ResizablePanel defaultSize="22%" minSize="15%" maxSize="42%" collapsible collapsedSize="0%">
-        <DataPreview
-          blockOutputs={scopedBlockOutputs}
-          subworkflowPorts={subworkflowPorts}
-          selectedNodeId={selectedNodeId}
-          selectedNodeLabel={selectedNodeLabel}
-          // #1326 port-info panel: resolve effective per-instance ports for
-          // the selected node.
-          //
-          // Hotfix 2026-05-23: ``node.config`` is a two-tier envelope where
-          // user-editable params live under ``node.config.params`` (see
-          // ``mergeNodeConfig``). The canvas-side BlockNode reads
-          // ``paramsOf(node) = node.config.params``; we mirror that here so
-          // both ``resolveVariadicPorts`` (variadic ports stored at
-          // ``params.{input,output}_ports``) AND ``computeEffectivePorts``
-          // (dynamic-port driving key at ``params.core_type``) see the
-          // same config the canvas sees. Reading ``node.config`` directly
-          // was a pre-existing bug that hid newly-added variadic ports
-          // from the panel and froze dynamic-port types at their
-          // schema-static fallback ``DataObject``.
-          selectedInputPorts={
-            selectedNode && selectedSchema
-              ? computeEffectivePorts(
-                  selectedSchema.dynamic_ports ?? null,
-                  selectedSchema.dynamic_ports?.source_config_key
-                    ? (((selectedNode.config.params as Record<string, unknown> | undefined) ?? {})[
-                        selectedSchema.dynamic_ports.source_config_key
-                      ] as string | undefined)
-                    : undefined,
-                  resolveVariadicPorts(
-                    selectedSchema.input_ports,
-                    (selectedNode.config.params as Record<string, unknown> | undefined) ?? {},
+        {/* Data Preview — full height right column */}
+        <ResizablePanel
+          defaultSize="22%"
+          minSize="15%"
+          maxSize="42%"
+          collapsible
+          collapsedSize="0%"
+        >
+          <DataPreview
+            blockOutputs={scopedBlockOutputs}
+            subworkflowPorts={subworkflowPorts}
+            selectedNodeId={selectedNodeId}
+            selectedNodeLabel={selectedNodeLabel}
+            // #1326 port-info panel: resolve effective per-instance ports for
+            // the selected node.
+            //
+            // Hotfix 2026-05-23: ``node.config`` is a two-tier envelope where
+            // user-editable params live under ``node.config.params`` (see
+            // ``mergeNodeConfig``). The canvas-side BlockNode reads
+            // ``paramsOf(node) = node.config.params``; we mirror that here so
+            // both ``resolveVariadicPorts`` (variadic ports stored at
+            // ``params.{input,output}_ports``) AND ``computeEffectivePorts``
+            // (dynamic-port driving key at ``params.core_type``) see the
+            // same config the canvas sees. Reading ``node.config`` directly
+            // was a pre-existing bug that hid newly-added variadic ports
+            // from the panel and froze dynamic-port types at their
+            // schema-static fallback ``DataObject``.
+            selectedInputPorts={
+              selectedNode && selectedSchema
+                ? computeEffectivePorts(
+                    selectedSchema.dynamic_ports ?? null,
+                    selectedSchema.dynamic_ports?.source_config_key
+                      ? (((selectedNode.config.params as Record<string, unknown> | undefined) ??
+                          {})[selectedSchema.dynamic_ports.source_config_key] as string | undefined)
+                      : undefined,
+                    resolveVariadicPorts(
+                      selectedSchema.input_ports,
+                      (selectedNode.config.params as Record<string, unknown> | undefined) ?? {},
+                      "input",
+                      selectedSchema,
+                    ),
                     "input",
-                    selectedSchema,
-                  ),
-                  "input",
-                )
-              : undefined
-          }
-          selectedOutputPorts={
-            selectedNode && selectedSchema
-              ? computeEffectivePorts(
-                  selectedSchema.dynamic_ports ?? null,
-                  selectedSchema.dynamic_ports?.source_config_key
-                    ? (((selectedNode.config.params as Record<string, unknown> | undefined) ?? {})[
-                        selectedSchema.dynamic_ports.source_config_key
-                      ] as string | undefined)
-                    : undefined,
-                  resolveVariadicPorts(
-                    selectedSchema.output_ports,
-                    (selectedNode.config.params as Record<string, unknown> | undefined) ?? {},
+                  )
+                : undefined
+            }
+            selectedOutputPorts={
+              selectedNode && selectedSchema
+                ? computeEffectivePorts(
+                    selectedSchema.dynamic_ports ?? null,
+                    selectedSchema.dynamic_ports?.source_config_key
+                      ? (((selectedNode.config.params as Record<string, unknown> | undefined) ??
+                          {})[selectedSchema.dynamic_ports.source_config_key] as string | undefined)
+                      : undefined,
+                    resolveVariadicPorts(
+                      selectedSchema.output_ports,
+                      (selectedNode.config.params as Record<string, unknown> | undefined) ?? {},
+                      "output",
+                      selectedSchema,
+                    ),
                     "output",
-                    selectedSchema,
-                  ),
-                  "output",
-                )
-              : undefined
-          }
-          selectedSchema={selectedSchema}
-        />
-      </ResizablePanel>
-    </ResizablePanelGroup>
+                  )
+                : undefined
+            }
+            selectedSchema={selectedSchema}
+          />
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </div>
   );
 }
