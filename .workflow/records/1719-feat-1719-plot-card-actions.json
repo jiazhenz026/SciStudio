@@ -361,9 +361,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "b3f303455528ec0b8717605ef9e9137004e6664a",
+    "sha": "8b8528f97a54f1503f39116689472679c40accc6",
     "shas": [
-      "b3f303455528ec0b8717605ef9e9137004e6664a"
+      "8b8528f97a54f1503f39116689472679c40accc6"
     ],
     "trailers": []
   },
@@ -390,6 +390,11 @@
       "at": "2026-08-21T22:22:32.701479Z",
       "owner_directive": "Skip preflight and open the PR; CI remains authoritative.",
       "reason": "Owner explicitly authorized skipping preflight after semantic_dup exceeded the fixed 600-second local timeout."
+    },
+    {
+      "at": "2026-08-21T22:24:31.631908Z",
+      "owner_directive": "Owner explicitly authorized skipping preflight and opening PR #2101; GitHub CI is authoritative.",
+      "reason": "finalize"
     }
   ],
   "docs_events": [
@@ -1139,6 +1144,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:32.570617Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:32.599461Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:32.626502Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:32.652206Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:32.685544Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:32.731094Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:32.757459Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:32.788094Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:32.836699Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:32.863301Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:32.895942Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1152,7 +1245,7 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "origin/main",
-    "base_sha": "4105e165",
+    "base_sha": "4105e1654",
     "changed_files": [
       ".workflow/records/1719-feat-1719-plot-card-actions.json",
       "frontend/src/components/BottomPanel.parts/PlotsTab.test.tsx",
@@ -1164,9 +1257,9 @@
       "src/scistudio/api/routes/plots.py",
       "tests/api/test_plot_preview_wiring.py"
     ],
-    "diff_fingerprint": "sha256:ee263eacb9f67fd69c972b03010068b223907207685bef17b004e9df9d75dfb8",
+    "diff_fingerprint": "sha256:15f8369906f08f4fbc4dcf5509fa7ea4580f77a0fcfce15b66df6e8240052635",
     "head": "HEAD",
-    "head_sha": "b3f30345",
+    "head_sha": "8b8528f97",
     "surfaces": {
       "docs": 0,
       "frontend": 5,
@@ -1188,8 +1281,8 @@
     "closes": [
       1719
     ],
-    "number": null,
-    "url": null
+    "number": 2101,
+    "url": "https://github.com/jiazhenz026/SciStudio/pull/2101"
   },
   "reconcile_events": [
     {
@@ -1279,6 +1372,25 @@
       "tier": 1,
       "unsatisfied": [
         "checks.semantic_dup"
+      ]
+    },
+    {
+      "at": "2026-08-21T22:24:32.895975Z",
+      "diff_fingerprint": "sha256:15f8369906f08f4fbc4dcf5509fa7ea4580f77a0fcfce15b66df6e8240052635",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.architecture_tests",
+        "checks.deferral_discipline",
+        "checks.format_check",
+        "checks.frontend",
+        "checks.full_audit",
+        "checks.import_contracts",
+        "checks.lint_format",
+        "checks.python_tests",
+        "checks.semantic_dup",
+        "checks.type_check"
       ]
     }
   ],
