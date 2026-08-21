@@ -39,6 +39,7 @@ from scistudio.tutorials.manifest import (
     load_schema,
     parse_manifest,
 )
+from tests.helpers import link_to_directory
 
 from .conftest import MINIMAL_MANIFEST, write_tutorial
 
@@ -527,7 +528,12 @@ def test_symlinked_asset_escape_is_rejected_when_the_directory_is_read(tmp_path:
     data["steps"][0]["do"] = [{"write": {"source": "assets/link/evil.py", "destination": "notes.py"}}]
     directory = write_tutorial(tmp_path / "linky", data)
     (directory / "assets").mkdir(exist_ok=True)
-    (directory / "assets" / "link").symlink_to(outside, target_is_directory=True)
+    # #2075: a bare symlink_to needs a privilege Windows does not grant by
+    # default, which used to fail this test rather than skip it. The helper
+    # falls back to a directory junction, which os.path.realpath follows
+    # identically -- and a real-path comparison is exactly how the loader
+    # detects the escape -- so the case stays covered on Windows.
+    link_to_directory(directory / "assets" / "link", outside)
     with pytest.raises(ManifestValidationError) as excinfo:
         load_manifest(directory, source_kind=TutorialSourceKind.CORE)
     assert "symbolic link" in str(excinfo.value)

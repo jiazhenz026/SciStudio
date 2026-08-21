@@ -20,7 +20,6 @@ declaring a replay, so a fixture that exercises one has to be core.
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +28,12 @@ import yaml
 from fastapi.testclient import TestClient
 
 from scistudio.api.runtime import ApiRuntime
+
+# #2075: the tests below simulate an out-of-product delete. Plain
+# ``shutil.rmtree`` cannot do that on Windows -- auto-init leaves
+# ``.git/objects`` read-only and Windows refuses to unlink a read-only file --
+# so use the helper the product already uses for exactly this case.
+from scistudio.api.runtime._helpers import _rmtree_force
 from scistudio.tutorials import discovery
 from scistudio.tutorials.manifest import TUTORIAL_MANIFEST_FILENAME
 
@@ -295,7 +300,7 @@ def test_starting_over_a_husk_left_by_a_failed_delete_recreates_the_project(
     client.post("/api/tutorials/sessions/active/leave")
     runtime.known_projects.pop(first["project_id"], None)
     _forget_session(runtime)
-    shutil.rmtree(project_path)
+    _rmtree_force(project_path)
     (project_path / ".scistudio" / "pause").mkdir(parents=True)
     (project_path / ".scistudio" / "pause" / "main").write_text("", encoding="utf-8")
 
@@ -324,7 +329,7 @@ def test_starting_over_a_directory_holding_the_users_own_files_refuses_readably(
     client.post("/api/tutorials/sessions/active/leave")
     runtime.known_projects.pop(first["project_id"], None)
     _forget_session(runtime)
-    shutil.rmtree(project_path)
+    _rmtree_force(project_path)
     project_path.mkdir(parents=True)
     (project_path / "my-notes.txt").write_text("mine", encoding="utf-8")
 
@@ -729,7 +734,7 @@ def test_a_tutorial_project_deleted_from_outside_invalidates_its_session(client:
     mount(core_tier, "fragile", manifest_for("fragile", [{"id": "one", "say": "One."}], **BOOTSTRAP))
     started = start(client, "fragile").json()
 
-    shutil.rmtree(started["project_path"])
+    _rmtree_force(Path(started["project_path"]))
 
     assert client.get("/api/tutorials/sessions/active").json() is None
     entry = client.get("/api/tutorials/catalogue").json()["groups"][0]["tutorials"][0]
