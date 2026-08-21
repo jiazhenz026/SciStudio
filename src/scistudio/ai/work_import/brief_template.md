@@ -134,11 +134,12 @@ project they open. Two things follow from that:
   this project.** It would work here and fail everywhere else, which is worse
   than not having it — the block appears in their palette and breaks when used.
   If a block needs a custom type, that type goes to the personal library too.
-- **Previewers cannot go to the personal library at all.** SciStudio discovers
-  previewers from core, from installed packages, and from the project — there is
-  no user-level tier. A previewer written to `~/.scistudio/` is silently never
-  loaded, with no error. Put previewers in `{project}/previewers/` and tell them
-  that this one stays with the project while their blocks and types travel.
+- **A previewer in the personal library must not depend on a type that only
+  exists in this project**, for the same reason as a block. If the previewer
+  needs a custom type, that type goes to the personal library too. Previewers do
+  have a user-level tier (#2017): `~/.scistudio/previewers/` is discovered in
+  every project with no project open required, and routes between project and
+  package (project > user > package > core, ADR-048 FR-003).
 
 **If their data is large** — the kind of size where loading a file whole is not
 an option — confirm the scale with them, and look at how SciStudio already

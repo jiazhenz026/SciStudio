@@ -7,13 +7,16 @@ The precedence order (highest first) is exactly ADR-048 §3 / spec FR-003:
 
 1. project exact ``Collection[T]``
 2. project exact ``T``
-3. package exact ``Collection[T]``
-4. package exact ``T``
-5. project parent (walk the type chain general-ward, project tier)
-6. package parent (walk the type chain general-ward, package tier)
-7. core collection fallback
-8. core base fallback
-9. unknown / error
+3. user exact ``Collection[T]``
+4. user exact ``T``
+5. package exact ``Collection[T]``
+6. package exact ``T``
+7. project parent (walk the type chain general-ward, project tier)
+8. user parent (walk the type chain general-ward, user tier)
+9. package parent (walk the type chain general-ward, package tier)
+10. core collection fallback
+11. core base fallback
+12. unknown / error
 
 Specificity is driven by the target's ``type_chain`` (ordered general ->
 specific). "Exact" means the spec's ``target_type`` equals the most specific
@@ -22,6 +25,11 @@ ancestors preferred. Within one tier + specificity, the highest ``priority``
 wins; an unresolved priority tie raises :class:`RoutingAmbiguityError`
 (FR-004). A project explicit default previewer resolves a project-tier tie
 (FR-005).
+
+The ladder is table-driven (:data:`_EXACT_TIERS` / :data:`_PARENT_TIERS`)
+rather than hand-expanded branches: adding the user tier (#2017, precedence
+project > user > package per the owner decision recorded there) cost one
+tuple entry instead of four more branches, and the next tier costs the same.
 """
 
 from __future__ import annotations
@@ -39,6 +47,12 @@ from scistudio.previewers.registry import PreviewerRegistry
 from scistudio.stability import internal
 
 logger = logging.getLogger(__name__)
+
+#: Tier precedence for exact-type matches (FR-003): project > user > package.
+_EXACT_TIERS: tuple[OwnerKind, ...] = (OwnerKind.PROJECT, OwnerKind.USER, OwnerKind.PACKAGE)
+
+#: Tier precedence for parent (ancestor) matches (FR-003): project > user > package.
+_PARENT_TIERS: tuple[OwnerKind, ...] = (OwnerKind.PROJECT, OwnerKind.USER, OwnerKind.PACKAGE)
 
 
 @internal()
@@ -61,60 +75,33 @@ class PreviewRouter:
         chain = self._specificity_chain(target)
         most_specific = chain[0] if chain else ""
 
-        # Tiers in precedence order. Each entry is (owner_kind, require_collection,
-        # match_mode, type_to_match_resolver). We evaluate them top to bottom and
-        # return the first non-empty winner.
         # A collection target must only resolve to collection-capable previewers
         # before reaching the core collection fallback (ADR-048 FR-003 / US4):
         # never select a want_collection=False (single-item / base) previewer for
         # a collection, otherwise e.g. Collection[Image] with the imaging package
-        # installed would mis-route to the single-image viewer at tier 2/4/8
-        # before the tier-7 core collection fallback.
-        # ---- 1 & 2: project exact (collection then item) ----
-        if is_collection:
-            winner = self._pick(specs, OwnerKind.PROJECT, most_specific, want_collection=True, target=target)
-            if winner is not None:
-                return winner
-        else:
-            winner = self._pick(specs, OwnerKind.PROJECT, most_specific, want_collection=False, target=target)
+        # installed would mis-route to the single-image viewer at the exact/parent
+        # tiers before the core collection fallback.
+
+        # ---- 1-6: exact matches, tier order project > user > package ----
+        for owner_kind in _EXACT_TIERS:
+            winner = self._pick(specs, owner_kind, most_specific, want_collection=is_collection, target=target)
             if winner is not None:
                 return winner
 
-        # ---- 3 & 4: package exact (collection then item) ----
-        if is_collection:
-            winner = self._pick(specs, OwnerKind.PACKAGE, most_specific, want_collection=True, target=target)
-            if winner is not None:
-                return winner
-        else:
-            winner = self._pick(specs, OwnerKind.PACKAGE, most_specific, want_collection=False, target=target)
-            if winner is not None:
-                return winner
+        # ---- 7-9: parent matches (closest ancestor first), same tier order ----
+        for owner_kind in _PARENT_TIERS:
+            for parent in chain[1:]:
+                winner = self._pick(specs, owner_kind, parent, want_collection=is_collection, target=target)
+                if winner is not None:
+                    return winner
 
-        # ---- 5: project parent (closest ancestor first) ----
-        for parent in chain[1:]:
-            if is_collection:
-                winner = self._pick(specs, OwnerKind.PROJECT, parent, want_collection=True, target=target)
-            else:
-                winner = self._pick(specs, OwnerKind.PROJECT, parent, want_collection=False, target=target)
-            if winner is not None:
-                return winner
-
-        # ---- 6: package parent (closest ancestor first) ----
-        for parent in chain[1:]:
-            if is_collection:
-                winner = self._pick(specs, OwnerKind.PACKAGE, parent, want_collection=True, target=target)
-            else:
-                winner = self._pick(specs, OwnerKind.PACKAGE, parent, want_collection=False, target=target)
-            if winner is not None:
-                return winner
-
-        # ---- 7: core collection fallback ----
+        # ---- 10: core collection fallback ----
         if is_collection:
             winner = self._pick_core_fallback(specs, want_collection=True, target=target)
             if winner is not None:
                 return winner
 
-        # ---- 8: core base fallback (closest matching base in chain) — items only ----
+        # ---- 11: core base fallback (closest matching base in chain) — items only ----
         if not is_collection:
             for type_name in chain:
                 winner = self._pick(specs, OwnerKind.CORE, type_name, want_collection=False, target=target)
@@ -124,7 +111,7 @@ class PreviewRouter:
             if winner is not None:
                 return winner
 
-        # ---- 9: unknown / error ----
+        # ---- 12: unknown / error ----
         raise UnknownTargetError(
             f"No previewer matched target type {most_specific or target.recorded_type or '<unknown>'!r}",
             detail={"target": target.to_dict()},

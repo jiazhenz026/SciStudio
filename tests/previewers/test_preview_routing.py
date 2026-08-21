@@ -131,6 +131,106 @@ def test_project_default_resolves_tie() -> None:
     assert spec.previewer_id == "project.b"
 
 
+# -- user tier precedence (#2017): project > user > package > core -------------
+
+
+def test_user_exact_wins_over_package_exact() -> None:
+    """FR-003 tier 3/4 vs 5/6: user exact beats package exact."""
+    user = _spec("user.mytype", OwnerKind.USER, "MyType")
+    pkg = _spec("pkg.mytype", OwnerKind.PACKAGE, "MyType")
+    router = PreviewRouter(_registry(user, pkg))
+    spec = router.resolve(_data_target("MyType", ("DataObject", "MyType")))
+    assert spec.previewer_id == "user.mytype"
+
+
+def test_project_exact_wins_over_user_exact() -> None:
+    """FR-003 tier 1/2 vs 3/4: project exact beats user exact."""
+    proj = _spec("project.mytype", OwnerKind.PROJECT, "MyType")
+    user = _spec("user.mytype", OwnerKind.USER, "MyType")
+    router = PreviewRouter(_registry(proj, user))
+    spec = router.resolve(_data_target("MyType", ("DataObject", "MyType")))
+    assert spec.previewer_id == "project.mytype"
+
+
+def test_user_exact_wins_over_core_fallback() -> None:
+    user = _spec("user.array", OwnerKind.USER, "Array")
+    router = PreviewRouter(_registry(user))
+    spec = router.resolve(_data_target("Array", ("DataObject", "Array")))
+    assert spec.previewer_id == "user.array"
+
+
+def test_package_exact_wins_over_user_parent() -> None:
+    """All exact passes complete before any parent pass (tier 5/6 vs 8)."""
+    user_parent = _spec("user.array", OwnerKind.USER, "Array")
+    pkg_exact = _spec("pkg.image", OwnerKind.PACKAGE, "Image")
+    router = PreviewRouter(_registry(user_parent, pkg_exact))
+    spec = router.resolve(_data_target("Image", ("DataObject", "Array", "Image")))
+    assert spec.previewer_id == "pkg.image"
+
+
+def test_user_parent_wins_over_package_parent() -> None:
+    """FR-003 tier 8 vs 9: user parent beats package parent."""
+    user_parent = _spec("user.array", OwnerKind.USER, "Array")
+    pkg_parent = _spec("pkg.array", OwnerKind.PACKAGE, "Array")
+    router = PreviewRouter(_registry(user_parent, pkg_parent))
+    spec = router.resolve(_data_target("FancyImage", ("DataObject", "Array", "FancyImage")))
+    assert spec.previewer_id == "user.array"
+
+
+def test_project_parent_wins_over_user_parent() -> None:
+    """FR-003 tier 7 vs 8: project parent beats user parent."""
+    proj_parent = _spec("project.array", OwnerKind.PROJECT, "Array")
+    user_parent = _spec("user.array", OwnerKind.USER, "Array")
+    router = PreviewRouter(_registry(proj_parent, user_parent))
+    spec = router.resolve(_data_target("FancyImage", ("DataObject", "Array", "FancyImage")))
+    assert spec.previewer_id == "project.array"
+
+
+def test_user_collection_exact_wins_over_package_collection() -> None:
+    user = _spec("user.image.collection", OwnerKind.USER, "Image", collection=True)
+    pkg = _spec("pkg.image.collection", OwnerKind.PACKAGE, "Image", collection=True)
+    router = PreviewRouter(_registry(user, pkg))
+    spec = router.resolve(_collection_target("Image", ("DataObject", "Array", "Image")))
+    assert spec.previewer_id == "user.image.collection"
+
+
+def test_user_item_previewer_does_not_capture_collection() -> None:
+    """A user-tier single-item previewer must not capture a collection target."""
+    item = _spec("user.image", OwnerKind.USER, "Image", collection=False)
+    router = PreviewRouter(_registry(item))
+    spec = router.resolve(_collection_target("Image", ("DataObject", "Array", "Image")))
+    assert spec.previewer_id == "core.collection.basic"
+
+
+def test_user_collection_parent_wins_over_package_collection_parent() -> None:
+    user = _spec("user.array.collection", OwnerKind.USER, "Array", collection=True)
+    pkg = _spec("pkg.array.collection", OwnerKind.PACKAGE, "Array", collection=True)
+    router = PreviewRouter(_registry(user, pkg))
+    spec = router.resolve(_collection_target("FancyImage", ("DataObject", "Array", "FancyImage")))
+    assert spec.previewer_id == "user.array.collection"
+
+
+def test_user_priority_tie_raises_ambiguity() -> None:
+    """FR-004 applies inside the user tier like every other tier."""
+    a = _spec("user.a", OwnerKind.USER, "Image", priority=5)
+    b = _spec("user.b", OwnerKind.USER, "Image", priority=5)
+    router = PreviewRouter(_registry(a, b))
+    with pytest.raises(RoutingAmbiguityError) as exc:
+        router.resolve(_data_target("Image", ("DataObject", "Array", "Image")))
+    assert set(exc.value.detail["candidates"]) == {"user.a", "user.b"}
+
+
+def test_project_default_resolves_user_tier_tie() -> None:
+    """FR-005: a declared project default breaks a tie in any tier, user included."""
+    a = _spec("user.a", OwnerKind.USER, "MyType", priority=5)
+    b = _spec("user.b", OwnerKind.USER, "MyType", priority=5)
+    reg = _registry(a, b)
+    reg.set_project_default("MyType", "user.b")
+    router = PreviewRouter(reg)
+    spec = router.resolve(_data_target("MyType", ("DataObject", "MyType")))
+    assert spec.previewer_id == "user.b"
+
+
 def test_collection_routes_to_collection_capable_previewer() -> None:
     """US4 scenario 1: a collection-capable package previewer wins for Collection[Image]."""
     coll = _spec("pkg.image.collection", OwnerKind.PACKAGE, "Image", collection=True)

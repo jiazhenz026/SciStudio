@@ -1,6 +1,7 @@
-"""PreviewerRegistry — core / package / project discovery (FR-002).
+"""PreviewerRegistry — core / package / project / user discovery (FR-002).
 
-Loads :class:`PreviewerSpec` declarations from three tiers:
+Loads :class:`PreviewerSpec` declarations from four tiers, in registration
+order:
 
 1. **core** — always loaded, unconditionally, from
    :func:`scistudio.previewers.fallbacks.core_previewer_specs`.
@@ -10,6 +11,12 @@ Loads :class:`PreviewerSpec` declarations from three tiers:
    block/type packages, plus bundled desktop source packages (FR-030).
 3. **project** — project-local specs registered via
    :mod:`scistudio.previewers.project`.
+4. **user** — user-library specs from ``~/.scistudio/previewers`` (#2017),
+   registered via :func:`scistudio.previewers.project.load_user_previewers`.
+
+Registration is first-wins in this order, so a project spec shadows a
+same-id user spec — the mirror of routing precedence, which the router
+orders project > user > package > core.
 
 Duplicate ``previewer_id`` across the loaded set is recorded as a diagnostic
 and the subsequent registration is rejected (FR-006); a broken entry point is
@@ -87,6 +94,15 @@ class PreviewerRegistry:
     def set_project_default(self, target_type: str, previewer_id: str) -> None:
         """Declare a project default previewer for *target_type* (FR-005)."""
         self._project_default_previewers[target_type] = previewer_id
+
+    def record_diagnostic(self, message: str) -> None:
+        """Record a discovery-scan diagnostic from an external scan pass.
+
+        Used by the drop-in previewer scan (#2044) so a refused or broken
+        drop-in is surfaced through :attr:`diagnostics` rather than only
+        logged — the same surfacing the block/type scans get.
+        """
+        self._diagnostics.append(message)
 
     # -- accessors ----------------------------------------------------------
 

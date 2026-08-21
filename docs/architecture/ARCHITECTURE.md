@@ -1771,8 +1771,10 @@ LUT, channel, and label semantics that the generic Array previewer deliberately
 omits. The generic core previewers remain the baseline for the data kinds a
 plugin does not specialize.
 
-**Project previewers.** The same extension works at the project level: a user
-can add a previewer for a project-local data type without publishing a plugin.
+**User and project previewers.** The same extension works at the user and
+project levels: a user can add a previewer under `~/.scistudio/previewers/` for
+every project, or under `<project>/previewers/` for one project, without
+publishing a plugin (#2017).
 
 How previewers are registered, discovered, and prioritized is covered in §12
 (Extensibility).
@@ -1953,7 +1955,7 @@ my_project/
 | `workflows/` | User workflow YAML files. Workflow IDs map to `workflows/<id>.yaml`. |
 | `blocks/` | Project-local custom blocks. Saving a clean Python file here can hot-reload the block registry. |
 | `types/` | Project-local custom data type definitions. |
-| `previewers/` | Project-local previewer drop-ins (`previewers/*.py` exposing get_previewers()); a `.scistudio/previewers.json` manifest can also register them (§9.6). Created on first use. |
+| `previewers/` | Project-local previewer drop-ins (`previewers/*.py` exposing get_previewers()); a `.scistudio/previewers.json` manifest can declare default-previewer tie-breakers (§9.6). Created on first use. |
 | `plots/` | Plot cards — each plot is `plots/<id>/plot.yaml` plus its render script (§10). Created on first use. |
 | `data/raw/` | Uploaded or imported raw files. File uploads land here after filename sanitization. |
 | `data/zarr/` | Zarr-backed array-style data. |
@@ -2132,7 +2134,8 @@ previewer for a particular `DataObject` type — for example an imaging package'
 image viewer with LUT, channel, and label semantics. A previewer provider
 exposes a get_previewers() callable returning a list of `PreviewerSpec`, and each spec binds
 a target type to a frontend renderer. Project previewers take precedence over
-package previewers, which take precedence over the core fallback.
+user previewers, which take precedence over package previewers, which take
+precedence over the core fallback (ADR-048 FR-003, #2017).
 
 ### 12.3 Extension Levels
 
@@ -2142,7 +2145,7 @@ reach for ceremony:
 | Level | Where it lives | Best for |
 |---|---|---|
 | **Package** | An installed Python package, shared across machines | Reusable, tested, dependency-carrying plugins and community science. |
-| **User** | `~/.scistudio/`, shared across one user's projects | Personal blocks and types reused across projects on one workstation. |
+| **User** | `~/.scistudio/`, shared across one user's projects | Personal blocks, types, and previewers reused across projects on one workstation. |
 | **Project** | `<project>/`, one project only | One-off preprocessing, lab-private analysis, dataset adaptation, fast prototyping. |
 
 When the same target is provided at more than one level, the most specific level
@@ -2175,14 +2178,16 @@ the registries at startup and on project open — no packaging required.
 | Location | Modules | Notes |
 |---|---|---|
 | `<project>/blocks/`, `<project>/types/` | blocks, types | Drop-in `*.py`; saving a clean file can hot-reload the block registry. |
-| `<project>/previewers/` | previewers | `*.py` exposing get_previewers(); a `.scistudio/previewers.json` manifest can also register them. |
+| `<project>/previewers/` | previewers | `*.py` exposing get_previewers(); a `.scistudio/previewers.json` manifest can declare default-previewer tie-breakers (FR-005). |
 | `~/.scistudio/blocks/`, `~/.scistudio/types/` | blocks, types | User-wide drop-ins reused across that user's projects. |
+| `~/.scistudio/previewers/` | previewers | User-wide drop-ins loaded in every project, no project open required (#2017). |
 
 Project-local extension is the lowest-friction path: the code lives with the
 dataset and workflow branch that needs it, stays inside the project repository,
 and can be iterated before deciding whether it belongs in a package. User-wide
-`blocks/` and `types/` cover code a user reuses across projects; previewers are
-extended at the project or package level rather than user-wide.
+`blocks/`, `types/`, and `previewers/` cover code a user reuses across
+projects. When several levels provide a previewer for the same target, routing
+follows project > user > package > core (ADR-048 FR-003, #2017).
 
 ### 12.6 Public API Boundary
 

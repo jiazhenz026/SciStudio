@@ -128,6 +128,17 @@ identical in the API, agent, worker, and IO dispatch processes (FR-057): none of
 them sets ``SCISTUDIO_PROJECT_DIR`` for the API server, but all four register
 their scan directories through this module.
 
+Previewers are the third consumer (#2044 / #2017). ``<project>/previewers``
+and ``~/.scistudio/previewers`` are the same user-writable claim on the
+top-level module namespace as the types directories, so the tier definition
+(:func:`previewer_scan_dirs`, :func:`previewer_import_roots`), the collision
+guard (:func:`guard_dropin_roots`, one implementation shared with
+the types guard), and :func:`evict_cached_bytecode` all live here rather than
+as a fourth copy of the rule in ``scistudio.previewers.project``. The user
+previewer tier exists at all because FR-060's rule — user-tier discovery is
+unconditional, project-tier requires a project — applies to previewers
+exactly as it does to types.
+
 **The Learning Center adds a third kind and a second user-tier root**
 (``docs/specs/adr-053-learning-center.md`` FR-016, FR-031, FR-070 to FR-073).
 Tutorials are discovered from ``<project>/tutorials`` and
@@ -168,6 +179,7 @@ from scistudio.desktop.paths import user_python_import_roots
 
 __all__ = [
     "BLOCKS_DIR_NAME",
+    "PREVIEWERS_DIR_NAME",
     "PROJECT_DIR_ENV_VAR",
     "TUTORIALS_DIR_NAME",
     "TUTORIAL_LIBRARY_DIR_NAME",
@@ -181,21 +193,27 @@ __all__ = [
     "dropin_import_roots_for_block_dirs",
     "dropin_type_roots_for_block_dirs",
     "evict_cached_bytecode",
+    "guard_dropin_roots",
     "guard_dropin_type_roots",
     "is_tutorial_location",
     "library_root_for_project",
+    "previewer_import_roots",
+    "previewer_scan_dirs",
     "project_blocks_dir",
     "project_dir_from_env",
+    "project_previewers_dir",
     "project_tutorials_dir",
     "project_types_dir",
     "register_block_scan_dirs",
     "register_type_scan_dirs",
+    "transient_dropin_modules",
     "tutorial_library_dir",
     "tutorial_parent_dir",
     "tutorial_scan_dirs",
     "type_scan_dirs",
     "user_blocks_dir",
     "user_library_dir",
+    "user_previewers_dir",
     "user_tutorials_dir",
     "user_types_dir",
 ]
@@ -208,6 +226,12 @@ BLOCKS_DIR_NAME = "blocks"
 
 #: Child directory holding drop-in ``DataObject`` files, in both tiers.
 TYPES_DIR_NAME = "types"
+
+#: Child directory holding drop-in previewer files, in both tiers.
+#: Previewers are this module's third consumer (#2044/#2017): the same tier
+#: definition, collision guard, and bytecode eviction that blocks and types
+#: use, applied to ``<project>/previewers`` and ``~/.scistudio/previewers``.
+PREVIEWERS_DIR_NAME = "previewers"
 
 #: Child directory holding drop-in tutorial directories, in both tiers
 #: (ADR-053 Learning Center FR-016).
@@ -261,6 +285,11 @@ def user_types_dir() -> Path:
     return user_library_dir() / TYPES_DIR_NAME
 
 
+def user_previewers_dir() -> Path:
+    """Return the user-tier drop-in previewer dir, ``~/.scistudio/previewers``."""
+    return user_library_dir() / PREVIEWERS_DIR_NAME
+
+
 def project_blocks_dir(project_dir: str | Path) -> Path:
     """Return the project-tier drop-in block dir, ``<project>/blocks``."""
     return Path(project_dir) / BLOCKS_DIR_NAME
@@ -269,6 +298,11 @@ def project_blocks_dir(project_dir: str | Path) -> Path:
 def project_types_dir(project_dir: str | Path) -> Path:
     """Return the project-tier drop-in type dir, ``<project>/types``."""
     return Path(project_dir) / TYPES_DIR_NAME
+
+
+def project_previewers_dir(project_dir: str | Path) -> Path:
+    """Return the project-tier drop-in previewer dir, ``<project>/previewers``."""
+    return Path(project_dir) / PREVIEWERS_DIR_NAME
 
 
 def project_dir_from_env() -> Path | None:
@@ -397,6 +431,15 @@ def tutorial_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...
     return _tier_dirs(TUTORIALS_DIR_NAME, project_dir)
 
 
+def previewer_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:
+    """Return the drop-in previewer scan dirs for *project_dir*'s context.
+
+    Same tier definition as :func:`type_scan_dirs` (FR-058): the project tier
+    when a project context exists, then the user tier unconditionally (FR-060).
+    """
+    return _tier_dirs(PREVIEWERS_DIR_NAME, project_dir)
+
+
 def dropin_import_roots(project_dir: str | Path | None = None) -> tuple[Path, ...]:
     """Return the import roots to put on ``sys.path`` when running a drop-in.
 
@@ -423,6 +466,17 @@ def dropin_import_roots(project_dir: str | Path | None = None) -> tuple[Path, ..
     (:func:`tutorial_scan_dirs`); it never imports out of them.
     """
     return (*type_scan_dirs(project_dir), *user_python_import_roots())
+
+
+def previewer_import_roots(project_dir: str | Path | None = None) -> tuple[Path, ...]:
+    """Return the import roots to put on ``sys.path`` when running a drop-in previewer.
+
+    Mirrors :func:`dropin_import_roots` for the previewer tier: the previewer
+    scan dirs in :func:`previewer_scan_dirs` order, then the shared user
+    dependency site, so a drop-in previewer's sibling imports and
+    user-installed dependencies resolve the same way a drop-in type's do.
+    """
+    return (*previewer_scan_dirs(project_dir), *user_python_import_roots())
 
 
 def dropin_type_roots_for_block_dirs(block_dirs: Iterable[str | Path]) -> tuple[Path, ...]:
@@ -605,12 +659,14 @@ class DropinTypeCollision:
     ``path`` is what the user renames — the ``.py`` file, or the package
     directory when the entry is a package. ``stem`` is the top-level module
     name the entry would claim, and ``origin`` is where the module it collides
-    with actually lives.
+    with actually lives. ``dir_label`` names the drop-in directory kind in the
+    user-facing message (``"types"`` or ``"previewers"``).
     """
 
     path: Path
     stem: str
     origin: str
+    dir_label: str = "types"
 
     @property
     def message(self) -> str:
@@ -618,7 +674,7 @@ class DropinTypeCollision:
         return (
             f"{self.path.name} is rejected: the name {self.stem!r} already belongs to an "
             f"importable module ({self.origin}), which this drop-in would shadow once the "
-            f"types directory joins sys.path. Rename it to a name no installed module uses."
+            f"{self.dir_label} directory joins sys.path. Rename it to a name no installed module uses."
         )
 
 
@@ -749,16 +805,25 @@ def _importable_entries(root: Path) -> Iterator[tuple[str, Path]]:
             yield entry.name, entry
 
 
+# Back-compat door for the types tier; the contract lives on :func:`guard_dropin_roots`.
 def guard_dropin_type_roots(
     import_roots: Iterable[str | Path], *, bind: bool = True
 ) -> tuple[DropinTypeCollision, ...]:
+    return guard_dropin_roots(import_roots, dir_name=TYPES_DIR_NAME, bind=bind)
+
+
+def guard_dropin_roots(
+    import_roots: Iterable[str | Path], *, dir_name: str, bind: bool = True
+) -> tuple[DropinTypeCollision, ...]:
     """Return the FR-016 collisions in *import_roots*, binding what they shadow.
 
-    The single definition of both the rule and its mitigation. Call it from
-    every site that puts drop-in type roots on ``sys.path``, before it does so.
-    Binding is once per process per name, so a ``tensorflow.py`` collision does
-    not re-import TensorFlow on every palette refresh. Pass ``bind=False`` when
-    the caller only needs the verdict and never touches ``sys.path``.
+    The single definition of both the rule and its mitigation, shared by every
+    drop-in kind; *dir_name* picks which drop-in roots are examined
+    (:data:`TYPES_DIR_NAME` or :data:`PREVIEWERS_DIR_NAME`). Call it from every
+    site that puts drop-in roots of that kind on ``sys.path``, before it does
+    so. Binding is once per process per name, so a ``tensorflow.py`` collision
+    does not re-import TensorFlow on every palette refresh. Pass ``bind=False``
+    when the caller only needs the verdict and never touches ``sys.path``.
 
     The ``path.name == TYPES_DIR_NAME`` filter needs no widening for the
     tutorial tiers and must not get one. The tutorial-scoped library keeps the
@@ -779,7 +844,7 @@ def guard_dropin_type_roots(
     pass was not given, or was given and could not list, produces no evidence
     and so keeps whatever it warrants.
     """
-    type_roots = tuple(path for path in map(Path, import_roots) if path.name == TYPES_DIR_NAME)
+    type_roots = tuple(path for path in map(Path, import_roots) if path.name == dir_name)
     collisions: list[DropinTypeCollision] = []
     colliding_by_root: dict[str, set[str]] = {}
     bound_in_this_pass: set[str] = set()
@@ -801,12 +866,24 @@ def guard_dropin_type_roots(
                 if origin is None:
                     continue
                 stems.add(stem)
-                collision = DropinTypeCollision(path=path, stem=stem, origin=origin)
+                collision = DropinTypeCollision(path=path, stem=stem, origin=origin, dir_label=dir_name)
                 collisions.append(collision)
                 # One import attempt per name per pass: the same broken package
                 # colliding in both tiers is one failure, not two. Which tiers
                 # those were is recorded by the warrants above, not here.
-                if bind and stem not in sys.modules and stem not in bound_in_this_pass:
+                # A stem already refused outright is not retried either: its
+                # binding failed once this process, and re-attempting it on
+                # every subsequent pass re-runs the broken module's top-level
+                # side effects on hot paths such as per-render guard passes.
+                # The reconcile above is what releases the refusal once the
+                # user renames the colliding file, so the retry door stays
+                # open.
+                if (
+                    bind
+                    and stem not in sys.modules
+                    and stem not in bound_in_this_pass
+                    and stem not in _REFUSED_NAMES.reasons
+                ):
                     bound_in_this_pass.add(stem)
                     _bind_or_refuse(collision)
     _REFUSED_NAMES.reconcile({warrant: frozenset(stems) for warrant, stems in colliding_by_root.items()})
@@ -833,6 +910,32 @@ def _bind_or_refuse(collision: DropinTypeCollision) -> None:
         )
     else:
         _REFUSED_NAMES.allow(collision.stem)
+
+
+@contextmanager
+def transient_dropin_modules(import_roots: Iterable[str | Path]) -> Iterator[None]:
+    """Evict the ``sys.modules`` entries a scoped drop-in import window leaks.
+
+    :func:`scistudio.desktop.paths.prepended_sys_paths` reverts ``sys.path``
+    when its window closes but not what the window imported: a sibling
+    ``import helpers`` stays cached under its bare stem, where the *next*
+    tier's scan or render resolves that stale binding instead of its own
+    file. The result is cross-tier wrong-code execution and false FR-016
+    refusals that survive even closing the project (PR #2072 audit, #2017).
+    On exit, every entry *added* inside the window whose ``__file__`` lives
+    under one of *import_roots* is removed. Entries that predate the window
+    are left alone: their verdicts belong to :func:`guard_dropin_roots`, not
+    to this window.
+    """
+    roots = tuple(Path(root) for root in import_roots)
+    before = set(sys.modules)
+    try:
+        yield
+    finally:
+        for name in set(sys.modules).difference(before):
+            module = sys.modules.get(name)
+            if module is not None and _is_within(getattr(module, "__file__", None), roots):
+                del sys.modules[name]
 
 
 def evict_cached_bytecode(py_file: Path) -> None:

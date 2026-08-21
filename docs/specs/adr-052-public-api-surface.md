@@ -933,7 +933,7 @@ File checklist:
 - [x] `helpers.py` — public author helper home; `sanitize_svg` (relocated #1823, §8.3)
 - [x] `fallbacks.py` — 8 core providers + `core_previewer_specs` internal; `sanitize_svg`
   back-compat re-export only (out of `__all__`) (§8.3)
-- [x] `__init__.py` (164), `registry.py` (282), `router.py` (234), `session.py` (617), `project.py` (120), `assets.py` (161) — operational layer, Internal (§8.4)
+- [x] `__init__.py` (187), `registry.py` (325), `router.py` (223), `session.py` (798), `project.py` (217), `assets.py` (161) — operational layer, Internal (§8.4)
 - [x] `_raster.py` (101), `_table_cache.py` (127) — underscore-private internals
 
 ### 8.1 `models.py`
@@ -1050,7 +1050,7 @@ Neither public package imports any of these; core owns the machinery (ADR-048).
 | ➖ | `PreviewRouter` | router.py | Internal | resolution order / precedence |
 | ➖ | `PreviewSessionManager` | session.py | Internal | session lifecycle, framework manifest-stamping |
 | ➖ | `PreviewService` / `build_preview_service` / `get_preview_service` | __init__.py | Internal | API-runtime bundle + accessor |
-| ➖ | `load_project_previewers` / `PROJECT_PREVIEWERS_DIR` / `PROJECT_PREVIEWERS_MANIFEST` | project.py | Internal | project-local drop-in loading |
+| ➖ | `load_project_previewers` / `load_user_previewers` / `PROJECT_PREVIEWERS_DIR` / `PROJECT_PREVIEWERS_MANIFEST` | project.py | Internal | project-local and user-library drop-in loading (#2017) |
 | ➖ | `validate_manifest` / `resolve_asset` / `is_remote_url` / `ManifestValidation` / `ServedAsset` | assets.py | Internal | backend asset validator / path-confinement (FR-024) |
 
 ### 8.5 Storage access — `request.storage` (closing the `_storage` leak)

@@ -62,9 +62,9 @@ class OwnerKind(StrEnum)
 Where a previewer came from; sets how strongly it wins when routing.
 
 When more than one previewer could handle a target, provenance decides
-precedence: a project-local previewer beats a package previewer, which beats
-a built-in core fallback. The string values appear verbatim in the REST and
-session API payloads.
+precedence: a project-local previewer beats a user-library previewer, which
+beats a package previewer, which beats a built-in core fallback. The string
+values appear verbatim in the REST and session API payloads.
 
 ## `PREVIEWER_API_VERSION` — _constant_
 
@@ -422,4 +422,3 @@ class TargetKind(StrEnum)
 ```
 
 The kind of thing a `PreviewTarget` points at.
-

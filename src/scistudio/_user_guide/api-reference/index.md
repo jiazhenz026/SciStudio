@@ -2,7 +2,7 @@
 
 # SciStudio API reference
 
-**Version:** `0.3.2a0` (single-version for this release, ADR-052 §7).
+**Version:** `0.3.3a0` (single-version for this release, ADR-052 §7).
 
 The public API you may rely on, generated from the code's docstrings and `scistudio.stability` decorators. Only the public surface (each canonical root's `__all__`) appears; `internal` symbols are excluded. Import from the canonical root shown on each page, never a deeper module path.
 
@@ -23,4 +23,3 @@ The public API you may rely on, generated from the code's docstrings and `scistu
 - [`scistudio.blocks.code`](scistudio.blocks.code.md) — 60 symbols
 - [`scistudio.previewers.models`](scistudio.previewers.models.md) — 21 symbols
 - [`scistudio.previewers.data_access`](scistudio.previewers.data_access.md) — 11 symbols
-

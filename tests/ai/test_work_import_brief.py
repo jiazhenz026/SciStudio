@@ -418,12 +418,12 @@ def test_both_tiers_carry_the_full_destination_guidance(tier: str) -> None:
     """§4.6's "Where things go" guidance is fixed text, so it reaches both tiers.
 
     This is what carries the library-mode constraint (FR-026): a personal-library
-    block must not depend on a project-local type, and previewers cannot go to
-    the personal library at all.
+    block must not depend on a project-local type, and a personal-library
+    previewer must not depend on one either (#2017 added the user tier).
     """
     brief = compose_brief(make_context(destination_tier=tier))
     assert "A block in the personal library must not depend on a type that only exists in" in brief
-    assert "Previewers cannot go to the personal library at all." in brief
+    assert "A previewer in the personal library must not depend on a type that only" in brief
 
 
 # --------------------------------------------------------------------------
