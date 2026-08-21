@@ -799,6 +799,11 @@ core. Tutorials reference terms; they do not define them.
 
 **FR-046.** Conditions MUST be evaluated on the backend against product state.
 No condition may be evaluated from frontend state, except `ui_event` (FR-052).
+The evaluation context additionally includes the session-supplied entry time of
+the current step (#2066): the session records when each step was entered and
+hands that time in per evaluation, because it describes the reader's position
+in the tutorial rather than the state of the product, and only the session
+knows it.
 
 **FR-047.** The vocabulary MUST include at least:
 
@@ -807,7 +812,9 @@ No condition may be evaluated from frontend state, except `ui_event` (FR-052).
 | `node_exists` | a node of a given block type is present in the workflow |
 | `edge_exists` | an edge connects two given block types or node ids |
 | `config_equals` | a node's configuration key holds a given value |
-| `run_succeeded` | a run of the workflow — or of a given node, or of any node of a given block type — completed successfully |
+| `config_matches` | a node's configuration key matches a glob, compared as a path |
+| `run_succeeded` | a run of the workflow — or of a given node, or of any node of a given block type — completed successfully; `since_step_entry: true` counts only runs started since the current step was entered |
+| `run_failed` | the most recent run ended without succeeding; `since_step_entry: true` reads only runs started since the current step was entered |
 | `port_has_output` | a given output port holds data, on a named node or on any node of a given block type |
 | `block_registered` | a block type is present in the registry |
 | `type_registered` | a data type is present in the type registry |
@@ -828,6 +835,14 @@ node (`port_has_output`, `interaction_completed`) requires one of them at
 validation. This is the same selector convention `node_exists`, `config_equals`,
 and `config_matches` already use, extended in #2062 so the level designs can
 address "the Load block" without knowing the node id a reader's drag produced.
+
+The two run terms additionally accept `since_step_entry: true` (#2066), which
+scopes the records they read to runs started since the current step was
+entered, judged against the entry time FR-046's evaluation context supplies. A
+step whose text says "press Run" can then wait for the run the reader performs
+*on this step* instead of being satisfied by one they performed three steps
+ago. FR-054 is untouched: at entry no run has started since entry, so the
+scoped condition is simply false until the reader runs.
 
 **FR-048.** The vocabulary MUST support `all` and `any` combinators taking lists
 of conditions. Negation is deliberately omitted: a tutorial step that advances

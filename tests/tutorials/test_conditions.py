@@ -833,3 +833,62 @@ def test_ui_event_target_arg_reads_the_declared_table() -> None:
     assert ui_event_target_arg("node_selected") == "block_type"
     assert ui_event_target_arg("preview_expanded") is None
     assert ui_event_target_arg("not_an_event") is None
+
+
+# ---------------------------------------------------------------------------
+# since_step_entry (#2066, FR-046's evaluation context)
+# ---------------------------------------------------------------------------
+
+_OLD_RUN = RunSummary(run_id="r-old", workflow_id="wf-1", succeeded=True, started_at="2020-01-01T00:00:00+00:00")
+_NEW_RUN = RunSummary(run_id="r-new", workflow_id="wf-1", succeeded=True, started_at="2026-08-21T12:00:00+00:00")
+_ENTRY = "2026-08-21T11:00:00+00:00"
+
+
+def test_since_step_entry_excludes_runs_started_before_entry() -> None:
+    """The step says "press Run"; the run from three steps ago must not answer."""
+    condition = parse_condition({"run_succeeded": {"since_step_entry": True}})
+    assert evaluate(condition, StubProductState(runs=(_OLD_RUN,)), entered_at=_ENTRY) is False
+    assert evaluate(condition, StubProductState(runs=(_NEW_RUN, _OLD_RUN)), entered_at=_ENTRY) is True
+
+
+def test_since_step_entry_scopes_run_failed_to_runs_since_entry() -> None:
+    """An old failure is not "it broke just now"; only a since-entry run answers."""
+    condition = parse_condition({"run_failed": {"since_step_entry": True}})
+    old_failure = RunSummary(
+        run_id="r-old", workflow_id="wf-1", succeeded=False, started_at="2020-01-01T00:00:00+00:00"
+    )
+    assert evaluate(condition, StubProductState(runs=(old_failure,)), entered_at=_ENTRY) is False
+    new_failure = RunSummary(
+        run_id="r-new", workflow_id="wf-1", succeeded=False, started_at="2026-08-21T12:00:00+00:00"
+    )
+    assert evaluate(condition, StubProductState(runs=(new_failure, old_failure)), entered_at=_ENTRY) is True
+
+
+def test_since_step_entry_without_an_entry_time_applies_no_filter() -> None:
+    """A pre-field session record fails towards FR-054's lean, not an unfinishable step."""
+    condition = parse_condition({"run_succeeded": {"since_step_entry": True}})
+    assert evaluate(condition, StubProductState(runs=(_OLD_RUN,))) is True
+
+
+def test_a_run_with_no_readable_start_time_is_outside_every_since_scoped_question() -> None:
+    condition = parse_condition({"run_succeeded": {"since_step_entry": True}})
+    unstamped = RunSummary(run_id="r-x", workflow_id="wf-1", succeeded=True, started_at=None)
+    garbled = RunSummary(run_id="r-y", workflow_id="wf-1", succeeded=True, started_at="not-a-time")
+    assert evaluate(condition, StubProductState(runs=(unstamped, garbled)), entered_at=_ENTRY) is False
+
+
+def test_since_step_entry_false_reads_like_the_bare_term() -> None:
+    condition = parse_condition({"run_succeeded": {"since_step_entry": False}})
+    assert evaluate(condition, StubProductState(runs=(_OLD_RUN,)), entered_at=_ENTRY) is True
+
+
+def test_since_step_entry_must_be_a_boolean() -> None:
+    with pytest.raises(ConditionValidationError, match="since_step_entry must be true or false"):
+        parse_condition({"run_succeeded": {"since_step_entry": "yes"}})
+
+
+def test_a_zoneless_run_stamp_is_read_as_utc() -> None:
+    """The writers are UTC; guessing a local zone would change the answer per machine."""
+    condition = parse_condition({"run_succeeded": {"since_step_entry": True}})
+    zoneless_new = RunSummary(run_id="r-n", workflow_id="wf-1", succeeded=True, started_at="2026-08-21T12:00:00")
+    assert evaluate(condition, StubProductState(runs=(zoneless_new,)), entered_at=_ENTRY) is True

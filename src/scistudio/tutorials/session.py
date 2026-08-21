@@ -65,6 +65,7 @@ import json
 import logging
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
@@ -113,6 +114,14 @@ from scistudio.tutorials.projects import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _now_iso() -> str:
+    """The session's one clock: timezone-aware UTC, ISO-8601 — comparable with
+    the lineage store's run timestamps, which ``since_step_entry`` compares it
+    against (#2066)."""
+    return datetime.now(tz=UTC).isoformat()
+
 
 __all__ = [
     "SESSION_FILENAME",
@@ -274,6 +283,12 @@ class SessionRecord:
     title: str
     project_path: Path | None = None
     step_id: str | None = None
+    step_entered_at: str | None = None
+    """When ``step_id`` was entered (ISO-8601, UTC) — ``since_step_entry``'s anchor (#2066).
+
+    Persisted beside the step id so the scoping survives a backend restart the
+    way the position does (FR-037). A record written before the field existed
+    reads back ``None``, and the run terms then apply no time filter."""
     satisfied_step_ids: tuple[str, ...] = ()
     status: SessionStatus = SessionStatus.ACTIVE
     error: str | None = None
@@ -292,6 +307,7 @@ class SessionRecord:
             "title": self.title,
             "project_path": None if self.project_path is None else str(self.project_path),
             "step_id": self.step_id,
+            "step_entered_at": self.step_entered_at,
             "satisfied_step_ids": list(self.satisfied_step_ids),
             "status": str(self.status),
             "error": self.error,
@@ -319,11 +335,13 @@ class SessionRecord:
         project = raw.get("project_path")
         satisfied = raw.get("satisfied_step_ids")
         step_id = raw.get("step_id")
+        entered = raw.get("step_entered_at")
         return cls(
             key=key,
             title=str(raw.get("title") or key.tutorial_id),
             project_path=Path(str(project)) if project else None,
             step_id=str(step_id) if isinstance(step_id, str) and step_id else None,
+            step_entered_at=str(entered) if isinstance(entered, str) and entered else None,
             satisfied_step_ids=tuple(str(item) for item in satisfied) if isinstance(satisfied, list) else (),
             status=status,
             error=str(raw["error"]) if raw.get("error") else None,
@@ -950,12 +968,17 @@ class TutorialRuntime:
             return False
 
     def _context(self, record: SessionRecord, tutorial_dir: Path, step_id: str | None) -> DriverContext:
+        # The entry time belongs to the step the session is *on*: asking about
+        # any other step gets no anchor, because the session never recorded one
+        # for it (#2066).
+        entered = record.step_entered_at if step_id is not None and step_id == record.step_id else None
         return DriverContext(
             key=record.key,
             tutorial_dir=tutorial_dir,
             project_dir=record.project_path,
             step_id=step_id,
             satisfied_step_ids=record.satisfied_step_ids,
+            step_entered_at=entered,
         )
 
     def _reevaluate(
@@ -1019,7 +1042,9 @@ class TutorialRuntime:
             next_id = driver.advance(context)
             if next_id is None:
                 return self._view(self._complete(state, record))
-            record = replace(record, step_id=next_id)
+            # The entry stamp is written before the step's own actions run, so
+            # a run those actions cause counts as "since entry" (#2066).
+            record = replace(record, step_id=next_id, step_entered_at=_now_iso())
             context = self._context(record, tutorial_dir, next_id)
             satisfied = self._enter(record, driver, context, tutorial_dir)
             if satisfied:

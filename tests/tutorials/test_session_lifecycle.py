@@ -909,6 +909,59 @@ def test_a_replay_step_drives_the_injected_byte_source(
     assert closed == ["tab-1"]
 
 
+def test_entering_a_step_anchors_since_step_entry_and_the_anchor_survives_restart(
+    home: Path,
+    core_dir: Path,
+    environment: DiscoveryEnvironment,
+    packages: list[Any],
+    product: StubProductState,
+    provisioner: _Provisioner,
+) -> None:
+    """#2066: the session stamps step entry and supplies it as evaluation context.
+
+    A successful run from before the tutorial began must not satisfy a
+    ``since_step_entry`` step (FR-054's already-true rule deliberately does not
+    reach a since-scoped condition), the anchor must survive a backend restart
+    the way the step id does (FR-037), and a run performed after entry must
+    satisfy it.
+    """
+    from scistudio.tutorials.conditions import RunSummary
+
+    _tutorial(
+        core_dir,
+        "press-run-here",
+        steps=[
+            {
+                "id": "press-run",
+                "say": "Press Run.",
+                "done_when": {"run_succeeded": {"since_step_entry": True}},
+            },
+            {"id": "done", "say": "Done."},
+        ],
+    )
+    product.runs = (
+        RunSummary(run_id="r-old", workflow_id="wf", succeeded=True, started_at="2020-01-01T00:00:00+00:00"),
+    )
+
+    runtime = _runtime(home, product, provisioner, environment)
+    started = runtime.start(TutorialKey.core("press-run-here"))
+    assert started.step is not None and started.step.satisfied is False
+
+    # A backend restart is a fresh runtime over the same files (FR-037).
+    restarted = _runtime(home, product, provisioner, environment)
+    view = restarted.evaluate_active()
+    assert view.step is not None and view.step.satisfied is False
+
+    from datetime import UTC, datetime
+
+    product.runs = (
+        RunSummary(run_id="r-new", workflow_id="wf", succeeded=True, started_at=datetime.now(tz=UTC).isoformat()),
+        *product.runs,
+    )
+    view = restarted.evaluate_active()
+    assert view.step is not None and view.step.satisfied is True
+
+
 def test_the_default_provisioner_refuses_rather_than_making_an_unregistered_project(
     home: Path, core_dir: Path, environment: DiscoveryEnvironment, packages: list[Any], product: StubProductState
 ) -> None:

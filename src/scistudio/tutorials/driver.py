@@ -286,6 +286,14 @@ class DriverContext:
     step_id: str | None
     """The step being asked about. ``None`` means "before the first step"."""
     satisfied_step_ids: tuple[str, ...] = ()
+    step_entered_at: str | None = None
+    """ISO-8601 time the current step was entered, when the session knows it.
+
+    FR-046's session-supplied evaluation context (#2066): the two run terms
+    read it for ``since_step_entry`` scoping. It rides on the context rather
+    than on product state because it describes the reader's position in the
+    tutorial, which only the session knows — and it survives a backend restart
+    the way the step id does, by being persisted in the session record."""
 
 
 @runtime_checkable
@@ -397,7 +405,7 @@ class ManifestDriver:
         step = self._step(context)
         if step.done_when is None:
             return False
-        return evaluate(step.done_when, product)
+        return evaluate(step.done_when, product, entered_at=context.step_entered_at)
 
     def entry_actions(self, context: DriverContext) -> tuple[Action, ...]:
         """Return the step's declared ``do`` list, in declaration order (FR-056)."""

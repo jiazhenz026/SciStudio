@@ -543,6 +543,7 @@ class _ApiProductState:
                     run_id=run_id,
                     workflow_id=str(row.get("workflow_id") or ""),
                     succeeded=row.get("status") == "completed",
+                    started_at=str(row.get("started_at")) if row.get("started_at") else None,
                     succeeded_node_ids=frozenset(
                         str(execution.get("block_id") or "")
                         for execution in executions

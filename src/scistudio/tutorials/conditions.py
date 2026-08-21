@@ -146,12 +146,12 @@ _SPECS: tuple[TermSpec, ...] = (
     TermSpec(
         name="run_succeeded",
         judges="a run of the workflow, of a given node, or of any node of a given block type, completed successfully",
-        optional=("workflow_id", "node_id", "block_type"),
+        optional=("workflow_id", "node_id", "block_type", "since_step_entry"),
     ),
     TermSpec(
         name="run_failed",
         judges="the most recent run ended without succeeding",
-        optional=("workflow_id",),
+        optional=("workflow_id", "since_step_entry"),
     ),
     TermSpec(
         name="port_has_output",
@@ -436,6 +436,10 @@ def _check_args(spec: TermSpec, args: Mapping[str, Any], *, field_name: str) -> 
             raise ConditionValidationError(f"{field_name}: config_matches pattern must be a non-empty string")
     if spec.name == "ui_event":
         _check_ui_event_target(args, field_name=field_name)
+    if "since_step_entry" in args and not isinstance(args["since_step_entry"], bool):
+        raise ConditionValidationError(
+            f"{field_name}: since_step_entry must be true or false, got {args['since_step_entry']!r}"
+        )
 
 
 def _check_ui_event_target(args: Mapping[str, Any], *, field_name: str) -> None:
@@ -516,6 +520,12 @@ class RunSummary:
     workflow_id: str
     succeeded: bool
     succeeded_node_ids: frozenset[str] = frozenset()
+    started_at: str | None = None
+    """ISO-8601 start time, for ``since_step_entry`` scoping (#2066).
+
+    ``None`` when the projecting layer has no timestamp for the run; such a
+    record is outside every since-scoped question, because a step asking for a
+    *new* run must not advance on one whose time nobody knows."""
 
 
 @runtime_checkable
@@ -759,9 +769,9 @@ def _addressed_node_ids(args: Mapping[str, Any], state: ProductState) -> frozens
     return typed & frozenset({str(node_id)})
 
 
-def _eval_run_succeeded(args: Mapping[str, Any], state: ProductState) -> bool:
+def _eval_run_succeeded(args: Mapping[str, Any], state: ProductState, entered_at: str | None = None) -> bool:
     addressed = _addressed_node_ids(args, state)
-    for record in _runs_for(args, state):
+    for record in _runs_for(args, state, entered_at):
         if addressed is not None:
             if addressed & record.succeeded_node_ids:
                 return True
@@ -771,19 +781,63 @@ def _eval_run_succeeded(args: Mapping[str, Any], state: ProductState) -> bool:
     return False
 
 
-def _runs_for(args: Mapping[str, Any], state: ProductState) -> Iterator[RunSummary]:
+def _runs_for(args: Mapping[str, Any], state: ProductState, entered_at: str | None) -> Iterator[RunSummary]:
     """The run records this condition is about, newest first.
 
-    Shared by the two run terms so the workflow filter is written once: they ask
-    different questions of the same list, and only the questions differ.
+    Shared by the two run terms so the workflow and entry-time filters are
+    written once: they ask different questions of the same list, and only the
+    questions differ.
+
+    With ``since_step_entry: true`` (#2066), records that started before the
+    session-supplied step-entry time fall out, which is what lets a step whose
+    text says "press Run" wait for the run the reader performs *here* rather
+    than being satisfied by the one they performed three steps ago. FR-054 is
+    untouched: at entry no run has started since entry, so the scoped condition
+    is simply false. A session with no recorded entry time — one persisted
+    before the field existed — applies no time filter, which fails towards
+    FR-054's own lean (an early-satisfied step) rather than towards a step that
+    can never finish.
     """
     workflow_id = args.get("workflow_id")
+    since = bool(args.get("since_step_entry")) and entered_at is not None
     for record in state.run_records():
-        if workflow_id is None or record.workflow_id == workflow_id:
-            yield record
+        if workflow_id is not None and record.workflow_id != workflow_id:
+            continue
+        if since and not _started_at_or_after(record.started_at, entered_at):
+            continue
+        yield record
 
 
-def _eval_run_failed(args: Mapping[str, Any], state: ProductState) -> bool:
+def _started_at_or_after(started_at: str | None, entered_at: str | None) -> bool:
+    """Whether a run's start time is at or after the step's entry time.
+
+    Compared as parsed datetimes rather than as strings, because the two sides
+    come from different writers — the lineage store's timezone-aware run rows
+    and the session's own entry stamp — and a lexical comparison would quietly
+    mis-order the moment one of them changed format. A record or entry whose
+    time cannot be read answers False: a step asking for a new run must not
+    advance on one whose time nobody knows.
+    """
+    if started_at is None or entered_at is None:
+        return False
+    from datetime import UTC, datetime
+
+    try:
+        started = datetime.fromisoformat(started_at)
+        entered = datetime.fromisoformat(entered_at)
+    except ValueError:
+        return False
+    # A zoneless stamp is read as UTC so the two sides stay comparable; the
+    # writers this reads are UTC already, and guessing a local zone here would
+    # make the answer depend on the machine asking.
+    if started.tzinfo is None:
+        started = started.replace(tzinfo=UTC)
+    if entered.tzinfo is None:
+        entered = entered.replace(tzinfo=UTC)
+    return started >= entered
+
+
+def _eval_run_failed(args: Mapping[str, Any], state: ProductState, entered_at: str | None = None) -> bool:
     """Did the most recent run end without succeeding?
 
     Not the negation of ``run_succeeded``, which FR-048 rules out and which
@@ -793,7 +847,7 @@ def _eval_run_failed(args: Mapping[str, Any], state: ProductState) -> bool:
     step which breaks something and says "press Run and see what happens" is
     waiting for, and it goes false again once the reader fixes it and re-runs.
     """
-    for record in _runs_for(args, state):
+    for record in _runs_for(args, state, entered_at):
         return not record.succeeded
     return False
 
@@ -899,20 +953,33 @@ _SIMPLE_EVALUATORS: Mapping[str, Any] = MappingProxyType(
 )
 
 
-def evaluate(condition: Condition, state: ProductState) -> bool:
+#: The terms whose answer may be scoped to the current step's entry time (#2066).
+_TIME_SCOPED_TERMS: frozenset[str] = frozenset({"run_succeeded", "run_failed"})
+
+
+def evaluate(condition: Condition, state: ProductState, *, entered_at: str | None = None) -> bool:
     """Judge ``condition`` against ``state``.
 
     Side-effect free (FR-055): no file is created, no registry is mutated, no
     run is triggered. Called on step entry (FR-054), on a mapped event
     (FR-050), and on an explicit request (FR-053) — never on a timer (FR-051).
+
+    ``entered_at`` is FR-046's session-supplied evaluation context (#2066): the
+    ISO-8601 time the current step was entered, which the two run terms read
+    when a condition declares ``since_step_entry: true``. It is context rather
+    than product state because product state describes the world and this
+    describes the reader's position in the tutorial — only the session knows
+    it, and the session hands it in per evaluation.
     """
     if condition.term == "all":
-        return all(evaluate(operand, state) for operand in condition.operands)
+        return all(evaluate(operand, state, entered_at=entered_at) for operand in condition.operands)
     if condition.term == "any":
-        return any(evaluate(operand, state) for operand in condition.operands)
+        return any(evaluate(operand, state, entered_at=entered_at) for operand in condition.operands)
     evaluator = _SIMPLE_EVALUATORS.get(condition.term)
     if evaluator is None:  # pragma: no cover - parse_condition rejects this first
         raise ConditionValidationError(f"unknown completion condition {condition.term!r}")
+    if condition.term in _TIME_SCOPED_TERMS:
+        return bool(evaluator(condition.args, state, entered_at))
     return bool(evaluator(condition.args, state))
 
 
