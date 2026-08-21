@@ -337,8 +337,8 @@ Acceptance Scenarios:
 | Field | Meaning |
 |---|---|
 | `previewer_id` | Stable ID, for example `core.array.basic`. |
-| `owner_kind` | `core`, `package`, or `project`. |
-| `owner_name` | Package name, project identifier, or `scistudio`. |
+| `owner_kind` | `core`, `package`, `project`, or `user`. |
+| `owner_name` | Package name, project identifier, `user`, or `scistudio`. |
 | `target_type` | Fully qualified target type name. |
 | `supports_collection` | Whether the previewer can inspect collections. |
 | `priority` | Integer priority within one tier and specificity. |
@@ -499,7 +499,7 @@ Package migration:
 
 Backend unit tests:
 
-- registry loads core, package, monorepo, and project previewers;
+- registry loads core, package, monorepo, project, and user previewers;
 - duplicate previewer IDs fail;
 - invalid manifests fail with diagnostics;
 - router precedence matches ADR-048;

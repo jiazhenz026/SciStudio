@@ -419,3 +419,26 @@ def test_refused_name_is_not_reimported_on_every_guard_pass(tmp_path: Path, monk
         # Release the process-wide refusal so it cannot leak into other tests.
         colliding.unlink()
         guard_dropin_roots((dropin_dir,), dir_name=PREVIEWERS_DIR_NAME)
+
+
+def test_deferred_sibling_import_inside_get_previewers_resolves(
+    project_dir: Path,
+) -> None:
+    """A drop-in may defer a sibling import into ``get_previewers()``; the
+    factory call runs inside the same scoped import window as the exec
+    (#2072 review)."""
+    previewers_dir = project_dir / "previewers"
+    _write(previewers_dir / "helpers.py", "PREVIEWER_ID = 'project.deferred.helper'\n")
+    _write(
+        previewers_dir / "mine.py",
+        "from scistudio.previewers.models import OwnerKind, PreviewerSpec\n"
+        "def get_previewers():\n"
+        "    import helpers\n"
+        "    return [PreviewerSpec(previewer_id=helpers.PREVIEWER_ID, owner_kind=OwnerKind.PROJECT,"
+        " owner_name='project', target_type='Image')]\n",
+    )
+    registry = PreviewerRegistry()
+    load_project_previewers(registry, project_dir)
+    assert registry.get("project.deferred.helper") is not None
+    assert "helpers" not in sys.modules
+    assert str(previewers_dir) not in sys.path

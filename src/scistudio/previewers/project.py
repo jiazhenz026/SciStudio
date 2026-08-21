@@ -178,7 +178,12 @@ def _scan_previewer_dropins(
         if not callable(factory):
             continue
         try:
-            specs = factory()
+            # The factory runs inside the same scoped window as the exec: a
+            # drop-in may defer a sibling import into ``get_previewers()``
+            # rather than the module top level, and that import must resolve
+            # (and clean up) exactly as a top-level one does (#2072 review).
+            with prepended_sys_paths((previewers_dir,)), transient_dropin_modules((previewers_dir,)):
+                specs = factory()
         except KeyboardInterrupt:
             raise
         except BaseException:
