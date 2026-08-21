@@ -1052,6 +1052,17 @@ that claims to have written a block has to be matched by the block existing at t
 moment the claim is readable, which a single opaque stream played to completion
 cannot guarantee.
 
+A replay action MAY declare `continue_tab: true` (#2089): its segments are
+appended to the surface's open replay tab, transcript intact, instead of that
+tab being closed and a new one opened. It MUST be an error when no replay tab
+is open — a continuation of nothing is an authoring mistake, not an empty
+operation — and FR-061b's ordering holds per appended segment: each appended
+segment's bound writes land before its bytes are delivered. Combined with the
+step trigger (FR-011, #2061), this is the conversation-pacing mechanism: the
+reader presses the step's button, more of the scripted session arrives in the
+same tab, and the files the transcript claims to have written are on disk
+before the claims are readable.
+
 **FR-061c.** Ending a session mid-replay MUST terminate the scripted session and
 leave no replay session object behind, on the same path a real PTY session uses
 for termination.

@@ -820,8 +820,11 @@ class TutorialRuntime:
         if view.trigger is None:
             raise TutorialSessionError(f"step {record.step_id!r} declares no trigger")
         action_context = ActionContext(tutorial_dir=tutorial_dir, project_dir=record.project_path)
-        delivery = self._delivery_for(actions, step_id=record.step_id)
         try:
+            # Inside the try: obtaining the delivery can itself fail the way an
+            # action does — continue_tab with no open tab is the sharp case —
+            # and that failure is as retryable as any other press.
+            delivery = self._delivery_for(actions, step_id=record.step_id)
             perform_step_entry(
                 actions,
                 context=action_context,
@@ -1189,7 +1192,15 @@ class TutorialRuntime:
         self._files_written(tuple(written))
 
     def _delivery_for(self, actions: Iterable[Action], *, step_id: str) -> ReplayHandle | None:
-        """Open a byte source when a step replays, and only then (checklist §6.1.7)."""
+        """Open a byte source when a step replays, and only then (checklist §6.1.7).
+
+        A replay declaring ``continue_tab`` (#2089) reuses the open handle
+        instead: the scripted session already on screen receives the new
+        segments, transcript intact, which is what lets a trigger pace a
+        conversation — press, watch more arrive, press again. Continuing
+        *nothing* is refused as an action failure naming the reason: an open
+        tab is the premise the manifest declared.
+        """
         replay = next((action for action in actions if isinstance(action, ReplayAction)), None)
         if replay is None:
             return None
@@ -1199,6 +1210,30 @@ class TutorialRuntime:
                 action=replay,
                 reason="no replay byte source is wired into the tutorial runtime",
             )
+        if replay.continue_tab:
+            handle = self._replay
+            if handle is None:
+                raise ActionExecutionError(
+                    step_id=step_id,
+                    action=replay,
+                    reason="the replay declares continue_tab, but no replay tab is open to continue",
+                )
+            if not getattr(handle, "is_open", True):
+                raise ActionExecutionError(
+                    step_id=step_id,
+                    action=replay,
+                    reason="the replay declares continue_tab, but the open replay tab has been closed",
+                )
+            if handle.surface != replay.surface:
+                raise ActionExecutionError(
+                    step_id=step_id,
+                    action=replay,
+                    reason=(
+                        f"the replay declares continue_tab on {replay.surface!r}, but the open tab "
+                        f"plays into {handle.surface!r}"
+                    ),
+                )
+            return handle
         self._close_replay()
         self._replay = self._open_replay(replay.surface)
         return self._replay

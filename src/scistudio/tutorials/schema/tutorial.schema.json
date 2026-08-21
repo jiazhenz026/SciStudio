@@ -233,6 +233,10 @@
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "#/$defs/replay_segment" }
+        },
+        "continue_tab": {
+          "type": "boolean",
+          "description": "Append this replay's segments to the surface's open replay tab instead of closing it and opening a new one (#2089). The conversation-pacing form: combined with a step trigger, the reader's press asks the scripted session on screen to continue. An error when no replay tab is open. FR-061b's ordering holds per appended segment - a segment's bound writes land before its bytes are delivered."
         }
       }
     },
