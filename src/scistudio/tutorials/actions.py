@@ -44,6 +44,8 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Protocol, TypeVar, cast, runtime_checkable
 
+from scistudio.stability import provisional
+
 __all__ = [
     "AI_CHAT_TERMINAL_SURFACE",
     "EXECUTED_PROJECT_PATHS",
@@ -282,6 +284,7 @@ def resolve_contained_path(base: Path, relative: str, *, field_name: str) -> Pat
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class WriteAction:
     """Write one asset file into the tutorial project.
@@ -298,6 +301,7 @@ class WriteAction:
     kind: str = field(default="write", init=False)
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class CopyAction:
     """Copy one asset directory into the tutorial project.
@@ -325,12 +329,21 @@ class ReplaySegment:
     """Write and copy actions that MUST land before this segment's bytes are delivered."""
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class ReplayAction:
-    """Replay scripted material into one named surface (FR-061, FR-061a, FR-061b)."""
+    """Replay scripted material into one named surface (FR-061, FR-061a, FR-061b).
+
+    How a tutorial shows a conversation that would otherwise need a live model:
+    the material is scripted, and the surface renders it as though it had just
+    arrived. A segment may bind to the file actions that must land first, so
+    text claiming a file was written cannot be read before the file exists.
+    """
 
     surface: str
+    """The surface to replay into; one of :data:`REPLAY_SURFACES`."""
     segments: tuple[ReplaySegment, ...]
+    """The scripted material, delivered in order."""
 
     kind: str = field(default="replay", init=False)
 

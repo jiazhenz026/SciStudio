@@ -38,7 +38,7 @@ import inspect
 import json
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -60,13 +60,15 @@ CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.blocks.code",
     "scistudio.previewers.models",
     "scistudio.previewers.data_access",
+    "scistudio.tutorials",
 )
 
 _SNAPSHOT_PATH = Path(__file__).parent / "public_surface.snapshot.json"
 
 # ---------------------------------------------------------------------------
-# Non-markable public symbols (ADR-052 §15). These nine are ``str`` constants or
-# ``Literal`` / ``Callable`` type-aliases that cannot carry a runtime
+# Non-markable public symbols (ADR-052 §15). These eleven are ``str`` constants,
+# ``frozenset`` constants, or ``Literal`` / ``Callable`` / union type-aliases that
+# cannot carry a runtime
 # ``@stable`` / ``@provisional`` marker, so ``get_stability()`` returns ``None``
 # for them BY DESIGN — the stability module's own docstring calls this "the
 # honest result". They ARE public per spec; their stability tier is carried by
@@ -86,14 +88,18 @@ NON_MARKABLE_PUBLIC_SYMBOLS: frozenset[tuple[str, str]] = frozenset(
         ("scistudio.previewers.models", "PreviewProvider"),
         ("scistudio.previewers.models", "PreviewResourceProvider"),
         ("scistudio.previewers.models", "PreviewerSpecList"),
+        ("scistudio.tutorials", "Action"),
+        ("scistudio.tutorials", "VOCABULARY"),
     }
 )
 
 
 def _load_snapshot() -> dict[str, dict[str, dict[str, str]]]:
-    raw = json.loads(_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    # The document is a ``_meta`` block plus one block per canonical root; once
+    # ``_meta`` is removed the remainder matches the declared shape.
+    raw: dict[str, Any] = json.loads(_SNAPSHOT_PATH.read_text(encoding="utf-8"))
     raw.pop("_meta", None)
-    return raw
+    return cast("dict[str, dict[str, dict[str, str]]]", raw)
 
 
 def _import_root(name: str) -> ModuleType:

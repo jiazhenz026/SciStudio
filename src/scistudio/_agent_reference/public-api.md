@@ -20,6 +20,7 @@ unsupported, and liable to move or vanish without notice.
 | `scistudio.blocks.code` | `CodeBlock`, `CodeBlockConfig`, `PortFileConfig` |
 | `scistudio.previewers.models` | `PreviewerSpec`, `FrontendManifest`, owner-kind / API-version constants |
 | `scistudio.previewers.data_access` | bounded preview-read helpers |
+| `scistudio.tutorials` | tutorial authoring: `TutorialDriver`, `DriverContext`, `StepView`, the action and condition vocabulary |
 | `scistudio.stability` | `stable`, `provisional`, `internal` decorators |
 
 ```python

@@ -58,6 +58,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
+from scistudio.stability import provisional
 from scistudio.tutorials.actions import Action
 from scistudio.tutorials.conditions import Condition, ProductState, evaluate
 from scistudio.tutorials.manifest import TutorialManifest, TutorialStep
@@ -135,9 +136,33 @@ STEP_VIEW_FIELDS: tuple[str, ...] = (
 )
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class StepView:
-    """What one step looks like, for every driver alike (FR-040, FR-041)."""
+    """What one step looks like, for every driver alike (FR-040, FR-041).
+
+    The closed set of fields a driver may influence, and the return type of
+    :meth:`TutorialDriver.step_view`. A driver may return this class, any object
+    carrying these attributes, or a mapping of them; :meth:`of` reduces all
+    three to a plain ``StepView`` and drops anything else, which is what makes a
+    package driver and core's :class:`ManifestDriver` indistinguishable to
+    everything downstream.
+
+    Only :attr:`id`, :attr:`index` and :attr:`total` are required. The rest
+    describe what the step shows and what it is waiting for:
+
+    * :attr:`title`, :attr:`say` — the step's heading and body text.
+    * :attr:`highlight` — the product surface to point at; the manifest's
+      ``HIGHLIGHT_TARGETS`` names what can be addressed.
+    * :attr:`route_to` — the surface to open before the step is readable.
+    * :attr:`prefill` — values to seed into a form or editor.
+    * :attr:`awaiting_continue` — the step ends on the reader acknowledging it
+      rather than on a condition.
+
+    :attr:`satisfied` is **not** a driver's field. A driver reports what a step
+    *is*; whether it currently holds is the runtime's answer, attached after
+    the driver's view has been reduced.
+    """
 
     id: str
     index: int
@@ -270,6 +295,7 @@ def _optional_prefill(value: Any, *, step_id: str) -> tuple[Mapping[str, Any], .
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class DriverContext:
     """Everything a driver is told about the session asking the question.
@@ -288,9 +314,82 @@ class DriverContext:
     satisfied_step_ids: tuple[str, ...] = ()
 
 
+@provisional(since="0.3.4")
 @runtime_checkable
 class TutorialDriver(Protocol):
-    """FR-038's four questions, and no fifth."""
+    """What a package implements to own its tutorial's logic (FR-038, FR-040).
+
+    Most tutorials need none of this. A ``tutorial.yaml`` written against the
+    published schema is run by core's :class:`ManifestDriver`, and that is the
+    path to prefer. Implement this protocol only when the tutorial's logic
+    cannot be expressed as a manifest — a step judged by a condition the
+    vocabulary has no term for, or a sequence that depends on what the reader
+    did earlier.
+
+    The protocol is four methods and stays four: the runtime asks what the
+    current step looks like, whether it is satisfied, what to do on entering it,
+    and which step comes next. There is no fifth question and no hook to add
+    one.
+
+    Name the class from the manifest, and it is imported only when a reader
+    starts that tutorial (FR-021); an import failure ends that one session and
+    leaves every other tutorial listed and startable (FR-044).
+
+    Three properties are worth knowing before writing one, because each removes
+    work rather than adding it:
+
+    * **Core owns rendering.** Whatever :meth:`step_view` returns is normalised
+      through :meth:`StepView.of` at the boundary, so extra attributes and extra
+      mapping keys are dropped rather than reaching a response (FR-041). A
+      driver cannot introduce a display primitive or ship a frontend asset, and
+      correspondingly never has to describe one.
+    * **The session holds the cursor.** A driver is asked about the step a
+      :class:`DriverContext` names, not about "its" current step, so it persists
+      nothing and survives a backend restart without any state of its own
+      (FR-037).
+    * **The core evaluator is available.** :func:`~scistudio.tutorials.conditions.evaluate`
+      and :func:`~scistudio.tutorials.conditions.parse_condition` are public, so
+      :meth:`is_satisfied` can defer every term the vocabulary already covers
+      and implement only the remainder (FR-042).
+
+    A driver that answers most steps from its manifest and one step itself::
+
+        from scistudio.tutorials import (
+            Condition, DriverContext, ProductState, StepView, evaluate,
+        )
+
+        class MyDriver:
+            def __init__(self, manifest, key):
+                self._steps = list(manifest.steps)
+
+            def step_view(self, context: DriverContext) -> StepView:
+                step = self._step(context.step_id)
+                index = self._steps.index(step)
+                return StepView(
+                    id=step.id, index=index, total=len(self._steps),
+                    title=step.title, say=step.say,
+                )
+
+            def is_satisfied(self, context: DriverContext, product: ProductState) -> bool:
+                step = self._step(context.step_id)
+                if step.id == "calibration-converged":
+                    return self._converged(product)   # no vocabulary term for this
+                return step.done_when is None or evaluate(step.done_when, product)
+
+            def entry_actions(self, context: DriverContext):
+                return self._step(context.step_id).actions
+
+            def advance(self, context: DriverContext) -> str | None:
+                if context.step_id is None:
+                    return self._steps[0].id
+                nxt = self._steps.index(self._step(context.step_id)) + 1
+                return self._steps[nxt].id if nxt < len(self._steps) else None
+
+    Optionally also implement :class:`DeclaresConditions`, which lets the
+    session skip re-evaluating a step on events that cannot affect it. It
+    changes how often :meth:`is_satisfied` is called and never what the reader
+    sees.
+    """
 
     def step_view(self, context: DriverContext) -> Any:
         """Return the view of ``context.step_id``.
@@ -325,6 +424,7 @@ class TutorialDriver(Protocol):
         ...
 
 
+@provisional(since="0.3.4")
 @runtime_checkable
 class DeclaresConditions(Protocol):
     """An optional capability: a driver that can name a step's condition.

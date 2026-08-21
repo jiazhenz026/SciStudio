@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2080] **A package can now build tutorials against a supported API.** The
+  Learning Center opened two authoring paths to packages — a `tutorial.yaml`
+  manifest, and a driver class for logic a manifest cannot express — but neither
+  was published: `scistudio.tutorials` was not a canonical root, so by the
+  contract's own rule every symbol a driver author needed was internal and free
+  to move without notice.
+  `scistudio.tutorials` is now the tenth canonical public root. Its `__all__` is
+  the authoring surface and nothing else — sixteen symbols covering the driver
+  protocol (`TutorialDriver`, `DriverContext`, `StepView`, `DeclaresConditions`),
+  step actions, the condition vocabulary and its evaluator, and `TutorialKey`.
+  The root previously re-exported eighty-two names spanning the session store,
+  the discovery walk and the progress file; those remain importable by deep path
+  and carry no promise, which is what they were before. Every public symbol
+  carries a stability tier and `Since`, the generated API reference has a
+  `scistudio.tutorials` page, and `docs/package-development/tutorials.md` is the
+  authoring guide for both paths.
+  The surface is `provisional` at `0.3.4`: the vocabulary and the action set are
+  still settling.
+
 - [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
   that are real, runnable projects, reached from a permanent toolbar entry and
   shown on first launch. The first core tutorial, *Welcome to SciStudio*, ships
