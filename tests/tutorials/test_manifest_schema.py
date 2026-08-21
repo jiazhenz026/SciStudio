@@ -661,10 +661,10 @@ def test_the_schema_does_not_restate_any_of_the_closed_sets() -> None:
             assert f'"{member}"' not in raw, f"the schema restates the {label} {member!r}"
 
 
-def test_the_reserved_asset_directories_are_the_five_the_spec_names() -> None:
+def test_the_reserved_asset_directories_are_the_six_the_spec_names() -> None:
     from scistudio.tutorials.manifest import RESERVED_ASSET_DIRS
 
-    assert RESERVED_ASSET_DIRS == ("data", "code", "panels", "replay", "pages")
+    assert RESERVED_ASSET_DIRS == ("data", "code", "panels", "replay", "workflows", "pages")
 
 
 def test_yaml_round_trip_of_the_fixture_matches_the_parsed_model() -> None:

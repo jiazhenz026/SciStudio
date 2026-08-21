@@ -682,6 +682,70 @@ def test_an_engine_event_judges_the_step_without_anyone_asking(
     assert step_id(client.post("/api/tutorials/sessions/active/continue").json()) == "done"
 
 
+def test_a_write_landing_under_workflows_reaches_the_open_canvas(
+    client: TestClient, runtime: ApiRuntime, core_tier: Path
+) -> None:
+    """#2063 / FR-059a one surface over: the canvas renders the frontend's copy.
+
+    A step that writes ``workflows/extra.workflow.yaml`` has changed the graph
+    on disk; without a broadcast the screen goes on showing the stale copy. The
+    settle hook emits the same ``workflow.changed`` frame an external on-disk
+    edit produces, so the existing reconcile path redraws.
+    """
+    from scistudio.engine.events import WORKFLOW_CHANGED, EngineEvent
+
+    seen: list[EngineEvent] = []
+    runtime.event_bus.subscribe(WORKFLOW_CHANGED, seen.append)
+
+    mount(
+        core_tier,
+        "writes-a-workflow",
+        manifest_for(
+            "writes-a-workflow",
+            [
+                {
+                    "id": "rewire",
+                    "say": "We rewired the workflow for you.",
+                    "do": [
+                        {
+                            "write": {
+                                "source": "assets/workflows/extra.workflow.yaml",
+                                "destination": "workflows/extra.workflow.yaml",
+                            }
+                        }
+                    ],
+                },
+                {"id": "done", "say": "Done."},
+            ],
+            **BOOTSTRAP,
+        ),
+        files={
+            "assets/workflows/extra.workflow.yaml": "id: extra"
+            + chr(10)
+            + "nodes: []"
+            + chr(10)
+            + "edges: []"
+            + chr(10)
+        },
+    )
+    assert step_id(start(client, "writes-a-workflow").json()) == "rewire"
+
+    # The broadcast is scheduled on the running loop; give it a request's worth
+    # of loop time to land, the way any later frontend call would.
+    for _ in range(10):
+        if seen:
+            break
+        client.get("/api/tutorials/sessions/active")
+
+    tutorial_frames = [event for event in seen if event.data.get("changed_by") == "tutorial"]
+    assert tutorial_frames, "the settle hook never broadcast workflow.changed for a workflows/ write"
+    frame = tutorial_frames[0].data
+    assert frame["workflow_id"] == "extra"
+    assert frame["entity_class"] == "workflow"
+    assert frame["path"] == "workflows/extra.workflow.yaml"
+    assert frame["source"] == "external"
+
+
 def test_continuing_an_unsatisfied_step_does_not_move_the_session(client: TestClient, core_tier: Path) -> None:
     """FR-054a: the backend owns the refusal, not just the button's `disabled`.
 

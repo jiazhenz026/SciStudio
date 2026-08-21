@@ -43,6 +43,7 @@ import logging
 import mimetypes
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, TypeVar
 
@@ -57,7 +58,7 @@ from scistudio.api.runtime import ApiRuntime
 from scistudio.api.runtime._helpers import _rmtree_force
 from scistudio.api.ws import BLOCKS_RELOADED
 from scistudio.core.dropins import BLOCKS_DIR_NAME, TYPES_DIR_NAME, tutorial_library_dir
-from scistudio.engine.events import INTERACTIVE_COMPLETE, EngineEvent
+from scistudio.engine.events import INTERACTIVE_COMPLETE, WORKFLOW_CHANGED, EngineEvent
 from scistudio.tutorials.conditions import (
     UI_EVENT_NAMES,
     ExternalEventNames,
@@ -880,6 +881,66 @@ class _TutorialWiring:
 _SCANNED_PROJECT_DIRS: frozenset[str] = frozenset({BLOCKS_DIR_NAME, TYPES_DIR_NAME})
 
 
+#: The project subdirectory holding workflow YAML, which the open canvas renders.
+_WORKFLOWS_DIR_NAME = "workflows"
+
+
+def _workflow_writes(written: Sequence[Path], *, project_dir: Path | None) -> list[tuple[str, str]]:
+    """``(workflow stem, project-relative posix path)`` for writes landing under ``workflows/``.
+
+    A step that writes ``workflows/main.workflow.yaml`` has changed the graph
+    the reader is looking at, and the canvas renders the frontend's copy of it:
+    without a broadcast the file is right and the screen is stale, which is the
+    palette problem FR-059a solves for blocks, one surface over (#2063). The
+    watcher cannot be relied on to cover it — it is a filesystem observer that
+    headless runs and tests do not start, and FR-059a's ordering wants the
+    product to have taken the write in before the text is readable.
+    """
+    if project_dir is None:
+        return []
+    hits: list[tuple[str, str]] = []
+    for path in written:
+        try:
+            relative = path.resolve().relative_to(project_dir.resolve())
+        except (OSError, ValueError):
+            continue
+        if len(relative.parts) >= 2 and relative.parts[0] == _WORKFLOWS_DIR_NAME:
+            # The stem the product addresses a workflow by: the filename minus
+            # every suffix, so ``main.workflow.yaml`` reloads workflow ``main``.
+            stem = relative.name.split(".", 1)[0]
+            if stem:
+                hits.append((stem, relative.as_posix()))
+    return hits
+
+
+def _workflow_reload_payload(project_dir: Path | None, stem: str, relative: str) -> dict[str, Any]:
+    """The ``workflow.changed`` payload the watcher emits for an external edit.
+
+    Mirrors ``workflow_watcher``'s unversioned shape — ``source: "external"``
+    with the file's mtime as the version — so the frontend's existing
+    ``workflow.changed`` reconcile path treats a tutorial's write exactly like
+    any other on-disk edit; only ``changed_by`` says who wrote it.
+    """
+    version = 0
+    if project_dir is not None:
+        try:
+            version = int((project_dir / relative).stat().st_mtime_ns)
+        except OSError:
+            version = 0
+    return {
+        "entity_class": "workflow",
+        "entity_id": stem,
+        "version": version,
+        "source": "external",
+        "source_id": None,
+        "kind": "modified",
+        "timestamp": datetime.now(tz=UTC).isoformat(),
+        "workflow_id": stem,
+        "path": relative,
+        "changed_by": "tutorial",
+    }
+
+
 def _wrote_into_a_scanned_dir(written: Sequence[Path], *, project_dir: Path | None) -> bool:
     """Whether any written path lands in a directory the registries scan.
 
@@ -938,9 +999,12 @@ def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
         runtime with no event bus or no loop — every test, and any headless
         run — simply skips it.
         """
-        if not _wrote_into_a_scanned_dir(written, project_dir=runtime.project_dir):
+        wrote_scanned = _wrote_into_a_scanned_dir(written, project_dir=runtime.project_dir)
+        workflow_writes = _workflow_writes(written, project_dir=runtime.project_dir)
+        if not wrote_scanned and not workflow_writes:
             return
-        runtime.refresh_all_registries()
+        if wrote_scanned:
+            runtime.refresh_all_registries()
 
         event_bus = getattr(runtime, "event_bus", None)
         if event_bus is None:
@@ -949,14 +1013,29 @@ def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             return
-        specs: dict[str, Any] = _read_or(runtime.block_registry.all_specs, {})
-        event = EngineEvent(
-            event_type=BLOCKS_RELOADED,
-            data={"added": [], "removed": [], "reloaded": sorted(specs), "source": "tutorial"},
+        events: list[EngineEvent] = []
+        if wrote_scanned:
+            specs: dict[str, Any] = _read_or(runtime.block_registry.all_specs, {})
+            events.append(
+                EngineEvent(
+                    event_type=BLOCKS_RELOADED,
+                    data={"added": [], "removed": [], "reloaded": sorted(specs), "source": "tutorial"},
+                )
+            )
+        # A write landing under workflows/ must reach the open canvas (#2063):
+        # the frontend's workflow.changed reconcile path is the one that redraws
+        # it, and this is the same frame the watcher itself would send.
+        events.extend(
+            EngineEvent(
+                event_type=WORKFLOW_CHANGED,
+                data=_workflow_reload_payload(runtime.project_dir, stem, relative),
+            )
+            for stem, relative in workflow_writes
         )
-        task = loop.create_task(_emit_quietly(event_bus, event))
-        broadcasts.add(task)
-        task.add_done_callback(broadcasts.discard)
+        for event in events:
+            task = loop.create_task(_emit_quietly(event_bus, event))
+            broadcasts.add(task)
+            task.add_done_callback(broadcasts.discard)
 
     tutorials = TutorialRuntime(
         product_state=product_state,
@@ -977,7 +1056,7 @@ async def _emit_quietly(event_bus: Any, event: EngineEvent) -> None:
     try:
         await event_bus.emit(event)
     except Exception:
-        logger.exception("tutorial step: blocks.reloaded broadcast failed")
+        logger.exception("tutorial step: %s broadcast failed", event.event_type)
 
 
 def _subscribe(runtime: ApiRuntime, tutorials: TutorialRuntime, recorded: _RecordedSignals) -> None:

@@ -6,7 +6,7 @@ ADR-053 Learning Center spec, FR-005 … FR-015, FR-020, FR-020a
 A tutorial is a **directory containing a ``tutorial.yaml``**, and that manifest
 is the only file required for the tutorial to be listed (FR-005). Assets live
 under ``assets/`` with the reserved subdirectories ``data/``, ``code/``,
-``panels/``, ``replay/`` and ``pages/`` (FR-006).
+``panels/``, ``replay/``, ``workflows/`` and ``pages/`` (FR-006).
 
 Two failures that look alike and are not
 ----------------------------------------
@@ -132,14 +132,20 @@ TUTORIAL_MANIFEST_FILENAME = "tutorial.yaml"
 
 ASSETS_DIR_NAME = "assets"
 
-RESERVED_ASSET_DIRS: tuple[str, ...] = ("data", "code", "panels", "replay", "pages")
+RESERVED_ASSET_DIRS: tuple[str, ...] = ("data", "code", "panels", "replay", "workflows", "pages")
 """FR-006: data files, block/type/previewer/plot sources, built panel bundles,
-scripted replay material, and reading content."""
+scripted replay material, workflow YAML written into the project, and reading
+content."""
 
-EXECUTABLE_ASSET_DIRS: frozenset[str] = frozenset({"code", "panels", "replay"})
+EXECUTABLE_ASSET_DIRS: frozenset[str] = frozenset({"code", "panels", "replay", "workflows"})
 """The reserved asset directories whose contents the product imports, executes,
-or plays back. A user-level or project-level tutorial may not carry any of them
-(FR-020a)."""
+plays back, or reads as configuration for something it executes. A user-level
+or project-level tutorial may not carry any of them (FR-020a).
+
+``workflows`` is here for the reason :data:`~scistudio.tutorials.actions.EXECUTED_PROJECT_PATHS`
+lists the project directory of the same name (#2063): a workflow YAML names a
+code block's ``script_path`` and ``cwd``, so it is configuration the product
+acts on to execute, graded executable-adjacent rather than as data."""
 
 SUPPORTED_MANIFEST_VERSIONS: frozenset[int] = frozenset({1})
 """FR-007a. A manifest declaring a version outside this set is unavailable, not

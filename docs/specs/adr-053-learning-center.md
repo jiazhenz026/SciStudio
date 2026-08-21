@@ -500,7 +500,10 @@ be listed.
 directory. The reserved subdirectories are `data/` for data files, `code/` for
 block, type, previewer, and plot sources written into the project, `panels/` for
 built interactive-block panel bundles, `replay/` for scripted replay material,
-and `pages/` for reading content.
+`workflows/` for workflow YAML written into the project (#2063), and `pages/`
+for reading content. `workflows/` is graded executable-adjacent under FR-020a:
+a workflow YAML names a code block's script path and working directory, so it
+is configuration the product acts on to execute, not data.
 
 **FR-007.** The manifest MUST declare `id`, `title`, and `summary`. It MAY
 declare `cover` naming an image file in the tutorial directory, and `order` as an
@@ -612,11 +615,18 @@ at validation with a message naming the field and the restriction.
 **FR-020a.** Rejecting `driver` alone does not make a tier incapable of carrying
 executable code, and the tier restriction MUST therefore extend to assets and
 destinations. A user-level or project-level manifest MUST be rejected at
-validation when it carries an asset under `assets/code/`, `assets/panels/`, or
-`assets/replay/`; when it declares a `replay` action; or when a write or copy
-action's destination resolves under a directory the product imports or executes,
-which is at minimum `blocks/`, `types/`, `previewers/`, and `plots/` in the
-tutorial project. Without this, a project-level tutorial could place a `.py` file
+validation when it carries an asset under `assets/code/`, `assets/panels/`,
+`assets/replay/`, or `assets/workflows/`; when it declares a `replay` action; or
+when a write or copy action's destination resolves under a directory the product
+imports, executes, or reads as configuration for something it executes. That
+restricted destination set is declared in exactly one place
+(`scistudio.tutorials.actions.EXECUTED_PROJECT_PATHS`) and is wider than the
+four directories originally named here as a floor: beside `blocks/`, `types/`,
+`previewers/`, and `plots/` it covers `workflows/` and `tutorials/` — both
+configuration this runtime acts on — the agent-surface directories every project
+is provisioned with (`.claude/`, `.codex/`, `.agents/`, `.qoder/`,
+`.kimi-code/`, `.scistudio/`, `.git/`), and the root files agents auto-load
+(`.mcp.json`, `CLAUDE.md`, `AGENTS.md`). Without this, a project-level tutorial could place a `.py` file
 under `blocks/` through an ordinary write action (FR-057) and have it imported and
 executed on the next registry refresh, which is exactly the exposure the tier
 grading exists to avoid. The rejection MUST name the tier, the field, and the
@@ -927,6 +937,13 @@ while the palette does not list it, which satisfies FR-059's letter and defeats
 its purpose. A write outside those directories MUST NOT trigger a re-scan —
 a `.py` file under `data/` is teaching material, and an ordinary copy step must
 not pay for a scan it cannot benefit from.
+
+A write landing under the project's `workflows/` MUST reach the open canvas the
+same way (#2063): the canvas renders the frontend's copy of the graph, so the
+runtime broadcasts the same `workflow.changed` frame an external on-disk edit
+produces, before the step's text is displayed. The filesystem watcher is not an
+answer here — it is not running headless, and FR-059a's ordering is
+a property of the entry sequence, not of an observer's timing.
 
 **FR-060.** An action failure MUST end the session with an error naming the step
 and the action, and MUST NOT silently advance.
