@@ -66,7 +66,9 @@ class ParityDriver:
         self.condition = parse_condition(_DONE_WHEN)
         self.evaluated = 0
 
-    def step_view(self, context: DriverContext) -> dict[str, Any]:
+    # ``Any`` rather than ``dict``: the driver protocol accepts any of the
+    # StepView shapes, and LeakyDriver narrows the return to a subclass.
+    def step_view(self, context: DriverContext) -> Any:
         index = self._index(context.step_id)
         step = _STEPS[index]
         return {
@@ -288,6 +290,7 @@ def test_a_driver_cannot_return_fields_outside_the_step_view(runtime: TutorialRu
         "highlight",
         "route_to",
         "prefill",
+        "pages",
         "awaiting_continue",
         # Not a driver's field: the runtime attaches it after reducing the
         # driver's view (FR-054a), which is why it survives this reduction
@@ -411,3 +414,26 @@ def test_the_manifest_driver_is_used_for_every_non_driver_tutorial(core_dir: Pat
     manifest = load_manifest(core_dir / "by-manifest", source_kind=TutorialSourceKind.CORE)
 
     assert isinstance(load_driver(manifest, TutorialKey.core("by-manifest")).inner, ManifestDriver)
+
+
+# ---------------------------------------------------------------------------
+# The pages field crosses the FR-041 boundary as names, and only as names
+# ---------------------------------------------------------------------------
+
+
+def test_step_view_carries_pages_and_the_boundary_normalises_them() -> None:
+    from scistudio.tutorials.driver import STEP_VIEW_FIELDS, DriverContractError, StepView
+
+    assert "pages" in STEP_VIEW_FIELDS
+
+    view = StepView.of({"id": "read", "index": 0, "total": 1, "pages": ["intro", "closing"]})
+    assert view.pages == ("intro", "closing")
+
+    # A driver returning something that is not a list of names is refused at
+    # the boundary rather than rendered as a broken reading step.
+    import pytest
+
+    with pytest.raises(DriverContractError, match="pages"):
+        StepView.of({"id": "read", "index": 0, "total": 1, "pages": "intro"})
+    with pytest.raises(DriverContractError, match="pages"):
+        StepView.of({"id": "read", "index": 0, "total": 1, "pages": [1]})

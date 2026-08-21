@@ -122,7 +122,13 @@
           "items": { "$ref": "#/$defs/action" },
           "description": "Ordered. Runs on entry, before the step's text is displayed (FR-056, FR-059)."
         },
-        "done_when": { "$ref": "#/$defs/condition" }
+        "done_when": { "$ref": "#/$defs/condition" },
+        "pages": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Reading pages this step presents, named as files under assets/pages/ the way a page_reached condition names them - with or without the extension, 'intro' for assets/pages/intro.md. Each must exist when the tutorial is loaded, so a missing page fails the author at listing rather than the reader on the page turn (FR-011, FR-014)."
+        }
       }
     },
     "condition": {

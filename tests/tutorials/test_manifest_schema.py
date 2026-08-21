@@ -742,3 +742,104 @@ def test_the_reading_terms_are_a_subset_of_the_vocabulary() -> None:
     """A reading term that is not a term at all could never be written down."""
     assert conditions_module.READING_TERMS <= conditions_module.VOCABULARY
     assert frozenset({"page_reached"}) == conditions_module.READING_TERMS
+
+
+# ---------------------------------------------------------------------------
+# The reading step's pages field (FR-011, FR-014)
+# ---------------------------------------------------------------------------
+
+
+def _reading_manifest(pages: list[str]) -> dict[str, Any]:
+    return {
+        "manifest_version": 1,
+        "id": "reads",
+        "title": "Reads",
+        "summary": "A reading tutorial.",
+        "steps": [
+            {
+                "id": "read-on",
+                "say": "Read these.",
+                "pages": pages,
+                "done_when": {"page_reached": {"page": pages[0].split(".")[0]}},
+            }
+        ],
+    }
+
+
+def test_a_step_may_declare_pages_that_exist_under_assets_pages(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "reads",
+        _reading_manifest(["intro", "closing.md"]),
+        files={"assets/pages/intro.md": "# Intro\n", "assets/pages/closing.md": "# Closing\n"},
+    )
+    manifest = load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+    assert manifest.steps[0].pages == ("intro", "closing.md")
+
+
+def test_a_missing_page_fails_the_author_at_load(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "reads",
+        _reading_manifest(["intro", "absent"]),
+        files={"assets/pages/intro.md": "# Intro\n"},
+    )
+    with pytest.raises(ManifestValidationError) as excinfo:
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+    assert "steps[0].pages" in str(excinfo.value)
+    assert "absent" in str(excinfo.value)
+
+
+def test_a_page_name_cannot_escape_the_pages_directory(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "reads",
+        _reading_manifest(["../../tutorial"]),
+        files={"assets/pages/intro.md": "# Intro\n"},
+    )
+    with pytest.raises(ManifestValidationError) as excinfo:
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+    assert "steps[0].pages" in str(excinfo.value)
+
+
+def test_a_duplicate_page_in_one_step_is_rejected(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "reads",
+        _reading_manifest(["intro", "intro"]),
+        files={"assets/pages/intro.md": "# Intro\n"},
+    )
+    with pytest.raises(ManifestValidationError, match="listed twice"):
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+
+
+def test_a_paged_tutorial_judged_by_page_reached_reads_as_reading_only(tmp_path: Path) -> None:
+    """The dispatch's is_reading_only check: all/any over page_reached is still reading.
+
+    ``is_reading_only`` reads ``done_when.terms() <= READING_TERMS``, and
+    ``terms()`` unions through combinators — so wrapping ``page_reached`` in
+    ``all``/``any`` must not push a reading tutorial into the hands-on lists.
+    """
+    payload = {
+        "manifest_version": 1,
+        "id": "reads",
+        "title": "Reads",
+        "summary": "A reading tutorial.",
+        "steps": [
+            {
+                "id": "read-on",
+                "say": "Read these.",
+                "pages": ["intro", "closing"],
+                "done_when": {
+                    "all": [
+                        {"page_reached": {"page": "intro"}},
+                        {"any": [{"page_reached": {"page": "closing"}}]},
+                    ]
+                },
+            },
+            {"id": "done", "say": "Done."},
+        ],
+    }
+    directory = write_tutorial(
+        tmp_path / "reads",
+        payload,
+        files={"assets/pages/intro.md": "# Intro\n", "assets/pages/closing.md": "# Closing\n"},
+    )
+    manifest = load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+    assert manifest.is_reading_only is True

@@ -539,7 +539,12 @@ conflict.
 declare `say` as display text, `highlight` naming a user-interface element,
 `route_to` naming a tab or panel the user is taken to, `prefill` seeding a
 dialog the user is about to open (FR-011b), `do` as an ordered list of
-actions, and `done_when` as a completion condition.
+actions, `done_when` as a completion condition, and `pages` as an ordered list
+of reading pages the step presents, each naming a file under `assets/pages/`
+the way a `page_reached` condition names one — with or without its extension.
+A declared page MUST exist when the manifest is loaded, on FR-014's grounds: a
+reading step whose page is missing fails the author at listing, not the reader
+on the page turn.
 
 **FR-011c.** A step MAY declare `title` as a short heading for the step card.
 A step without one MUST fall back to the tutorial's own title. Heading every
@@ -1126,6 +1131,12 @@ either waits on an explicit continue or waits on a term that judges only the
 reader's own progress through the material. The Reading tab MUST NOT carry a
 count of its own, because its tutorials may come from several sources at once
 and FR-076 forbids reporting a count across them.
+
+The reading surface itself is core-owned, like every step surface (FR-041): a
+reading step is rendered as a card presenting its declared `pages` in order,
+with each page's content served by the existing pages route — the same route
+whose serving records `page_reached` — so what a manifest contributes is names
+and prose, never markup or a rendering primitive of its own.
 
 **FR-085.** Each entry MUST show its title, summary, cover if declared, and
 state: not started, in progress, complete, or unavailable with the reason. An

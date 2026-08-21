@@ -126,6 +126,13 @@ export interface TutorialStepView {
   highlight: TutorialHighlightView | null;
   route_to: string | null;
   prefill: TutorialPrefillView[];
+  /**
+   * FR-011 — the reading pages this step presents, in order. Names the pages
+   * route serves; the reading surface fetches content as the reader turns.
+   * Optional in the type so older fixtures and cached responses stay valid;
+   * the backend always sends it.
+   */
+  pages?: string[];
   awaiting_continue: boolean;
   /**
    * FR-054a — whether this step's condition holds right now.

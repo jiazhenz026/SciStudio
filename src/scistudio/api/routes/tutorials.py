@@ -228,6 +228,10 @@ class StepResponse(BaseModel):
     #: values are validated where they are declared, in
     #: :data:`scistudio.tutorials.manifest.PREFILL_SPECS`.
     prefill: list[PrefillResponse] = Field(default_factory=list)
+    #: FR-011 — the reading pages this step presents, in order, each a name the
+    #: pages route serves. Names only; the reading surface fetches content as
+    #: the reader turns.
+    pages: list[str] = Field(default_factory=list)
     awaiting_continue: bool = False
     #: FR-054a — whether this step's condition holds right now.
     #:
@@ -1221,6 +1225,7 @@ def _session_response(runtime: ApiRuntime, view: SessionView | None) -> SessionR
             highlight=None if view.step.highlight is None else HighlightResponse(**view.step.highlight),
             route_to=view.step.route_to,
             prefill=[PrefillResponse(**entry) for entry in view.step.prefill],
+            pages=list(view.step.pages),
             awaiting_continue=view.step.awaiting_continue,
             satisfied=view.step.satisfied,
         )

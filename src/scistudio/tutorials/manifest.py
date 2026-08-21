@@ -122,6 +122,7 @@ __all__ = [
     "parse_manifest",
     "validate_against_schema",
     "validate_asset_containment",
+    "validate_step_pages",
     "validate_tier_assets",
     "validate_tier_rules",
 ]
@@ -460,6 +461,13 @@ class TutorialStep:
     prefill: tuple[Prefill, ...] = ()
     do: tuple[Action, ...] = ()
     done_when: Condition | None = None
+    #: FR-011 — the reading pages this step presents, named as files under
+    #: ``assets/pages/`` the way a ``page_reached`` condition names them: with
+    #: or without the extension, ``intro`` for ``assets/pages/intro.md``.
+    #: Validated to exist at load (:func:`validate_step_pages`), because a
+    #: reading step whose page is missing fails the reader mid-read otherwise —
+    #: the same argument FR-014 makes about asset paths.
+    pages: tuple[str, ...] = ()
 
     @property
     def awaiting_continue(self) -> bool:
@@ -715,6 +723,7 @@ def _parse_steps(raw: Any, *, path: Path) -> tuple[TutorialStep, ...]:
                 prefill=_parse_prefill(item.get("prefill"), field_name=f"{field_name}.prefill", path=path),
                 do=_parse_actions_or_fail(item.get("do"), field_name=f"{field_name}.do", path=path),
                 done_when=done_when,
+                pages=_parse_pages(item.get("pages"), field_name=f"{field_name}.pages", path=path),
             )
         )
     return tuple(steps)
@@ -788,6 +797,41 @@ def _parse_prefill(raw: Any, *, field_name: str, path: Path) -> tuple[Prefill, .
             )
         prefills.append(Prefill(target=target, args=MappingProxyType(args)))
     return tuple(prefills)
+
+
+def _parse_pages(raw: Any, *, field_name: str, path: Path) -> tuple[str, ...]:
+    """Parse a step's ``pages``: an ordered list of page names.
+
+    Names only here — whether each names a real file under ``assets/pages/``
+    is :func:`validate_step_pages`'s question, asked once the directory is on
+    disk, on the same two-phase arrangement asset containment uses.
+    """
+    if raw is None:
+        return ()
+    if not isinstance(raw, Sequence) or isinstance(raw, str | bytes):
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=f"pages must be a list of page names, got {type(raw).__name__}",
+        )
+    pages: list[str] = []
+    seen: set[str] = set()
+    for index, item in enumerate(raw):
+        if not isinstance(item, str) or not item:
+            raise ManifestValidationError(
+                path=path,
+                field_name=f"{field_name}[{index}]",
+                reason="a page is named by a non-empty string",
+            )
+        if item in seen:
+            raise ManifestValidationError(
+                path=path,
+                field_name=f"{field_name}[{index}]",
+                reason=f"page {item!r} is listed twice in one step",
+            )
+        seen.add(item)
+        pages.append(item)
+    return tuple(pages)
 
 
 def _parse_highlight(raw: Any, *, field_name: str, path: Path) -> Highlight | None:
@@ -1000,6 +1044,7 @@ def load_manifest(directory: Path, *, source_kind: TutorialSourceKind) -> Tutori
     manifest = parse_manifest(data, directory=directory, source_kind=source_kind, path=path)
     validate_asset_containment(manifest)
     validate_tier_assets(manifest)
+    validate_step_pages(manifest)
     return manifest
 
 
@@ -1118,6 +1163,39 @@ def validate_tier_assets(manifest: TutorialManifest) -> None:
     for field_name, action in _all_actions(manifest):
         if isinstance(action, CopyAction):
             _reject_executed_landing(manifest, action, field_name=field_name)
+
+
+def validate_step_pages(manifest: TutorialManifest) -> None:
+    """Every declared page names a file under ``assets/pages/`` (FR-011, FR-014).
+
+    Checked at load rather than at read, for FR-014's reason: a reading step
+    whose page is missing should fail the tutorial while it is being listed,
+    not fail the reader on the page turn. A name is accepted with or without
+    its extension — the same rule the pages route applies when serving one —
+    and containment is enforced first, so ``../`` cannot reach outside the
+    pages directory whichever spelling is used.
+    """
+    pages_dir = manifest.assets_dir / "pages"
+    for index, step in enumerate(manifest.steps):
+        for page in step.pages:
+            field_name = f"steps[{index}].pages"
+            try:
+                direct = resolve_contained_path(pages_dir, page, field_name=field_name)
+            except ActionValidationError as exc:
+                raise ManifestValidationError(path=manifest.path, field_name=field_name, reason=str(exc)) from exc
+            if direct.is_file():
+                continue
+            stem_matches = (
+                [child for child in pages_dir.iterdir() if child.is_file() and child.stem == page]
+                if pages_dir.is_dir()
+                else []
+            )
+            if not stem_matches:
+                raise ManifestValidationError(
+                    path=manifest.path,
+                    field_name=field_name,
+                    reason=f"page {page!r} is not a file under {ASSETS_DIR_NAME}/pages/",
+                )
 
 
 def _reject_executed_landing(manifest: TutorialManifest, action: CopyAction, *, field_name: str) -> None:

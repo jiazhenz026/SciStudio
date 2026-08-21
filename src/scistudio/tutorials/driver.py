@@ -131,6 +131,7 @@ STEP_VIEW_FIELDS: tuple[str, ...] = (
     "highlight",
     "route_to",
     "prefill",
+    "pages",
     "awaiting_continue",
 )
 
@@ -147,6 +148,10 @@ class StepView:
     highlight: Mapping[str, Any] | None = None
     route_to: str | None = None
     prefill: tuple[Mapping[str, Any], ...] = ()
+    #: FR-011 — the reading pages this step presents, in order, served by the
+    #: existing pages route. Names only: the content stays on disk and the
+    #: core-owned reading surface fetches each page as the reader turns to it.
+    pages: tuple[str, ...] = ()
     awaiting_continue: bool = False
     #: Whether this step's condition currently holds (FR-054a).
     #:
@@ -189,6 +194,7 @@ class StepView:
             highlight=_optional_highlight(read("highlight"), step_id=step_id),
             route_to=_optional_text(read("route_to"), step_id=step_id, name="route_to"),
             prefill=_optional_prefill(read("prefill"), step_id=step_id),
+            pages=_optional_pages(read("pages"), step_id=step_id),
             awaiting_continue=bool(read("awaiting_continue")),
         )
 
@@ -199,6 +205,26 @@ def _optional_text(value: Any, *, step_id: str, name: str) -> str | None:
     if not isinstance(value, str):
         raise DriverContractError(f"step {step_id!r}: {name} must be text or absent, got {type(value).__name__}")
     return value
+
+
+def _optional_pages(value: Any, *, step_id: str) -> tuple[str, ...]:
+    """Reduce a driver's ``pages`` to a tuple of page names, or refuse it.
+
+    Names, not content: the reading surface fetches each page from the pages
+    route, so what crosses this boundary is only which pages and in what
+    order — which is why a driver cannot smuggle rendered content through the
+    field (FR-041).
+    """
+    if value is None:
+        return ()
+    if isinstance(value, str | bytes) or not isinstance(value, Sequence):
+        raise DriverContractError(f"step {step_id!r}: pages must be a sequence or absent, got {type(value).__name__}")
+    pages: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item:
+            raise DriverContractError(f"step {step_id!r}: each pages entry must be a non-empty string name")
+        pages.append(item)
+    return tuple(pages)
 
 
 def _optional_highlight(value: Any, *, step_id: str) -> Mapping[str, Any] | None:
@@ -392,6 +418,7 @@ class ManifestDriver:
             highlight=None if step.highlight is None else step.highlight.as_json(),
             route_to=step.route_to,
             prefill=tuple(prefill.as_json() for prefill in step.prefill),
+            pages=step.pages,
             awaiting_continue=step.awaiting_continue,
         )
 
