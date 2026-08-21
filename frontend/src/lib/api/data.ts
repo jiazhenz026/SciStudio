@@ -152,6 +152,12 @@ export const dataApi = {
       body: JSON.stringify(request),
     }),
 
+  /** Delete a plot's manifest and render script directory. */
+  deletePlot: (plotId: string) =>
+    apiFetch<void>(`/api/plots/${encodeURIComponent(plotId)}`, {
+      method: "DELETE",
+    }),
+
   /** Re-point an existing plot at a new workflow output target (bug#7).
    *  `POST /api/plots/{plot_id}/relink` rewrites only the manifest target block
    *  (strict 1:1) and re-validates, so a previously broken target becomes valid

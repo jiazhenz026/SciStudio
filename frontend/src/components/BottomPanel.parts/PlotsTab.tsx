@@ -1,4 +1,4 @@
-import { AlertTriangle, Plus, XCircle } from "lucide-react";
+import { AlertTriangle, Pencil, Plus, Trash2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { api } from "../../lib/api";
@@ -44,10 +44,10 @@ export function PlotsTab() {
   const [plots, setPlots] = useState<PlotListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
-  // #1713 — run errors are shown inline on the failing plot's card banner, so
-  // the error is tied to a specific plot_id rather than a single global string.
-  const [runError, setRunError] = useState<{ plotId: string; message: string } | null>(null);
+  // Run, relink, and delete failures stay on the plot card that produced them.
+  const [cardError, setCardError] = useState<{ plotId: string; message: string } | null>(null);
   const [runningId, setRunningId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   // Bumped after relink / create so the list re-fetches. Also re-runs whenever
   // the tab is (re)mounted — BottomPanel unmounts inactive tabs, so switching
   // to Plots refreshes the list.
@@ -75,12 +75,12 @@ export function PlotsTab() {
 
   async function handleRun(plot: PlotListItem) {
     setRunningId(plot.plot_id);
-    setRunError(null);
+    setCardError(null);
     try {
       const result = await api.runPlotJob({ plot_id: plot.plot_id });
       const nextTarget = plotTargetFromRunResponse(result);
       if (!nextTarget) {
-        setRunError({
+        setCardError({
           plotId: plot.plot_id,
           message: result.errors[0] ?? `Plot run ${result.status}.`,
         });
@@ -101,12 +101,40 @@ export function PlotsTab() {
         setSelectedNodeId(plot.node_id);
       }
     } catch (error) {
-      setRunError({
+      setCardError({
         plotId: plot.plot_id,
         message: error instanceof Error ? error.message : String(error),
       });
     } finally {
       setRunningId(null);
+    }
+  }
+
+  async function handleDelete(plot: PlotListItem, name: string) {
+    const confirmed = window.confirm(
+      `Delete plot '${name}'? This removes its manifest and render script and cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    const state = useAppStore.getState();
+    const scriptTab = state.tabs.find(
+      (tab) => tab.kind === "file" && tab.filePath === plot.script_path,
+    );
+    if (scriptTab && !state.closeTab(scriptTab.id)) return;
+
+    setDeletingId(plot.plot_id);
+    setCardError(null);
+    try {
+      await api.deletePlot(plot.plot_id);
+      setPlots((current) => current.filter((item) => item.plot_id !== plot.plot_id));
+      bumpProjectTreeRefresh();
+    } catch (error) {
+      setCardError({
+        plotId: plot.plot_id,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -142,12 +170,12 @@ export function PlotsTab() {
         }}
         onRelinked={(result) => {
           if (!result.valid && relinkPlot) {
-            setRunError({
+            setCardError({
               plotId: relinkPlot.plot_id,
               message: result.errors[0] ?? "Relinked plot did not validate.",
             });
           } else {
-            setRunError(null);
+            setCardError(null);
           }
           setRefreshToken((token) => token + 1);
         }}
@@ -209,7 +237,7 @@ export function PlotsTab() {
             !plot.broken && (plot.node_id === selectedNodeId || plot.node_id === highlightedNodeId);
           return (
             <div
-              className={`flex min-h-[9rem] flex-col gap-1.5 rounded-2xl border p-3 shadow-sm ${
+              className={`relative flex min-h-[9rem] flex-col gap-1.5 rounded-2xl border p-3 shadow-sm ${
                 plot.broken
                   ? "border-amber-400 bg-amber-50/50"
                   : linked
@@ -223,7 +251,30 @@ export function PlotsTab() {
               data-tutorial-target-key={plot.plot_id}
               key={plot.plot_id}
             >
-              <div className="flex min-w-0 items-start gap-1.5">
+              <div className="absolute right-3 top-3 flex items-center gap-1">
+                <button
+                  aria-label={`Edit plot ${name}`}
+                  className="rounded-md p-1 text-stone-400 hover:bg-stone-100 hover:text-ink disabled:opacity-50"
+                  disabled={deletingId !== null}
+                  onClick={() => openFileTab(plot.script_path)}
+                  title="Edit plot code"
+                  type="button"
+                >
+                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+                <button
+                  aria-label={`Delete plot ${name}`}
+                  className="rounded-md p-1 text-stone-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                  disabled={runningId !== null || deletingId !== null}
+                  onClick={() => void handleDelete(plot, name)}
+                  title="Delete plot"
+                  type="button"
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="flex min-w-0 items-start gap-1.5 pr-14">
                 {plot.broken ? (
                   <AlertTriangle
                     aria-label="Broken target — needs relink"
@@ -250,7 +301,7 @@ export function PlotsTab() {
                   <button
                     aria-label={`Run plot ${name}`}
                     className="shrink-0 rounded-full bg-ink px-2.5 py-1 text-xs text-white disabled:opacity-50"
-                    disabled={runningId !== null}
+                    disabled={runningId !== null || deletingId !== null}
                     onClick={() => void handleRun(plot)}
                     type="button"
                   >
@@ -259,7 +310,7 @@ export function PlotsTab() {
                   <button
                     aria-label={`Relink data source for plot ${name}`}
                     className="shrink-0 rounded-full border border-stone-300 px-2.5 py-1 text-xs text-stone-600 hover:text-ink disabled:opacity-50"
-                    disabled={runningId !== null}
+                    disabled={runningId !== null || deletingId !== null}
                     onClick={() => openRelinkPlotPicker(plot.plot_id)}
                     title="Relink data source"
                     type="button"
@@ -277,13 +328,13 @@ export function PlotsTab() {
                   <span>Needs relink — reconnect the data source</span>
                 </div>
               ) : null}
-              {runError?.plotId === plot.plot_id ? (
+              {cardError?.plotId === plot.plot_id ? (
                 <div
                   className="flex items-start gap-1 rounded-md bg-red-100 px-2 py-1 text-[0.65rem] text-red-700"
                   role="alert"
                 >
                   <XCircle className="mt-px h-3 w-3 shrink-0" aria-hidden="true" />
-                  <span className="break-words">{runError.message}</span>
+                  <span className="break-words">{cardError.message}</span>
                 </div>
               ) : null}
             </div>
