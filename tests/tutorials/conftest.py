@@ -89,6 +89,7 @@ class StubProductState:
     data_types: frozenset[str] = frozenset()
     previewer_types: frozenset[str] = frozenset()
     plots: tuple[tuple[str, str, str], ...] = ()
+    rendered: tuple[tuple[str, str, str, str], ...] = ()
     runs: tuple[RunSummary, ...] = ()
     ports_with_output: frozenset[tuple[str, str]] = frozenset()
     branches: frozenset[str] = frozenset()
@@ -119,6 +120,10 @@ class StubProductState:
     def plot_bindings(self) -> tuple[tuple[str, str, str], ...]:
         self.reads.append("plot_bindings")
         return self.plots
+
+    def rendered_plots(self) -> tuple[tuple[str, str, str, str], ...]:
+        self.reads.append("rendered_plots")
+        return self.rendered
 
     def run_records(self) -> tuple[RunSummary, ...]:
         self.reads.append("run_records")

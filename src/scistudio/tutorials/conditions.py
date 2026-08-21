@@ -4,10 +4,11 @@ ADR-053 Learning Center spec, FR-045 … FR-055
 (``docs/specs/adr-053-learning-center.md``).
 
 The vocabulary is **core-owned** (FR-045). Tutorials reference terms; they do
-not define them. It is the sixteen terms FR-047 requires, plus ``config_matches``
-(see :func:`_eval_config_matches` for the gap it closes — FR-047 sets a floor
-rather than a ceiling, and §4.5 records that core extends the vocabulary as
-tutorials find it short), plus the ``all`` and ``any`` combinators of FR-048.
+not define them. It is the sixteen terms FR-047 originally required, plus the
+core-added ``config_matches``, ``run_failed``, and ``plot_rendered`` (FR-047
+sets a floor rather than a ceiling, and §4.5 records that core extends the
+vocabulary as tutorials find it short), plus the ``all`` and ``any``
+combinators of FR-048.
 
 **Negation is deliberately absent.** FR-048's reason, kept here because the
 next reader will otherwise assume it was an oversight: a step that advances
@@ -181,6 +182,11 @@ _SPECS: tuple[TermSpec, ...] = (
         optional=("plot_id", "node_id", "block_type", "port"),
     ),
     TermSpec(
+        name="plot_rendered",
+        judges="a rendered figure exists for a plot, addressed like plot_exists",
+        optional=("plot_id", "node_id", "block_type", "port"),
+    ),
+    TermSpec(
         name="file_exists",
         judges="a project-relative path exists",
         required=("path",),
@@ -220,8 +226,8 @@ _SPECS: tuple[TermSpec, ...] = (
 )
 
 TERM_SPECS: Mapping[str, TermSpec] = MappingProxyType({spec.name: spec for spec in _SPECS})
-"""Every term, each with the arguments it accepts: FR-047's sixteen plus
-``config_matches``."""
+"""Every term, each with the arguments it accepts: FR-047's sixteen plus the
+core-added ``config_matches``, ``run_failed``, and ``plot_rendered``."""
 
 VOCABULARY: frozenset[str] = frozenset(TERM_SPECS)
 """FR-045: the core-owned term set. This is the single declaration of it.
@@ -558,6 +564,18 @@ class ProductState(Protocol):
         """``(plot_id, node_id, output_port)`` for every plot that exists."""
         ...
 
+    def rendered_plots(self) -> tuple[tuple[str, str, str, str], ...]:
+        """``(workflow_id, node_id, output_port, plot_id)`` for every plot with a rendered figure.
+
+        Product truth for the backend ``plot_rendered`` term (#2066): a figure
+        exists as display artifacts in the preview cache, whoever caused the
+        render and whether or not anyone was watching. The ``ui_event`` of the
+        same name deliberately coexists with it and answers a different
+        question — the *reader saw* it render on their screen — which is why
+        neither replaces the other.
+        """
+        ...
+
     def run_records(self) -> tuple[RunSummary, ...]:
         """The recent runs, **most recent first**.
 
@@ -867,6 +885,27 @@ def _eval_plot_exists(args: Mapping[str, Any], state: ProductState) -> bool:
     return False
 
 
+def _eval_plot_rendered(args: Mapping[str, Any], state: ProductState) -> bool:
+    """Does a rendered figure exist, for the plot the selectors address?
+
+    Filters :meth:`ProductState.rendered_plots` the way ``plot_exists`` filters
+    the plot bindings, so the two terms address a plot in the same words. Bare,
+    it asks whether any figure has been rendered at all.
+    """
+    plot_id = args.get("plot_id")
+    port = args.get("port")
+    addressed = _addressed_node_ids(args, state)
+    for _workflow_id, node_id, output_port, rendered_plot_id in state.rendered_plots():
+        if plot_id is not None and rendered_plot_id != plot_id:
+            continue
+        if addressed is not None and node_id not in addressed:
+            continue
+        if port is not None and output_port != port:
+            continue
+        return True
+    return False
+
+
 def _eval_port_has_output(args: Mapping[str, Any], state: ProductState) -> bool:
     """Does the named port hold data, on any node the selector addresses?
 
@@ -942,6 +981,7 @@ _SIMPLE_EVALUATORS: Mapping[str, Any] = MappingProxyType(
         "type_registered": lambda args, state: str(args["type_name"]) in state.data_type_names(),
         "previewer_registered": lambda args, state: str(args["type_name"]) in state.previewer_type_ids(),
         "plot_exists": _eval_plot_exists,
+        "plot_rendered": _eval_plot_rendered,
         "file_exists": _eval_file_exists,
         "git_branch_exists": lambda args, state: str(args["branch"]) in state.git_branches(),
         "git_current_branch": lambda args, state: state.git_current_branch() == str(args["branch"]),
@@ -1015,11 +1055,16 @@ through :class:`ExternalEventNames`. See :func:`_eval_file_exists` for why this
 mapping does not cover every case FR-053 has to.
 """
 
+# ``plot_rendered`` rides the run events rather than ``file.changed``: the
+# figure lands as an image under ``.scistudio/previews/``, and image formats
+# are outside the watcher's ADR-036 extension allowlist, so no file event will
+# ever reach it. A render caused by the plot card is covered by the frontend's
+# own ``ui_event`` report and by FR-053's explicit re-check (#2066).
 EVENT_TERM_MAP: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         WORKFLOW_CHANGED: frozenset({"node_exists", "edge_exists", "config_equals", "config_matches"}),
-        WORKFLOW_COMPLETED: frozenset({"run_succeeded", "run_failed", "port_has_output"}),
-        BLOCK_DONE: frozenset({"run_succeeded", "run_failed", "port_has_output"}),
+        WORKFLOW_COMPLETED: frozenset({"run_succeeded", "run_failed", "port_has_output", "plot_rendered"}),
+        BLOCK_DONE: frozenset({"run_succeeded", "run_failed", "port_has_output", "plot_rendered"}),
         BLOCK_ERROR: frozenset({"run_succeeded", "run_failed", "port_has_output"}),
         GIT_HEAD_CHANGED: frozenset({"git_branch_exists", "git_current_branch"}),
         INTERACTIVE_COMPLETE: frozenset({"interaction_completed"}),

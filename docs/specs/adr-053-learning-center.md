@@ -820,6 +820,7 @@ knows it.
 | `type_registered` | a data type is present in the type registry |
 | `previewer_registered` | a previewer is registered for a given type |
 | `plot_exists` | a plot exists, optionally bound to a given block's output by node id or block type |
+| `plot_rendered` | a rendered figure exists for a plot, addressed like `plot_exists` |
 | `file_exists` | a project-relative path exists |
 | `git_branch_exists` | a branch exists in the project repository |
 | `git_current_branch` | the checked-out branch is a given name |
@@ -844,6 +845,15 @@ step whose text says "press Run" can then wait for the run the reader performs
 ago. FR-054 is untouched: at entry no run has started since entry, so the
 scoped condition is simply false until the reader runs.
 
+`plot_rendered` names a backend fact — display artifacts exist in the preview
+cache under `.scistudio/previews/<workflow_id>/<node_id>/<output_port>/
+<plot_id>/` — and deliberately coexists with the `ui_event` of the same name
+(#2066). They answer different questions: the reported event says the reader
+*saw* the figure render on their screen, the term says a figure *exists* as
+product truth, whoever caused it and whether or not anyone was watching. The
+welcome tutorial waits on the event and keeps meaning what it meant; a level
+that cares about the artifact waits on the term.
+
 **FR-048.** The vocabulary MUST support `all` and `any` combinators taking lists
 of conditions. Negation is deliberately omitted: a tutorial step that advances
 when something is *absent* advances by the user doing nothing, which teaches
@@ -858,12 +868,19 @@ event in a declared mapping is observed. The mapping MUST at minimum be:
 
 | Event | Terms re-evaluated |
 |---|---|
-| `workflow.changed` | `node_exists`, `edge_exists`, `config_equals` |
-| `workflow_completed`, `block_done`, `block_error` | `run_succeeded`, `port_has_output` |
+| `workflow.changed` | `node_exists`, `edge_exists`, `config_equals`, `config_matches` |
+| `workflow_completed`, `block_done` | `run_succeeded`, `run_failed`, `port_has_output`, `plot_rendered` |
+| `block_error` | `run_succeeded`, `run_failed`, `port_has_output` |
 | `blocks.reloaded` | `block_registered`, `type_registered`, `previewer_registered`, `library_contains` |
 | `git.head_changed` | `git_branch_exists`, `git_current_branch` |
-| `file.changed` | `file_exists` |
+| `file.changed` | `file_exists`, `plot_exists` |
 | `interactive_complete` | `interaction_completed` |
+
+`plot_rendered` rides the run events rather than `file.changed` because a
+figure lands as an image, and image formats are outside the watcher's ADR-036
+extension allowlist — no file event will ever announce one. A render the
+reader triggers from the plot card is covered by the frontend's own `ui_event`
+report and by FR-053's explicit re-check.
 
 The two naming conventions in that table are the product's, not a typo. Engine
 lifecycle events are declared in `src/scistudio/engine/events.py` with

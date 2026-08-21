@@ -519,6 +519,33 @@ class _ApiProductState:
                 bindings.append((str(loaded.plot_id), str(node_id), str(output_port)))
         return tuple(bindings)
 
+    def rendered_plots(self) -> tuple[tuple[str, str, str, str], ...]:
+        """``(workflow_id, node_id, output_port, plot_id)`` for every rendered figure.
+
+        Read straight off the preview cache, whose layout is the plot runtime's
+        contract: ``.scistudio/previews/<workflow_id>/<node_id>/<output_port>/
+        <plot_id>/`` holding ``current.*`` display artifacts beside a
+        ``current.json`` run record. A directory holding only the record has
+        recorded a run that produced no figure, so it does not count — the term
+        judges "a figure exists", not "a render was attempted" (#2066).
+        """
+        project_dir = self.project_dir
+        if project_dir is None:
+            return ()
+        root = project_dir / ".scistudio" / "previews"
+        found: list[tuple[str, str, str, str]] = []
+        artifacts: list[Path] = _read_or(lambda: sorted(root.glob("*/*/*/*/current.*")), list[Path]())
+        for artifact in artifacts:
+            if artifact.name == "current.json":
+                continue
+            plot_dir = artifact.parent
+            port_dir = plot_dir.parent
+            node_dir = port_dir.parent
+            entry = (node_dir.parent.name, node_dir.name, port_dir.name, plot_dir.name)
+            if entry not in found:
+                found.append(entry)
+        return tuple(found)
+
     # -- runs -------------------------------------------------------------
 
     def run_records(self) -> tuple[RunSummary, ...]:

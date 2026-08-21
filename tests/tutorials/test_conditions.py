@@ -55,12 +55,15 @@ EXTERNAL = ExternalEventNames(blocks_reloaded="blocks.reloaded", file_changed="f
 # ---------------------------------------------------------------------------
 
 
-def test_the_vocabulary_is_fr_047s_sixteen_terms_plus_the_two_core_added() -> None:
+def test_the_vocabulary_is_fr_047s_sixteen_terms_plus_the_three_core_added() -> None:
     """FR-047 sets a floor; §4.5 records that core extends it as tutorials find it short.
 
     ``config_matches`` closed the browser-picked-absolute-path gap;
     ``run_failed`` closed the "watch it break" one, where a step that breaks
-    something on purpose has to wait for the reader to run it and see.
+    something on purpose has to wait for the reader to run it and see;
+    ``plot_rendered`` closed the "a figure exists as product truth" one, which
+    the frontend-reported ui_event of the same name deliberately does not
+    answer (#2066).
     """
     assert set(VOCABULARY) == {
         "node_exists",
@@ -74,6 +77,7 @@ def test_the_vocabulary_is_fr_047s_sixteen_terms_plus_the_two_core_added() -> No
         "type_registered",
         "previewer_registered",
         "plot_exists",
+        "plot_rendered",
         "file_exists",
         "git_branch_exists",
         "git_current_branch",
@@ -82,7 +86,7 @@ def test_the_vocabulary_is_fr_047s_sixteen_terms_plus_the_two_core_added() -> No
         "page_reached",
         "ui_event",
     }
-    assert len(VOCABULARY) == 18
+    assert len(VOCABULARY) == 19
     assert set(TERM_SPECS) == VOCABULARY
 
 
@@ -246,6 +250,7 @@ def _state(tmp_path: Path, loaded_workflow: WorkflowDefinition) -> StubProductSt
         ports_with_output=frozenset({("load-1", "table")}),
         branches=frozenset({"main", "imaging"}),
         current_branch="imaging",
+        rendered=(("wf-1", "save-1", "table", "plot-1"),),
         library=frozenset({("type", "CellTable")}),
         interactions=frozenset({"router-1"}),
         pages=frozenset({"what-is-a-block"}),
@@ -265,6 +270,7 @@ TRUE_CASES: list[tuple[str, dict[str, object]]] = [
     ("type_registered", {"type_registered": {"type_name": "DataFrame"}}),
     ("previewer_registered", {"previewer_registered": {"type_name": "DataFrame"}}),
     ("plot_exists", {"plot_exists": {"node_id": "save-1", "port": "table"}}),
+    ("plot_rendered", {"plot_rendered": {"plot_id": "plot-1"}}),
     ("file_exists", {"file_exists": {"path": "data/raw/cells.csv"}}),
     ("git_branch_exists", {"git_branch_exists": {"branch": "imaging"}}),
     ("git_current_branch", {"git_current_branch": {"branch": "imaging"}}),
@@ -287,6 +293,7 @@ FALSE_CASES: list[tuple[str, dict[str, object]]] = [
     ("type_registered", {"type_registered": {"type_name": "Image"}}),
     ("previewer_registered", {"previewer_registered": {"type_name": "Image"}}),
     ("plot_exists", {"plot_exists": {"node_id": "load-1"}}),
+    ("plot_rendered", {"plot_rendered": {"plot_id": "plot-2"}}),
     ("file_exists", {"file_exists": {"path": "data/raw/absent.csv"}}),
     ("git_branch_exists", {"git_branch_exists": {"branch": "release"}}),
     ("git_current_branch", {"git_current_branch": {"branch": "main"}}),
@@ -605,7 +612,12 @@ def test_the_engine_half_of_the_map_is_keyed_by_the_imported_constants() -> None
         INTERACTIVE_COMPLETE,
     }
     assert EVENT_TERM_MAP[WORKFLOW_CHANGED] == {"node_exists", "edge_exists", "config_equals", "config_matches"}
-    assert EVENT_TERM_MAP[WORKFLOW_COMPLETED] == {"run_succeeded", "run_failed", "port_has_output"}
+    assert EVENT_TERM_MAP[WORKFLOW_COMPLETED] == {
+        "run_succeeded",
+        "run_failed",
+        "port_has_output",
+        "plot_rendered",
+    }
     assert EVENT_TERM_MAP[GIT_HEAD_CHANGED] == {"git_branch_exists", "git_current_branch"}
     assert EVENT_TERM_MAP[INTERACTIVE_COMPLETE] == {"interaction_completed"}
 
@@ -892,3 +904,37 @@ def test_a_zoneless_run_stamp_is_read_as_utc() -> None:
     condition = parse_condition({"run_succeeded": {"since_step_entry": True}})
     zoneless_new = RunSummary(run_id="r-n", workflow_id="wf-1", succeeded=True, started_at="2026-08-21T12:00:00")
     assert evaluate(condition, StubProductState(runs=(zoneless_new,)), entered_at=_ENTRY) is True
+
+
+# ---------------------------------------------------------------------------
+# The backend plot_rendered term (#2066)
+# ---------------------------------------------------------------------------
+
+
+def test_plot_rendered_addresses_a_plot_the_way_plot_exists_does(loaded_workflow: WorkflowDefinition) -> None:
+    state = StubProductState(
+        workflow_definition=loaded_workflow,
+        rendered=(("wf-1", "save-1", "table", "plot-1"),),
+    )
+    assert evaluate(parse_condition({"plot_rendered": {"plot_id": "plot-1"}}), state) is True
+    assert evaluate(parse_condition({"plot_rendered": {"block_type": "SaveCSV", "port": "table"}}), state) is True
+    assert evaluate(parse_condition({"plot_rendered": {"block_type": "LoadCSV"}}), state) is False
+    assert evaluate(parse_condition({"plot_rendered": {"plot_id": "plot-1", "port": "other"}}), state) is False
+    assert evaluate(parse_condition({"plot_rendered": {}}), state) is True
+    assert evaluate(parse_condition({"plot_rendered": {}}), StubProductState()) is False
+
+
+def test_the_two_plot_rendered_names_coexist_and_answer_different_questions() -> None:
+    """The ui_event is "the reader saw it render"; the term is "a figure exists".
+
+    The welcome manifest waits on the ui_event and must go on meaning what it
+    meant; a level that cares about the artifact rather than the viewing waits
+    on the term. Same words, two facts, both real.
+    """
+    saw_but_no_artifact = StubProductState(events=frozenset({"plot_rendered"}))
+    assert evaluate(parse_condition({"ui_event": {"name": "plot_rendered"}}), saw_but_no_artifact) is True
+    assert evaluate(parse_condition({"plot_rendered": {}}), saw_but_no_artifact) is False
+
+    artifact_but_unseen = StubProductState(rendered=(("wf", "n1", "out", "p1"),))
+    assert evaluate(parse_condition({"plot_rendered": {}}), artifact_but_unseen) is True
+    assert evaluate(parse_condition({"ui_event": {"name": "plot_rendered"}}), artifact_but_unseen) is False
