@@ -648,6 +648,53 @@ def test_a_failed_trigger_reports_and_leaves_the_session_retryable(client: TestC
     assert client.post("/api/tutorials/sessions/active/trigger").status_code == 502
 
 
+def test_the_session_carries_a_read_only_outline_of_every_step(client: TestClient, core_tier: Path) -> None:
+    """The manager-directed outline: static metadata for all steps, up front.
+
+    The reading window shows every card name before the reader arrives at it,
+    which the per-step view cannot supply. What crosses is deliberately inert —
+    index, id, title, say, pages — never a condition, highlight, prefill, or
+    action, so the FR-041 step-view closure is untouched.
+    """
+    mount(
+        core_tier,
+        "outlined",
+        manifest_for(
+            "outlined",
+            [
+                {"id": "one", "title": "First", "say": "Read this.", "pages": ["intro"]},
+                {
+                    "id": "two",
+                    "title": "Second",
+                    "say": "Then act.",
+                    "done_when": {"ui_event": {"name": "preview_expanded"}},
+                },
+                {"id": "three", "say": "Done."},
+            ],
+        ),
+        files={"assets/pages/intro.md": "# Intro"},
+    )
+    started = start(client, "outlined").json()
+
+    outline = started["steps"]
+    assert [row["id"] for row in outline] == ["one", "two", "three"]
+    assert [row["index"] for row in outline] == [0, 1, 2]
+    assert outline[0]["title"] == "First"
+    assert outline[0]["say"] == "Read this."
+    assert outline[0]["pages"] == ["intro"]
+    assert outline[2]["title"] is None
+    # Inert by construction: none of the step-surface fields ride along.
+    for row in outline:
+        assert set(row) == {"index", "id", "title", "say", "pages"}
+    # The current position is the step view's own index.
+    assert started["step"]["index"] == 0
+
+    # The outline is static: it does not change as the session moves.
+    advanced = client.post("/api/tutorials/sessions/active/continue").json()
+    assert advanced["steps"] == outline
+    assert advanced["step"]["index"] == 1
+
+
 def test_a_reading_step_advances_on_an_explicit_continue(client: TestClient, core_tier: Path) -> None:
     """FR-012: a step with no condition waits for the user to say go on."""
     mount(

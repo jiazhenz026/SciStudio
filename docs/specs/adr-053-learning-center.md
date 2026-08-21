@@ -790,6 +790,14 @@ which tutorial, which project, which step, and which steps are satisfied.
 
 **FR-037.** Session state MUST survive a backend restart.
 
+The active-session response additionally carries a read-only outline of every
+step — index, id, title, say, and pages, with the current position given by the
+step view's own index — so the reading window can show the whole tutorial's
+card names up front. The outline is a session-level listing of static metadata,
+deliberately without conditions, highlights, prefills, or actions, so FR-041's
+closure of the per-step view is untouched by it; for a sequential tutorial a
+step is behind the reader exactly when its index is smaller.
+
 **FR-038.** The runtime MUST interact with tutorials only through a driver
 interface. The interface MUST cover: the view of the current step, whether the
 current step is satisfied given current product state, the actions to perform on

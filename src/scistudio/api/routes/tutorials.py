@@ -256,6 +256,24 @@ class TriggerResponse(BaseModel):
     label: str
 
 
+class StepOutlineResponse(BaseModel):
+    """One row of the session's read-only step outline.
+
+    The inert subset of a step — index, id, title, say, pages — so the reading
+    window can show every card name up front. Deliberately no condition,
+    highlight, prefill, or action: this is a session-level listing, not a
+    second step surface, and FR-041's step-view closure is untouched by it.
+    For a sequential tutorial, a row is behind the reader exactly when its
+    index is smaller than the current step's.
+    """
+
+    index: int
+    id: str
+    title: str | None = None
+    say: str | None = None
+    pages: list[str] = Field(default_factory=list)
+
+
 class ReplayResponse(BaseModel):
     """The scripted playback currently attached to a terminal tab, if any."""
 
@@ -277,6 +295,8 @@ class SessionResponse(BaseModel):
     status: str
     error: str | None = None
     replay: ReplayResponse | None = None
+    #: The whole tutorial's read-only step outline; see StepOutlineResponse.
+    steps: list[StepOutlineResponse] = Field(default_factory=list)
 
 
 class CatalogueEntryResponse(BaseModel):
@@ -1257,6 +1277,16 @@ def _session_response(runtime: ApiRuntime, view: SessionView | None) -> SessionR
         status=str(view.status),
         error=view.error,
         replay=None if view.replay is None else ReplayResponse(surface=view.replay.surface, tab_id=view.replay.tab_id),
+        steps=[
+            StepOutlineResponse(
+                index=int(entry.get("index", position)),
+                id=str(entry.get("id", "")),
+                title=entry.get("title"),
+                say=entry.get("say"),
+                pages=list(entry.get("pages", ())),
+            )
+            for position, entry in enumerate(view.steps)
+        ],
     )
 
 

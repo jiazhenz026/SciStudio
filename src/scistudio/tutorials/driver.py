@@ -498,6 +498,20 @@ class ManifestDriver:
         trigger = self._step(context).trigger
         return () if trigger is None else trigger.do
 
+    def steps_outline(self, context: DriverContext) -> tuple[Mapping[str, Any], ...]:
+        """Static metadata for every step, for the session's outline surface.
+
+        The reading window shows the whole tutorial's card names up front, and
+        the per-step view only ever describes the step the session is on. What
+        crosses here is deliberately the inert subset — index, id, title, say,
+        pages — never a condition, highlight, prefill, or action, so the
+        outline cannot become a second step surface.
+        """
+        return tuple(
+            {"index": index, "id": step.id, "title": step.title, "say": step.say, "pages": step.pages}
+            for index, step in enumerate(self.manifest.steps)
+        )
+
     def advance(self, context: DriverContext) -> str | None:
         """Return the next step's id, or ``None`` at the end of the manifest."""
         steps = self.manifest.steps
@@ -571,6 +585,39 @@ class GuardedDriver:
         if not callable(declared):
             return ()
         return _normalised_actions(declared(context), method="trigger_actions")
+
+    def steps_outline(self, context: DriverContext) -> tuple[Mapping[str, Any], ...]:
+        """The tutorial's static step outline, normalised; ``()`` without the capability.
+
+        Reduced to exactly the inert fields — index, id, title, say, pages —
+        the way :meth:`step_view` reduces a step, so a driver cannot widen the
+        outline into a second step surface.
+        """
+        declared = getattr(self._inner, "steps_outline", None)
+        if not callable(declared):
+            return ()
+        raw = declared(context)
+        if raw is None:
+            return ()
+        if isinstance(raw, (str, bytes)) or not isinstance(raw, Sequence):
+            raise DriverContractError(f"steps_outline must return a sequence, got {type(raw).__name__}")
+        outline: list[Mapping[str, Any]] = []
+        for index, item in enumerate(raw):
+            if not isinstance(item, Mapping):
+                raise DriverContractError(f"steps_outline[{index}] must be a mapping, got {type(item).__name__}")
+            step_id = item.get("id")
+            if not isinstance(step_id, str) or not step_id:
+                raise DriverContractError(f"steps_outline[{index}] must carry a non-empty string id")
+            outline.append(
+                {
+                    "index": int(item.get("index", index)),
+                    "id": step_id,
+                    "title": _optional_text(item.get("title"), step_id=step_id, name="title"),
+                    "say": _optional_text(item.get("say"), step_id=step_id, name="say"),
+                    "pages": _optional_pages(item.get("pages"), step_id=step_id),
+                }
+            )
+        return tuple(outline)
 
     def advance(self, context: DriverContext) -> str | None:
         nxt = self._inner.advance(context)

@@ -93,6 +93,14 @@ class ParityDriver:
     def entry_actions(self, context: DriverContext) -> tuple[Any, ...]:
         return ()
 
+    def steps_outline(self, context: DriverContext) -> tuple[dict[str, Any], ...]:
+        # The optional outline capability: a package driver that answers it
+        # produces the same session-level outline the manifest driver does,
+        # which is what keeps FR-040's parity available to it.
+        return tuple(
+            {"index": index, "id": step["id"], "say": step.get("say"), "pages": ()} for index, step in enumerate(_STEPS)
+        )
+
     def advance(self, context: DriverContext) -> str | None:
         if context.step_id is None:
             return str(_STEPS[0]["id"])

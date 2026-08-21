@@ -514,6 +514,14 @@ class SessionView:
     status: SessionStatus
     error: str | None
     replay: ReplayView | None = None
+    #: A read-only outline of every step — index, id, title, say, pages — so
+    #: the reading window can show the whole tutorial's card names up front.
+    #: Session-level and inert by construction: no condition, highlight,
+    #: prefill, or action crosses into it, so FR-041's step-view closure is
+    #: untouched. The current position is the step view's own ``index``; for a
+    #: sequential tutorial, a step is behind the reader exactly when its index
+    #: is smaller.
+    steps: tuple[Mapping[str, Any], ...] = ()
 
     @property
     def key(self) -> TutorialKey:
@@ -1082,11 +1090,12 @@ class TutorialRuntime:
         if record.status is not SessionStatus.ACTIVE or record.step_id is None:
             return self._view(record)
         context = self._context(record, tutorial_dir, record.step_id)
+        outline = self._outline_of(driver, context)
         if not self._is_live(record):
             # Report the step, judge nothing. See :meth:`_is_live`: the product
             # state available right now describes a different project, and an
             # answer read out of it would be about the user's own work.
-            return self._view(record, step=self._step_of(record, driver, tutorial_dir, satisfied=False))
+            return self._view(record, step=self._step_of(record, driver, tutorial_dir, satisfied=False), steps=outline)
         try:
             satisfied = driver.is_satisfied(context, self._product_state())
         except Exception as exc:
@@ -1094,7 +1103,7 @@ class TutorialRuntime:
         if satisfied:
             record = record.satisfied(record.step_id)
         self._sessions.write(state.with_record(record).with_active(record.key))
-        return self._view(record, step=self._step_of(record, driver, tutorial_dir, satisfied=satisfied))
+        return self._view(record, step=self._step_of(record, driver, tutorial_dir, satisfied=satisfied), steps=outline)
 
     def _advance_from(
         self,
@@ -1132,7 +1141,11 @@ class TutorialRuntime:
             if satisfied:
                 record = record.satisfied(next_id)
             self._sessions.write(state.with_record(record).with_active(record.key))
-            return self._view(record, step=self._step_of(record, driver, tutorial_dir, satisfied=satisfied))
+            return self._view(
+                record,
+                step=self._step_of(record, driver, tutorial_dir, satisfied=satisfied),
+                steps=self._outline_of(driver, context),
+            )
         except ActionExecutionError as exc:
             # FR-060: name the step and the action, and do not advance.
             return self._view(self._fail(state, record, str(exc)))
@@ -1290,7 +1303,25 @@ class TutorialRuntime:
         view = driver.step_view(self._context(record, tutorial_dir, record.step_id))
         return replace(view, satisfied=satisfied)
 
-    def _view(self, record: SessionRecord, *, step: StepView | None = None) -> SessionView:
+    def _outline_of(self, driver: GuardedDriver, context: DriverContext) -> tuple[Mapping[str, Any], ...]:
+        """The tutorial's static step outline, or ``()`` when it has none to give.
+
+        Metadata must never be what takes a session down, so a driver that
+        fails to answer costs the outline and nothing else.
+        """
+        try:
+            return driver.steps_outline(context)
+        except Exception:
+            logger.debug("Learning Center: a driver's steps outline could not be read", exc_info=True)
+            return ()
+
+    def _view(
+        self,
+        record: SessionRecord,
+        *,
+        step: StepView | None = None,
+        steps: tuple[Mapping[str, Any], ...] = (),
+    ) -> SessionView:
         """Render a record. The step view is supplied by whoever holds the driver.
 
         Passed in rather than fetched, so rendering a response never re-runs
@@ -1311,4 +1342,5 @@ class TutorialRuntime:
             status=record.status,
             error=record.error,
             replay=replay,
+            steps=steps,
         )

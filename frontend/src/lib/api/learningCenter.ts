@@ -163,6 +163,20 @@ export interface TutorialReplayView {
   tab_id: string;
 }
 
+/**
+ * One row of the session's read-only step outline: the inert subset of a step
+ * — index, id, title, say, pages — so the reading window can show every card
+ * name up front. For a sequential tutorial, a row is behind the reader exactly
+ * when its index is smaller than the current step's.
+ */
+export interface TutorialStepOutline {
+  index: number;
+  id: string;
+  title: string | null;
+  say: string | null;
+  pages: string[];
+}
+
 export interface TutorialSessionResponse {
   source_kind: TutorialSourceKind;
   source_id: string;
@@ -175,6 +189,8 @@ export interface TutorialSessionResponse {
   status: "active" | "complete" | "error";
   error: string | null;
   replay: TutorialReplayView | null;
+  /** The whole tutorial's read-only step outline; optional for older fixtures. */
+  steps?: TutorialStepOutline[];
 }
 
 export interface TutorialStartRequest {
