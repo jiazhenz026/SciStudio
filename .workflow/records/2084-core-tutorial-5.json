@@ -1,6 +1,163 @@
 {
   "branch": "feat/2084-core-tutorial-5",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-08-21T23:41:01.975058Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2e1c125501e3f8364683201dab2e704056943ad15e1ab566e429b5f58f31abd9",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T23:41:03.813712Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3f8cf776bd4c9ecb68124a921c221570d48bc92dacfeb271cd73a8325422a3b6",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T23:41:03.896908Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8e9b655fe89069b1402f071d8a662544de2ed7f0df99c1cfb976728a9ede2b49",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-21T23:42:50.295535Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:fd63ff99f75b14dc5703acff377a8a9511df041bc5cb13e10bc87eb2555afa66",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T23:43:08.096506Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:789651a99010989bd3450f3ba421aa0c8170ddf6f8441d1fe5a7246c64a03e7e",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T23:43:08.440431Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f704fd633fbe60d044580ee48c6ced24a8811e5d582d2d6ba14d600428001259",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T23:43:08.521287Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e541d0ac8ade427d2c3246887247c00c364b5b55b35e53d24d318b562f2cf34f",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-21T23:49:48.847587Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d9de167b7420121088c554324de1dfe80ef67922ecbbca38b6d936e64e7edeb5",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T23:52:27.890401Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0583aa8b444939db43891ce058e635a71a3f25773d39d27507c9cea4c49a4679",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T23:52:32.294808Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:45285aa175e797cfb2a47c3a35e8ab60b12984d8adc5a181f30585f2cd4a9498",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -58,7 +215,96 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-08-21T23:52:32.457128Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:52:32.491446Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:52:32.530417Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:52:32.569265Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:52:32.614030Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:52:32.650076Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:52:32.686275Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:52:32.727027Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:52:32.759941Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:52:32.787543Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:52:32.824932Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -68,25 +314,129 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/track/learning-center-levels",
+    "base_sha": "17b761b9a",
+    "changed_files": [
+      ".workflow/records/2084-core-tutorial-5.json",
+      "CHANGELOG.md",
+      "docs/planning/learning-center-levels-checklist.md",
+      "frontend/src/components/LearningCenter.parts/PageMarkdown.tsx",
+      "frontend/src/components/LearningCenter.parts/ReadingSurface.tsx",
+      "frontend/src/components/LearningCenter.parts/__tests__/PageMarkdown.test.tsx",
+      "frontend/src/components/LearningCenter.parts/__tests__/ReadingSurface.test.tsx",
+      "frontend/src/components/LearningCenter.parts/__tests__/readingCards.test.ts",
+      "frontend/src/components/LearningCenter.parts/readingCards.ts",
+      "frontend/src/components/LearningCenter.tsx",
+      "frontend/src/lib/api/learningCenter.ts",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/block-built-ins.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/block-six-kinds.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/block-tips.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/block-what-it-is.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/history-branches.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/history-git.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/history-restore.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/history-the-tab.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/history-tips.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/library-project-vs-library.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/library-what-it-holds.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/library-what-it-is.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/others-ask-the-ai.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/others-bring-in-work.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/others-packages.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/others-the-docs.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/others-when-a-run-fails.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/plot-binding.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/plot-code.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/plot-collection.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/plot-tips.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/plot-what-it-is.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/previewer-custom.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/previewer-the-pane.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/previewer-tips.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/previewer-typed.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/type-canonical-zone.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/type-six-core.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/type-tips.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/type-what-it-is.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/workflow-port-colours.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/workflow-running.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/workflow-tidy-focus.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/workflow-what-it-is.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/tutorial.yaml",
+      "tests/tutorials/test_summary_reading_tutorial.py"
+    ],
+    "diff_fingerprint": "sha256:57b40f85f899bedc8510f4b0a8f7476258e42a736762cd83f447969b31d28b57",
+    "head": "HEAD",
+    "head_sha": "7414ab143",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 8,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 43,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 44,
+      "test": 4,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Author core tutorial 5 - the reading-only summary level: one window, one top sentence, eight cards, paged card content. Build the reading surface frontend; wire pages fetch; tests; CHANGELOG. PR targets track/learning-center-levels.",
   "persona": "implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-08-21T23:52:32.824986Z",
+      "diff_fingerprint": "sha256:57b40f85f899bedc8510f4b0a8f7476258e42a736762cd83f447969b31d28b57",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "2084-core-tutorial-5",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "architecture_tests",
+      "deferral_discipline",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "73322ada-da59-4565-af89-d9605c1fe60f",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "feature",
   "test_events": [
     {
