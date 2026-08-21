@@ -17,6 +17,7 @@ import type {
   TutorialCatalogueEntry,
   TutorialCatalogueResponse,
   TutorialSessionResponse,
+  TutorialStepOutline,
   TutorialStepView,
 } from "../../../lib/api/learningCenter";
 import { fetchTutorialPage } from "../../../lib/api/learningCenter";
@@ -66,6 +67,31 @@ function stepView(over: Partial<TutorialStepView> & { pages?: string[] } = {}): 
   } as TutorialStepView;
 }
 
+const CARD_TITLES = [
+  "Workflow",
+  "Block",
+  "Data type",
+  "Previewer",
+  "Plot card",
+  "History",
+  "My library",
+  "Others",
+];
+
+/** The session's read-only step outline, as the backend now always sends it. */
+function outline(): TutorialStepOutline[] {
+  return CARD_TITLES.map((title, index) => ({
+    index,
+    id: `${title.toLowerCase().replace(/ /g, "-")}-card`,
+    title,
+    say: `${title} in one line.`,
+    pages:
+      index === 0
+        ? ["workflow-what-it-is", "workflow-running"]
+        : [`${title.toLowerCase().replace(/ /g, "-")}-page`],
+  }));
+}
+
 function session(over: Partial<TutorialSessionResponse> = {}): TutorialSessionResponse {
   return {
     source_kind: "core",
@@ -79,6 +105,7 @@ function session(over: Partial<TutorialSessionResponse> = {}): TutorialSessionRe
     status: "active",
     error: null,
     replay: null,
+    steps: outline(),
     ...over,
   };
 }
@@ -109,10 +136,20 @@ describe("the reading grid", () => {
     );
     expect(screen.getByTestId("reading-card-0")).toHaveTextContent("Workflow");
     expect(screen.getByTestId("reading-card-0")).toHaveAttribute("data-reading-state", "current");
-    // Cards not yet reached are placeholders, present but not openable.
-    expect(screen.getByTestId("reading-card-7")).toHaveTextContent("Card 8");
+    // The outline names every card up front; cards ahead stay unopenable.
+    expect(screen.getByTestId("reading-card-7")).toHaveTextContent("Others");
+    expect(screen.getByTestId("reading-card-7")).toHaveTextContent("Others in one line.");
     expect(screen.getByTestId("reading-card-7")).toBeDisabled();
     expect(screen.getAllByTestId(/^reading-card-/)).toHaveLength(8);
+  });
+
+  it("falls back to placeholders when a session carries no outline", () => {
+    render(
+      <ReadingSurface entry={entry()} onClose={() => {}} session={session({ steps: undefined })} />,
+    );
+
+    expect(screen.getByTestId("reading-card-7")).toHaveTextContent("Card 8");
+    expect(screen.getByTestId("reading-card-7")).toBeDisabled();
   });
 
   it("keeps a passed card's name and lets it be reopened", async () => {

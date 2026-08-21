@@ -16,9 +16,10 @@
  * uses. Spec §4.1 holds: this file renders answers, it does not produce them.
  *
  * Built for any reading tutorial, not one: cards, pages, and counts all come
- * from the session and the catalogue entry. The wire carries only the current
- * step, so cards already walked past are remembered locally for display
- * (`readingCards.ts` explains why that memory is safe to lose).
+ * from the session and the catalogue entry. The session's read-only step
+ * outline names every card up front; cards ahead of the reader are shown but
+ * not openable, so the whole map is visible while reading stays in order
+ * (`readingCards.ts` holds the derivation and its no-outline fallback).
  */
 
 import { ArrowLeft, ArrowRight, BookOpen, Check, Loader2, X } from "lucide-react";
@@ -52,7 +53,7 @@ export function ReadingSurface({ entry, session, onClose }: ReadingSurfaceProps)
   const evaluateStep = useAppStore((state) => state.evaluateActiveTutorialStep);
   const leaveTutorial = useAppStore((state) => state.leaveActiveTutorial);
 
-  /* Cards this window has seen, by step index — display memory only. */
+  /* Fallback display memory for a session without a step outline. */
   const [remembered, setRemembered] = useState<ReadonlyMap<number, ReadingCardInfo>>(new Map());
   const [reader, setReader] = useState<OpenReader | null>(null);
   const [pageText, setPageText] = useState<string | null>(null);

@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import type {
   TutorialCatalogueResponse,
   TutorialSessionResponse,
+  TutorialStepOutline,
   TutorialStepView,
 } from "../../../lib/api/learningCenter";
 import { findSessionEntry, readingSlots, stepPages, type ReadingCardInfo } from "../readingCards";
@@ -32,7 +33,10 @@ function stepView(over: Partial<TutorialStepView> & { pages?: string[] } = {}): 
   } as TutorialStepView;
 }
 
-function session(step: TutorialStepView | null): TutorialSessionResponse {
+function session(
+  step: TutorialStepView | null,
+  steps?: TutorialStepOutline[],
+): TutorialSessionResponse {
   return {
     source_kind: "core",
     source_id: "",
@@ -45,7 +49,29 @@ function session(step: TutorialStepView | null): TutorialSessionResponse {
     status: "active",
     error: null,
     replay: null,
+    ...(steps === undefined ? {} : { steps }),
   };
+}
+
+const CARD_TITLES = [
+  "Workflow",
+  "Block",
+  "Data type",
+  "Previewer",
+  "Plot card",
+  "History",
+  "My library",
+  "Others",
+];
+
+function outline(): TutorialStepOutline[] {
+  return CARD_TITLES.map((title, index) => ({
+    index,
+    id: `${title.toLowerCase().replace(/ /g, "-")}-card`,
+    title,
+    say: `${title} in one line.`,
+    pages: [`${title.toLowerCase().replace(/ /g, "-")}-page`],
+  }));
 }
 
 describe("stepPages", () => {
@@ -64,7 +90,43 @@ describe("stepPages", () => {
   });
 });
 
-describe("readingSlots", () => {
+describe("readingSlots with the session's step outline", () => {
+  it("names every card up front, in step order", () => {
+    const slots = readingSlots(session(stepView({ index: 0 }), outline()), new Map());
+    expect(slots.map((slot) => slot.card?.title)).toEqual(CARD_TITLES);
+    expect(slots.map((slot) => slot.state)).toEqual([
+      "current",
+      "unread",
+      "unread",
+      "unread",
+      "unread",
+      "unread",
+      "unread",
+      "unread",
+    ]);
+    expect(slots[3].card?.say).toBe("Previewer in one line.");
+    expect(slots[7].card?.pages).toEqual(["others-page"]);
+  });
+
+  it("renders the current slot from the live step, not the outline", () => {
+    const slots = readingSlots(
+      session(stepView({ index: 2, title: "Fresh title", pages: ["fresh"] }), outline()),
+      new Map(),
+    );
+    expect(slots[2]).toMatchObject({
+      state: "current",
+      card: { title: "Fresh title", pages: ["fresh"] },
+    });
+    expect(slots.map((slot) => slot.state).slice(0, 4)).toEqual([
+      "read",
+      "read",
+      "current",
+      "unread",
+    ]);
+  });
+});
+
+describe("readingSlots without an outline (older fixtures)", () => {
   it("builds one slot per step: passed read, this one current, the rest unread", () => {
     const slots = readingSlots(session(stepView({ index: 2, pages: ["p1"] })), new Map());
     expect(slots).toHaveLength(8);

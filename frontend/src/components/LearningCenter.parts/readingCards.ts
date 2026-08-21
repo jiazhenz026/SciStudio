@@ -2,24 +2,25 @@
  * ADR-053 Learning Center — the reading window's card model (#2084).
  *
  * A reading tutorial renders as a grid of cards, one per step, in step order.
- * The wire contract only ever carries the *current* step (`SessionResponse.step`,
- * FR-041's closed step view), so the grid is built from three sources:
+ * The grid draws from the session's read-only step outline
+ * (`SessionResponse.steps`, the #2061 batch) — index, id, title, say, pages
+ * per step — so every card is named up front, the summary level's whole point.
+ * The current card still renders from the live step view, which additionally
+ * carries `satisfied` and is never stale.
  *
- * - the current step, which is fully known;
- * - steps this surface has already seen this session, remembered by index so a
- *   walked-past card keeps its name and stays reopenable;
- * - the step count (`step.total`), which sizes the grid so unvisited cards
- *   render as placeholders rather than not at all.
- *
- * Remembering is display memory, not judgment: nothing here decides whether a
- * step is done (spec §4.1 puts that on the backend), and losing the memory on
- * reload degrades a read card's caption, never the tutorial's actual progress.
+ * A session without an outline (an older fixture or cached response) falls
+ * back to the current step plus steps this surface has already seen this
+ * session, remembered by index. Remembering is display memory, not judgment:
+ * nothing here decides whether a step is done (spec §4.1 puts that on the
+ * backend), and losing the memory on reload degrades a passed card's caption,
+ * never the tutorial's actual progress.
  */
 
 import type {
   TutorialCatalogueEntry,
   TutorialCatalogueResponse,
   TutorialSessionResponse,
+  TutorialStepOutline,
   TutorialStepView,
 } from "../../lib/api/learningCenter";
 
@@ -44,13 +45,12 @@ export interface ReadingSlot {
 }
 
 /**
- * The `pages` field the #2061 vocabulary batch adds to the step view, read
- * leniently: this surface was built alongside that batch, and reading the
- * field structurally keeps the two mergeable in either order. Once the widened
- * `TutorialStepView` type lands, this narrows to a plain property read.
+ * A step's reading pages, in order. The field is optional on the wire type
+ * (older fixtures), and entries are filtered structurally because a page name
+ * becomes a URL segment.
  */
-export function stepPages(step: TutorialStepView): string[] {
-  const pages = (step as { pages?: unknown }).pages;
+export function stepPages(step: TutorialStepView | TutorialStepOutline): string[] {
+  const pages = step.pages;
   if (!Array.isArray(pages)) return [];
   return pages.filter((page): page is string => typeof page === "string" && page.length > 0);
 }
@@ -63,9 +63,11 @@ export function cardOfStep(step: TutorialStepView): ReadingCardInfo {
 /**
  * Build the grid: one slot per step, in step order.
  *
- * `remembered` maps step index to the card seen there. The current step always
- * renders from the live session rather than from memory, so a step whose text
- * the backend changed mid-session is never shown stale.
+ * The session's step outline names every card up front; the current step
+ * always renders from the live step view rather than from the outline or from
+ * memory, so a step whose text the backend changed mid-session is never shown
+ * stale. `remembered` (cards this surface has seen, by index) only matters for
+ * a session without an outline.
  */
 export function readingSlots(
   session: TutorialSessionResponse,
@@ -73,17 +75,26 @@ export function readingSlots(
 ): ReadingSlot[] {
   const step = session.step;
   if (!step) return [];
+  const outline = Array.isArray(session.steps) ? session.steps : [];
+  const state = (index: number): ReadingSlot["state"] =>
+    index === step.index ? "current" : index < step.index ? "read" : "unread";
+  if (outline.length > 0) {
+    return outline.map((row) => ({
+      index: row.index,
+      state: state(row.index),
+      card:
+        row.index === step.index
+          ? cardOfStep(step)
+          : { id: row.id, title: row.title, say: row.say, pages: stepPages(row) },
+    }));
+  }
   const slots: ReadingSlot[] = [];
   for (let index = 0; index < step.total; index++) {
-    if (index === step.index) {
-      slots.push({ index, state: "current", card: cardOfStep(step) });
-    } else {
-      slots.push({
-        index,
-        state: index < step.index ? "read" : "unread",
-        card: remembered.get(index) ?? null,
-      });
-    }
+    slots.push({
+      index,
+      state: state(index),
+      card: index === step.index ? cardOfStep(step) : (remembered.get(index) ?? null),
+    });
   }
   return slots;
 }
