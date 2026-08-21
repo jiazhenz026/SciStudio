@@ -58,6 +58,11 @@
         "packages": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
+        },
+        "tutorials": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Same-source tutorial ids that must be completed before this tutorial can be started. An unmet entry lists this tutorial as unavailable naming the tutorial it waits on (FR-024); it never hides it. Ids, not titles, and only siblings: progress is keyed by (source, id), and a manifest cannot address another source."
         }
       }
     },

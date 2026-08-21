@@ -599,8 +599,16 @@ class TutorialRuntime:
         installed or uninstalled a moment ago is reflected without a refresh
         hook of its own — which is how tutorials join the refresh path of
         FR-031 rather than building a fourth one.
+
+        When no environment was injected, the runtime states its own progress
+        store's completions rather than letting the environment probe the
+        default store (#2088): the two must be the same store, or a test's
+        progress and a test's catalogue would disagree about what is unlocked.
         """
-        return discover_tutorials(project_dir=self._project_dir(), environment=self._environment)
+        environment = self._environment
+        if environment is None:
+            environment = DiscoveryEnvironment(completed_tutorials=self._progress.completed_keys())
+        return discover_tutorials(project_dir=self._project_dir(), environment=environment)
 
     def catalogue(self) -> Catalogue:
         """Return the grouped catalogue, core first, no aggregate (FR-076, FR-084)."""

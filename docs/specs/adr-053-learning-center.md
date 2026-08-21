@@ -520,9 +520,16 @@ that lets discovery tell "written for a newer core" apart from "malformed", and
 the two owe the user different messages.
 
 **FR-008.** The manifest MAY declare a `requires` block with `scistudio` as a
-version specifier, `agent` as a boolean, and `packages` as a list of
-distribution names. A tutorial whose requirements are unmet MUST still be listed
-(FR-024).
+version specifier, `agent` as a boolean, `packages` as a list of distribution
+names, and `tutorials` as a list of same-source tutorial ids that must be
+completed before this one can be started (#2088). A tutorial whose requirements
+are unmet MUST still be listed (FR-024); an unmet `tutorials` entry lists it as
+unavailable naming the tutorial it waits on, which is how a track of levels
+shows the reader where it goes before they have walked it. Ids address siblings
+only, because progress is keyed by (source, id) and a manifest cannot address
+another source; a required id its source does not ship can never complete, so
+the typo surfaces in the catalogue as a permanently unavailable entry naming
+it, rather than being hidden.
 
 **FR-009.** The manifest MAY declare a `bootstrap` block. Presence of
 `bootstrap` is what determines whether the tutorial gets a project: a tutorial

@@ -429,10 +429,14 @@ class TutorialRequirements:
     scistudio: str | None = None
     agent: bool = False
     packages: tuple[str, ...] = ()
+    #: FR-008 / #2088 — same-source tutorial ids that must be completed first.
+    #: Ids, not keys: a requirement can only name a sibling, because progress
+    #: is keyed by (source, id) and a manifest does not know other sources.
+    tutorials: tuple[str, ...] = ()
 
     @property
     def is_empty(self) -> bool:
-        return self.scistudio is None and not self.agent and not self.packages
+        return self.scistudio is None and not self.agent and not self.packages and not self.tutorials
 
 
 @dataclass(frozen=True)
@@ -671,6 +675,7 @@ def _parse_requires(raw: Any) -> TutorialRequirements:
         scistudio=None if scistudio is None else str(scistudio),
         agent=bool(raw.get("agent", False)),
         packages=packages,
+        tutorials=tuple(str(item) for item in raw.get("tutorials", ())),
     )
 
 
