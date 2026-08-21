@@ -586,6 +586,12 @@ A prefill MUST be a default and not a decision: what it seeds stays editable,
 and a reader who supplies something else MUST NOT be blocked, because the step's
 `done_when` judges the world rather than the dialog.
 
+The current members are `new_custom_block` and `new_data_type`, each seeding
+its dialog's filename stem; `new_plot`, seeding the new-plot dialog's name; and
+`block_config`, the one settings-field target the next paragraph constrains.
+`new_data_type` joined as the type-side twin of `new_custom_block` (#2061),
+because the type-authoring levels name the file they are about to discuss.
+
 A target that seeds a block's settings rather than a dialog MUST fill only a
 field the reader has left empty, and MUST NOT overwrite a value they supplied.
 A step using one MUST judge something the reader did rather than the field it
@@ -1237,7 +1243,13 @@ node, it names the haystack. Each target that addresses an entity therefore
 declares a required argument (`block_type` for a palette entry or a canvas node,
 `plot_id` for a plot card), a manifest naming such a target without its argument
 MUST be rejected at validation, and the frontend MUST annotate every candidate
-element with both the target name and that argument's value.
+element with both the target name and that argument's value. The singleton
+targets — the Run, New, new-plot, History-restore, and Bring-in-my-work
+controls, of which exactly one exists on screen — take no argument, their name
+being the whole address; `bring_in_my_work_button` joined for the work-import
+level's closing step (#2061). `route_to`'s closed set likewise grew
+`data_types`, the left panel's Data types tab, named the way the product names
+it to the user.
 
 **FR-089c.** A step that declares no `highlight`, and a step whose target is not
 on screen, MUST dock the step surface in the bottom-right corner and MUST NOT

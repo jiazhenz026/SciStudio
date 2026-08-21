@@ -168,13 +168,15 @@ ROUTE_TARGETS: frozenset[str] = frozenset(
         "git",
         "canvas",
         "block_palette",
+        "data_types",
     }
 )
 """The closed set of destinations a step's ``route_to`` may name (FR-011).
 
-The first seven mirror the product's real bottom-panel tabs; ``canvas`` and
-``block_palette`` are the two surfaces outside that strip a step can send a
-user to.
+The first seven mirror the product's real bottom-panel tabs; ``canvas``,
+``block_palette``, and ``data_types`` are the surfaces outside that strip a
+step can send a user to — the latter two are the left panel's Blocks and Data
+types tabs (``data_types`` joined for the type-authoring levels, #2061).
 
 **Manifests name the tab the way the product names it to the user, not the way
 the code spells it.** Two of the seven differ from their internal keys: the
@@ -215,6 +217,7 @@ HIGHLIGHT_SPECS: tuple[HighlightSpec, ...] = (
     HighlightSpec(name="run_button", points_at="the toolbar's Run button"),
     HighlightSpec(name="new_menu_button", points_at="the toolbar's New menu"),
     HighlightSpec(name="plots_new_button", points_at="the Plots tab's new-plot button"),
+    HighlightSpec(name="bring_in_my_work_button", points_at="the toolbar's Bring in my work entry"),
     HighlightSpec(name="history_restore_button", points_at="the Restore button on a run in History"),
     # Entities. These take an argument because the element they address is one
     # of many of its kind, and which one is the whole content of the guidance.
@@ -258,6 +261,11 @@ PREFILL_SPECS: tuple[PrefillSpec, ...] = (
     PrefillSpec(
         name="new_custom_block",
         seeds="the New custom block dialog",
+        required=("filename",),
+    ),
+    PrefillSpec(
+        name="new_data_type",
+        seeds="the New data type dialog",
         required=("filename",),
     ),
     PrefillSpec(

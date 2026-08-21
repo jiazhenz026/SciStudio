@@ -195,6 +195,7 @@ def test_the_route_target_set_is_the_declared_one() -> None:
         "git",
         "canvas",
         "block_palette",
+        "data_types",
     }
 
 
@@ -214,6 +215,7 @@ def test_the_highlight_target_set_is_the_declared_one() -> None:
         "new_menu_button",
         "plots_new_button",
         "history_restore_button",
+        "bring_in_my_work_button",
         "data_preview",
         "config_panel",
         "palette_block",
@@ -330,7 +332,7 @@ def test_the_prefill_target_set_is_the_declared_one() -> None:
     A prefill only does anything once the frontend seeds the dialog it names,
     so a target with no consumer is a manifest line that silently does nothing.
     """
-    assert set(PREFILL_TARGETS) == {"new_custom_block", "new_plot", "block_config"}
+    assert set(PREFILL_TARGETS) == {"new_custom_block", "new_data_type", "new_plot", "block_config"}
 
 
 @pytest.mark.parametrize("spec", PREFILL_SPECS, ids=lambda spec: spec.name)

@@ -499,6 +499,12 @@
       "at": "2026-08-21T20:48:08.940624Z",
       "pattern": "frontend/src/store/types.ts",
       "reason": "PlotsTab's colocated test asserts the emitter payload this task changes; store/types.ts carries the store action signature the slice implements"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-21T21:45:08.426843Z",
+      "pattern": "frontend/src/components/Toolbar.tsx",
+      "reason": "the Bring-in-my-work toolbar button lives in Toolbar.tsx, one level above the dispatched Toolbar.parts glob; the data-tutorial-target attribute the dispatch names goes on that button"
     }
   ],
   "session_id": "c827139c-78b0-45aa-a317-0651445fb334",

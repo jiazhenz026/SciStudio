@@ -231,6 +231,15 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
     },
   },
 
+  bring_in_my_work_button: {
+    args: {},
+    render: () => {
+      // The permanent toolbar entry (#2061): the work-import level ends by
+      // pointing at the control the reader will use with their own data.
+      render(<Toolbar {...toolbarProps()} />);
+    },
+  },
+
   history_restore_button: {
     args: {},
     render: () => {
@@ -447,5 +456,17 @@ describe("the highlight guides without confining", () => {
     render(<TargetHighlight rect={null} />);
 
     expect(screen.queryByTestId("tutorial-highlight")).not.toBeInTheDocument();
+  });
+});
+
+describe("the data_types route target (#2061)", () => {
+  it("routes to the left panel's Data types tab, not a bottom tab", () => {
+    const openBottomTab = vi.fn();
+    const setLeftTab = vi.fn();
+
+    applyStepRoute("data_types", { openBottomTab, setLeftTab });
+
+    expect(openBottomTab).not.toHaveBeenCalled();
+    expect(setLeftTab).toHaveBeenCalledWith("types");
   });
 });
