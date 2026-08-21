@@ -177,6 +177,30 @@
       "path": "docs/planning/learning-center-levels-checklist.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T22:07:43.494733Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T22:07:43.494749Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/learning-center-levels-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T22:07:43.494752Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-learning-center.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
