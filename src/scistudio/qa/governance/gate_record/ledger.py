@@ -155,6 +155,14 @@ class CheckEvent(BaseModel):
     command: str
     tool_versions: Mapping[str, str] = Field(default_factory=dict)
     covered_surface: str
+    # Which command variant produced this event. ``repo`` is the CI-mirror
+    # command over the whole repository; ``diff`` is the local variant narrowed
+    # to the observed diff. A ``diff`` event is a fast local signal, not proof of
+    # the full surface, so ``ci`` mode never accepts one in place of a CI-mirror
+    # obligation (spec gate-local-incremental-checks, FR-001 and FR-008).
+    # Defaults to ``repo`` so ledgers written before this field existed keep
+    # their original meaning.
+    scope: Literal["repo", "diff"] = "repo"
     input_fingerprint: str | None = None
     exit_code: int | None = None
     status: Literal["pass", "fail", "skipped", "unknown"] = "unknown"

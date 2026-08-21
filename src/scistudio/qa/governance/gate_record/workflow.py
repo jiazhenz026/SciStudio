@@ -464,6 +464,16 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
     lines = [
         f"mode={effective_mode} tier={result.strictness_tier} checks={result.required_obligations.checks}",
     ]
+    # State which checks proved only the observed diff and which proved the whole
+    # repository, so the difference is visible rather than implicit (spec
+    # gate-local-incremental-checks FR-009). ci.yml proves the full surface on
+    # the PR regardless.
+    diff_scoped = sorted({e.name for e in result.check_events if e.scope == "diff"})
+    if diff_scoped:
+        lines.append(
+            f"diff-scoped (CI proves the full surface): {', '.join(diff_scoped)}"
+            "  |  --force-checks runs the repository-wide mirror locally"
+        )
     # Loud non-blocking warnings (e.g. --check-na with no force for ci.yml-owned
     # checks, §7.5/Fix B).
     if result.warnings:

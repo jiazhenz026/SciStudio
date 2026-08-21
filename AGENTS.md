@@ -155,7 +155,7 @@ plugin-based extension, manual review steps, and AI-assisted orchestration.
 
 - The primary workflow commands are `init`, `plan`, `amend`, `check`, and
   `finalize`. `check` observes the git diff, infers tier-selected
-  CI-equivalent checks, runs them, records sanitized ledger events, and
+  checks, runs them narrowed to that diff, records sanitized ledger events, and
   reports unsatisfied obligations. `finalize` has a pre-PR mode (before the
   PR exists) and a post-PR mode (after the PR URL or number is known).
 

@@ -57,7 +57,7 @@ language_source: en
 
 - MUST run the targeted test that proves the bug is fixed.
 
-- MUST run `gate_record check` to run the tier-selected CI-equivalent checks
+- MUST run `gate_record check` to run the tier-selected checks
   required for the observed diff. Do not run ruff, mypy, pytest, or full audit
   separately; `check` derives and runs the full set.
 

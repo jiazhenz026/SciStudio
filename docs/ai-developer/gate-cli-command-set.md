@@ -331,7 +331,7 @@ required now versus recorded as a pre-PR gap.
 
 | Mode | Caller | What it validates |
 |---|---|---|
-| `local` | Manual `gate_record check` (default) | Full local CI-equivalent preflight at the selected tier. PR-state facts (issue, label provenance) are recorded as pre-PR gaps, not hard failures |
+| `local` | Manual `gate_record check` (default) | Full preflight at the selected tier, with each check narrowed to the observed diff. PR-state facts (issue, label provenance) are recorded as pre-PR gaps, not hard failures |
 | `pre-commit` | Pre-commit hook | Fast structural reconciliation on the **staged** diff |
 | `commit-msg` | Commit-msg hook | Validate required commit trailers; does not run checks |
 | `pre-push` | Manual compatibility mode | Pre-push reconciliation remains available on demand. The installed pre-push hook is a fast allow shim, so WIP pushes are not blocked; PR-readiness obligations belong to `pre-pr` / `ci` |
@@ -344,8 +344,9 @@ guards, weakened-CI, Sentrux, etc.). It does **not** re-require ledger check
 events for the `ci.yml` quality matrix (lint/format, type check, architecture
 tests, full audit, python tests, import contracts, frontend, wheel release
 smoke, semantic-dup). Those run as **separate authoritative `ci.yml` jobs** on
-the same PR. `local` and `pre-pr` modes still run the full CI-equivalent
-preflight selection, so the local pass predicts the `ci.yml` matrix result.
+the same PR. `local` and `pre-pr` modes still run the full preflight selection,
+narrowed to the observed diff, so a local pass is a fast signal on the changed
+files while `ci.yml` proves the full surface (ADR-042 Addendum 7).
 
 In `ci` mode, documentation that **landed** and tests that **changed** are taken
 directly from the observed git diff, so a docs/test obligation can be satisfied
@@ -376,7 +377,7 @@ Baseline tier by task kind:
 
 | Tier | Baseline task kinds | Meaning |
 |---|---|---|
-| Tier 1 (Strict) | `feature`, `refactor` | Plan before implementation. Scope, issue, expected tests, docs impact, and expected checks declared early. `check` must prove the full local mirror of merge-blocking CI command surfaces; current evidence is reused and missing/stale checks run |
+| Tier 1 (Strict) | `feature`, `refactor` | Plan before implementation. Scope, issue, expected tests, docs impact, and expected checks declared early. `check` must select the full merge-blocking CI check set; current evidence is reused and missing/stale checks run, narrowed locally to the diff |
 | Tier 2 (Standard) | `bugfix`, `hotfix`, `maintenance`, `guided` (default) | May discover details during debugging. `hotfix` / `guided` may delay full gate completion during the live session, but everything must reconcile before PR readiness |
 | Tier 3 (Lightweight) | `docs`, `manager` | May start with a sparse plan. `check` runs only mandatory checks for the observed diff |
 
@@ -402,7 +403,7 @@ Per-concern tier behavior:
 | `init` | Issue (when known), branch, owner directive, persona, task kind, and initial scope | Branch, owner directive, persona, task kind; issue/scope may be completed later | Branch, owner directive, persona, task kind; issue/scope may be completed later |
 | `plan` | Required before implementation; declare expected docs/tests/checks or N/A | Required before final check; may be partial during debugging | Optional unless the evaluator needs early docs/tests/scope guidance |
 | `amend` | Allowed; every scope/obligation correction needs a `--reason` | Normal way to add discovered scope/tests/docs/issues | Normal way to record live directives and late fields |
-| `check` | Full merge-blocking CI mirror evidence; default incremental execution; `--force-checks` reruns all selected checks | Governance/lint/audit baseline plus all changed-surface CI checks | Mandatory checks for the observed diff only; sparse planning does not reduce mandatory checks |
+| `check` | Full merge-blocking CI check set selected; run diff-scoped locally; default incremental execution; `--force-checks` reruns all selected checks at repository scope | Governance/lint/audit baseline plus all changed-surface CI checks | Mandatory checks for the observed diff only; sparse planning does not reduce mandatory checks |
 | `finalize` | Fails if any plan/test/docs/check/issue field is missing | Fails if observed diff lacks issue/test/docs/check reconciliation | Fails if observed diff lacks issue/test/docs/check reconciliation |
 | Admin label | Required for protected core, gate bypass, or merge automation | Same | Same |
 

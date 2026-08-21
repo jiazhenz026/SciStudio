@@ -160,7 +160,8 @@ Supported `--mode` values for `check`: `local` (default), `pre-push`,
 `pre-pr`, `ci`. `pre-push` remains available as a manual compatibility mode,
 but the installed pre-push hook is a fast allow shim; `pre-pr` and `ci` are the
 hard governance checkpoints. The `check` command automatically observes the git
-diff, infers the tier-selected CI-equivalent check set, runs required commands,
+diff, infers the tier-selected check set, runs the required commands narrowed
+to that diff (`--force-checks` runs the repository-wide mirror),
 records sanitized ledger events, runs guard reconciliation, and exits nonzero
 when required obligations remain unsatisfied.
 

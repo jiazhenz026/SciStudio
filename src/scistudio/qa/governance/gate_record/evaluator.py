@@ -596,8 +596,20 @@ def _check_input_paths(name: str, changed_files: Sequence[str]) -> list[str]:
     spec = checks.CHECK_CATALOG.get(name)
     if spec is None:
         return normalized
-    if name in {"full_audit", "deferral_discipline"}:
-        return normalized
+    if name == "full_audit":
+        # The audit reads docs, source, and its own config. The frontend and
+        # desktop trees carry no frontmatter, governed symbols, or generated
+        # facts it consumes, so a change confined to them cannot alter its
+        # verdict (spec gate-local-incremental-checks FR-007).
+        return [p for p in normalized if not p.startswith(("frontend/", "desktop/"))]
+    if name == "deferral_discipline":
+        # ``scripts/deferral_scan.py`` rglobs ``*.py`` and reads its baseline;
+        # nothing else can move the ratchet (spec FR-007).
+        return [
+            p
+            for p in normalized
+            if p.endswith(".py") or p.startswith("docs/audit/baselines/deferral") or _is_global_check_config_path(p)
+        ]
     if name == "semantic_dup":
         return [
             p
@@ -606,7 +618,23 @@ def _check_input_paths(name: str, changed_files: Sequence[str]) -> list[str]:
             or p.startswith("docs/audit/baselines/semantic-dup")
             or _is_global_check_config_path(p)
         ]
-    if spec.covered_surface == "python":
+    if spec.covered_surface == "python_types":
+        # mypy reads the package it is pointed at, plus its own config.
+        return [
+            p
+            for p in normalized
+            if (p.startswith("src/") and p.endswith((".py", ".pyi")))
+            or p in {"mypy.ini", "pyrightconfig.json"}
+            or _is_global_check_config_path(p)
+        ]
+    if spec.covered_surface == "python_imports":
+        # import-linter reads the source tree and its contract config.
+        return [
+            p
+            for p in normalized
+            if (p.startswith("src/") and p.endswith((".py", ".pyi"))) or _is_global_check_config_path(p)
+        ]
+    if spec.covered_surface.startswith("python"):
         return [p for p in normalized if _is_python_check_input(p)]
     if spec.covered_surface == "frontend":
         return [p for p in normalized if _is_frontend_check_input(p)]
@@ -656,11 +684,20 @@ def _valid_prior_check_event(
     *,
     name: str,
     input_fingerprint: str | None,
+    require_repo_scope: bool = False,
 ) -> CheckEvent | None:
-    """Return the newest passing event for ``name`` that still covers this diff."""
+    """Return the newest passing event for ``name`` that still covers this diff.
+
+    ``require_repo_scope`` rejects diff-scoped evidence, so a fast local run can
+    never stand in for a CI-mirror obligation (spec FR-008).
+    """
 
     for event in reversed(ledger.check_events):
-        if event.name == name and checks.event_is_valid_for(event, input_fingerprint=input_fingerprint):
+        if event.name == name and checks.event_is_valid_for(
+            event,
+            input_fingerprint=input_fingerprint,
+            require_repo_scope=require_repo_scope,
+        ):
             return event
     return None
 
@@ -673,6 +710,7 @@ def _validate_prior_check_events(
     only: Sequence[str] | None,
     pr_readiness_mode: bool,
     input_fingerprints: Mapping[str, str | None],
+    require_repo_scope: bool = False,
 ) -> tuple[list[CheckEvent], list[str], list[str]]:
     """Validate reusable check evidence for the current candidate."""
 
@@ -683,7 +721,12 @@ def _validate_prior_check_events(
     if only is not None:
         to_validate = [name for name in to_validate if name in set(only)]
     for name in to_validate:
-        prior = _valid_prior_check_event(ledger, name=name, input_fingerprint=input_fingerprints.get(name))
+        prior = _valid_prior_check_event(
+            ledger,
+            name=name,
+            input_fingerprint=input_fingerprints.get(name),
+            require_repo_scope=require_repo_scope,
+        )
         if prior is not None:
             validated.append(prior)
             continue
@@ -927,6 +970,12 @@ def reconcile(
                 # Non-PR-readiness local modes still surface provisioning failures so
                 # the agent sees them, but do not hard-fail a WIP invocation.
                 parity_gaps.extend(parity_report.gaps)
+        # Local modes run each check narrowed to the observed diff; ``ci`` mode
+        # and an explicit ``--force-checks`` run the repository-scoped CI mirror.
+        # ci.yml remains authoritative for the full surface on the same PR, which
+        # is the role split ``_CI_OWNED_QUALITY_CHECKS`` already encodes for the
+        # ci side (spec gate-local-incremental-checks FR-002).
+        execution_scope: Literal["repo", "diff"] = "repo" if (mode == "ci" or force_checks) else "diff"
         for name in to_run:
             event = checks.run_check(
                 repo_root,
@@ -934,6 +983,7 @@ def reconcile(
                 changed_files=observed_files,
                 diff_fingerprint=fingerprint,
                 input_fingerprint=input_fps.get(name),
+                scope=execution_scope,
             )
             check_events.append(event)
             ledger.check_events.append(event)
@@ -1001,6 +1051,9 @@ def reconcile(
             only=only,
             pr_readiness_mode=pr_readiness_mode,
             input_fingerprints=input_fps,
+            # Diff-scoped evidence proves the changed files, not the surface, so
+            # it never satisfies a CI-mirror obligation (spec FR-008).
+            require_repo_scope=mode == "ci",
         )
         check_events.extend(validated)
         unsatisfied.extend(evidence_gaps)
