@@ -406,3 +406,217 @@ Stop and report if the contract above cannot express something the scenarios
 doc requires; if you need a runtime or spec change; if P1's landed contract
 differs from the one described here.
 ```
+
+---
+
+## §P2 — Scoped-library previewer tier (#2086) — dispatch AFTER P1 merges
+
+```markdown
+[DISPATCH-TEMPLATE-V1: implementer]
+
+## Task Identity
+
+- Repository: SciStudio
+- Owner request: Give the tutorial-scoped library a previewer tier so tutorial
+  3 can reuse tutorial 2's previewer.
+- Task kind: feature
+- Persona: implementer
+- Issue: #2086 (your PR closes it)
+- Umbrella PR: #2087 [DO NOT MERGE]
+- Umbrella branch: track/learning-center-levels
+- Agent branch: feat/2086-tutorial-library-previewer-tier
+- Agent worktree: C:/Users/jiazh/workspace/SciStudio-wt-lcP2
+- Gate record: gate_record init (--task-kind feature --persona implementer
+  --branch feat/2086-tutorial-library-previewer-tier --issue 2086)
+- Checklist row: P2
+
+## Scope
+
+You own only:
+- src/scistudio/tutorials/projects.py (scoped_library_dirs),
+  src/scistudio/tutorials/conditions.py (UNSATISFIABLE_LIBRARY_KINDS),
+  src/scistudio/core/dropins.py (previewer_scan_dirs root swap),
+  src/scistudio/api/routes/tutorials.py (settle hook + the TODO(#2057)
+  consumer at ~:628), src/scistudio/api/routes/user_library.py (previewers
+  target), src/scistudio/previewers/** as far as the scan requires
+- docs/specs/adr-053-learning-center.md FR-070 revision (+ retire the stale
+  A-006/A-008 notes — the user previewer tier exists)
+- Frontend: UserLibraryTarget type + the minimal promotion entry point for a
+  project previewer (editor-toolbar surface of PromoteToLibraryAction)
+- tests: registry parity/symmetry extensions, library_contains previewer
+  condition test, settle test; CHANGELOG.md
+
+## Work To Do
+
+1. scoped_library_dirs() grows previewers/ (projects.py:287-302); eager
+   creation alongside blocks/ and types/.
+2. previewer_scan_dirs applies library_root_for_project so tutorial projects
+   scan the scoped library's previewers/ as their user-tier root
+   (dropins.py:434-441; the root swap preserves precedence
+   project > library-as-user > package > core for free — assert it in a test).
+3. Remove previewer from UNSATISFIABLE_LIBRARY_KINDS (conditions.py:278-298)
+   and the consumer rejection (routes/tutorials.py:628-631);
+   library_contains {kind: previewer} becomes judgeable, with tests.
+4. Settle hook: _SCANNED_PROJECT_DIRS gains previewers/ so a tutorial-written
+   previewers/*.py registers live (routes/tutorials.py:854-944) — tutorial 2
+   depends on this.
+5. Promotion: backend user_library route accepts a previewers target routed
+   to the correct (scoped or real) library root; frontend UserLibraryTarget
+   += 'previewers' with the minimal honest entry point (editor toolbar when
+   the open file is a project previewer). If the UI half turns out
+   disproportionate, stop and report — the manager will re-scope.
+6. Spec: FR-070 names the previewers/ subdir; fix the stale addenda notes.
+
+## Checks
+
+Same gate flow as every agent: check --mode pre-pr --base
+track/learning-center-levels, pre-PR finalize --closes "#2086", wrapper PR
+with --base track/learning-center-levels, post-PR finalize. Stacked-branch
+hook note: set SCISTUDIO_GATE_BASE=origin/track/learning-center-levels if the
+commit hooks diff against main. AI trailers on every commit.
+```
+
+---
+
+## §L4 — Core tutorial 4: fake AI replay + import unlock (#2083) — dispatch AFTER P1 merges
+
+```markdown
+[DISPATCH-TEMPLATE-V1: implementer]
+
+## Task Identity
+
+- Repository: SciStudio
+- Owner request: Author core tutorial 4 — the declared-fake AI session as a
+  scripted replay with real side effects, ending in the provider intro and
+  the work-import unlock.
+- Task kind: feature
+- Persona: implementer
+- Issue: #2083 (your PR closes it)
+- Umbrella PR: #2087 [DO NOT MERGE]
+- Umbrella branch: track/learning-center-levels
+- Agent branch: feat/2083-core-tutorial-4
+- Agent worktree: C:/Users/jiazh/workspace/SciStudio-wt-lcL4
+- Gate record: gate_record init (--task-kind feature --persona implementer
+  --branch feat/2083-core-tutorial-4 --issue 2083)
+- Checklist row: L4
+
+## Scope
+
+You own only:
+- src/scistudio/tutorials/core/<your-t4-id>/** (manifest + assets:
+  replay/ transcript segments, code/ pre-written blocks incl. the broken and
+  fixed QC-filter variants and the tutorial-only AIBlock subclass, data/
+  measurement tables, workflows/ if you seed graph states)
+- src/scistudio/tutorials/progress.py DEFAULT_WORK_IMPORT_MILESTONE (set to
+  your tutorial id) + its tests
+- Frontend: replay-tab adoption (consume session.replay {surface, tab_id};
+  adopt the prespawned PTY tab the way addWorkImportTerminalTab does; tear
+  down on session end — lib/api/learningCenter.ts types exist unconsumed) and
+  the provider-intro face of the unlock flow (extend the existing
+  WorkImportOffer chain: when the offer fires, show the provider introduction
+  first — Claude Code / Codex / Kimi Code / Qoder / Qoder CN, what each is,
+  how to configure — then the import question; skip keeps naming the
+  permanent toolbar entry). No new step primitives.
+- tests/tutorials + frontend vitest for the surfaces above; CHANGELOG.md
+
+Do not touch: other tutorials, work-import internals, the tutorials runtime
+(P1's landed contract is fixed — read the revised spec FIRST for the exact
+trigger/replay-continuation field names).
+
+## Design contract (from the scenarios doc, owner-decided)
+
+- Beats in order: warm-up Q&A (what is SciStudio) → list_blocks ("the AI
+  knows everything in your palette") → the AI writes a QC outlier-filter
+  block → assembles load→QC→summary→save → the scripted MISTAKE (wrong column
+  name, visible KeyError in logs) → it reads logs and fixes itself → inspects
+  the filtered data → tunes 3-sigma→2-sigma with scientific meaning
+  (retained-sample count changes) → before/after distribution plot → AIBlock
+  infers metadata for undocumented CSVs. Fakeness is DECLARED to the reader
+  up front.
+- Conversation pacing: each reader click plays the next reply into the SAME
+  terminal tab (P1's trigger + replay continue_tab); every reply segment's
+  file writes land before its bytes (FR-061b).
+- Judged steps wherever the vocabulary allows: run_failed then run_succeeded
+  with since_step_entry for the break/fix beats; config_equals for the
+  threshold change; the backend plot_rendered term for the plot beat;
+  node/edge conditions for the assembled graph.
+- The AIBlock subclass inherits AIBlock (category/colour must be inherited,
+  never faked — _spec.py:270-275), overrides run with canned results, ships
+  into project blocks/, is named clearly tutorial-only.
+- Milestone: completing THIS tutorial triggers the one-time work-import offer
+  (progress.py mechanism exists; default currently None).
+- Task data is tabular and simple enough to eyeball; the reader must be able
+  to SEE the agent was right or wrong — that is the level's attitude lesson.
+
+## Checks
+
+Standard gate flow (base track/learning-center-levels; --closes "#2083";
+wrapper PR; post-PR finalize; SCISTUDIO_GATE_BASE hint; AI trailers).
+Live-verify the replay tab end-to-end with backend + Vite --host 127.0.0.1
+before reporting done.
+```
+
+---
+
+## §L6 — Core tutorial 6: start your own project (#2085) — dispatch AFTER P1 merges
+
+```markdown
+[DISPATCH-TEMPLATE-V1: implementer]
+
+## Task Identity
+
+- Repository: SciStudio
+- Owner request: Author core tutorial 6 — bringing your own data into a
+  project and understanding the project's structure.
+- Task kind: feature
+- Persona: implementer
+- Issue: #2085 (your PR closes it)
+- Umbrella PR: #2087 [DO NOT MERGE]
+- Umbrella branch: track/learning-center-levels
+- Agent branch: feat/2085-core-tutorial-6
+- Agent worktree: C:/Users/jiazh/workspace/SciStudio-wt-lcL6
+- Gate record: gate_record init (--task-kind feature --persona implementer
+  --branch feat/2085-core-tutorial-6 --issue 2085)
+- Checklist row: L6
+
+## Scope
+
+You own only src/scistudio/tutorials/core/<your-t6-id>/** (manifest +
+assets), its tests, and CHANGELOG.md. No runtime, no spec, no other
+tutorials, no frontend (stop and report if a step needs a missing
+highlight/route target).
+
+## Design contract (scenarios doc level 6, owner-decided)
+
+- The tutorial supplies a pretend-"your own" folder INSIDE the tutorial
+  project (bootstrap copies assets/data into e.g. <project>/incoming-example/;
+  a session goes dormant if the reader switches projects, so nothing may ask
+  them to leave).
+- The reader clicks through a real import (files land in data/raw — use
+  P1's trigger actions for "do it with me" pacing), loads, runs, saves to
+  data/processed, and exports a plot figure.
+- Answers six questions: where data goes in; where results land; where the
+  project's types/blocks/previewers live; how AppBlock/CodeBlock exchange
+  data (data/exchange/ — external software sees plain files); how a plot
+  card exports a figure (and that export is the ONLY way a figure survives —
+  plots live in the preview cache and are overwritten); how data is saved.
+- Teaching frame: FOUR BUCKETS, not a directory tour — data/raw (yours, in),
+  data/processed (yours, out; teach as the convention), zarr/parquet/
+  artifacts (system's, ignore), data/exchange (hand-off). Plus: project.yaml
+  is the project's identity (a folder without it is refused); data/ and
+  .scistudio/ stay out of version control; blocks/ hot-reloads on save.
+- VERIFY the data/processed scaffold state in api/runtime/_projects.py
+  before writing copy; if create_project does not provision it, your
+  bootstrap/trigger creates it inside the tutorial project and the copy still
+  teaches it as the convention — do NOT change create_project (owner-reserved
+  decision; note it in your PR body).
+- Judged steps wherever the vocabulary allows (file_exists, node/edge,
+  config_matches on paths, run_succeeded since_step_entry). The plot-export
+  beat has no vocabulary today — make it an honest continue step; if that
+  guts the level, stop and report instead of inventing runtime.
+
+## Checks
+
+Standard gate flow (base track/learning-center-levels; --closes "#2085";
+wrapper PR; post-PR finalize; SCISTUDIO_GATE_BASE hint; AI trailers).
+```
