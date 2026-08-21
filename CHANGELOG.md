@@ -27,6 +27,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   asset directory whose writes reach the open canvas before a step's text is
   readable, and the guidance vocabularies gained the Data types tab, a
   New-data-type prefill, and the Bring-in-my-work toolbar highlight.
+- [#2084] **Core tutorial 5 — *SciStudio at a Glance*, and the reading window
+  it runs in.** The fifth core tutorial is the summary level: one window, one
+  top sentence, and eight cards — workflow, block, data type, previewer, plot
+  card, history, my library, others — each opening a short paged read. It
+  introduces nothing new by design: it names and organises what the first four
+  levels already had you do, which is why reading it is completing it (the one
+  exception, `CompositeData`, is presented honestly as the one core type you
+  have not used). No project is created; every claim in the cards is checked
+  against the product's actual behaviour.
+  Reading tutorials now have their own surface: while one runs, the Learning
+  Center shows a **window of cards instead of the floating step card** — the
+  tutorial's summary on top, one card per step in step order, read cards
+  marked and reopenable. Opening a page *is* the progress report (the backend
+  records the page on serve and re-judges the step), and the tutorial
+  completes through the same explicit Continue as every other tutorial. The
+  window is built for any reading tutorial, not this one.
 
 - [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
   that are real, runnable projects, reached from a permanent toolbar entry and
