@@ -962,6 +962,124 @@ def test_entering_a_step_anchors_since_step_entry_and_the_anchor_survives_restar
     assert view.step is not None and view.step.satisfied is True
 
 
+def _triggered_tutorial(core_dir: Path, *, source: str = "assets/data/block.txt") -> None:
+    write_tutorial(
+        core_dir / "press-play",
+        {
+            "manifest_version": 1,
+            "id": "press-play",
+            "title": "Press Play",
+            "summary": "A step with a trigger.",
+            "bootstrap": {"project_name": "Press Play"},
+            "steps": [
+                {
+                    "id": "watch",
+                    "say": "Press Play to receive the file.",
+                    "trigger": {
+                        "label": "Play",
+                        "do": [{"write": {"source": source, "destination": "data/received.txt"}}],
+                    },
+                    "done_when": {"file_exists": {"path": "data/received.txt"}},
+                },
+                {"id": "done", "say": "Done."},
+            ],
+        },
+        files={"assets/data/block.txt": "payload"},
+    )
+
+
+def test_a_trigger_runs_its_actions_and_rejudges_the_step(
+    home: Path,
+    core_dir: Path,
+    environment: DiscoveryEnvironment,
+    packages: list[Any],
+    product: StubProductState,
+    provisioner: _Provisioner,
+) -> None:
+    """#2061: press → actions land → settle → the re-judged session comes back."""
+    settled: list[tuple[Path, ...]] = []
+
+    _triggered_tutorial(core_dir)
+    runtime = TutorialRuntime(
+        product_state=lambda: product,
+        external_events=ExternalEventNames(blocks_reloaded="blocks.reloaded", file_changed="file.changed"),
+        project_dir=lambda: product.project_dir,
+        provisioner=provisioner,
+        environment=environment,
+        progress=ProgressStore(home / ".scistudio"),
+        sessions=SessionStore(home / ".scistudio"),
+        files_written=lambda written: settled.append(tuple(written)),
+    )
+    started = runtime.start(TutorialKey.core("press-play"))
+    assert started.step is not None and started.step.id == "watch"
+    assert started.step.trigger == {"label": "Play"}
+    assert started.step.satisfied is False
+    project = started.project_path
+    assert project is not None
+    product.project_dir = project
+
+    view = runtime.trigger_active()
+
+    assert (project / "data" / "received.txt").read_text(encoding="utf-8") == "payload"
+    # The settle hook saw the trigger's writes (FR-059a at the trigger's moment).
+    assert any(any(path.name == "received.txt" for path in batch) for batch in settled)
+    assert view.step is not None and view.step.id == "watch"
+    assert view.step.satisfied is True
+    assert view.status is SessionStatus.ACTIVE
+
+
+def test_a_failed_trigger_is_retryable_and_never_ends_the_session(
+    home: Path,
+    core_dir: Path,
+    environment: DiscoveryEnvironment,
+    packages: list[Any],
+    product: StubProductState,
+    provisioner: _Provisioner,
+) -> None:
+    """FR-060's trigger revision (#2061): surfaced on the step, session intact."""
+    from scistudio.tutorials.session import TriggerFailedError
+
+    # The manifest names an asset that is not on disk, so the trigger's write
+    # fails at execution while validation (which is lexical) accepted it.
+    _triggered_tutorial(core_dir, source="assets/data/missing.txt")
+    runtime = _runtime(home, product, provisioner, environment)
+    started = runtime.start(TutorialKey.core("press-play"))
+    assert started.project_path is not None
+    product.project_dir = started.project_path
+
+    with pytest.raises(TriggerFailedError) as excinfo:
+        runtime.trigger_active()
+    assert "watch" in str(excinfo.value.step_id)
+
+    # The session is exactly where it was: active, same step, retryable.
+    view = runtime.active_session()
+    assert view is not None
+    assert view.status is SessionStatus.ACTIVE
+    assert view.step is not None and view.step.id == "watch"
+    with pytest.raises(TriggerFailedError):
+        runtime.trigger_active()
+
+
+def test_triggering_a_step_without_a_trigger_is_refused(
+    home: Path,
+    core_dir: Path,
+    environment: DiscoveryEnvironment,
+    packages: list[Any],
+    product: StubProductState,
+    provisioner: _Provisioner,
+) -> None:
+    from scistudio.tutorials.session import TriggerFailedError, TutorialSessionError
+
+    _tutorial(core_dir, "plain")
+    runtime = _runtime(home, product, provisioner, environment)
+    runtime.start(TutorialKey.core("plain"))
+
+    with pytest.raises(TutorialSessionError) as excinfo:
+        runtime.trigger_active()
+    assert "declares no trigger" in str(excinfo.value)
+    assert not isinstance(excinfo.value, TriggerFailedError)
+
+
 def test_the_default_provisioner_refuses_rather_than_making_an_unregistered_project(
     home: Path, core_dir: Path, environment: DiscoveryEnvironment, packages: list[Any], product: StubProductState
 ) -> None:

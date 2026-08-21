@@ -136,6 +136,7 @@ __all__ = [
     "SessionStatus",
     "SessionStore",
     "SessionView",
+    "TriggerFailedError",
     "TutorialRuntime",
     "TutorialSessionError",
     "TutorialUnavailableError",
@@ -182,6 +183,22 @@ class AnotherSessionActiveError(TutorialSessionError):
         super().__init__(
             f"'{title}' is already running; one tutorial runs at a time, so leave it before starting another"
         )
+
+
+class TriggerFailedError(TutorialSessionError):
+    """A step's trigger failed while running its actions (#2061, FR-060).
+
+    Deliberately *not* the session-ending path an entry action failure takes.
+    An entry failure leaves a step whose premise never landed, so the session
+    cannot honestly continue; a trigger failure leaves the step exactly as it
+    was before the press — nothing was revealed on the strength of the actions
+    — so the honest state is "still here, try again". The error carries the
+    step and the action the way FR-060 requires, and the session stays active.
+    """
+
+    def __init__(self, step_id: str, reason: str) -> None:
+        self.step_id = step_id
+        super().__init__(reason)
 
 
 class TutorialUnavailableError(TutorialSessionError):
@@ -766,6 +783,60 @@ class TutorialRuntime:
         if self._record_ui_event is not None:
             self._record_ui_event(name, target)
         return self.evaluate_active()
+
+    def trigger_active(self) -> SessionView:
+        """Run the current step's trigger and re-judge the step (#2061).
+
+        The trigger is the step's user-pressed action: its ``do`` list runs
+        through the same machinery as step entry —
+        :func:`~scistudio.tutorials.actions.perform_step_entry`, including the
+        registry settle hook — so the writes have landed and the product has
+        taken them in before this returns (FR-056, FR-059, FR-059a). The
+        response is the re-judged session, because the actions may have made
+        the step's own condition true.
+
+        Raises:
+            TutorialSessionError: The session is not on a step that declares a
+                trigger, or is dormant under another project.
+            TriggerFailedError: An action failed. The session is left exactly
+                as it was — active, on the same step — so the press can be
+                retried (FR-060's revision for triggers).
+        """
+        state, record, driver, tutorial_dir = self._resolved()
+        if record.status is not SessionStatus.ACTIVE or record.step_id is None:
+            raise NoActiveSessionError("no tutorial step is active to trigger")
+        if not self._is_live(record):
+            raise TutorialSessionError(
+                f"'{record.title}' is not running in the open project, so its step cannot be triggered"
+            )
+        context = self._context(record, tutorial_dir, record.step_id)
+        try:
+            view = driver.step_view(context)
+            actions = driver.trigger_actions(context)
+        except DriverError as exc:
+            # A driver that cannot answer is FR-044's case, not FR-060's: the
+            # session ends naming the tutorial and the exception.
+            return self._view(self._fail(state, record, self._driver_failure(record, exc)))
+        if view.trigger is None:
+            raise TutorialSessionError(f"step {record.step_id!r} declares no trigger")
+        action_context = ActionContext(tutorial_dir=tutorial_dir, project_dir=record.project_path)
+        delivery = self._delivery_for(actions, step_id=record.step_id)
+        try:
+            perform_step_entry(
+                actions,
+                context=action_context,
+                step_id=record.step_id,
+                reveal=lambda: None,
+                delivery=delivery,
+                settle=self._settle,
+            )
+        except ActionExecutionError as exc:
+            # FR-060, as revised for triggers (#2061): surfaced on the step and
+            # retryable. The record is untouched — the step was already
+            # revealed before the press, so nothing was shown on the strength
+            # of actions that did not land.
+            raise TriggerFailedError(record.step_id, str(exc)) from exc
+        return self._reevaluate(state, record, driver, tutorial_dir)
 
     def leave_active(self) -> None:
         """Leave the active tutorial, preserving its session (FR-090).

@@ -80,6 +80,7 @@ from scistudio.tutorials.session import (
     AnotherSessionActiveError,
     NoActiveSessionError,
     SessionView,
+    TriggerFailedError,
     TutorialRuntime,
     TutorialSessionError,
     TutorialUnavailableError,
@@ -232,6 +233,8 @@ class StepResponse(BaseModel):
     #: pages route serves. Names only; the reading surface fetches content as
     #: the reader turns.
     pages: list[str] = Field(default_factory=list)
+    #: FR-011 / #2061 — the step's user-triggered action, when it declares one.
+    trigger: TriggerResponse | None = None
     awaiting_continue: bool = False
     #: FR-054a — whether this step's condition holds right now.
     #:
@@ -240,6 +243,17 @@ class StepResponse(BaseModel):
     #: second copy of the judgment in the frontend, which is the thing spec §4.1
     #: exists to prevent.
     satisfied: bool = False
+
+
+class TriggerResponse(BaseModel):
+    """The step's user-triggered action, as the reader sees it: a button label.
+
+    Only the label crosses the wire (#2061). What pressing it does is the
+    backend's to perform through the trigger route, which is what keeps a
+    driver from addressing any surface the manifest format cannot (FR-041).
+    """
+
+    label: str
 
 
 class ReplayResponse(BaseModel):
@@ -1226,6 +1240,7 @@ def _session_response(runtime: ApiRuntime, view: SessionView | None) -> SessionR
             route_to=view.step.route_to,
             prefill=[PrefillResponse(**entry) for entry in view.step.prefill],
             pages=list(view.step.pages),
+            trigger=None if view.step.trigger is None else TriggerResponse(**view.step.trigger),
             awaiting_continue=view.step.awaiting_continue,
             satisfied=view.step.satisfied,
         )
@@ -1270,6 +1285,11 @@ def _acting(action: Callable[[], _T]) -> _T:
         return action()
     except AnotherSessionActiveError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except TriggerFailedError as exc:
+        # 502 rather than 409: the press was legitimate and the product failed
+        # to perform it. The session is untouched and the press can be retried
+        # (#2061), which the detail is worded to say.
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     except TutorialUnavailableError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except NoActiveSessionError as exc:
@@ -1419,6 +1439,20 @@ async def report_ui_event(body: UiEventRequest, runtime: RuntimeDep) -> SessionR
         )
     tutorials = _tutorials(runtime)
     return _rendered(runtime, _acting(lambda: tutorials.report_ui_event(body.name, body.target)))
+
+
+@router.post("/sessions/active/trigger", response_model=SessionResponse)
+async def trigger_active_step(runtime: RuntimeDep) -> SessionResponse:
+    """Run the current step's user-triggered action (#2061).
+
+    The step's trigger button posts here. The actions run to completion and
+    the registries settle before the response returns, so whatever the button
+    claimed to do has happened by the time anything re-renders; the response is
+    the re-judged session. A failure leaves the session on the same step,
+    active, and the press can simply be retried.
+    """
+    tutorials = _tutorials(runtime)
+    return _rendered(runtime, _acting(tutorials.trigger_active))
 
 
 @router.post("/sessions/active/continue", response_model=SessionResponse)

@@ -146,6 +146,11 @@
       "at": "2026-08-21T20:22:17.741636Z",
       "owner_directive": "Plan: (1) step trigger field+endpoint+ActiveStep button (#2061); (2) block_type selectors for run_succeeded/port_has_output/plot_exists/interaction_completed (#2062); (3) ui_event target args + reserved workflows asset dir + settle broadcast (#2063); (4) since_step_entry scoping + backend plot_rendered term (#2066); (5) requires.tutorials (#2088); (6) replay continue_tab (#2089); (7) reading step pages field; (8) ROUTE_TARGETS/PREFILL_SPECS/HIGHLIGHT_SPECS additions; spec FR revisions ride each item; welcome-to-scistudio stays unmodified as back-compat proof",
       "reason": "plan"
+    },
+    {
+      "at": "2026-08-21T21:29:24.262810Z",
+      "owner_directive": "Item 11 (manager addendum): the active-session response gains a read-only steps outline \u2014 for every step of the active tutorial {index, id, title, say, pages} plus the current step index; static metadata only, session-level surface, FR-041 step-view closure untouched; one spec sentence beside the session FRs; route test",
+      "reason": "manager-directed contract refinement for the reading surface"
     }
   ],
   "docs_events": [

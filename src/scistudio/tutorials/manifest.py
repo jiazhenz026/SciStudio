@@ -116,6 +116,7 @@ __all__ = [
     "TutorialRequirements",
     "TutorialSourceKind",
     "TutorialStep",
+    "TutorialTrigger",
     "UnsupportedManifestVersionError",
     "load_manifest",
     "load_schema",
@@ -448,6 +449,24 @@ class TutorialBootstrap:
 
 
 @dataclass(frozen=True)
+class TutorialTrigger:
+    """A step's user-triggered action: a label, and what pressing it does (#2061).
+
+    Distinct from entry ``do`` in exactly one respect — *when* it runs. Entry
+    actions run because the reader arrived; a trigger runs because the reader
+    pressed the button the label names, which is what lets a step hold its
+    material back until asked for: "press Play to watch the agent work" cannot
+    be an entry action without playing before the sentence is readable.
+    Execution reuses the entry machinery whole (FR-056, FR-059, FR-059a), so a
+    trigger's writes land and the registries settle before the trigger reports
+    done.
+    """
+
+    label: str
+    do: tuple[Action, ...]
+
+
+@dataclass(frozen=True)
 class TutorialStep:
     """One step of a manifest-driven tutorial (FR-011)."""
 
@@ -472,6 +491,8 @@ class TutorialStep:
     #: reading step whose page is missing fails the reader mid-read otherwise —
     #: the same argument FR-014 makes about asset paths.
     pages: tuple[str, ...] = ()
+    #: FR-011 / #2061 — the step's user-triggered action, if it declares one.
+    trigger: TutorialTrigger | None = None
 
     @property
     def awaiting_continue(self) -> bool:
@@ -729,6 +750,7 @@ def _parse_steps(raw: Any, *, path: Path) -> tuple[TutorialStep, ...]:
                 do=_parse_actions_or_fail(item.get("do"), field_name=f"{field_name}.do", path=path),
                 done_when=done_when,
                 pages=_parse_pages(item.get("pages"), field_name=f"{field_name}.pages", path=path),
+                trigger=_parse_trigger(item.get("trigger"), field_name=f"{field_name}.trigger", path=path),
             )
         )
     return tuple(steps)
@@ -802,6 +824,45 @@ def _parse_prefill(raw: Any, *, field_name: str, path: Path) -> tuple[Prefill, .
             )
         prefills.append(Prefill(target=target, args=MappingProxyType(args)))
     return tuple(prefills)
+
+
+def _parse_trigger(raw: Any, *, field_name: str, path: Path) -> TutorialTrigger | None:
+    """Parse a step's ``trigger``: a label plus a non-empty ordered ``do`` list.
+
+    Both halves are required. A trigger with no label is a button the reader
+    cannot be asked to press, and one with no actions is a button that does
+    nothing — each is an authoring mistake worth failing at listing (FR-013).
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=f"a trigger is a mapping with 'label' and 'do', got {type(raw).__name__}",
+        )
+    unknown = set(raw) - {"label", "do"}
+    if unknown:
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=f"unknown field(s): {', '.join(sorted(str(key) for key in unknown))}",
+        )
+    label = raw.get("label")
+    if not isinstance(label, str) or not label.strip():
+        raise ManifestValidationError(
+            path=path,
+            field_name=f"{field_name}.label",
+            reason="a trigger's label is the button the reader presses; it must be a non-empty string",
+        )
+    do = _parse_actions_or_fail(raw.get("do"), field_name=f"{field_name}.do", path=path)
+    if not do:
+        raise ManifestValidationError(
+            path=path,
+            field_name=f"{field_name}.do",
+            reason="a trigger declares at least one action; a button that does nothing is a mistake, not a step",
+        )
+    return TutorialTrigger(label=label, do=do)
 
 
 def _parse_pages(raw: Any, *, field_name: str, path: Path) -> tuple[str, ...]:
@@ -1059,11 +1120,20 @@ def load_manifest(directory: Path, *, source_kind: TutorialSourceKind) -> Tutori
 
 
 def _all_actions(manifest: TutorialManifest) -> tuple[tuple[str, Action], ...]:
+    """Every action a tutorial can perform, wherever it is declared.
+
+    The containment (FR-014, FR-015) and tier walks (FR-020a) iterate this, so
+    a place actions can be declared that is missing here is a hole in both. A
+    trigger's ``do`` (#2061) is on the list for exactly that reason: pressing
+    the button reaches the project as surely as entering the step does.
+    """
     collected: list[tuple[str, Action]] = []
     if manifest.bootstrap is not None:
         collected.extend(("bootstrap.do", action) for action in manifest.bootstrap.do)
     for index, step in enumerate(manifest.steps):
         collected.extend((f"steps[{index}].do", action) for action in step.do)
+        if step.trigger is not None:
+            collected.extend((f"steps[{index}].trigger.do", action) for action in step.trigger.do)
     return tuple(collected)
 
 

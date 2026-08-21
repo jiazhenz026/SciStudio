@@ -585,6 +585,69 @@ def test_a_target_on_an_event_that_carries_none_is_refused(client: TestClient, c
     assert "does not carry a target" in refused.json()["detail"]
 
 
+def _triggered_manifest() -> dict[str, Any]:
+    return manifest_for(
+        "press-play",
+        [
+            {
+                "id": "watch",
+                "say": "Press Play to receive the file.",
+                "trigger": {
+                    "label": "Play",
+                    "do": [{"write": {"source": "assets/data/payload.txt", "destination": "data/received.txt"}}],
+                },
+                "done_when": {"file_exists": {"path": "data/received.txt"}},
+            },
+            {"id": "done", "say": "Done."},
+        ],
+        **BOOTSTRAP,
+    )
+
+
+def test_the_trigger_route_runs_the_actions_and_answers_the_rejudged_step(client: TestClient, core_tier: Path) -> None:
+    """#2061: the press lands the writes, settles, and comes back re-judged."""
+    mount(core_tier, "press-play", _triggered_manifest(), files={"assets/data/payload.txt": "payload"})
+    started = start(client, "press-play").json()
+    assert step_id(started) == "watch"
+    assert started["step"]["trigger"] == {"label": "Play"}
+    assert started["step"]["satisfied"] is False
+    project = Path(started["project_path"])
+
+    triggered = client.post("/api/tutorials/sessions/active/trigger")
+
+    assert triggered.status_code == 200, triggered.text
+    assert (project / "data" / "received.txt").read_text(encoding="utf-8") == "payload"
+    assert step_id(triggered.json()) == "watch"
+    assert triggered.json()["step"]["satisfied"] is True
+
+
+def test_triggering_a_step_without_a_trigger_is_a_conflict(client: TestClient, core_tier: Path) -> None:
+    mount(core_tier, "plain", manifest_for("plain", [{"id": "one", "say": "One."}]))
+    start(client, "plain")
+
+    refused = client.post("/api/tutorials/sessions/active/trigger")
+
+    assert refused.status_code == 409, refused.text
+    assert "declares no trigger" in refused.json()["detail"]
+
+
+def test_a_failed_trigger_reports_and_leaves_the_session_retryable(client: TestClient, core_tier: Path) -> None:
+    """FR-060's trigger revision (#2061): the session survives the failure."""
+    # The named asset is not on disk, so the write fails at execution.
+    mount(core_tier, "press-play", _triggered_manifest())
+    start(client, "press-play")
+
+    failed = client.post("/api/tutorials/sessions/active/trigger")
+
+    assert failed.status_code == 502, failed.text
+    assert "watch" in failed.json()["detail"]
+    still_here = client.get("/api/tutorials/sessions/active").json()
+    assert still_here["status"] == "active"
+    assert step_id(still_here) == "watch"
+    # Retryable: the same press again gets the same honest answer, not a 404.
+    assert client.post("/api/tutorials/sessions/active/trigger").status_code == 502
+
+
 def test_a_reading_step_advances_on_an_explicit_continue(client: TestClient, core_tier: Path) -> None:
     """FR-012: a step with no condition waits for the user to say go on."""
     mount(

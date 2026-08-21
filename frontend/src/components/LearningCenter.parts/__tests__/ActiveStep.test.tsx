@@ -200,3 +200,40 @@ describe("the step card's controls", () => {
     expect(scroller?.contains(screen.getByTestId("tutorial-continue"))).toBe(false);
   });
 });
+
+describe("the step's trigger button (#2061)", () => {
+  it("renders the manifest's label and posts the trigger on press", async () => {
+    const triggerActiveTutorialStep = vi.fn().mockResolvedValue(undefined);
+    useAppStore.setState({ triggerActiveTutorialStep });
+    session({ trigger: { label: "Play" } });
+
+    render(<ActiveStep />);
+
+    const button = screen.getByTestId("tutorial-trigger");
+    expect(button).toHaveTextContent("Play");
+    button.click();
+    expect(triggerActiveTutorialStep).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders no trigger button when the step declares none", () => {
+    session({ trigger: null });
+
+    render(<ActiveStep />);
+
+    expect(screen.queryByTestId("tutorial-trigger")).toBeNull();
+  });
+
+  it("surfaces a trigger failure beside the button, retryable", () => {
+    /*
+     * FR-060's trigger revision: the failure lives on the step card, the
+     * session stays active, and the button stays pressable.
+     */
+    session({ trigger: { label: "Play" } });
+    useAppStore.setState({ learningCenterTriggerError: "step 'watch': write action failed" });
+
+    render(<ActiveStep />);
+
+    expect(screen.getByTestId("tutorial-trigger-error")).toHaveTextContent("write action failed");
+    expect(screen.getByTestId("tutorial-trigger")).toBeEnabled();
+  });
+});

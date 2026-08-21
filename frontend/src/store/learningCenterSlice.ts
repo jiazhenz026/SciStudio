@@ -239,6 +239,9 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
     set({
       learningCenterSession: session,
       learningCenterError: session?.status === "error" ? (session.error ?? null) : null,
+      // #2061 — an adopted response supersedes any trigger failure: the retry
+      // worked, the step advanced, or the session went away.
+      learningCenterTriggerError: null,
     });
   }
 
@@ -266,6 +269,7 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
     learningCenterFirstRunDismissed: false,
     learningCenterStartConflict: null,
     learningCenterWorkImportOffer: false,
+    learningCenterTriggerError: null,
 
     openLearningCenter: () => set({ learningCenterOpen: true }),
 
@@ -420,6 +424,20 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
         adoptSession(await learningCenterApi.evaluateActiveTutorialStep());
       } catch (error) {
         set({ learningCenterError: describe(error) });
+      }
+    },
+
+    /**
+     * #2061 — the step's own button. The backend runs the trigger's actions,
+     * settles the registries, and answers with the re-judged session; a
+     * failure is surfaced beside the button and the press can be retried.
+     */
+    triggerActiveTutorialStep: async () => {
+      set({ learningCenterTriggerError: null });
+      try {
+        adoptSession(await learningCenterApi.triggerActiveTutorialStep());
+      } catch (error) {
+        set({ learningCenterTriggerError: describe(error) });
       }
     },
 

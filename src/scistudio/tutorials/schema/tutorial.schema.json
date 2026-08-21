@@ -128,11 +128,26 @@
           "description": "Ordered. Runs on entry, before the step's text is displayed (FR-056, FR-059)."
         },
         "done_when": { "$ref": "#/$defs/condition" },
+        "trigger": { "$ref": "#/$defs/trigger" },
         "pages": {
           "type": "array",
           "minItems": 1,
           "items": { "type": "string", "minLength": 1 },
           "description": "Reading pages this step presents, named as files under assets/pages/ the way a page_reached condition names them - with or without the extension, 'intro' for assets/pages/intro.md. Each must exist when the tutorial is loaded, so a missing page fails the author at listing rather than the reader on the page turn (FR-011, FR-014)."
+        }
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "do"],
+      "description": "The step's user-triggered action (#2061): a button label, and the ordered actions pressing it performs. Distinct from the step's own 'do' in exactly one respect - when it runs: entry actions run because the reader arrived, a trigger runs because the reader pressed the button. Execution reuses the entry machinery, so the trigger's writes land and the registries settle before it reports done (FR-056, FR-059, FR-059a), and a failure is surfaced on the step and retryable rather than ending the session (FR-060).",
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "do": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/action" }
         }
       }
     },

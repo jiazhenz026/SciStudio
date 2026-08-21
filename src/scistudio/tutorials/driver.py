@@ -68,6 +68,7 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "STEP_VIEW_FIELDS",
     "DeclaresConditions",
+    "DeclaresTriggerActions",
     "DriverContext",
     "DriverContractError",
     "DriverError",
@@ -132,6 +133,7 @@ STEP_VIEW_FIELDS: tuple[str, ...] = (
     "route_to",
     "prefill",
     "pages",
+    "trigger",
     "awaiting_continue",
 )
 
@@ -152,6 +154,14 @@ class StepView:
     #: existing pages route. Names only: the content stays on disk and the
     #: core-owned reading surface fetches each page as the reader turns to it.
     pages: tuple[str, ...] = ()
+    #: FR-011 / #2061 — the step's user-triggered action, as ``{"label": ...}``.
+    #:
+    #: The label alone crosses this boundary: what pressing the button *does*
+    #: is the runtime's to execute through the trigger endpoint, so a driver
+    #: cannot smuggle an action kind or a rendering primitive through the
+    #: field, which is what keeps FR-041's closure closed while the set widens
+    #: by this one field.
+    trigger: Mapping[str, Any] | None = None
     awaiting_continue: bool = False
     #: Whether this step's condition currently holds (FR-054a).
     #:
@@ -195,6 +205,7 @@ class StepView:
             route_to=_optional_text(read("route_to"), step_id=step_id, name="route_to"),
             prefill=_optional_prefill(read("prefill"), step_id=step_id),
             pages=_optional_pages(read("pages"), step_id=step_id),
+            trigger=_optional_trigger(read("trigger"), step_id=step_id),
             awaiting_continue=bool(read("awaiting_continue")),
         )
 
@@ -205,6 +216,27 @@ def _optional_text(value: Any, *, step_id: str, name: str) -> str | None:
     if not isinstance(value, str):
         raise DriverContractError(f"step {step_id!r}: {name} must be text or absent, got {type(value).__name__}")
     return value
+
+
+def _optional_trigger(value: Any, *, step_id: str) -> Mapping[str, Any] | None:
+    """Reduce a driver's ``trigger`` to its wire shape — the label — or refuse it.
+
+    Accepts a bare label, an object carrying one (a
+    :class:`~scistudio.tutorials.manifest.TutorialTrigger`), or the wire
+    mapping itself. Whatever arrives, only ``{"label": ...}`` leaves: the
+    actions behind the button are asked for separately through the optional
+    ``trigger_actions`` capability, never through the view (FR-041).
+    """
+    if value is None:
+        return None
+    label = getattr(value, "label", None)
+    if isinstance(value, str):
+        label = value
+    elif isinstance(value, Mapping):
+        label = value.get("label")
+    if not isinstance(label, str) or not label:
+        raise DriverContractError(f"step {step_id!r}: a trigger must carry a non-empty string label")
+    return {"label": label}
 
 
 def _optional_pages(value: Any, *, step_id: str) -> tuple[str, ...]:
@@ -360,6 +392,23 @@ class TutorialDriver(Protocol):
 
 
 @runtime_checkable
+class DeclaresTriggerActions(Protocol):
+    """An optional capability: a driver whose steps can carry a trigger (#2061).
+
+    Optional for the reason :class:`DeclaresConditions` is: FR-038 fixes the
+    driver interface at four questions, and a driver whose steps never declare
+    a trigger owes no fifth answer. A driver that *does* put a trigger label in
+    its step view answers this with the actions pressing it performs; one that
+    labels a trigger but cannot answer has declared a button that does nothing,
+    and the runtime refuses the press rather than pretending it worked.
+    """
+
+    def trigger_actions(self, context: DriverContext) -> Sequence[Action]:
+        """Return the actions behind ``context.step_id``'s trigger."""
+        ...
+
+
+@runtime_checkable
 class DeclaresConditions(Protocol):
     """An optional capability: a driver that can name a step's condition.
 
@@ -419,6 +468,7 @@ class ManifestDriver:
             route_to=step.route_to,
             prefill=tuple(prefill.as_json() for prefill in step.prefill),
             pages=step.pages,
+            trigger=None if step.trigger is None else {"label": step.trigger.label},
             awaiting_continue=step.awaiting_continue,
         )
 
@@ -437,6 +487,16 @@ class ManifestDriver:
     def entry_actions(self, context: DriverContext) -> tuple[Action, ...]:
         """Return the step's declared ``do`` list, in declaration order (FR-056)."""
         return self._step(context).do
+
+    def trigger_actions(self, context: DriverContext) -> tuple[Action, ...]:
+        """Return the actions behind the step's trigger, or nothing (#2061).
+
+        The optional capability :class:`DeclaresTriggerActions` describes; the
+        runtime asks through it when the reader presses the button the step
+        view's ``trigger`` label named.
+        """
+        trigger = self._step(context).trigger
+        return () if trigger is None else trigger.do
 
     def advance(self, context: DriverContext) -> str | None:
         """Return the next step's id, or ``None`` at the end of the manifest."""
@@ -498,20 +558,19 @@ class GuardedDriver:
         return bool(self._inner.is_satisfied(context, product))
 
     def entry_actions(self, context: DriverContext) -> tuple[Action, ...]:
-        raw = self._inner.entry_actions(context)
-        if raw is None:
+        return _normalised_actions(self._inner.entry_actions(context), method="entry_actions")
+
+    def trigger_actions(self, context: DriverContext) -> tuple[Action, ...]:
+        """The actions behind the current step's trigger, normalised (#2061).
+
+        ``()`` when the wrapped driver lacks the optional capability, so the
+        runtime can distinguish "no actions to run" from "no trigger declared"
+        by the step view rather than by this answer.
+        """
+        declared = getattr(self._inner, "trigger_actions", None)
+        if not callable(declared):
             return ()
-        if isinstance(raw, (str, bytes)) or not isinstance(raw, Sequence):
-            raise DriverContractError(f"entry_actions must return a sequence of actions, got {type(raw).__name__}")
-        actions: list[Action] = []
-        for item in raw:
-            if not isinstance(item, Action):
-                raise DriverContractError(
-                    "entry_actions may only return core action objects, got "
-                    f"{type(item).__name__}; a driver cannot introduce an action kind (FR-041)"
-                )
-            actions.append(item)
-        return tuple(actions)
+        return _normalised_actions(declared(context), method="trigger_actions")
 
     def advance(self, context: DriverContext) -> str | None:
         nxt = self._inner.advance(context)
@@ -533,6 +592,28 @@ class GuardedDriver:
     def declares_conditions(self) -> bool:
         """Whether the wrapped driver can name a step's condition (FR-050 filtering)."""
         return callable(getattr(self._inner, "condition", None))
+
+
+def _normalised_actions(raw: Any, *, method: str) -> tuple[Action, ...]:
+    """Reduce a driver's action list to core action objects, or refuse it.
+
+    One reduction for both action-returning answers — entry and trigger — so
+    FR-041's "a driver cannot introduce an action kind" cannot hold at one
+    door and not the other.
+    """
+    if raw is None:
+        return ()
+    if isinstance(raw, (str, bytes)) or not isinstance(raw, Sequence):
+        raise DriverContractError(f"{method} must return a sequence of actions, got {type(raw).__name__}")
+    actions: list[Action] = []
+    for item in raw:
+        if not isinstance(item, Action):
+            raise DriverContractError(
+                f"{method} may only return core action objects, got "
+                f"{type(item).__name__}; a driver cannot introduce an action kind (FR-041)"
+            )
+        actions.append(item)
+    return tuple(actions)
 
 
 def guarded(driver: Any) -> GuardedDriver:

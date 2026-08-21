@@ -291,6 +291,7 @@ def test_a_driver_cannot_return_fields_outside_the_step_view(runtime: TutorialRu
         "route_to",
         "prefill",
         "pages",
+        "trigger",
         "awaiting_continue",
         # Not a driver's field: the runtime attaches it after reducing the
         # driver's view (FR-054a), which is why it survives this reduction
@@ -437,3 +438,70 @@ def test_step_view_carries_pages_and_the_boundary_normalises_them() -> None:
         StepView.of({"id": "read", "index": 0, "total": 1, "pages": "intro"})
     with pytest.raises(DriverContractError, match="pages"):
         StepView.of({"id": "read", "index": 0, "total": 1, "pages": [1]})
+
+
+# ---------------------------------------------------------------------------
+# The trigger crosses the FR-041 boundary as a label, and only as a label
+# ---------------------------------------------------------------------------
+
+
+def test_step_view_carries_the_trigger_label_and_nothing_behind_it() -> None:
+    from scistudio.tutorials.driver import STEP_VIEW_FIELDS, DriverContractError, StepView
+
+    assert "trigger" in STEP_VIEW_FIELDS
+
+    view = StepView.of({"id": "s", "index": 0, "total": 1, "trigger": {"label": "Play", "do": ["smuggled"]}})
+    assert view.trigger == {"label": "Play"}
+
+    bare = StepView.of({"id": "s", "index": 0, "total": 1, "trigger": "Play"})
+    assert bare.trigger == {"label": "Play"}
+
+    import pytest
+
+    with pytest.raises(DriverContractError, match="label"):
+        StepView.of({"id": "s", "index": 0, "total": 1, "trigger": {"do": []}})
+
+
+def test_a_driver_without_the_capability_answers_no_trigger_actions() -> None:
+    from scistudio.tutorials.driver import GuardedDriver
+
+    class _Bare:
+        def step_view(self, context: object) -> dict[str, object]:
+            return {"id": "s", "index": 0, "total": 1}
+
+        def is_satisfied(self, context: object, product: object) -> bool:
+            return False
+
+        def entry_actions(self, context: object) -> tuple[()]:
+            return ()
+
+        def advance(self, context: object) -> None:
+            return None
+
+    assert GuardedDriver(_Bare()).trigger_actions(None) == ()  # type: ignore[arg-type]
+
+
+def test_trigger_actions_are_normalised_like_entry_actions() -> None:
+    """FR-041 cannot hold at one action door and not the other."""
+    import pytest
+
+    from scistudio.tutorials.driver import DriverContractError, GuardedDriver
+
+    class _Leaky:
+        def step_view(self, context: object) -> dict[str, object]:
+            return {"id": "s", "index": 0, "total": 1}
+
+        def is_satisfied(self, context: object, product: object) -> bool:
+            return False
+
+        def entry_actions(self, context: object) -> tuple[()]:
+            return ()
+
+        def advance(self, context: object) -> None:
+            return None
+
+        def trigger_actions(self, context: object) -> list[object]:
+            return [{"write": {"source": "a", "destination": "b"}}]
+
+    with pytest.raises(DriverContractError, match="core action objects"):
+        GuardedDriver(_Leaky()).trigger_actions(None)  # type: ignore[arg-type]

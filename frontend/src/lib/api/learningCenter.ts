@@ -116,6 +116,17 @@ export interface TutorialPrefillView {
   args: Record<string, string>;
 }
 
+/**
+ * FR-011 / #2061 — the step's user-triggered action, as the reader sees it.
+ *
+ * Only the label crosses the wire. What pressing the button does is the
+ * backend's to perform through the trigger route, so nothing here can address
+ * a surface the manifest format cannot (FR-041).
+ */
+export interface TutorialTriggerView {
+  label: string;
+}
+
 export interface TutorialStepView {
   id: string;
   index: number;
@@ -133,6 +144,8 @@ export interface TutorialStepView {
    * the backend always sends it.
    */
   pages?: string[];
+  /** FR-011 / #2061 — the step's user-triggered action, when it declares one. */
+  trigger?: TutorialTriggerView | null;
   awaiting_continue: boolean;
   /**
    * FR-054a — whether this step's condition holds right now.
@@ -252,6 +265,19 @@ export const learningCenterApi = {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify(target === undefined ? { name } : { name, target }),
+    }),
+
+  /**
+   * #2061 — run the current step's user-triggered action.
+   *
+   * The backend performs the trigger's actions and settles the registries
+   * before answering, so whatever the button claimed to do has happened by
+   * the time the response renders. A failure leaves the session on the same
+   * step and the press can be retried.
+   */
+  triggerActiveTutorialStep: () =>
+    apiFetch<TutorialSessionResponse>("/api/tutorials/sessions/active/trigger", {
+      method: "POST",
     }),
 
   /** FR-012 — advance a reading step the user has finished reading. */

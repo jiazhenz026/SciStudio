@@ -546,12 +546,22 @@ conflict.
 declare `say` as display text, `highlight` naming a user-interface element,
 `route_to` naming a tab or panel the user is taken to, `prefill` seeding a
 dialog the user is about to open (FR-011b), `do` as an ordered list of
-actions, `done_when` as a completion condition, and `pages` as an ordered list
+actions, `done_when` as a completion condition, `pages` as an ordered list
 of reading pages the step presents, each naming a file under `assets/pages/`
-the way a `page_reached` condition names one — with or without its extension.
-A declared page MUST exist when the manifest is loaded, on FR-014's grounds: a
+the way a `page_reached` condition names one — with or without its extension —
+and `trigger` as a user-triggered action (#2061): a button label plus an
+ordered `do` list run when the reader presses it, distinct from the entry `do`
+in exactly one respect, *when* it runs. Entry actions run because the reader
+arrived; a trigger runs because the reader asked, which is what lets a step
+hold its material back until asked for — "press Play to watch the agent work"
+cannot be an entry action without playing before the sentence is readable. A
+declared page MUST exist when the manifest is loaded, on FR-014's grounds: a
 reading step whose page is missing fails the author at listing, not the reader
-on the page turn.
+on the page turn. A trigger MUST declare both halves — a label the reader can
+be asked to press, and at least one action — and its `do` list is covered by
+the same containment (FR-014, FR-015) and tier rules (FR-020a) as every other
+action list, because pressing the button reaches the project as surely as
+entering the step does.
 
 **FR-011c.** A step MAY declare `title` as a short heading for the step card.
 A step without one MUST fall back to the tutorial's own title. Heading every
@@ -792,6 +802,16 @@ defines. A driver MUST NOT be able to introduce new rendering primitives, supply
 frontend assets, or address any surface the manifest format cannot address. Core
 owns what a tutorial step looks like.
 
+The closed set widens with FR-011 and stays closed (#2061): the view now also
+carries the step's `pages` — names only, each served by the existing pages
+route — and its `trigger` as the label alone. What pressing the trigger *does*
+never crosses the view boundary: the runtime asks the driver for the actions
+separately, reduces them to core action objects exactly as it does entry
+actions, and executes them itself, so a driver still cannot introduce an
+action kind, supply content, or address a surface the manifest format cannot.
+The set remains core-owned and `StepView.of`-reduced; a driver returning more
+has the excess dropped at the boundary as before.
+
 **FR-042.** A package driver MUST be able to call the core condition evaluator so
 it can use the vocabulary for the conditions it covers and implement only the
 ones it does not.
@@ -957,7 +977,10 @@ MUST NOT create files, mutate registries, or trigger runs.
 #### Step actions
 
 **FR-056.** A step MAY declare actions performed on entry, before its text is
-displayed.
+displayed. It MAY additionally declare a `trigger` (#2061): actions performed
+when the reader presses the button the step's trigger label names, through the
+same execution machinery as entry — ordering, settle, and failure semantics
+included (FR-059, FR-059a, FR-060).
 
 **FR-057.** The action set MUST include writing an asset into the tutorial
 project, copying an asset directory into the tutorial project, and replaying
@@ -985,12 +1008,26 @@ not pay for a scan it cannot benefit from.
 A write landing under the project's `workflows/` MUST reach the open canvas the
 same way (#2063): the canvas renders the frontend's copy of the graph, so the
 runtime broadcasts the same `workflow.changed` frame an external on-disk edit
-produces, before the step's text is displayed. The filesystem watcher is not an
+produces, before the step's text is displayed.
+
+A trigger's actions carry the same obligations at a different moment (#2061):
+they MUST run to completion, and the registries MUST have re-scanned where the
+writes call for it, before the trigger reports done — so whatever the button
+claimed to do has happened by the time anything re-renders on the strength of
+the response. The filesystem watcher is not an
 answer here — it is not running headless, and FR-059a's ordering is
 a property of the entry sequence, not of an observer's timing.
 
 **FR-060.** An action failure MUST end the session with an error naming the step
 and the action, and MUST NOT silently advance.
+
+A *trigger's* action failure is the one deliberate exception (#2061): it MUST
+be surfaced on the step, naming the step and the action, and it MUST NOT end
+the session — the press MUST be retryable. The difference is what the reader
+was shown on the strength of the actions: an entry failure leaves a step whose
+premise never landed, so the session cannot honestly continue, while a trigger
+failure leaves the step exactly as it was before the press, which is a state
+the reader was already legitimately in.
 
 **FR-061.** Replay actions MUST NOT be able to reach any surface other than the
 one the action names. Replay is scripted content playback, not a general remote
