@@ -1,0 +1,120 @@
+{
+  "branch": "track/learning-center-levels",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/planning/learning-center-levels-checklist.md",
+      "docs/planning/learning-center-levels-dispatch-prompts.md",
+      "docs/ai-developer/e2e/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2061,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2062,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2063,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2066,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2075,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2079,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2080,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2081,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2082,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2083,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2084,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2085,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2086,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Orchestrate agents to implement all remaining Learning Center levels (2-6) and their prerequisite work; Chrome-test each level after completion; deliver one final PR; then launch backend + desktop frontend for owner level-by-level acceptance.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "track-learning-center-levels-learning-center-levels",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:claude-fable-5",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "1a80a328-9d3b-4c71-85f4-581225aedf57",
+  "strictness_tier": null,
+  "task_kind": "manager",
+  "test_events": []
+}
