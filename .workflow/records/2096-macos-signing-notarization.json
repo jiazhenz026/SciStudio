@@ -1,0 +1,366 @@
+{
+  "branch": "guided/2096-macos-signing-notarization",
+  "check_events": [
+    {
+      "at": "2026-08-21T21:56:30.622121Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-21T21:56:50.710503Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T21:56:50.904044Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "desktop/package.json",
+      "desktop/build/entitlements.mac.plist",
+      "desktop/scripts/stage-resources.ps1",
+      "desktop/scripts/stage-resources.sh",
+      "desktop/test/**",
+      "docs/specs/desktop-macos-signing-notarization.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-21T21:55:11.910887Z",
+      "owner_directive": "Implement macOS Developer ID signing, hardened runtime, notarization and stapling for #2096. Agent is on Windows: configuration, entitlements, prune and platform-independent tests land here; the clean-mac acceptance run is owner-executed.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-08-21T22:48:10.962723Z",
+      "owner_directive": "Sign and notarize in CI (upload the Developer ID certificate and App Store Connect API key as repository secrets), and add the hard verification step so a misconfigured secret fails the build instead of shipping a dmg that still prompts.",
+      "reason": "Owner chose CI-side signing over local-only signing, and chose to add a hard post-build verification step because electron-builder's notarizeIfProvided() only warns and skips when credentials cannot be generated, which would otherwise ship an unnotarized dmg silently."
+    },
+    {
+      "at": "2026-08-21T22:51:12.170764Z",
+      "owner_directive": "Sign and notarize in CI, and add the hard verification step.",
+      "reason": "Declaring governance_touch: this change edits two CI workflow files, which are a governance-critical surface. .github/workflows/desktop-macos-dmg.yml is edited because it hard-set CSC_IDENTITY_AUTO_DISCOVERY=false, which would have made every CI dmg unsigned and left #2096 unmet on the actual release path; the edit is gated on the certificate secret so credential-less builds are unchanged, and adds the post-build verification the owner asked for. .github/workflows/ci.yml gains a Desktop job because no CI job ran the desktop JS tests, so the new build-configuration guards would never have executed. Neither edit weakens governance, CI, Sentrux, quality thresholds, or protected paths: both add checks. Owner review required per the mod_guard obligation."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-21T21:55:11.910927Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/desktop-macos-signing-notarization.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:55:11.910933Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [
+    {
+      "at": "2026-08-21T21:56:51.010086Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:56:51.062477Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:56:51.125814Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:56:51.175057Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:56:51.261298Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:56:51.290630Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:56:51.319468Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:56:51.346804Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:56:51.375599Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:56:51.435131Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:56:51.470518Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:49:11.671193Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:49:11.685775Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:49:11.701079Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:49:11.716544Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:49:11.731162Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:49:11.751245Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:49:11.766350Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:49:11.781313Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:49:11.795524Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:49:11.809486Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:49:11.835207Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2096,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "4105e1654",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "4105e1654",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Owner wants SciStudio 0.3.4 to ship a signed and notarized macOS build so users no longer need a Gatekeeper override to launch. Owner joined the Apple Developer Program. Agent works on Windows; config/entitlements/spec authorable here, acceptance run is owner-executed on macOS.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-08-21T21:56:51.470642Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-21T22:49:11.835270Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2096-macos-signing-notarization",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-21T21:55:11.910909Z",
+      "pattern": "desktop/assets/entitlements.mac.plist",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-21T21:55:11.910917Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-exclude",
+      "at": "2026-08-21T21:55:11.910920Z",
+      "pattern": "desktop/build/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-21T21:55:19.352258Z",
+      "pattern": "desktop/assets/entitlements.mac.plist",
+      "reason": "The entitlements file was first written to desktop/build/, which .gitignore line 8 (build/) excludes, so it would never have been committed and a fresh clone would silently fall back to electron-builder's template. Relocated to desktop/assets/ \u2014 the directory already configured as electron-builder directories.buildResources, so the explicit path and electron-builder's implicit lookup now agree."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-21T21:58:46.372015Z",
+      "pattern": ".github/workflows/ci.yml",
+      "reason": "Scope expansion required for #2096 to hold: no CI job runs the desktop JS tests, so the new build-configuration guards (electronFuses unset, entitlements path exists, entitlements/entitlementsInherit identical) would never execute outside a developer's machine. Adding a Desktop job to .github/workflows/ci.yml makes the guards real. Touching a workflow file may escalate the gate tier; that is expected."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-21T22:48:10.962748Z",
+      "pattern": ".github/workflows/desktop-macos-dmg.yml",
+      "reason": "Owner chose CI-side signing over local-only signing, and chose to add a hard post-build verification step because electron-builder's notarizeIfProvided() only warns and skips when credentials cannot be generated, which would otherwise ship an unnotarized dmg silently."
+    }
+  ],
+  "session_id": "c588eeee-ecb9-4c1f-8bf2-9da546f1ddb6",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-08-21T21:55:11.910938Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/macos-signing.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

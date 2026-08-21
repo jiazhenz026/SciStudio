@@ -164,6 +164,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   test covers all four groups, so a fifth cannot be added divergently without
   failing.
 
+### Changed
+
+- [#2096] **The macOS build is signed with a Developer ID certificate, hardened,
+  notarized and stapled**, so a machine that has never had SciStudio installed
+  launches the dmg by double-clicking it instead of being stopped by Gatekeeper
+  and sent to right-click-Open or System Settings. All four steps are required;
+  signing alone leaves the prompt in place, and without a stapled ticket the
+  first launch still needs to reach Apple over the network.
+  The entitlements are pinned in-repo at `desktop/assets/entitlements.mac.plist`
+  rather than inherited from electron-builder's fallback template, and the same
+  file is used for `entitlements` **and** `entitlementsInherit`. That second part
+  is load-bearing rather than tidiness: the bundled interpreter runs as its own
+  process and receives the *inherit* entitlements, and it is that process which
+  `dlopen`s the compiled extensions of packages installed through package OTA
+  (#1784) long after this bundle was signed. Without
+  `com.apple.security.cs.disable-library-validation` on it, the hardened runtime
+  refuses those loads — a failure that appears as a Python `ImportError`, passes
+  the build, and passes notarization. A test asserts the two settings cannot
+  drift apart.
+  Files that `codesign` cannot sign are pruned before staging — `__pycache__`
+  throughout, and the stdlib `test` package from the bundled interpreter.
+  `@electron/osx-sign` decides what to sign with a null-byte heuristic rather
+  than by parsing Mach-O headers, so compiled bytecode and CPython's own binary
+  test fixtures were being handed to `codesign`, where a single failure fails the
+  whole build.
+  `build.electronFuses` stays unset, and a test now asserts it: fuses are
+  entirely opt-in in electron-builder, so signing does not enable them, and
+  enabling `onlyLoadAppFromAsar` would silently block the shell hot-update loader
+  planned in #2097.
+  Signing happens in the release workflow rather than by hand, driven by whether
+  the Developer ID certificate is configured as a repository secret — a fork or a
+  contributor without credentials still gets the same unsigned dev artifact as
+  before. Because electron-builder's notarization **fails soft** (it logs
+  `skipped macOS notarization` and returns when credentials cannot be generated,
+  so a mistyped secret yields a green build and a dmg that still prompts), the
+  workflow now asserts the result: `codesign --verify`, the `runtime` flag in the
+  signature, Gatekeeper's own `spctl` verdict, and `stapler validate`. A `Desktop`
+  job also runs the desktop tests in CI for the first time, so these guards
+  actually execute.
+  Windows signing is unaffected and still absent — the Apple Developer Program
+  does not cover it. Design record:
+  `docs/specs/desktop-macos-signing-notarization.md` (status `Draft`: the
+  configuration and its platform-independent tests have landed, but the
+  acceptance run — clean mac, no prompt, `spctl` accepted, `stapler validate`
+  — is owner-executed on macOS and has not been performed).
+  Tests: `desktop/test/macos-signing.test.js`.
+  (@claude, 2026-08-21, branch: guided/2096-macos-signing-notarization)
+
 ### Removed
 
 - [#2120 #2099] **Remove the semantic-duplication check and its CI workflow.** The

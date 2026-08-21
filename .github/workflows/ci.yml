@@ -227,6 +227,24 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+  desktop:
+    name: Desktop
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      # #2096: these are pure Node built-in tests over desktop/*.js and the
+      # electron-builder configuration in desktop/package.json. They need no
+      # dependencies, so there is no `npm ci` here and no Electron download.
+      # Without this job the build-configuration guards (electronFuses unset,
+      # the configured entitlements file exists) would never run in CI, and the
+      # signing/hot-update constraints they protect would regress silently.
+      - name: Run desktop tests
+        working-directory: desktop
+        run: node --test test/*.test.js
+
   wheel-release-smoke:
     name: Wheel Release Smoke
     runs-on: ubuntu-latest
