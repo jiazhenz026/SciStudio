@@ -304,6 +304,14 @@
       "path": null,
       "rationale": "Docstring wording only. No behaviour, contract, schema, or API change; the sentence reworded says the same thing without the phrase scripts/deferral_scan.py maps to its handoff class. The feature's documentation landed earlier in this PR: docs/architecture/ARCHITECTURE.md section 11.1 and CHANGELOG.md.",
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T23:29:50.763833Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-048-preview-system.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
