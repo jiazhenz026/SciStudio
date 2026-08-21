@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote
@@ -40,21 +40,84 @@ logger = logging.getLogger(__name__)
 
 
 def _load_known_projects(self: ApiRuntime) -> None:
+    """Load the user-level project registry, tolerating a file a newer build wrote.
+
+    Issue #2073: ``~/.scistudio/projects.json`` outlives the runtime that reads
+    it. It survives uninstall and reinstall, and the desktop client's OTA
+    rollback can move the runtime *backwards* past the build that wrote the
+    file. Because :func:`_save_known_projects` persists every dataclass field,
+    a registry written by a newer build carries keys this ``KnownProject`` has
+    never heard of, and passing them straight to the constructor raises
+    ``TypeError``.
+
+    That exception used to be fatal rather than local. This runs from
+    ``ApiRuntime.__init__``, which runs inside the FastAPI lifespan, so one
+    unrecognised key aborted server startup — leaving the desktop client to
+    report nothing but an HTTP timeout while every relaunch read the same file
+    and failed the same way, with no path back for the user.
+
+    So unknown keys are dropped instead of rejected, and an entry that still
+    cannot be constructed (a missing required field, say) is skipped with a
+    warning rather than taking the registry, and the process, down with it.
+
+    Dropped is not the same as discarded. The keys are kept aside per project
+    and spliced back by :func:`_save_known_projects`, because that function
+    rewrites the whole file on every project open, create and delete — so
+    parsing past a field and then writing without it would erase a newer
+    build's metadata on the first project the user touched.
+    """
     from .models import KnownProject
 
     if not self.known_projects_path.exists():
         self.known_projects = {}
+        self._known_project_extras = {}
         return
     raw = json.loads(self.known_projects_path.read_text(encoding="utf-8"))
-    self.known_projects = {
-        entry["id"]: KnownProject(**entry)
-        for entry in raw.get("projects", [])
-        if isinstance(entry, dict) and entry.get("id") and entry.get("path")
-    }
+    accepted = {f.name for f in fields(KnownProject)}
+    known: dict[str, KnownProject] = {}
+    extras: dict[str, dict[str, Any]] = {}
+    for entry in raw.get("projects", []):
+        if not isinstance(entry, dict) or not entry.get("id") or not entry.get("path"):
+            continue
+        try:
+            known[entry["id"]] = KnownProject(**{k: v for k, v in entry.items() if k in accepted})
+        except TypeError:
+            logger.warning("Skipping unusable project registry entry %r", entry["id"])
+            continue
+        carried = {k: v for k, v in entry.items() if k not in accepted}
+        if carried:
+            extras[entry["id"]] = carried
+    if extras:
+        logger.info(
+            "Carrying %d unrecognised project registry field(s) forward unread: %s",
+            len(set().union(*extras.values())),
+            ", ".join(sorted(set().union(*extras.values()))),
+        )
+    self.known_projects = known
+    self._known_project_extras = extras
 
 
 def _save_known_projects(self: ApiRuntime) -> None:
-    payload = {"projects": [asdict(entry) for entry in self.known_projects.values()]}
+    """Persist the registry, carrying forward fields this build does not model.
+
+    Issue #2073: dropping unrecognised keys at load is what lets an older
+    runtime start at all, but this function rewrites the whole file on every
+    project open, create and delete. Writing back only what this build models
+    would therefore erase a newer build's metadata from every entry — silently,
+    and on the first project the user touched. For the Learning Center that is
+    the tutorial marker a project's identity depends on, so the projects would
+    come back from a downgrade as ordinary ones.
+
+    The keys are set aside at load and spliced back here instead, which keeps a
+    downgrade merely readable rather than destructive. They are never
+    interpreted; a field this build does not understand is data to carry, not
+    data to act on.
+    """
+    payload = {
+        "projects": [
+            {**asdict(entry), **self._known_project_extras.get(entry.id, {})} for entry in self.known_projects.values()
+        ]
+    }
     self.known_projects_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
