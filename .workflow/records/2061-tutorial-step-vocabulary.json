@@ -315,7 +315,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "a212a335e6a9f1785c48c39cc7bc484354bef508",
+    "shas": [
+      "a212a335e6a9f1785c48c39cc7bc484354bef508"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [
       "src/scistudio/tutorials/core/**"
@@ -1197,6 +1203,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:54:26.250274Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:54:26.274052Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:54:26.311023Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:54:26.345589Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:54:26.375741Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:54:26.404274Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:54:26.438340Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:54:26.460341Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:54:26.483816Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:54:26.513785Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:54:26.562878Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1281,9 +1375,9 @@
       "tests/tutorials/test_session_lifecycle.py",
       "tests/tutorials/test_tier_asset_rules.py"
     ],
-    "diff_fingerprint": "sha256:8a343ddff8afc57339860fdedbd583e790bcd4ec46c596e07481f02458cd52dc",
+    "diff_fingerprint": "sha256:ced4ce2ffd3c8a2a2ed9659f0fde473ac3223df61e84b7953fddaa6471ab691a",
     "head": "HEAD",
-    "head_sha": "1eb55f7fa",
+    "head_sha": "a212a335e",
     "surfaces": {
       "docs": 2,
       "frontend": 14,
@@ -1300,7 +1394,19 @@
   },
   "owner_directive": "Extend the tutorial runtime vocabulary and step model so Learning Center levels 2-6 are expressible, with matching ADR-053 spec revisions (dispatch P1 of learning-center-levels)",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2061,
+      2062,
+      2063,
+      2066,
+      2088,
+      2089
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-21T20:38:49.196572Z",
@@ -1377,6 +1483,14 @@
     {
       "at": "2026-08-21T22:53:22.392952Z",
       "diff_fingerprint": "sha256:8a343ddff8afc57339860fdedbd583e790bcd4ec46c596e07481f02458cd52dc",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-21T22:54:26.562945Z",
+      "diff_fingerprint": "sha256:ced4ce2ffd3c8a2a2ed9659f0fde473ac3223df61e84b7953fddaa6471ab691a",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
