@@ -797,19 +797,27 @@ No condition may be evaluated from frontend state, except `ui_event` (FR-052).
 | `node_exists` | a node of a given block type is present in the workflow |
 | `edge_exists` | an edge connects two given block types or node ids |
 | `config_equals` | a node's configuration key holds a given value |
-| `run_succeeded` | a run of the workflow, or of a given node, completed successfully |
-| `port_has_output` | a given output port holds data |
+| `run_succeeded` | a run of the workflow — or of a given node, or of any node of a given block type — completed successfully |
+| `port_has_output` | a given output port holds data, on a named node or on any node of a given block type |
 | `block_registered` | a block type is present in the registry |
 | `type_registered` | a data type is present in the type registry |
 | `previewer_registered` | a previewer is registered for a given type |
-| `plot_exists` | a plot exists, optionally bound to a given block's output |
+| `plot_exists` | a plot exists, optionally bound to a given block's output by node id or block type |
 | `file_exists` | a project-relative path exists |
 | `git_branch_exists` | a branch exists in the project repository |
 | `git_current_branch` | the checked-out branch is a given name |
 | `library_contains` | the tutorial-scoped library holds a named block, type, or previewer |
-| `interaction_completed` | an interactive block's panel was submitted |
+| `interaction_completed` | an interactive block's panel was submitted, on a named node or on any node of a given block type |
 | `page_reached` | a reading step reached a given page |
 | `ui_event` | a named frontend event was reported |
+
+Where a term addresses a node, `node_id` and `block_type` are alternative
+selectors for it: `block_type` alone reads "any node of that type", the two
+filter conjunctively when both are given, and a term whose meaning requires a
+node (`port_has_output`, `interaction_completed`) requires one of them at
+validation. This is the same selector convention `node_exists`, `config_equals`,
+and `config_matches` already use, extended in #2062 so the level designs can
+address "the Load block" without knowing the node id a reader's drag produced.
 
 **FR-048.** The vocabulary MUST support `all` and `any` combinators taking lists
 of conditions. Negation is deliberately omitted: a tutorial step that advances

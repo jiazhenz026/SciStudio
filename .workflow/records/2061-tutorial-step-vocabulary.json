@@ -1,0 +1,192 @@
+{
+  "branch": "feat/2061-tutorial-step-vocabulary",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [
+      "src/scistudio/tutorials/core/**"
+    ],
+    "include": [
+      "src/scistudio/tutorials/**",
+      "src/scistudio/api/routes/tutorials.py",
+      "src/scistudio/api/routes/ai_pty/replay.py",
+      "docs/specs/adr-053-learning-center.md",
+      "frontend/src/components/LearningCenter.parts/**",
+      "frontend/src/lib/api/learningCenter.ts",
+      "frontend/src/store/learningCenterSlice.ts",
+      "frontend/src/App.parts/useBottomPanelControls.ts",
+      "frontend/src/App.parts/useProjectActions.ts",
+      "frontend/src/components/BottomPanel.parts/PlotsTab.tsx",
+      "frontend/src/store/tabSlice.parts/fileTabActions.ts",
+      "frontend/src/components/DataPreview.tsx",
+      "frontend/src/components/Toolbar.parts/**",
+      "tests/tutorials/**",
+      "tests/api/**",
+      "frontend/src/components/__tests__/**",
+      "frontend/src/store/__tests__/**",
+      "CHANGELOG.md",
+      "docs/planning/learning-center-levels-checklist.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-21T20:22:17.741636Z",
+      "owner_directive": "Plan: (1) step trigger field+endpoint+ActiveStep button (#2061); (2) block_type selectors for run_succeeded/port_has_output/plot_exists/interaction_completed (#2062); (3) ui_event target args + reserved workflows asset dir + settle broadcast (#2063); (4) since_step_entry scoping + backend plot_rendered term (#2066); (5) requires.tutorials (#2088); (6) replay continue_tab (#2089); (7) reading step pages field; (8) ROUTE_TARGETS/PREFILL_SPECS/HIGHLIGHT_SPECS additions; spec FR revisions ride each item; welcome-to-scistudio stays unmodified as back-compat proof",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-21T20:22:17.741660Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-learning-center.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T20:22:17.741667Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T20:22:17.741669Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/learning-center-levels-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2061,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2062,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2063,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2066,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2088,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2089,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Extend the tutorial runtime vocabulary and step model so Learning Center levels 2-6 are expressible, with matching ADR-053 spec revisions (dispatch P1 of learning-center-levels)",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2061-tutorial-step-vocabulary",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "c827139c-78b0-45aa-a317-0651445fb334",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-08-21T20:22:17.741673Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T20:22:17.741678Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T20:22:17.741680Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/LearningCenter.parts/__tests__/",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T20:37:16.627476Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_conditions.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T20:37:16.627493Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_manifest_schema.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T20:37:16.627496Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_session_lifecycle.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T20:37:16.627497Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_replay.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T20:37:16.627499Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_discovery_tiers.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

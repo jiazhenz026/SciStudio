@@ -696,3 +696,75 @@ def test_condition_args_are_read_only() -> None:
     condition: Condition = parse_condition({"file_exists": {"path": "x"}})
     with pytest.raises(TypeError):
         condition.args["path"] = "y"  # type: ignore[index]
+
+
+# ---------------------------------------------------------------------------
+# The node selector: block_type as an alternative to node_id (#2062)
+# ---------------------------------------------------------------------------
+
+
+def _selector_state(loaded_workflow: WorkflowDefinition) -> StubProductState:
+    """A state where ``load-1`` (LoadCSV) succeeded, holds output, and was submitted."""
+    return StubProductState(
+        workflow_definition=loaded_workflow,
+        runs=(RunSummary(run_id="r1", workflow_id="wf-1", succeeded=False, succeeded_node_ids=frozenset({"load-1"})),),
+        ports_with_output=frozenset({("load-1", "table")}),
+        plots=(("plot-1", "save-1", "table"),),
+        interactions=frozenset({"load-1"}),
+    )
+
+
+def test_run_succeeded_reads_block_type_as_any_node_of_that_type(loaded_workflow: WorkflowDefinition) -> None:
+    state = _selector_state(loaded_workflow)
+    assert evaluate(parse_condition({"run_succeeded": {"block_type": "LoadCSV"}}), state) is True
+    assert evaluate(parse_condition({"run_succeeded": {"block_type": "SaveCSV"}}), state) is False
+
+
+def test_run_succeeded_filters_node_id_and_block_type_conjunctively(loaded_workflow: WorkflowDefinition) -> None:
+    """Both selectors together name one node that must also be of that type."""
+    state = _selector_state(loaded_workflow)
+    assert evaluate(parse_condition({"run_succeeded": {"block_type": "LoadCSV", "node_id": "load-1"}}), state) is True
+    assert evaluate(parse_condition({"run_succeeded": {"block_type": "SaveCSV", "node_id": "load-1"}}), state) is False
+
+
+def test_a_block_type_selector_is_false_when_no_workflow_is_open(loaded_workflow: WorkflowDefinition) -> None:
+    """A type selector resolves through the open workflow; no workflow, no nodes."""
+    state = _selector_state(loaded_workflow)
+    state.workflow_definition = None
+    assert evaluate(parse_condition({"run_succeeded": {"block_type": "LoadCSV"}}), state) is False
+    assert evaluate(parse_condition({"port_has_output": {"block_type": "LoadCSV", "port": "table"}}), state) is False
+
+
+def test_port_has_output_reads_block_type_as_any_node_of_that_type(loaded_workflow: WorkflowDefinition) -> None:
+    state = _selector_state(loaded_workflow)
+    assert evaluate(parse_condition({"port_has_output": {"block_type": "LoadCSV", "port": "table"}}), state) is True
+    assert evaluate(parse_condition({"port_has_output": {"block_type": "SaveCSV", "port": "table"}}), state) is False
+
+
+def test_port_has_output_with_a_bare_node_id_never_reads_the_workflow(loaded_workflow: WorkflowDefinition) -> None:
+    """The pre-#2062 form keeps its pre-#2062 cost: one port read, no workflow read."""
+    state = _selector_state(loaded_workflow)
+    assert evaluate(parse_condition({"port_has_output": {"node_id": "load-1", "port": "table"}}), state) is True
+    assert "workflow" not in state.reads
+
+
+def test_port_has_output_requires_a_node_id_or_a_block_type() -> None:
+    with pytest.raises(ConditionValidationError, match="requires one of node_id, block_type"):
+        parse_condition({"port_has_output": {"port": "table"}})
+
+
+def test_plot_exists_reads_block_type_as_any_node_of_that_type(loaded_workflow: WorkflowDefinition) -> None:
+    state = _selector_state(loaded_workflow)
+    assert evaluate(parse_condition({"plot_exists": {"block_type": "SaveCSV"}}), state) is True
+    assert evaluate(parse_condition({"plot_exists": {"block_type": "LoadCSV"}}), state) is False
+
+
+def test_interaction_completed_reads_block_type_as_any_node_of_that_type(loaded_workflow: WorkflowDefinition) -> None:
+    state = _selector_state(loaded_workflow)
+    assert evaluate(parse_condition({"interaction_completed": {"block_type": "LoadCSV"}}), state) is True
+    assert evaluate(parse_condition({"interaction_completed": {"block_type": "SaveCSV"}}), state) is False
+
+
+def test_interaction_completed_requires_a_node_id_or_a_block_type() -> None:
+    with pytest.raises(ConditionValidationError, match="requires one of node_id, block_type"):
+        parse_condition({"interaction_completed": {}})

@@ -142,8 +142,8 @@ _SPECS: tuple[TermSpec, ...] = (
     ),
     TermSpec(
         name="run_succeeded",
-        judges="a run of the workflow, or of a given node, completed successfully",
-        optional=("workflow_id", "node_id"),
+        judges="a run of the workflow, of a given node, or of any node of a given block type, completed successfully",
+        optional=("workflow_id", "node_id", "block_type"),
     ),
     TermSpec(
         name="run_failed",
@@ -152,8 +152,10 @@ _SPECS: tuple[TermSpec, ...] = (
     ),
     TermSpec(
         name="port_has_output",
-        judges="a given output port holds data",
-        required=("node_id", "port"),
+        judges="a given output port holds data, on a named node or on any node of a given block type",
+        required=("port",),
+        optional=("node_id", "block_type"),
+        one_of=(("node_id", "block_type"),),
     ),
     TermSpec(
         name="block_registered",
@@ -172,8 +174,8 @@ _SPECS: tuple[TermSpec, ...] = (
     ),
     TermSpec(
         name="plot_exists",
-        judges="a plot exists, optionally bound to a given block's output",
-        optional=("plot_id", "node_id", "port"),
+        judges="a plot exists, optionally bound to a given block's output by node id or block type",
+        optional=("plot_id", "node_id", "block_type", "port"),
     ),
     TermSpec(
         name="file_exists",
@@ -197,8 +199,9 @@ _SPECS: tuple[TermSpec, ...] = (
     ),
     TermSpec(
         name="interaction_completed",
-        judges="an interactive block's panel was submitted",
-        required=("node_id",),
+        judges="an interactive block's panel was submitted, on a named node or on any node of a given block type",
+        optional=("node_id", "block_type"),
+        one_of=(("node_id", "block_type"),),
     ),
     TermSpec(
         name="page_reached",
@@ -659,11 +662,40 @@ def _eval_config_matches(args: Mapping[str, Any], state: ProductState) -> bool:
     return False
 
 
-def _eval_run_succeeded(args: Mapping[str, Any], state: ProductState) -> bool:
+def _addressed_node_ids(args: Mapping[str, Any], state: ProductState) -> frozenset[str] | None:
+    """The node ids a term's ``node_id``/``block_type`` selector addresses.
+
+    ``None`` means the term declared no node selector at all, which the run
+    terms read as "the whole workflow". The two arguments filter conjunctively,
+    exactly as :func:`_node_matches` treats them for ``node_exists`` and the
+    config terms: ``block_type`` alone reads "any node of that type" (#2062),
+    ``node_id`` alone names one node without touching the workflow, and both
+    together name one node that must also be of that type. A ``block_type``
+    naming no node in the open workflow addresses the empty set, which makes
+    the condition false rather than an error.
+    """
     node_id = args.get("node_id")
+    block_type = args.get("block_type")
+    if node_id is None and block_type is None:
+        return None
+    if block_type is None:
+        return frozenset({str(node_id)})
+    workflow = state.workflow()
+    typed = (
+        frozenset()
+        if workflow is None
+        else frozenset(str(node.id) for node in workflow.nodes if node.block_type == block_type)
+    )
+    if node_id is None:
+        return typed
+    return typed & frozenset({str(node_id)})
+
+
+def _eval_run_succeeded(args: Mapping[str, Any], state: ProductState) -> bool:
+    addressed = _addressed_node_ids(args, state)
     for record in _runs_for(args, state):
-        if node_id is not None:
-            if node_id in record.succeeded_node_ids:
+        if addressed is not None:
+            if addressed & record.succeeded_node_ids:
                 return True
             continue
         if record.succeeded:
@@ -700,17 +732,39 @@ def _eval_run_failed(args: Mapping[str, Any], state: ProductState) -> bool:
 
 def _eval_plot_exists(args: Mapping[str, Any], state: ProductState) -> bool:
     plot_id = args.get("plot_id")
-    node_id = args.get("node_id")
     port = args.get("port")
+    addressed = _addressed_node_ids(args, state)
     for bound_plot_id, bound_node_id, bound_port in state.plot_bindings():
         if plot_id is not None and bound_plot_id != plot_id:
             continue
-        if node_id is not None and bound_node_id != node_id:
+        if addressed is not None and bound_node_id not in addressed:
             continue
         if port is not None and bound_port != port:
             continue
         return True
     return False
+
+
+def _eval_port_has_output(args: Mapping[str, Any], state: ProductState) -> bool:
+    """Does the named port hold data, on any node the selector addresses?
+
+    With a bare ``node_id`` the addressed set is that id and the workflow is
+    never read, which is the behaviour the term had before ``block_type``
+    joined it (#2062). The selector cannot be absent: the term's ``one_of``
+    requires one of ``node_id``/``block_type`` at validation.
+    """
+    port = str(args["port"])
+    addressed = _addressed_node_ids(args, state)
+    if addressed is None:  # pragma: no cover - one_of validation rejects this first
+        return False
+    return any(state.port_has_output(node_id, port) for node_id in sorted(addressed))
+
+
+def _eval_interaction_completed(args: Mapping[str, Any], state: ProductState) -> bool:
+    addressed = _addressed_node_ids(args, state)
+    if addressed is None:  # pragma: no cover - one_of validation rejects this first
+        return False
+    return bool(addressed & state.interactions_completed())
 
 
 def _eval_file_exists(args: Mapping[str, Any], state: ProductState) -> bool:
@@ -745,7 +799,7 @@ _SIMPLE_EVALUATORS: Mapping[str, Any] = MappingProxyType(
         "config_matches": _eval_config_matches,
         "run_succeeded": _eval_run_succeeded,
         "run_failed": _eval_run_failed,
-        "port_has_output": lambda args, state: state.port_has_output(str(args["node_id"]), str(args["port"])),
+        "port_has_output": _eval_port_has_output,
         "block_registered": lambda args, state: str(args["block_type"]) in state.block_type_names(),
         "type_registered": lambda args, state: str(args["type_name"]) in state.data_type_names(),
         "previewer_registered": lambda args, state: str(args["type_name"]) in state.previewer_type_ids(),
@@ -754,7 +808,7 @@ _SIMPLE_EVALUATORS: Mapping[str, Any] = MappingProxyType(
         "git_branch_exists": lambda args, state: str(args["branch"]) in state.git_branches(),
         "git_current_branch": lambda args, state: state.git_current_branch() == str(args["branch"]),
         "library_contains": lambda args, state: (str(args["kind"]), str(args["name"])) in state.library_entries(),
-        "interaction_completed": lambda args, state: str(args["node_id"]) in state.interactions_completed(),
+        "interaction_completed": _eval_interaction_completed,
         "page_reached": lambda args, state: str(args["page"]) in state.pages_reached(),
         "ui_event": lambda args, state: str(args["name"]) in state.ui_events(),
     }
