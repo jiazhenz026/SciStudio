@@ -68,9 +68,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "d869d50b815073c20f100635ffe44dba358a0098",
+    "sha": "22a9bab5f7d47f96e7448c70d3d82988eee20d4e",
     "shas": [
-      "d869d50b815073c20f100635ffe44dba358a0098"
+      "22a9bab5f7d47f96e7448c70d3d82988eee20d4e"
     ],
     "trailers": []
   },
@@ -291,6 +291,138 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:27.590852Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:27.616059Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:27.636888Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:27.659946Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:27.678740Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:27.717720Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:27.742471Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:27.764817Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:27.787212Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:27.813672Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:27.839033Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:59.166887Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:59.187246Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:59.205056Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:59.228603Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:59.252896Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:59.274137Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:59.291667Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:59.311904Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:59.348015Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:59.373535Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T20:57:59.393656Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -303,7 +435,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "4105e165451215ec842d731f8fb6691b45d1d0ea",
     "base_sha": "4105e165",
     "changed_files": [
       ".workflow/records/2093-desktop-dev-spawn.json",
@@ -312,9 +444,9 @@
       "desktop/scripts/start-dev.js",
       "desktop/test/npm-spawn.test.js"
     ],
-    "diff_fingerprint": "sha256:5effed0c2f034b6fc51b69397c7565d1a02fd61c34c131dc400873ab9f9c9340",
+    "diff_fingerprint": "sha256:7773cdeedbbffc409470efff4ecda48d98387511c316760d5c2239519af4bde1",
     "head": "HEAD",
-    "head_sha": "d869d50b",
+    "head_sha": "22a9bab5",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -336,7 +468,7 @@
     "closes": [
       2093
     ],
-    "number": null,
+    "number": 2094,
     "url": null
   },
   "reconcile_events": [
@@ -359,6 +491,22 @@
     {
       "at": "2026-08-21T20:57:00.274804Z",
       "diff_fingerprint": "sha256:5effed0c2f034b6fc51b69397c7565d1a02fd61c34c131dc400873ab9f9c9340",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-21T20:57:27.839105Z",
+      "diff_fingerprint": "sha256:7773cdeedbbffc409470efff4ecda48d98387511c316760d5c2239519af4bde1",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-21T20:57:59.393696Z",
+      "diff_fingerprint": "sha256:7773cdeedbbffc409470efff4ecda48d98387511c316760d5c2239519af4bde1",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
