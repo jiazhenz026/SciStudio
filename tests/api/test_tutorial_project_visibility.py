@@ -16,13 +16,12 @@ breaks if either half moves.
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from scistudio.api.runtime import ApiRuntime
+from scistudio.api.runtime import ApiRuntime, KnownProject, _rmtree_force
 from scistudio.core import dropins
 from scistudio.tutorials import projects as tutorial_projects
 from scistudio.tutorials.projects import TutorialKey
@@ -30,7 +29,9 @@ from scistudio.tutorials.projects import TutorialKey
 WELCOME = TutorialKey.core("welcome-to-scistudio")
 
 
-def _start_tutorial_project(runtime: ApiRuntime, key: TutorialKey = WELCOME, title: str = "Welcome To SciStudio"):
+def _start_tutorial_project(
+    runtime: ApiRuntime, key: TutorialKey = WELCOME, title: str = "Welcome To SciStudio"
+) -> tuple[tutorial_projects.TutorialProjectPlan, KnownProject]:
     """Create one tutorial project the way the Learning Center will.
 
     The plan comes from the tutorial layer and the creation from the runtime,
@@ -60,7 +61,8 @@ def user_project(client: TestClient, project_parent: Path) -> dict:
         json={"name": "My Analysis", "description": "real work", "path": str(project_parent)},
     )
     assert response.status_code == 200
-    return response.json()
+    payload: dict = response.json()
+    return payload
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +282,9 @@ def test_a_project_removed_outside_the_product_reads_as_gone(client: TestClient,
     _, project = _start_tutorial_project(runtime)
     assert tutorial_projects.tutorial_project_exists(project.path) is True
 
-    shutil.rmtree(project.path)
+    # The product's forced rmtree, not shutil.rmtree: git objects are
+    # read-only on Windows and a bare rmtree cannot unlink them (#2075).
+    _rmtree_force(Path(project.path))
 
     assert tutorial_projects.tutorial_project_exists(project.path) is False
     assert tutorial_projects.restart_preview(runtime.known_projects.values(), WELCOME) is None

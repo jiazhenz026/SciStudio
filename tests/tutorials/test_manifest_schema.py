@@ -527,7 +527,13 @@ def test_symlinked_asset_escape_is_rejected_when_the_directory_is_read(tmp_path:
     data["steps"][0]["do"] = [{"write": {"source": "assets/link/evil.py", "destination": "notes.py"}}]
     directory = write_tutorial(tmp_path / "linky", data)
     (directory / "assets").mkdir(exist_ok=True)
-    (directory / "assets" / "link").symlink_to(outside, target_is_directory=True)
+    try:
+        (directory / "assets" / "link").symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        # Capability probe, not a platform skip: on Windows, creating a
+        # symlink needs Developer Mode or elevation; with either granted,
+        # this test runs instead of skipping (#2075).
+        pytest.skip("symlink creation is not permitted in this environment")
     with pytest.raises(ManifestValidationError) as excinfo:
         load_manifest(directory, source_kind=TutorialSourceKind.CORE)
     assert "symbolic link" in str(excinfo.value)
