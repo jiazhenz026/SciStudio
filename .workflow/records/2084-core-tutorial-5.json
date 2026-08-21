@@ -1,0 +1,149 @@
+{
+  "branch": "feat/2084-core-tutorial-5",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/**",
+      "frontend/src/components/LearningCenter.parts/**",
+      "frontend/src/components/LearningCenter.tsx",
+      "frontend/src/lib/api/learningCenter.ts",
+      "tests/tutorials/**",
+      "CHANGELOG.md",
+      "docs/planning/learning-center-levels-checklist.md",
+      ".workflow/records/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-21T20:33:05.350420Z",
+      "owner_directive": "Content-first: author assets/pages + manifest for scistudio-at-a-glance (order 5, reading-only, 8 card steps with pages + page_reached done_when). Frontend: ReadingSurface window components under LearningCenter.parts, wired in LearningCenter.tsx replacing TODO(#2057) reading-surface gap; learningCenter.ts gains page URL + text fetch. Manifest will not validate until P1's pages field lands in the umbrella; integrate live after merge-back.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-21T20:33:05.350445Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T20:33:05.350453Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/learning-center-levels-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T20:33:05.350460Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "P1 owns the ADR-053 spec revision for the pages field this wave; L5 ships content and frontend against that contract",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T20:33:05.350466Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "no architectural decision changes; tutorial content plus a frontend surface inside the existing Learning Center contract",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2084,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Author core tutorial 5 - the reading-only summary level: one window, one top sentence, eight cards, paged card content. Build the reading surface frontend; wire pages fetch; tests; CHANGELOG. PR targets track/learning-center-levels.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2084-core-tutorial-5",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "73322ada-da59-4565-af89-d9605c1fe60f",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-08-21T20:33:05.350469Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_summary_reading_tutorial.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T20:33:05.350473Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/LearningCenter.parts/__tests__/ReadingSurface.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T20:33:05.350475Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/LearningCenter.parts/__tests__/readingCards.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:14:51.750420Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_summary_reading_tutorial.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:14:51.750444Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/LearningCenter.parts/__tests__/ReadingSurface.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:14:51.750448Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/LearningCenter.parts/__tests__/readingCards.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:14:51.750450Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/LearningCenter.parts/__tests__/PageMarkdown.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
