@@ -386,6 +386,39 @@ describe("a session adopted already-complete at start-up is history, not news (#
     expect(learningCenterApi.getTutorialUnlock).not.toHaveBeenCalled();
   });
 
+  it("stays history when the session request wins the start-up race", async () => {
+    /*
+     * PR #2092 review: at launch the active-session request and the catalogue
+     * request race, and the session answer can land first. The guard must not
+     * depend on the catalogue having arrived — a finished tutorial is history
+     * regardless of which request answered first.
+     */
+    let resolveCatalogue: (value: unknown) => void = () => {};
+    vi.mocked(learningCenterApi.getTutorialCatalogue).mockReturnValue(
+      new Promise((resolve) => {
+        resolveCatalogue = resolve;
+      }) as never,
+    );
+    const closeProject = vi.fn();
+    const openProject = vi.fn();
+    await renderHarness(openProject, closeProject);
+
+    // The session answer lands first, as the kept completed record.
+    await waitFor(() =>
+      expect(useAppStore.getState().learningCenterSession?.status).toBe("complete"),
+    );
+    expect(useAppStore.getState().learningCenterOpen).toBe(false);
+    expect(closeProject).not.toHaveBeenCalled();
+    expect(learningCenterApi.getTutorialUnlock).not.toHaveBeenCalled();
+
+    // The catalogue arriving later changes nothing.
+    resolveCatalogue(STALE_CATALOGUE);
+    await waitFor(() => expect(useAppStore.getState().learningCenterCatalogue).not.toBeNull());
+    expect(useAppStore.getState().learningCenterOpen).toBe(false);
+    expect(closeProject).not.toHaveBeenCalled();
+    expect(learningCenterApi.getTutorialUnlock).not.toHaveBeenCalled();
+  });
+
   it("does not resurrect the finished tutorial's project", async () => {
     // A stale session carries the project the lesson ran in; only a live
     // session may move the window to it.
