@@ -8,7 +8,7 @@
 // resizes and stays visible when the panel is collapsed, which is what makes
 // the collapsed state discoverable.
 
-import { FolderTree, Puzzle, Shapes, Waypoints, type LucideIcon } from "lucide-react";
+import { Database, FolderTree, Puzzle, Shapes, Waypoints, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -22,11 +22,13 @@ interface ActivityBarEntry {
 }
 
 // Top-to-bottom visual order. `workflows` sits between the library sections
-// (blocks / types) and the raw project tree.
+// (blocks / types) and the data/project trees; `data` (#2090) is the project
+// tree rooted at data/.
 const ACTIVITY_BAR_ENTRIES: readonly ActivityBarEntry[] = [
   { key: "blocks", label: "Blocks", icon: Puzzle },
   { key: "types", label: "Data types", icon: Shapes },
   { key: "workflows", label: "Workflows", icon: Waypoints },
+  { key: "data", label: "Data", icon: Database },
   { key: "project", label: "Project", icon: FolderTree },
 ];
 

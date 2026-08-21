@@ -23,7 +23,7 @@ describe("ActivityBar", () => {
   it("renders one icon button per left-panel section", () => {
     renderBar();
     expect(screen.getByTestId("activity-bar")).toBeInTheDocument();
-    for (const label of ["Blocks", "Data types", "Workflows", "Project"]) {
+    for (const label of ["Blocks", "Data types", "Workflows", "Data", "Project"]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }
   });

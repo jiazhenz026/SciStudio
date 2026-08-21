@@ -84,6 +84,11 @@
       "at": "2026-08-21T21:04:30.412142Z",
       "owner_directive": "Rename the ProjectTree Refresh button to Reload for consistency.",
       "reason": "Owner asked during live preview to also rename the project tree's Refresh button to Reload so all left-panel reload affordances share one wording."
+    },
+    {
+      "at": "2026-08-21T21:30:36.758365Z",
+      "owner_directive": "Add a Data tab to the activity bar: a ProjectTree-style view rooted at the project's data/ folder showing all subdirectories. Defer the click-to-preview variant (option C) to a follow-up.",
+      "reason": "Owner directed a new Data activity-bar section during the live session: a project tree rooted at data/ showing all its subdirectories (option A from the design discussion; click-to-preview deferred). Icon Database, order Blocks/Data types/Workflows/Data/Project."
     }
   ],
   "docs_events": [
@@ -283,6 +288,18 @@
       "at": "2026-08-21T21:04:30.412163Z",
       "pattern": "frontend/src/components/ProjectTree.tsx",
       "reason": "Owner asked during live preview to also rename the project tree's Refresh button to Reload so all left-panel reload affordances share one wording."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-21T21:30:36.758385Z",
+      "pattern": "frontend/src/components/ProjectTree.parts/useTreeNodes.ts",
+      "reason": "Owner directed a new Data activity-bar section during the live session: a project tree rooted at data/ showing all its subdirectories (option A from the design discussion; click-to-preview deferred). Icon Database, order Blocks/Data types/Workflows/Data/Project."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-21T21:30:36.758391Z",
+      "pattern": "frontend/src/components/ActivityBar.tsx",
+      "reason": "Owner directed a new Data activity-bar section during the live session: a project tree rooted at data/ showing all its subdirectories (option A from the design discussion; click-to-preview deferred). Icon Database, order Blocks/Data types/Workflows/Data/Project."
     }
   ],
   "session_id": "1b557fc7-0aa8-4122-9265-3a7e4dc9b69c",

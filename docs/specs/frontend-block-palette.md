@@ -691,11 +691,13 @@ collapsed — which is what makes the collapsed state discoverable.
 
 ### 13.1 Sections, Not Tabs
 
-`leftTab` widens from `"blocks" | "types" | "project"` to include `"workflows"`.
-The rail's icon order is Blocks, Data types, Workflows, Project; hovering an
+`leftTab` widens from `"blocks" | "types" | "project"` to include
+`"workflows"` and `"data"`. The rail's icon order is Blocks, Data types,
+Workflows, Data, Project; hovering an
 icon shows the section name in a tooltip (the shared `ui/tooltip`). The active
-section carries a short accent bar on the rail's left edge; a collapsed panel
-shows no active marker at all, same as VS Code.
+section carries an ember-filled highlight plus a short accent bar on the
+rail's left edge; a collapsed panel shows no active marker at all, same as
+VS Code.
 
 Clicking an icon opens that section. Clicking the *active* section's icon
 collapses the whole panel; clicking it again (or pressing Ctrl+B) reopens it.
@@ -718,10 +720,24 @@ the section needed no backend change. A workflow whose detail fetch fails
 currently on the canvas is highlighted (`aria-current`), and a Reload button
 matches the project tree's affordance.
 
-### 13.3 Test Plan
+### 13.3 The Data Section
+
+The Data section is the project tree rooted at `data/` rather than the project
+root: `ProjectTree` grew optional `rootPath` / `title` props, and
+`useTreeNodes(projectId, basePath)` loads its root listing from the
+subdirectory while every path below stays project-relative (so the context
+menu, reload flash, and watcher auto-refresh behave exactly as they do on the
+Project section). All of `data/` shows — `raw`, `processed`, `zarr`,
+`parquet`, `artifacts`, `exchange` — per the owner's call in the live session.
+Single-click file preview in the right-hand DataPreview panel was discussed
+and explicitly deferred (tracked TODO in `ProjectWorkspace.tsx`).
+
+### 13.4 Test Plan
 
 `frontend/src/components/ActivityBar.test.tsx` covers the rail: one icon per
 section, click reporting, the active marker appearing only while the panel is
 open, and the hover tooltip. `frontend/src/components/WorkflowPanel.test.tsx`
-covers the list: ids plus descriptions, click-to-open, the active highlight,
-the failed-detail fallback, the empty state, and Reload.
+covers the workflow list: ids plus descriptions, click-to-open, the active
+highlight, the failed-detail fallback, the empty state, and Reload.
+`frontend/src/components/__tests__/ProjectTree.test.tsx` covers the Reload
+wording on the project tree and the Data section's `rootPath="data"` rooting.

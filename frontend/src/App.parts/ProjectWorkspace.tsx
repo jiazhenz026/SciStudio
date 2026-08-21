@@ -56,10 +56,11 @@ export interface CanvasReadabilityWiring {
  * `blocks` is the renamed first section. `types` is the `Data types` section
  * that sits between `Blocks` and `Workflows`. #2090 replaced the text tab
  * strip with the VS Code-style `ActivityBar` icon rail and added the
- * `workflows` section; the union is widened here ahead of the pane so all
- * section surfaces read one union.
+ * `workflows` and `data` sections (`data` is the project tree rooted at
+ * `data/`); the union is widened here ahead of the pane so all section
+ * surfaces read one union.
  */
-export type LeftTab = "blocks" | "types" | "workflows" | "project";
+export type LeftTab = "blocks" | "types" | "workflows" | "data" | "project";
 
 export interface ProjectWorkspaceProps {
   // Project / workflow context
@@ -196,6 +197,23 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
           projectId={currentProject.id}
           activeWorkflowId={props.workflowId}
           onOpenWorkflow={(workflowId, displayName) => onLoadWorkflowById(workflowId, displayName)}
+        />
+      ) : leftTab === "data" ? (
+        // #2090 — the Data section: the same tree as Project, rooted at
+        // data/ so the panel shows only the project's data folders
+        // (raw / processed / zarr / parquet / artifacts / exchange).
+        //
+        // TODO(#2090): click-to-preview (option C from the live design
+        // discussion) — single-click a data file to show its content in the
+        // right DataPreview panel. Deferred per owner decision in the guided
+        // session; follow-up issue to be filed when picked up.
+        <ProjectTree
+          projectId={currentProject.id}
+          projectPath={currentProject.path}
+          title="Data"
+          rootPath="data"
+          onLoadWorkflow={(workflowId, displayName) => onLoadWorkflowById(workflowId, displayName)}
+          onReloadBlocks={onReloadBlocks}
         />
       ) : (
         <ProjectTree
