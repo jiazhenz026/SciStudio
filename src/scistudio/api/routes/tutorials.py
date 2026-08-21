@@ -43,6 +43,7 @@ import logging
 import mimetypes
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, TypeVar
 
@@ -57,8 +58,14 @@ from scistudio.api.runtime import ApiRuntime
 from scistudio.api.runtime._helpers import _rmtree_force
 from scistudio.api.ws import BLOCKS_RELOADED
 from scistudio.core.dropins import BLOCKS_DIR_NAME, TYPES_DIR_NAME, tutorial_library_dir
-from scistudio.engine.events import INTERACTIVE_COMPLETE, EngineEvent
-from scistudio.tutorials.conditions import UI_EVENT_NAMES, ExternalEventNames, ProductState, RunSummary
+from scistudio.engine.events import INTERACTIVE_COMPLETE, WORKFLOW_CHANGED, EngineEvent
+from scistudio.tutorials.conditions import (
+    UI_EVENT_NAMES,
+    ExternalEventNames,
+    ProductState,
+    RunSummary,
+    ui_event_target_arg,
+)
 from scistudio.tutorials.discovery import Catalogue, CatalogueEntry, CatalogueGroup, DiscoveredTutorial
 from scistudio.tutorials.manifest import ASSETS_DIR_NAME
 from scistudio.tutorials.projects import (
@@ -73,6 +80,7 @@ from scistudio.tutorials.session import (
     AnotherSessionActiveError,
     NoActiveSessionError,
     SessionView,
+    TriggerFailedError,
     TutorialRuntime,
     TutorialSessionError,
     TutorialUnavailableError,
@@ -154,6 +162,14 @@ class UiEventRequest(BaseModel):
     """A named interface event the user just caused."""
 
     name: str = Field(description="The event name. One of a closed set the product declares.")
+    target: str | None = Field(
+        default=None,
+        description=(
+            "What the event acted on, for the events that declare a target argument "
+            "(#2063): the block type behind node_selected and block_source_viewed, "
+            "the plot id behind plot_rendered. Omitted for the rest."
+        ),
+    )
 
 
 class ClearDataRequest(BaseModel):
@@ -213,6 +229,12 @@ class StepResponse(BaseModel):
     #: values are validated where they are declared, in
     #: :data:`scistudio.tutorials.manifest.PREFILL_SPECS`.
     prefill: list[PrefillResponse] = Field(default_factory=list)
+    #: FR-011 — the reading pages this step presents, in order, each a name the
+    #: pages route serves. Names only; the reading surface fetches content as
+    #: the reader turns.
+    pages: list[str] = Field(default_factory=list)
+    #: FR-011 / #2061 — the step's user-triggered action, when it declares one.
+    trigger: TriggerResponse | None = None
     awaiting_continue: bool = False
     #: FR-054a — whether this step's condition holds right now.
     #:
@@ -221,6 +243,35 @@ class StepResponse(BaseModel):
     #: second copy of the judgment in the frontend, which is the thing spec §4.1
     #: exists to prevent.
     satisfied: bool = False
+
+
+class TriggerResponse(BaseModel):
+    """The step's user-triggered action, as the reader sees it: a button label.
+
+    Only the label crosses the wire (#2061). What pressing it does is the
+    backend's to perform through the trigger route, which is what keeps a
+    driver from addressing any surface the manifest format cannot (FR-041).
+    """
+
+    label: str
+
+
+class StepOutlineResponse(BaseModel):
+    """One row of the session's read-only step outline.
+
+    The inert subset of a step — index, id, title, say, pages — so the reading
+    window can show every card name up front. Deliberately no condition,
+    highlight, prefill, or action: this is a session-level listing, not a
+    second step surface, and FR-041's step-view closure is untouched by it.
+    For a sequential tutorial, a row is behind the reader exactly when its
+    index is smaller than the current step's.
+    """
+
+    index: int
+    id: str
+    title: str | None = None
+    say: str | None = None
+    pages: list[str] = Field(default_factory=list)
 
 
 class ReplayResponse(BaseModel):
@@ -244,6 +295,8 @@ class SessionResponse(BaseModel):
     status: str
     error: str | None = None
     replay: ReplayResponse | None = None
+    #: The whole tutorial's read-only step outline; see StepOutlineResponse.
+    steps: list[StepOutlineResponse] = Field(default_factory=list)
 
 
 class CatalogueEntryResponse(BaseModel):
@@ -344,11 +397,19 @@ class _RecordedSignals:
 
     def __init__(self) -> None:
         self.ui_events: set[str] = set()
+        self.ui_event_targets: set[tuple[str, str]] = set()
         self.interactions: set[str] = set()
         self.pages: set[str] = set()
 
-    def record_ui_event(self, name: str) -> None:
+    def record_ui_event(self, name: str, target: str | None = None) -> None:
+        """Record one reported event, and the target it acted on when it named one.
+
+        The bare name is kept either way, so a condition that does not care
+        which element was acted on is satisfied by a targeted report too.
+        """
         self.ui_events.add(name)
+        if target:
+            self.ui_event_targets.add((name, target))
 
     def forget_ui_events(self) -> None:
         """Drop the recorded events, called when a step is entered.
@@ -361,6 +422,7 @@ class _RecordedSignals:
         facts about the project that stay true.
         """
         self.ui_events.clear()
+        self.ui_event_targets.clear()
 
     def record_page(self, name: str) -> None:
         self.pages.add(name)
@@ -495,6 +557,33 @@ class _ApiProductState:
                 bindings.append((str(loaded.plot_id), str(node_id), str(output_port)))
         return tuple(bindings)
 
+    def rendered_plots(self) -> tuple[tuple[str, str, str, str], ...]:
+        """``(workflow_id, node_id, output_port, plot_id)`` for every rendered figure.
+
+        Read straight off the preview cache, whose layout is the plot runtime's
+        contract: ``.scistudio/previews/<workflow_id>/<node_id>/<output_port>/
+        <plot_id>/`` holding ``current.*`` display artifacts beside a
+        ``current.json`` run record. A directory holding only the record has
+        recorded a run that produced no figure, so it does not count — the term
+        judges "a figure exists", not "a render was attempted" (#2066).
+        """
+        project_dir = self.project_dir
+        if project_dir is None:
+            return ()
+        root = project_dir / ".scistudio" / "previews"
+        found: list[tuple[str, str, str, str]] = []
+        artifacts: list[Path] = _read_or(lambda: sorted(root.glob("*/*/*/*/current.*")), list[Path]())
+        for artifact in artifacts:
+            if artifact.name == "current.json":
+                continue
+            plot_dir = artifact.parent
+            port_dir = plot_dir.parent
+            node_dir = port_dir.parent
+            entry = (node_dir.parent.name, node_dir.name, port_dir.name, plot_dir.name)
+            if entry not in found:
+                found.append(entry)
+        return tuple(found)
+
     # -- runs -------------------------------------------------------------
 
     def run_records(self) -> tuple[RunSummary, ...]:
@@ -519,6 +608,7 @@ class _ApiProductState:
                     run_id=run_id,
                     workflow_id=str(row.get("workflow_id") or ""),
                     succeeded=row.get("status") == "completed",
+                    started_at=str(row.get("started_at")) if row.get("started_at") else None,
                     succeeded_node_ids=frozenset(
                         str(execution.get("block_id") or "")
                         for execution in executions
@@ -659,6 +749,9 @@ class _ApiProductState:
 
     def ui_events(self) -> frozenset[str]:
         return frozenset(self.recorded.ui_events)
+
+    def ui_events_with_targets(self) -> frozenset[tuple[str, str]]:
+        return frozenset(self.recorded.ui_event_targets)
 
 
 def _read_or(read: Callable[..., _T], default: _T) -> _T:
@@ -854,6 +947,66 @@ class _TutorialWiring:
 _SCANNED_PROJECT_DIRS: frozenset[str] = frozenset({BLOCKS_DIR_NAME, TYPES_DIR_NAME})
 
 
+#: The project subdirectory holding workflow YAML, which the open canvas renders.
+_WORKFLOWS_DIR_NAME = "workflows"
+
+
+def _workflow_writes(written: Sequence[Path], *, project_dir: Path | None) -> list[tuple[str, str]]:
+    """``(workflow stem, project-relative posix path)`` for writes landing under ``workflows/``.
+
+    A step that writes ``workflows/main.workflow.yaml`` has changed the graph
+    the reader is looking at, and the canvas renders the frontend's copy of it:
+    without a broadcast the file is right and the screen is stale, which is the
+    palette problem FR-059a solves for blocks, one surface over (#2063). The
+    watcher cannot be relied on to cover it — it is a filesystem observer that
+    headless runs and tests do not start, and FR-059a's ordering wants the
+    product to have taken the write in before the text is readable.
+    """
+    if project_dir is None:
+        return []
+    hits: list[tuple[str, str]] = []
+    for path in written:
+        try:
+            relative = path.resolve().relative_to(project_dir.resolve())
+        except (OSError, ValueError):
+            continue
+        if len(relative.parts) >= 2 and relative.parts[0] == _WORKFLOWS_DIR_NAME:
+            # The stem the product addresses a workflow by: the filename minus
+            # every suffix, so ``main.workflow.yaml`` reloads workflow ``main``.
+            stem = relative.name.split(".", 1)[0]
+            if stem:
+                hits.append((stem, relative.as_posix()))
+    return hits
+
+
+def _workflow_reload_payload(project_dir: Path | None, stem: str, relative: str) -> dict[str, Any]:
+    """The ``workflow.changed`` payload the watcher emits for an external edit.
+
+    Mirrors ``workflow_watcher``'s unversioned shape — ``source: "external"``
+    with the file's mtime as the version — so the frontend's existing
+    ``workflow.changed`` reconcile path treats a tutorial's write exactly like
+    any other on-disk edit; only ``changed_by`` says who wrote it.
+    """
+    version = 0
+    if project_dir is not None:
+        try:
+            version = int((project_dir / relative).stat().st_mtime_ns)
+        except OSError:
+            version = 0
+    return {
+        "entity_class": "workflow",
+        "entity_id": stem,
+        "version": version,
+        "source": "external",
+        "source_id": None,
+        "kind": "modified",
+        "timestamp": datetime.now(tz=UTC).isoformat(),
+        "workflow_id": stem,
+        "path": relative,
+        "changed_by": "tutorial",
+    }
+
+
 def _wrote_into_a_scanned_dir(written: Sequence[Path], *, project_dir: Path | None) -> bool:
     """Whether any written path lands in a directory the registries scan.
 
@@ -912,9 +1065,12 @@ def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
         runtime with no event bus or no loop — every test, and any headless
         run — simply skips it.
         """
-        if not _wrote_into_a_scanned_dir(written, project_dir=runtime.project_dir):
+        wrote_scanned = _wrote_into_a_scanned_dir(written, project_dir=runtime.project_dir)
+        workflow_writes = _workflow_writes(written, project_dir=runtime.project_dir)
+        if not wrote_scanned and not workflow_writes:
             return
-        runtime.refresh_all_registries()
+        if wrote_scanned:
+            runtime.refresh_all_registries()
 
         event_bus = getattr(runtime, "event_bus", None)
         if event_bus is None:
@@ -923,14 +1079,29 @@ def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             return
-        specs: dict[str, Any] = _read_or(runtime.block_registry.all_specs, {})
-        event = EngineEvent(
-            event_type=BLOCKS_RELOADED,
-            data={"added": [], "removed": [], "reloaded": sorted(specs), "source": "tutorial"},
+        events: list[EngineEvent] = []
+        if wrote_scanned:
+            specs: dict[str, Any] = _read_or(runtime.block_registry.all_specs, {})
+            events.append(
+                EngineEvent(
+                    event_type=BLOCKS_RELOADED,
+                    data={"added": [], "removed": [], "reloaded": sorted(specs), "source": "tutorial"},
+                )
+            )
+        # A write landing under workflows/ must reach the open canvas (#2063):
+        # the frontend's workflow.changed reconcile path is the one that redraws
+        # it, and this is the same frame the watcher itself would send.
+        events.extend(
+            EngineEvent(
+                event_type=WORKFLOW_CHANGED,
+                data=_workflow_reload_payload(runtime.project_dir, stem, relative),
+            )
+            for stem, relative in workflow_writes
         )
-        task = loop.create_task(_emit_quietly(event_bus, event))
-        broadcasts.add(task)
-        task.add_done_callback(broadcasts.discard)
+        for event in events:
+            task = loop.create_task(_emit_quietly(event_bus, event))
+            broadcasts.add(task)
+            task.add_done_callback(broadcasts.discard)
 
     tutorials = TutorialRuntime(
         product_state=product_state,
@@ -951,7 +1122,7 @@ async def _emit_quietly(event_bus: Any, event: EngineEvent) -> None:
     try:
         await event_bus.emit(event)
     except Exception:
-        logger.exception("tutorial step: blocks.reloaded broadcast failed")
+        logger.exception("tutorial step: %s broadcast failed", event.event_type)
 
 
 def _subscribe(runtime: ApiRuntime, tutorials: TutorialRuntime, recorded: _RecordedSignals) -> None:
@@ -1088,6 +1259,8 @@ def _session_response(runtime: ApiRuntime, view: SessionView | None) -> SessionR
             highlight=None if view.step.highlight is None else HighlightResponse(**view.step.highlight),
             route_to=view.step.route_to,
             prefill=[PrefillResponse(**entry) for entry in view.step.prefill],
+            pages=list(view.step.pages),
+            trigger=None if view.step.trigger is None else TriggerResponse(**view.step.trigger),
             awaiting_continue=view.step.awaiting_continue,
             satisfied=view.step.satisfied,
         )
@@ -1104,6 +1277,16 @@ def _session_response(runtime: ApiRuntime, view: SessionView | None) -> SessionR
         status=str(view.status),
         error=view.error,
         replay=None if view.replay is None else ReplayResponse(surface=view.replay.surface, tab_id=view.replay.tab_id),
+        steps=[
+            StepOutlineResponse(
+                index=int(entry.get("index", position)),
+                id=str(entry.get("id", "")),
+                title=entry.get("title"),
+                say=entry.get("say"),
+                pages=list(entry.get("pages", ())),
+            )
+            for position, entry in enumerate(view.steps)
+        ],
     )
 
 
@@ -1132,6 +1315,11 @@ def _acting(action: Callable[[], _T]) -> _T:
         return action()
     except AnotherSessionActiveError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except TriggerFailedError as exc:
+        # 502 rather than 409: the press was legitimate and the product failed
+        # to perform it. The session is untouched and the press can be retried
+        # (#2061), which the detail is worded to say.
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     except TutorialUnavailableError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except NoActiveSessionError as exc:
@@ -1271,8 +1459,30 @@ async def report_ui_event(body: UiEventRequest, runtime: RuntimeDep) -> SessionR
                 f"expected one of {', '.join(sorted(UI_EVENT_NAMES))}."
             ),
         )
+    if body.target is not None and ui_event_target_arg(body.name) is None:
+        # The pairing table is the one conditions.py validates manifests
+        # against, read from this side too (#2063): recording a target no
+        # condition can ever name would be a silently dead datum.
+        raise HTTPException(
+            status_code=422,
+            detail=f"{body.name!r} does not carry a target; report the bare name.",
+        )
     tutorials = _tutorials(runtime)
-    return _rendered(runtime, _acting(lambda: tutorials.report_ui_event(body.name)))
+    return _rendered(runtime, _acting(lambda: tutorials.report_ui_event(body.name, body.target)))
+
+
+@router.post("/sessions/active/trigger", response_model=SessionResponse)
+async def trigger_active_step(runtime: RuntimeDep) -> SessionResponse:
+    """Run the current step's user-triggered action (#2061).
+
+    The step's trigger button posts here. The actions run to completion and
+    the registries settle before the response returns, so whatever the button
+    claimed to do has happened by the time anything re-renders; the response is
+    the re-judged session. A failure leaves the session on the same step,
+    active, and the press can simply be retried.
+    """
+    tutorials = _tutorials(runtime)
+    return _rendered(runtime, _acting(tutorials.trigger_active))
 
 
 @router.post("/sessions/active/continue", response_model=SessionResponse)

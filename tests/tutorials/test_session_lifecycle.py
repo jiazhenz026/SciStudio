@@ -909,6 +909,362 @@ def test_a_replay_step_drives_the_injected_byte_source(
     assert closed == ["tab-1"]
 
 
+def test_entering_a_step_anchors_since_step_entry_and_the_anchor_survives_restart(
+    home: Path,
+    core_dir: Path,
+    environment: DiscoveryEnvironment,
+    packages: list[Any],
+    product: StubProductState,
+    provisioner: _Provisioner,
+) -> None:
+    """#2066: the session stamps step entry and supplies it as evaluation context.
+
+    A successful run from before the tutorial began must not satisfy a
+    ``since_step_entry`` step (FR-054's already-true rule deliberately does not
+    reach a since-scoped condition), the anchor must survive a backend restart
+    the way the step id does (FR-037), and a run performed after entry must
+    satisfy it.
+    """
+    from scistudio.tutorials.conditions import RunSummary
+
+    _tutorial(
+        core_dir,
+        "press-run-here",
+        steps=[
+            {
+                "id": "press-run",
+                "say": "Press Run.",
+                "done_when": {"run_succeeded": {"since_step_entry": True}},
+            },
+            {"id": "done", "say": "Done."},
+        ],
+    )
+    product.runs = (
+        RunSummary(run_id="r-old", workflow_id="wf", succeeded=True, started_at="2020-01-01T00:00:00+00:00"),
+    )
+
+    runtime = _runtime(home, product, provisioner, environment)
+    started = runtime.start(TutorialKey.core("press-run-here"))
+    assert started.step is not None and started.step.satisfied is False
+
+    # A backend restart is a fresh runtime over the same files (FR-037).
+    restarted = _runtime(home, product, provisioner, environment)
+    view = restarted.evaluate_active()
+    assert view.step is not None and view.step.satisfied is False
+
+    from datetime import UTC, datetime
+
+    product.runs = (
+        RunSummary(run_id="r-new", workflow_id="wf", succeeded=True, started_at=datetime.now(tz=UTC).isoformat()),
+        *product.runs,
+    )
+    view = restarted.evaluate_active()
+    assert view.step is not None and view.step.satisfied is True
+
+
+def _triggered_tutorial(core_dir: Path, *, source: str = "assets/data/block.txt") -> None:
+    write_tutorial(
+        core_dir / "press-play",
+        {
+            "manifest_version": 1,
+            "id": "press-play",
+            "title": "Press Play",
+            "summary": "A step with a trigger.",
+            "bootstrap": {"project_name": "Press Play"},
+            "steps": [
+                {
+                    "id": "watch",
+                    "say": "Press Play to receive the file.",
+                    "trigger": {
+                        "label": "Play",
+                        "do": [{"write": {"source": source, "destination": "data/received.txt"}}],
+                    },
+                    "done_when": {"file_exists": {"path": "data/received.txt"}},
+                },
+                {"id": "done", "say": "Done."},
+            ],
+        },
+        files={"assets/data/block.txt": "payload"},
+    )
+
+
+def test_a_trigger_runs_its_actions_and_rejudges_the_step(
+    home: Path,
+    core_dir: Path,
+    environment: DiscoveryEnvironment,
+    packages: list[Any],
+    product: StubProductState,
+    provisioner: _Provisioner,
+) -> None:
+    """#2061: press → actions land → settle → the re-judged session comes back."""
+    settled: list[tuple[Path, ...]] = []
+
+    _triggered_tutorial(core_dir)
+    runtime = TutorialRuntime(
+        product_state=lambda: product,
+        external_events=ExternalEventNames(blocks_reloaded="blocks.reloaded", file_changed="file.changed"),
+        project_dir=lambda: product.project_dir,
+        provisioner=provisioner,
+        environment=environment,
+        progress=ProgressStore(home / ".scistudio"),
+        sessions=SessionStore(home / ".scistudio"),
+        files_written=lambda written: settled.append(tuple(written)),
+    )
+    started = runtime.start(TutorialKey.core("press-play"))
+    assert started.step is not None and started.step.id == "watch"
+    assert started.step.trigger == {"label": "Play"}
+    assert started.step.satisfied is False
+    project = started.project_path
+    assert project is not None
+    product.project_dir = project
+
+    view = runtime.trigger_active()
+
+    assert (project / "data" / "received.txt").read_text(encoding="utf-8") == "payload"
+    # The settle hook saw the trigger's writes (FR-059a at the trigger's moment).
+    assert any(any(path.name == "received.txt" for path in batch) for batch in settled)
+    assert view.step is not None and view.step.id == "watch"
+    assert view.step.satisfied is True
+    assert view.status is SessionStatus.ACTIVE
+
+
+def test_a_failed_trigger_is_retryable_and_never_ends_the_session(
+    home: Path,
+    core_dir: Path,
+    environment: DiscoveryEnvironment,
+    packages: list[Any],
+    product: StubProductState,
+    provisioner: _Provisioner,
+) -> None:
+    """FR-060's trigger revision (#2061): surfaced on the step, session intact."""
+    from scistudio.tutorials.session import TriggerFailedError
+
+    # The manifest names an asset that is not on disk, so the trigger's write
+    # fails at execution while validation (which is lexical) accepted it.
+    _triggered_tutorial(core_dir, source="assets/data/missing.txt")
+    runtime = _runtime(home, product, provisioner, environment)
+    started = runtime.start(TutorialKey.core("press-play"))
+    assert started.project_path is not None
+    product.project_dir = started.project_path
+
+    with pytest.raises(TriggerFailedError) as excinfo:
+        runtime.trigger_active()
+    assert "watch" in str(excinfo.value.step_id)
+
+    # The session is exactly where it was: active, same step, retryable.
+    view = runtime.active_session()
+    assert view is not None
+    assert view.status is SessionStatus.ACTIVE
+    assert view.step is not None and view.step.id == "watch"
+    with pytest.raises(TriggerFailedError):
+        runtime.trigger_active()
+
+
+def test_triggering_a_step_without_a_trigger_is_refused(
+    home: Path,
+    core_dir: Path,
+    environment: DiscoveryEnvironment,
+    packages: list[Any],
+    product: StubProductState,
+    provisioner: _Provisioner,
+) -> None:
+    from scistudio.tutorials.session import TriggerFailedError, TutorialSessionError
+
+    _tutorial(core_dir, "plain")
+    runtime = _runtime(home, product, provisioner, environment)
+    runtime.start(TutorialKey.core("plain"))
+
+    with pytest.raises(TutorialSessionError) as excinfo:
+        runtime.trigger_active()
+    assert "declares no trigger" in str(excinfo.value)
+    assert not isinstance(excinfo.value, TriggerFailedError)
+
+
+class _AppendableHandle:
+    """A replay handle that records deliveries and what was on disk at each."""
+
+    def __init__(self, tab_id: str, watched: Path) -> None:
+        self.surface = "ai_chat_terminal"
+        self.tab_id = tab_id
+        self.watched = watched
+        self.delivered: list[tuple[str, bytes, bool]] = []
+        self.closed = False
+
+    @property
+    def is_open(self) -> bool:
+        return not self.closed
+
+    def deliver(self, segment: Any, payload: bytes) -> None:
+        self.delivered.append((segment.id, payload, self.watched.exists()))
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def _conversation_tutorial(core_dir: Path) -> None:
+    """Step 1 replays segment s1 on entry; its trigger continues with s2.
+
+    Tutorial 4's conversation-pacing shape (#2089 with #2061): the press asks
+    the scripted session already on screen for more, and s2 binds a write that
+    must land before s2's bytes (FR-061b, per appended segment).
+    """
+    write_tutorial(
+        core_dir / "conversation",
+        {
+            "manifest_version": 1,
+            "id": "conversation",
+            "title": "Conversation",
+            "summary": "A paced scripted session.",
+            "bootstrap": {"project_name": "Conversation"},
+            "steps": [
+                {
+                    "id": "talk",
+                    "say": "Watch, then press Continue the conversation.",
+                    "do": [
+                        {
+                            "replay": {
+                                "surface": "ai_chat_terminal",
+                                "segments": [{"id": "s1", "source": "assets/replay/s1.txt"}],
+                            }
+                        }
+                    ],
+                    "trigger": {
+                        "label": "Continue the conversation",
+                        "do": [
+                            {
+                                "replay": {
+                                    "surface": "ai_chat_terminal",
+                                    "continue_tab": True,
+                                    "segments": [
+                                        {
+                                            "id": "s2",
+                                            "source": "assets/replay/s2.txt",
+                                            "do": [
+                                                {
+                                                    "write": {
+                                                        "source": "assets/data/claimed.txt",
+                                                        "destination": "data/claimed.txt",
+                                                    }
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                }
+                            }
+                        ],
+                    },
+                    "done_when": {"file_exists": {"path": "data/claimed.txt"}},
+                },
+                {"id": "done", "say": "Done."},
+            ],
+        },
+        files={
+            "assets/replay/s1.txt": "hello",
+            "assets/replay/s2.txt": "more",
+            "assets/data/claimed.txt": "claimed",
+        },
+    )
+
+
+def test_a_trigger_driven_replay_continues_the_open_tab(
+    home: Path,
+    core_dir: Path,
+    environment: DiscoveryEnvironment,
+    packages: list[Any],
+    product: StubProductState,
+    provisioner: _Provisioner,
+) -> None:
+    """#2089: the press appends to the tab on screen; nothing is torn down.
+
+    FR-061b holds per appended segment: s2's bound write is on disk at the
+    moment s2's bytes are delivered.
+    """
+    handles: list[_AppendableHandle] = []
+
+    def _open(surface: str) -> _AppendableHandle:
+        project = product.project_dir
+        assert project is not None, "the test points project_dir at the planned location before starting"
+        handle = _AppendableHandle(f"tab-{len(handles) + 1}", watched=project / "data" / "claimed.txt")
+        handles.append(handle)
+        return handle
+
+    _conversation_tutorial(core_dir)
+    runtime = TutorialRuntime(
+        product_state=lambda: product,
+        external_events=ExternalEventNames(blocks_reloaded="blocks.reloaded", file_changed="file.changed"),
+        project_dir=lambda: product.project_dir,
+        provisioner=provisioner,
+        environment=environment,
+        progress=ProgressStore(home / ".scistudio"),
+        sessions=SessionStore(home / ".scistudio"),
+        open_replay=_open,
+    )
+
+    # The watched path needs the project dir, which exists only after start;
+    # point the handle factory at the planned location first.
+    product.project_dir = tutorial_project_path(TutorialKey.core("conversation"))
+    started = runtime.start(TutorialKey.core("conversation"))
+    assert started.step is not None and started.step.id == "talk"
+    assert len(handles) == 1
+    assert [entry[0] for entry in handles[0].delivered] == ["s1"]
+    assert started.replay is not None and started.replay.tab_id == "tab-1"
+
+    view = runtime.trigger_active()
+
+    # No second tab was opened: the conversation continued where it was.
+    assert len(handles) == 1
+    assert handles[0].closed is False
+    assert [entry[0] for entry in handles[0].delivered] == ["s1", "s2"]
+    # FR-061b per appended segment: the bound write was on disk at delivery.
+    _segment_id, payload, write_had_landed = handles[0].delivered[1]
+    assert b"more" in payload
+    assert write_had_landed is True
+    assert view.replay is not None and view.replay.tab_id == "tab-1"
+    assert view.step is not None and view.step.satisfied is True
+
+
+def test_continuing_with_no_open_tab_is_a_retryable_trigger_failure(
+    home: Path,
+    core_dir: Path,
+    environment: DiscoveryEnvironment,
+    packages: list[Any],
+    product: StubProductState,
+    provisioner: _Provisioner,
+) -> None:
+    """#2089: continuing nothing errors; through a trigger it stays retryable."""
+    from scistudio.tutorials.session import TriggerFailedError
+
+    handles: list[_AppendableHandle] = []
+
+    def _open(surface: str) -> _AppendableHandle:
+        handle = _AppendableHandle(f"tab-{len(handles) + 1}", watched=home / "never")
+        handles.append(handle)
+        return handle
+
+    _conversation_tutorial(core_dir)
+    runtime = TutorialRuntime(
+        product_state=lambda: product,
+        external_events=ExternalEventNames(blocks_reloaded="blocks.reloaded", file_changed="file.changed"),
+        project_dir=lambda: product.project_dir,
+        provisioner=provisioner,
+        environment=environment,
+        progress=ProgressStore(home / ".scistudio"),
+        sessions=SessionStore(home / ".scistudio"),
+        open_replay=_open,
+    )
+    product.project_dir = tutorial_project_path(TutorialKey.core("conversation"))
+    runtime.start(TutorialKey.core("conversation"))
+    # The tab the entry replay opened goes away — a teardown outside the
+    # session's control, which is what is_open exists to notice.
+    handles[0].closed = True
+
+    with pytest.raises(TriggerFailedError, match="closed"):
+        runtime.trigger_active()
+
+    view = runtime.active_session()
+    assert view is not None and view.status is SessionStatus.ACTIVE
+
+
 def test_the_default_provisioner_refuses_rather_than_making_an_unregistered_project(
     home: Path, core_dir: Path, environment: DiscoveryEnvironment, packages: list[Any], product: StubProductState
 ) -> None:

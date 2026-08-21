@@ -65,6 +65,7 @@ import json
 import logging
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
@@ -114,6 +115,14 @@ from scistudio.tutorials.projects import (
 
 logger = logging.getLogger(__name__)
 
+
+def _now_iso() -> str:
+    """The session's one clock: timezone-aware UTC, ISO-8601 — comparable with
+    the lineage store's run timestamps, which ``since_step_entry`` compares it
+    against (#2066)."""
+    return datetime.now(tz=UTC).isoformat()
+
+
 __all__ = [
     "SESSION_FILENAME",
     "AnotherSessionActiveError",
@@ -127,6 +136,7 @@ __all__ = [
     "SessionStatus",
     "SessionStore",
     "SessionView",
+    "TriggerFailedError",
     "TutorialRuntime",
     "TutorialSessionError",
     "TutorialUnavailableError",
@@ -173,6 +183,22 @@ class AnotherSessionActiveError(TutorialSessionError):
         super().__init__(
             f"'{title}' is already running; one tutorial runs at a time, so leave it before starting another"
         )
+
+
+class TriggerFailedError(TutorialSessionError):
+    """A step's trigger failed while running its actions (#2061, FR-060).
+
+    Deliberately *not* the session-ending path an entry action failure takes.
+    An entry failure leaves a step whose premise never landed, so the session
+    cannot honestly continue; a trigger failure leaves the step exactly as it
+    was before the press — nothing was revealed on the strength of the actions
+    — so the honest state is "still here, try again". The error carries the
+    step and the action the way FR-060 requires, and the session stays active.
+    """
+
+    def __init__(self, step_id: str, reason: str) -> None:
+        self.step_id = step_id
+        super().__init__(reason)
 
 
 class TutorialUnavailableError(TutorialSessionError):
@@ -274,6 +300,12 @@ class SessionRecord:
     title: str
     project_path: Path | None = None
     step_id: str | None = None
+    step_entered_at: str | None = None
+    """When ``step_id`` was entered (ISO-8601, UTC) — ``since_step_entry``'s anchor (#2066).
+
+    Persisted beside the step id so the scoping survives a backend restart the
+    way the position does (FR-037). A record written before the field existed
+    reads back ``None``, and the run terms then apply no time filter."""
     satisfied_step_ids: tuple[str, ...] = ()
     status: SessionStatus = SessionStatus.ACTIVE
     error: str | None = None
@@ -292,6 +324,7 @@ class SessionRecord:
             "title": self.title,
             "project_path": None if self.project_path is None else str(self.project_path),
             "step_id": self.step_id,
+            "step_entered_at": self.step_entered_at,
             "satisfied_step_ids": list(self.satisfied_step_ids),
             "status": str(self.status),
             "error": self.error,
@@ -319,11 +352,13 @@ class SessionRecord:
         project = raw.get("project_path")
         satisfied = raw.get("satisfied_step_ids")
         step_id = raw.get("step_id")
+        entered = raw.get("step_entered_at")
         return cls(
             key=key,
             title=str(raw.get("title") or key.tutorial_id),
             project_path=Path(str(project)) if project else None,
             step_id=str(step_id) if isinstance(step_id, str) and step_id else None,
+            step_entered_at=str(entered) if isinstance(entered, str) and entered else None,
             satisfied_step_ids=tuple(str(item) for item in satisfied) if isinstance(satisfied, list) else (),
             status=status,
             error=str(raw["error"]) if raw.get("error") else None,
@@ -479,6 +514,14 @@ class SessionView:
     status: SessionStatus
     error: str | None
     replay: ReplayView | None = None
+    #: A read-only outline of every step — index, id, title, say, pages — so
+    #: the reading window can show the whole tutorial's card names up front.
+    #: Session-level and inert by construction: no condition, highlight,
+    #: prefill, or action crosses into it, so FR-041's step-view closure is
+    #: untouched. The current position is the step view's own ``index``; for a
+    #: sequential tutorial, a step is behind the reader exactly when its index
+    #: is smaller.
+    steps: tuple[Mapping[str, Any], ...] = ()
 
     @property
     def key(self) -> TutorialKey:
@@ -511,7 +554,7 @@ class TutorialRuntime:
         progress: ProgressStore | None = None,
         sessions: SessionStore | None = None,
         open_replay: Callable[[str], ReplayHandle] | None = None,
-        record_ui_event: Callable[[str], None] | None = None,
+        record_ui_event: Callable[[str, str | None], None] | None = None,
         forget_ui_events: Callable[[], None] | None = None,
         files_written: Callable[[Sequence[Path]], None] | None = None,
     ) -> None:
@@ -533,8 +576,9 @@ class TutorialRuntime:
                 (checklist §6.1.7). A tutorial declaring no replay never needs
                 one.
             record_ui_event: Records a frontend-reported user-interface event
-                into product state before it is judged (FR-052). The API layer
-                owns that state, so recording is its job and this is the hook.
+                into product state before it is judged (FR-052), together with
+                the optional target it acted on (#2063). The API layer owns
+                that state, so recording is its job and this is the hook.
             forget_ui_events: Drops the recorded events on step entry, so a
                 ``ui_event`` condition asks whether the reader did the thing
                 *on this step*. A reported event is a moment, not a state: the
@@ -580,8 +624,16 @@ class TutorialRuntime:
         installed or uninstalled a moment ago is reflected without a refresh
         hook of its own — which is how tutorials join the refresh path of
         FR-031 rather than building a fourth one.
+
+        When no environment was injected, the runtime states its own progress
+        store's completions rather than letting the environment probe the
+        default store (#2088): the two must be the same store, or a test's
+        progress and a test's catalogue would disagree about what is unlocked.
         """
-        return discover_tutorials(project_dir=self._project_dir(), environment=self._environment)
+        environment = self._environment
+        if environment is None:
+            environment = DiscoveryEnvironment(completed_tutorials=self._progress.completed_keys())
+        return discover_tutorials(project_dir=self._project_dir(), environment=environment)
 
     def catalogue(self) -> Catalogue:
         """Return the grouped catalogue, core first, no aggregate (FR-076, FR-084)."""
@@ -725,17 +777,77 @@ class TutorialRuntime:
         state, record, driver, tutorial_dir = self._resolved()
         return self._reevaluate(state, record, driver, tutorial_dir)
 
-    def report_ui_event(self, name: str) -> SessionView:
+    def report_ui_event(self, name: str, target: str | None = None) -> SessionView:
         """Record a frontend user-interface event and re-judge the step (FR-052).
 
         The only completion path originating in the frontend, and it still
         arrives as backend state: the injected recorder writes it into the
         product state object, and the evaluation that follows reads it there
-        like every other term.
+        like every other term. ``target`` is the optional argument the event
+        acted on (#2063) — the block type behind ``node_selected``, the plot id
+        behind ``plot_rendered`` — recorded beside the name so a condition may
+        wait for *that* element rather than any of its kind.
         """
         if self._record_ui_event is not None:
-            self._record_ui_event(name)
+            self._record_ui_event(name, target)
         return self.evaluate_active()
+
+    def trigger_active(self) -> SessionView:
+        """Run the current step's trigger and re-judge the step (#2061).
+
+        The trigger is the step's user-pressed action: its ``do`` list runs
+        through the same machinery as step entry —
+        :func:`~scistudio.tutorials.actions.perform_step_entry`, including the
+        registry settle hook — so the writes have landed and the product has
+        taken them in before this returns (FR-056, FR-059, FR-059a). The
+        response is the re-judged session, because the actions may have made
+        the step's own condition true.
+
+        Raises:
+            TutorialSessionError: The session is not on a step that declares a
+                trigger, or is dormant under another project.
+            TriggerFailedError: An action failed. The session is left exactly
+                as it was — active, on the same step — so the press can be
+                retried (FR-060's revision for triggers).
+        """
+        state, record, driver, tutorial_dir = self._resolved()
+        if record.status is not SessionStatus.ACTIVE or record.step_id is None:
+            raise NoActiveSessionError("no tutorial step is active to trigger")
+        if not self._is_live(record):
+            raise TutorialSessionError(
+                f"'{record.title}' is not running in the open project, so its step cannot be triggered"
+            )
+        context = self._context(record, tutorial_dir, record.step_id)
+        try:
+            view = driver.step_view(context)
+            actions = driver.trigger_actions(context)
+        except DriverError as exc:
+            # A driver that cannot answer is FR-044's case, not FR-060's: the
+            # session ends naming the tutorial and the exception.
+            return self._view(self._fail(state, record, self._driver_failure(record, exc)))
+        if view.trigger is None:
+            raise TutorialSessionError(f"step {record.step_id!r} declares no trigger")
+        action_context = ActionContext(tutorial_dir=tutorial_dir, project_dir=record.project_path)
+        try:
+            # Inside the try: obtaining the delivery can itself fail the way an
+            # action does — continue_tab with no open tab is the sharp case —
+            # and that failure is as retryable as any other press.
+            delivery = self._delivery_for(actions, step_id=record.step_id)
+            perform_step_entry(
+                actions,
+                context=action_context,
+                step_id=record.step_id,
+                reveal=lambda: None,
+                delivery=delivery,
+                settle=self._settle,
+            )
+        except ActionExecutionError as exc:
+            # FR-060, as revised for triggers (#2061): surfaced on the step and
+            # retryable. The record is untouched — the step was already
+            # revealed before the press, so nothing was shown on the strength
+            # of actions that did not land.
+            raise TriggerFailedError(record.step_id, str(exc)) from exc
+        return self._reevaluate(state, record, driver, tutorial_dir)
 
     def leave_active(self) -> None:
         """Leave the active tutorial, preserving its session (FR-090).
@@ -946,12 +1058,17 @@ class TutorialRuntime:
             return False
 
     def _context(self, record: SessionRecord, tutorial_dir: Path, step_id: str | None) -> DriverContext:
+        # The entry time belongs to the step the session is *on*: asking about
+        # any other step gets no anchor, because the session never recorded one
+        # for it (#2066).
+        entered = record.step_entered_at if step_id is not None and step_id == record.step_id else None
         return DriverContext(
             key=record.key,
             tutorial_dir=tutorial_dir,
             project_dir=record.project_path,
             step_id=step_id,
             satisfied_step_ids=record.satisfied_step_ids,
+            step_entered_at=entered,
         )
 
     def _reevaluate(
@@ -973,11 +1090,12 @@ class TutorialRuntime:
         if record.status is not SessionStatus.ACTIVE or record.step_id is None:
             return self._view(record)
         context = self._context(record, tutorial_dir, record.step_id)
+        outline = self._outline_of(driver, context)
         if not self._is_live(record):
             # Report the step, judge nothing. See :meth:`_is_live`: the product
             # state available right now describes a different project, and an
             # answer read out of it would be about the user's own work.
-            return self._view(record, step=self._step_of(record, driver, tutorial_dir, satisfied=False))
+            return self._view(record, step=self._step_of(record, driver, tutorial_dir, satisfied=False), steps=outline)
         try:
             satisfied = driver.is_satisfied(context, self._product_state())
         except Exception as exc:
@@ -985,7 +1103,7 @@ class TutorialRuntime:
         if satisfied:
             record = record.satisfied(record.step_id)
         self._sessions.write(state.with_record(record).with_active(record.key))
-        return self._view(record, step=self._step_of(record, driver, tutorial_dir, satisfied=satisfied))
+        return self._view(record, step=self._step_of(record, driver, tutorial_dir, satisfied=satisfied), steps=outline)
 
     def _advance_from(
         self,
@@ -1015,13 +1133,19 @@ class TutorialRuntime:
             next_id = driver.advance(context)
             if next_id is None:
                 return self._view(self._complete(state, record))
-            record = replace(record, step_id=next_id)
+            # The entry stamp is written before the step's own actions run, so
+            # a run those actions cause counts as "since entry" (#2066).
+            record = replace(record, step_id=next_id, step_entered_at=_now_iso())
             context = self._context(record, tutorial_dir, next_id)
             satisfied = self._enter(record, driver, context, tutorial_dir)
             if satisfied:
                 record = record.satisfied(next_id)
             self._sessions.write(state.with_record(record).with_active(record.key))
-            return self._view(record, step=self._step_of(record, driver, tutorial_dir, satisfied=satisfied))
+            return self._view(
+                record,
+                step=self._step_of(record, driver, tutorial_dir, satisfied=satisfied),
+                steps=self._outline_of(driver, context),
+            )
         except ActionExecutionError as exc:
             # FR-060: name the step and the action, and do not advance.
             return self._view(self._fail(state, record, str(exc)))
@@ -1081,7 +1205,15 @@ class TutorialRuntime:
         self._files_written(tuple(written))
 
     def _delivery_for(self, actions: Iterable[Action], *, step_id: str) -> ReplayHandle | None:
-        """Open a byte source when a step replays, and only then (checklist §6.1.7)."""
+        """Open a byte source when a step replays, and only then (checklist §6.1.7).
+
+        A replay declaring ``continue_tab`` (#2089) reuses the open handle
+        instead: the scripted session already on screen receives the new
+        segments, transcript intact, which is what lets a trigger pace a
+        conversation — press, watch more arrive, press again. Continuing
+        *nothing* is refused as an action failure naming the reason: an open
+        tab is the premise the manifest declared.
+        """
         replay = next((action for action in actions if isinstance(action, ReplayAction)), None)
         if replay is None:
             return None
@@ -1091,6 +1223,30 @@ class TutorialRuntime:
                 action=replay,
                 reason="no replay byte source is wired into the tutorial runtime",
             )
+        if replay.continue_tab:
+            handle = self._replay
+            if handle is None:
+                raise ActionExecutionError(
+                    step_id=step_id,
+                    action=replay,
+                    reason="the replay declares continue_tab, but no replay tab is open to continue",
+                )
+            if not getattr(handle, "is_open", True):
+                raise ActionExecutionError(
+                    step_id=step_id,
+                    action=replay,
+                    reason="the replay declares continue_tab, but the open replay tab has been closed",
+                )
+            if handle.surface != replay.surface:
+                raise ActionExecutionError(
+                    step_id=step_id,
+                    action=replay,
+                    reason=(
+                        f"the replay declares continue_tab on {replay.surface!r}, but the open tab "
+                        f"plays into {handle.surface!r}"
+                    ),
+                )
+            return handle
         self._close_replay()
         self._replay = self._open_replay(replay.surface)
         return self._replay
@@ -1147,7 +1303,25 @@ class TutorialRuntime:
         view = driver.step_view(self._context(record, tutorial_dir, record.step_id))
         return replace(view, satisfied=satisfied)
 
-    def _view(self, record: SessionRecord, *, step: StepView | None = None) -> SessionView:
+    def _outline_of(self, driver: GuardedDriver, context: DriverContext) -> tuple[Mapping[str, Any], ...]:
+        """The tutorial's static step outline, or ``()`` when it has none to give.
+
+        Metadata must never be what takes a session down, so a driver that
+        fails to answer costs the outline and nothing else.
+        """
+        try:
+            return driver.steps_outline(context)
+        except Exception:
+            logger.debug("Learning Center: a driver's steps outline could not be read", exc_info=True)
+            return ()
+
+    def _view(
+        self,
+        record: SessionRecord,
+        *,
+        step: StepView | None = None,
+        steps: tuple[Mapping[str, Any], ...] = (),
+    ) -> SessionView:
         """Render a record. The step view is supplied by whoever holds the driver.
 
         Passed in rather than fetched, so rendering a response never re-runs
@@ -1168,4 +1342,5 @@ class TutorialRuntime:
             status=record.status,
             error=record.error,
             replay=replay,
+            steps=steps,
         )

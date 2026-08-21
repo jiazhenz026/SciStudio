@@ -516,6 +516,188 @@ def test_an_unknown_interface_event_name_is_refused(client: TestClient, core_tie
     assert "preview_expanded" in refused.json()["detail"]
 
 
+def test_a_targeted_interface_event_satisfies_a_targeted_step(client: TestClient, core_tier: Path) -> None:
+    """#2063: the report may say what it acted on, and a condition may wait for it.
+
+    The step waits for *the Load block* to be selected. A bare report leaves it
+    unsatisfied; the targeted report satisfies it.
+    """
+    mount(
+        core_tier,
+        "waits-for-the-load-block",
+        manifest_for(
+            "waits-for-the-load-block",
+            [
+                {
+                    "id": "click-load",
+                    "say": "Click the Load block.",
+                    "done_when": {"ui_event": {"name": "node_selected", "block_type": "load_data"}},
+                },
+                {"id": "done", "say": "Done."},
+            ],
+        ),
+    )
+    assert step_id(start(client, "waits-for-the-load-block").json()) == "click-load"
+
+    bare = client.post("/api/tutorials/sessions/active/ui-event", json={"name": "node_selected"})
+    assert bare.status_code == 200, bare.text
+    assert bare.json()["step"]["satisfied"] is False
+
+    wrong = client.post(
+        "/api/tutorials/sessions/active/ui-event", json={"name": "node_selected", "target": "save_data"}
+    )
+    assert wrong.json()["step"]["satisfied"] is False
+
+    right = client.post(
+        "/api/tutorials/sessions/active/ui-event", json={"name": "node_selected", "target": "load_data"}
+    )
+    assert right.status_code == 200, right.text
+    assert right.json()["step"]["satisfied"] is True
+
+
+def test_a_targeted_report_still_satisfies_a_bare_name_step(client: TestClient, core_tier: Path) -> None:
+    """#2063 back-compat: the welcome manifest's bare names keep working untouched."""
+    mount(
+        core_tier,
+        "waits-for-any-click",
+        manifest_for(
+            "waits-for-any-click",
+            [
+                {"id": "click", "say": "Click a block.", "done_when": {"ui_event": {"name": "node_selected"}}},
+                {"id": "done", "say": "Done."},
+            ],
+        ),
+    )
+    start(client, "waits-for-any-click")
+
+    reported = client.post(
+        "/api/tutorials/sessions/active/ui-event", json={"name": "node_selected", "target": "load_data"}
+    )
+    assert reported.status_code == 200, reported.text
+    assert reported.json()["step"]["satisfied"] is True
+
+
+def test_a_target_on_an_event_that_carries_none_is_refused(client: TestClient, core_tier: Path) -> None:
+    """The per-name pairing is the same table manifest validation reads (#2063)."""
+    mount(core_tier, "any-target", manifest_for("any-target", [{"id": "one", "say": "One."}]))
+    start(client, "any-target")
+
+    refused = client.post("/api/tutorials/sessions/active/ui-event", json={"name": "preview_expanded", "target": "x"})
+
+    assert refused.status_code == 422, refused.text
+    assert "does not carry a target" in refused.json()["detail"]
+
+
+def _triggered_manifest() -> dict[str, Any]:
+    return manifest_for(
+        "press-play",
+        [
+            {
+                "id": "watch",
+                "say": "Press Play to receive the file.",
+                "trigger": {
+                    "label": "Play",
+                    "do": [{"write": {"source": "assets/data/payload.txt", "destination": "data/received.txt"}}],
+                },
+                "done_when": {"file_exists": {"path": "data/received.txt"}},
+            },
+            {"id": "done", "say": "Done."},
+        ],
+        **BOOTSTRAP,
+    )
+
+
+def test_the_trigger_route_runs_the_actions_and_answers_the_rejudged_step(client: TestClient, core_tier: Path) -> None:
+    """#2061: the press lands the writes, settles, and comes back re-judged."""
+    mount(core_tier, "press-play", _triggered_manifest(), files={"assets/data/payload.txt": "payload"})
+    started = start(client, "press-play").json()
+    assert step_id(started) == "watch"
+    assert started["step"]["trigger"] == {"label": "Play"}
+    assert started["step"]["satisfied"] is False
+    project = Path(started["project_path"])
+
+    triggered = client.post("/api/tutorials/sessions/active/trigger")
+
+    assert triggered.status_code == 200, triggered.text
+    assert (project / "data" / "received.txt").read_text(encoding="utf-8") == "payload"
+    assert step_id(triggered.json()) == "watch"
+    assert triggered.json()["step"]["satisfied"] is True
+
+
+def test_triggering_a_step_without_a_trigger_is_a_conflict(client: TestClient, core_tier: Path) -> None:
+    mount(core_tier, "plain", manifest_for("plain", [{"id": "one", "say": "One."}]))
+    start(client, "plain")
+
+    refused = client.post("/api/tutorials/sessions/active/trigger")
+
+    assert refused.status_code == 409, refused.text
+    assert "declares no trigger" in refused.json()["detail"]
+
+
+def test_a_failed_trigger_reports_and_leaves_the_session_retryable(client: TestClient, core_tier: Path) -> None:
+    """FR-060's trigger revision (#2061): the session survives the failure."""
+    # The named asset is not on disk, so the write fails at execution.
+    mount(core_tier, "press-play", _triggered_manifest())
+    start(client, "press-play")
+
+    failed = client.post("/api/tutorials/sessions/active/trigger")
+
+    assert failed.status_code == 502, failed.text
+    assert "watch" in failed.json()["detail"]
+    still_here = client.get("/api/tutorials/sessions/active").json()
+    assert still_here["status"] == "active"
+    assert step_id(still_here) == "watch"
+    # Retryable: the same press again gets the same honest answer, not a 404.
+    assert client.post("/api/tutorials/sessions/active/trigger").status_code == 502
+
+
+def test_the_session_carries_a_read_only_outline_of_every_step(client: TestClient, core_tier: Path) -> None:
+    """The manager-directed outline: static metadata for all steps, up front.
+
+    The reading window shows every card name before the reader arrives at it,
+    which the per-step view cannot supply. What crosses is deliberately inert —
+    index, id, title, say, pages — never a condition, highlight, prefill, or
+    action, so the FR-041 step-view closure is untouched.
+    """
+    mount(
+        core_tier,
+        "outlined",
+        manifest_for(
+            "outlined",
+            [
+                {"id": "one", "title": "First", "say": "Read this.", "pages": ["intro"]},
+                {
+                    "id": "two",
+                    "title": "Second",
+                    "say": "Then act.",
+                    "done_when": {"ui_event": {"name": "preview_expanded"}},
+                },
+                {"id": "three", "say": "Done."},
+            ],
+        ),
+        files={"assets/pages/intro.md": "# Intro"},
+    )
+    started = start(client, "outlined").json()
+
+    outline = started["steps"]
+    assert [row["id"] for row in outline] == ["one", "two", "three"]
+    assert [row["index"] for row in outline] == [0, 1, 2]
+    assert outline[0]["title"] == "First"
+    assert outline[0]["say"] == "Read this."
+    assert outline[0]["pages"] == ["intro"]
+    assert outline[2]["title"] is None
+    # Inert by construction: none of the step-surface fields ride along.
+    for row in outline:
+        assert set(row) == {"index", "id", "title", "say", "pages"}
+    # The current position is the step view's own index.
+    assert started["step"]["index"] == 0
+
+    # The outline is static: it does not change as the session moves.
+    advanced = client.post("/api/tutorials/sessions/active/continue").json()
+    assert advanced["steps"] == outline
+    assert advanced["step"]["index"] == 1
+
+
 def test_a_reading_step_advances_on_an_explicit_continue(client: TestClient, core_tier: Path) -> None:
     """FR-012: a step with no condition waits for the user to say go on."""
     mount(
@@ -611,6 +793,70 @@ def test_an_engine_event_judges_the_step_without_anyone_asking(
     assert step_id(waiting) == "submit-it"
     assert waiting["step"]["satisfied"] is True
     assert step_id(client.post("/api/tutorials/sessions/active/continue").json()) == "done"
+
+
+def test_a_write_landing_under_workflows_reaches_the_open_canvas(
+    client: TestClient, runtime: ApiRuntime, core_tier: Path
+) -> None:
+    """#2063 / FR-059a one surface over: the canvas renders the frontend's copy.
+
+    A step that writes ``workflows/extra.workflow.yaml`` has changed the graph
+    on disk; without a broadcast the screen goes on showing the stale copy. The
+    settle hook emits the same ``workflow.changed`` frame an external on-disk
+    edit produces, so the existing reconcile path redraws.
+    """
+    from scistudio.engine.events import WORKFLOW_CHANGED, EngineEvent
+
+    seen: list[EngineEvent] = []
+    runtime.event_bus.subscribe(WORKFLOW_CHANGED, seen.append)
+
+    mount(
+        core_tier,
+        "writes-a-workflow",
+        manifest_for(
+            "writes-a-workflow",
+            [
+                {
+                    "id": "rewire",
+                    "say": "We rewired the workflow for you.",
+                    "do": [
+                        {
+                            "write": {
+                                "source": "assets/workflows/extra.workflow.yaml",
+                                "destination": "workflows/extra.workflow.yaml",
+                            }
+                        }
+                    ],
+                },
+                {"id": "done", "say": "Done."},
+            ],
+            **BOOTSTRAP,
+        ),
+        files={
+            "assets/workflows/extra.workflow.yaml": "id: extra"
+            + chr(10)
+            + "nodes: []"
+            + chr(10)
+            + "edges: []"
+            + chr(10)
+        },
+    )
+    assert step_id(start(client, "writes-a-workflow").json()) == "rewire"
+
+    # The broadcast is scheduled on the running loop; give it a request's worth
+    # of loop time to land, the way any later frontend call would.
+    for _ in range(10):
+        if seen:
+            break
+        client.get("/api/tutorials/sessions/active")
+
+    tutorial_frames = [event for event in seen if event.data.get("changed_by") == "tutorial"]
+    assert tutorial_frames, "the settle hook never broadcast workflow.changed for a workflows/ write"
+    frame = tutorial_frames[0].data
+    assert frame["workflow_id"] == "extra"
+    assert frame["entity_class"] == "workflow"
+    assert frame["path"] == "workflows/extra.workflow.yaml"
+    assert frame["source"] == "external"
 
 
 def test_continuing_an_unsatisfied_step_does_not_move_the_session(client: TestClient, core_tier: Path) -> None:

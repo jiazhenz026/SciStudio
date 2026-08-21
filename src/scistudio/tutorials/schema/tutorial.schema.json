@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://scistudio.org/schema/tutorial.schema.json",
   "title": "SciStudio tutorial manifest (tutorial.yaml)",
-  "description": "The published format package authors, users, and agents write a tutorial against. ADR-053 Learning Center spec FR-005 to FR-015. A tutorial is a directory containing this manifest; the manifest is the only file required for the tutorial to be listed. Assets live under assets/ with the reserved subdirectories data/, code/, panels/, replay/ and pages/. Two things this document deliberately does NOT restate, because each is declared exactly once in core and a second copy would be a second thing to keep in step: the completion-condition vocabulary (scistudio.tutorials.conditions.VOCABULARY, FR-045/FR-049) and the closed replay surface set (scistudio.tutorials.actions.REPLAY_SURFACES, FR-061a). Both are enforced during the same validation pass that applies this schema.",
+  "description": "The published format package authors, users, and agents write a tutorial against. ADR-053 Learning Center spec FR-005 to FR-015. A tutorial is a directory containing this manifest; the manifest is the only file required for the tutorial to be listed. Assets live under assets/ with the reserved subdirectories data/, code/, panels/, replay/, workflows/ and pages/. Two things this document deliberately does NOT restate, because each is declared exactly once in core and a second copy would be a second thing to keep in step: the completion-condition vocabulary (scistudio.tutorials.conditions.VOCABULARY, FR-045/FR-049) and the closed replay surface set (scistudio.tutorials.actions.REPLAY_SURFACES, FR-061a). Both are enforced during the same validation pass that applies this schema.",
   "type": "object",
   "required": ["manifest_version", "id", "title", "summary"],
   "additionalProperties": false,
@@ -58,6 +58,11 @@
         "packages": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
+        },
+        "tutorials": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Same-source tutorial ids that must be completed before this tutorial can be started. An unmet entry lists this tutorial as unavailable naming the tutorial it waits on (FR-024); it never hides it. Ids, not titles, and only siblings: progress is keyed by (source, id), and a manifest cannot address another source."
         }
       }
     },
@@ -122,14 +127,35 @@
           "items": { "$ref": "#/$defs/action" },
           "description": "Ordered. Runs on entry, before the step's text is displayed (FR-056, FR-059)."
         },
-        "done_when": { "$ref": "#/$defs/condition" }
+        "done_when": { "$ref": "#/$defs/condition" },
+        "trigger": { "$ref": "#/$defs/trigger" },
+        "pages": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Reading pages this step presents, named as files under assets/pages/ the way a page_reached condition names them - with or without the extension, 'intro' for assets/pages/intro.md. Each must exist when the tutorial is loaded, so a missing page fails the author at listing rather than the reader on the page turn (FR-011, FR-014)."
+        }
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "do"],
+      "description": "The step's user-triggered action (#2061): a button label, and the ordered actions pressing it performs. Distinct from the step's own 'do' in exactly one respect - when it runs: entry actions run because the reader arrived, a trigger runs because the reader pressed the button. Execution reuses the entry machinery, so the trigger's writes land and the registries settle before it reports done (FR-056, FR-059, FR-059a), and a failure is surfaced on the step and retryable rather than ending the session (FR-060).",
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "do": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/action" }
+        }
       }
     },
     "condition": {
       "type": "object",
       "minProperties": 1,
       "maxProperties": 1,
-      "description": "A single-key mapping: {term: {args}} for one of the sixteen vocabulary terms of FR-047, or {all: [...]} / {any: [...]} for a combinator (FR-048). Negation is deliberately absent: a step that advances when something is absent advances by the user doing nothing. The term names and each term's arguments are owned by scistudio.tutorials.conditions and enforced there during this same validation pass, so an unknown term fails the author rather than the user (FR-049). The ui_event term's 'name' argument is itself a closed set, declared at scistudio.tutorials.conditions.UI_EVENT_NAMES."
+      "description": "A single-key mapping: {term: {args}} for one of the core-owned vocabulary terms (FR-047 plus the core-added ones), or {all: [...]} / {any: [...]} for a combinator (FR-048). Negation is deliberately absent: a step that advances when something is absent advances by the user doing nothing. The term names and each term's arguments are owned by scistudio.tutorials.conditions and enforced there during this same validation pass, so an unknown term fails the author rather than the user (FR-049). The ui_event term's 'name' argument is itself a closed set, declared at scistudio.tutorials.conditions.UI_EVENT_NAMES."
     },
     "prefill": {
       "type": "object",
@@ -207,6 +233,10 @@
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "#/$defs/replay_segment" }
+        },
+        "continue_tab": {
+          "type": "boolean",
+          "description": "Append this replay's segments to the surface's open replay tab instead of closing it and opening a new one (#2089). The conversation-pacing form: combined with a step trigger, the reader's press asks the scripted session on screen to continue. An error when no replay tab is open. FR-061b's ordering holds per appended segment - a segment's bound writes land before its bytes are delivered."
         }
       }
     },

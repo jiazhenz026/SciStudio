@@ -92,6 +92,7 @@ class StubProductState:
     data_types: frozenset[str] = frozenset()
     previewer_types: frozenset[str] = frozenset()
     plots: tuple[tuple[str, str, str], ...] = ()
+    rendered: tuple[tuple[str, str, str, str], ...] = ()
     runs: tuple[RunSummary, ...] = ()
     ports_with_output: frozenset[tuple[str, str]] = frozenset()
     branches: frozenset[str] = frozenset()
@@ -100,6 +101,7 @@ class StubProductState:
     interactions: frozenset[str] = frozenset()
     pages: frozenset[str] = frozenset()
     events: frozenset[str] = frozenset()
+    targeted_events: frozenset[tuple[str, str]] = frozenset()
     reads: list[str] = field(default_factory=list)
 
     def workflow(self) -> WorkflowDefinition | None:
@@ -121,6 +123,10 @@ class StubProductState:
     def plot_bindings(self) -> tuple[tuple[str, str, str], ...]:
         self.reads.append("plot_bindings")
         return self.plots
+
+    def rendered_plots(self) -> tuple[tuple[str, str, str, str], ...]:
+        self.reads.append("rendered_plots")
+        return self.rendered
 
     def run_records(self) -> tuple[RunSummary, ...]:
         self.reads.append("run_records")
@@ -153,6 +159,10 @@ class StubProductState:
     def ui_events(self) -> frozenset[str]:
         self.reads.append("ui_events")
         return self.events
+
+    def ui_events_with_targets(self) -> frozenset[tuple[str, str]]:
+        self.reads.append("ui_events_with_targets")
+        return self.targeted_events
 
 
 @pytest.fixture

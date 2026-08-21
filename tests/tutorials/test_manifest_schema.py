@@ -195,6 +195,7 @@ def test_the_route_target_set_is_the_declared_one() -> None:
         "git",
         "canvas",
         "block_palette",
+        "data_types",
     }
 
 
@@ -214,6 +215,7 @@ def test_the_highlight_target_set_is_the_declared_one() -> None:
         "new_menu_button",
         "plots_new_button",
         "history_restore_button",
+        "bring_in_my_work_button",
         "data_preview",
         "config_panel",
         "palette_block",
@@ -330,7 +332,7 @@ def test_the_prefill_target_set_is_the_declared_one() -> None:
     A prefill only does anything once the frontend seeds the dialog it names,
     so a target with no consumer is a manifest line that silently does nothing.
     """
-    assert set(PREFILL_TARGETS) == {"new_custom_block", "new_plot", "block_config"}
+    assert set(PREFILL_TARGETS) == {"new_custom_block", "new_data_type", "new_plot", "block_config"}
 
 
 @pytest.mark.parametrize("spec", PREFILL_SPECS, ids=lambda spec: spec.name)
@@ -667,10 +669,10 @@ def test_the_schema_does_not_restate_any_of_the_closed_sets() -> None:
             assert f'"{member}"' not in raw, f"the schema restates the {label} {member!r}"
 
 
-def test_the_reserved_asset_directories_are_the_five_the_spec_names() -> None:
+def test_the_reserved_asset_directories_are_the_six_the_spec_names() -> None:
     from scistudio.tutorials.manifest import RESERVED_ASSET_DIRS
 
-    assert RESERVED_ASSET_DIRS == ("data", "code", "panels", "replay", "pages")
+    assert RESERVED_ASSET_DIRS == ("data", "code", "panels", "replay", "workflows", "pages")
 
 
 def test_yaml_round_trip_of_the_fixture_matches_the_parsed_model() -> None:
@@ -748,3 +750,183 @@ def test_the_reading_terms_are_a_subset_of_the_vocabulary() -> None:
     """A reading term that is not a term at all could never be written down."""
     assert conditions_module.READING_TERMS <= conditions_module.VOCABULARY
     assert frozenset({"page_reached"}) == conditions_module.READING_TERMS
+
+
+# ---------------------------------------------------------------------------
+# The reading step's pages field (FR-011, FR-014)
+# ---------------------------------------------------------------------------
+
+
+def _reading_manifest(pages: list[str]) -> dict[str, Any]:
+    return {
+        "manifest_version": 1,
+        "id": "reads",
+        "title": "Reads",
+        "summary": "A reading tutorial.",
+        "steps": [
+            {
+                "id": "read-on",
+                "say": "Read these.",
+                "pages": pages,
+                "done_when": {"page_reached": {"page": pages[0].split(".")[0]}},
+            }
+        ],
+    }
+
+
+def test_a_step_may_declare_pages_that_exist_under_assets_pages(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "reads",
+        _reading_manifest(["intro", "closing.md"]),
+        files={"assets/pages/intro.md": "# Intro\n", "assets/pages/closing.md": "# Closing\n"},
+    )
+    manifest = load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+    assert manifest.steps[0].pages == ("intro", "closing.md")
+
+
+def test_a_missing_page_fails_the_author_at_load(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "reads",
+        _reading_manifest(["intro", "absent"]),
+        files={"assets/pages/intro.md": "# Intro\n"},
+    )
+    with pytest.raises(ManifestValidationError) as excinfo:
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+    assert "steps[0].pages" in str(excinfo.value)
+    assert "absent" in str(excinfo.value)
+
+
+def test_a_page_name_cannot_escape_the_pages_directory(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "reads",
+        _reading_manifest(["../../tutorial"]),
+        files={"assets/pages/intro.md": "# Intro\n"},
+    )
+    with pytest.raises(ManifestValidationError) as excinfo:
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+    assert "steps[0].pages" in str(excinfo.value)
+
+
+def test_a_duplicate_page_in_one_step_is_rejected(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "reads",
+        _reading_manifest(["intro", "intro"]),
+        files={"assets/pages/intro.md": "# Intro\n"},
+    )
+    with pytest.raises(ManifestValidationError, match="listed twice"):
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+
+
+def test_a_paged_tutorial_judged_by_page_reached_reads_as_reading_only(tmp_path: Path) -> None:
+    """The dispatch's is_reading_only check: all/any over page_reached is still reading.
+
+    ``is_reading_only`` reads ``done_when.terms() <= READING_TERMS``, and
+    ``terms()`` unions through combinators — so wrapping ``page_reached`` in
+    ``all``/``any`` must not push a reading tutorial into the hands-on lists.
+    """
+    payload = {
+        "manifest_version": 1,
+        "id": "reads",
+        "title": "Reads",
+        "summary": "A reading tutorial.",
+        "steps": [
+            {
+                "id": "read-on",
+                "say": "Read these.",
+                "pages": ["intro", "closing"],
+                "done_when": {
+                    "all": [
+                        {"page_reached": {"page": "intro"}},
+                        {"any": [{"page_reached": {"page": "closing"}}]},
+                    ]
+                },
+            },
+            {"id": "done", "say": "Done."},
+        ],
+    }
+    directory = write_tutorial(
+        tmp_path / "reads",
+        payload,
+        files={"assets/pages/intro.md": "# Intro\n", "assets/pages/closing.md": "# Closing\n"},
+    )
+    manifest = load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+    assert manifest.is_reading_only is True
+
+
+# ---------------------------------------------------------------------------
+# The step trigger (FR-011, #2061)
+# ---------------------------------------------------------------------------
+
+
+def _triggered_manifest(trigger: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "manifest_version": 1,
+        "id": "triggered",
+        "title": "Triggered",
+        "summary": "A step with a trigger.",
+        "steps": [{"id": "press-play", "say": "Press Play.", "trigger": trigger}],
+    }
+
+
+def test_a_step_may_declare_a_trigger(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "triggered",
+        _triggered_manifest(
+            {"label": "Play", "do": [{"write": {"source": "assets/data/a.txt", "destination": "data/a.txt"}}]}
+        ),
+        files={"assets/data/a.txt": "hello"},
+    )
+    manifest = load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+    trigger = manifest.steps[0].trigger
+    assert trigger is not None
+    assert trigger.label == "Play"
+    assert len(trigger.do) == 1
+
+
+def test_a_trigger_requires_a_label(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "triggered",
+        _triggered_manifest({"do": [{"write": {"source": "assets/data/a.txt", "destination": "data/a.txt"}}]}),
+        files={"assets/data/a.txt": "hello"},
+    )
+    with pytest.raises(ManifestValidationError, match="label"):
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+
+
+def test_a_trigger_requires_at_least_one_action(tmp_path: Path) -> None:
+    """A button that does nothing is a mistake, not a step."""
+    directory = write_tutorial(tmp_path / "triggered", _triggered_manifest({"label": "Play", "do": []}))
+    # The schema's minItems fires first for an empty list; the parser's own
+    # message covers the None-shaped spelling. Either way the author is told.
+    with pytest.raises(ManifestValidationError, match=r"at least (1 item|one action)"):
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+
+
+def test_a_trigger_destination_is_contained_like_any_other(tmp_path: Path) -> None:
+    """FR-015 reaches the trigger's do list: pressing the button reaches the project."""
+    directory = write_tutorial(
+        tmp_path / "triggered",
+        _triggered_manifest(
+            {"label": "Play", "do": [{"write": {"source": "assets/data/a.txt", "destination": "../outside.txt"}}]}
+        ),
+        files={"assets/data/a.txt": "hello"},
+    )
+    with pytest.raises(ManifestValidationError, match="triggered"):
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+
+
+def test_a_trigger_write_into_an_executed_path_is_tier_graded(tmp_path: Path) -> None:
+    """FR-020a reaches the trigger's do list for the ungraded tiers."""
+    directory = write_tutorial(
+        tmp_path / "triggered",
+        _triggered_manifest(
+            {"label": "Play", "do": [{"write": {"source": "assets/data/a.py", "destination": "blocks/a.py"}}]}
+        ),
+        files={"assets/data/a.py": "print()"},
+    )
+    with pytest.raises(ManifestValidationError) as excinfo:
+        load_manifest(directory, source_kind=TutorialSourceKind.USER)
+    assert "trigger.do" in str(excinfo.value)
+    assert "blocks" in str(excinfo.value)
+    # The same manifest is legal for core, whose tier may write there.
+    load_manifest(directory, source_kind=TutorialSourceKind.CORE)

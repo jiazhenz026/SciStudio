@@ -55,12 +55,15 @@ EXTERNAL = ExternalEventNames(blocks_reloaded="blocks.reloaded", file_changed="f
 # ---------------------------------------------------------------------------
 
 
-def test_the_vocabulary_is_fr_047s_sixteen_terms_plus_the_two_core_added() -> None:
+def test_the_vocabulary_is_fr_047s_sixteen_terms_plus_the_three_core_added() -> None:
     """FR-047 sets a floor; §4.5 records that core extends it as tutorials find it short.
 
     ``config_matches`` closed the browser-picked-absolute-path gap;
     ``run_failed`` closed the "watch it break" one, where a step that breaks
-    something on purpose has to wait for the reader to run it and see.
+    something on purpose has to wait for the reader to run it and see;
+    ``plot_rendered`` closed the "a figure exists as product truth" one, which
+    the frontend-reported ui_event of the same name deliberately does not
+    answer (#2066).
     """
     assert set(VOCABULARY) == {
         "node_exists",
@@ -74,6 +77,7 @@ def test_the_vocabulary_is_fr_047s_sixteen_terms_plus_the_two_core_added() -> No
         "type_registered",
         "previewer_registered",
         "plot_exists",
+        "plot_rendered",
         "file_exists",
         "git_branch_exists",
         "git_current_branch",
@@ -82,7 +86,7 @@ def test_the_vocabulary_is_fr_047s_sixteen_terms_plus_the_two_core_added() -> No
         "page_reached",
         "ui_event",
     }
-    assert len(VOCABULARY) == 18
+    assert len(VOCABULARY) == 19
     assert set(TERM_SPECS) == VOCABULARY
 
 
@@ -246,6 +250,7 @@ def _state(tmp_path: Path, loaded_workflow: WorkflowDefinition) -> StubProductSt
         ports_with_output=frozenset({("load-1", "table")}),
         branches=frozenset({"main", "imaging"}),
         current_branch="imaging",
+        rendered=(("wf-1", "save-1", "table", "plot-1"),),
         library=frozenset({("type", "CellTable")}),
         interactions=frozenset({"router-1"}),
         pages=frozenset({"what-is-a-block"}),
@@ -265,6 +270,7 @@ TRUE_CASES: list[tuple[str, dict[str, object]]] = [
     ("type_registered", {"type_registered": {"type_name": "DataFrame"}}),
     ("previewer_registered", {"previewer_registered": {"type_name": "DataFrame"}}),
     ("plot_exists", {"plot_exists": {"node_id": "save-1", "port": "table"}}),
+    ("plot_rendered", {"plot_rendered": {"plot_id": "plot-1"}}),
     ("file_exists", {"file_exists": {"path": "data/raw/cells.csv"}}),
     ("git_branch_exists", {"git_branch_exists": {"branch": "imaging"}}),
     ("git_current_branch", {"git_current_branch": {"branch": "imaging"}}),
@@ -287,6 +293,7 @@ FALSE_CASES: list[tuple[str, dict[str, object]]] = [
     ("type_registered", {"type_registered": {"type_name": "Image"}}),
     ("previewer_registered", {"previewer_registered": {"type_name": "Image"}}),
     ("plot_exists", {"plot_exists": {"node_id": "load-1"}}),
+    ("plot_rendered", {"plot_rendered": {"plot_id": "plot-2"}}),
     ("file_exists", {"file_exists": {"path": "data/raw/absent.csv"}}),
     ("git_branch_exists", {"git_branch_exists": {"branch": "release"}}),
     ("git_current_branch", {"git_current_branch": {"branch": "main"}}),
@@ -605,7 +612,12 @@ def test_the_engine_half_of_the_map_is_keyed_by_the_imported_constants() -> None
         INTERACTIVE_COMPLETE,
     }
     assert EVENT_TERM_MAP[WORKFLOW_CHANGED] == {"node_exists", "edge_exists", "config_equals", "config_matches"}
-    assert EVENT_TERM_MAP[WORKFLOW_COMPLETED] == {"run_succeeded", "run_failed", "port_has_output"}
+    assert EVENT_TERM_MAP[WORKFLOW_COMPLETED] == {
+        "run_succeeded",
+        "run_failed",
+        "port_has_output",
+        "plot_rendered",
+    }
     assert EVENT_TERM_MAP[GIT_HEAD_CHANGED] == {"git_branch_exists", "git_current_branch"}
     assert EVENT_TERM_MAP[INTERACTIVE_COMPLETE] == {"interaction_completed"}
 
@@ -696,3 +708,233 @@ def test_condition_args_are_read_only() -> None:
     condition: Condition = parse_condition({"file_exists": {"path": "x"}})
     with pytest.raises(TypeError):
         condition.args["path"] = "y"  # type: ignore[index]
+
+
+# ---------------------------------------------------------------------------
+# The node selector: block_type as an alternative to node_id (#2062)
+# ---------------------------------------------------------------------------
+
+
+def _selector_state(loaded_workflow: WorkflowDefinition) -> StubProductState:
+    """A state where ``load-1`` (LoadCSV) succeeded, holds output, and was submitted."""
+    return StubProductState(
+        workflow_definition=loaded_workflow,
+        runs=(RunSummary(run_id="r1", workflow_id="wf-1", succeeded=False, succeeded_node_ids=frozenset({"load-1"})),),
+        ports_with_output=frozenset({("load-1", "table")}),
+        plots=(("plot-1", "save-1", "table"),),
+        interactions=frozenset({"load-1"}),
+    )
+
+
+def test_run_succeeded_reads_block_type_as_any_node_of_that_type(loaded_workflow: WorkflowDefinition) -> None:
+    state = _selector_state(loaded_workflow)
+    assert evaluate(parse_condition({"run_succeeded": {"block_type": "LoadCSV"}}), state) is True
+    assert evaluate(parse_condition({"run_succeeded": {"block_type": "SaveCSV"}}), state) is False
+
+
+def test_run_succeeded_filters_node_id_and_block_type_conjunctively(loaded_workflow: WorkflowDefinition) -> None:
+    """Both selectors together name one node that must also be of that type."""
+    state = _selector_state(loaded_workflow)
+    assert evaluate(parse_condition({"run_succeeded": {"block_type": "LoadCSV", "node_id": "load-1"}}), state) is True
+    assert evaluate(parse_condition({"run_succeeded": {"block_type": "SaveCSV", "node_id": "load-1"}}), state) is False
+
+
+def test_a_block_type_selector_is_false_when_no_workflow_is_open(loaded_workflow: WorkflowDefinition) -> None:
+    """A type selector resolves through the open workflow; no workflow, no nodes."""
+    state = _selector_state(loaded_workflow)
+    state.workflow_definition = None
+    assert evaluate(parse_condition({"run_succeeded": {"block_type": "LoadCSV"}}), state) is False
+    assert evaluate(parse_condition({"port_has_output": {"block_type": "LoadCSV", "port": "table"}}), state) is False
+
+
+def test_port_has_output_reads_block_type_as_any_node_of_that_type(loaded_workflow: WorkflowDefinition) -> None:
+    state = _selector_state(loaded_workflow)
+    assert evaluate(parse_condition({"port_has_output": {"block_type": "LoadCSV", "port": "table"}}), state) is True
+    assert evaluate(parse_condition({"port_has_output": {"block_type": "SaveCSV", "port": "table"}}), state) is False
+
+
+def test_port_has_output_with_a_bare_node_id_never_reads_the_workflow(loaded_workflow: WorkflowDefinition) -> None:
+    """The pre-#2062 form keeps its pre-#2062 cost: one port read, no workflow read."""
+    state = _selector_state(loaded_workflow)
+    assert evaluate(parse_condition({"port_has_output": {"node_id": "load-1", "port": "table"}}), state) is True
+    assert "workflow" not in state.reads
+
+
+def test_port_has_output_requires_a_node_id_or_a_block_type() -> None:
+    with pytest.raises(ConditionValidationError, match="requires one of node_id, block_type"):
+        parse_condition({"port_has_output": {"port": "table"}})
+
+
+def test_plot_exists_reads_block_type_as_any_node_of_that_type(loaded_workflow: WorkflowDefinition) -> None:
+    state = _selector_state(loaded_workflow)
+    assert evaluate(parse_condition({"plot_exists": {"block_type": "SaveCSV"}}), state) is True
+    assert evaluate(parse_condition({"plot_exists": {"block_type": "LoadCSV"}}), state) is False
+
+
+def test_interaction_completed_reads_block_type_as_any_node_of_that_type(loaded_workflow: WorkflowDefinition) -> None:
+    state = _selector_state(loaded_workflow)
+    assert evaluate(parse_condition({"interaction_completed": {"block_type": "LoadCSV"}}), state) is True
+    assert evaluate(parse_condition({"interaction_completed": {"block_type": "SaveCSV"}}), state) is False
+
+
+def test_interaction_completed_requires_a_node_id_or_a_block_type() -> None:
+    with pytest.raises(ConditionValidationError, match="requires one of node_id, block_type"):
+        parse_condition({"interaction_completed": {}})
+
+
+# ---------------------------------------------------------------------------
+# ui_event targets (#2063, FR-052)
+# ---------------------------------------------------------------------------
+
+
+def test_a_targeted_ui_event_condition_waits_for_a_report_carrying_that_target() -> None:
+    state = StubProductState(
+        events=frozenset({"node_selected"}),
+        targeted_events=frozenset({("node_selected", "load_data")}),
+    )
+    hit = parse_condition({"ui_event": {"name": "node_selected", "block_type": "load_data"}})
+    miss = parse_condition({"ui_event": {"name": "node_selected", "block_type": "save_data"}})
+    assert evaluate(hit, state) is True
+    assert evaluate(miss, state) is False
+
+
+def test_a_bare_name_condition_is_satisfied_by_a_targeted_report() -> None:
+    """The recorder keeps the name either way, so untargeted conditions stay whole."""
+    state = StubProductState(
+        events=frozenset({"plot_rendered"}),
+        targeted_events=frozenset({("plot_rendered", "normalized_activity")}),
+    )
+    assert evaluate(parse_condition({"ui_event": {"name": "plot_rendered"}}), state) is True
+
+
+def test_each_ui_event_name_accepts_exactly_its_own_target_argument() -> None:
+    accepted = [
+        {"ui_event": {"name": "node_selected", "block_type": "load_data"}},
+        {"ui_event": {"name": "block_source_viewed", "block_type": "load_data"}},
+        {"ui_event": {"name": "plot_rendered", "plot_id": "normalized_activity"}},
+        {"ui_event": {"name": "preview_expanded"}},
+    ]
+    for raw in accepted:
+        parse_condition(raw)
+
+
+@pytest.mark.parametrize(
+    ("raw", "message"),
+    [
+        ({"ui_event": {"name": "preview_expanded", "block_type": "x"}}, "takes no target argument"),
+        ({"ui_event": {"name": "plot_rendered", "block_type": "x"}}, "takes only plot_id"),
+        ({"ui_event": {"name": "node_selected", "plot_id": "x"}}, "takes only block_type"),
+    ],
+    ids=["none-takes-block_type", "plot-takes-block_type", "block-takes-plot_id"],
+)
+def test_a_ui_event_target_the_name_does_not_carry_is_rejected(raw: dict[str, object], message: str) -> None:
+    """FR-049's step-nine argument: a condition no emitter can satisfy fails its author."""
+    with pytest.raises(ConditionValidationError, match=message):
+        parse_condition(raw)
+
+
+def test_ui_event_target_arg_reads_the_declared_table() -> None:
+    from scistudio.tutorials.conditions import UI_EVENT_SPECS, ui_event_target_arg
+
+    assert {spec.name: spec.target_arg for spec in UI_EVENT_SPECS} == {
+        "preview_expanded": None,
+        "block_source_viewed": "block_type",
+        "node_selected": "block_type",
+        "plot_rendered": "plot_id",
+    }
+    assert ui_event_target_arg("node_selected") == "block_type"
+    assert ui_event_target_arg("preview_expanded") is None
+    assert ui_event_target_arg("not_an_event") is None
+
+
+# ---------------------------------------------------------------------------
+# since_step_entry (#2066, FR-046's evaluation context)
+# ---------------------------------------------------------------------------
+
+_OLD_RUN = RunSummary(run_id="r-old", workflow_id="wf-1", succeeded=True, started_at="2020-01-01T00:00:00+00:00")
+_NEW_RUN = RunSummary(run_id="r-new", workflow_id="wf-1", succeeded=True, started_at="2026-08-21T12:00:00+00:00")
+_ENTRY = "2026-08-21T11:00:00+00:00"
+
+
+def test_since_step_entry_excludes_runs_started_before_entry() -> None:
+    """The step says "press Run"; the run from three steps ago must not answer."""
+    condition = parse_condition({"run_succeeded": {"since_step_entry": True}})
+    assert evaluate(condition, StubProductState(runs=(_OLD_RUN,)), entered_at=_ENTRY) is False
+    assert evaluate(condition, StubProductState(runs=(_NEW_RUN, _OLD_RUN)), entered_at=_ENTRY) is True
+
+
+def test_since_step_entry_scopes_run_failed_to_runs_since_entry() -> None:
+    """An old failure is not "it broke just now"; only a since-entry run answers."""
+    condition = parse_condition({"run_failed": {"since_step_entry": True}})
+    old_failure = RunSummary(
+        run_id="r-old", workflow_id="wf-1", succeeded=False, started_at="2020-01-01T00:00:00+00:00"
+    )
+    assert evaluate(condition, StubProductState(runs=(old_failure,)), entered_at=_ENTRY) is False
+    new_failure = RunSummary(
+        run_id="r-new", workflow_id="wf-1", succeeded=False, started_at="2026-08-21T12:00:00+00:00"
+    )
+    assert evaluate(condition, StubProductState(runs=(new_failure, old_failure)), entered_at=_ENTRY) is True
+
+
+def test_since_step_entry_without_an_entry_time_applies_no_filter() -> None:
+    """A pre-field session record fails towards FR-054's lean, not an unfinishable step."""
+    condition = parse_condition({"run_succeeded": {"since_step_entry": True}})
+    assert evaluate(condition, StubProductState(runs=(_OLD_RUN,))) is True
+
+
+def test_a_run_with_no_readable_start_time_is_outside_every_since_scoped_question() -> None:
+    condition = parse_condition({"run_succeeded": {"since_step_entry": True}})
+    unstamped = RunSummary(run_id="r-x", workflow_id="wf-1", succeeded=True, started_at=None)
+    garbled = RunSummary(run_id="r-y", workflow_id="wf-1", succeeded=True, started_at="not-a-time")
+    assert evaluate(condition, StubProductState(runs=(unstamped, garbled)), entered_at=_ENTRY) is False
+
+
+def test_since_step_entry_false_reads_like_the_bare_term() -> None:
+    condition = parse_condition({"run_succeeded": {"since_step_entry": False}})
+    assert evaluate(condition, StubProductState(runs=(_OLD_RUN,)), entered_at=_ENTRY) is True
+
+
+def test_since_step_entry_must_be_a_boolean() -> None:
+    with pytest.raises(ConditionValidationError, match="since_step_entry must be true or false"):
+        parse_condition({"run_succeeded": {"since_step_entry": "yes"}})
+
+
+def test_a_zoneless_run_stamp_is_read_as_utc() -> None:
+    """The writers are UTC; guessing a local zone would change the answer per machine."""
+    condition = parse_condition({"run_succeeded": {"since_step_entry": True}})
+    zoneless_new = RunSummary(run_id="r-n", workflow_id="wf-1", succeeded=True, started_at="2026-08-21T12:00:00")
+    assert evaluate(condition, StubProductState(runs=(zoneless_new,)), entered_at=_ENTRY) is True
+
+
+# ---------------------------------------------------------------------------
+# The backend plot_rendered term (#2066)
+# ---------------------------------------------------------------------------
+
+
+def test_plot_rendered_addresses_a_plot_the_way_plot_exists_does(loaded_workflow: WorkflowDefinition) -> None:
+    state = StubProductState(
+        workflow_definition=loaded_workflow,
+        rendered=(("wf-1", "save-1", "table", "plot-1"),),
+    )
+    assert evaluate(parse_condition({"plot_rendered": {"plot_id": "plot-1"}}), state) is True
+    assert evaluate(parse_condition({"plot_rendered": {"block_type": "SaveCSV", "port": "table"}}), state) is True
+    assert evaluate(parse_condition({"plot_rendered": {"block_type": "LoadCSV"}}), state) is False
+    assert evaluate(parse_condition({"plot_rendered": {"plot_id": "plot-1", "port": "other"}}), state) is False
+    assert evaluate(parse_condition({"plot_rendered": {}}), state) is True
+    assert evaluate(parse_condition({"plot_rendered": {}}), StubProductState()) is False
+
+
+def test_the_two_plot_rendered_names_coexist_and_answer_different_questions() -> None:
+    """The ui_event is "the reader saw it render"; the term is "a figure exists".
+
+    The welcome manifest waits on the ui_event and must go on meaning what it
+    meant; a level that cares about the artifact rather than the viewing waits
+    on the term. Same words, two facts, both real.
+    """
+    saw_but_no_artifact = StubProductState(events=frozenset({"plot_rendered"}))
+    assert evaluate(parse_condition({"ui_event": {"name": "plot_rendered"}}), saw_but_no_artifact) is True
+    assert evaluate(parse_condition({"plot_rendered": {}}), saw_but_no_artifact) is False
+
+    artifact_but_unseen = StubProductState(rendered=(("wf", "n1", "out", "p1"),))
+    assert evaluate(parse_condition({"plot_rendered": {}}), artifact_but_unseen) is True
+    assert evaluate(parse_condition({"ui_event": {"name": "plot_rendered"}}), artifact_but_unseen) is False

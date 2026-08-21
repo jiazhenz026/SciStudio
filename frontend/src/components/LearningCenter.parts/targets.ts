@@ -54,6 +54,7 @@ export const ROUTE_TARGETS = [
   "git",
   "canvas",
   "block_palette",
+  "data_types",
 ] as const;
 
 export type RouteTarget = (typeof ROUTE_TARGETS)[number];
@@ -66,6 +67,7 @@ export const HIGHLIGHT_TARGETS = [
   "new_menu_button",
   "plots_new_button",
   "history_restore_button",
+  "bring_in_my_work_button",
   "data_preview",
   "config_panel",
   "palette_block",
@@ -117,6 +119,7 @@ export const ROUTE_TARGET_BOTTOM_TABS: Record<RouteTarget, BottomTab | null> = {
   git: "git",
   canvas: null,
   block_palette: null,
+  data_types: null,
 };
 
 /**
@@ -128,6 +131,10 @@ export const ROUTE_TARGET_BOTTOM_TABS: Record<RouteTarget, BottomTab | null> = {
  */
 export const ROUTE_TARGET_LEFT_TABS: Partial<Record<RouteTarget, LeftTab>> = {
   block_palette: "blocks",
+  // The Data types tab between Blocks and Project — the manifest name is the
+  // user-facing label ("Data types"), the internal key stays `types`, on the
+  // same rule as `history`/`lineage` above.
+  data_types: "types",
 };
 
 export function isRouteTarget(value: string): value is RouteTarget {

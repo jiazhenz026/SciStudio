@@ -500,7 +500,10 @@ be listed.
 directory. The reserved subdirectories are `data/` for data files, `code/` for
 block, type, previewer, and plot sources written into the project, `panels/` for
 built interactive-block panel bundles, `replay/` for scripted replay material,
-and `pages/` for reading content.
+`workflows/` for workflow YAML written into the project (#2063), and `pages/`
+for reading content. `workflows/` is graded executable-adjacent under FR-020a:
+a workflow YAML names a code block's script path and working directory, so it
+is configuration the product acts on to execute, not data.
 
 **FR-007.** The manifest MUST declare `id`, `title`, and `summary`. It MAY
 declare `cover` naming an image file in the tutorial directory, and `order` as an
@@ -517,9 +520,16 @@ that lets discovery tell "written for a newer core" apart from "malformed", and
 the two owe the user different messages.
 
 **FR-008.** The manifest MAY declare a `requires` block with `scistudio` as a
-version specifier, `agent` as a boolean, and `packages` as a list of
-distribution names. A tutorial whose requirements are unmet MUST still be listed
-(FR-024).
+version specifier, `agent` as a boolean, `packages` as a list of distribution
+names, and `tutorials` as a list of same-source tutorial ids that must be
+completed before this one can be started (#2088). A tutorial whose requirements
+are unmet MUST still be listed (FR-024); an unmet `tutorials` entry lists it as
+unavailable naming the tutorial it waits on, which is how a track of levels
+shows the reader where it goes before they have walked it. Ids address siblings
+only, because progress is keyed by (source, id) and a manifest cannot address
+another source; a required id its source does not ship can never complete, so
+the typo surfaces in the catalogue as a permanently unavailable entry naming
+it, rather than being hidden.
 
 **FR-009.** The manifest MAY declare a `bootstrap` block. Presence of
 `bootstrap` is what determines whether the tutorial gets a project: a tutorial
@@ -536,7 +546,22 @@ conflict.
 declare `say` as display text, `highlight` naming a user-interface element,
 `route_to` naming a tab or panel the user is taken to, `prefill` seeding a
 dialog the user is about to open (FR-011b), `do` as an ordered list of
-actions, and `done_when` as a completion condition.
+actions, `done_when` as a completion condition, `pages` as an ordered list
+of reading pages the step presents, each naming a file under `assets/pages/`
+the way a `page_reached` condition names one — with or without its extension —
+and `trigger` as a user-triggered action (#2061): a button label plus an
+ordered `do` list run when the reader presses it, distinct from the entry `do`
+in exactly one respect, *when* it runs. Entry actions run because the reader
+arrived; a trigger runs because the reader asked, which is what lets a step
+hold its material back until asked for — "press Play to watch the agent work"
+cannot be an entry action without playing before the sentence is readable. A
+declared page MUST exist when the manifest is loaded, on FR-014's grounds: a
+reading step whose page is missing fails the author at listing, not the reader
+on the page turn. A trigger MUST declare both halves — a label the reader can
+be asked to press, and at least one action — and its `do` list is covered by
+the same containment (FR-014, FR-015) and tier rules (FR-020a) as every other
+action list, because pressing the button reaches the project as surely as
+entering the step does.
 
 **FR-011c.** A step MAY declare `title` as a short heading for the step card.
 A step without one MUST fall back to the tutorial's own title. Heading every
@@ -560,6 +585,12 @@ validation.
 A prefill MUST be a default and not a decision: what it seeds stays editable,
 and a reader who supplies something else MUST NOT be blocked, because the step's
 `done_when` judges the world rather than the dialog.
+
+The current members are `new_custom_block` and `new_data_type`, each seeding
+its dialog's filename stem; `new_plot`, seeding the new-plot dialog's name; and
+`block_config`, the one settings-field target the next paragraph constrains.
+`new_data_type` joined as the type-side twin of `new_custom_block` (#2061),
+because the type-authoring levels name the file they are about to discuss.
 
 A target that seeds a block's settings rather than a dialog MUST fill only a
 field the reader has left empty, and MUST NOT overwrite a value they supplied.
@@ -612,11 +643,18 @@ at validation with a message naming the field and the restriction.
 **FR-020a.** Rejecting `driver` alone does not make a tier incapable of carrying
 executable code, and the tier restriction MUST therefore extend to assets and
 destinations. A user-level or project-level manifest MUST be rejected at
-validation when it carries an asset under `assets/code/`, `assets/panels/`, or
-`assets/replay/`; when it declares a `replay` action; or when a write or copy
-action's destination resolves under a directory the product imports or executes,
-which is at minimum `blocks/`, `types/`, `previewers/`, and `plots/` in the
-tutorial project. Without this, a project-level tutorial could place a `.py` file
+validation when it carries an asset under `assets/code/`, `assets/panels/`,
+`assets/replay/`, or `assets/workflows/`; when it declares a `replay` action; or
+when a write or copy action's destination resolves under a directory the product
+imports, executes, or reads as configuration for something it executes. That
+restricted destination set is declared in exactly one place
+(`scistudio.tutorials.actions.EXECUTED_PROJECT_PATHS`) and is wider than the
+four directories originally named here as a floor: beside `blocks/`, `types/`,
+`previewers/`, and `plots/` it covers `workflows/` and `tutorials/` — both
+configuration this runtime acts on — the agent-surface directories every project
+is provisioned with (`.claude/`, `.codex/`, `.agents/`, `.qoder/`,
+`.kimi-code/`, `.scistudio/`, `.git/`), and the root files agents auto-load
+(`.mcp.json`, `CLAUDE.md`, `AGENTS.md`). Without this, a project-level tutorial could place a `.py` file
 under `blocks/` through an ordinary write action (FR-057) and have it imported and
 executed on the next registry refresh, which is exactly the exposure the tier
 grading exists to avoid. The rejection MUST name the tier, the field, and the
@@ -752,6 +790,14 @@ which tutorial, which project, which step, and which steps are satisfied.
 
 **FR-037.** Session state MUST survive a backend restart.
 
+The active-session response additionally carries a read-only outline of every
+step — index, id, title, say, and pages, with the current position given by the
+step view's own index — so the reading window can show the whole tutorial's
+card names up front. The outline is a session-level listing of static metadata,
+deliberately without conditions, highlights, prefills, or actions, so FR-041's
+closure of the per-step view is untouched by it; for a sequential tutorial a
+step is behind the reader exactly when its index is smaller.
+
 **FR-038.** The runtime MUST interact with tutorials only through a driver
 interface. The interface MUST cover: the view of the current step, whether the
 current step is satisfied given current product state, the actions to perform on
@@ -769,6 +815,16 @@ reveal which driver produced it.
 defines. A driver MUST NOT be able to introduce new rendering primitives, supply
 frontend assets, or address any surface the manifest format cannot address. Core
 owns what a tutorial step looks like.
+
+The closed set widens with FR-011 and stays closed (#2061): the view now also
+carries the step's `pages` — names only, each served by the existing pages
+route — and its `trigger` as the label alone. What pressing the trigger *does*
+never crosses the view boundary: the runtime asks the driver for the actions
+separately, reduces them to core action objects exactly as it does entry
+actions, and executes them itself, so a driver still cannot introduce an
+action kind, supply content, or address a surface the manifest format cannot.
+The set remains core-owned and `StepView.of`-reduced; a driver returning more
+has the excess dropped at the boundary as before.
 
 **FR-042.** A package driver MUST be able to call the core condition evaluator so
 it can use the vocabulary for the conditions it covers and implement only the
@@ -789,6 +845,11 @@ core. Tutorials reference terms; they do not define them.
 
 **FR-046.** Conditions MUST be evaluated on the backend against product state.
 No condition may be evaluated from frontend state, except `ui_event` (FR-052).
+The evaluation context additionally includes the session-supplied entry time of
+the current step (#2066): the session records when each step was entered and
+hands that time in per evaluation, because it describes the reader's position
+in the tutorial rather than the state of the product, and only the session
+knows it.
 
 **FR-047.** The vocabulary MUST include at least:
 
@@ -797,19 +858,47 @@ No condition may be evaluated from frontend state, except `ui_event` (FR-052).
 | `node_exists` | a node of a given block type is present in the workflow |
 | `edge_exists` | an edge connects two given block types or node ids |
 | `config_equals` | a node's configuration key holds a given value |
-| `run_succeeded` | a run of the workflow, or of a given node, completed successfully |
-| `port_has_output` | a given output port holds data |
+| `config_matches` | a node's configuration key matches a glob, compared as a path |
+| `run_succeeded` | a run of the workflow — or of a given node, or of any node of a given block type — completed successfully; `since_step_entry: true` counts only runs started since the current step was entered |
+| `run_failed` | the most recent run ended without succeeding; `since_step_entry: true` reads only runs started since the current step was entered |
+| `port_has_output` | a given output port holds data, on a named node or on any node of a given block type |
 | `block_registered` | a block type is present in the registry |
 | `type_registered` | a data type is present in the type registry |
 | `previewer_registered` | a previewer is registered for a given type |
-| `plot_exists` | a plot exists, optionally bound to a given block's output |
+| `plot_exists` | a plot exists, optionally bound to a given block's output by node id or block type |
+| `plot_rendered` | a rendered figure exists for a plot, addressed like `plot_exists` |
 | `file_exists` | a project-relative path exists |
 | `git_branch_exists` | a branch exists in the project repository |
 | `git_current_branch` | the checked-out branch is a given name |
 | `library_contains` | the tutorial-scoped library holds a named block, type, or previewer |
-| `interaction_completed` | an interactive block's panel was submitted |
+| `interaction_completed` | an interactive block's panel was submitted, on a named node or on any node of a given block type |
 | `page_reached` | a reading step reached a given page |
-| `ui_event` | a named frontend event was reported |
+| `ui_event` | a named frontend event was reported, optionally for a named target |
+
+Where a term addresses a node, `node_id` and `block_type` are alternative
+selectors for it: `block_type` alone reads "any node of that type", the two
+filter conjunctively when both are given, and a term whose meaning requires a
+node (`port_has_output`, `interaction_completed`) requires one of them at
+validation. This is the same selector convention `node_exists`, `config_equals`,
+and `config_matches` already use, extended in #2062 so the level designs can
+address "the Load block" without knowing the node id a reader's drag produced.
+
+The two run terms additionally accept `since_step_entry: true` (#2066), which
+scopes the records they read to runs started since the current step was
+entered, judged against the entry time FR-046's evaluation context supplies. A
+step whose text says "press Run" can then wait for the run the reader performs
+*on this step* instead of being satisfied by one they performed three steps
+ago. FR-054 is untouched: at entry no run has started since entry, so the
+scoped condition is simply false until the reader runs.
+
+`plot_rendered` names a backend fact — display artifacts exist in the preview
+cache under `.scistudio/previews/<workflow_id>/<node_id>/<output_port>/
+<plot_id>/` — and deliberately coexists with the `ui_event` of the same name
+(#2066). They answer different questions: the reported event says the reader
+*saw* the figure render on their screen, the term says a figure *exists* as
+product truth, whoever caused it and whether or not anyone was watching. The
+welcome tutorial waits on the event and keeps meaning what it meant; a level
+that cares about the artifact waits on the term.
 
 **FR-048.** The vocabulary MUST support `all` and `any` combinators taking lists
 of conditions. Negation is deliberately omitted: a tutorial step that advances
@@ -825,12 +914,19 @@ event in a declared mapping is observed. The mapping MUST at minimum be:
 
 | Event | Terms re-evaluated |
 |---|---|
-| `workflow.changed` | `node_exists`, `edge_exists`, `config_equals` |
-| `workflow_completed`, `block_done`, `block_error` | `run_succeeded`, `port_has_output` |
+| `workflow.changed` | `node_exists`, `edge_exists`, `config_equals`, `config_matches` |
+| `workflow_completed`, `block_done` | `run_succeeded`, `run_failed`, `port_has_output`, `plot_rendered` |
+| `block_error` | `run_succeeded`, `run_failed`, `port_has_output` |
 | `blocks.reloaded` | `block_registered`, `type_registered`, `previewer_registered`, `library_contains` |
 | `git.head_changed` | `git_branch_exists`, `git_current_branch` |
-| `file.changed` | `file_exists` |
+| `file.changed` | `file_exists`, `plot_exists` |
 | `interactive_complete` | `interaction_completed` |
+
+`plot_rendered` rides the run events rather than `file.changed` because a
+figure lands as an image, and image formats are outside the watcher's ADR-036
+extension allowlist — no file event will ever announce one. A render the
+reader triggers from the plot card is covered by the frontend's own `ui_event`
+report and by FR-053's explicit re-check.
 
 The two naming conventions in that table are the product's, not a typo. Engine
 lifecycle events are declared in `src/scistudio/engine/events.py` with
@@ -850,6 +946,18 @@ a step.
 the backend, which MUST satisfy a matching `ui_event` condition. This is the only
 completion path that originates in the frontend and exists because some product
 actions — enlarging the preview panel, opening a tab — produce no backend state.
+
+A report MAY carry the target the event acted on, and each event name declares
+the one argument it may carry, on FR-089b's precedent for highlight entities
+(#2063): `node_selected` and `block_source_viewed` take `block_type`,
+`plot_rendered` takes `plot_id`, and `preview_expanded` — a singleton surface —
+takes none. The pairing is core-owned and declared in exactly one place
+(`scistudio.tutorials.conditions.UI_EVENT_SPECS`), read by manifest validation
+and by the report route alike, so a condition naming an argument its event does
+not carry is rejected at validation rather than waiting forever on a report no
+emitter sends. A bare name remains a complete report and a complete condition:
+an untargeted condition is satisfied by any report of its name, targeted or
+not, while a targeted condition waits for a report carrying that target.
 
 **FR-053.** The frontend MUST be able to request an explicit re-evaluation of the
 active step. This covers state changes that no mapped event reaches: the
@@ -883,7 +991,10 @@ MUST NOT create files, mutate registries, or trigger runs.
 #### Step actions
 
 **FR-056.** A step MAY declare actions performed on entry, before its text is
-displayed.
+displayed. It MAY additionally declare a `trigger` (#2061): actions performed
+when the reader presses the button the step's trigger label names, through the
+same execution machinery as entry — ordering, settle, and failure semantics
+included (FR-059, FR-059a, FR-060).
 
 **FR-057.** The action set MUST include writing an asset into the tutorial
 project, copying an asset directory into the tutorial project, and replaying
@@ -908,8 +1019,29 @@ its purpose. A write outside those directories MUST NOT trigger a re-scan —
 a `.py` file under `data/` is teaching material, and an ordinary copy step must
 not pay for a scan it cannot benefit from.
 
+A write landing under the project's `workflows/` MUST reach the open canvas the
+same way (#2063): the canvas renders the frontend's copy of the graph, so the
+runtime broadcasts the same `workflow.changed` frame an external on-disk edit
+produces, before the step's text is displayed.
+
+A trigger's actions carry the same obligations at a different moment (#2061):
+they MUST run to completion, and the registries MUST have re-scanned where the
+writes call for it, before the trigger reports done — so whatever the button
+claimed to do has happened by the time anything re-renders on the strength of
+the response. The filesystem watcher is not an
+answer here — it is not running headless, and FR-059a's ordering is
+a property of the entry sequence, not of an observer's timing.
+
 **FR-060.** An action failure MUST end the session with an error naming the step
 and the action, and MUST NOT silently advance.
+
+A *trigger's* action failure is the one deliberate exception (#2061): it MUST
+be surfaced on the step, naming the step and the action, and it MUST NOT end
+the session — the press MUST be retryable. The difference is what the reader
+was shown on the strength of the actions: an entry failure leaves a step whose
+premise never landed, so the session cannot honestly continue, while a trigger
+failure leaves the step exactly as it was before the press, which is a state
+the reader was already legitimately in.
 
 **FR-061.** Replay actions MUST NOT be able to reach any surface other than the
 one the action names. Replay is scripted content playback, not a general remote
@@ -933,6 +1065,17 @@ MUST complete before the next segment's bytes are delivered. A scripted agent
 that claims to have written a block has to be matched by the block existing at the
 moment the claim is readable, which a single opaque stream played to completion
 cannot guarantee.
+
+A replay action MAY declare `continue_tab: true` (#2089): its segments are
+appended to the surface's open replay tab, transcript intact, instead of that
+tab being closed and a new one opened. It MUST be an error when no replay tab
+is open — a continuation of nothing is an authoring mistake, not an empty
+operation — and FR-061b's ordering holds per appended segment: each appended
+segment's bound writes land before its bytes are delivered. Combined with the
+step trigger (FR-011, #2061), this is the conversation-pacing mechanism: the
+reader presses the step's button, more of the scripted session arrives in the
+same tab, and the files the transcript claims to have written are on disk
+before the claims are readable.
 
 **FR-061c.** Ending a session mid-replay MUST terminate the scripted session and
 leave no replay session object behind, on the same path a real PTY session uses
@@ -1058,6 +1201,12 @@ reader's own progress through the material. The Reading tab MUST NOT carry a
 count of its own, because its tutorials may come from several sources at once
 and FR-076 forbids reporting a count across them.
 
+The reading surface itself is core-owned, like every step surface (FR-041): a
+reading step is rendered as a card presenting its declared `pages` in order,
+with each page's content served by the existing pages route — the same route
+whose serving records `page_reached` — so what a manifest contributes is names
+and prose, never markup or a rendering primitive of its own.
+
 **FR-085.** Each entry MUST show its title, summary, cover if declared, and
 state: not started, in progress, complete, or unavailable with the reason. An
 unavailable entry MUST remain selectable so that its reason can be read.
@@ -1102,7 +1251,13 @@ node, it names the haystack. Each target that addresses an entity therefore
 declares a required argument (`block_type` for a palette entry or a canvas node,
 `plot_id` for a plot card), a manifest naming such a target without its argument
 MUST be rejected at validation, and the frontend MUST annotate every candidate
-element with both the target name and that argument's value.
+element with both the target name and that argument's value. The singleton
+targets — the Run, New, new-plot, History-restore, and Bring-in-my-work
+controls, of which exactly one exists on screen — take no argument, their name
+being the whole address; `bring_in_my_work_button` joined for the work-import
+level's closing step (#2061). `route_to`'s closed set likewise grew
+`data_types`, the left panel's Data types tab, named the way the product names
+it to the user.
 
 **FR-089c.** A step that declares no `highlight`, and a step whose target is not
 on screen, MUST dock the step surface in the bottom-right corner and MUST NOT

@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2061 #2062 #2063 #2066 #2088 #2089] **The tutorial format can now express
+  the designed Learning Center levels 2–6.** A step may declare a `trigger` — a
+  button labelled by the manifest whose actions run when the reader presses it,
+  with a failure surfaced on the step and retryable rather than ending the
+  session — and a `pages` list naming the reading pages it presents. Replays
+  can continue the open terminal tab instead of replacing it, which with the
+  trigger is how a scripted conversation is paced. Completion conditions grew:
+  the node-addressed terms accept `block_type` ("any node of that type") beside
+  `node_id`; the run terms accept `since_step_entry: true` so "press Run" waits
+  for the run performed on this step; a backend `plot_rendered` term judges
+  that a figure exists as product truth; and `ui_event` reports may carry the
+  target they acted on. A tutorial may require same-source tutorials completed
+  first, listing itself unavailable naming the unmet level until then. The
+  session response now carries a read-only outline of every step for the
+  reading window, `assets/workflows/` is a reserved (and executable-graded)
+  asset directory whose writes reach the open canvas before a step's text is
+  readable, and the guidance vocabularies gained the Data types tab, a
+  New-data-type prefill, and the Bring-in-my-work toolbar highlight.
+
 - [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
   that are real, runnable projects, reached from a permanent toolbar entry and
   shown on first launch. The first core tutorial, *Welcome to SciStudio*, ships

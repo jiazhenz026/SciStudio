@@ -293,3 +293,48 @@ def test_ending_a_replay_can_close_the_scripted_session(replay_context: ActionCo
     assert delivery.closed is False
     delivery.close()
     assert delivery.closed is True
+
+
+# ---------------------------------------------------------------------------
+# continue_tab (#2089, FR-061)
+# ---------------------------------------------------------------------------
+
+
+def test_continue_tab_parses_and_defaults_to_false() -> None:
+    from scistudio.tutorials.actions import ReplayAction, parse_action
+
+    plain = parse_action(
+        {"replay": {"surface": "ai_chat_terminal", "segments": [{"id": "s1", "source": "assets/replay/s1.txt"}]}},
+        field_name="steps[0].do[0]",
+    )
+    assert isinstance(plain, ReplayAction)
+    assert plain.continue_tab is False
+
+    appended = parse_action(
+        {
+            "replay": {
+                "surface": "ai_chat_terminal",
+                "continue_tab": True,
+                "segments": [{"id": "s2", "source": "assets/replay/s2.txt"}],
+            }
+        },
+        field_name="steps[0].do[0]",
+    )
+    assert isinstance(appended, ReplayAction)
+    assert appended.continue_tab is True
+
+
+def test_continue_tab_must_be_a_boolean() -> None:
+    from scistudio.tutorials.actions import ActionValidationError, parse_action
+
+    with pytest.raises(ActionValidationError, match="continue_tab"):
+        parse_action(
+            {
+                "replay": {
+                    "surface": "ai_chat_terminal",
+                    "continue_tab": "yes",
+                    "segments": [{"id": "s1", "source": "assets/replay/s1.txt"}],
+                }
+            },
+            field_name="steps[0].do[0]",
+        )

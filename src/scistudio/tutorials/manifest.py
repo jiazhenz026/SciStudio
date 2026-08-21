@@ -6,7 +6,7 @@ ADR-053 Learning Center spec, FR-005 … FR-015, FR-020, FR-020a
 A tutorial is a **directory containing a ``tutorial.yaml``**, and that manifest
 is the only file required for the tutorial to be listed (FR-005). Assets live
 under ``assets/`` with the reserved subdirectories ``data/``, ``code/``,
-``panels/``, ``replay/`` and ``pages/`` (FR-006).
+``panels/``, ``replay/``, ``workflows/`` and ``pages/`` (FR-006).
 
 Two failures that look alike and are not
 ----------------------------------------
@@ -116,12 +116,14 @@ __all__ = [
     "TutorialRequirements",
     "TutorialSourceKind",
     "TutorialStep",
+    "TutorialTrigger",
     "UnsupportedManifestVersionError",
     "load_manifest",
     "load_schema",
     "parse_manifest",
     "validate_against_schema",
     "validate_asset_containment",
+    "validate_step_pages",
     "validate_tier_assets",
     "validate_tier_rules",
 ]
@@ -132,14 +134,20 @@ TUTORIAL_MANIFEST_FILENAME = "tutorial.yaml"
 
 ASSETS_DIR_NAME = "assets"
 
-RESERVED_ASSET_DIRS: tuple[str, ...] = ("data", "code", "panels", "replay", "pages")
+RESERVED_ASSET_DIRS: tuple[str, ...] = ("data", "code", "panels", "replay", "workflows", "pages")
 """FR-006: data files, block/type/previewer/plot sources, built panel bundles,
-scripted replay material, and reading content."""
+scripted replay material, workflow YAML written into the project, and reading
+content."""
 
-EXECUTABLE_ASSET_DIRS: frozenset[str] = frozenset({"code", "panels", "replay"})
+EXECUTABLE_ASSET_DIRS: frozenset[str] = frozenset({"code", "panels", "replay", "workflows"})
 """The reserved asset directories whose contents the product imports, executes,
-or plays back. A user-level or project-level tutorial may not carry any of them
-(FR-020a)."""
+plays back, or reads as configuration for something it executes. A user-level
+or project-level tutorial may not carry any of them (FR-020a).
+
+``workflows`` is here for the reason :data:`~scistudio.tutorials.actions.EXECUTED_PROJECT_PATHS`
+lists the project directory of the same name (#2063): a workflow YAML names a
+code block's ``script_path`` and ``cwd``, so it is configuration the product
+acts on to execute, graded executable-adjacent rather than as data."""
 
 SUPPORTED_MANIFEST_VERSIONS: frozenset[int] = frozenset({1})
 """FR-007a. A manifest declaring a version outside this set is unavailable, not
@@ -160,13 +168,15 @@ ROUTE_TARGETS: frozenset[str] = frozenset(
         "git",
         "canvas",
         "block_palette",
+        "data_types",
     }
 )
 """The closed set of destinations a step's ``route_to`` may name (FR-011).
 
-The first seven mirror the product's real bottom-panel tabs; ``canvas`` and
-``block_palette`` are the two surfaces outside that strip a step can send a
-user to.
+The first seven mirror the product's real bottom-panel tabs; ``canvas``,
+``block_palette``, and ``data_types`` are the surfaces outside that strip a
+step can send a user to — the latter two are the left panel's Blocks and Data
+types tabs (``data_types`` joined for the type-authoring levels, #2061).
 
 **Manifests name the tab the way the product names it to the user, not the way
 the code spells it.** Two of the seven differ from their internal keys: the
@@ -207,6 +217,7 @@ HIGHLIGHT_SPECS: tuple[HighlightSpec, ...] = (
     HighlightSpec(name="run_button", points_at="the toolbar's Run button"),
     HighlightSpec(name="new_menu_button", points_at="the toolbar's New menu"),
     HighlightSpec(name="plots_new_button", points_at="the Plots tab's new-plot button"),
+    HighlightSpec(name="bring_in_my_work_button", points_at="the toolbar's Bring in my work entry"),
     HighlightSpec(name="history_restore_button", points_at="the Restore button on a run in History"),
     # Entities. These take an argument because the element they address is one
     # of many of its kind, and which one is the whole content of the guidance.
@@ -250,6 +261,11 @@ PREFILL_SPECS: tuple[PrefillSpec, ...] = (
     PrefillSpec(
         name="new_custom_block",
         seeds="the New custom block dialog",
+        required=("filename",),
+    ),
+    PrefillSpec(
+        name="new_data_type",
+        seeds="the New data type dialog",
         required=("filename",),
     ),
     PrefillSpec(
@@ -422,10 +438,14 @@ class TutorialRequirements:
     scistudio: str | None = None
     agent: bool = False
     packages: tuple[str, ...] = ()
+    #: FR-008 / #2088 — same-source tutorial ids that must be completed first.
+    #: Ids, not keys: a requirement can only name a sibling, because progress
+    #: is keyed by (source, id) and a manifest does not know other sources.
+    tutorials: tuple[str, ...] = ()
 
     @property
     def is_empty(self) -> bool:
-        return self.scistudio is None and not self.agent and not self.packages
+        return self.scistudio is None and not self.agent and not self.packages and not self.tutorials
 
 
 @dataclass(frozen=True)
@@ -434,6 +454,24 @@ class TutorialBootstrap:
 
     project_name: str | None = None
     do: tuple[Action, ...] = ()
+
+
+@dataclass(frozen=True)
+class TutorialTrigger:
+    """A step's user-triggered action: a label, and what pressing it does (#2061).
+
+    Distinct from entry ``do`` in exactly one respect — *when* it runs. Entry
+    actions run because the reader arrived; a trigger runs because the reader
+    pressed the button the label names, which is what lets a step hold its
+    material back until asked for: "press Play to watch the agent work" cannot
+    be an entry action without playing before the sentence is readable.
+    Execution reuses the entry machinery whole (FR-056, FR-059, FR-059a), so a
+    trigger's writes land and the registries settle before the trigger reports
+    done.
+    """
+
+    label: str
+    do: tuple[Action, ...]
 
 
 @dataclass(frozen=True)
@@ -454,6 +492,15 @@ class TutorialStep:
     prefill: tuple[Prefill, ...] = ()
     do: tuple[Action, ...] = ()
     done_when: Condition | None = None
+    #: FR-011 — the reading pages this step presents, named as files under
+    #: ``assets/pages/`` the way a ``page_reached`` condition names them: with
+    #: or without the extension, ``intro`` for ``assets/pages/intro.md``.
+    #: Validated to exist at load (:func:`validate_step_pages`), because a
+    #: reading step whose page is missing fails the reader mid-read otherwise —
+    #: the same argument FR-014 makes about asset paths.
+    pages: tuple[str, ...] = ()
+    #: FR-011 / #2061 — the step's user-triggered action, if it declares one.
+    trigger: TutorialTrigger | None = None
 
     @property
     def awaiting_continue(self) -> bool:
@@ -657,6 +704,7 @@ def _parse_requires(raw: Any) -> TutorialRequirements:
         scistudio=None if scistudio is None else str(scistudio),
         agent=bool(raw.get("agent", False)),
         packages=packages,
+        tutorials=tuple(str(item) for item in raw.get("tutorials", ())),
     )
 
 
@@ -709,6 +757,8 @@ def _parse_steps(raw: Any, *, path: Path) -> tuple[TutorialStep, ...]:
                 prefill=_parse_prefill(item.get("prefill"), field_name=f"{field_name}.prefill", path=path),
                 do=_parse_actions_or_fail(item.get("do"), field_name=f"{field_name}.do", path=path),
                 done_when=done_when,
+                pages=_parse_pages(item.get("pages"), field_name=f"{field_name}.pages", path=path),
+                trigger=_parse_trigger(item.get("trigger"), field_name=f"{field_name}.trigger", path=path),
             )
         )
     return tuple(steps)
@@ -782,6 +832,80 @@ def _parse_prefill(raw: Any, *, field_name: str, path: Path) -> tuple[Prefill, .
             )
         prefills.append(Prefill(target=target, args=MappingProxyType(args)))
     return tuple(prefills)
+
+
+def _parse_trigger(raw: Any, *, field_name: str, path: Path) -> TutorialTrigger | None:
+    """Parse a step's ``trigger``: a label plus a non-empty ordered ``do`` list.
+
+    Both halves are required. A trigger with no label is a button the reader
+    cannot be asked to press, and one with no actions is a button that does
+    nothing — each is an authoring mistake worth failing at listing (FR-013).
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=f"a trigger is a mapping with 'label' and 'do', got {type(raw).__name__}",
+        )
+    unknown = set(raw) - {"label", "do"}
+    if unknown:
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=f"unknown field(s): {', '.join(sorted(str(key) for key in unknown))}",
+        )
+    label = raw.get("label")
+    if not isinstance(label, str) or not label.strip():
+        raise ManifestValidationError(
+            path=path,
+            field_name=f"{field_name}.label",
+            reason="a trigger's label is the button the reader presses; it must be a non-empty string",
+        )
+    do = _parse_actions_or_fail(raw.get("do"), field_name=f"{field_name}.do", path=path)
+    if not do:
+        raise ManifestValidationError(
+            path=path,
+            field_name=f"{field_name}.do",
+            reason="a trigger declares at least one action; a button that does nothing is a mistake, not a step",
+        )
+    return TutorialTrigger(label=label, do=do)
+
+
+def _parse_pages(raw: Any, *, field_name: str, path: Path) -> tuple[str, ...]:
+    """Parse a step's ``pages``: an ordered list of page names.
+
+    Names only here — whether each names a real file under ``assets/pages/``
+    is :func:`validate_step_pages`'s question, asked once the directory is on
+    disk, on the same two-phase arrangement asset containment uses.
+    """
+    if raw is None:
+        return ()
+    if not isinstance(raw, Sequence) or isinstance(raw, str | bytes):
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=f"pages must be a list of page names, got {type(raw).__name__}",
+        )
+    pages: list[str] = []
+    seen: set[str] = set()
+    for index, item in enumerate(raw):
+        if not isinstance(item, str) or not item:
+            raise ManifestValidationError(
+                path=path,
+                field_name=f"{field_name}[{index}]",
+                reason="a page is named by a non-empty string",
+            )
+        if item in seen:
+            raise ManifestValidationError(
+                path=path,
+                field_name=f"{field_name}[{index}]",
+                reason=f"page {item!r} is listed twice in one step",
+            )
+        seen.add(item)
+        pages.append(item)
+    return tuple(pages)
 
 
 def _parse_highlight(raw: Any, *, field_name: str, path: Path) -> Highlight | None:
@@ -994,6 +1118,7 @@ def load_manifest(directory: Path, *, source_kind: TutorialSourceKind) -> Tutori
     manifest = parse_manifest(data, directory=directory, source_kind=source_kind, path=path)
     validate_asset_containment(manifest)
     validate_tier_assets(manifest)
+    validate_step_pages(manifest)
     return manifest
 
 
@@ -1003,11 +1128,20 @@ def load_manifest(directory: Path, *, source_kind: TutorialSourceKind) -> Tutori
 
 
 def _all_actions(manifest: TutorialManifest) -> tuple[tuple[str, Action], ...]:
+    """Every action a tutorial can perform, wherever it is declared.
+
+    The containment (FR-014, FR-015) and tier walks (FR-020a) iterate this, so
+    a place actions can be declared that is missing here is a hole in both. A
+    trigger's ``do`` (#2061) is on the list for exactly that reason: pressing
+    the button reaches the project as surely as entering the step does.
+    """
     collected: list[tuple[str, Action]] = []
     if manifest.bootstrap is not None:
         collected.extend(("bootstrap.do", action) for action in manifest.bootstrap.do)
     for index, step in enumerate(manifest.steps):
         collected.extend((f"steps[{index}].do", action) for action in step.do)
+        if step.trigger is not None:
+            collected.extend((f"steps[{index}].trigger.do", action) for action in step.trigger.do)
     return tuple(collected)
 
 
@@ -1112,6 +1246,39 @@ def validate_tier_assets(manifest: TutorialManifest) -> None:
     for field_name, action in _all_actions(manifest):
         if isinstance(action, CopyAction):
             _reject_executed_landing(manifest, action, field_name=field_name)
+
+
+def validate_step_pages(manifest: TutorialManifest) -> None:
+    """Every declared page names a file under ``assets/pages/`` (FR-011, FR-014).
+
+    Checked at load rather than at read, for FR-014's reason: a reading step
+    whose page is missing should fail the tutorial while it is being listed,
+    not fail the reader on the page turn. A name is accepted with or without
+    its extension — the same rule the pages route applies when serving one —
+    and containment is enforced first, so ``../`` cannot reach outside the
+    pages directory whichever spelling is used.
+    """
+    pages_dir = manifest.assets_dir / "pages"
+    for index, step in enumerate(manifest.steps):
+        for page in step.pages:
+            field_name = f"steps[{index}].pages"
+            try:
+                direct = resolve_contained_path(pages_dir, page, field_name=field_name)
+            except ActionValidationError as exc:
+                raise ManifestValidationError(path=manifest.path, field_name=field_name, reason=str(exc)) from exc
+            if direct.is_file():
+                continue
+            stem_matches = (
+                [child for child in pages_dir.iterdir() if child.is_file() and child.stem == page]
+                if pages_dir.is_dir()
+                else []
+            )
+            if not stem_matches:
+                raise ManifestValidationError(
+                    path=manifest.path,
+                    field_name=field_name,
+                    reason=f"page {page!r} is not a file under {ASSETS_DIR_NAME}/pages/",
+                )
 
 
 def _reject_executed_landing(manifest: TutorialManifest, action: CopyAction, *, field_name: str) -> None:

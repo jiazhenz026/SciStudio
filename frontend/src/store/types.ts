@@ -131,6 +131,14 @@ export interface LearningCenterSlice {
    * whether the offer is still owed.
    */
   learningCenterWorkImportOffer: boolean;
+  /**
+   * #2061 — why the last trigger press failed, or null.
+   *
+   * Held apart from `learningCenterError` because it belongs on the step card
+   * beside the button that failed, and it clears the moment a session
+   * response is adopted — a retry that worked, an advance, a leave.
+   */
+  learningCenterTriggerError: string | null;
   openLearningCenter: () => void;
   closeLearningCenter: () => void;
   setLearningCenterCatalogue: (catalogue: TutorialCatalogueResponse | null) => void;
@@ -151,7 +159,9 @@ export interface LearningCenterSlice {
   startTutorial: (request: TutorialStartRequest) => Promise<void>;
   evaluateActiveTutorialStep: () => Promise<void>;
   continueActiveTutorialStep: () => Promise<void>;
-  reportTutorialUiEvent: (name: string) => Promise<void>;
+  /** #2061 — run the current step's user-triggered action. */
+  triggerActiveTutorialStep: () => Promise<void>;
+  reportTutorialUiEvent: (name: string, target?: string) => Promise<void>;
   leaveActiveTutorial: () => Promise<void>;
   /** Resolves to the directories the backend reports it deleted. */
   clearTutorialData: () => Promise<string[]>;

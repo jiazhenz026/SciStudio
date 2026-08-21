@@ -116,6 +116,17 @@ export interface TutorialPrefillView {
   args: Record<string, string>;
 }
 
+/**
+ * FR-011 / #2061 — the step's user-triggered action, as the reader sees it.
+ *
+ * Only the label crosses the wire. What pressing the button does is the
+ * backend's to perform through the trigger route, so nothing here can address
+ * a surface the manifest format cannot (FR-041).
+ */
+export interface TutorialTriggerView {
+  label: string;
+}
+
 export interface TutorialStepView {
   id: string;
   index: number;
@@ -126,6 +137,15 @@ export interface TutorialStepView {
   highlight: TutorialHighlightView | null;
   route_to: string | null;
   prefill: TutorialPrefillView[];
+  /**
+   * FR-011 — the reading pages this step presents, in order. Names the pages
+   * route serves; the reading surface fetches content as the reader turns.
+   * Optional in the type so older fixtures and cached responses stay valid;
+   * the backend always sends it.
+   */
+  pages?: string[];
+  /** FR-011 / #2061 — the step's user-triggered action, when it declares one. */
+  trigger?: TutorialTriggerView | null;
   awaiting_continue: boolean;
   /**
    * FR-054a — whether this step's condition holds right now.
@@ -143,6 +163,20 @@ export interface TutorialReplayView {
   tab_id: string;
 }
 
+/**
+ * One row of the session's read-only step outline: the inert subset of a step
+ * — index, id, title, say, pages — so the reading window can show every card
+ * name up front. For a sequential tutorial, a row is behind the reader exactly
+ * when its index is smaller than the current step's.
+ */
+export interface TutorialStepOutline {
+  index: number;
+  id: string;
+  title: string | null;
+  say: string | null;
+  pages: string[];
+}
+
 export interface TutorialSessionResponse {
   source_kind: TutorialSourceKind;
   source_id: string;
@@ -155,6 +189,8 @@ export interface TutorialSessionResponse {
   status: "active" | "complete" | "error";
   error: string | null;
   replay: TutorialReplayView | null;
+  /** The whole tutorial's read-only step outline; optional for older fixtures. */
+  steps?: TutorialStepOutline[];
 }
 
 export interface TutorialStartRequest {
@@ -233,12 +269,31 @@ export const learningCenterApi = {
    * The only completion path that originates in the frontend, and it exists
    * because some product actions (enlarging a panel, opening a tab) leave no
    * backend state for a condition to read.
+   *
+   * `target` is what the event acted on, for the events that declare a target
+   * argument (#2063): the block type behind `node_selected` and
+   * `block_source_viewed`, the plot id behind `plot_rendered`. The pairing is
+   * core-owned (`scistudio.tutorials.conditions.UI_EVENT_SPECS`); a bare name
+   * stays a complete report for every event.
    */
-  reportTutorialUiEvent: (name: string) =>
+  reportTutorialUiEvent: (name: string, target?: string) =>
     apiFetch<TutorialSessionResponse>("/api/tutorials/sessions/active/ui-event", {
       method: "POST",
       headers: JSON_HEADERS,
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(target === undefined ? { name } : { name, target }),
+    }),
+
+  /**
+   * #2061 — run the current step's user-triggered action.
+   *
+   * The backend performs the trigger's actions and settles the registries
+   * before answering, so whatever the button claimed to do has happened by
+   * the time the response renders. A failure leaves the session on the same
+   * step and the press can be retried.
+   */
+  triggerActiveTutorialStep: () =>
+    apiFetch<TutorialSessionResponse>("/api/tutorials/sessions/active/trigger", {
+      method: "POST",
     }),
 
   /** FR-012 — advance a reading step the user has finished reading. */

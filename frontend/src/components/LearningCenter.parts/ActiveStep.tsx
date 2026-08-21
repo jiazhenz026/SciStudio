@@ -60,7 +60,10 @@ export function ActiveStep() {
   const openLearningCenter = useAppStore((state) => state.openLearningCenter);
   const evaluateStep = useAppStore((state) => state.evaluateActiveTutorialStep);
   const continueStep = useAppStore((state) => state.continueActiveTutorialStep);
+  const triggerStep = useAppStore((state) => state.triggerActiveTutorialStep);
+  const triggerError = useAppStore((state) => state.learningCenterTriggerError);
   const leaveTutorial = useAppStore((state) => state.leaveActiveTutorial);
+  const [triggerPending, setTriggerPending] = useState(false);
 
   const step = session?.step ?? null;
   /*
@@ -165,6 +168,36 @@ export function ActiveStep() {
             ) : null}
 
             {step?.say ? <p className="mt-1 text-sm leading-6 text-stone-700">{step.say}</p> : null}
+
+            {/*
+             * #2061 — the step's own button, labelled by the manifest. It runs
+             * the trigger's actions on the backend and re-renders the
+             * re-judged session; a failure is shown right here, beside the
+             * button that failed, and pressing again retries (FR-060's
+             * trigger revision — the session is never ended by it).
+             */}
+            {step?.trigger && session.status === "active" ? (
+              <button
+                className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-pine px-3 py-1 text-xs font-medium text-white transition hover:bg-ink disabled:cursor-not-allowed disabled:opacity-50"
+                data-testid="tutorial-trigger"
+                disabled={triggerPending}
+                onClick={() => {
+                  setTriggerPending(true);
+                  void triggerStep().finally(() => setTriggerPending(false));
+                }}
+                type="button"
+              >
+                {step.trigger.label}
+              </button>
+            ) : null}
+            {triggerError ? (
+              <p
+                className="mt-1 text-xs leading-5 text-red-700"
+                data-testid="tutorial-trigger-error"
+              >
+                {triggerError}
+              </p>
+            ) : null}
 
             {/*
              * `highlight` and `route_to` are not printed. They used to render as

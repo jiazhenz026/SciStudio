@@ -575,3 +575,139 @@ def test_listing_probes_the_machine_only_for_what_a_manifest_asks(
     assert plain is not None and plain.is_startable
     blocked = result.find(TutorialKey.core("needs-package"))
     assert blocked is not None and not blocked.is_startable
+
+
+# ---------------------------------------------------------------------------
+# requires.tutorials — a track's levels gate on their predecessors (#2088)
+# ---------------------------------------------------------------------------
+
+
+def _gated_pair(core: Path) -> None:
+    """Two core tutorials: ``level-two`` requires ``level-one`` completed."""
+    write_tutorial(
+        core / "level-one",
+        {
+            "manifest_version": 1,
+            "id": "level-one",
+            "title": "Level One",
+            "summary": "The first level.",
+            "steps": [{"id": "one", "say": "Start here."}],
+        },
+    )
+    write_tutorial(
+        core / "level-two",
+        {
+            "manifest_version": 1,
+            "id": "level-two",
+            "title": "Level Two",
+            "summary": "The second level.",
+            "requires": {"tutorials": ["level-one"]},
+            "steps": [{"id": "one", "say": "Carry on."}],
+        },
+    )
+
+
+def test_an_uncompleted_prerequisite_lists_the_tutorial_unavailable_naming_it(
+    core_dir: Path,
+) -> None:
+    from scistudio.tutorials.discovery import DiscoveryEnvironment, discover_tutorials
+    from scistudio.tutorials.projects import TutorialKey
+
+    _gated_pair(core_dir)
+    environment = DiscoveryEnvironment(completed_tutorials=frozenset())
+    result = discover_tutorials(environment=environment)
+
+    gated = result.find(TutorialKey.core("level-two"))
+    assert gated is not None
+    assert gated.is_startable is False
+    assert gated.unavailable_reason is not None
+    assert "level-one" in gated.unavailable_reason
+    # FR-024: unmet requirements never hide a tutorial.
+    ungated = result.find(TutorialKey.core("level-one"))
+    assert ungated is not None and ungated.is_startable is True
+
+
+def test_a_completed_prerequisite_makes_the_tutorial_startable(core_dir: Path) -> None:
+    from scistudio.tutorials.discovery import DiscoveryEnvironment, discover_tutorials
+    from scistudio.tutorials.projects import TutorialKey
+
+    _gated_pair(core_dir)
+    environment = DiscoveryEnvironment(completed_tutorials=frozenset({TutorialKey.core("level-one")}))
+    result = discover_tutorials(environment=environment)
+
+    gated = result.find(TutorialKey.core("level-two"))
+    assert gated is not None and gated.is_startable is True
+
+
+def test_the_prerequisite_is_judged_within_its_own_source(core_dir: Path) -> None:
+    """Same-source ids only: a completion under another source must not unlock it."""
+    from scistudio.tutorials.discovery import DiscoveryEnvironment, discover_tutorials
+    from scistudio.tutorials.projects import TutorialKey
+
+    _gated_pair(core_dir)
+    foreign = TutorialKey(source_kind="package", source_id="some-pack", tutorial_id="level-one")
+    environment = DiscoveryEnvironment(completed_tutorials=frozenset({foreign}))
+    result = discover_tutorials(environment=environment)
+
+    gated = result.find(TutorialKey.core("level-two"))
+    assert gated is not None and gated.is_startable is False
+
+
+def test_the_catalogue_surfaces_the_prerequisite_gate(
+    core_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The FR-024 pattern end to end: unavailable with the reason, then unlocked.
+
+    Driven through the runtime rather than through discovery alone, because the
+    runtime is what states its own progress store's completions (#2088) — the
+    seam a wrong wiring would break while every direct-discovery test passed.
+    """
+    from scistudio.tutorials.conditions import ExternalEventNames
+    from scistudio.tutorials.discovery import TutorialState
+    from scistudio.tutorials.progress import ProgressStore
+    from scistudio.tutorials.projects import TutorialKey
+    from scistudio.tutorials.session import SessionStore, TutorialRuntime
+
+    from .conftest import StubProductState
+
+    _gated_pair(core_dir)
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: home))
+    progress = ProgressStore(home / ".scistudio")
+    runtime = TutorialRuntime(
+        product_state=StubProductState,
+        external_events=ExternalEventNames(blocks_reloaded="blocks.reloaded", file_changed="file.changed"),
+        progress=progress,
+        sessions=SessionStore(home / ".scistudio"),
+    )
+
+    entry = runtime.catalogue().entry(TutorialKey.core("level-two"))
+    assert entry is not None
+    assert entry.state is TutorialState.UNAVAILABLE
+    assert entry.unavailable_reason is not None and "level-one" in entry.unavailable_reason
+
+    progress.mark_completed(TutorialKey.core("level-one"))
+    unlocked = runtime.catalogue().entry(TutorialKey.core("level-two"))
+    assert unlocked is not None
+    assert unlocked.state is TutorialState.NOT_STARTED
+    assert unlocked.unavailable_reason is None
+
+
+def test_requires_tutorials_round_trips_through_the_manifest(tmp_path: Path) -> None:
+    from scistudio.tutorials.manifest import TutorialSourceKind, load_manifest
+
+    directory = write_tutorial(
+        tmp_path / "gated",
+        {
+            "manifest_version": 1,
+            "id": "gated",
+            "title": "Gated",
+            "summary": "Requires a sibling.",
+            "requires": {"tutorials": ["level-one"]},
+            "steps": [{"id": "one", "say": "One."}],
+        },
+    )
+    manifest = load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+    assert manifest.requires.tutorials == ("level-one",)
+    assert manifest.requires.is_empty is False

@@ -235,7 +235,8 @@ describe("PlotsTab", () => {
     render(<PlotsTab />);
     fireEvent.click(await screen.findByRole("button", { name: "Run plot My Plot" }));
 
-    await waitFor(() => expect(reportTutorialUiEvent).toHaveBeenCalledWith("plot_rendered"));
+    // #2063 — the plot id rides along as the event's target.
+    await waitFor(() => expect(reportTutorialUiEvent).toHaveBeenCalledWith("plot_rendered", "p1"));
   });
 
   it("reports nothing when the run produced no figure", async () => {

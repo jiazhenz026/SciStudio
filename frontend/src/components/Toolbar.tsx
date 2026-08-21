@@ -265,6 +265,11 @@ export function Toolbar(props: ToolbarProps) {
                 aria-label={ENTRY_LABEL}
                 className="relative inline-flex items-center gap-2 rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50 disabled:hover:bg-transparent"
                 data-testid="toolbar-bring-in-my-work"
+                /* ADR-053 FR-011 (#2061) — the `bring_in_my_work_button`
+                 * highlight target: the work-import level ends by pointing
+                 * at the permanent entry the reader will use with their own
+                 * data. */
+                data-tutorial-target="bring_in_my_work_button"
                 disabled={!currentProject}
                 onClick={() => setBringInMyWorkOpen(true)}
                 type="button"

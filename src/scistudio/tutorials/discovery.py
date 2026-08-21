@@ -270,6 +270,7 @@ class DiscoveryEnvironment:
     installed_distributions: frozenset[str] | None = None
     agent_available: bool | None = None
     git_available: bool | None = None
+    completed_tutorials: frozenset[TutorialKey] | None = None
     _probed: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
 
     def _answer(self, name: str, stated: Any, probe: Any) -> Any:
@@ -302,16 +303,41 @@ class DiscoveryEnvironment:
         """Return whether *name* is installed, comparing normalized names."""
         return normalize_distribution_name(name) in self.distributions()
 
+    def has_completed(self, key: TutorialKey) -> bool:
+        """Whether the tutorial *key* names has been completed (#2088).
 
-def unmet_requirement(manifest: TutorialManifest, environment: DiscoveryEnvironment) -> str | None:
+        What ``requires.tutorials`` is judged against. Stated by the runtime —
+        which owns a progress store — or probed from the default store, on the
+        same lazy arrangement as the other three answers: a catalogue holding
+        no tutorial-gated entry never reads progress at all.
+        """
+        completed: frozenset[TutorialKey] = self._answer(
+            "completed", self.completed_tutorials, lambda: ProgressStore().completed_keys()
+        )
+        return key in completed
+
+
+def unmet_requirement(
+    manifest: TutorialManifest,
+    environment: DiscoveryEnvironment,
+    *,
+    source_id: str | None = None,
+) -> str | None:
     """Return why *manifest* cannot be started, or ``None`` when it can.
 
-    Three predicates, in the order a user can act on them: an installed package
-    is one install away, a core upgrade is further, and an agent is a machine
-    setup task. All three are evaluated — none is skipped as unknowable — and
-    the git check that follows is not part of ``requires`` at all but of the
+    Four predicates, in the order a user can act on them: an installed package
+    is one install away, a core upgrade is further, an agent is a machine setup
+    task, and a prerequisite tutorial (#2088) is the one the catalogue itself
+    offers next. All are evaluated — none is skipped as unknowable — and the
+    git check that follows is not part of ``requires`` at all but of the
     conditions the tutorial declares, which is why it is last: a tutorial
     blocked on a missing package should say so rather than mentioning git.
+
+    ``source_id`` names the source whose siblings ``requires.tutorials``
+    addresses; discovery always passes it. A required id its source does not
+    ship can never complete, so such a tutorial stays listed-unavailable
+    naming it — which is the author's typo surfaced in the catalogue, not
+    hidden by it.
     """
     requires = manifest.requires
     for name in requires.packages:
@@ -323,9 +349,38 @@ def unmet_requirement(manifest: TutorialManifest, environment: DiscoveryEnvironm
             return unmet
     if requires.agent and not environment.has_agent():
         return "needs an AI agent, and no agent provider is available on this machine"
+    for required_id in requires.tutorials:
+        key = TutorialKey(
+            source_kind=str(manifest.source_kind),
+            source_id=_same_source_id(manifest, source_id),
+            tutorial_id=required_id,
+        )
+        if not environment.has_completed(key):
+            # The FR-024 pattern (#2088): listed, unavailable, naming the
+            # unmet level — so a reader sees where a track goes before they
+            # have walked it, and what to finish to get there.
+            return f"needs the tutorial '{required_id}' from the same source to be completed first"
     if _uses_git_terms(manifest) and not environment.has_git():
         return "needs version control, and no git binary is available on this machine"
     return None
+
+
+def _same_source_id(manifest: TutorialManifest, source_id: str | None) -> str:
+    """The ``source_id`` half of a same-source sibling's key.
+
+    Discovery passes the real source id in. A direct caller that does not have
+    one gets the tier's fixed spelling — core's empty string, ``user``,
+    ``project`` — which is exact for the three tiers whose id is a constant.
+    A package's id is its distribution name and cannot be derived from the
+    manifest alone, so a direct package-tier caller must pass it.
+    """
+    if source_id is not None:
+        return source_id
+    return {
+        TutorialSourceKind.CORE: "",
+        TutorialSourceKind.USER: USER_SOURCE_ID,
+        TutorialSourceKind.PROJECT: PROJECT_SOURCE_ID,
+    }.get(manifest.source_kind, "")
 
 
 def _unmet_version(specifier: str, installed: str) -> str | None:
@@ -632,7 +687,7 @@ def _read_tutorial(
         manifest=manifest,
         cover=manifest.cover,
         order=manifest.order,
-        unavailable_reason=unmet_requirement(manifest, environment),
+        unavailable_reason=unmet_requirement(manifest, environment, source_id=source.id),
     )
 
 
