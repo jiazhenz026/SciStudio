@@ -159,7 +159,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "5dd0c0ba3",
+    "shas": [
+      "5dd0c0ba3"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -303,6 +309,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:53:53.477399Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:53:53.503058Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:53:53.521103Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:53:53.538717Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:53:53.556962Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:53:53.575481Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:53:53.594065Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:53:53.612178Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:53:53.641225Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:53:53.657378Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:53:53.682673Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -366,9 +460,9 @@
       "src/scistudio/tutorials/core/scistudio-at-a-glance/tutorial.yaml",
       "tests/tutorials/test_summary_reading_tutorial.py"
     ],
-    "diff_fingerprint": "sha256:57b40f85f899bedc8510f4b0a8f7476258e42a736762cd83f447969b31d28b57",
+    "diff_fingerprint": "sha256:7e4de440bd37f1a5c893c5c5020ae09a70b05d9a0d4b107bbad7c3428a887158",
     "head": "HEAD",
-    "head_sha": "7414ab143",
+    "head_sha": "5dd0c0ba3",
     "surfaces": {
       "docs": 1,
       "frontend": 8,
@@ -385,11 +479,26 @@
   },
   "owner_directive": "Author core tutorial 5 - the reading-only summary level: one window, one top sentence, eight cards, paged card content. Build the reading surface frontend; wire pages fetch; tests; CHANGELOG. PR targets track/learning-center-levels.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2084
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-21T23:52:32.824986Z",
       "diff_fingerprint": "sha256:57b40f85f899bedc8510f4b0a8f7476258e42a736762cd83f447969b31d28b57",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-21T23:53:53.682716Z",
+      "diff_fingerprint": "sha256:7e4de440bd37f1a5c893c5c5020ae09a70b05d9a0d4b107bbad7c3428a887158",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
