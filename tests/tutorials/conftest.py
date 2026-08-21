@@ -50,7 +50,10 @@ def write_tutorial(
     for relative, content in (files or {}).items():
         target = directory / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
+        # newline="": tests compare bytes read back from these files against
+        # POSIX literals, so LF must land on disk untranslated rather than
+        # becoming CRLF on Windows (#2075).
+        target.write_text(content, encoding="utf-8", newline="")
     return directory
 
 

@@ -114,8 +114,8 @@ language_source: en
 - [x] No `pip install -e .` environment pollution found. -> not used by this
       dispatch; agents instructed likewise
 - [x] Dispatch checklist copied from the template and committed. -> this file
-- [~] Dispatch prompts created from the correct prompt template and linked
-      below. -> `docs/planning/learning-center-levels-dispatch-prompts.md`
+- [x] Dispatch prompts created from the correct prompt template and linked
+      below. -> `docs/planning/learning-center-levels-dispatch-prompts.md` (wave 1: P1/P3/L5)
 - [x] Sentrux baseline recorded, or N/A reason recorded. -> Sentrux MCP not
       connected in this session; CLI present (`sentrux.exe`); Sentrux guard
       evidence is recorded by `gate_record check` per ledger workflow.
@@ -149,13 +149,13 @@ language_source: en
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `P0` | `implementer` | `N/A` | prompts file §P0 | Finish #2080 public tutorials root (WIP staged) | `feat/2080-tutorials-public-root` | `C:/Users/jiazh/workspace/SciStudio-wt-2080` | staged file set of that branch | everything else | #2080 | `[ ]` |
-| `P1` | `implementer` | `N/A` | prompts file §P1 | Vocabulary + manifest + spec revision batch (#2061 #2062 #2063 #2066) | `feat/2061-tutorial-step-vocabulary` | `C:/Users/jiazh/workspace/SciStudio-wt-lcP1` | tutorials runtime, schema, spec §§, step-view frontend, tests | core tutorial dirs, previewer registry | #2061 #2062 #2063 #2066 | `[ ]` |
+| `P1` | `implementer` | `N/A` | prompts file §P1 | Vocabulary + manifest + spec revision batch (#2061 #2062 #2063 #2066) | `feat/2061-tutorial-step-vocabulary` | `C:/Users/jiazh/workspace/SciStudio-wt-lcP1` | tutorials runtime, schema, spec §§, step-view frontend, tests | core tutorial dirs, previewer registry | #2061 #2062 #2063 #2066 | `[~]` |
 | `P2` | `implementer` | `N/A` | prompts file §P2 | Scoped-library previewer tier (#2086) | `feat/2086-tutorial-library-previewer-tier` | `C:/Users/jiazh/workspace/SciStudio-wt-lcP2` | projects.py, conditions.py (unsatisfiable set), previewer registry scan, tests | manifest schema, spec | #2086 | `[ ]` |
-| `P3` | `test_engineer` | `N/A` | prompts file §P3 | Windows-failing LC tests (#2075) | `fix/2075-lc-windows-tests` | `C:/Users/jiazh/workspace/SciStudio-wt-lcP3` | the 8 named test files/fixtures only | production code | #2075 | `[ ]` |
+| `P3` | `test_engineer` | `N/A` | prompts file §P3 | Windows-failing LC tests (#2075) | `fix/2075-lc-windows-tests` | `C:/Users/jiazh/workspace/SciStudio-wt-lcP3` | the 8 named test files/fixtures only | production code | #2075 / PR #2098 | `[x]` merged into track |
 | `L2` | `implementer` | `N/A` | prompts file §L2 | Core tutorial 2 — What is a type | `feat/2081-core-tutorial-2` | `C:/Users/jiazh/workspace/SciStudio-wt-lcL2` | `src/scistudio/tutorials/core/<t2-id>/**`, its tests | runtime code, other tutorials | #2081 | `[ ]` |
 | `L3` | `implementer` | `N/A` | prompts file §L3 | Core tutorial 3 — Multimodal + git branches | `feat/2082-core-tutorial-3` | `C:/Users/jiazh/workspace/SciStudio-wt-lcL3` | `src/scistudio/tutorials/core/<t3-id>/**`, its tests | runtime code, other tutorials | #2082 | `[ ]` |
 | `L4` | `implementer` | `N/A` | prompts file §L4 | Core tutorial 4 — fake AI replay + import unlock | `feat/2083-core-tutorial-4` | `C:/Users/jiazh/workspace/SciStudio-wt-lcL4` | `src/scistudio/tutorials/core/<t4-id>/**`, unlock milestone config, provider-intro modal, tests | other tutorials, work-import internals | #2083 | `[ ]` |
-| `L5` | `implementer` | `N/A` | prompts file §L5 | Core tutorial 5 — summary (reading) | `feat/2084-core-tutorial-5` | `C:/Users/jiazh/workspace/SciStudio-wt-lcL5` | `src/scistudio/tutorials/core/<t5-id>/**`, reading renderer if missing, tests | other tutorials | #2084 | `[ ]` |
+| `L5` | `implementer` | `N/A` | prompts file §L5 | Core tutorial 5 — summary (reading) | `feat/2084-core-tutorial-5` | `C:/Users/jiazh/workspace/SciStudio-wt-lcL5` | `src/scistudio/tutorials/core/<t5-id>/**`, reading renderer if missing, tests | other tutorials | #2084 | `[~]` |
 | `L6` | `implementer` | `N/A` | prompts file §L6 | Core tutorial 6 — start your own project | `feat/2085-core-tutorial-6` | `C:/Users/jiazh/workspace/SciStudio-wt-lcL6` | `src/scistudio/tutorials/core/<t6-id>/**`, its tests | other tutorials | #2085 | `[ ]` |
 | `A1` | `audit_reviewer` | `with-context` | prompts file §A1 | Integration audit of the umbrella candidate | `audit/lc-levels-with-context` | `C:/Users/jiazh/workspace/SciStudio-wt-lcA1` | `docs/audit/2026-08-*-lc-levels-with-context.md` | production code | audit report | `[ ]` |
 | `A2` | `audit_reviewer` | `no-context` | prompts file §A2 | Independent audit (repo-only) | `audit/lc-levels-no-context` | `C:/Users/jiazh/workspace/SciStudio-wt-lcA2` | `docs/audit/2026-08-*-lc-levels-no-context.md` | production code | audit report | `[ ]` |
@@ -210,8 +210,8 @@ Sequencing constraints (manager-enforced):
 
 ### 8.2 Dispatch
 
-- [ ] P1/P2/P3 prompts recorded in prompts file.
-- [ ] Branches/worktrees created per matrix.
+- [~] P1/P3 prompts recorded and dispatched 2026-08-21; P2 waits on P1 merge.
+- [~] P1/P3 branches+worktrees created; P2 pending.
 
 ### 8.3 Implementation
 
@@ -236,7 +236,7 @@ Sequencing constraints (manager-enforced):
 
 ### 9.2 Dispatch
 
-- [ ] L2-L6 prompts recorded in prompts file with per-level design contracts.
+- [~] L5 prompt recorded and dispatched 2026-08-21; L2/L3/L4/L6 pending their waves.
 
 ### 9.3 Implementation
 
@@ -273,6 +273,8 @@ Append only.
 
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
+| 2026-08-21 | manager | Dispatch facts corrected by L5's code audit: palette built-ins are FIVE (SplitBlock excluded in registry/_scan.py:134-137, alongside MergeBlock); previewer tier order is project > user > package > core (user tier landed with #2017/PR #2072); figure_size is R-only. | Later level prompts use the corrected facts; L5 content already follows the code. | scenarios doc annotation at integration |
+| 2026-08-21 | manager | L5 surfaced a contract gap: StepView carries only the current step's pages, so the reading grid cannot name all 8 cards up front. | Scope addendum sent to P1 (item 11): session response gains a read-only steps outline {index,id,title,say,pages} + current index; L5 consumes it at merge-back. | recorded in P1 ledger amend |
 
 ## 13. Final Readiness
 
