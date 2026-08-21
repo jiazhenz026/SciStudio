@@ -245,9 +245,9 @@ async def list_previewers(
     ``target_type`` filters to specs claiming exactly that type name. It is an
     exact match, not the router's specificity walk: a caller asking "what claims
     ``Spectrum``" wants the previewers written for ``Spectrum``, not every
-    ancestor previewer that would also render one. Resolving what would actually
-    be picked for a concrete target is the router's job, reached through a
-    preview session.
+    ancestor previewer that would also render one. To learn what would actually
+    be picked for a concrete target, open a preview session and read the
+    ``previewer_id`` the router returned.
 
     Registry diagnostics ride along because nothing else surfaces them. A
     drop-in refused for a module-name collision, a duplicate previewer id, a

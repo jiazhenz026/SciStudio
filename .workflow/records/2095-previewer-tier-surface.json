@@ -177,6 +177,36 @@
       "tool_versions": {
         "mypy": "2.1.0"
       }
+    },
+    {
+      "at": "2026-08-21T22:14:45.504507Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:2d7f064783d85bc9e37faf38b79da0895a87d6fba2f334b0322edfb517b9bbfa",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T22:24:45.526313Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": null,
+      "input_fingerprint": "sha256:11c97d19f9b073a1165e5c8d8b58788b3694ec0bd1055eba47357bffdc8c91d6",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
     }
   ],
   "check_na": [
@@ -208,11 +238,6 @@
       "at": "2026-08-21T21:39:29.727274Z",
       "owner_directive": "Approved the ARCHITECTURE.md section 11.1 change as written.",
       "reason": "Owner reviewed the rendered ARCHITECTURE.md section 11.1 change and approved it; recording the expected owner-controlled-document label. Also corrected the section intro, which still claimed previewers is created on first use after the table row was fixed."
-    },
-    {
-      "at": "2026-08-21T22:19:04.044100Z",
-      "owner_directive": "Open the PR directly.",
-      "reason": "Owner directed opening the PR now rather than resolving the local python_tests blocker first."
     }
   ],
   "docs_events": [
@@ -270,6 +295,14 @@
       "kind": "path",
       "path": "CHANGELOG.md",
       "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T22:25:44.463653Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Docstring wording only. No behaviour, contract, schema, or API change; the sentence reworded says the same thing without the phrase scripts/deferral_scan.py maps to its handoff class. The feature's documentation landed earlier in this PR: docs/architecture/ARCHITECTURE.md section 11.1 and CHANGELOG.md.",
       "verified_in_diff": null
     }
   ],
@@ -758,6 +791,116 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:45.646838Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "docs/architecture/ARCHITECTURE.md",
+          "finding_class": "architecture_doc_guard",
+          "git_evidence": null,
+          "id": "architecture_doc_guard.missing-owner-approval",
+          "line": null,
+          "message": "the architecture document is owner-controlled and this change has no owner approval: apply admin-approved:architecture-doc as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "docs/architecture/ARCHITECTURE.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "architecture_doc_guard.missing-owner-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:45.777048Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:45.842711Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:45.874743Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:45.902080Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:45.928352Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:45.954808Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:45.997235Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:46.025848Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:46.070072Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T22:24:46.103823Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -871,6 +1014,16 @@
       "unsatisfied": [
         "checks.python_tests"
       ]
+    },
+    {
+      "at": "2026-08-21T22:24:46.103851Z",
+      "diff_fingerprint": "sha256:e0f092de73cb6713e49f1f2736888ad33da8c480bb3b4a99de0c2f629d22f7f7",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
     }
   ],
   "record_id": "2095-previewer-tier-surface",
@@ -968,6 +1121,14 @@
       "kind": "path",
       "path": "tests/api/test_previewer_discovery.py",
       "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T22:25:44.463673Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Docstring wording only, so there is no behaviour for a test to pin. The endpoint this docstring belongs to is covered by tests/api/test_previewer_discovery.py, added earlier in this PR.",
       "verified_in_diff": null
     }
   ]
