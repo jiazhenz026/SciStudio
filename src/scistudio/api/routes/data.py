@@ -11,6 +11,7 @@ the frontend ``TableViewer`` paginates/sorts through the session PATCH like the
 from __future__ import annotations
 
 import json
+import logging
 import math
 from pathlib import Path
 from typing import Annotated, Any
@@ -25,6 +26,9 @@ from scistudio.api.schemas import (
     DataMetadataResponse,
     DataUploadResponse,
     PreviewEnvelopeModel,
+    PreviewerListResponse,
+    PreviewerReloadResponse,
+    PreviewerSpecModel,
     PreviewResourceResponse,
     PreviewResourceSaveRequest,
     PreviewResourceSaveResponse,
@@ -39,7 +43,9 @@ from scistudio.previewers import (
     UnknownTargetError,
 )
 from scistudio.previewers.assets import resolve_asset, validate_manifest
-from scistudio.previewers.models import MissingBundleError, PreviewError
+from scistudio.previewers.models import MissingBundleError, OwnerKind, PreviewError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/data", tags=["data"])
 previews_router = APIRouter(prefix="/api/previews", tags=["previews"])
@@ -187,6 +193,143 @@ def _validate_resource_param_value(value: Any, *, depth: int = 0) -> int:
             raise HTTPException(status_code=422, detail="resource param numbers must be finite")
         return 1
     raise HTTPException(status_code=422, detail="resource params must be JSON-compatible")
+
+
+# ---------------------------------------------------------------------------
+# #2095: previewer discovery + reload.
+#
+# The previewer tier gained a project and a user tier in #2017/#2044 but not the
+# surface blocks and types already had around theirs. These two routes close
+# that: one answers which previewers exist and where each came from, the other
+# lets the previewer surface trigger a registry rebuild without reaching for the
+# block endpoint to do it.
+# ---------------------------------------------------------------------------
+
+#: Routing precedence, used to order the listing so the reader sees the specs in
+#: the order the router would consider them (ADR-048 FR-003).
+_TIER_ORDER = {
+    OwnerKind.PROJECT: 0,
+    OwnerKind.USER: 1,
+    OwnerKind.PACKAGE: 2,
+    OwnerKind.CORE: 3,
+}
+
+
+def _spec_model(spec: Any) -> PreviewerSpecModel:
+    """Adapt a :class:`PreviewerSpec` to its wire shape."""
+    data = spec.to_dict()
+    # ``to_dict`` also carries ``resource_provider``, which the wire model does
+    # not declare; naming the fields explicitly keeps the two from drifting
+    # silently if either side gains a key.
+    return PreviewerSpecModel(
+        previewer_id=data["previewer_id"],
+        owner_kind=data["owner_kind"],
+        owner_name=data["owner_name"],
+        target_type=data["target_type"],
+        supports_collection=data["supports_collection"],
+        priority=data["priority"],
+        capabilities=data["capabilities"],
+        backend_provider=data["backend_provider"],
+        frontend_manifest=data["frontend_manifest"],
+        api_version=data["api_version"],
+    )
+
+
+@previews_router.get("/previewers", response_model=PreviewerListResponse)
+async def list_previewers(
+    runtime: RuntimeDep,
+    target_type: str | None = None,
+) -> PreviewerListResponse:
+    """List registered previewers, with the tier each was discovered from.
+
+    ``target_type`` filters to specs claiming exactly that type name. It is an
+    exact match, not the router's specificity walk: a caller asking "what claims
+    ``Spectrum``" wants the previewers written for ``Spectrum``, not every
+    ancestor previewer that would also render one. Resolving what would actually
+    be picked for a concrete target is the router's job, reached through a
+    preview session.
+
+    Registry diagnostics ride along because nothing else surfaces them. A
+    drop-in refused for a module-name collision, a duplicate previewer id, a
+    broken entry point -- all were recorded and then only logged, so from the
+    product they looked like a previewer that simply never appeared.
+    """
+    service = runtime.get_preview_service()
+    registry = service.registry
+    specs = registry.all_specs()
+    if target_type is not None:
+        specs = [s for s in specs if s.target_type == target_type]
+    specs = sorted(specs, key=lambda s: (_TIER_ORDER.get(s.owner_kind, 99), -s.priority, s.previewer_id))
+    return PreviewerListResponse(
+        previewers=[_spec_model(s) for s in specs],
+        diagnostics=list(registry.diagnostics),
+    )
+
+
+@previews_router.post("/reload", response_model=PreviewerReloadResponse)
+async def reload_previewers(runtime: RuntimeDep) -> PreviewerReloadResponse:
+    """Re-scan the drop-in previewer directories and broadcast the change.
+
+    This is a second surface onto one implementation, not a second reload.
+    ``refresh_all_registries()`` has rebuilt the previewer registry alongside
+    types and blocks since #2021, and ``POST /api/blocks/reload`` and
+    ``POST /api/types/reload`` both already reach it -- verified directly:
+    editing a drop-in previewer and calling the *blocks* endpoint does pick the
+    edit up.
+
+    What was missing is the previewer surface's own way in. FR-027's argument on
+    the type side applies unchanged here: a previewer view must not have to
+    speak to the block endpoints to do its own job, while all three endpoints
+    still rebuild the same world. Inventing a previewer-only rebuild instead
+    would be the drift ADR-053 §10.3/§10.4 exists to remove.
+
+    The broadcast is ``blocks.reloaded`` for the same reason ``reload_types``
+    gives: it is already in the websocket outbound allow-list, every client
+    already reads it as "the registries were rebuilt, re-read your catalogues",
+    and the block registry really was rebuilt. A ``previewers.reloaded`` sibling
+    would be a second event for one fact.
+    """
+    service = runtime.get_preview_service()
+    before = {s.previewer_id for s in service.registry.all_specs()}
+    blocks_before = set(runtime.block_registry.all_specs().keys())
+
+    runtime.refresh_all_registries()
+
+    service = runtime.get_preview_service()
+    registry = service.registry
+    after = {s.previewer_id for s in registry.all_specs()}
+    blocks_after = set(runtime.block_registry.all_specs().keys())
+    added = sorted(after - before)
+    removed = sorted(before - after)
+    logger.info("POST /api/previews/reload: added=%s removed=%s", added, removed)
+
+    # Best-effort, exactly as on the block and type sides: a headless or test
+    # runtime with no event bus skips the broadcast rather than failing.
+    event_bus = getattr(runtime, "event_bus", None)
+    if event_bus is not None:
+        from scistudio.engine.events import EngineEvent
+
+        try:
+            await event_bus.emit(
+                EngineEvent(
+                    event_type="blocks.reloaded",
+                    data={
+                        "added": sorted(blocks_after - blocks_before),
+                        "removed": sorted(blocks_before - blocks_after),
+                        "reloaded": sorted(blocks_after),
+                        "source": "previewers",
+                    },
+                )
+            )
+        except Exception:
+            logger.exception("POST /api/previews/reload: blocks.reloaded broadcast failed")
+
+    return PreviewerReloadResponse(
+        reloaded=len(after),
+        added=added,
+        removed=removed,
+        diagnostics=list(registry.diagnostics),
+    )
 
 
 @previews_router.post("/sessions", response_model=PreviewEnvelopeModel)

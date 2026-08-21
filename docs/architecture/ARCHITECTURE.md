@@ -1925,9 +1925,14 @@ directory without that file is rejected as an invalid SciStudio project.
 
 ### 11.1 Created Project Layout
 
-`ApiRuntime.create_project` creates the baseline layout below. The
-`previewers/` and `plots/` directories are added on first use by the previewer
-and plot subsystems rather than at project creation:
+Both entry points that create a project — `ApiRuntime.create_project` behind the
+GUI's "New project", and `scistudio init` on the CLI — create the baseline
+layout below from one shared definition, `scistudio.api.project_layout`. The
+drop-in directory names in it come from `scistudio.core.dropins`, so the folder
+a project offers and the folder the registry scans cannot disagree.
+
+`plots/` is the exception: it is added on first use by the plot subsystem rather
+than at project creation.
 
 ```
 my_project/
@@ -1937,9 +1942,11 @@ my_project/
 ├── blocks/
 ├── types/
 ├── previewers/
+├── tutorials/
 ├── plots/
 ├── data/
 │   ├── raw/
+│   ├── processed/
 │   ├── zarr/
 │   ├── parquet/
 │   ├── artifacts/
@@ -1955,15 +1962,31 @@ my_project/
 | `workflows/` | User workflow YAML files. Workflow IDs map to `workflows/<id>.yaml`. |
 | `blocks/` | Project-local custom blocks. Saving a clean Python file here can hot-reload the block registry. |
 | `types/` | Project-local custom data type definitions. |
-| `previewers/` | Project-local previewer drop-ins (`previewers/*.py` exposing get_previewers()); a `.scistudio/previewers.json` manifest can declare default-previewer tie-breakers (§9.6). Created on first use. |
+| `previewers/` | Project-local previewer drop-ins (`previewers/*.py` exposing get_previewers()); a `.scistudio/previewers.json` manifest can declare default-previewer tie-breakers (§9.6). |
+| `tutorials/` | Project-local tutorial drop-ins, each a directory with a `tutorial.yaml` manifest (ADR-053 Learning Center §4.2). |
 | `plots/` | Plot cards — each plot is `plots/<id>/plot.yaml` plus its render script (§10). Created on first use. |
 | `data/raw/` | Uploaded or imported raw files. File uploads land here after filename sanitization. |
+| `data/processed/` | Where a person saves results they want to keep or hand on. A save/export target, not a mirror of the runtime stores below — see the note after this table. |
 | `data/zarr/` | Zarr-backed array-style data. |
 | `data/parquet/` | Parquet-backed table-style data. |
 | `data/artifacts/` | Reports, images, PDFs, and other artifact files. |
 | `data/exchange/` | Exchange area used by external app/code style blocks for file handoff. |
 | `.scistudio/` | Per-project runtime state. This directory is local and gitignored by default. |
 | `logs/` | Project log directory reserved for user-visible logs and diagnostics. |
+
+Two of these directories answer to the user and four answer to the runtime, and
+the distinction is worth stating because the names alone do not carry it.
+`data/raw/` and `data/processed/` are the pair a person thinks in: what came in,
+and what is worth keeping. `data/zarr/`, `data/parquet/`, `data/artifacts/`, and
+`data/exchange/` are runtime-managed stores named for *how* a payload is
+persisted rather than *what* it means — block outputs are written under
+`data/zarr/<workflow_id>/<block_id>/` by `_derive_output_dir` whatever their
+backend, and lineage retention sweeps `data/zarr` and `data/parquet`
+(`scistudio.core.lineage.retention.ARTIFACT_ROOTS`).
+
+So `data/processed/` being empty after a run is expected, not a bug: nothing
+writes there automatically, because what deserves keeping is a judgement the
+runtime cannot make. It exists so that judgement has somewhere obvious to go.
 
 `notes/` is **not** part of the required scaffold. The frontend can create notes
 under `notes/` when that directory exists, and otherwise falls back to creating

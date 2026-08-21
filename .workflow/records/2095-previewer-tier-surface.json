@@ -1,0 +1,573 @@
+{
+  "branch": "fix/2095-previewer-tier-surface",
+  "check_events": [
+    {
+      "at": "2026-08-21T21:25:35.519768Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-21T21:25:54.384103Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T21:25:54.459515Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-21T21:26:06.203489Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/**",
+      "src/scistudio/cli/main.py",
+      "src/scistudio/previewers/**",
+      "tests/**",
+      "docs/**",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-21T21:39:29.727274Z",
+      "owner_directive": "Approved the ARCHITECTURE.md section 11.1 change as written.",
+      "reason": "Owner reviewed the rendered ARCHITECTURE.md section 11.1 change and approved it; recording the expected owner-controlled-document label. Also corrected the section intro, which still claimed previewers is created on first use after the table row was fixed."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-21T21:24:52.965437Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:24:52.965458Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:26:05.912512Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:26:05.912530Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:39:29.727294Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:39:35.987102Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:39:35.987120Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-08-21T21:25:54.502312Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:25:54.530269Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:25:54.560692Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:25:54.584105Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:25:54.605507Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:25:54.620893Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:25:54.636761Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:25:54.652920Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:25:54.668850Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:25:54.684222Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:25:54.700328Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:26:06.238024Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:26:06.252765Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:26:06.269847Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:26:06.310567Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:26:06.332977Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:26:06.353435Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:26:06.377675Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:26:06.392673Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:26:06.407605Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:26:06.422170Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:26:06.436672Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:27:20.937071Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:27:20.960862Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:27:20.984072Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:27:21.012095Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:27:21.031584Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:27:21.046547Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:27:21.061791Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:27:21.077563Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:27:21.093188Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:27:21.109499Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:27:21.127624Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:39:36.241979Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:39:36.263211Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:39:36.291503Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:39:36.311774Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:39:36.331893Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:39:36.357123Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:39:36.385072Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:39:36.410413Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:39:36.432550Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:39:36.450899Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T21:39:36.468138Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2095,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "4105e165",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "4105e165",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Backend only: reconcile the two project scaffolds and add the previewers and tutorials directories, add a previewer registry reload endpoint mirroring blocks and types, and add a previewer listing API. Keep data/processed as the user-visible save target and document the split; no engine or core storage path changes. No frontend work.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-08-21T21:25:54.700379Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.format_check"
+      ]
+    },
+    {
+      "at": "2026-08-21T21:26:06.436729Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-21T21:27:21.127684Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-21T21:39:36.468199Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2095-previewer-tier-surface",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:architecture-doc"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "cea38ea3-6495-47d0-ab51-33be27f3bfbf",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-08-21T21:24:52.965463Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_project_layout.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:24:52.965467Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_previewer_discovery.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:26:05.912534Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_project_layout.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:26:05.912537Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_previewer_discovery.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:39:35.987124Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_project_layout.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T21:39:35.987127Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_previewer_discovery.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

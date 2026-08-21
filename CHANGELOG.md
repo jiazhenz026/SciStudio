@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2095] **Previewers can be listed, and the previewer surface can reload
+  itself.** `GET /api/previews/previewers` returns every registered previewer
+  with the tier it came from, ordered the way the router considers them —
+  project, then user, then package, then core — and takes an optional
+  `target_type` filter. It also returns the registry's discovery diagnostics,
+  which nothing surfaced before: a drop-in refused for a module-name collision,
+  a duplicate previewer id, or an entry point that failed to import were all
+  recorded and then only logged, so from the product they looked like a
+  previewer that simply never appeared. `PreviewerSpecModel` had been declared
+  since the preview system landed and served by no route; this is the route.
+  `POST /api/previews/reload` gives the previewer surface its own way to
+  rebuild the registry. This is a second surface onto one implementation, not a
+  second reload: `refresh_all_registries()` has rebuilt previewers alongside
+  types and blocks since #2021, and the blocks and types endpoints already
+  reached it. What was missing is the argument FR-027 makes on the type side —
+  a previewer view must not have to call the *blocks* endpoint to do its own
+  job, while all three still rebuild the same world.
+
 - [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
   that are real, runnable projects, reached from a permanent toolbar entry and
   shown on first launch. The first core tutorial, *Welcome to SciStudio*, ships
@@ -85,6 +103,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   breaking regardless, because a route leaves the API surface.
 
 ### Fixed
+
+- [#2095] **A new project gets the directories its drop-in tiers are actually
+  scanned from.** Two commands create a project — the GUI's "New project" and
+  `scistudio init` — and each carried its own hand-written directory list. The
+  lists had drifted: the CLI omitted `data/processed` while a comment above it
+  claimed to be "Symmetric with `api/runtime.py::create_project`", and *neither*
+  created `previewers/` or `tutorials/`, so a user who wanted a project-local
+  previewer had to guess the folder name and create it by hand.
+  Both now read one definition, `scistudio.api.project_layout`, which takes the
+  drop-in folder names from `scistudio.core.dropins` rather than respelling
+  them — the folder a project offers and the folder the registry scans can no
+  longer disagree. `docs/architecture/ARCHITECTURE.md` §11.1 gains the two
+  directories and, while there, says plainly which data directories answer to
+  the user (`data/raw`, `data/processed`) and which are runtime-managed stores
+  named for how a payload is persisted (`data/zarr`, `data/parquet`,
+  `data/artifacts`, `data/exchange`). `data/processed` being empty after a run
+  is expected: nothing writes there automatically, because what deserves
+  keeping is a judgement the runtime cannot make.
 
 - [#2073] **A project registry written by a newer build no longer stops an older
   runtime from starting.** `~/.scistudio/projects.json` outlives the runtime that

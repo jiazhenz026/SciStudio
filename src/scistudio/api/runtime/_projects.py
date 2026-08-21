@@ -20,6 +20,7 @@ from uuid import uuid4
 
 import yaml
 
+from scistudio.api.project_layout import PROJECT_SUBDIRS
 from scistudio.blocks.registry import BlockRegistry
 from scistudio.core.dropins import register_block_scan_dirs, register_type_scan_dirs
 from scistudio.core.types.registry import TypeRegistry
@@ -280,23 +281,9 @@ def create_project(
     if project_path.exists():
         raise FileExistsError(f"Project directory already exists: {project_path}")
 
-    for subdir in (
-        "workflows",
-        "data/raw",
-        # The counterpart to data/raw: where a workflow's results land. Named
-        # for what the files are rather than for how they are stored, so a user
-        # saving a result does not have to know what parquet is to choose a
-        # folder for it (owner decision, 2026-08-11).
-        "data/processed",
-        "data/zarr",
-        "data/parquet",
-        "data/artifacts",
-        "data/exchange",
-        "blocks",
-        "types",
-        ".scistudio",
-        "logs",
-    ):
+    # #2095: one definition, shared with `scistudio init`. See
+    # `scistudio.api.project_layout` for why each directory is there.
+    for subdir in PROJECT_SUBDIRS:
         (project_path / subdir).mkdir(parents=True, exist_ok=True)
 
     project_id = f"project-{uuid4().hex[:8]}"
