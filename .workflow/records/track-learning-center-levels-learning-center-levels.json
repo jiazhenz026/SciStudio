@@ -28,6 +28,14 @@
       "path": "docs/planning/learning-center-levels-dispatch-prompts.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T22:24:29.928200Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/e2e/2026-08-21-lc-level-1-regression.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": true,
