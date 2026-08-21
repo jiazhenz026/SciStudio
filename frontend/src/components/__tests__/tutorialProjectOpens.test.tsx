@@ -296,10 +296,17 @@ describe("finishing a tutorial lands in the Learning Center", () => {
      * A tutorial project looks like any other workspace once the card is gone,
      * and restarting the tutorial deletes it (FR-066). Leaving it open invites
      * the reader to keep working somewhere their work will not survive.
+     *
+     * The session is seen running before it completes: a finish the app run
+     * never witnessed is history, not news (#2079), so the transition is what
+     * these tests model.
      */
     const closeProject = vi.fn();
-    await renderHarness(vi.fn(), closeProject);
+    const openProject = vi.fn();
+    await renderHarness(openProject, closeProject);
 
+    useAppStore.setState({ learningCenterSession: activeSession() });
+    await waitFor(() => expect(openProject).toHaveBeenCalled());
     useAppStore.setState({
       learningCenterSession: activeSession({ status: "complete", step: null }),
     });
@@ -311,9 +318,12 @@ describe("finishing a tutorial lands in the Learning Center", () => {
     // The last step used to leave a "Tutorial complete." card in the corner and
     // a workspace with nothing to do next. The catalogue is where the next
     // tutorial is, so that is where finishing one goes.
-    await renderHarness(vi.fn());
+    const openProject = vi.fn();
+    await renderHarness(openProject);
     expect(useAppStore.getState().learningCenterOpen).toBe(false);
 
+    useAppStore.setState({ learningCenterSession: activeSession() });
+    await waitFor(() => expect(openProject).toHaveBeenCalled());
     useAppStore.setState({
       learningCenterSession: activeSession({ status: "complete", step: null }),
     });
@@ -328,5 +338,85 @@ describe("finishing a tutorial lands in the Learning Center", () => {
 
     await waitFor(() => expect(useAppStore.getState().learningCenterSession).not.toBeNull());
     expect(useAppStore.getState().learningCenterOpen).toBe(false);
+  });
+});
+
+describe("a session adopted already-complete at start-up is history, not news (#2079)", () => {
+  const STALE_CATALOGUE = {
+    ...EMPTY_CATALOGUE,
+    active: activeSession({ status: "complete", step: null }),
+  };
+
+  beforeEach(() => {
+    resetAppStore();
+    vi.mocked(learningCenterApi.getTutorialCatalogue).mockResolvedValue(STALE_CATALOGUE as never);
+    // Both start-up reads see the kept record, as the backend answers both.
+    vi.mocked(learningCenterApi.getActiveTutorialSession).mockResolvedValue(
+      STALE_CATALOGUE.active as never,
+    );
+    vi.mocked(learningCenterApi.getTutorialUnlock).mockResolvedValue({
+      work_import_offer_pending: false,
+    });
+    // FR-083's first-run landing is dismissed so what these assert is the
+    // completion reaction, and not that.
+    useAppStore.setState({ learningCenterFirstRunDismissed: true });
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it("does not open the Learning Center on every restart", async () => {
+    /*
+     * The backend keeps an ended session as the active record with status
+     * `complete`, so every launch adopted the last finished tutorial and the
+     * completion reaction fired again: the catalogue opened, the open project
+     * closed, and the unlock endpoint was asked — every single restart.
+     */
+    const closeProject = vi.fn();
+    const openProject = vi.fn();
+    await renderHarness(openProject, closeProject);
+
+    await waitFor(() =>
+      expect(useAppStore.getState().learningCenterSession?.status).toBe("complete"),
+    );
+    expect(useAppStore.getState().learningCenterOpen).toBe(false);
+    expect(closeProject).not.toHaveBeenCalled();
+    expect(learningCenterApi.getTutorialUnlock).not.toHaveBeenCalled();
+  });
+
+  it("does not resurrect the finished tutorial's project", async () => {
+    // A stale session carries the project the lesson ran in; only a live
+    // session may move the window to it.
+    const openProject = vi.fn();
+    await renderHarness(openProject);
+
+    await waitFor(() =>
+      expect(useAppStore.getState().learningCenterSession?.status).toBe("complete"),
+    );
+    expect(openProject).not.toHaveBeenCalled();
+  });
+
+  it("still lands a genuine re-run of the same tutorial in the catalogue", async () => {
+    /*
+     * The stale record must not suppress a real finish either: the user
+     * restarts the same tutorial (FR-066) and completes it again in this app
+     * run, and that completion is witnessed, so it lands like any other.
+     */
+    const openProject = vi.fn();
+    await renderHarness(openProject);
+    await waitFor(() =>
+      expect(useAppStore.getState().learningCenterSession?.status).toBe("complete"),
+    );
+    expect(useAppStore.getState().learningCenterOpen).toBe(false);
+
+    useAppStore.setState({ learningCenterSession: activeSession() });
+    await waitFor(() => expect(openProject).toHaveBeenCalled());
+    useAppStore.setState({
+      learningCenterSession: activeSession({ status: "complete", step: null }),
+    });
+
+    await waitFor(() => expect(useAppStore.getState().learningCenterOpen).toBe(true));
   });
 });
