@@ -96,14 +96,14 @@ describe("WorkflowPanel", () => {
     expect(await screen.findByText("No workflows found")).toBeInTheDocument();
   });
 
-  it("refetches on Refresh", async () => {
+  it("refetches on Reload", async () => {
     listWorkflows.mockResolvedValue(["main"]);
     getWorkflow.mockImplementation(async (id) => workflowResponse(id, ""));
 
     render(<WorkflowPanel projectId="p1" activeWorkflowId={null} onOpenWorkflow={vi.fn()} />);
 
     await screen.findByText("main");
-    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
     await screen.findByText("main");
     expect(listWorkflows).toHaveBeenCalledTimes(2);
   });

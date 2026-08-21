@@ -4,8 +4,8 @@
 //
 // Data comes from the existing endpoints — `GET /api/workflows/list` for the
 // ids, then one `GET /api/workflows/{id}` per workflow for the description —
-// so the panel needed no backend change. Layout and the Refresh affordance
-// mirror `ProjectTree` so the left panel reads as one surface.
+// so the panel needed no backend change. Layout and the Reload affordance
+// mirror the Blocks palette so the left panel reads as one surface.
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -65,13 +65,15 @@ export function WorkflowPanel({ projectId, activeWorkflowId, onOpenWorkflow }: W
     >
       <div className="flex items-center justify-between gap-2">
         <p className="font-display text-xl text-ink">Workflows</p>
+        {/* "Reload" matches the Blocks palette's affordance (#2090 owner
+            note); the project tree keeps its own "Refresh" wording. */}
         <button
           className="toolbar-button"
           disabled={loading}
           onClick={() => void refresh()}
           type="button"
         >
-          {loading ? "..." : "Refresh"}
+          {loading ? "..." : "Reload"}
         </button>
       </div>
 

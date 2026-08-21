@@ -74,6 +74,11 @@
       "at": "2026-08-21T20:54:16.501163Z",
       "owner_directive": "Add a color-filled selection highlight to the activity-bar icons.",
       "reason": "Owner asked during live preview for a color-filled active highlight on the activity-bar icons, not just the edge accent bar."
+    },
+    {
+      "at": "2026-08-21T21:00:13.873184Z",
+      "owner_directive": "Rename the Workflows panel Refresh button to Reload for semantic consistency with the block palette.",
+      "reason": "Owner asked during live preview to rename the WorkflowPanel Refresh button to Reload so the wording matches the Blocks palette's Reload affordance."
     }
   ],
   "docs_events": [

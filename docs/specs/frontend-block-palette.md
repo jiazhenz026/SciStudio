@@ -715,7 +715,7 @@ canvas. It reads the existing endpoints — `GET /api/workflows/list` for the
 ids, then one `GET /api/workflows/{id}` per workflow for the description — so
 the section needed no backend change. A workflow whose detail fetch fails
 (e.g. a mid-write YAML) still appears, without a description. The workflow
-currently on the canvas is highlighted (`aria-current`), and a Refresh button
+currently on the canvas is highlighted (`aria-current`), and a Reload button
 matches the project tree's affordance.
 
 ### 13.3 Test Plan
@@ -724,4 +724,4 @@ matches the project tree's affordance.
 section, click reporting, the active marker appearing only while the panel is
 open, and the hover tooltip. `frontend/src/components/WorkflowPanel.test.tsx`
 covers the list: ids plus descriptions, click-to-open, the active highlight,
-the failed-detail fallback, the empty state, and Refresh.
+the failed-detail fallback, the empty state, and Reload.
