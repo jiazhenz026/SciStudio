@@ -97,6 +97,7 @@ class StubProductState:
     interactions: frozenset[str] = frozenset()
     pages: frozenset[str] = frozenset()
     events: frozenset[str] = frozenset()
+    targeted_events: frozenset[tuple[str, str]] = frozenset()
     reads: list[str] = field(default_factory=list)
 
     def workflow(self) -> WorkflowDefinition | None:
@@ -150,6 +151,10 @@ class StubProductState:
     def ui_events(self) -> frozenset[str]:
         self.reads.append("ui_events")
         return self.events
+
+    def ui_events_with_targets(self) -> frozenset[tuple[str, str]]:
+        self.reads.append("ui_events_with_targets")
+        return self.targeted_events
 
 
 @pytest.fixture

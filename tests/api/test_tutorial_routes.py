@@ -513,6 +513,78 @@ def test_an_unknown_interface_event_name_is_refused(client: TestClient, core_tie
     assert "preview_expanded" in refused.json()["detail"]
 
 
+def test_a_targeted_interface_event_satisfies_a_targeted_step(client: TestClient, core_tier: Path) -> None:
+    """#2063: the report may say what it acted on, and a condition may wait for it.
+
+    The step waits for *the Load block* to be selected. A bare report leaves it
+    unsatisfied; the targeted report satisfies it.
+    """
+    mount(
+        core_tier,
+        "waits-for-the-load-block",
+        manifest_for(
+            "waits-for-the-load-block",
+            [
+                {
+                    "id": "click-load",
+                    "say": "Click the Load block.",
+                    "done_when": {"ui_event": {"name": "node_selected", "block_type": "load_data"}},
+                },
+                {"id": "done", "say": "Done."},
+            ],
+        ),
+    )
+    assert step_id(start(client, "waits-for-the-load-block").json()) == "click-load"
+
+    bare = client.post("/api/tutorials/sessions/active/ui-event", json={"name": "node_selected"})
+    assert bare.status_code == 200, bare.text
+    assert bare.json()["step"]["satisfied"] is False
+
+    wrong = client.post(
+        "/api/tutorials/sessions/active/ui-event", json={"name": "node_selected", "target": "save_data"}
+    )
+    assert wrong.json()["step"]["satisfied"] is False
+
+    right = client.post(
+        "/api/tutorials/sessions/active/ui-event", json={"name": "node_selected", "target": "load_data"}
+    )
+    assert right.status_code == 200, right.text
+    assert right.json()["step"]["satisfied"] is True
+
+
+def test_a_targeted_report_still_satisfies_a_bare_name_step(client: TestClient, core_tier: Path) -> None:
+    """#2063 back-compat: the welcome manifest's bare names keep working untouched."""
+    mount(
+        core_tier,
+        "waits-for-any-click",
+        manifest_for(
+            "waits-for-any-click",
+            [
+                {"id": "click", "say": "Click a block.", "done_when": {"ui_event": {"name": "node_selected"}}},
+                {"id": "done", "say": "Done."},
+            ],
+        ),
+    )
+    start(client, "waits-for-any-click")
+
+    reported = client.post(
+        "/api/tutorials/sessions/active/ui-event", json={"name": "node_selected", "target": "load_data"}
+    )
+    assert reported.status_code == 200, reported.text
+    assert reported.json()["step"]["satisfied"] is True
+
+
+def test_a_target_on_an_event_that_carries_none_is_refused(client: TestClient, core_tier: Path) -> None:
+    """The per-name pairing is the same table manifest validation reads (#2063)."""
+    mount(core_tier, "any-target", manifest_for("any-target", [{"id": "one", "say": "One."}]))
+    start(client, "any-target")
+
+    refused = client.post("/api/tutorials/sessions/active/ui-event", json={"name": "preview_expanded", "target": "x"})
+
+    assert refused.status_code == 422, refused.text
+    assert "does not carry a target" in refused.json()["detail"]
+
+
 def test_a_reading_step_advances_on_an_explicit_continue(client: TestClient, core_tier: Path) -> None:
     """FR-012: a step with no condition waits for the user to say go on."""
     mount(

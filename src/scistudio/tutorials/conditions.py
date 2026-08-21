@@ -71,6 +71,7 @@ __all__ = [
     "READING_TERMS",
     "TERM_SPECS",
     "UI_EVENT_NAMES",
+    "UI_EVENT_SPECS",
     "UNSATISFIABLE_LIBRARY_KINDS",
     "VOCABULARY",
     "Condition",
@@ -79,11 +80,13 @@ __all__ = [
     "ProductState",
     "RunSummary",
     "TermSpec",
+    "UiEventSpec",
     "build_event_term_map",
     "evaluate",
     "event_types_for_condition",
     "parse_condition",
     "terms_for_event",
+    "ui_event_target_arg",
 ]
 
 
@@ -210,8 +213,9 @@ _SPECS: tuple[TermSpec, ...] = (
     ),
     TermSpec(
         name="ui_event",
-        judges="a named frontend event was reported",
+        judges="a named frontend event was reported, optionally for a named target",
         required=("name",),
+        optional=("block_type", "plot_id"),
     ),
 )
 
@@ -230,9 +234,46 @@ which :mod:`scistudio.tutorials.manifest` calls during validation (FR-049).
 COMBINATORS: frozenset[str] = frozenset({"all", "any"})
 """FR-048. Negation is not here and is not an omission; see the module docstring."""
 
-UI_EVENT_NAMES: frozenset[str] = frozenset(
-    {"preview_expanded", "block_source_viewed", "node_selected", "plot_rendered"}
+
+@dataclass(frozen=True)
+class UiEventSpec:
+    """One reportable frontend event, and the target argument it may carry.
+
+    ``target_arg`` follows the FR-089b precedent for highlight entities: an
+    event acting on one element among many of its kind declares the argument
+    that says which one — ``block_type`` for a block acted on, ``plot_id`` for
+    a plot — and an event whose surface is a singleton declares none. The
+    argument is optional on both sides: a bare report satisfies a bare-name
+    condition, and a condition naming a target waits for a report carrying it.
+    """
+
+    name: str
+    target_arg: str | None = None
+
+
+UI_EVENT_SPECS: tuple[UiEventSpec, ...] = (
+    UiEventSpec(name="preview_expanded"),
+    UiEventSpec(name="block_source_viewed", target_arg="block_type"),
+    UiEventSpec(name="node_selected", target_arg="block_type"),
+    UiEventSpec(name="plot_rendered", target_arg="plot_id"),
 )
+"""Each reportable event with the target argument it may carry (FR-052, #2063)."""
+
+_UI_EVENT_SPECS_BY_NAME: Mapping[str, UiEventSpec] = MappingProxyType({spec.name: spec for spec in UI_EVENT_SPECS})
+
+
+def ui_event_target_arg(name: str) -> str | None:
+    """The target argument *name* may carry, or ``None`` for a bare-only event.
+
+    Exposed for the API layer, which validates a reported event's target the
+    same way manifest validation validates a condition's — one table, read from
+    both sides, rather than a second copy in the route.
+    """
+    spec = _UI_EVENT_SPECS_BY_NAME.get(name)
+    return None if spec is None else spec.target_arg
+
+
+UI_EVENT_NAMES: frozenset[str] = frozenset(spec.name for spec in UI_EVENT_SPECS)
 """The closed set of frontend events a ``ui_event`` condition may name (FR-052).
 
 Every member is FR-052's own motivating case: real product actions that leave
@@ -393,6 +434,29 @@ def _check_args(spec: TermSpec, args: Mapping[str, Any], *, field_name: str) -> 
         pattern = args.get("pattern")
         if not isinstance(pattern, str) or not pattern.strip():
             raise ConditionValidationError(f"{field_name}: config_matches pattern must be a non-empty string")
+    if spec.name == "ui_event":
+        _check_ui_event_target(args, field_name=field_name)
+
+
+def _check_ui_event_target(args: Mapping[str, Any], *, field_name: str) -> None:
+    """Reject a ``ui_event`` target argument the named event does not carry.
+
+    The generic argument check has already confirmed membership in the term's
+    argument set and ``_CLOSED_ARG_VALUES`` has confirmed the name, so what is
+    left is the per-name pairing (FR-052, #2063): ``block_type`` belongs to the
+    block-shaped events and ``plot_id`` to the plot-shaped one, and a condition
+    pairing them wrongly would wait forever on a report no emitter sends —
+    which is FR-049's step-nine failure, caught at validation instead.
+    """
+    spec = _UI_EVENT_SPECS_BY_NAME.get(str(args.get("name")))
+    if spec is None:  # pragma: no cover - _CLOSED_ARG_VALUES rejects the name first
+        return
+    extras = sorted(set(args) - {"name"})
+    allowed = () if spec.target_arg is None else (spec.target_arg,)
+    unexpected = [key for key in extras if key not in allowed]
+    if unexpected:
+        takes = f"takes only {spec.target_arg}" if spec.target_arg else "takes no target argument"
+        raise ConditionValidationError(f"{field_name}.ui_event: {spec.name!r} {takes}; got {', '.join(unexpected)}")
 
 
 def parse_condition(raw: Any, *, field_name: str = "done_when") -> Condition:
@@ -509,6 +573,10 @@ class ProductState(Protocol):
     def pages_reached(self) -> frozenset[str]: ...
 
     def ui_events(self) -> frozenset[str]: ...
+
+    def ui_events_with_targets(self) -> frozenset[tuple[str, str]]:
+        """``(name, target)`` for every reported event that carried a target."""
+        ...
 
 
 # ---------------------------------------------------------------------------
@@ -791,6 +859,22 @@ def _eval_file_exists(args: Mapping[str, Any], state: ProductState) -> bool:
         return False
 
 
+def _eval_ui_event(args: Mapping[str, Any], state: ProductState) -> bool:
+    """Was the named event reported — and, when the condition says so, for the named target?
+
+    A bare-name condition is satisfied by any report of that name, targeted or
+    not, because the recorder keeps the name either way. A targeted condition
+    is satisfied only by a report carrying that target: the reader looked at
+    *that* block's source, not at some block's.
+    """
+    name = str(args["name"])
+    target_arg = ui_event_target_arg(name)
+    wanted = args.get(target_arg) if target_arg is not None else None
+    if wanted is None:
+        return name in state.ui_events()
+    return (name, str(wanted)) in state.ui_events_with_targets()
+
+
 _SIMPLE_EVALUATORS: Mapping[str, Any] = MappingProxyType(
     {
         "node_exists": _eval_node_exists,
@@ -810,7 +894,7 @@ _SIMPLE_EVALUATORS: Mapping[str, Any] = MappingProxyType(
         "library_contains": lambda args, state: (str(args["kind"]), str(args["name"])) in state.library_entries(),
         "interaction_completed": _eval_interaction_completed,
         "page_reached": lambda args, state: str(args["page"]) in state.pages_reached(),
-        "ui_event": lambda args, state: str(args["name"]) in state.ui_events(),
+        "ui_event": _eval_ui_event,
     }
 )
 

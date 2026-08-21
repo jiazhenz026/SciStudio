@@ -768,3 +768,68 @@ def test_interaction_completed_reads_block_type_as_any_node_of_that_type(loaded_
 def test_interaction_completed_requires_a_node_id_or_a_block_type() -> None:
     with pytest.raises(ConditionValidationError, match="requires one of node_id, block_type"):
         parse_condition({"interaction_completed": {}})
+
+
+# ---------------------------------------------------------------------------
+# ui_event targets (#2063, FR-052)
+# ---------------------------------------------------------------------------
+
+
+def test_a_targeted_ui_event_condition_waits_for_a_report_carrying_that_target() -> None:
+    state = StubProductState(
+        events=frozenset({"node_selected"}),
+        targeted_events=frozenset({("node_selected", "load_data")}),
+    )
+    hit = parse_condition({"ui_event": {"name": "node_selected", "block_type": "load_data"}})
+    miss = parse_condition({"ui_event": {"name": "node_selected", "block_type": "save_data"}})
+    assert evaluate(hit, state) is True
+    assert evaluate(miss, state) is False
+
+
+def test_a_bare_name_condition_is_satisfied_by_a_targeted_report() -> None:
+    """The recorder keeps the name either way, so untargeted conditions stay whole."""
+    state = StubProductState(
+        events=frozenset({"plot_rendered"}),
+        targeted_events=frozenset({("plot_rendered", "normalized_activity")}),
+    )
+    assert evaluate(parse_condition({"ui_event": {"name": "plot_rendered"}}), state) is True
+
+
+def test_each_ui_event_name_accepts_exactly_its_own_target_argument() -> None:
+    accepted = [
+        {"ui_event": {"name": "node_selected", "block_type": "load_data"}},
+        {"ui_event": {"name": "block_source_viewed", "block_type": "load_data"}},
+        {"ui_event": {"name": "plot_rendered", "plot_id": "normalized_activity"}},
+        {"ui_event": {"name": "preview_expanded"}},
+    ]
+    for raw in accepted:
+        parse_condition(raw)
+
+
+@pytest.mark.parametrize(
+    ("raw", "message"),
+    [
+        ({"ui_event": {"name": "preview_expanded", "block_type": "x"}}, "takes no target argument"),
+        ({"ui_event": {"name": "plot_rendered", "block_type": "x"}}, "takes only plot_id"),
+        ({"ui_event": {"name": "node_selected", "plot_id": "x"}}, "takes only block_type"),
+    ],
+    ids=["none-takes-block_type", "plot-takes-block_type", "block-takes-plot_id"],
+)
+def test_a_ui_event_target_the_name_does_not_carry_is_rejected(raw: dict[str, object], message: str) -> None:
+    """FR-049's step-nine argument: a condition no emitter can satisfy fails its author."""
+    with pytest.raises(ConditionValidationError, match=message):
+        parse_condition(raw)
+
+
+def test_ui_event_target_arg_reads_the_declared_table() -> None:
+    from scistudio.tutorials.conditions import UI_EVENT_SPECS, ui_event_target_arg
+
+    assert {spec.name: spec.target_arg for spec in UI_EVENT_SPECS} == {
+        "preview_expanded": None,
+        "block_source_viewed": "block_type",
+        "node_selected": "block_type",
+        "plot_rendered": "plot_id",
+    }
+    assert ui_event_target_arg("node_selected") == "block_type"
+    assert ui_event_target_arg("preview_expanded") is None
+    assert ui_event_target_arg("not_an_event") is None

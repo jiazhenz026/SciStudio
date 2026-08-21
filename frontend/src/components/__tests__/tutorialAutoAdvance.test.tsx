@@ -240,7 +240,11 @@ describe("interface events the backend cannot observe (FR-052)", () => {
 
     await useAppStore.getState().reportTutorialUiEvent("preview_expanded");
 
-    expect(learningCenterApi.reportTutorialUiEvent).toHaveBeenCalledWith("preview_expanded");
+    // #2063 — preview_expanded is a singleton surface and carries no target.
+    expect(learningCenterApi.reportTutorialUiEvent).toHaveBeenCalledWith(
+      "preview_expanded",
+      undefined,
+    );
   });
 
   it("reports block_source_viewed when a block's source is opened", async () => {
@@ -251,8 +255,12 @@ describe("interface events the backend cannot observe (FR-052)", () => {
 
     useAppStore.getState().openBlockSourceTab("load_data");
 
+    // #2063 — the block type rides along as the event's target.
     await waitFor(() =>
-      expect(learningCenterApi.reportTutorialUiEvent).toHaveBeenCalledWith("block_source_viewed"),
+      expect(learningCenterApi.reportTutorialUiEvent).toHaveBeenCalledWith(
+        "block_source_viewed",
+        "load_data",
+      ),
     );
   });
 
@@ -265,6 +273,11 @@ describe("interface events the backend cannot observe (FR-052)", () => {
       session("look", "Click the block."),
     );
 
+    useAppStore.setState({
+      workflowNodes: [
+        { id: "node-1", block_type: "load_data", config: {} },
+      ] as unknown as ReturnType<typeof useAppStore.getState>["workflowNodes"],
+    });
     const { result } = renderHook(() =>
       useBottomPanelControls({
         bottomPanelPinned: false,
@@ -274,8 +287,12 @@ describe("interface events the backend cannot observe (FR-052)", () => {
     );
     result.current.handleNodeSelect("node-1");
 
+    // #2063 — the selected node's block type rides along as the event's target.
     await waitFor(() =>
-      expect(learningCenterApi.reportTutorialUiEvent).toHaveBeenCalledWith("node_selected"),
+      expect(learningCenterApi.reportTutorialUiEvent).toHaveBeenCalledWith(
+        "node_selected",
+        "load_data",
+      ),
     );
   });
 

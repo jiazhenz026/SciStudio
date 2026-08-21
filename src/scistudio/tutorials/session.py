@@ -511,7 +511,7 @@ class TutorialRuntime:
         progress: ProgressStore | None = None,
         sessions: SessionStore | None = None,
         open_replay: Callable[[str], ReplayHandle] | None = None,
-        record_ui_event: Callable[[str], None] | None = None,
+        record_ui_event: Callable[[str, str | None], None] | None = None,
         forget_ui_events: Callable[[], None] | None = None,
         files_written: Callable[[Sequence[Path]], None] | None = None,
     ) -> None:
@@ -533,8 +533,9 @@ class TutorialRuntime:
                 (checklist §6.1.7). A tutorial declaring no replay never needs
                 one.
             record_ui_event: Records a frontend-reported user-interface event
-                into product state before it is judged (FR-052). The API layer
-                owns that state, so recording is its job and this is the hook.
+                into product state before it is judged (FR-052), together with
+                the optional target it acted on (#2063). The API layer owns
+                that state, so recording is its job and this is the hook.
             forget_ui_events: Drops the recorded events on step entry, so a
                 ``ui_event`` condition asks whether the reader did the thing
                 *on this step*. A reported event is a moment, not a state: the
@@ -725,16 +726,19 @@ class TutorialRuntime:
         state, record, driver, tutorial_dir = self._resolved()
         return self._reevaluate(state, record, driver, tutorial_dir)
 
-    def report_ui_event(self, name: str) -> SessionView:
+    def report_ui_event(self, name: str, target: str | None = None) -> SessionView:
         """Record a frontend user-interface event and re-judge the step (FR-052).
 
         The only completion path originating in the frontend, and it still
         arrives as backend state: the injected recorder writes it into the
         product state object, and the evaluation that follows reads it there
-        like every other term.
+        like every other term. ``target`` is the optional argument the event
+        acted on (#2063) — the block type behind ``node_selected``, the plot id
+        behind ``plot_rendered`` — recorded beside the name so a condition may
+        wait for *that* element rather than any of its kind.
         """
         if self._record_ui_event is not None:
-            self._record_ui_event(name)
+            self._record_ui_event(name, target)
         return self.evaluate_active()
 
     def leave_active(self) -> None:

@@ -233,12 +233,18 @@ export const learningCenterApi = {
    * The only completion path that originates in the frontend, and it exists
    * because some product actions (enlarging a panel, opening a tab) leave no
    * backend state for a condition to read.
+   *
+   * `target` is what the event acted on, for the events that declare a target
+   * argument (#2063): the block type behind `node_selected` and
+   * `block_source_viewed`, the plot id behind `plot_rendered`. The pairing is
+   * core-owned (`scistudio.tutorials.conditions.UI_EVENT_SPECS`); a bare name
+   * stays a complete report for every event.
    */
-  reportTutorialUiEvent: (name: string) =>
+  reportTutorialUiEvent: (name: string, target?: string) =>
     apiFetch<TutorialSessionResponse>("/api/tutorials/sessions/active/ui-event", {
       method: "POST",
       headers: JSON_HEADERS,
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(target === undefined ? { name } : { name, target }),
     }),
 
   /** FR-012 — advance a reading step the user has finished reading. */

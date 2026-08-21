@@ -58,7 +58,13 @@ from scistudio.api.runtime._helpers import _rmtree_force
 from scistudio.api.ws import BLOCKS_RELOADED
 from scistudio.core.dropins import BLOCKS_DIR_NAME, TYPES_DIR_NAME, tutorial_library_dir
 from scistudio.engine.events import INTERACTIVE_COMPLETE, EngineEvent
-from scistudio.tutorials.conditions import UI_EVENT_NAMES, ExternalEventNames, ProductState, RunSummary
+from scistudio.tutorials.conditions import (
+    UI_EVENT_NAMES,
+    ExternalEventNames,
+    ProductState,
+    RunSummary,
+    ui_event_target_arg,
+)
 from scistudio.tutorials.discovery import Catalogue, CatalogueEntry, CatalogueGroup, DiscoveredTutorial
 from scistudio.tutorials.manifest import ASSETS_DIR_NAME
 from scistudio.tutorials.projects import (
@@ -154,6 +160,14 @@ class UiEventRequest(BaseModel):
     """A named interface event the user just caused."""
 
     name: str = Field(description="The event name. One of a closed set the product declares.")
+    target: str | None = Field(
+        default=None,
+        description=(
+            "What the event acted on, for the events that declare a target argument "
+            "(#2063): the block type behind node_selected and block_source_viewed, "
+            "the plot id behind plot_rendered. Omitted for the rest."
+        ),
+    )
 
 
 class ClearDataRequest(BaseModel):
@@ -344,11 +358,19 @@ class _RecordedSignals:
 
     def __init__(self) -> None:
         self.ui_events: set[str] = set()
+        self.ui_event_targets: set[tuple[str, str]] = set()
         self.interactions: set[str] = set()
         self.pages: set[str] = set()
 
-    def record_ui_event(self, name: str) -> None:
+    def record_ui_event(self, name: str, target: str | None = None) -> None:
+        """Record one reported event, and the target it acted on when it named one.
+
+        The bare name is kept either way, so a condition that does not care
+        which element was acted on is satisfied by a targeted report too.
+        """
         self.ui_events.add(name)
+        if target:
+            self.ui_event_targets.add((name, target))
 
     def forget_ui_events(self) -> None:
         """Drop the recorded events, called when a step is entered.
@@ -361,6 +383,7 @@ class _RecordedSignals:
         facts about the project that stay true.
         """
         self.ui_events.clear()
+        self.ui_event_targets.clear()
 
     def record_page(self, name: str) -> None:
         self.pages.add(name)
@@ -659,6 +682,9 @@ class _ApiProductState:
 
     def ui_events(self) -> frozenset[str]:
         return frozenset(self.recorded.ui_events)
+
+    def ui_events_with_targets(self) -> frozenset[tuple[str, str]]:
+        return frozenset(self.recorded.ui_event_targets)
 
 
 def _read_or(read: Callable[..., _T], default: _T) -> _T:
@@ -1271,8 +1297,16 @@ async def report_ui_event(body: UiEventRequest, runtime: RuntimeDep) -> SessionR
                 f"expected one of {', '.join(sorted(UI_EVENT_NAMES))}."
             ),
         )
+    if body.target is not None and ui_event_target_arg(body.name) is None:
+        # The pairing table is the one conditions.py validates manifests
+        # against, read from this side too (#2063): recording a target no
+        # condition can ever name would be a silently dead datum.
+        raise HTTPException(
+            status_code=422,
+            detail=f"{body.name!r} does not carry a target; report the bare name.",
+        )
     tutorials = _tutorials(runtime)
-    return _rendered(runtime, _acting(lambda: tutorials.report_ui_event(body.name)))
+    return _rendered(runtime, _acting(lambda: tutorials.report_ui_event(body.name, body.target)))
 
 
 @router.post("/sessions/active/continue", response_model=SessionResponse)

@@ -151,7 +151,7 @@ export interface LearningCenterSlice {
   startTutorial: (request: TutorialStartRequest) => Promise<void>;
   evaluateActiveTutorialStep: () => Promise<void>;
   continueActiveTutorialStep: () => Promise<void>;
-  reportTutorialUiEvent: (name: string) => Promise<void>;
+  reportTutorialUiEvent: (name: string, target?: string) => Promise<void>;
   leaveActiveTutorial: () => Promise<void>;
   /** Resolves to the directories the backend reports it deleted. */
   clearTutorialData: () => Promise<string[]>;

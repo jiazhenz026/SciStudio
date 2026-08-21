@@ -809,7 +809,7 @@ No condition may be evaluated from frontend state, except `ui_event` (FR-052).
 | `library_contains` | the tutorial-scoped library holds a named block, type, or previewer |
 | `interaction_completed` | an interactive block's panel was submitted, on a named node or on any node of a given block type |
 | `page_reached` | a reading step reached a given page |
-| `ui_event` | a named frontend event was reported |
+| `ui_event` | a named frontend event was reported, optionally for a named target |
 
 Where a term addresses a node, `node_id` and `block_type` are alternative
 selectors for it: `block_type` alone reads "any node of that type", the two
@@ -858,6 +858,18 @@ a step.
 the backend, which MUST satisfy a matching `ui_event` condition. This is the only
 completion path that originates in the frontend and exists because some product
 actions — enlarging the preview panel, opening a tab — produce no backend state.
+
+A report MAY carry the target the event acted on, and each event name declares
+the one argument it may carry, on FR-089b's precedent for highlight entities
+(#2063): `node_selected` and `block_source_viewed` take `block_type`,
+`plot_rendered` takes `plot_id`, and `preview_expanded` — a singleton surface —
+takes none. The pairing is core-owned and declared in exactly one place
+(`scistudio.tutorials.conditions.UI_EVENT_SPECS`), read by manifest validation
+and by the report route alike, so a condition naming an argument its event does
+not carry is rejected at validation rather than waiting forever on a report no
+emitter sends. A bare name remains a complete report and a complete condition:
+an untargeted condition is satisfied by any report of its name, targeted or
+not, while a targeted condition waits for a report carrying that target.
 
 **FR-053.** The frontend MUST be able to request an explicit re-evaluation of the
 active step. This covers state changes that no mapped event reaches: the

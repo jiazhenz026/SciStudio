@@ -439,10 +439,10 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
      * no tutorial is running, so a call site can report unconditionally without
      * having to know whether anyone is listening.
      */
-    reportTutorialUiEvent: async (name: string) => {
+    reportTutorialUiEvent: async (name: string, target?: string) => {
       if (!get().learningCenterSession) return;
       try {
-        adoptSession(await learningCenterApi.reportTutorialUiEvent(name));
+        adoptSession(await learningCenterApi.reportTutorialUiEvent(name, target));
       } catch (error) {
         set({ learningCenterError: describe(error) });
       }
