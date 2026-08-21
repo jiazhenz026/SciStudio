@@ -23,7 +23,7 @@ scope:
     - A hover detail popover anchored to the right of a tile showing icon, name, full description, and typed port signature; interactive in the palette so it can hold an action row (ADR-053 §9.3).
     - A shared section/filter/tile/chip/popover helper set the Data types tab reuses (ADR-053 §10.1).
     - The category sub-grouping layer, the always-on description line, and the "X in / Y out" text line are removed from the tile.
-    - A one-shot opacity blink confirming a completed Reload, via a shared `useReloadFlash` hook also wired to the project tree Refresh.
+    - A one-shot opacity blink confirming a completed Reload, via a shared `useReloadFlash` hook also wired to the project tree Reload.
     - A tip overlay pinned to the bottom of the shared left panel, rotating one curated tip at a time across all left-panel sections (§12, #1997; the panel gained the §13 activity-bar form in #2090).
   out:
     - Backend or schema changes (none — base_category, subcategory, ports, direction already exist on BlockSummary).
@@ -345,7 +345,7 @@ background catalog syncs, or on a failed reload. It uses the Web Animations API
 so the subtree is not remounted (section-collapse state is preserved), guarded
 for environments without `Element.animate`.
 
-The same hook is wired to the project tree Refresh control (watching the tree
+The same hook is wired to the project tree Reload control (watching the tree
 nodes), so both side panels share one consistent reload feedback.
 
 The hook is covered by `frontend/src/hooks/__tests__/useReloadFlash.test.ts`;

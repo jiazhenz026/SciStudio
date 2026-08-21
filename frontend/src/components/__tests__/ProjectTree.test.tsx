@@ -123,6 +123,15 @@ describe("ProjectTree — ADR-036 §3.5 double-click wiring (I36c)", () => {
   });
 });
 
+describe("ProjectTree — Reload button (#2090)", () => {
+  it("labels the reload affordance 'Reload' and refetches on click", async () => {
+    await renderTreeWith([{ name: "workflows", type: "directory" }]);
+    expect(getProjectTreeMock).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+    await waitFor(() => expect(getProjectTreeMock).toHaveBeenCalledTimes(2));
+  });
+});
+
 describe("ProjectTree — expansion persists across a watcher refresh (#1751)", () => {
   it("keeps an expanded folder open when projectTreeRefreshCounter bumps", async () => {
     // Root lists one directory; expanding it lists one child file. Any other

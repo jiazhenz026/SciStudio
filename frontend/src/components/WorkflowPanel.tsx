@@ -66,7 +66,7 @@ export function WorkflowPanel({ projectId, activeWorkflowId, onOpenWorkflow }: W
       <div className="flex items-center justify-between gap-2">
         <p className="font-display text-xl text-ink">Workflows</p>
         {/* "Reload" matches the Blocks palette's affordance (#2090 owner
-            note); the project tree keeps its own "Refresh" wording. */}
+            note); the project tree uses the same wording. */}
         <button
           className="toolbar-button"
           disabled={loading}

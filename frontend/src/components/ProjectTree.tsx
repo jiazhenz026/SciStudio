@@ -120,7 +120,7 @@ export function ProjectTree({
 }: ProjectTreeProps) {
   const { rootNodes, loading, refresh, handleToggle } = useTreeNodes(projectId);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  // Blink the tree once a Refresh actually lands (same feedback as the palette).
+  // Blink the tree once a Reload actually lands (same feedback as the palette).
   const { ref: treeRef, trigger: triggerFlash } = useReloadFlash<HTMLDivElement, TreeNodeData[]>(
     rootNodes,
   );
@@ -176,7 +176,9 @@ export function ProjectTree({
       <div className="flex items-center justify-between gap-2">
         <p className="font-display text-xl text-ink">Project</p>
         <button className="toolbar-button" disabled={loading} onClick={handleRefresh} type="button">
-          {loading ? "..." : "Refresh"}
+          {/* #2090 — "Reload" wording shared with the Blocks palette and the
+              Workflows section; one verb for every left-panel reload. */}
+          {loading ? "..." : "Reload"}
         </button>
       </div>
 
