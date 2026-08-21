@@ -68,6 +68,156 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T23:16:46.331564Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e1f51ee1b6199b97af1344368d2b3e0a8d9bbc3b0824036b04033535528b32c6",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T23:16:49.227311Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7eca3a43b3cd949bf2b8b7629ec83e968a121e0f83e6ab12a88d6ddd9e25782b",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T23:16:49.300596Z",
+      "command": "ruff format src/scistudio/qa/governance/gate_record/checks.py src/scistudio/qa/governance/gate_record/evaluator.py src/scistudio/qa/governance/gate_record/instructions.py src/scistudio/qa/governance/gate_record/ledger.py src/scistudio/qa/governance/gate_record/workflow.py tests/qa/test_gate_incremental_checks.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:14f8fd6aa7d6e00d92b18da97ca0354cf17576bcfea2ba3495abe957fc9c8cbe",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-21T23:17:22.068544Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f76f7c07dc42fd3e4555e416b3ee7ed840473d3623754c3192a2114aeee1644b",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T23:17:22.756451Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:26f4b29f371338d8e932905e151d993c435feb0a1a013a8876ab0202ed8983fa",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T23:17:22.828837Z",
+      "command": "ruff check src/scistudio/qa/governance/gate_record/checks.py src/scistudio/qa/governance/gate_record/evaluator.py src/scistudio/qa/governance/gate_record/instructions.py src/scistudio/qa/governance/gate_record/ledger.py src/scistudio/qa/governance/gate_record/workflow.py tests/qa/test_gate_incremental_checks.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:51310e708fef7794029b1c9445890dff6fdc3ce7c0c311654ab9d715f9c3fbdf",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-21T23:17:45.287798Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/qa/governance tests/qa/test_gate_incremental_checks.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:811b9eddf408f3faebdccdf126d808395e81bd69a58ed9a7e9e59384103459df",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T23:27:45.305629Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python_semantics",
+      "exit_code": null,
+      "input_fingerprint": "sha256:d48f31a2907d3cd26bd7ec2ab054e3b43534153fa69cf71cc489f035f9bfff21",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "scope": "repo",
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-21T23:27:46.534517Z",
+      "command": "mypy src/scistudio/qa/governance/gate_record/checks.py src/scistudio/qa/governance/gate_record/evaluator.py src/scistudio/qa/governance/gate_record/instructions.py src/scistudio/qa/governance/gate_record/ledger.py src/scistudio/qa/governance/gate_record/workflow.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5234f8bd41d9c4114f815fe5e9d1fcc95830cbb8831998c706284a97d90d3bce",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
     }
   ],
   "check_na": [],
@@ -289,6 +439,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:27:46.590557Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:27:46.607120Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:27:46.624938Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:27:46.645866Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:27:46.662785Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:27:46.680433Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:27:46.697807Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:27:46.714612Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:27:46.731689Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:27:46.748342Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-21T23:27:46.769014Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -309,21 +547,39 @@
   "observed_diff": {
     "base": "origin/main",
     "base_sha": "4105e1654",
-    "changed_files": [],
-    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "changed_files": [
+      ".workflow/records/1646-gate-check-incrementality.json",
+      "AGENTS.md",
+      "docs/adr/ADR-042-addendum7.md",
+      "docs/ai-developer/gate-cli-command-set.md",
+      "docs/ai-developer/rules.md",
+      "docs/ai-developer/specific_rules/agent-dispatch.md",
+      "docs/ai-developer/specific_rules/bug-fix.md",
+      "docs/ai-developer/specific_rules/gated-workflow.md",
+      "docs/ai-developer/specific_rules/guided-work.md",
+      "docs/ai-developer/templates/agent-dispatch-prompt-template.md",
+      "docs/specs/gate-local-incremental-checks.md",
+      "src/scistudio/qa/governance/gate_record/checks.py",
+      "src/scistudio/qa/governance/gate_record/evaluator.py",
+      "src/scistudio/qa/governance/gate_record/instructions.py",
+      "src/scistudio/qa/governance/gate_record/ledger.py",
+      "src/scistudio/qa/governance/gate_record/workflow.py",
+      "tests/qa/test_gate_incremental_checks.py"
+    ],
+    "diff_fingerprint": "sha256:3abe7bd150448d4a9f9d604cb9d5b7749a44018ec9a1d25d0227d009b9e8f85e",
     "head": "HEAD",
-    "head_sha": "4105e1654",
+    "head_sha": "f5bee7747",
     "surfaces": {
-      "docs": 0,
+      "docs": 9,
       "frontend": 0,
-      "governance": 0,
-      "governed_docs": 0,
-      "implementation": 0,
+      "governance": 14,
+      "governed_docs": 7,
+      "implementation": 5,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 0,
-      "test": 0,
+      "sentrux": 8,
+      "test": 1,
       "workflow_ci": 0
     }
   },
@@ -348,6 +604,16 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-08-21T23:27:46.769058Z",
+      "diff_fingerprint": "sha256:3abe7bd150448d4a9f9d604cb9d5b7749a44018ec9a1d25d0227d009b9e8f85e",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "scope.out-of-scope"
+      ]
     }
   ],
   "record_id": "1646-gate-check-incrementality",
@@ -355,11 +621,19 @@
   "required_obligations": {
     "admin_labels": [],
     "checks": [
+      "architecture_tests",
+      "deferral_discipline",
       "format_check",
       "full_audit",
-      "lint_format"
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "semantic_dup",
+      "type_check"
     ],
-    "docs": [],
+    "docs": [
+      "docs_required_or_na"
+    ],
     "guards": [
       "architecture_doc_guard",
       "core_change_guard",
@@ -373,7 +647,9 @@
       "test_engineer_scope_guard",
       "weakened_ci_check"
     ],
-    "tests": []
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
@@ -437,10 +713,16 @@
       "at": "2026-08-21T22:49:41.863871Z",
       "pattern": ".codex/**",
       "reason": "Owner expanded the session from spec-only to spec plus implementation in a single PR, and asked that the documentation review explicitly cover the AI rule prompt surfaces (runtime rules pointers and persona skills), not only docs/ai-developer."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-21T23:32:43.800095Z",
+      "pattern": "AGENTS.md",
+      "reason": "AGENTS.md section 3.7 restated the superseded claim that check runs CI-equivalent checks over the whole repository; the owner directive to review the AI rule prompt surfaces covers it."
     }
   ],
   "session_id": "e6a189e9-b445-47bd-aee1-911d71665d02",
-  "strictness_tier": 2,
+  "strictness_tier": 1,
   "task_kind": "guided",
   "test_events": [
     {

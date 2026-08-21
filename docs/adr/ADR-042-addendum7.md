@@ -64,10 +64,29 @@ changes the covered surface on nearly every iteration, so the reuse branch almos
 never fires and each iteration pays the full-repository cost again.
 
 The consequence is measurable. Across the same ledgers, `python_tests` executed
-308 times and failed 222 of them, `format_check` executed 304 times and failed 98
-times on deviations a single formatter run would have fixed, and
-`architecture_tests` and `semantic_dup` dominated wall clock while catching 9 and
-16 failures respectively.
+308 times and failed 222 of them, and `format_check` executed 304 times and failed
+98 times on deviations a single formatter run would have fixed.
+
+Direct measurement on a warm parity environment, rather than the elapsed-time
+proxy the ledgers permit, gives the cost of one Tier 1 local run:
+
+| Check | Repository-scoped | Diff-scoped |
+|---|---:|---:|
+| `python_tests` | 159s | 39s |
+| `semantic_dup` | 135s | no narrow form |
+| `type_check` | 25.4s | 0.9s |
+| `full_audit` | 20s | no narrow form |
+| `architecture_tests` | 7.5s | no narrow form |
+| `deferral_discipline` | 2s | no narrow form |
+| `lint_format` + `format_check` | 0.35s | 0.2s |
+| **Total** | **~349s** | **~205s** |
+
+The ledger-derived proxy that motivated this work ranked `architecture_tests` as
+the most expensive check in the repository. Direct measurement shows it costs
+7.5s: the proxy is computed from gaps between adjacent ledger events and so
+charges agent think time to whichever check ran last. The proxy is retained above
+only for failure counts, which are exact. Every cost claim in this addendum is
+measured.
 
 This addendum makes the command incremental as well. Each check keeps its
 whole-repository CI-mirror command and gains a local variant narrowed to the
@@ -84,14 +103,20 @@ local gate does not need to re-prove what `ci.yml` proves before merge; it needs
 to tell the agent quickly whether the code it just wrote is broken.
 
 The distinction that keeps this safe is which question a check answers. Checks
-that answer *did you break what you just wrote* — lint, types, the tests covering
-the changed modules — stay local, because their failure rate scales directly with
-iteration count and deferring them to CI would produce exactly the fix-and-push
-loop this addendum exists to reduce. Checks that answer *does the repository
-still hold an invariant* — architecture constraints, semantic duplication, the
-deferral ratchet, wheel packaging — are either violated from the first commit or
-not at all; their failure rate does not scale with iteration count, so proving
-them once in CI costs no extra round trips.
+that answer *did you break what you just wrote* stay local. That is most of them,
+including `architecture_tests`, which catches layer-dependency violations and new
+import cycles introduced by the edit under way, and `full_audit`, which catches
+documentation drift caused by it. Deferring those to CI would produce exactly the
+fix-and-push loop this addendum exists to reduce, and at 7.5s and 20s they are
+not worth deferring anyway.
+
+One check answers a different question. `semantic_dup` embeds every function in
+`src/scistudio` and compares them pairwise, so its verdict is a property of the
+whole corpus and a subset of it means nothing. It cannot be narrowed, it costs
+135s — 65% of a Tier 1 local run — and `semantic-dup-scan.yml` runs it
+authoritatively on the same PR. It is therefore deferred to CI in every local
+mode, which is the same role split `_CI_OWNED_QUALITY_CHECKS` already applies in
+`ci` mode. `--force-checks` opts back in.
 
 One asymmetry is deliberate and load-bearing: narrowing must never under-select.
 Whenever the selection cannot prove which tests or files an edit affects — a
@@ -109,6 +134,7 @@ a fast wrong one is not.
 | Five checks share one `python` covered surface | A formatting-only edit invalidates type and test evidence it cannot possibly affect | Split the Python surface so each check is invalidated only by inputs it reads | Section 2.3 |
 | `full_audit` and `deferral_discipline` treat every changed file as an input | A frontend-only or docs-only edit invalidates evidence for checks that never read those trees | Narrow each to the file classes it actually reads | Section 2.3 |
 | `format_check` fails on deviations a formatter would fix | 98 recorded gate failures, each costing a cycle, none indicating a defect | Rewrite the changed files locally; CI keeps the failing form | Section 2.4 |
+| `semantic_dup` cannot be narrowed and dominates the remaining local cost | 135s of a 205s Tier 1 run spent re-proving a corpus-wide property the current edit barely moves | Defer it to CI in local modes, as `ci` mode already defers the quality matrix | Section 2.5 |
 | Addendum 6 states local `check` proves a full CI mirror | The governance documents would describe behavior the runtime no longer has | Supersede those statements and state the local/CI role split explicitly | Section 3 |
 
 ## 2. Decision Details
@@ -176,6 +202,18 @@ The local formatting variant rewrites the changed files. The CI job keeps the
 checking form, so a PR still cannot merge with unformatted code. This removes a
 class of gate failure that never indicated a defect.
 
+### 2.5 One Check Is Deferred To CI Rather Than Narrowed
+
+`semantic_dup` is removed from the required set in every local mode and left to
+`semantic-dup-scan.yml`. This is a narrower step than it may look: the check is
+already skipped at `pre-commit` (#1628) and already dropped in `ci` mode, where
+the standalone workflow owns it. What changes is that `local` and `pre-pr` stop
+re-proving it too.
+
+No other check is deferred. `architecture_tests`, `full_audit`,
+`deferral_discipline`, and `import_contracts` all catch defects the current edit
+can introduce, and together they cost under 30s.
+
 ## 3. Superseded Addendum 6 Statements
 
 The following statements in Addendum 6 are superseded by this addendum. They
@@ -233,9 +271,12 @@ every iteration while the checks responsible for most of it catch failures that
 do not scale with iteration count.
 
 **Drop the slow checks from the local gate entirely.** Simpler than narrowing and
-saves more. Rejected for the checks that answer whether the current edit is
-broken: deferring those to CI produces the fix-and-push loop this addendum exists
-to reduce. Narrowing keeps the signal and removes the cost.
+saves more. Rejected for every check that answers whether the current edit is
+broken, which measurement showed is nearly all of them: the one genuine
+corpus-wide check is deferred (Section 2.5) and the rest are narrowed. An earlier
+draft of this addendum proposed deferring `architecture_tests` as well, on a
+ledger-derived proxy that made it look like the most expensive check in the
+repository; measuring it at 7.5s retired that idea.
 
 **Adopt an import-graph test-selection dependency.** More precise than mirrored
 paths and would select fewer tests. Rejected for now because it puts a stateful

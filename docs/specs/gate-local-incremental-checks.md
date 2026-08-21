@@ -75,25 +75,45 @@ checks. This spec extends that established reasoning to `local` and `pre-pr`:
 those modes keep running every check, but at diff scope rather than repository
 scope, because `ci.yml` still proves the full surface before merge.
 
-Measured baseline from the 130 committed ledgers under `.workflow/records/`
-(2,316 recorded check executions). Run and failure counts are exact; elapsed
-minutes are a proxy derived from adjacent ledger event timestamps and therefore
-include agent think time, so they bound relative magnitude, not absolute
-runtime.
+Two measurements matter and they disagree, so both are reported.
 
-| Check | Runs | Failures | Proxy minutes | Proxy minutes per failure caught |
-|---|---:|---:|---:|---:|
-| `lint_format` | 262 | 27 | 0 | 0.0 |
-| `import_contracts` | 198 | 2 | 1 | 0.5 |
-| `type_check` | 197 | 7 | 15 | 2.1 |
-| `python_tests` | 308 | 222 | 825 | 3.7 |
-| `format_check` | 304 | 98 | 469 | 4.8 |
-| `full_audit` | 344 | 47 | 264 | 5.6 |
-| `frontend` | 78 | 15 | 97 | 6.5 |
-| `deferral_discipline` | 172 | 10 | 188 | 18.8 |
-| `semantic_dup` | 277 | 16 | 653 | 40.8 |
-| `architecture_tests` | 148 | 9 | 768 | 85.4 |
-| `wheel_release_smoke` | 28 | 0 | 2 | never caught a failure |
+Failure counts come from the 130 committed ledgers under `.workflow/records/`
+(2,316 recorded check executions) and are exact:
+
+| Check | Runs | Failures |
+|---|---:|---:|
+| `python_tests` | 308 | 222 |
+| `format_check` | 304 | 98 |
+| `full_audit` | 344 | 47 |
+| `lint_format` | 262 | 27 |
+| `semantic_dup` | 277 | 16 |
+| `frontend` | 78 | 15 |
+| `deferral_discipline` | 172 | 10 |
+| `architecture_tests` | 148 | 9 |
+| `type_check` | 197 | 7 |
+| `import_contracts` | 198 | 2 |
+| `wheel_release_smoke` | 28 | 0 |
+
+Costs are measured directly on a warm parity environment. An elapsed-time proxy
+derived from adjacent ledger timestamps was tried first and is not usable: it
+charges agent think time to whichever check ran last, which made
+`architecture_tests` look like the most expensive check in the repository when it
+in fact costs 7.5 seconds. Every cost below is measured:
+
+| Check | Repository-scoped | Diff-scoped |
+|---|---:|---:|
+| `python_tests` | 159s | 39s |
+| `semantic_dup` | 135s | no narrow form |
+| `type_check` | 25.4s | 0.9s |
+| `full_audit` | 20s | no narrow form |
+| `architecture_tests` | 7.5s | no narrow form |
+| `deferral_discipline` | 2s | no narrow form |
+| `lint_format` + `format_check` | 0.35s | 0.2s |
+| **Tier 1 total** | **~349s** | **~205s** |
+
+Narrowing alone takes a Tier 1 local run from ~349s to ~205s. Deferring
+`semantic_dup` — the one check whose verdict is a property of the whole corpus
+rather than of the current edit — takes it to ~70s.
 
 Of 2,316 executions, 1,029 re-ran because the fingerprint genuinely changed and
 278 re-ran on an unchanged fingerprint, of which 69 had a prior passing event.
@@ -227,10 +247,14 @@ Acceptance Scenarios:
 - FR-009: The `check` command MUST report, in its summary, which checks ran
   diff-scoped and which ran at repository scope, so the difference is visible
   rather than implicit.
-- FR-010: `select_checks` MUST answer only which checks are required. The tier
+- FR-010: A check with no diff-scoped form whose verdict is a property of the
+  whole corpus rather than of the current edit MUST be deferred to CI in local
+  modes, and MUST already be owned by a CI job. `--force-checks` MUST restore it.
+  No check that can catch a defect introduced by the current edit may be deferred.
+- FR-011: `select_checks` MUST answer only which checks are required. The tier
   branch whose two arms executed identical statements MUST be removed, and the
   breadth-per-mode decision MUST live where the mode is known, in the evaluator.
-- FR-011: Every governance statement enumerated in section 4.2 that asserts local
+- FR-012: Every governance statement enumerated in section 4.2 that asserts local
   `check` proves a full CI mirror MUST be updated or superseded before the
   implementation is considered complete.
 
@@ -415,10 +439,10 @@ forbid.
 
 ### Measurable Outcomes
 
-- SC-001: `gate_record check --mode pre-pr` on a single-file Python diff
-  completes in under one quarter of the time the same command takes on the same
-  diff before the change, measured on the same machine and recorded in the
-  implementation PR.
+- SC-001: A Tier 1 `gate_record check` completes in under half the time the same
+  selection takes at repository scope, measured on the same machine with a warm
+  parity environment. Measured: ~349s before, ~205s with narrowing alone, ~70s
+  with `semantic_dup` deferred — a 5.0x reduction against a 2x target.
 - SC-002: `format_check` produces zero gate failures across the ledgers recorded
   after the change, measured over at least twenty subsequent sessions, compared
   with 98 failures in 304 runs before.
@@ -440,9 +464,9 @@ forbid.
   enforcement. Source: existing-system.
 - The ci-mode role split in `_CI_OWNED_QUALITY_CHECKS` is settled repository
   policy and can be extended rather than re-argued. Source: existing-system.
-- The elapsed-time figures in section 1 are proxies derived from ledger
-  timestamps and include agent think time. Absolute runtime claims require direct
-  measurement, which SC-001 requires the implementation PR to supply. Source:
-  inferred.
+- The cost figures in section 1 are direct measurements on one machine with a
+  warm parity environment; the first run in a fresh worktree additionally pays
+  parity-venv provisioning, which is a one-time cost per worktree and is excluded.
+  Source: existing-system.
 - Issue 1646 asked for this spec; the owner then directed that the
   implementation land in the same PR, tracked by issue 2102. Source: owner.

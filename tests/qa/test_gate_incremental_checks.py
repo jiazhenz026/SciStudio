@@ -23,6 +23,7 @@ from scistudio.qa.governance.gate_record.checks import (
     event_is_valid_for,
     select_test_targets,
 )
+from scistudio.qa.governance.gate_record.evaluator import EvaluatorMode
 from scistudio.qa.governance.gate_record.ledger import CheckEvent
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -355,3 +356,40 @@ def test_run_check_falls_back_to_repo_scope_when_narrowing_is_impossible(mirror_
 
     assert event.scope == "repo"
     assert event.command == "ruff check ."
+
+
+# ---------------------------------------------------------------------------
+# Corpus-wide checks are deferred to CI locally, and only those (FR-002).
+# ---------------------------------------------------------------------------
+
+
+def _required(mode: EvaluatorMode, *, force: bool = False) -> set[str]:
+    """What the given caller must prove, through the real narrowing function."""
+
+    selection = checks.select_checks(tier=1, changed_files=["src/scistudio/core/thing.py"])
+    return set(evaluator.required_for_mode(selection.required, mode=mode, force_checks=force))
+
+
+def test_semantic_dup_is_deferred_to_ci_in_local_modes() -> None:
+    """135s of a 205s Tier 1 run, and a subset of a pairwise corpus scan is meaningless."""
+
+    assert "semantic_dup" in checks.select_checks(tier=1, changed_files=[]).required
+    assert "semantic_dup" not in _required("pre-pr")
+    assert "semantic_dup" in _required("pre-pr", force=True)
+
+
+def test_diff_relevant_checks_are_not_deferred() -> None:
+    """These catch defects the current edit introduces, and all are under 20s."""
+
+    required = _required("pre-pr")
+
+    for name in ("architecture_tests", "full_audit", "deferral_discipline", "import_contracts"):
+        assert name in required, f"{name} must stay local"
+
+
+def test_every_locally_deferred_check_is_owned_by_a_ci_job() -> None:
+    """Deferring is only safe because CI still runs it on the same PR."""
+
+    assert evaluator._LOCAL_DEFERRED_CHECKS <= evaluator._CI_OWNED_QUALITY_CHECKS
+    for name in evaluator._LOCAL_DEFERRED_CHECKS:
+        assert CHECK_CATALOG[name].ci_job
