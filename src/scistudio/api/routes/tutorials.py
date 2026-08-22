@@ -57,7 +57,13 @@ from scistudio.api.routes.ai_pty.replay import open_replay_tab
 from scistudio.api.runtime import ApiRuntime
 from scistudio.api.runtime._helpers import _rmtree_force
 from scistudio.api.ws import BLOCKS_RELOADED
-from scistudio.core.dropins import BLOCKS_DIR_NAME, TYPES_DIR_NAME, tutorial_library_dir
+from scistudio.core.dropins import (
+    BLOCKS_DIR_NAME,
+    PREVIEWERS_DIR_NAME,
+    TYPES_DIR_NAME,
+    previewer_scan_dirs,
+    tutorial_library_dir,
+)
 from scistudio.engine.events import INTERACTIVE_COMPLETE, WORKFLOW_CHANGED, EngineEvent
 from scistudio.tutorials.conditions import (
     UI_EVENT_NAMES,
@@ -710,15 +716,17 @@ class _ApiProductState:
         Membership is decided by the spec's source file sitting under the scoped
         library, which is the definition of the library holding it.
 
-        Only ``block`` and ``type`` can appear. ``scoped_library_dirs`` creates
-        exactly those two directories (FR-070) and the previewer registry does
-        not scan the library at all, so a ``library_contains`` condition naming
-        ``previewer`` cannot become true; the vocabulary accepts the kind, which
-        makes that a gap in the library rather than in this method.
-        TODO(#2057): give the tutorial-scoped library a ``previewers`` tier, or
-            drop ``previewer`` from ``library_contains``' accepted kinds, so the
-            vocabulary and the library agree.
-            Followup: https://github.com/jiazhenz026/SciStudio/issues/2057
+        All three FR-047 kinds can appear: ``scoped_library_dirs`` creates
+        ``blocks/``, ``types/``, and ``previewers/`` (FR-070, #2086).
+        Previewer membership is decided differently, because a
+        :class:`~scistudio.previewers.models.PreviewerSpec` carries no source
+        file path to test. The swap itself is the answer: while a tutorial
+        project is open, its user tier *is* the scoped library
+        (:func:`scistudio.core.dropins.previewer_scan_dirs`), so every
+        user-tier previewer spec came from it — and when the open project
+        resolves its user tier elsewhere the scoped library is not scanned at
+        all, which is the same empty answer the file test gives for blocks and
+        types then.
         """
         library = self.tutorial_library_dir
         if library is None:
@@ -737,6 +745,20 @@ class _ApiProductState:
         for name, spec in type_specs.items():
             if _is_under(getattr(spec, "file_path", None), types_dir):
                 entries.add(("type", str(name)))
+        if previewer_scan_dirs(self.project_dir)[-1] == library / PREVIEWERS_DIR_NAME:
+            from scistudio.previewers.models import OwnerKind
+
+            previewer_specs: list[Any] = _read_or(lambda: self.runtime.get_preview_service().registry.all_specs(), [])
+            for spec in previewer_specs:
+                if getattr(spec, "owner_kind", None) is OwnerKind.USER:
+                    entries.add(("previewer", str(spec.previewer_id)))
+                    if getattr(spec, "target_type", ""):
+                        # Both names, mirroring blocks: the id is the registered
+                        # identity, and the target type is the name the author
+                        # reads off the previewer they are teaching — "a
+                        # previewer for Image is in the library" is the fact the
+                        # level designs wait on.
+                        entries.add(("previewer", str(spec.target_type)))
         return frozenset(entries)
 
     # -- the three recorded signals ----------------------------------------
@@ -944,7 +966,11 @@ class _TutorialWiring:
 #:
 #: Named from ``scistudio.core.dropins`` rather than spelled here, so a tier
 #: that gains a directory does not need this list edited to keep working.
-_SCANNED_PROJECT_DIRS: frozenset[str] = frozenset({BLOCKS_DIR_NAME, TYPES_DIR_NAME})
+#: ``previewers/`` joined with #2086: a tutorial step that writes
+#: ``previewers/*.py`` and then says "expand the preview" needs the previewer
+#: registered before the step's text is readable, exactly as blocks and types
+#: already settle — ``refresh_all_registries`` rebuilds the preview service too.
+_SCANNED_PROJECT_DIRS: frozenset[str] = frozenset({BLOCKS_DIR_NAME, TYPES_DIR_NAME, PREVIEWERS_DIR_NAME})
 
 
 #: The project subdirectory holding workflow YAML, which the open canvas renders.

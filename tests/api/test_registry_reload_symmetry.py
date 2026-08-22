@@ -35,7 +35,7 @@ import importlib.metadata
 import sys
 import types
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -276,7 +276,12 @@ def test_mcp_reload_blocks_refreshes_the_type_registry(
     project_dir = tmp_path / "proj"
     project_dir.mkdir()
     ctx = make_mcp_runtime(project_dir)
-    _context.set_context(ctx)
+    # ``cast``: the standalone runtime satisfies ``MCPContext`` structurally at
+    # runtime, but its registry attributes are read-only properties where the
+    # protocol declares settable variables, which mypy flags when this file is
+    # checked on its own (the pre-commit changed-file pass; the CI type check
+    # covers ``src`` only and never sees it).
+    _context.set_context(cast(Any, ctx))
     try:
         assert "LateType" not in ctx.type_registry.all_types()
 
@@ -391,6 +396,67 @@ def test_branch_switch_refreshes_project_types_and_previewers(
     _switch(client, "feature")
     assert "BranchOnlyType" in _type_names(runtime)
     assert PROJECT_PREVIEWER_ID in _previewer_ids(runtime)
+
+
+SCOPED_PREVIEWER_ID = "probe.scoped.viewer"
+
+_SCOPED_PREVIEWER_MODULE = f'''
+from scistudio.previewers.models import OwnerKind, PreviewerSpec
+
+
+def get_previewers():
+    return [
+        PreviewerSpec(
+            previewer_id="{SCOPED_PREVIEWER_ID}",
+            owner_kind=OwnerKind.USER,
+            owner_name="tutorial-library",
+            target_type="TeachingType",
+        )
+    ]
+'''
+
+
+def test_project_switch_swaps_the_scoped_library_previewer_tier(
+    client: TestClient,
+    runtime: ApiRuntime,
+    project_parent: Path,
+) -> None:
+    """Learning Center FR-070/FR-071 through the refresh path (#2086).
+
+    The previewer registry is rebuilt on project switch, and *which* library
+    answers as its user tier follows the project being opened: a scoped-library
+    previewer is registered while a tutorial project is open and gone the
+    moment a real project is — the isolation blocks and types already hold,
+    now symmetric for the third registry.
+    """
+    from scistudio.core import dropins
+    from scistudio.tutorials import projects as tutorial_projects
+    from scistudio.tutorials.projects import TutorialKey
+
+    scoped_previewers = dropins.tutorial_library_dir() / "previewers"
+    scoped_previewers.mkdir(parents=True, exist_ok=True)
+    (scoped_previewers / "scoped_viewer.py").write_text(_SCOPED_PREVIEWER_MODULE, encoding="utf-8")
+
+    key = TutorialKey.core("welcome-to-scistudio")
+    plan = tutorial_projects.plan_tutorial_project(key, "Welcome To SciStudio")
+    tutorial_projects.ensure_tutorial_parent()
+    runtime.create_project(
+        plan.name,
+        plan.description,
+        str(plan.parent),
+        dir_name=plan.dir_name,
+        tutorial_source_kind=key.source_kind,
+        tutorial_source_id=key.source_id,
+        tutorial_id=key.tutorial_id,
+    )
+    assert SCOPED_PREVIEWER_ID in _previewer_ids(runtime)
+
+    response = client.post(
+        "/api/projects/",
+        json={"name": "My Analysis", "description": "real work", "path": str(project_parent)},
+    )
+    assert response.status_code == 200
+    assert SCOPED_PREVIEWER_ID not in _previewer_ids(runtime)
 
 
 # ---------------------------------------------------------------------------

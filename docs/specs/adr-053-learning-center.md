@@ -41,7 +41,7 @@ scope:
     - Frontend assets supplied by a package tutorial. The shape of a tutorial step on screen stays core's.
     - A recording or authoring UI for user-level and project-level tutorials. This spec makes those tiers discoverable and runnable; the manifest is written by hand or by an agent.
     - Sandboxing drop-in execution, deferred by #1531 and unchanged here.
-    - A user tier for previewers, excluded by the personal tool library spec and tracked separately. The scenarios spec depends on it; this spec does not.
+    - The user tier for previewers itself, which landed separately (#2017, PR #2072). This spec consumes it: FR-070's scoped library carries a `previewers/` subdirectory riding the user-tier slot while a tutorial project is open (#2086), but the tier's own registry mechanics stay specified where they landed.
     - Format and storage choices behind a save. The scaffold gains `data/processed/` for results (owner decision, 2026-08-11) and a step names a filename whose suffix picks the format; nothing here specifies the capability resolution behind it.
     - The work-import dialog, brief, and session, governed by the work-import spec. Only the unlock that routes to its entry point is specified here.
     - Provider configuration and the provider registry, governed by ADR-034.
@@ -1129,7 +1129,14 @@ the start.
 
 **FR-070.** Tutorial projects MUST scan a tutorial-scoped library directory in
 place of the user-wide library, defaulting to a `.library/` directory under the
-tutorial parent with `blocks/` and `types/` subdirectories.
+tutorial parent with `blocks/`, `types/`, and `previewers/` subdirectories.
+The previewer subdirectory joined with #2086, once the previewer registry had
+gained a user tier to swap (#2017): the scoped library rides the user-tier
+slot of each registry's tier order, so a scoped-library previewer registers as
+the user tier while a tutorial project is open — precedence stays
+project > user > package > core with no fourth library tier — and one
+tutorial's saved previewer travels to the next tutorial's project the way the
+level designs require.
 
 **FR-071.** Real projects MUST NOT scan the tutorial-scoped library.
 
@@ -1677,10 +1684,15 @@ there is written by hand or by an agent.
 work-import milestone. FR-079 requires the trigger be configuration precisely so
 that decision can be made there and changed later.
 
-**A-006.** The previewer user tier is out of scope here. The scenarios spec
-depends on it — one designed scenario reuses a custom type across two tutorial
-projects and needs its previewer to travel — and it is excluded by the personal
-tool library spec's scope. Nothing in this spec assumes it exists.
+**A-006.** *Retired.* When this was written the previewer user tier was out of
+scope: the scenarios spec depended on it — one designed scenario reuses a
+custom type across two tutorial projects and needs its previewer to travel —
+while the personal tool library spec excluded it. The tier has since landed
+(#2017, PR #2072), and #2086 built on it: FR-070's scoped library now carries
+a `previewers/` subdirectory riding the user-tier slot, `library_contains`
+accepts `kind: previewer` at validation instead of rejecting it as
+unsatisfiable, and the previewer a tutorial saves travels exactly as that
+scenario requires.
 
 **A-007.** The recovery-path behaviour the scenario content depends on has
 landed and is no longer an assumption. ADR-038 Addendum 1 (#2033) withdrew Re-run
@@ -1691,8 +1703,11 @@ refresh the block registry. "Run from here" is explicitly unaffected. None of
 this changes the system specified here; it changes what the tutorials say, and
 the scenarios draft has been updated against it.
 
-**A-008.** The personal tool library's user-visible surfaces have *not* landed.
-Its plumbing has: the drop-in consolidation, the drop-in type import fix, and
-refresh symmetry are all on `main`. Its surfaces are not — `map_block_origin`
-still collapses `tier1` to `custom`, and there is no types route and no types
-palette. The scenarios spec depends on those surfaces; this spec does not.
+**A-008.** *Retired.* When this was written the personal tool library's
+user-visible surfaces had not landed, only its plumbing (the drop-in
+consolidation, the drop-in type import fix, and refresh symmetry). The
+surfaces have since landed too: `map_block_origin` resolves per-project
+origins, the types route and Data types palette exist, and the promotion flow
+("Move to My Library") runs from the editor toolbar, the canvas node, and the
+palette popovers — and, with #2086, offers a project previewer the same way.
+The scenarios spec may rely on those surfaces.

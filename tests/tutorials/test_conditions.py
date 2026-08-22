@@ -147,31 +147,44 @@ def test_library_contains_rejects_an_unknown_kind() -> None:
     assert "block" in str(excinfo.value)
 
 
-def test_library_contains_still_declares_the_previewer_kind() -> None:
-    """FR-047 names three kinds; the third is specified and not yet satisfiable."""
+def test_every_declared_library_kind_is_satisfiable() -> None:
+    """FR-047 names three kinds, and #2086 made the third judgeable.
+
+    ``previewer`` spent its first months in :data:`UNSATISFIABLE_LIBRARY_KINDS`
+    because the scoped library had no previewer tier; the tier exists now, so
+    the set is empty and every declared kind parses.
+    """
     assert set(LIBRARY_KINDS) == {"block", "type", "previewer"}
-    assert set(UNSATISFIABLE_LIBRARY_KINDS) == {"previewer"}
+    assert set(UNSATISFIABLE_LIBRARY_KINDS) == set()
 
 
-@pytest.mark.parametrize("kind", ["block", "type"])
+@pytest.mark.parametrize("kind", ["block", "type", "previewer"])
 def test_the_satisfiable_library_kinds_are_accepted(kind: str) -> None:
     assert parse_condition({"library_contains": {"kind": kind, "name": "x"}}).args["kind"] == kind
 
 
-def test_the_previewer_library_kind_is_rejected_with_its_reason_and_its_issue() -> None:
-    """It can never become true, so it must fail the author, not the reader.
+def test_an_unsatisfiable_kind_would_still_be_rejected_with_its_reason(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The FR-049 rejection machinery outlives its last occupant.
 
-    ``scoped_library_dirs()`` creates ``blocks/`` and ``types/`` only and the
-    previewer registry does not scan the library, so a tutorial declaring this
-    would strand the reader on a step that never completes and never says why.
+    ``previewer`` left the unsatisfiable set with #2086, but the shape it
+    guarded against — a kind the vocabulary declares before the product can
+    satisfy it — can recur, so the mechanism is held here against a synthetic
+    entry: rejected with its reason, distinguishable from "not a valid kind".
     """
+    from types import MappingProxyType
+
+    from scistudio.tutorials import conditions as conditions_module
+
+    monkeypatch.setattr(
+        conditions_module,
+        "_UNSATISFIABLE_ARG_VALUES",
+        MappingProxyType({("library_contains", "kind"): {"previewer": "a synthetic reason, tracked at #0000"}}),
+    )
     with pytest.raises(ConditionValidationError) as excinfo:
         parse_condition({"library_contains": {"kind": "previewer", "name": "image_previewer"}})
     message = str(excinfo.value)
-    assert "previewer" in message
-    assert "#2017" in message
-    assert "A-006" in message
     assert "cannot be satisfied yet" in message
+    assert "a synthetic reason, tracked at #0000" in message
     # Distinguishable from "that is not a valid kind", which would be untrue.
     assert "is not accepted" not in message
 

@@ -68,7 +68,7 @@ export interface PromotionSource {
 
 /** One completed write into the user library. */
 export interface PromotedFile {
-  kind: "block" | "type";
+  kind: PromotableItem["kind"];
   label: string;
   filename: string;
   /** Absolute path of the new file in the library. */
@@ -216,7 +216,7 @@ async function writeWithCollisionPrompt(
   prompts: PromotionPrompts,
   target: UserLibraryTarget,
   label: string,
-  kind: "block" | "type",
+  kind: PromotableItem["kind"],
   initialFilename: string,
   content: string,
   /** FR-017 — the project file this write consumes, or `null` to copy. */

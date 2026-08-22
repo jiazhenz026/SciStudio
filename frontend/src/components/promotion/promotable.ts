@@ -40,7 +40,7 @@ export type PromotionSourceRef =
 export interface PromotableItem {
   /** Which user library directory the copy lands in (FR-006). */
   target: UserLibraryTarget;
-  kind: "block" | "type";
+  kind: "block" | "type" | "previewer";
   /** Name shown in the confirmation dialog and the success confirmation. */
   label: string;
   /** The resolved origin the FR-019 condition tests. */
@@ -108,7 +108,18 @@ export function promotableType(type: TypeSummary): PromotableItem | null {
 const DROPIN_DIRS: ReadonlyArray<{ prefix: string; target: UserLibraryTarget }> = [
   { prefix: "blocks/", target: "blocks" },
   { prefix: "types/", target: "types" },
+  // Learning Center #2086: a project previewer promotes through the same
+  // door as blocks and types. The editor tab is its one entry point — a
+  // previewer has no palette card and no canvas node to hang E2/E5 on.
+  { prefix: "previewers/", target: "previewers" },
 ];
+
+/** The item kind each target's files register as. */
+const KIND_FOR_TARGET: Record<UserLibraryTarget, PromotableItem["kind"]> = {
+  blocks: "block",
+  types: "type",
+  previewers: "previewer",
+};
 
 /**
  * The promotable record for the file open in the editor (entry point E1), or
@@ -159,7 +170,7 @@ export function promotableFileTab(
   if (base.includes("/") || base.length === 0) return null;
   return {
     target: dropin.target,
-    kind: dropin.target === "blocks" ? "block" : "type",
+    kind: KIND_FOR_TARGET[dropin.target],
     label: base.replace(/\.py$/i, ""),
     origin: "project",
     source: { from: "projectFile", path },

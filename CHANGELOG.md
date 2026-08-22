@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2086] **The tutorial-scoped library gained a previewer tier.** The scoped
+  library's `.library/` root now carries a `previewers/` directory beside
+  `blocks/` and `types/`, and a tutorial project's previewer scans resolve
+  through the same one-root swap the other two kinds make: the scoped library
+  answers as the user tier while a tutorial project is open, so precedence
+  stays project > user > package > core and a previewer saved during one
+  tutorial travels to the next tutorial's project — which is how core
+  tutorial 3 reuses tutorial 2's previewer instead of falling back to the
+  numeric table. `library_contains: {kind: previewer}` is judgeable now
+  (matching a previewer's id or its target type) instead of rejected at
+  validation as unsatisfiable, a tutorial step that writes `previewers/*.py`
+  registers it live before the step's text is readable, and "Move to My
+  Library" from the editor toolbar now offers a project previewer, landing it
+  in whichever library — scoped or real — the open project resolves.
+
 - [#2061 #2062 #2063 #2066 #2088 #2089] **The tutorial format can now express
   the designed Learning Center levels 2–6.** A step may declare a `trigger` — a
   button labelled by the manifest whose actions run when the reader presses it,

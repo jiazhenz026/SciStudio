@@ -317,34 +317,26 @@ waiting on a run to succeed, because the claim is the conditions themselves.
 """
 
 LIBRARY_KINDS: frozenset[str] = frozenset({"block", "type", "previewer"})
-"""The three kinds ``library_contains`` is specified to judge (FR-047).
+"""The three kinds ``library_contains`` judges (FR-047), all satisfiable.
 
-``previewer`` is **specified but not yet satisfiable**, and is kept here on
-purpose. Deleting it would leave the next reader to "add" it back without
-knowing it was ever considered; see :data:`UNSATISFIABLE_LIBRARY_KINDS` for
-what happens to it at validation and why.
+``previewer`` spent its first months **specified but not satisfiable**: the
+scoped library created ``blocks/`` and ``types/`` only, and the previewer
+registry did not scan it, so the kind sat in
+:data:`UNSATISFIABLE_LIBRARY_KINDS` with its reason. #2086 gave the scoped
+library a ``previewers/`` tier riding the user-tier slot the previewer
+registry gained with #2017, so the kind is judgeable like the other two.
 """
 
-UNSATISFIABLE_LIBRARY_KINDS: Mapping[str, str] = MappingProxyType(
-    {
-        "previewer": (
-            "the tutorial-scoped library has no previewer tier yet — "
-            "scoped_library_dirs() creates blocks/ and types/ only, and the previewer "
-            "registry does not scan the library at all, so the condition can never "
-            "become true. The user previewer tier is out of scope per spec assumption "
-            "A-006 and is tracked at #2017; this term will accept the kind once it exists"
-        ),
-    }
-)
+UNSATISFIABLE_LIBRARY_KINDS: Mapping[str, str] = MappingProxyType({})
 """Library kinds the vocabulary declares but the product cannot yet satisfy.
 
-FR-047 names "block, type, or previewer", so accepting the kind in the
-vocabulary is not a mistake — it is written against a product that does not
-exist yet. But a tutorial declaring it today would leave the reader on a step
-that can never complete and never says why, which is the failure FR-049 exists
-to prevent by rejecting at validation rather than at step nine. So the kind is
-declared, and rejected with its reason and its tracking issue, rather than
-silently accepted or silently removed.
+Empty today: ``previewer``, the one entry this mapping was built for, left it
+when the tutorial-scoped library grew a ``previewers/`` tier (#2086). The
+mechanism stays, and deliberately: FR-047's shape — a spec written against a
+product that does not fully exist yet — can recur, and when it does the kind
+belongs here with its reason and tracking issue rather than being silently
+accepted (stranding the reader on a step that can never complete, the failure
+FR-049 exists to prevent) or silently removed from the vocabulary.
 """
 
 _CLOSED_ARG_VALUES: Mapping[tuple[str, str], frozenset[str]] = MappingProxyType(

@@ -113,15 +113,18 @@ def build_preview_service(
     ``scistudio.previewers`` entry points), then project-local specs/defaults
     for *project_dir*, then user-library specs. The user tier loads
     unconditionally — it does not depend on an open project (#2017, mirroring
-    the user type/block tiers). Project loads before user so a project
-    previewer shadows a user previewer with the same id, matching the
-    project-first registration order the type registry uses.
+    the user type/block tiers) — but *which* library answers as the user tier
+    follows *project_dir*: a tutorial project's user tier is the
+    tutorial-scoped library (Learning Center FR-070/FR-071, #2086). Project
+    loads before user so a project previewer shadows a user previewer with the
+    same id, matching the project-first registration order the type registry
+    uses.
     """
     registry = PreviewerRegistry()
     registry.load_core()
     registry.load_packages()
     load_project_previewers(registry, project_dir)
-    load_user_previewers(registry)
+    load_user_previewers(registry, project_dir)
 
     router = PreviewRouter(registry)
     sessions = PreviewSessionManager(
