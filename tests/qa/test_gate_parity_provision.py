@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -30,8 +31,22 @@ import scistudio.qa.governance.gate_record.parity as parity
 _REAL_PROVISION_VENV = parity.provision_venv
 
 
+def _recording(sink: list[str], tag: str, result: tuple[bool, str]) -> Callable[..., tuple[bool, str]]:
+    """Return a stub that records ``tag`` then answers ``result``.
+
+    Replaces the ``sink.append(tag) or result`` idiom, which reads the return
+    value of ``append`` and so does not type-check.
+    """
+
+    def _stub(*_args: object, **_kwargs: object) -> tuple[bool, str]:
+        sink.append(tag)
+        return result
+
+    return _stub
+
+
 @pytest.fixture
-def real_provision(monkeypatch: pytest.MonkeyPatch):
+def real_provision(monkeypatch: pytest.MonkeyPatch) -> Callable[..., parity.ParityReport]:
     """Restore the real provision_venv (autouse conftest stubs it)."""
 
     monkeypatch.setattr(parity, "provision_venv", _REAL_PROVISION_VENV)
@@ -113,14 +128,12 @@ def test_marker_changes_with_deps(tmp_path: Path) -> None:
 
 def test_local_ci_tool_dependencies_are_in_dev_extra() -> None:
     repo_root = Path(__file__).resolve().parents[2]
-    assert "semantic_dup" in checks.CHECK_CATALOG
     assert "wheel_release_smoke" in checks.CHECK_CATALOG
     assert "python_tests" in checks.CHECK_CATALOG
     project = tomllib.loads((repo_root / "pyproject.toml").read_text(encoding="utf-8")).get("project", {})
     dev_deps = parity._dev_extras(repo_root)
     normalized = [dep.lower() for dep in dev_deps]
     runtime_or_dev = [*(str(dep).lower() for dep in project.get("dependencies", [])), *normalized]
-    assert any(dep.lower().startswith("fastembed") for dep in dev_deps)
     assert any(dep.startswith("build") for dep in normalized)
     assert any(dep.startswith("pandas") for dep in runtime_or_dev)
     assert any(dep.startswith("setuptools") for dep in normalized)
@@ -133,7 +146,7 @@ def _make_src(repo: Path) -> None:
 
 
 def test_warm_venv_with_matching_marker_skips_reprovision(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision: Callable[..., parity.ParityReport]
 ) -> None:
     _make_src(tmp_path)
     venv = parity.venv_path(tmp_path)
@@ -142,8 +155,8 @@ def test_warm_venv_with_matching_marker_skips_reprovision(
     (venv / parity._MARKER_NAME).write_text(parity.provisioning_marker(tmp_path) + "\n", encoding="utf-8")
 
     created: list[str] = []
-    monkeypatch.setattr(parity, "_create_venv", lambda *a, **k: created.append("create") or (True, "ok"))
-    monkeypatch.setattr(parity, "_install_deps", lambda *a, **k: created.append("install") or (True, "ok"))
+    monkeypatch.setattr(parity, "_create_venv", _recording(created, "create", (True, "ok")))
+    monkeypatch.setattr(parity, "_install_deps", _recording(created, "install", (True, "ok")))
     monkeypatch.setattr(parity, "check_importable_env", lambda _repo, **_k: True)
 
     report = real_provision(tmp_path)
@@ -152,7 +165,9 @@ def test_warm_venv_with_matching_marker_skips_reprovision(
     assert created == []
 
 
-def test_marker_mismatch_triggers_reprovision(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision) -> None:
+def test_marker_mismatch_triggers_reprovision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision: Callable[..., parity.ParityReport]
+) -> None:
     _make_src(tmp_path)
     venv = parity.venv_path(tmp_path)
     venv.mkdir(parents=True)
@@ -168,7 +183,7 @@ def test_marker_mismatch_triggers_reprovision(tmp_path: Path, monkeypatch: pytes
         return True, "ok"
 
     monkeypatch.setattr(parity, "_create_venv", _fake_create)
-    monkeypatch.setattr(parity, "_install_deps", lambda *a, **k: calls.append("install") or (True, "ok"))
+    monkeypatch.setattr(parity, "_install_deps", _recording(calls, "install", (True, "ok")))
     monkeypatch.setattr(parity, "check_importable_env", lambda _repo, **_k: True)
 
     report = real_provision(tmp_path)
@@ -179,7 +194,9 @@ def test_marker_mismatch_triggers_reprovision(tmp_path: Path, monkeypatch: pytes
     assert (venv / parity._MARKER_NAME).read_text(encoding="utf-8").strip() == parity.provisioning_marker(tmp_path)
 
 
-def test_stale_venv_removal_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision) -> None:
+def test_stale_venv_removal_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision: Callable[..., parity.ParityReport]
+) -> None:
     _make_src(tmp_path)
     venv = parity.venv_path(tmp_path)
     venv.mkdir(parents=True)
@@ -187,7 +204,7 @@ def test_stale_venv_removal_fails_closed(tmp_path: Path, monkeypatch: pytest.Mon
 
     monkeypatch.setattr(parity, "_remove_stale_venv", lambda *a, **k: (False, "refusing test path"))
     create_called: list[str] = []
-    monkeypatch.setattr(parity, "_create_venv", lambda *a, **k: create_called.append("create") or (True, "ok"))
+    monkeypatch.setattr(parity, "_create_venv", _recording(create_called, "create", (True, "ok")))
 
     report = real_provision(tmp_path)
     assert not report.ok
@@ -200,11 +217,13 @@ def test_stale_venv_removal_fails_closed(tmp_path: Path, monkeypatch: pytest.Mon
 # ---------------------------------------------------------------------------
 
 
-def test_fail_closed_on_venv_creation_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision) -> None:
+def test_fail_closed_on_venv_creation_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision: Callable[..., parity.ParityReport]
+) -> None:
     _make_src(tmp_path)
     monkeypatch.setattr(parity, "_create_venv", lambda *a, **k: (False, "uv venv failed: no network"))
     install_called: list[str] = []
-    monkeypatch.setattr(parity, "_install_deps", lambda *a, **k: install_called.append("x") or (True, "ok"))
+    monkeypatch.setattr(parity, "_install_deps", _recording(install_called, "x", (True, "ok")))
     report = real_provision(tmp_path)
     assert not report.ok and not report.importable
     assert any("cannot create isolated per-worktree venv" in g for g in report.gaps)
@@ -212,7 +231,9 @@ def test_fail_closed_on_venv_creation_error(tmp_path: Path, monkeypatch: pytest.
     assert install_called == []
 
 
-def test_fail_closed_on_install_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision) -> None:
+def test_fail_closed_on_install_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision: Callable[..., parity.ParityReport]
+) -> None:
     _make_src(tmp_path)
     monkeypatch.setattr(parity, "_create_venv", lambda *a, **k: (True, "ok"))
     monkeypatch.setattr(parity, "_install_deps", lambda *a, **k: (False, "pip failed: ResolutionImpossible"))
@@ -222,7 +243,7 @@ def test_fail_closed_on_install_error(tmp_path: Path, monkeypatch: pytest.Monkey
 
 
 def test_fail_closed_when_provisioned_venv_not_importable(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision: Callable[..., parity.ParityReport]
 ) -> None:
     _make_src(tmp_path)
     monkeypatch.setattr(parity, "_create_venv", lambda *a, **k: (True, "ok"))
@@ -238,11 +259,13 @@ def test_fail_closed_when_provisioned_venv_not_importable(
 # ---------------------------------------------------------------------------
 
 
-def test_ci_mode_does_not_provision(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision) -> None:
+def test_ci_mode_does_not_provision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision: Callable[..., parity.ParityReport]
+) -> None:
     _make_src(tmp_path)
     provisioned: list[str] = []
-    monkeypatch.setattr(parity, "_create_venv", lambda *a, **k: provisioned.append("create") or (True, "ok"))
-    monkeypatch.setattr(parity, "_install_deps", lambda *a, **k: provisioned.append("install") or (True, "ok"))
+    monkeypatch.setattr(parity, "_create_venv", _recording(provisioned, "create", (True, "ok")))
+    monkeypatch.setattr(parity, "_install_deps", _recording(provisioned, "install", (True, "ok")))
     # ci mode validates the PYTHONPATH=src fallback instead of provisioning.
     monkeypatch.setattr(parity, "check_importable_env", lambda _repo, **_k: True)
     report = parity.assess_parity(tmp_path, mode="ci")
@@ -251,7 +274,9 @@ def test_ci_mode_does_not_provision(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert not report.provisioned
 
 
-def test_local_mode_provisions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision) -> None:
+def test_local_mode_provisions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, real_provision: Callable[..., parity.ParityReport]
+) -> None:
     _make_src(tmp_path)
     seen: list[str] = []
 
@@ -270,7 +295,12 @@ def test_local_mode_provisions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, 
 def test_explicit_provision_false_skips(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _make_src(tmp_path)
     provisioned: list[str] = []
-    monkeypatch.setattr(parity, "provision_venv", lambda *a, **k: provisioned.append("x") or parity.ParityReport(True))
+
+    def _record_provision(*_args: object, **_kwargs: object) -> parity.ParityReport:
+        provisioned.append("x")
+        return parity.ParityReport(True)
+
+    monkeypatch.setattr(parity, "provision_venv", _record_provision)
     monkeypatch.setattr(parity, "check_importable_env", lambda _repo, **_k: True)
     parity.assess_parity(tmp_path, mode="local", provision=False)
     assert provisioned == []

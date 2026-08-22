@@ -73,7 +73,7 @@ proxy the ledgers permit, gives the cost of one Tier 1 local run:
 | Check | Repository-scoped | Diff-scoped |
 |---|---:|---:|
 | `python_tests` | 159s | 39s |
-| `semantic_dup` | 135s | no narrow form |
+| `semantic_dup` | 135s | removed (§2.5) |
 | `type_check` | 25.4s | 0.9s |
 | `full_audit` | 20s | no narrow form |
 | `architecture_tests` | 7.5s | no narrow form |
@@ -110,13 +110,12 @@ documentation drift caused by it. Deferring those to CI would produce exactly th
 fix-and-push loop this addendum exists to reduce, and at 7.5s and 20s they are
 not worth deferring anyway.
 
-One check answers a different question. `semantic_dup` embeds every function in
-`src/scistudio` and compares them pairwise, so its verdict is a property of the
-whole corpus and a subset of it means nothing. It cannot be narrowed, it costs
-135s — 65% of a Tier 1 local run — and `semantic-dup-scan.yml` runs it
-authoritatively on the same PR. It is therefore deferred to CI in every local
-mode, which is the same role split `_CI_OWNED_QUALITY_CHECKS` already applies in
-`ci` mode. `--force-checks` opts back in.
+One check answered a different question, and it is gone. `semantic_dup` embedded
+every function in `src/scistudio` and compared them pairwise, so its verdict was
+a property of the whole corpus and a subset of it meant nothing. It could not be
+narrowed. This addendum first deferred it to CI; measurement on PR #2111 then put
+it at 27m31s in CI, and the owner removed it outright (§2.5). Every check that
+remains either narrows or costs under 20s.
 
 One asymmetry is deliberate and load-bearing: narrowing must never under-select.
 Whenever the selection cannot prove which tests or files an edit affects — a
@@ -134,7 +133,7 @@ a fast wrong one is not.
 | Five checks share one `python` covered surface | A formatting-only edit invalidates type and test evidence it cannot possibly affect | Split the Python surface so each check is invalidated only by inputs it reads | Section 2.3 |
 | `full_audit` and `deferral_discipline` treat every changed file as an input | A frontend-only or docs-only edit invalidates evidence for checks that never read those trees | Narrow each to the file classes it actually reads | Section 2.3 |
 | `format_check` fails on deviations a formatter would fix | 98 recorded gate failures, each costing a cycle, none indicating a defect | Rewrite the changed files locally; CI keeps the failing form | Section 2.4 |
-| `semantic_dup` cannot be narrowed and dominates the remaining local cost | 135s of a 205s Tier 1 run spent re-proving a corpus-wide property the current edit barely moves | Defer it to CI in local modes, as `ci` mode already defers the quality matrix | Section 2.5 |
+| `semantic_dup` cannot be narrowed and dominates the remaining cost | 135s of a 205s Tier 1 local run, and 27m31s in CI, to re-prove a corpus-wide property the current edit barely moves | Remove the check, its CI workflow, and its `full_audit` integration outright on owner authorization | Section 2.5 |
 | Addendum 6 states local `check` proves a full CI mirror | The governance documents would describe behavior the runtime no longer has | Supersede those statements and state the local/CI role split explicitly | Section 3 |
 
 ## 2. Decision Details
@@ -202,15 +201,32 @@ The local formatting variant rewrites the changed files. The CI job keeps the
 checking form, so a PR still cannot merge with unformatted code. This removes a
 class of gate failure that never indicated a defect.
 
-### 2.5 One Check Is Deferred To CI Rather Than Narrowed
+### 2.5 One Check Is Removed Rather Than Narrowed
 
-`semantic_dup` is removed from the required set in every local mode and left to
-`semantic-dup-scan.yml`. This is a narrower step than it may look: the check is
-already skipped at `pre-commit` (#1628) and already dropped in `ci` mode, where
-the standalone workflow owns it. What changes is that `local` and `pre-pr` stop
-re-proving it too.
+This section first proposed deferring `semantic_dup` to `semantic-dup-scan.yml`.
+Measurement on PR #2111 superseded that within the same review cycle: the CI job
+took **27m31s**, and locally the check hit the gate's 600s subprocess timeout and
+recorded `unknown`. The owner authorized removing it outright (#2120):
 
-No other check is deferred. `architecture_tests`, `full_audit`,
+> 27 minutes is unacceptable. This check currently has little value and often
+> produces false positives. I authorize you to remove it outright, and drop it
+> from CI too — it wastes time.
+
+This is an owner-approved CI-weakening scope under `AGENTS.md` §3.1 and is
+recorded as a directive event in the #2120 gate ledger. Removed: the workflow
+`.github/workflows/semantic-dup-scan.yml`, the scanner
+`scripts/semantic_dup_scan.py`, the audit module `scistudio.qa.audit.semantic_dup`
+and its opt-in `full_audit` child, the baseline, the `fastembed` dev dependency,
+and every gate-selection reference. ADR-042 Addendum 2, which introduced the
+check, is marked `Superseded`.
+
+Because `semantic_dup` was the only member of the local-deferral set, that
+mechanism would have been a permanent no-op and is removed with it;
+`required_for_mode` now distinguishes only `ci` and `pre-commit`. Duplication
+pressure and layering remain covered by `import_contracts` and
+`architecture_tests`, which stay local and cost under 8s combined.
+
+No other check is deferred or removed. `architecture_tests`, `full_audit`,
 `deferral_discipline`, and `import_contracts` all catch defects the current edit
 can introduce, and together they cost under 30s.
 
@@ -267,7 +283,9 @@ Two observations from the baseline run are worth recording. `semantic_dup` did
 not complete: it hit the 600s subprocess timeout and recorded `unknown`, which is
 #2099 reproducing under measurement rather than in the abstract. Excluding that
 timeout the repository-scoped set costs roughly 358s, consistent with the
-per-check table in Section 1.
+per-check table in Section 1. That measurement, together with the 27m31s the same
+check took in CI, is what led the owner to remove it (§2.5); with it gone the
+repository-scoped set is roughly 223s.
 
 And the repository-scoped `python_tests` phase failed. Running the same tests on
 unmodified `origin/main` reproduces the same failures, so they are pre-existing
