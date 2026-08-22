@@ -162,7 +162,7 @@ language_source: en
 | `L4` | `implementer` | `N/A` | prompts file §L4 | Core tutorial 4 — fake AI replay + import unlock | `feat/2083-core-tutorial-4` | `C:/Users/jiazh/workspace/SciStudio-wt-lcL4` | `src/scistudio/tutorials/core/<t4-id>/**`, unlock milestone config, provider-intro modal, tests | other tutorials, work-import internals | #2083 | `[x]` tutorial `what-ai-can-do` (14 steps; 9-reply continue_tab replay with per-segment bound writes; judged via block_registered, node/edge, run_failed/run_succeeded since_step_entry, ui_event node_selected, config_equals, plot_rendered, file_exists); DEFAULT_WORK_IMPORT_MILESTONE = what-ai-can-do (resolves TODO(#2057)); frontend replay-tab adoption (session.replay consumer, tutorial-replay tab source) + availability-driven provider intro ahead of the offer; tests: tests/tutorials/test_core_tutorial_what_ai_can_do.py (19) incl. full runtime walk, progress/conformance updates, 3 vitest files; live API e2e of all beats passed (real engine runs incl. the KeyError break/fix, plot render, canned AI block, unlock fired; Vite 127.0.0.1 proxy verified); PR [#2118](https://github.com/jiazhenz026/SciStudio/pull/2118); gate `.workflow/records/2083-core-tutorial-4.json` (pre-PR check passed incl. semantic_dup after the #2099 onnxruntime pin; pre/post-PR finalized) |
 | `L5` | `implementer` | `N/A` | prompts file §L5 | Core tutorial 5 — summary (reading) | `feat/2084-core-tutorial-5` | `C:/Users/jiazh/workspace/SciStudio-wt-lcL5` | `src/scistudio/tutorials/core/scistudio-at-a-glance/**`, reading renderer if missing, tests | other tutorials | #2084 | `[x]` PR [#2109](https://github.com/jiazhenz026/SciStudio/pull/2109); gate `.workflow/records/2084-core-tutorial-5.json` (pre-PR check passed, pre/post-PR finalized); tests: tutorials suite 667 green + frontend suite 1772 green; live e2e on 127.0.0.1 (full read to completion, Playwright 13/13) |
 | `L6` | `implementer` | `N/A` | prompts file §L6 | Core tutorial 6 — start your own project | `feat/2085-core-tutorial-6` | `C:/Users/jiazh/workspace/SciStudio-wt-lcL6` | `src/scistudio/tutorials/core/<t6-id>/**`, its tests | other tutorials | #2085 / PR #2114 | `[x]` authored `start-your-own-project` (16 steps: import trigger into data/raw, four-bucket frame, save judged into data/processed, since_step_entry run, targeted plot_rendered, honest-continue export beat); design pins + full runtime walk in `tests/tutorials/test_start_your_own_project.py`; tutorials suite 694 passed; pre/post-PR finalize passed; PR #2114 |
-| `A1` | `audit_reviewer` | `with-context` | prompts file §A1 | Integration audit of the umbrella candidate | `audit/lc-levels-with-context` | `C:/Users/jiazh/workspace/SciStudio-wt-lcA1` | `docs/audit/2026-08-*-lc-levels-with-context.md` | production code | audit report | `[ ]` |
+| `A1` | `audit_reviewer` | `with-context` | prompts file §A1 | Integration audit of the umbrella candidate | `audit/lc-levels-with-context` | `C:/Users/jiazh/workspace/SciStudio-wt-lcA1` | `docs/audit/2026-08-22-lc-levels-with-context.md` | production code | audit report | `[x]` |
 | `A2` | `audit_reviewer` | `no-context` | prompts file §A2 | Independent audit (repo-only) | `audit/lc-levels-no-context` | `C:/Users/jiazh/workspace/SciStudio-wt-lcA2` | `docs/audit/2026-08-*-lc-levels-no-context.md` | production code | audit report | `[ ]` |
 
 Sequencing constraints (manager-enforced):
@@ -253,8 +253,9 @@ Sequencing constraints (manager-enforced):
 
 ## 10. Track A — Audits
 
-- [ ] Audit mode recorded before dispatch: A1 `with-context`, A2 `no-context`.
-- [ ] A1 report committed -> path
+- [x] Audit mode recorded before dispatch: A1 `with-context`, A2 `no-context`.
+- [x] A1 report committed -> `docs/audit/2026-08-22-lc-levels-with-context.md`
+      (verdict: **block**; 1 P1, 7 P2, 6 P3; audited at track tip `c00bb197c`)
 - [ ] A2 report committed -> path
 - [ ] Findings recorded; P1 findings fixed before final PR.
 - [ ] Audit reports merged into final PR evidence path.
