@@ -7440,6 +7440,12 @@
       "at": "2026-08-22T04:42:04.421065Z",
       "pattern": ".workflow/records/1595-impl-gate-deleted-test.json",
       "reason": "Integrate the implementer branch-local ledger for the approved deleted-test target regression fix."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T05:23:09.957165Z",
+      "pattern": ".workflow/records/1595-impl-review-cancel-race.json",
+      "reason": "Integrate the branch-local ledger for the verified PR #2121 workflow-cancellation race fix."
     }
   ],
   "session_id": "bddad3d7-7f6c-4c58-8e78-8d7d161c68d6",
@@ -7539,6 +7545,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/qa/test_gate_incremental_checks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T05:12:19.032377Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_scheduler_concurrency.py",
       "rationale": null,
       "verified_in_diff": null
     }
