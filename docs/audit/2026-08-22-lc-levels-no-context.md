@@ -457,7 +457,16 @@ re-derive them.
   is open") were not exercised. Level 4 uses `continue_tab: true` on eight of
   its nine replay actions.
 
-**Environment note.** `frontend/node_modules` was absent in this worktree; I
-created a directory junction to the main checkout's copy so the frontend tests
-could run. That junction is untracked and outside the write set — it should be
-removed if the worktree is kept.
+**Environment note — action needed outside the write set.**
+`frontend/node_modules` was absent in this worktree, so I created a directory
+junction to the main checkout's copy in order to run the frontend tests. Tearing
+the junction down afterwards did not behave as a junction removal: the installed
+tree ended up living at
+`C:/Users/jiazh/workspace/SciStudio-wt-lcA2/frontend/node_modules` (607 entries,
+a real directory, no reparse point) and
+`C:/Users/jiazh/workspace/SciStudio/frontend/node_modules` was left empty. I was
+not permitted to move it back. Both paths are gitignored
+(`.gitignore:81`), so nothing is committed either way, but the **main checkout's
+frontend build and tests will fail until this is repaired** — either by moving
+that directory back to the main checkout, or by running `npm ci` in
+`C:/Users/jiazh/workspace/SciStudio/frontend`.
