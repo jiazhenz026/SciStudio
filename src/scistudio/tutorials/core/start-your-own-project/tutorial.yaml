@@ -1,0 +1,306 @@
+# Core tutorial 6 — "Start your own project" (scenarios doc, 关卡 6, both
+# sections).
+#
+# The gap the first five levels leave: the reader has never brought in their
+# OWN data — every earlier project arrived pre-populated. This level answers
+# six questions: where data goes in, where results land, where the project's
+# own tools live, how AppBlock/CodeBlock exchange data with external software,
+# how a plot card exports a figure, and how data is saved.
+#
+# The teaching frame is four buckets, not a directory tour: data/raw (yours,
+# in), data/processed (yours, out — the convention), the system's stores
+# (data/zarr | parquet | artifacts, named for how a payload is persisted —
+# not for people), and data/exchange (the hand-off with external software).
+#
+# A session goes dormant when the reader switches projects, so the
+# pretend-"your own" folder the import teaches from is supplied INSIDE the
+# tutorial project: bootstrap lands it at incoming-example/, and the import
+# trigger moves its files into data/raw the way the reader will move theirs.
+manifest_version: 1
+id: start-your-own-project
+title: Start Your Own Project
+summary: >-
+  Bring your own data into a project and learn the project's geography: where
+  files go in, where results land, where the project's own tools live, and how
+  a figure gets out.
+order: 6
+
+requires:
+  # Same floor as tutorial 1: to_memory() and the ergonomic table accessors
+  # the shipped block relies on are stable from 0.3.1 (ADR-052 §10). There is
+  # deliberately no requires.tutorials entry: gating the core levels on each
+  # other is a track-integration decision, and a shipped core tutorial must be
+  # startable in the tree that ships it
+  # (test_core_tutorials.py::test_every_shipped_tutorial_is_startable_in_this_tree).
+  scistudio: ">=0.3.1"
+  agent: false
+  packages: []
+
+bootstrap:
+  project_name: Start Your Own Project
+  do:
+    # The pretend-"your own" folder: a plate-reader export and the lab note
+    # that came with it, standing in for a folder on the reader's machine.
+    # incoming-example/ is none of the project's own places on purpose — the
+    # import step moves its files where they belong, which is the move this
+    # level exists to teach.
+    - copy:
+        source: assets/data
+        destination: incoming-example
+
+steps:
+  - id: welcome
+    title: Your own data
+    route_to: canvas
+    say: >-
+      The earlier levels handed you prepared data. This one is about what you
+      do after them: bringing your own files into a project, and knowing where
+      everything in a project lives. We put a folder of measurement files at
+      incoming-example/ in this project — pretend it is a folder of yours.
+
+  - id: the-project-is-a-folder
+    title: project.yaml
+    say: >-
+      A SciStudio project is an ordinary folder on disk. What makes it a
+      project is one file: project.yaml — the project's identity. SciStudio
+      refuses to open a folder that does not have one. Everything else — your
+      data, your blocks, your workflows, your results — lives in the folders
+      beside it.
+
+  - id: the-four-buckets
+    title: The data folder
+    say: >-
+      data/ holds four kinds of place. data/raw is yours: files go in here.
+      data/processed is yours too: results you decide to keep land here.
+      data/zarr, data/parquet, and data/artifacts are the system's stores —
+      named for how a payload is persisted, filled during runs, not for you.
+      And data/exchange is where files are handed to software outside
+      SciStudio. You will touch each of them in the next steps.
+
+  # The import beat. The trigger is what makes it real rather than narrated:
+  # the reader presses the button and files appear in data/raw — the same
+  # observable move they will make with their own folder. Its done_when then
+  # judges product truth (the files on disk), and checks both files because
+  # the lesson is that the whole folder comes along, notes and all.
+  - id: import-your-files
+    title: Import
+    trigger:
+      label: Copy my files into data/raw
+      do:
+        - copy:
+            source: assets/data
+            destination: data/raw
+    say: >-
+      Importing data is nothing more than putting files in data/raw. Press the
+      button below and we will copy everything from incoming-example/ into
+      data/raw/ for you. With your own data the move is the same and needs no
+      wizard: drop the files into data/raw with your file manager, and they
+      are in the project.
+    done_when:
+      all:
+        - file_exists:
+            path: data/raw/growth_measurements.csv
+        - file_exists:
+            path: data/raw/notes.txt
+
+  - id: load-your-file
+    title: Load it
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: load_data
+    say: >-
+      Now use what you imported. Drag Load onto the canvas.
+    done_when:
+      node_exists:
+        block_type: load_data
+
+  - id: point-load-at-your-file
+    title: Point it at your file
+    route_to: config
+    highlight: config_panel
+    say: >-
+      Click the Load block, press Browse, open data then raw, and pick
+      growth_measurements.csv. Leave core_type as DataFrame and set format to
+      CSV.
+    done_when:
+      config_matches:
+        block_type: load_data
+        key: path
+        pattern: data/raw/growth_measurements.csv
+
+  # The entry action writes the block source into blocks/ before this step's
+  # text is readable (FR-059), so the palette already lists the block when the
+  # text says it does — which is itself the lesson: the project's own tools
+  # live in the project, and saving a file there is all it takes.
+  - id: the-projects-own-tools
+    title: The project's tools
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: summarize_growth
+    do:
+      - write:
+          source: assets/code/summarize_growth.py
+          destination: blocks/summarize_growth.py
+    say: >-
+      We just wrote a small block into this project's blocks/ folder — and the
+      palette already lists it. A project carries its own tools: blocks/,
+      types/, and previewers/ hold code that belongs to this project alone,
+      and saving a file there reloads it on the spot. Drag Summarize Growth
+      onto the canvas and connect the Load block's output to its input.
+    done_when:
+      all:
+        - node_exists:
+            block_type: summarize_growth
+        - edge_exists:
+            source_block_type: load_data
+            target_block_type: summarize_growth
+
+  - id: add-save
+    title: Save the result
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: save_data
+    say: >-
+      How does data get saved? With a block, like everything else. Drag a Save
+      block onto the canvas and connect the summary output to it.
+    done_when:
+      all:
+        - node_exists:
+            block_type: save_data
+        - edge_exists:
+            source_block_type: summarize_growth
+            target_block_type: save_data
+
+  # data/processed is the answer to "where are my results" — and the answer is
+  # a convention, not an automatism. The copy below says so explicitly (owner
+  # decision, PR #2100): nothing writes there on its own, and that is by
+  # design, because what deserves keeping is a judgement the runtime cannot
+  # make. The Save block is exactly how something comes to deserve it.
+  - id: choose-where-results-land
+    title: data/processed
+    route_to: config
+    highlight: config_panel
+    prefill:
+      # The filename is the tutorial's decision, so the reader's one move here
+      # is choosing the folder — which is the thing this step judges. The .csv
+      # suffix is what picks the format.
+      - block_config:
+          block_type: save_data
+          key: filename
+          value: growth_summary.csv
+    say: >-
+      Select the Save block, press Browse, and choose the data/processed
+      folder. That folder is the convention for results you keep. Nothing
+      lands there on its own — after a run it stays empty unless you saved,
+      because which results deserve keeping is your call, and a Save block is
+      how you make it.
+    done_when:
+      config_matches:
+        block_type: save_data
+        key: path
+        pattern: data/processed
+
+  - id: run-it
+    title: Run
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      Press Run. While it runs, the system's stores under data/ fill up —
+      data/zarr and data/parquet is where each block's output is persisted,
+      each type in the store built for it. That part is bookkeeping, not
+      results: it is not for you.
+    done_when:
+      # since_step_entry: a run finished earlier in the tutorial must not
+      # satisfy the step that says "press Run" (#2066).
+      run_succeeded:
+        since_step_entry: true
+
+  # Likely already true on entry (FR-054): the run above wrote it. The
+  # condition still earns its place — it is the product truth this step is
+  # about, and a reader whose save landed elsewhere is held here rather than
+  # waved past the one file this level promised them.
+  - id: your-result-is-there
+    title: Your result
+    say: >-
+      Look in data/processed: growth_summary.csv is there because you put a
+      Save block there. One more thing worth knowing now — data/ and
+      .scistudio/ stay out of version control. That is why, back in level 3,
+      switching branches did not bring old results back: git stores the
+      recipe, and results are re-made by running it.
+    done_when:
+      file_exists:
+        path: data/processed/growth_summary.csv
+
+  - id: the-exchange-folder
+    title: data/exchange
+    say: >-
+      One bucket is left: data/exchange, the hand-off with software outside
+      SciStudio. When a CodeBlock runs your script, or an AppBlock drives
+      another program, SciStudio writes plain files into data/exchange/ for
+      it, and collects the products back from there afterwards. The outside
+      tool sees ordinary files in an ordinary folder — there is no SciStudio
+      API for it to learn.
+
+  - id: make-a-plot
+    title: Plots
+    route_to: plots
+    highlight: plots_new_button
+    prefill:
+      - new_plot:
+          name: growth_curves
+    say: >-
+      Two things are still in the room: figures, and getting them out. Press
+      New and bind the plot to the Load block's table output — a plot can read
+      any block's output, not only the last one.
+    done_when:
+      plot_exists:
+        plot_id: growth_curves
+
+  - id: render-it
+    title: Draw it
+    route_to: plots
+    highlight:
+      plot_card:
+        plot_id: growth_curves
+    do:
+      - write:
+          source: assets/code/growth_curves_render.py
+          destination: plots/growth_curves/render.py
+    say: >-
+      We filled in the drawing code at plots/growth_curves/render.py. Press
+      Run on the plot card.
+    done_when:
+      ui_event:
+        name: plot_rendered
+        plot_id: growth_curves
+
+  # No term in the vocabulary can see an export — the file lands wherever the
+  # reader chose, outside the project — so this is an honest continue step:
+  # the say tells the reader we cannot check it, and the move is theirs.
+  - id: export-or-lose-it
+    title: Export the figure
+    route_to: plots
+    highlight:
+      plot_card:
+        plot_id: growth_curves
+    say: >-
+      That figure is not in your project. Plots live in the preview cache
+      under .scistudio/previews/, and the next run overwrites them — they do
+      not travel with the project, and version control never sees them.
+      Export is the only way a figure survives: press Export on the plot card
+      and save it somewhere of yours. We cannot check this one for you —
+      continue when your figure is safe.
+
+  - id: your-own-project
+    title: Done
+    say: >-
+      That is the whole geography. Your files go in data/raw; results you keep
+      land in data/processed through a Save block; the project's own tools
+      live in blocks/, types/, and previewers/; data/exchange passes files to
+      outside software; and figures leave through Export. This was a tutorial
+      project — disposable. When you close this tutorial, press New project
+      and make one of your own: the first move is the one you just made. Put
+      your files in data/raw.

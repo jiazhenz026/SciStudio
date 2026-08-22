@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2085] **Core tutorial 6 — *Start Your Own Project*.** The level the first
+  five leave missing: the reader has never brought in their own data. The
+  tutorial supplies a pretend-"your own" folder inside its project and walks a
+  real import — a do-it-with-me button copies the files into `data/raw`, the
+  reader wires Load through a small pre-written block into a Save aimed at
+  `data/processed`, runs it, and exports a figure. Along the way it answers the
+  project's six geography questions: where data goes in (`data/raw`), where
+  results land (`data/processed`, by the reader's own Save — nothing writes
+  there uninvited), where the project's own tools live (`blocks/`, `types/`,
+  `previewers/`, hot-reloaded on save), how data is handed to external software
+  (`data/exchange`, plain files both ways), how a figure survives (Export —
+  plots live in the preview cache and are overwritten next run), and how data
+  is saved. It also names why `data/` and `.scistudio/` stay out of version
+  control, and closes by sending the reader off to a project of their own.
+
 - [#2061 #2062 #2063 #2066 #2088 #2089] **The tutorial format can now express
   the designed Learning Center levels 2–6.** A step may declare a `trigger` — a
   button labelled by the manifest whose actions run when the reader presses it,

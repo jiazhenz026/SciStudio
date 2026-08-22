@@ -1,0 +1,3 @@
+Growth run, cultures A-C, days 1-4.
+OD600 on the plate reader, blank-subtracted, one reading per culture per day.
+Culture C looked slightly cloudy on day 3 - that reading may run high.

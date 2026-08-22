@@ -1,0 +1,13 @@
+sample,day,od600
+culture_a,1,0.12
+culture_a,2,0.24
+culture_a,3,0.51
+culture_a,4,0.98
+culture_b,1,0.10
+culture_b,2,0.19
+culture_b,3,0.42
+culture_b,4,0.81
+culture_c,1,0.14
+culture_c,2,0.30
+culture_c,3,0.62
+culture_c,4,1.15
