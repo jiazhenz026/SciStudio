@@ -160,19 +160,6 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
         ci_job="ci.yml/Wheel Release Smoke",
         needs_src_import=True,
     ),
-    "semantic_dup": CheckSpec(
-        name="semantic_dup",
-        command=(
-            "python",
-            "scripts/semantic_dup_scan.py",
-            "--check",
-            "docs/audit/baselines/semantic-dup-baseline.json",
-        ),
-        # The scanner roots at ``src/scistudio`` and rglobs ``*.py``; nothing
-        # outside that tree (plus the baseline) can change its verdict.
-        covered_surface="python_semantics",
-        ci_job="semantic-dup-scan.yml/Semantic duplication ratchet",
-    ),
     "deferral_discipline": CheckSpec(
         name="deferral_discipline",
         command=(
@@ -194,8 +181,19 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
 _RUFF_TARGET_SUFFIXES = (".py", ".pyi")
 
 
-def _changed_python_files(changed_files: Sequence[str], *, under: str | None = None) -> list[str]:
-    """Return existing changed Python paths, optionally limited to a subtree."""
+def _changed_python_files(
+    changed_files: Sequence[str],
+    *,
+    repo_root: Path,
+    under: str | None = None,
+) -> list[str]:
+    """Return changed Python paths that still exist, optionally under a subtree.
+
+    Deleted paths are dropped: the observed diff includes them, but handing a
+    removed file to ruff or mypy is an execution error, not a finding. When a
+    diff only deletes Python files the caller gets an empty list and falls back
+    to the repository-scoped command, which is the correct answer for a deletion.
+    """
 
     selected = []
     for raw in changed_files:
@@ -203,6 +201,8 @@ def _changed_python_files(changed_files: Sequence[str], *, under: str | None = N
         if not path.endswith(_RUFF_TARGET_SUFFIXES):
             continue
         if under is not None and not path.startswith(under):
+            continue
+        if not (repo_root / path).is_file():
             continue
         selected.append(path)
     return sorted(set(selected))
@@ -254,6 +254,10 @@ def select_test_targets(repo_root: Path, changed_files: Sequence[str]) -> tuple[
                 # read it.
                 return None
             saw_python = True
+            if not (repo_root / path).exists():
+                # Deleted: nothing to select here, but the deletion may have
+                # moved coverage elsewhere, so do not narrow on its account.
+                continue
             if Path(path).name == "conftest.py":
                 targets.add(str(Path(path).parent).replace("\\", "/"))
             else:
@@ -264,6 +268,10 @@ def select_test_targets(repo_root: Path, changed_files: Sequence[str]) -> tuple[
         saw_python = True
         if not path.startswith("src/scistudio/"):
             # ``scripts/**`` and ``packages/**`` have no mirrored test tree.
+            return None
+        if not (repo_root / path).is_file():
+            # A deleted module: its tests were deleted or moved with it, and the
+            # mirror cannot say which. Widen rather than guess.
             return None
         mirrored = _mirror_test_targets(repo_root, path)
         if mirrored is None:
@@ -299,14 +307,14 @@ def diff_scoped_command(
     if spec.local_scope == "none":
         return None
     if spec.local_scope == "ruff_files":
-        files = _changed_python_files(changed_files)
+        files = _changed_python_files(changed_files, repo_root=repo_root)
         return (*spec.command[:-1], *files) if files else None
     if spec.local_scope == "ruff_format_fix":
-        files = _changed_python_files(changed_files)
+        files = _changed_python_files(changed_files, repo_root=repo_root)
         # Drop ``--check`` and the ``.`` target: format the changed files.
         return ("ruff", "format", *files) if files else None
     if spec.local_scope == "mypy_files":
-        files = _changed_python_files(changed_files, under="src/scistudio/")
+        files = _changed_python_files(changed_files, repo_root=repo_root, under="src/scistudio/")
         return ("mypy", *files, "--ignore-missing-imports") if files else None
     if spec.local_scope == "pytest_select":
         targets = select_test_targets(repo_root, changed_files)
@@ -333,7 +341,6 @@ _BASELINE_BY_TIER: dict[int, tuple[str, ...]] = {
         "full_audit",
         "python_tests",
         "import_contracts",
-        "semantic_dup",
         "deferral_discipline",
     ),
     2: ("lint_format", "format_check", "full_audit"),
@@ -353,7 +360,6 @@ def _surface_checks(changed_files: Sequence[str]) -> set[str]:
     has_frontend = any(surfaces.is_frontend_path(p) for p in changed_files)
     has_workflow_ci = any(surfaces.is_workflow_ci_path(p) for p in changed_files)
     has_packaging = any(surfaces.is_packaging_path(p) for p in changed_files)
-    has_sentrux = surfaces.sentrux_applies_to_changes(changed_files)
 
     if has_python_src:
         selected.update({"lint_format", "format_check", "type_check", "python_tests", "import_contracts"})
@@ -369,8 +375,6 @@ def _surface_checks(changed_files: Sequence[str]) -> set[str]:
         selected.add("full_audit")
     if has_packaging:
         selected.add("wheel_release_smoke")
-    if has_sentrux:
-        selected.add("semantic_dup")
     return selected
 
 

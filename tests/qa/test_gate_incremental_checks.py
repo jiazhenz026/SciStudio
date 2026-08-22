@@ -38,10 +38,23 @@ def mirror_repo(tmp_path: Path) -> Path:
     """A repo whose tests/ tree mirrors src/scistudio/ the way the real one does."""
 
     repo = tmp_path / "repo"
-    (repo / "src/scistudio/qa/governance").mkdir(parents=True)
     (repo / "tests/qa").mkdir(parents=True)
     (repo / "tests/core").mkdir(parents=True)
-    (repo / "tests/test_version.py").write_text("def test_v(): ...\n", encoding="utf-8")
+    # Real files, not just directories: narrowing drops paths that no longer
+    # exist, so a fixture of empty directories would never exercise that rule.
+    for rel in (
+        "src/scistudio/version.py",
+        "src/scistudio/qa/a.py",
+        "src/scistudio/qa/x.py",
+        "src/scistudio/qa/governance/x.py",
+        "src/scistudio/qa/governance/gate_record/checks.py",
+        "tests/test_version.py",
+        "tests/qa/test_gate_record.py",
+        "tests/qa/test_a.py",
+        "tests/core/conftest.py",
+    ):
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (repo / rel).write_text("x = 1\n", encoding="utf-8")
     _git(repo, "init", "-q")
     return repo
 
@@ -173,7 +186,7 @@ def test_unwidenable_test_selection_falls_back_to_the_ci_mirror(mirror_repo: Pat
 
 
 def test_checks_without_a_strategy_have_no_diff_scoped_form(mirror_repo: Path) -> None:
-    for name in ("full_audit", "wheel_release_smoke", "architecture_tests", "semantic_dup"):
+    for name in ("full_audit", "wheel_release_smoke", "architecture_tests", "deferral_discipline"):
         assert CHECK_CATALOG[name].local_scope == "none"
         assert (
             diff_scoped_command(
@@ -363,33 +376,73 @@ def test_run_check_falls_back_to_repo_scope_when_narrowing_is_impossible(mirror_
 # ---------------------------------------------------------------------------
 
 
-def _required(mode: EvaluatorMode, *, force: bool = False) -> set[str]:
+def _required(mode: EvaluatorMode) -> set[str]:
     """What the given caller must prove, through the real narrowing function."""
 
     selection = checks.select_checks(tier=1, changed_files=["src/scistudio/core/thing.py"])
-    return set(evaluator.required_for_mode(selection.required, mode=mode, force_checks=force))
+    return set(evaluator.required_for_mode(selection.required, mode=mode))
 
 
-def test_semantic_dup_is_deferred_to_ci_in_local_modes() -> None:
-    """135s of a 205s Tier 1 run, and a subset of a pairwise corpus scan is meaningless."""
+def test_no_check_is_deferred_out_of_the_local_gate() -> None:
+    """Every remaining check narrows, or costs under 20s; none is CI-only.
 
-    assert "semantic_dup" in checks.select_checks(tier=1, changed_files=[]).required
-    assert "semantic_dup" not in _required("pre-pr")
-    assert "semantic_dup" in _required("pre-pr", force=True)
+    semantic_dup was the sole exception and was removed outright (#2120), so a
+    local pre-PR run must now prove the same set the tier selected.
+    """
 
+    selection = checks.select_checks(tier=1, changed_files=["src/scistudio/core/thing.py"])
 
-def test_diff_relevant_checks_are_not_deferred() -> None:
-    """These catch defects the current edit introduces, and all are under 20s."""
-
-    required = _required("pre-pr")
-
+    assert _required("pre-pr") == set(selection.required)
     for name in ("architecture_tests", "full_audit", "deferral_discipline", "import_contracts"):
-        assert name in required, f"{name} must stay local"
+        assert name in _required("pre-pr"), f"{name} must stay local"
 
 
-def test_every_locally_deferred_check_is_owned_by_a_ci_job() -> None:
-    """Deferring is only safe because CI still runs it on the same PR."""
+def test_semantic_dup_is_gone_from_every_selection_surface() -> None:
+    assert "semantic_dup" not in CHECK_CATALOG
+    assert "semantic_dup" not in checks.select_checks(tier=1, changed_files=[]).required
+    assert "semantic_dup" not in evaluator._CI_OWNED_QUALITY_CHECKS
+    assert "semantic_dup" not in evaluator._PRE_COMMIT_SKIP_CHECKS
 
-    assert evaluator._LOCAL_DEFERRED_CHECKS <= evaluator._CI_OWNED_QUALITY_CHECKS
-    for name in evaluator._LOCAL_DEFERRED_CHECKS:
-        assert CHECK_CATALOG[name].ci_job
+
+# ---------------------------------------------------------------------------
+# A deleted path is in the diff but must never reach a tool (FR-001, FR-003).
+# ---------------------------------------------------------------------------
+
+
+def test_deleted_python_files_are_not_handed_to_ruff_or_mypy(mirror_repo: Path) -> None:
+    """`ruff format <removed-file>` is an execution error, not a finding."""
+
+    (mirror_repo / "src/scistudio/qa/kept.py").write_text("x = 1\n", encoding="utf-8")
+    changed = ["src/scistudio/qa/kept.py", "src/scistudio/qa/gone.py"]
+
+    for name in ("lint_format", "format_check"):
+        command = diff_scoped_command(CHECK_CATALOG[name], repo_root=mirror_repo, changed_files=changed)
+        assert command is not None
+        assert "src/scistudio/qa/gone.py" not in command
+        assert "src/scistudio/qa/kept.py" in command
+
+    typed = diff_scoped_command(CHECK_CATALOG["type_check"], repo_root=mirror_repo, changed_files=changed)
+    assert typed == ("mypy", "src/scistudio/qa/kept.py", "--ignore-missing-imports")
+
+
+def test_a_deletion_only_diff_falls_back_to_the_repository_command(mirror_repo: Path) -> None:
+    """Nothing survives narrowing, so the whole-repo command is the right answer."""
+
+    changed = ["src/scistudio/qa/gone.py", "tests/qa/test_gone.py"]
+
+    for name in ("lint_format", "format_check", "type_check"):
+        assert diff_scoped_command(CHECK_CATALOG[name], repo_root=mirror_repo, changed_files=changed) is None
+
+
+def test_a_deleted_source_module_widens_the_test_selection(mirror_repo: Path) -> None:
+    """Its tests moved or went with it; the mirror cannot say which."""
+
+    assert select_test_targets(mirror_repo, ["src/scistudio/qa/gone.py"]) is None
+
+
+def test_a_deleted_test_file_does_not_select_itself(mirror_repo: Path) -> None:
+    (mirror_repo / "tests/qa/test_kept.py").write_text("def test_k(): ...\n", encoding="utf-8")
+
+    targets = select_test_targets(mirror_repo, ["tests/qa/test_kept.py", "tests/qa/test_gone.py"])
+
+    assert targets == ("tests/qa/test_kept.py",)

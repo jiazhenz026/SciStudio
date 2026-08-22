@@ -2,43 +2,40 @@
 adr: 42
 addendum: 2
 title: "Semantic Duplication Scan Gate"
-status: Accepted
+status: Superseded
 date_created: 2026-05-21
-date_accepted: 2026-05-21
-date_superseded: null
+# Schema rule: date_accepted must be null unless status=Accepted. This addendum
+# was accepted on 2026-05-21; that fact now lives in the supersession banner.
+date_accepted: null
+date_superseded: 2026-08-22
 
 supersedes: []
-superseded_by: null
+superseded_by: 42
 related: [42]
 closes_issues: [1405]
 tracking_issue: 1405
 
-is_code_implementation: true
+# The code this addendum implemented was deleted with the check (#2120).
+is_code_implementation: false
+# Every surface this addendum governed was deleted when the check was removed
+# (#2120). What remains is the historical record plus the audit report the scan
+# produced while it was in service.
 governs:
-  modules:
-    - scistudio.qa.audit.semantic_dup
-  contracts:
-    - scistudio.qa.audit.semantic_dup.check_semantic_dup
+  modules: []
+  contracts: []
   entry_points: []
   files:
-    - scripts/semantic_dup_scan.py
-    - src/scistudio/qa/audit/semantic_dup.py
-    - docs/audit/baselines/semantic-dup-baseline.json
     - docs/audit/2026-05-21-semantic-dup-scan.md
-    - .github/workflows/semantic-dup-scan.yml
     - docs/adr/ADR-042-addendum2.md
-  excludes:
-    - docs/audit/baselines/semantic-dup-current.json
+  excludes: []
 
-tests:
-  - tests/scripts/test_semantic_dup_scan.py
-  - tests/qa/test_audit_semantic_dup.py
+tests: []
 
 agent_editable: false
 assisted_by:
   - "Claude:opus-4-7"
 
-phase: implementation
+phase: legacy
 tags: [qa, ci, semantic-duplication, embeddings, ratchet, full-audit]
 owner: "@jiazhenz026"
 co_authors: []
@@ -47,6 +44,15 @@ translations: []
 ---
 
 # ADR-042 Addendum 2: Semantic Duplication Scan Gate
+
+> **Accepted 2026-05-21. Superseded on 2026-08-22 by ADR-042 Addendum 7 §2.5 (issue #2120).**
+> The semantic-duplication check, its CI workflow, its scanner, its baseline,
+> and its `full_audit` integration were removed. The owner's grounds, recorded
+> as a directive event in the gate ledger for #2120: the ratchet took 27m31s in
+> CI, its current value is low, and it produces frequent false positives.
+> Layering and duplication pressure remain covered by `import_contracts` and
+> `architecture_tests`. Everything below is retained as the historical record of
+> a check that no longer exists; it does not describe current behavior.
 
 ## 1. Decision Summary
 
