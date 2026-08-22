@@ -49,6 +49,14 @@ export interface PreviewHostProps {
   /** Optional initial query state (slice/page/sort). */
   initialQuery?: Record<string, unknown>;
   /**
+   * #2113 — routing epoch. Bumped by the store whenever a per-type previewer
+   * choice changes (#2049); the session-creation effect re-runs, so an open
+   * preview re-creates its session and the backend routes it through the new
+   * choice instead of sitting on the envelope the old choice produced.
+   * Omitting it keeps the host's pre-#2113 behaviour exactly.
+   */
+  routingEpoch?: number;
+  /**
    * Optional session-keyed cache hooks (FR-021). The host writes rendered
    * envelopes only after the backend has resolved preview identity, so cache
    * keys include target + previewer + session + query + data version.
@@ -128,6 +136,7 @@ function cacheEnvelopeForQuery(
 export function PreviewHost({
   target,
   initialQuery,
+  routingEpoch,
   cacheEnvelope,
   buildCacheKey,
   importer,
@@ -175,9 +184,11 @@ export function PreviewHost({
       cancelled = true;
     };
     // initialQuery is captured intentionally on target change only; later
-    // query updates go through patchQuery below.
+    // query updates go through patchQuery below. routingEpoch (#2113) is a
+    // deliberate dep: a choice change must re-create the session so the new
+    // routing applies to the preview already open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target?.ref, target?.kind, initialQueryKey]);
+  }, [target?.ref, target?.kind, initialQueryKey, routingEpoch]);
 
   // -- patch query (slice/page/sort/slot) ----------------------------------
   const patchQuery = useCallback(

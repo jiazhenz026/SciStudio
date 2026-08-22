@@ -749,3 +749,85 @@ covers the workflow list: ids plus descriptions, click-to-open, the active
 highlight, the failed-detail fallback, the empty state, and Reload.
 `frontend/src/components/__tests__/ProjectTree.test.tsx` covers the Reload
 wording on the project tree and the Data section's `rootPath="data"` rooting.
+
+## 14. Previewers Tab (#2113)
+
+The left panel gains a fourth catalogue section, **Previewers**
+(`frontend/src/components/PreviewerPalette.tsx`), sitting between Data and
+Project in the activity bar — the owner-reviewed order is Blocks, Workflows,
+Data types, Data, Previewers, Project. Where the Blocks and Data types sections
+answer "what can I build with", this one answers "what renders my data, and
+which one did I pick". It is the frontend surface for three backend contracts
+that shipped deliberately headless: the #2095 listing and reload routes
+(`GET /api/previews/previewers`, `POST /api/previews/reload`) and the #2049
+per-type choice routes (`GET/PUT/DELETE /api/previews/choices`).
+
+### 14.1 Cards, Grouped By Tier
+
+One card per registered previewer, grouped by discovery tier over the shared
+`buildSections` skeleton (ADR-053 §10.1) with the callbacks supplied by
+`PreviewerPalette.parts/previewerModel.ts` — the same arrangement as the Data
+types tab, so all three catalogues read identically: This Project and My
+Library lead (both render their teaching empty-hint when empty), Core is a
+declared slot, and package previewers close the list as the A→Z remainder
+titled by `owner_name`. A package previewer whose distribution has no name
+collects under `Packages` rather than vanishing. A card shows the previewer
+id, the exact `target_type` it renders, collection support, its tier, and
+whether it carries a dynamic frontend bundle.
+
+### 14.2 The Choice Control Lives On The Card
+
+Each card carries the #2049 choice affordance for its `target_type` as a
+three-way segmented selector — **Auto / This project / All projects** (owner
+call in the #2119 live review). Auto is the default and means "no recorded
+preference, the FR-003 ladder decides"; the active segment is highlighted, so
+the card that holds the effective choice shows its scope lit and every other
+card for that type reads Auto. The selector's state is per card, not per type:
+clicking Auto on an unchosen card is a no-op, because clearing from there would
+silently delete a preference that points at a *different* previewer; on the
+chosen card, Auto clears both layers so the type deterministically returns to
+the ladder rather than revealing a user-layer choice underneath. Competing
+cards still name the current choice in a one-line note, so an existing
+preference is never invisible from the cards it suppresses. Choices whose
+previewer is no longer registered (`available: false`) have no card; they
+render in an *unavailable choices* strip under the header, each with its own
+Clear, because otherwise a stale preference would be both invisible and
+un-clearable from the surface that owns choices.
+
+### 14.3 Reload And Invalidation
+
+The Reload button calls `POST /api/previews/reload` — the previewer surface's
+own rebuild, not the block endpoint (FR-033) — and then re-reads the listing
+and the choices. The catalogue lives in the store
+(`store/previewerCatalogSlice.ts`) with a demand-driven loader
+(`store/usePreviewerCatalog.ts`) shaped exactly like `useTypeCatalog`: first
+ask fetches, later asks share one in-flight request, and the
+`blocks.reloaded` websocket event invalidates it — every emitter of that event
+reaches `refresh_all_registries()`, which has rebuilt the previewer registry
+alongside types and blocks since #2021, so a previewer edited on disk shows up
+without a manual reload.
+
+### 14.4 Choosing Re-Routes The Open Preview
+
+A choice that only affected the *next* preview would feel broken, so a write
+does three things (`usePreviewerCatalog.applyChoiceAnswer`): it applies the
+effective-choices list the write route returns, it drops the session-envelope
+cache (its keys predate the choice), and it bumps `previewerChoiceVersion` —
+a routing epoch `DataPreview` feeds `PreviewHost` as a session-creation
+dependency, so the open preview re-creates its session and the backend routes
+it through the new choice. The backend keeps the invariant that makes this
+safe: a choice is a preference, never a constraint (#2049, FR-036), so
+re-routing can change what renders but can never stop a preview from
+rendering.
+
+### 14.5 Test Plan
+
+`PreviewerPalette.parts/previewerModel.test.ts` covers the pure model: tier
+grouping and order, package-remainder naming including the unnamed fallback,
+empty-hint behaviour under search, search facets, and the exact-match choice
+lookup. `components/__tests__/PreviewerPalette.test.tsx` covers the tab:
+section order, cards, the segmented control's per-card state (including the
+unchosen-card Auto no-op and the chosen-card two-layer clear), the
+stale-choice strip, reload ordering, and the diagnostics banner. `store/__tests__/previewerCatalogInvalidation.test.ts`
+covers the loader: cache-then-invalidate on `blocks.reloaded`, reload ordering
+(scan before list), and the choice mutations bumping the routing epoch.

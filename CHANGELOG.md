@@ -66,6 +66,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   reached it. What was missing is the argument FR-027 makes on the type side —
   a previewer view must not have to call the *blocks* endpoint to do its own
   job, while all three still rebuild the same world.
+- [#2049] **You can choose which previewer renders a type.** When several
+  previewers can show the same data — a package's tailored plot, a
+  project-local experiment, core's plain table — SciStudio picked for you, by a
+  fixed precedence of project over user over package over core. That ladder
+  answers *which previewer is best* without ever asking the person looking at
+  the data. Now you can say, and what you say wins.
+  A choice is recorded **per type** and applies to every object of it. It has
+  two layers: this project, or every project, with the project layer winning —
+  the same shape blocks, types, and previewers already use for where they live.
+  Choices made inside a tutorial stay in the tutorial's own library rather than
+  following you into real work afterwards.
+  **A choice is a preference, not a constraint.** If the previewer you chose is
+  not there — a package uninstalled, a drop-in deleted — the preview still
+  renders, through the ordinary ladder, and your choice takes effect again the
+  moment that previewer returns. The same is true if the choice cannot serve
+  what is on the port: a viewer that handles one item is not handed a whole
+  collection. Nothing you can record is able to stop a preview from rendering.
+  The FR-005 project-default manifest is untouched and keeps its narrow role as
+  a tie-breaker between equal-priority previewers in one tier. It answers a
+  different question — what a project's *author* declares, rather than what a
+  *person* prefers for their own view — so the two are stored separately and
+  never arbitrate the same decision.
+
+- [#2113] **The left panel has a Previewers section.** A new activity-bar entry
+  opens a card list of every registered previewer, grouped by the tier it was
+  discovered from — This Project, My Library, Core, then packages A→Z — over
+  the same shared section machinery the Blocks and Data types sections use.
+  Each card says what the previewer renders and whether it is the one currently
+  chosen for its type, and carries the #2049 choice controls: *prefer this
+  previewer* for this project or for all projects, and *clear* on the card that
+  holds the choice. Choosing re-routes the preview already open, not just the
+  next one. The section's own Reload button re-scans the drop-in directories
+  through `POST /api/previews/reload` (#2095) — the previewer surface no longer
+  borrows the block reload — and the listing's registry diagnostics and any
+  recorded-but-unavailable choices are shown rather than silent, because a
+  drop-in refused at scan time or a choice outliving its package used to be
+  indistinguishable from "never existed".
 
 - [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
   that are real, runnable projects, reached from a permanent toolbar entry and
