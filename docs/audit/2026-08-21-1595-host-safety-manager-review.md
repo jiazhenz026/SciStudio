@@ -75,6 +75,7 @@ completion.
 | Ruff format/check | Passed for implementer paths and manager lifecycle fix |
 | Mypy | 16 changed source files, no issues on implementer branch |
 | Full audit | Passed with zero top-level findings on both implementer and final manager diffs |
+| Tier-1 local gate | All non-Python checks passed; full Python suite was blocked by unrelated Windows Zarr rename flakes described below |
 | Browser e2e | N/A: no UI or browser-visible contract changed |
 | Sentrux | N/A: no CLI or MCP integration was available in this session |
 
@@ -83,9 +84,20 @@ pre-existing rerun assertions under the new test function. It was a test-edit
 error, not a product failure; the assertions were restored to their original
 test and both affected tests passed on rerun.
 
+The tier-1 gate's full Python runs consistently completed more than 6,800 tests
+but encountered changing failures in unmodified paths. The first run reported
+one timing-sensitive AI watcher failure and one Zarr `WinError 5`; later runs
+reported different Zarr tests failing at the same `Path.rename` call in
+`core/storage/zarr_backend.py`. Using the gate's isolated venv against current
+`origin/main` reproduced the same Zarr permission failure in 2 of 10 repeated
+baseline runs. A one-worker diagnostic exceeded the gate timeout; although the
+recovery reconciliation returned zero, its check event is `unknown`, so this
+audit does not count that command as a pass. GitHub's Linux Python job remains
+the authoritative complete-suite verdict.
+
 ## 5. Recommendation
 
-**Pass**, subject to the final manager gate reconciliation and GitHub CI. The
+**Pass**, subject to pre-PR reconciliation and green GitHub CI. The
 implemented boundary matches the accepted addendum: SciStudio limits automatic
 fan-out and new work under host-memory pressure without promising CPU or GPU
 allocation.

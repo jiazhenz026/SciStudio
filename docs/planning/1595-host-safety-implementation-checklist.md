@@ -127,7 +127,7 @@ language_source: en
 |---|---|---|
 | Targeted resource/scheduler/process tests | `[x]` | Manager final targeted set: 171 passed |
 | Relevant engine regression tests | `[x]` | Implementer full engine: 493 passed, 4 Windows platform skips |
-| `gate_record check --mode local` | `[ ]` | pending |
+| `gate_record check --mode local` | `[!]` | Tier-1 non-Python checks passed; full Python runs hit changing Windows Zarr `WinError 5` failures reproduced on current `origin/main`; final Linux CI required |
 | `gate_record check --mode pre-pr` | `[ ]` | pending |
 | Pre-PR finalize | `[ ]` | pending |
 | PR wrapper preflight | `[ ]` | pending |
@@ -144,6 +144,7 @@ language_source: en
 | 2026-08-21 | I1 | `engine/events.py` still routed terminal events to the removed CPU/GPU allocation release contract. | Manager added the single stale routing row to scope and recorded the core-change label requirement. | `src/scistudio/engine/events.py` |
 | 2026-08-21 | I1 | The commit hook could not discover the manager ledger because gate ledgers are branch-scoped. | Manager authorized a separate implementer ledger, without hook bypass, and added it to final integration scope. | `.workflow/records/1595-impl-host-safety-runtime.json` |
 | 2026-08-21 | I1 | Full-audit found legacy ADR governed contracts and expected signatures still named the removed resource-request API. | Manager amended scope, authored the minimal ADR contract patch, and authorized I1 to apply that exact patch before committing. | `docs/adr/ADR-017.md`, `ADR-019.md`, `ADR-022.md`, `ADR-027.md`, `ADR-022-addendum1.md` |
+| 2026-08-22 | manager | Tier-1 full Python runs hit changing Windows Zarr rename failures in unmodified storage tests; the same `WinError 5` reproduced on current `origin/main` in the gate venv. | Preserve failed/timeout gate events, retain passing targeted and full-engine evidence, and require green Linux CI before completion. | Manager review Section 4 |
 
 ## 10. Final Readiness
 
