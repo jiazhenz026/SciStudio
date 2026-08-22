@@ -1,0 +1,32 @@
+[1m[36m> There are three CSVs in data/raw/undocumented that came with no notes at all. What are they?[0m
+
+[32m* list_data(path='data/raw/undocumented')[0m
+[2m    mmx_007.csv (16 rows)   mmx_012.csv (12 rows)   plate2_export.csv (12 rows)[0m
+[32m* preview_data(path='data/raw/undocumented/mmx_007.csv')[0m
+[2m    columns: t, ch1, ch2, tempC - t steps by 30, ch1 climbs 102 -> 487, tempC pinned near 37[0m
+
+I could just tell you here in chat - t is seconds, ch1 is the reporter channel,
+tempC is the incubation chamber. But a chat answer is prose: you cannot wire it
+into a workflow, validate it, or trace it. This is what the AI Agent block is
+for - the same inference, delivered as a typed table that enters lineage like
+any other block output.
+
+[32m* scaffold_block(filename='tutorial_ai_agent')[0m
+[2m    wrote blocks/tutorial_ai_agent.py - registered as 'AI Block (tutorial only)'[0m
+[32m* edit_workflow(path='workflows/main.yaml')[0m
+[2m    added load-mystery (the three CSVs) -> ai-metadata (AI Block, tutorial only)[0m
+
+Honesty note, since this whole session is a recording: that block is the real
+AI Agent block - same class, same colour, same config - but its run returns
+answers I prepared in advance instead of spawning an agent CLI. A live AI Agent
+block needs a configured provider and spends real tokens; this one exists so
+you can feel the shape of the result without either.
+
+Press Run, then click the ai-metadata node: one row per column, with the
+inferred meaning, the unit, and the evidence - typed, validated, and in your
+lineage.
+
+And that is the end of my script. Everything you watched was pre-recorded, but
+every file it wrote is really in your project - the blocks, the workflow, the
+plot, the logs. The real agents are one configuration away; SciStudio will
+introduce them the moment you finish this tutorial.

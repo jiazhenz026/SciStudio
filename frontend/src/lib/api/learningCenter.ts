@@ -19,7 +19,7 @@
  * move together.
  */
 
-import { apiFetch, JSON_HEADERS } from "./core";
+import { ApiError, apiFetch, JSON_HEADERS } from "./core";
 
 /** §6.1.6 — the four discovery sources a tutorial can come from. */
 export type TutorialSourceKind = "core" | "package" | "user" | "project";
@@ -322,3 +322,51 @@ export const learningCenterApi = {
 
   dismissTutorialUnlock: () => apiFetch<void>("/api/tutorials/unlock/dismiss", { method: "POST" }),
 };
+
+// ---------------------------------------------------------------------------
+// Reading pages (#2084)
+//
+// A reading tutorial's step content lives in markdown pages under the
+// tutorial's `assets/pages/`, served by
+// `GET /api/tutorials/{source_kind}/{source_id}/{tutorial_id}/pages/{name}`.
+// Serving IS progress: the backend records `page_reached` for the served page
+// (see `_page` in `scistudio/api/routes/tutorials.py`), and that record is the
+// only thing that satisfies a reading step's condition. The frontend never
+// reports "the user read this" separately — asking for the page is the report.
+//
+// These live outside `learningCenterApi` deliberately: pages are text, not
+// JSON, so they cannot go through `apiFetch`, and the reading surface passes
+// `fetchTutorialPage` around as a plain function.
+// ---------------------------------------------------------------------------
+
+/** The triple addressing one tutorial's assets (§6.1.6 catalogue entry key). */
+export interface TutorialAssetKey {
+  source_kind: string;
+  /** `""` for core — the URL keeps its empty middle segment, which the
+   * backend routes explicitly (`/{source_kind}//{tutorial_id}/...`). */
+  source_id: string;
+  id: string;
+}
+
+/** The URL of one reading page, named without its extension. */
+export function tutorialPageUrl(key: TutorialAssetKey, page: string): string {
+  const kind = encodeURIComponent(key.source_kind);
+  const source = encodeURIComponent(key.source_id);
+  const tutorial = encodeURIComponent(key.id);
+  return `/api/tutorials/${kind}/${source}/${tutorial}/pages/${encodeURIComponent(page)}`;
+}
+
+/**
+ * Fetch one reading page's markdown.
+ *
+ * Callers that care about progress follow a successful fetch with
+ * `evaluateActiveTutorialStep`, because the backend records the page on serve
+ * but only re-judges the step when asked.
+ */
+export async function fetchTutorialPage(key: TutorialAssetKey, page: string): Promise<string> {
+  const response = await fetch(tutorialPageUrl(key, page));
+  if (!response.ok) {
+    throw new ApiError(`Could not load page "${page}" (HTTP ${response.status})`, response.status);
+  }
+  return await response.text();
+}

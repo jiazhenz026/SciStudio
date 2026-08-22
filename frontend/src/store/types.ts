@@ -586,11 +586,15 @@ export interface TerminalTab {
   errorMessage?: string;
   /**
    * ADR-035 §3.10 — origin of the tab.
-   *   - "user"     (default) — user clicked the `+` button or Ctrl+T
-   *   - "ai-block" — engine spawned the tab on behalf of an AI Block worker
+   *   - "user"            (default) — user clicked the `+` button or Ctrl+T
+   *   - "ai-block"        — engine spawned the tab on behalf of an AI Block worker
+   *   - "tutorial-replay" — the Learning Center adopted a scripted replay tab
+   *     (ADR-053 FR-061a, #2083). Distinct from "ai-block" so it carries no
+   *     Mark-done or block-cancel affordances, and distinct from "user" so the
+   *     replay lifecycle (torn down with the tutorial session) is recognisable.
    * Optional for backwards-compat with persisted tabs from before ADR-035.
    */
-  source?: "user" | "ai-block";
+  source?: "user" | "ai-block" | "tutorial-replay";
   /**
    * ADR-035 §3.10 — id of the originating AI Block run (matches the
    * worker-side `RunDir.run_id`). Used by the Mark-done button to address
@@ -668,6 +672,21 @@ export interface TerminalTabsSlice {
     provider: TerminalProvider;
     permissionMode: "safe" | "dangerous";
   }) => void;
+  /**
+   * ADR-053 FR-061a (#2083) — adopt a tutorial replay tab.
+   *
+   * The tutorial runtime opened a scripted PTY-shaped byte source and named
+   * its tab id in the session response (`session.replay.tab_id`); mounting
+   * the tab opens `WS /api/ai/pty/{tabId}`, which joins that prespawned
+   * session exactly as a Bring In My Work tab joins its own. The provider is
+   * the `user-terminal` pseudo-provider: it is a valid WebSocket query value,
+   * and the join branch never spawns it because the scripted session is
+   * already registered under the tab id. The replay discards keystrokes on
+   * the backend (FR-061a), so the tab is a real tab that ignores typing.
+   *
+   * Idempotent on `tabId`, matching the other two adopters.
+   */
+  adoptTutorialReplayTab: (args: { tabId: string; title: string }) => void;
   /**
    * ADR-035 §3.9 — update the AI Block status for a tab. No-op if the tab
    * does not exist (engine may emit a `block_pty_closed` for a tab the

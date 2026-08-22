@@ -23,6 +23,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   registers it live before the step's text is readable, and "Move to My
   Library" from the editor toolbar now offers a project previewer, landing it
   in whichever library — scoped or real — the open project resolves.
+- [#2085] **Core tutorial 6 — *Start Your Own Project*.** The level the first
+  five leave missing: the reader has never brought in their own data. The
+  tutorial supplies a pretend-"your own" folder inside its project and walks a
+  real import — a do-it-with-me button copies the files into `data/raw`, the
+  reader wires Load through a small pre-written block into a Save aimed at
+  `data/processed`, runs it, and exports a figure. Along the way it answers the
+  project's six geography questions: where data goes in (`data/raw`), where
+  results land (`data/processed`, by the reader's own Save — nothing writes
+  there uninvited), where the project's own tools live (`blocks/`, `types/`,
+  `previewers/`, hot-reloaded on save), how data is handed to external software
+  (`data/exchange`, plain files both ways), how a figure survives (Export —
+  plots live in the preview cache and are overwritten next run), and how data
+  is saved. It also names why `data/` and `.scistudio/` stay out of version
+  control, and closes by sending the reader off to a project of their own.
+- [#2083] **Core tutorial 4 — *What AI can do*.** A declared-fake AI session:
+  the AI Chat terminal plays a pre-recorded agent transcript, and every claim
+  it makes is matched by a real file landing in the tutorial project before
+  the claim is readable. Over fourteen judged steps the scripted agent answers
+  what SciStudio is, lists the palette, writes a QC outlier-filter block,
+  wires load → QC → summary → save, fails a run on a wrong column name — the
+  reader meets the `KeyError` in the Logs tab, then watches the agent read the
+  same logs and fix its own block — inspects the filtered table, argues a
+  3σ→2σ threshold change whose retained-sample count the reader can verify,
+  scaffolds a before/after plot, and hands three undocumented CSVs to a
+  tutorial-only **AI Block**: a real `AIBlock` subclass (its palette category
+  is inferred from the class hierarchy and cannot be faked) whose canned run
+  returns a typed, validated, lineage-tracked metadata table. Completing this
+  tutorial is now the shipped **work-import milestone**: the ending introduces
+  the five real agent providers (Claude Code, Codex, Kimi Code, and Qoder's
+  two channels — greyed when not set up, never hidden) and then offers, once,
+  to bring the reader's existing work across; skipping names the permanent
+  "Bring in my work" toolbar entry. The scripted replay tab is adopted into
+  the real AI Chat tab strip — same terminal, same tabs, only the byte source
+  differs — and torn down with the session.
 
 - [#2061 #2062 #2063 #2066 #2088 #2089] **The tutorial format can now express
   the designed Learning Center levels 2–6.** A step may declare a `trigger` — a
@@ -42,6 +76,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   asset directory whose writes reach the open canvas before a step's text is
   readable, and the guidance vocabularies gained the Data types tab, a
   New-data-type prefill, and the Bring-in-my-work toolbar highlight.
+- [#2084] **Core tutorial 5 — *SciStudio at a Glance*, and the reading window
+  it runs in.** The fifth core tutorial is the summary level: one window, one
+  top sentence, and eight cards — workflow, block, data type, previewer, plot
+  card, history, my library, others — each opening a short paged read. It
+  introduces nothing new by design: it names and organises what the first four
+  levels already had you do, which is why reading it is completing it (the one
+  exception, `CompositeData`, is presented honestly as the one core type you
+  have not used). No project is created; every claim in the cards is checked
+  against the product's actual behaviour.
+  Reading tutorials now have their own surface: while one runs, the Learning
+  Center shows a **window of cards instead of the floating step card** — the
+  tutorial's summary on top, one card per step in step order, read cards
+  marked and reopenable. Opening a page *is* the progress report (the backend
+  records the page on serve and re-judges the step), and the tutorial
+  completes through the same explicit Continue as every other tutorial. The
+  window is built for any reading tutorial, not this one.
 
 - [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
   that are real, runnable projects, reached from a permanent toolbar entry and

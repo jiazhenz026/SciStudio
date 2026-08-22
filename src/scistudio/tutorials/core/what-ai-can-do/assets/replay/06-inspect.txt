@@ -1,0 +1,17 @@
+[1m[36m> What does the QC'd table look like?[0m
+
+[32m* inspect_data(node='qc-filter', port='annotated')[0m
+[2m    48 rows, 8 columns - qc_keep: 44 true, 4 false[0m
+[32m* preview_data(node='qc-filter', port='annotated', where='qc_keep == False')[0m
+[2m    S05   (empty)  qc_reason: missing fluorescence_au[0m
+[2m    S13   9840.0   qc_reason: outlier (robust z = +99.2)[0m
+[2m    S27     55.0   qc_reason: outlier (robust z = -13.7)[0m
+[2m    S35   (empty)  qc_reason: missing fluorescence_au[0m
+
+44 of 48 samples survive at 3 sigma. The four casualties are exactly the ones
+you would flag by eye: two reads that never happened and two values no healthy
+well produces.
+
+But do not take my word for it. Click the QC node on the canvas and read the
+table yourself - the qc_robust_z and qc_reason columns show the whole decision.
+An agent's output is something you check, not something you trust.
