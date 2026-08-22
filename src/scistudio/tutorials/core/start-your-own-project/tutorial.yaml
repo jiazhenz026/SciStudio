@@ -277,9 +277,13 @@ steps:
         name: plot_rendered
         plot_id: growth_curves
 
-  # No term in the vocabulary can see an export — the file lands wherever the
-  # reader chose, outside the project — so this is an honest continue step:
-  # the say tells the reader we cannot check it, and the move is theirs.
+  # TODO(#2133): no term in the vocabulary can see a figure saved out of the
+  #   product — the file lands wherever the reader chose, outside the project.
+  #   Out of scope per the levels track: adding one needs either a frontend
+  #   signal or a record of the save route, and the decision is the spec's.
+  #   Followup: https://github.com/jiazhenz026/SciStudio/issues/2133
+  #   Until then this is an honest continue step: the say tells the reader we
+  #   cannot check it, and the move is theirs.
   - id: export-or-lose-it
     title: Export the figure
     route_to: plots
