@@ -104,6 +104,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2093] **`npm run dev` in `desktop/` starts again on Windows.** The desktop
+  dev launcher spawns npm twice — once for Vite, once for Electron — and on
+  Windows the `npm` it reaches is `npm.cmd`, a batch shim. Node hardened
+  `child_process.spawn` against Windows batch-file argument injection
+  (CVE-2024-27980, in 18.20.1 / 20.12.1 / 21.7.2): spawning a `.cmd` without a
+  shell now raises `EINVAL` rather than running it. The launcher asked for no
+  shell, so it died on its very first spawn and never reached either child; the
+  only way to run the desktop app in development was to start Vite and Electron
+  by hand.
+  The platform decision now lives in `desktop/scripts/npm-spawn.js` as a pure,
+  unit-tested function, mirroring `desktop/runtime-port.js`. Windows gets the
+  shell it needs, and because passing an argument *array* alongside `shell: true`
+  is deprecated (DEP0190 — those arguments are concatenated rather than escaped),
+  the shell is handed one finished command line instead. Building that line is
+  only sound while no argument needs quoting, so arguments outside a
+  conservative safe set are refused with an explicit error rather than
+  concatenated: cmd.exe quoting is subtle enough that a half-correct escaper
+  would fail silently, at launch, on someone else's machine. POSIX is unchanged
+  — no shell, argument array passed straight through.
 - [#2095] **A new project gets the directories its drop-in tiers are actually
   scanned from.** Two commands create a project — the GUI's "New project" and
   `scistudio init` — and each carried its own hand-written directory list. The
