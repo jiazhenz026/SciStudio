@@ -905,6 +905,42 @@
       "at": "2026-08-22T03:00:10.484231Z",
       "pattern": ".workflow/records/1595-impl-host-safety-runtime.json",
       "reason": "Dispatched implementer needs a branch-local gate ledger so repository commit hooks can validate its isolated branch without bypass."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T03:16:23.500853Z",
+      "pattern": "docs/adr/ADR-017.md",
+      "reason": "Full-audit closure discovered normative governed contracts and expected signatures that must be reconciled with the accepted removal of ResourceRequest."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T03:16:23.500872Z",
+      "pattern": "docs/adr/ADR-019.md",
+      "reason": "Full-audit closure discovered normative governed contracts and expected signatures that must be reconciled with the accepted removal of ResourceRequest."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T03:16:23.500875Z",
+      "pattern": "docs/adr/ADR-022.md",
+      "reason": "Full-audit closure discovered normative governed contracts and expected signatures that must be reconciled with the accepted removal of ResourceRequest."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T03:16:23.500876Z",
+      "pattern": "docs/adr/ADR-027.md",
+      "reason": "Full-audit closure discovered normative governed contracts and expected signatures that must be reconciled with the accepted removal of ResourceRequest."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T03:23:16.811732Z",
+      "pattern": "src/scistudio/api/runtime/_runs.py",
+      "reason": "Manager integration review found scheduler release-listener teardown was conditional on lineage recorder construction; add lifecycle cleanup and API regression coverage."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T03:23:16.811752Z",
+      "pattern": "tests/api/test_workflows.py",
+      "reason": "Manager integration review found scheduler release-listener teardown was conditional on lineage recorder construction; add lifecycle cleanup and API regression coverage."
     }
   ],
   "session_id": "bddad3d7-7f6c-4c58-8e78-8d7d161c68d6",

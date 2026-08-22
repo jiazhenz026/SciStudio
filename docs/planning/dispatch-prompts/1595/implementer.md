@@ -61,6 +61,10 @@ You own implementation edits only in:
 - `tests/api/test_runtime_host_safety.py`
 - `.workflow/records/1595-impl-host-safety-runtime.json` (branch-local gate
   evidence only; initialize and update it solely to satisfy repository hooks)
+- `docs/adr/ADR-017.md`, `docs/adr/ADR-019.md`, `docs/adr/ADR-022.md`,
+  `docs/adr/ADR-027.md`, and `docs/adr/ADR-022-addendum1.md` only for the
+  manager-authored contract-drift patch produced after full-audit; do not make
+  independent ADR decisions.
 - `docs/architecture/ARCHITECTURE.md`
 - `docs/architecture/PROJECT_TREE.md`
 - `docs/package-development/blocks.md`

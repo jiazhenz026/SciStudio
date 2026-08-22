@@ -78,54 +78,55 @@ language_source: en
 
 | Agent | Persona | Prompt | Task | Branch | Worktree | Write set | Status |
 |---|---|---|---|---|---|---|---|
-| I1 | `implementer` | `docs/planning/dispatch-prompts/1595/implementer.md` | Runtime, tests, and implementation-linked docs | `fix/1595-host-safety-implementation` | `../SciStudio-wt-1595-impl` | Prompt Section 3, including `tests/engine/test_local_runner.py` | `[~]` |
+| I1 | `implementer` | `docs/planning/dispatch-prompts/1595/implementer.md` | Runtime, tests, and implementation-linked docs | `fix/1595-host-safety-implementation` | `../SciStudio-wt-1595-impl` | Prompt Section 3 plus manager-approved drift paths | `[x]` -> `1706848e9` |
 
 ## 6. Implementation Track
 
 ### 6.1 Runtime And Contracts
 
-- [ ] Replace predictive CPU/GPU accounting with a global permit pool.
-- [ ] Default the runtime-global limit to `255` and validate positive values.
-- [ ] Preserve high/critical live-memory admission semantics.
-- [ ] Expose deterministic concurrency and memory wait reasons.
-- [ ] Remove `ResourceRequest` and process-handle resource plumbing.
-- [ ] Preserve READY-and-retry behavior and release permits on every terminal
+- [x] Replace predictive CPU/GPU accounting with a global permit pool.
+- [x] Default the runtime-global limit to `255` and validate positive values.
+- [x] Preserve high/critical live-memory admission semantics.
+- [x] Expose deterministic concurrency and memory wait reasons.
+- [x] Remove `ResourceRequest` and process-handle resource plumbing.
+- [x] Preserve READY-and-retry behavior and release permits on every terminal
   or launch-failure path.
 
 ### 6.2 Tests
 
-- [ ] Resource-manager unit tests cover defaults, validation, memory rules,
+- [x] Resource-manager unit tests cover defaults, validation, memory rules,
   permit idempotence, and diagnostics.
-- [ ] Scheduler integration tests cover 256 READY blocks, shared runtime
+- [x] Scheduler integration tests cover 256 READY blocks, shared runtime
   permits, retry, and success/error/cancel/launch-failure release paths.
-- [ ] Process-handle and import-coverage tests reflect removed contracts.
-- [ ] API runtime tests cover default, explicit override, and invalid global
+- [x] Process-handle and import-coverage tests reflect removed contracts.
+- [x] API runtime tests cover default, explicit override, and invalid global
   concurrency configuration.
-- [ ] Relevant existing engine tests pass with a timeout.
+- [x] Relevant existing engine tests pass with a timeout -> 493 passed, 4
+  platform skips.
 
 ### 6.3 Documentation
 
-- [ ] `ARCHITECTURE.md` describes the implemented host-safety boundary.
-- [ ] Block-authoring guidance assigns algorithmic resource behavior to blocks.
-- [ ] Current project-tree/resource references no longer claim dead accounting.
-- [ ] Addendum status/phase accurately distinguish accepted and implemented
+- [x] `ARCHITECTURE.md` describes the implemented host-safety boundary.
+- [x] Block-authoring guidance assigns algorithmic resource behavior to blocks.
+- [x] Current project-tree/resource references no longer claim dead accounting.
+- [x] Addendum status/phase accurately distinguish accepted and implemented
   state.
 
 ## 7. Manager Review And Integration
 
-- [ ] Implementer output reviewed file-by-file.
-- [ ] Scope compliance verified before integration.
-- [ ] Manager review committed to
+- [x] Implementer output reviewed file-by-file.
+- [x] Scope compliance verified before integration.
+- [x] Manager review committed with the integration-fix commit to
   `docs/audit/2026-08-21-1595-host-safety-manager-review.md`.
-- [ ] All P1/P2 findings fixed or tracked with owner-approved rationale.
-- [ ] Implementation commit integrated into manager branch.
+- [x] All P1/P2 findings fixed -> conditional scheduler-listener teardown fixed.
+- [x] Implementation commit integrated into manager branch -> `4859871a6`.
 
 ## 8. Verification Evidence
 
 | Check | Status | Evidence |
 |---|---|---|
-| Targeted resource/scheduler/process tests | `[ ]` | pending |
-| Relevant engine regression tests | `[ ]` | pending |
+| Targeted resource/scheduler/process tests | `[x]` | Manager final targeted set: 171 passed |
+| Relevant engine regression tests | `[x]` | Implementer full engine: 493 passed, 4 Windows platform skips |
 | `gate_record check --mode local` | `[ ]` | pending |
 | `gate_record check --mode pre-pr` | `[ ]` | pending |
 | Pre-PR finalize | `[ ]` | pending |
@@ -142,12 +143,13 @@ language_source: en
 | 2026-08-21 | manager | Incremental review found the runtime option was initially placed on `LogBroadcaster` instead of `ApiRuntime`. | Correct the ownership boundary and add focused `ApiRuntime` construction tests. | `tests/api/test_runtime_host_safety.py` |
 | 2026-08-21 | I1 | `engine/events.py` still routed terminal events to the removed CPU/GPU allocation release contract. | Manager added the single stale routing row to scope and recorded the core-change label requirement. | `src/scistudio/engine/events.py` |
 | 2026-08-21 | I1 | The commit hook could not discover the manager ledger because gate ledgers are branch-scoped. | Manager authorized a separate implementer ledger, without hook bypass, and added it to final integration scope. | `.workflow/records/1595-impl-host-safety-runtime.json` |
+| 2026-08-21 | I1 | Full-audit found legacy ADR governed contracts and expected signatures still named the removed resource-request API. | Manager amended scope, authored the minimal ADR contract patch, and authorized I1 to apply that exact patch before committing. | `docs/adr/ADR-017.md`, `ADR-019.md`, `ADR-022.md`, `ADR-027.md`, `ADR-022-addendum1.md` |
 
 ## 10. Final Readiness
 
-- [ ] Every changed file reviewed by the manager.
+- [x] Every changed file reviewed by the manager.
 - [ ] Gate record reconciles exact final diff and closes `#1595`.
-- [ ] Documentation and tests match implemented behavior.
+- [x] Documentation and tests match implemented behavior; final full-audit passed with zero top-level findings.
 - [ ] One public PR targets `main`.
 - [ ] Required labels are applied with valid owner provenance.
 - [ ] CI and review are green.
