@@ -146,7 +146,7 @@ language_source: en
 - MUST record the bypass label, reason, and owner authorization in the
   checklist when any bypass label is used.
 
-Per ADR-042 Addendum 6, `gate_record check` is the single local CI-equivalent
+Per ADR-042 Addendum 6 and Addendum 7, `gate_record check` is the single local
 preflight command. Mode-specific aliases still exist, but new instructions
 should spell the mode explicitly with `gate_record check --mode ...`:
 

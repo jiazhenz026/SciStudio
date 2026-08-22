@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "description": "ADR-052 \u00a715 frozen public API surface. Spec-derived from docs/specs/adr-052-public-api-surface.md (the per-symbol contract) for the 9 canonical public roots. Each root maps its top-level __all__ symbols to {tier, since}. The freeze test in test_public_surface.py recomputes the live surface (import root, sorted(__all__), get_stability) and diffs it against this file. Editing this file is a reviewable, owner-gated contract change (ADR-052 \u00a715); accidental drift fails CI. Baseline Since = 0.3.1 (BASE_VERSION on main).",
+    "description": "ADR-052 §15 frozen public API surface. Spec-derived from docs/specs/adr-052-public-api-surface.md (the per-symbol contract) for the 10 canonical public roots. Each root maps its top-level __all__ symbols to {tier, since}. The freeze test in test_public_surface.py recomputes the live surface (import root, sorted(__all__), get_stability) and diffs it against this file. Editing this file is a reviewable, owner-gated contract change (ADR-052 §15); accidental drift fails CI. Baseline Since = 0.3.1 (BASE_VERSION on main); scistudio.tutorials entered the contract at 0.3.4 (#2080).",
     "spec": "docs/specs/adr-052-public-api-surface.md",
     "adr": "docs/adr/ADR-052.md",
     "issue": "1833 (umbrella #1817)"
@@ -573,6 +573,72 @@
     "TextChunk": {
       "tier": "provisional",
       "since": "0.3.1"
+    }
+  },
+  "scistudio.tutorials": {
+    "Action": {
+      "tier": "provisional",
+      "since": "0.3.4"
+    },
+    "Condition": {
+      "tier": "provisional",
+      "since": "0.3.4"
+    },
+    "ConditionValidationError": {
+      "tier": "provisional",
+      "since": "0.3.4"
+    },
+    "CopyAction": {
+      "tier": "provisional",
+      "since": "0.3.4"
+    },
+    "DeclaresConditions": {
+      "tier": "provisional",
+      "since": "0.3.4"
+    },
+    "DriverContext": {
+      "tier": "provisional",
+      "since": "0.3.4"
+    },
+    "ProductState": {
+      "tier": "provisional",
+      "since": "0.3.4"
+    },
+    "ReplayAction": {
+      "tier": "provisional",
+      "since": "0.3.4"
+    },
+    "RunSummary": {
+      "tier": "provisional",
+      "since": "0.3.4"
+    },
+    "StepView": {
+      "tier": "provisional",
+      "since": "0.3.4"
+    },
+    "TutorialDriver": {
+      "tier": "provisional",
+      "since": "0.3.4"
+    },
+    "TutorialKey": {
+      "tier": "provisional",
+      "since": "0.3.4"
+    },
+    "VOCABULARY": {
+      "tier": "provisional",
+      "since": "0.3.4"
+    },
+    "WriteAction": {
+      "tier": "provisional",
+      "since": "0.3.4"
+    },
+    "evaluate": {
+      "tier": "provisional",
+      "since": "0.3.4"
+    },
+    "parse_condition": {
+      "tier": "provisional",
+      "since": "0.3.4"
     }
   }
 }

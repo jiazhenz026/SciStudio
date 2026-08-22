@@ -247,9 +247,12 @@ The `--mode` argument dispatches behavior for different callers:
 | `pre-pr` | Manual pre-PR check and PR wrapper | Pre-PR readiness with `--pr-body-file`; PR wrapper uses `--skip-execution` to reuse current evidence; pre-PR-impossible findings handled internally |
 | `ci` | CI workflow | Authoritative mode with full PR context; verifies label provenance |
 
-Local and CI modes use the same evaluator. The only difference is that CI mode
-has real PR metadata and verifies label-actor provenance, while local modes
-record those as known pre-PR gaps.
+Local and CI modes use the same evaluator and select the same checks. They differ
+in two ways: CI mode has real PR metadata and verifies label-actor provenance
+(local modes record those as known pre-PR gaps), and CI mode runs every check
+over the whole repository while local modes narrow each check to the observed
+diff. `ci.yml` proves the full surface on the same PR, so a local pass is a fast
+signal and CI remains the proof (ADR-042 Addendum 7).
 
 `--only` is a recovery aid, not a final readiness mode. A final PR-ready
 `check` must run or validate the complete tier-selected check set. By default,
@@ -260,15 +263,22 @@ selected set.
 passing, current evidence for the observed diff; otherwise it reports stale or
 missing evidence and tells the agent to run the pre-PR check once.
 
-Tier-selected check breadth:
+Tier-selected check breadth. The tier decides **which** checks are required;
+the mode decides **how broadly** each one runs (see above).
 
-- **Tier 1**: requires evidence for the full local mirror of the merge-blocking
-  CI command surface, whether or not the observed diff appears to need every
-  job. Existing current passing evidence is reused; missing or stale checks run.
+- **Tier 1**: requires evidence for the full merge-blocking CI check set,
+  whether or not the observed diff appears to need every job. Existing current
+  passing evidence is reused; missing or stale checks run.
 - **Tier 2**: runs the common governance/lint/audit baseline plus all CI jobs
   relevant to the observed diff.
 - **Tier 3**: runs only mandatory checks for the observed diff and repository
   gate rules.
+
+At every tier, a local run narrows each selected check to the observed diff and
+prints which checks ran diff-scoped. Narrowing widens back to the whole surface
+whenever it cannot prove what an edit affects (a changed pytest or coverage
+config, a shared `conftest.py`, a fixture file, a module with no mirrored test
+location). Use `--force-checks` to run the repository-wide mirror locally.
 
 Compatibility aliases exposed by the current CLI:
 
