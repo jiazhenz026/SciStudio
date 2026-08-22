@@ -27,11 +27,10 @@ order: 6
 
 requires:
   # Same floor as tutorial 1: to_memory() and the ergonomic table accessors
-  # the shipped block relies on are stable from 0.3.1 (ADR-052 §10). There is
-  # deliberately no requires.tutorials entry: gating the core levels on each
-  # other is a track-integration decision, and a shipped core tutorial must be
-  # startable in the tree that ships it
-  # (test_core_tutorials.py::test_every_shipped_tutorial_is_startable_in_this_tree).
+  # the shipped block relies on are stable from 0.3.1 (ADR-052 §10). No
+  # requires.tutorials entry: this level starts from its own bootstrap and
+  # reads nothing another level leaves behind, so a reader who arrives here
+  # first loses nothing (only tutorial 3 declares a prerequisite, #2088).
   scistudio: ">=0.3.1"
   agent: false
   packages: []
@@ -92,8 +91,8 @@ steps:
             destination: data/raw
     say: >-
       Importing data is nothing more than putting files in data/raw. Press the
-      button below and we will copy everything from incoming-example/ into
-      data/raw/ for you. With your own data the move is the same and needs no
+      button below and we will put that folder's files into data/raw/ for
+      you. With your own data the move is the same and needs no
       wizard: drop the files into data/raw with your file manager, and they
       are in the project.
     done_when:

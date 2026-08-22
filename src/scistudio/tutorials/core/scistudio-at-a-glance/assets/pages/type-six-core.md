@@ -15,3 +15,8 @@ pattern — that pairing is *why* there are exactly these six:
 
 Six types is not a list to memorise — it is one design decision seen from
 six angles.
+
+The Data types tab shows a seventh name, **DataObject**. It is not a
+seventh kind of data: it is the root all six descend from, which is why a
+block that accepts a DataObject accepts any of them — and why your Image,
+built on Array, was accepted everywhere an Array was.

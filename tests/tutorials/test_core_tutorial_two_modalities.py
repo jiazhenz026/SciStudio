@@ -892,7 +892,16 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
         external_events=ExternalEventNames(blocks_reloaded="blocks.reloaded", file_changed="file.changed"),
         project_dir=lambda: product.project_dir,
         provisioner=_Provisioner(),
-        environment=DiscoveryEnvironment(scistudio_version="0.3.1", git_available=True),
+        environment=DiscoveryEnvironment(
+            scistudio_version="0.3.1",
+            git_available=True,
+            # This walk is about tutorial 3's own twenty beats, so the state
+            # the reader arrives in is stated rather than re-earned: they have
+            # finished tutorial 2, which is what puts the Image type, the
+            # Segment Cells block, and the Image previewer in the library this
+            # level reads from, and what clears the prerequisite (#2088).
+            completed_tutorials=frozenset({TutorialKey.core("what-is-a-type")}),
+        ),
         progress=ProgressStore(fake_home / ".scistudio"),
         sessions=SessionStore(fake_home / ".scistudio"),
         open_replay=lambda surface: pytest.fail(f"tutorial 3 declares no replay, yet one opened on {surface!r}"),

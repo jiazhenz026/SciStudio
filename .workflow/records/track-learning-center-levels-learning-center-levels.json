@@ -230,6 +230,18 @@
       "at": "2026-08-22T09:27:15.183418Z",
       "pattern": "tests/tutorials/test_core_tutorials.py",
       "reason": "Integration decision the level authors correctly refused to take alone: tutorial 3 declares requires.tutorials (#2088), and the startability test learns to tell a progress gate apart from an environment fault."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T09:57:05.663069Z",
+      "pattern": "src/scistudio/tutorials/core/**",
+      "reason": "Act on the no-context audit (PR #2131): fix the P1 it found in my own prerequisite decision, and correct four content claims the code contradicts."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T09:57:05.663086Z",
+      "pattern": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "reason": "Act on the no-context audit (PR #2131): fix the P1 it found in my own prerequisite decision, and correct four content claims the code contradicts."
     }
   ],
   "session_id": "1a80a328-9d3b-4c71-85f4-581225aedf57",
