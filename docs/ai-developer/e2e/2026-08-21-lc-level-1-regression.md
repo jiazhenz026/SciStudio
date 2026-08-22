@@ -146,6 +146,16 @@ Evidence: step screenshots under the session scratchpad `pw-artifacts/`
 `frontend/e2e-live/tutorial1.live.ts` (untracked harness in the manager
 worktree).
 
+**Re-confirmed on `c00bb197c`** (2026-08-22, session `lc-level-e2e-sessions`,
+the tip that also carries core tutorials 2, 3, 4, 5 and 6). The same 16-step
+walkthrough was re-driven from a clean profile on the integrated track and
+passed unchanged: `WALKTHROUGH COMPLETE: 16/16`, backend catalogue
+`welcome-to-scistudio = complete`, core group `completed 1 of 6`, and
+`GET /api/tutorials/unlock` still `{"work_import_offer_pending": false}` — the
+milestone is tutorial 4, and tutorial 1 must not move it. The earlier verdict
+stands; the note above that the group total was 4 (then 5) is simply the
+catalogue growing as levels landed.
+
 ### 7.3 Product observations recorded for audit
 
 1. Transient unhandled rejection `Unknown block type: my_block` between the
