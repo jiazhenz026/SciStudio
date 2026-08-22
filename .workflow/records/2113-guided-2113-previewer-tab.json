@@ -1,0 +1,166 @@
+{
+  "branch": "guided/2113-previewer-tab",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-22T01:40:31.886795Z",
+      "owner_directive": "Baseline strategy (owner-confirmed): merge PR #2100 and #2110 branches locally as the integration baseline; after they land on main this PR's diff reduces to the frontend work.",
+      "reason": "Integration baseline: merged the two still-open backend PR branches #2100 (fix/2095) and #2110 (feat/2049) locally as the API base for the frontend work (owner-confirmed baseline strategy). The merge carried both PRs' backend, docs, and test files into this branch's diff."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-22T01:40:31.886856Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-048-preview-system.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:40:31.886874Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2113,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Add a fourth left-panel tab 'Previewers' (peer of Blocks / Data types / Project): cards for every registered previewer grouped by tier (project/user/package/core), a Reload action, and a per-target-type previewer choice UI exposing both user and project scopes. Baseline strategy (owner-confirmed): locally merge the still-open backend PR branches #2100 (fix/2095-previewer-tier-surface) and #2110 (feat/2049-previewer-choice) as the API base; once they merge into main this PR's diff is frontend-only.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2113-guided-2113-previewer-tab",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:architecture-doc"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "agents:kimi-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-22T01:40:31.886813Z",
+      "pattern": "src/scistudio/api/**",
+      "reason": "Integration baseline: merged the two still-open backend PR branches #2100 (fix/2095) and #2110 (feat/2049) locally as the API base for the frontend work (owner-confirmed baseline strategy). The merge carried both PRs' backend, docs, and test files into this branch's diff."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T01:40:31.886821Z",
+      "pattern": "src/scistudio/previewers/**",
+      "reason": "Integration baseline: merged the two still-open backend PR branches #2100 (fix/2095) and #2110 (feat/2049) locally as the API base for the frontend work (owner-confirmed baseline strategy). The merge carried both PRs' backend, docs, and test files into this branch's diff."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T01:40:31.886824Z",
+      "pattern": "src/scistudio/cli/main.py",
+      "reason": "Integration baseline: merged the two still-open backend PR branches #2100 (fix/2095) and #2110 (feat/2049) locally as the API base for the frontend work (owner-confirmed baseline strategy). The merge carried both PRs' backend, docs, and test files into this branch's diff."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T01:40:31.886827Z",
+      "pattern": "docs/specs/adr-048-preview-system.md",
+      "reason": "Integration baseline: merged the two still-open backend PR branches #2100 (fix/2095) and #2110 (feat/2049) locally as the API base for the frontend work (owner-confirmed baseline strategy). The merge carried both PRs' backend, docs, and test files into this branch's diff."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T01:40:31.886829Z",
+      "pattern": "docs/architecture/ARCHITECTURE.md",
+      "reason": "Integration baseline: merged the two still-open backend PR branches #2100 (fix/2095) and #2110 (feat/2049) locally as the API base for the frontend work (owner-confirmed baseline strategy). The merge carried both PRs' backend, docs, and test files into this branch's diff."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T01:40:31.886831Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "Integration baseline: merged the two still-open backend PR branches #2100 (fix/2095) and #2110 (feat/2049) locally as the API base for the frontend work (owner-confirmed baseline strategy). The merge carried both PRs' backend, docs, and test files into this branch's diff."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T01:40:31.886834Z",
+      "pattern": "tests/api/test_previewer_discovery.py",
+      "reason": "Integration baseline: merged the two still-open backend PR branches #2100 (fix/2095) and #2110 (feat/2049) locally as the API base for the frontend work (owner-confirmed baseline strategy). The merge carried both PRs' backend, docs, and test files into this branch's diff."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T01:40:31.886838Z",
+      "pattern": "tests/api/test_project_layout.py",
+      "reason": "Integration baseline: merged the two still-open backend PR branches #2100 (fix/2095) and #2110 (feat/2049) locally as the API base for the frontend work (owner-confirmed baseline strategy). The merge carried both PRs' backend, docs, and test files into this branch's diff."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T01:40:31.886840Z",
+      "pattern": "tests/api/test_previewer_choice_routes.py",
+      "reason": "Integration baseline: merged the two still-open backend PR branches #2100 (fix/2095) and #2110 (feat/2049) locally as the API base for the frontend work (owner-confirmed baseline strategy). The merge carried both PRs' backend, docs, and test files into this branch's diff."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T01:40:31.886842Z",
+      "pattern": "tests/previewers/test_previewer_choice.py",
+      "reason": "Integration baseline: merged the two still-open backend PR branches #2100 (fix/2095) and #2110 (feat/2049) locally as the API base for the frontend work (owner-confirmed baseline strategy). The merge carried both PRs' backend, docs, and test files into this branch's diff."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T01:40:31.886844Z",
+      "pattern": ".workflow/records/2095-previewer-tier-surface.json",
+      "reason": "Integration baseline: merged the two still-open backend PR branches #2100 (fix/2095) and #2110 (feat/2049) locally as the API base for the frontend work (owner-confirmed baseline strategy). The merge carried both PRs' backend, docs, and test files into this branch's diff."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T01:40:31.886847Z",
+      "pattern": ".workflow/records/2049-previewer-choice.json",
+      "reason": "Integration baseline: merged the two still-open backend PR branches #2100 (fix/2095) and #2110 (feat/2049) locally as the API base for the frontend work (owner-confirmed baseline strategy). The merge carried both PRs' backend, docs, and test files into this branch's diff."
+    }
+  ],
+  "session_id": "c8d079c6-349b-4630-96bd-5b6c2de72b06",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-08-22T01:40:31.886879Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_previewer_discovery.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:40:31.886883Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_previewer_choice_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
