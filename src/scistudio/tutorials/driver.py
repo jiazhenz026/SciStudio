@@ -510,6 +510,7 @@ class DeclaresTriggerActions(Protocol):
         ...
 
 
+@provisional(since="0.3.4")
 @runtime_checkable
 class DeclaresConditions(Protocol):
     """An optional capability: a driver that can name a step's condition.

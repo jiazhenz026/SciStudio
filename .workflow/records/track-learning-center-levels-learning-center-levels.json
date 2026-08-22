@@ -90,6 +90,14 @@
       "path": "docs/planning/learning-center-levels-dispatch-prompts.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T07:06:24.116790Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "one-line restoration of a marker lost in a merge; no behaviour or contract change to document",
+      "verified_in_diff": null
     }
   ],
   "governance_touch": true,
@@ -204,7 +212,14 @@
   },
   "runtime": "claude-code:claude-fable-5",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-22T07:05:57.871059Z",
+      "pattern": "src/scistudio/tutorials/driver.py",
+      "reason": "Fix a regression the manager's own main merge (d17cb5a68) introduced: git auto-merge took P1's DeclaresTriggerActions block over main's decorated DeclaresConditions, dropping @provisional and breaking the frozen public surface. Found by agent L2."
+    }
+  ],
   "session_id": "1a80a328-9d3b-4c71-85f4-581225aedf57",
   "strictness_tier": null,
   "task_kind": "manager",
