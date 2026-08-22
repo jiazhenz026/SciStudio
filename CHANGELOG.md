@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2081] **Core tutorial 2 — *What is a type*.** The type-system level. An
+  image-analysis task arrives and the reader builds the missing vocabulary one
+  real gap at a time: a project-tier `Image` type created through New → New
+  data type and derived from the core `Array` (the template's commented
+  `ui_color` / `ui_ring_color` lines are the one hand edit — the reader picks
+  their type's colour); the product's real dispatch error `no load capability
+  is registered for type 'Image'`, met by running and fixed by a
+  tutorial-written TIFF `IOBlock` loader that reads the baseline-TIFF contract
+  itself with the standard library (core ships no image decoder — that is why
+  the capability was missing — and a test referees the reader against
+  dev-only tifffile); the real previewer fallback — an
+  Image previews as the parent Array's number table until a project previewer
+  claiming `target_type: Image` lands and registers live; a NumPy-only
+  threshold segmentation whose imperfection is genuine (7 objects on 6 cells;
+  the adaptive method honestly worse at 73), every quoted number recomputed
+  from the shipped 120×120 TIFF by the tests; an interactive Review Labels
+  block whose window is a hand-written, dependency-free ES module carried
+  beside the block (`asset_root` from its own `__file__`, served
+  same-origin), used to hand-delete the nine-pixel debris speck — with the
+  interaction-memory toggle named where it lives; a per-cell area DataFrame
+  exported through Save into `data/processed/`; and the ending bridge: Image,
+  the segmentation block, and the previewer go to My Library
+  (`library_contains` judged for all three), which is how tutorial 3's fresh
+  project starts with them. The previewer derives its tier from its own
+  location, so the same file answers as project tier beside `project.yaml`
+  and as the user tier after the move.
 - [#2085] **Core tutorial 6 — *Start Your Own Project*.** The level the first
   five leave missing: the reader has never brought in their own data. The
   tutorial supplies a pretend-"your own" folder inside its project and walks a
