@@ -90,7 +90,14 @@ export function WorkImportOffer() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-6 backdrop-blur-sm"
+      // z-[60], above the Learning Center's own z-50 overlay. Both are
+      // full-screen and the Learning Center mounts second, so at equal
+      // stacking it covered this one — and this is the offer that fires once
+      // when a reader finishes the AI level, so a covered one is a lost one:
+      // reloading does not bring it back. Found by the level-4 end-to-end
+      // session, which hit-tested the centre of this dialog and got the
+      // catalogue behind it.
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/30 p-6 backdrop-blur-sm"
       data-testid="work-import-offer"
     >
       <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-[2rem] border border-stone-200 bg-white p-6 shadow-panel">

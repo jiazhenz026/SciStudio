@@ -900,6 +900,24 @@
       "at": "2026-08-22T10:25:09.270080Z",
       "pattern": "tests/blocks/test_port_subclass.py",
       "reason": "A core workflow-validation defect the e2e session found: two ports declaring the same project type refuse to connect, which makes tutorials 2 and 3 uncompletable. Fixed in the port check using the product's existing same_registered_type."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T10:30:44.679661Z",
+      "pattern": "frontend/src/components/AIChat/TerminalTabs.tsx",
+      "reason": "Two frontend defects the level-4 e2e session found: the replay tab was filed to the Terminal surface by provider rather than by source, and the one-time import offer sat under the Learning Center at equal z-index."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T10:30:44.679679Z",
+      "pattern": "frontend/src/components/LearningCenter.parts/WorkImportOffer.tsx",
+      "reason": "Two frontend defects the level-4 e2e session found: the replay tab was filed to the Terminal surface by provider rather than by source, and the one-time import offer sat under the Learning Center at equal z-index."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T10:30:44.679681Z",
+      "pattern": "frontend/src/components/AIChat/__tests__/TerminalTabs.test.tsx",
+      "reason": "Two frontend defects the level-4 e2e session found: the replay tab was filed to the Terminal surface by provider rather than by source, and the one-time import offer sat under the Learning Center at equal z-index."
     }
   ],
   "session_id": "1a80a328-9d3b-4c71-85f4-581225aedf57",
@@ -927,6 +945,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/blocks/test_port_subclass.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T10:30:44.679687Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/TerminalTabs.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }
