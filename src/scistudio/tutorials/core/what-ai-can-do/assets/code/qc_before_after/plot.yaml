@@ -1,0 +1,15 @@
+# The before/after QC picture the scripted agent scaffolds in core tutorial 4.
+# Bound to the QC filter's annotated output, which carries every sample —
+# kept and flagged alike — so one table can show both populations.
+schema_version: 1
+id: qc_before_after
+title: "QC: kept vs flagged"
+target:
+  workflow_path: workflows/main.yaml
+  workflow_id: main
+  node_id: qc-filter
+  output_port: annotated
+  display_label: QC Outlier Filter
+script:
+  language: python
+  path: render.py

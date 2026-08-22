@@ -1,0 +1,23 @@
+[1m[36m> data/raw/plate_measurements.csv has outliers and some missing reads. Write me a QC block that flags them.[0m
+
+[32m* preview_data(path='data/raw/plate_measurements.csv')[0m
+[2m    48 rows - columns: sample_id, well, cell_count, viability_pct, fluorescence_au[0m
+[2m    S01  A1  5846  89.4  1396.2[0m
+[2m    S02  B1  5100  84.8  1203.2[0m
+[2m    S05  E1  4923  94.4  (empty)[0m
+[2m    ...  S13 reads 9840.0 - an order of magnitude above the plate - and S27 reads 55.0[0m
+
+Two failure modes, then: catastrophic values (a bubble, a failed dispense) and
+missing reads. I will score each sample by its distance from the plate centre in
+robust sigma units - median and MAD, not mean and SD, because a 9840 in a column
+of 1200s drags the mean toward itself and then hides its own accomplice.
+
+One design decision worth stating: the block flags rows, it does not delete them.
+Good QC never throws data away silently.
+
+[32m* scaffold_block(filename='qc_outlier_filter')[0m
+[2m    wrote blocks/qc_outlier_filter.py - registered as 'QC Outlier Filter'[0m
+
+Done. The palette now lists QC Outlier Filter, and the source sits at
+blocks/qc_outlier_filter.py in your project tree - open it, it is short. It is
+your block now, not mine.

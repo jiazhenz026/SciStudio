@@ -1,0 +1,164 @@
+{
+  "branch": "feat/2083-core-tutorial-4",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [
+      "src/scistudio/tutorials/manifest.py",
+      "src/scistudio/tutorials/conditions.py",
+      "src/scistudio/tutorials/session.py",
+      "docs/ai-developer/**"
+    ],
+    "include": [
+      "src/scistudio/tutorials/core/what-ai-can-do/**",
+      "src/scistudio/tutorials/progress.py",
+      "frontend/src/**",
+      "tests/tutorials/**",
+      "tests/api/**",
+      "CHANGELOG.md",
+      "docs/planning/learning-center-levels-checklist.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-21T23:14:07.754670Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T23:14:07.754675Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/learning-center-levels-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2083,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Author core tutorial 4 (what-ai-can-do): declared-fake AI scripted replay with real side effects, provider intro, work-import unlock milestone; replay-tab adoption and provider-intro frontend surfaces; tests; CHANGELOG; checklist row L4. Dispatched by the Learning Center levels manager per docs/planning/learning-center-levels-checklist.md row L4.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2083-core-tutorial-4",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-21T23:14:07.754632Z",
+      "pattern": "src/scistudio/tutorials/core/what-ai-can-do/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-21T23:14:07.754652Z",
+      "pattern": "src/scistudio/tutorials/progress.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-21T23:14:07.754654Z",
+      "pattern": "frontend/src/store/terminalTabsSlice.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-21T23:14:07.754656Z",
+      "pattern": "frontend/src/store/types.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-21T23:14:07.754658Z",
+      "pattern": "frontend/src/App.parts/useTutorialReplayTab.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-21T23:14:07.754659Z",
+      "pattern": "frontend/src/App.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-21T23:14:07.754661Z",
+      "pattern": "frontend/src/components/LearningCenter.parts/WorkImportOffer.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-21T23:14:07.754662Z",
+      "pattern": "frontend/src/components/LearningCenter.parts/ProviderIntro.tsx",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "b5edeb5e-7326-41c5-99b3-246d8df82b3e",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-08-21T23:14:07.754680Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_what_ai_can_do.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T23:14:07.754684Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_progress.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T23:14:07.754686Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorials.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T23:14:07.754687Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/WorkImportOffer.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-21T23:14:07.754688Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/__tests__/useTutorialReplayTab.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

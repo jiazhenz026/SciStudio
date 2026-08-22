@@ -32,8 +32,8 @@ from pathlib import Path
 
 import pytest
 
-from scistudio.tutorials.actions import CopyAction, ReplayAction, WriteAction
-from scistudio.tutorials.conditions import UI_EVENT_NAMES, VOCABULARY
+from scistudio.tutorials.actions import CopyAction, FileAction, ReplayAction, WriteAction, iter_file_actions
+from scistudio.tutorials.conditions import UI_EVENT_NAMES, VOCABULARY, Condition
 from scistudio.tutorials.discovery import (
     DiscoveryEnvironment,
     _unmet_version,
@@ -72,13 +72,33 @@ def _load(directory: Path) -> TutorialManifest:
 
 
 def _actions(manifest: TutorialManifest) -> list[WriteAction | CopyAction | ReplayAction]:
-    """Every action the manifest declares, from bootstrap and from every step."""
+    """Every action the manifest declares: bootstrap, step entry, and triggers.
+
+    Trigger ``do`` lists (#2061) are included for the same reason the manifest
+    validator walks them: pressing the button reaches the project as surely as
+    entering the step does, and tutorial 4 declares nearly everything it writes
+    inside triggers. A declaration site missing here is a hole in every check
+    below.
+    """
     found: list[WriteAction | CopyAction | ReplayAction] = []
     if manifest.bootstrap is not None:
         found.extend(manifest.bootstrap.do)
     for step in manifest.steps:
         found.extend(step.do)
+        if step.trigger is not None:
+            found.extend(step.trigger.do)
     return found
+
+
+def _file_actions(manifest: TutorialManifest) -> list[FileAction]:
+    """Every write and copy the manifest can perform, replay-bound ones included.
+
+    A replay segment's ``do`` (FR-061b) is where tutorial 4 lands almost all of
+    its files, so a check that filters ``_actions`` down to bare ``WriteAction``
+    instances never sees them. ``iter_file_actions`` is the runtime's own
+    flattening, reused so this file cannot disagree with it.
+    """
+    return list(iter_file_actions(_actions(manifest)))
 
 
 def _asset_sources(manifest: TutorialManifest) -> list[str]:
@@ -179,7 +199,7 @@ class TestEveryShippedCoreTutorial:
     def test_every_ui_event_name_is_in_the_closed_set(self, directory: Path) -> None:
         """A name the backend never reports is a step that never advances."""
 
-        def walk(condition, step_id: str) -> None:
+        def walk(condition: Condition, step_id: str) -> None:
             if condition.is_combinator:
                 for operand in condition.operands:
                     walk(operand, step_id)
@@ -211,7 +231,7 @@ class TestEveryShippedCoreTutorial:
     def test_copy_sources_are_directories_and_write_sources_are_files(self, directory: Path) -> None:
         """The two actions are not interchangeable; the mismatch only shows at run time."""
         manifest = _load(directory)
-        for action in _actions(manifest):
+        for action in _file_actions(manifest):
             if isinstance(action, WriteAction):
                 assert manifest.resolve_asset(action.source).is_file(), (
                     f"{manifest.id}: write source {action.source!r} is not a file"
@@ -258,7 +278,7 @@ class TestEveryShippedCoreTutorial:
         nothing, and the step waiting on ``block_registered`` never completes.
         """
         manifest = _load(directory)
-        for action in _actions(manifest):
+        for action in _file_actions(manifest):
             if not isinstance(action, WriteAction):
                 continue
             if not action.destination.startswith("blocks/"):
@@ -286,10 +306,13 @@ class TestEveryShippedCoreTutorial:
         it rather than when it is written.
         """
         manifest = _load(directory)
-        for action in _actions(manifest):
+        for action in _file_actions(manifest):
             if not isinstance(action, WriteAction):
                 continue
             if not action.destination.startswith("plots/"):
+                continue
+            if not action.destination.endswith(".py"):
+                # A plot is a manifest plus a script; only the script is Python.
                 continue
             tree = ast.parse(manifest.resolve_asset(action.source).read_text(encoding="utf-8"))
             renders = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "render"]
@@ -322,21 +345,22 @@ class TestEveryShippedCoreTutorial:
         """
         manifest = _load(directory)
         shipped: set[str] = set()
-        for action in _actions(manifest):
+        for action in _file_actions(manifest):
             if not isinstance(action, WriteAction) or not action.destination.startswith("blocks/"):
                 continue
             tree = ast.parse(manifest.resolve_asset(action.source).read_text(encoding="utf-8"))
             for cls in (node for node in tree.body if isinstance(node, ast.ClassDef)):
                 for node in cls.body:
-                    target = node.target if isinstance(node, ast.AnnAssign) else None
-                    if target is None or not isinstance(target, ast.Name) or target.id != "type_name":
+                    if not isinstance(node, ast.AnnAssign):
+                        continue
+                    if not isinstance(node.target, ast.Name) or node.target.id != "type_name":
                         continue
                     if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
                         shipped.add(node.value.value)
         if not shipped:
             pytest.skip("this tutorial ships no project blocks")
 
-        def walk(condition, step_id: str) -> None:
+        def walk(condition: Condition, step_id: str) -> None:
             if condition.is_combinator:
                 for operand in condition.operands:
                     walk(operand, step_id)
@@ -376,7 +400,7 @@ class TestEveryShippedCoreTutorial:
         placed: set[str] = set()
         configured: set[str] = set()
 
-        def walk(condition, _step_id: str) -> None:
+        def walk(condition: Condition, _step_id: str) -> None:
             if condition.is_combinator:
                 for operand in condition.operands:
                     walk(operand, _step_id)
@@ -421,6 +445,7 @@ def test_every_shipped_tutorial_is_startable_in_this_tree() -> None:
     result = discover_tutorials()
     assert result.tutorials, "discovery found no core tutorials"
     for tutorial in result.tutorials:
+        assert tutorial.manifest is not None, f"core tutorial {tutorial.key.tutorial_id!r} listed without a manifest"
         reason = unmet_requirement(tutorial.manifest, DiscoveryEnvironment())
         assert reason is None, (
             f"core tutorial {tutorial.key.tutorial_id!r} ships in a SciStudio it says it cannot run in: {reason}"

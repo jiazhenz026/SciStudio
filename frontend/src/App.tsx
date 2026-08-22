@@ -43,6 +43,7 @@ import { useCanvasHandlers } from "./App.parts/useCanvasHandlers";
 import { useCanvasReadability } from "./App.parts/useCanvasReadability";
 import { useFileTabsAutosave } from "./App.parts/useFileTabsAutosave";
 import { useLearningCenter } from "./App.parts/useLearningCenter";
+import { useTutorialReplayTab } from "./App.parts/useTutorialReplayTab";
 import { usePromptInput } from "./App.parts/usePromptInput";
 import { useBlockCatalogSync } from "./App.parts/useBlockCatalogSync";
 import { useProjectActions } from "./App.parts/useProjectActions";
@@ -385,6 +386,11 @@ export default function App() {
     openProject,
     closeProject: () => closeCurrentProject({ setCurrentProject, setWorkflow, resetExecution }),
   });
+  /*
+   * ADR-053 FR-061a (#2083) — fold the tutorial's scripted replay tab into
+   * the AI Chat tab strip, and fold it back out when the session lets go.
+   */
+  useTutorialReplayTab();
   useAppKeyboardShortcuts({
     activeFileTab,
     cancelWorkflow,

@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2083] **Core tutorial 4 — *What AI can do*.** A declared-fake AI session:
+  the AI Chat terminal plays a pre-recorded agent transcript, and every claim
+  it makes is matched by a real file landing in the tutorial project before
+  the claim is readable. Over fourteen judged steps the scripted agent answers
+  what SciStudio is, lists the palette, writes a QC outlier-filter block,
+  wires load → QC → summary → save, fails a run on a wrong column name — the
+  reader meets the `KeyError` in the Logs tab, then watches the agent read the
+  same logs and fix its own block — inspects the filtered table, argues a
+  3σ→2σ threshold change whose retained-sample count the reader can verify,
+  scaffolds a before/after plot, and hands three undocumented CSVs to a
+  tutorial-only **AI Block**: a real `AIBlock` subclass (its palette category
+  is inferred from the class hierarchy and cannot be faked) whose canned run
+  returns a typed, validated, lineage-tracked metadata table. Completing this
+  tutorial is now the shipped **work-import milestone**: the ending introduces
+  the five real agent providers (Claude Code, Codex, Kimi Code, and Qoder's
+  two channels — greyed when not set up, never hidden) and then offers, once,
+  to bring the reader's existing work across; skipping names the permanent
+  "Bring in my work" toolbar entry. The scripted replay tab is adopted into
+  the real AI Chat tab strip — same terminal, same tabs, only the byte source
+  differs — and torn down with the session.
+
 - [#2061 #2062 #2063 #2066 #2088 #2089] **The tutorial format can now express
   the designed Learning Center levels 2–6.** A step may declare a `trigger` — a
   button labelled by the manifest whose actions run when the reader presses it,

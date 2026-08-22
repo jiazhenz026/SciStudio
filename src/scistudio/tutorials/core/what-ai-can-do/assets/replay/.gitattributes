@@ -1,0 +1,6 @@
+# Replay segments are terminal byte streams, not text. Their CRLF line
+# endings are what the PTY protocol delivers and what xterm needs to render
+# without stair-stepping; git must never normalise them. The log/ twins are
+# ordinary LF project text and stay under default handling.
+*.txt -text
+log/*.txt text

@@ -1,0 +1,82 @@
+# The workflow as the scripted agent leaves it after beat 7: the QC branch
+# unchanged (threshold already tightened to 2 by the reader in the previous
+# step), plus a second branch that hands the undocumented instrument exports
+# to the tutorial-only AI Block for metadata inference.
+#
+# This file overwrites workflows/main.yaml, which is deliberate (spec edge
+# case: tutorial write actions overwrite; tutorial projects are disposable).
+# The qc-filter threshold is written as 2 so the reader's own change from the
+# tighten-the-threshold step is preserved, not clobbered.
+workflow:
+  id: main
+  version: 1.0.0
+  description: QC branch plus AI metadata inference over the undocumented exports.
+  nodes:
+    - id: load-plate
+      block_type: load_data
+      config:
+        params:
+          core_type: DataFrame
+          path: data/raw/plate_measurements.csv
+      layout:
+        x: 80
+        y: 180
+    - id: qc-filter
+      block_type: qc_outlier_filter
+      config:
+        params:
+          sigma_threshold: 2
+      layout:
+        x: 380
+        y: 180
+    - id: summarize
+      block_type: summarize_metrics
+      config:
+        params: {}
+      layout:
+        x: 680
+        y: 180
+    - id: save-summary
+      block_type: save_data
+      config:
+        params:
+          core_type: DataFrame
+          path: data/processed
+          filename: qc_summary.csv
+          overwrite: true
+      layout:
+        x: 980
+        y: 180
+    - id: load-mystery
+      block_type: load_data
+      config:
+        params:
+          core_type: DataFrame
+          path:
+            - data/raw/undocumented/mmx_007.csv
+            - data/raw/undocumented/mmx_012.csv
+            - data/raw/undocumented/plate2_export.csv
+      layout:
+        x: 80
+        y: 440
+    - id: ai-metadata
+      block_type: tutorial_ai_agent
+      config:
+        params:
+          user_prompt: >-
+            These CSVs arrived with no documentation. Work out what each
+            column is, what unit it uses, and say what the evidence is.
+          provider: claude-code
+          permission_mode: safe
+      layout:
+        x: 440
+        y: 440
+  edges:
+    - source: load-plate:data
+      target: qc-filter:table
+    - source: qc-filter:annotated
+      target: summarize:table
+    - source: summarize:summary
+      target: save-summary:data
+    - source: load-mystery:data
+      target: ai-metadata:data

@@ -1,0 +1,20 @@
+[1m[36m> The run failed.[0m
+
+[32m* get_run_status()[0m
+[2m    load-plate: done - qc-filter: ERROR - summarize: not reached - save-summary: not reached[0m
+[32m* get_block_logs(node='qc-filter')[0m
+[2m    Traceback (most recent call last):[0m
+[2m      File "blocks/qc_outlier_filter.py", line 89, in process_item[0m
+[2m        values = df[METRIC_COLUMN][0m
+[31m    KeyError: 'fluorescence'[0m
+
+That one is mine. The table's column is fluorescence_au - you can see it in the
+header - and I wrote the constant as fluorescence. The run did exactly what it
+should: failed loudly at the broken step and kept the log.
+
+[32m* edit: blocks/qc_outlier_filter.py[0m
+[2m    METRIC_COLUMN = "fluorescence"  ->  METRIC_COLUMN = "fluorescence_au"[0m
+
+One line changed, nothing else touched. This is the loop that matters when you
+work with an agent: it runs, it breaks, it reads the same logs you can read, it
+fixes its own mistake. Press Run again.

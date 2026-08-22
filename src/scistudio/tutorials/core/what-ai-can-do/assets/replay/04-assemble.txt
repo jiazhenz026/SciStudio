@@ -1,0 +1,14 @@
+[1m[36m> Wire it up: load the plate, QC it, summarise what survives, save the summary.[0m
+
+The summary step needs a block too - one row of statistics per metric, computed
+only over the samples QC kept, so the threshold stays visible in the numbers.
+
+[32m* scaffold_block(filename='summarize_metrics')[0m
+[2m    wrote blocks/summarize_metrics.py - registered as 'Summary Stats'[0m
+[32m* write_workflow(path='workflows/main.yaml')[0m
+[2m    4 nodes: load-plate -> qc-filter -> summarize -> save-summary[0m
+[2m    load reads data/raw/plate_measurements.csv - save writes data/processed/qc_summary.csv[0m
+
+Look at the canvas: the graph is there, wired and configured. I set the QC
+threshold to 3 sigma to start - conservative, catches only the catastrophic
+failures. Press Run when you want to see it work.

@@ -1,0 +1,19 @@
+[1m[36m> Is 3 sigma the right threshold?[0m
+
+[32m* inspect_data(node='qc-filter', port='annotated', column='qc_robust_z')[0m
+[2m    robust sigma ~ 87 AU around a median of 1239[0m
+[2m    |z| <= 2 : 40 samples   2 < |z| <= 3 : 4 samples (S10 +2.1, S22 +2.2, S31 -2.1, S42 +2.4)[0m
+[2m    |z| > 3  : 2 samples (S13 +99.2, S27 -13.7)   missing: 2[0m
+
+3 sigma only removes the catastrophic failures. But look at the band between 2
+and 3: four samples sitting 175-210 AU off the plate centre. On a 48-sample
+viability plate that pattern is usually edge drift or a pipetting wobble, not
+biology.
+
+The trade is real and it is yours to make: tighten to 2 sigma and the summary
+statistics get cleaner but you lose four samples of statistical power; stay at 3
+and you keep the n but the suspect wells pull on every mean. For this assay I
+would tighten it.
+
+Select the QC node and change sigma_threshold from 3 to 2, then press Run.
+You should keep 40 of 48.

@@ -24,14 +24,22 @@
  * **This gates nothing.** The toolbar entry is available regardless of
  * progress. The unlock decides only when the product volunteers the offer,
  * never whether the capability can be reached.
+ *
+ * **The offer opens with the provider introduction** (#2083). The milestone
+ * is core tutorial 4 — a scripted agent session that ends promising "the real
+ * agents are one configuration away" — so the first page of this surface is
+ * `ProviderIntro`: the five real agent CLIs, what each is, and what setting
+ * one up takes. Continue leads to the import question; closing at either page
+ * is the same once-only skip.
  */
 
 import { FolderInput, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useAppStore } from "../../store";
 import { BringInMyWorkDialog } from "../BringInMyWorkDialog";
 import { ENTRY_LABEL } from "../BringInMyWorkDialog.parts/copy";
+import { ProviderIntro } from "./ProviderIntro";
 
 export const OFFER_TITLE = "Bring your own work across?";
 
@@ -55,6 +63,17 @@ export function WorkImportOffer() {
 
   const [skipped, setSkipped] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  /*
+   * #2083 — the provider introduction opens the offer. The milestone tutorial
+   * ends promising "the real agents are one configuration away", and this is
+   * where the promise is kept: first who the agents are, then the question of
+   * what they could do with the reader's own work. Continue moves on; closing
+   * the card at either page is the same skip, recorded the same once.
+   */
+  const [introSeen, setIntroSeen] = useState(false);
+  useEffect(() => {
+    if (pending) setIntroSeen(false);
+  }, [pending]);
 
   /*
    * The dialog is rendered here, beside the offer, rather than by reaching into
@@ -74,8 +93,25 @@ export function WorkImportOffer() {
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-6 backdrop-blur-sm"
       data-testid="work-import-offer"
     >
-      <div className="w-full max-w-lg rounded-[2rem] border border-stone-200 bg-white p-6 shadow-panel">
-        {skipped ? (
+      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-[2rem] border border-stone-200 bg-white p-6 shadow-panel">
+        {pending && !skipped && !introSeen ? (
+          <>
+            <div className="flex items-start justify-between gap-4">
+              <ProviderIntro onContinue={() => setIntroSeen(true)} />
+              <button
+                aria-label="Close"
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-ink"
+                onClick={() => {
+                  setSkipped(true);
+                  void dismissWorkImportOffer();
+                }}
+                type="button"
+              >
+                <X aria-hidden="true" className="size-4" />
+              </button>
+            </div>
+          </>
+        ) : skipped ? (
           <>
             <p className="text-sm leading-6 text-stone-700" data-testid="work-import-offer-skipped">
               {OFFER_SKIPPED_MESSAGE}

@@ -21,12 +21,26 @@ import { useAppStore } from "../../store";
 import { resetAppStore } from "../../testUtils";
 import { ENTRY_LABEL } from "../BringInMyWorkDialog.parts/copy";
 import {
+  PROVIDER_INTRO_CHECKING,
+  PROVIDER_INTRO_CONTINUE_LABEL,
+  PROVIDER_INTRO_TITLE,
+} from "../LearningCenter.parts/ProviderIntro";
+import {
   OFFER_ACCEPT_LABEL,
   OFFER_SKIP_LABEL,
   OFFER_TITLE,
   WorkImportOffer,
 } from "../LearningCenter.parts/WorkImportOffer";
 import { Toolbar } from "../Toolbar";
+
+/**
+ * #2083 — the intro's availability probe is a live backend call; the tests
+ * feed it a fixed report (or leave it hanging where the static rendering is
+ * the point — the card must be complete before the probe answers).
+ */
+vi.mock("../../lib/api/agentAvailability", () => ({
+  fetchAgentAvailability: vi.fn(() => new Promise(() => {})),
+}));
 
 vi.mock("../../lib/api/learningCenter", async (importOriginal) => {
   const actual = await importOriginal<typeof LearningCenterModule>();
@@ -87,6 +101,11 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
+/** #2083 — the offer now opens on the provider introduction; step past it. */
+function continueThroughIntro(): void {
+  fireEvent.click(screen.getByRole("button", { name: PROVIDER_INTRO_CONTINUE_LABEL }));
+}
+
 describe("the offer appears exactly when the backend says it is owed", () => {
   it("is presented when the unlock reports it pending", async () => {
     vi.mocked(learningCenterApi.getTutorialUnlock).mockResolvedValue({
@@ -97,6 +116,11 @@ describe("the offer appears exactly when the backend says it is owed", () => {
     render(<WorkImportOffer />);
 
     expect(screen.getByTestId("work-import-offer")).toBeInTheDocument();
+    // #2083 — the provider introduction is the first page; the import
+    // question is behind its Continue.
+    expect(screen.getByText(PROVIDER_INTRO_TITLE)).toBeInTheDocument();
+    expect(screen.queryByText(OFFER_TITLE)).not.toBeInTheDocument();
+    continueThroughIntro();
     expect(screen.getByText(OFFER_TITLE)).toBeInTheDocument();
   });
 
@@ -131,6 +155,7 @@ describe("the offer is answered once (FR-079)", () => {
   it("records the dismissal on the backend when skipped", async () => {
     render(<WorkImportOffer />);
 
+    continueThroughIntro();
     fireEvent.click(screen.getByRole("button", { name: OFFER_SKIP_LABEL }));
 
     await waitFor(() => expect(learningCenterApi.dismissTutorialUnlock).toHaveBeenCalledTimes(1));
@@ -139,6 +164,7 @@ describe("the offer is answered once (FR-079)", () => {
   it("records the dismissal when taken up, so it is not volunteered again", async () => {
     render(<WorkImportOffer />);
 
+    continueThroughIntro();
     fireEvent.click(screen.getByRole("button", { name: OFFER_ACCEPT_LABEL }));
 
     await waitFor(() => expect(learningCenterApi.dismissTutorialUnlock).toHaveBeenCalledTimes(1));
@@ -147,6 +173,7 @@ describe("the offer is answered once (FR-079)", () => {
   it("opens the existing Bring in my work dialog rather than a new surface", async () => {
     render(<WorkImportOffer />);
 
+    continueThroughIntro();
     fireEvent.click(screen.getByRole("button", { name: OFFER_ACCEPT_LABEL }));
 
     expect(await screen.findByTestId("work-import-dialog")).toBeInTheDocument();
@@ -154,6 +181,7 @@ describe("the offer is answered once (FR-079)", () => {
 
   it("keeps no local record of having been shown — the backend owns that", async () => {
     render(<WorkImportOffer />);
+    continueThroughIntro();
     fireEvent.click(screen.getByRole("button", { name: OFFER_SKIP_LABEL }));
     await waitFor(() => expect(learningCenterApi.dismissTutorialUnlock).toHaveBeenCalled());
 
@@ -173,6 +201,7 @@ describe("skipping says where the feature went (FR-081, User Story 5)", () => {
     useAppStore.setState({ learningCenterWorkImportOffer: true });
     render(<WorkImportOffer />);
 
+    continueThroughIntro();
     fireEvent.click(screen.getByRole("button", { name: OFFER_SKIP_LABEL }));
 
     const message = await screen.findByTestId("work-import-offer-skipped");
@@ -186,9 +215,12 @@ describe("skipping says where the feature went (FR-081, User Story 5)", () => {
     useAppStore.setState({ learningCenterWorkImportOffer: true });
     render(<WorkImportOffer />);
 
+    // This is the intro page's close: bailing out before the question is the
+    // same once-only skip, and it still says where the feature lives.
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     expect(await screen.findByTestId("work-import-offer-skipped")).toHaveTextContent(ENTRY_LABEL);
+    await waitFor(() => expect(learningCenterApi.dismissTutorialUnlock).toHaveBeenCalledTimes(1));
   });
 });
 
@@ -299,5 +331,75 @@ describe("nothing is gated on progress (FR-081, SC-011)", () => {
     render(<Toolbar {...toolbarProps()} />);
 
     expect(screen.getByRole("button", { name: ENTRY_LABEL })).toBeInTheDocument();
+  });
+});
+
+describe("the provider introduction (#2083)", () => {
+  beforeEach(() => {
+    useAppStore.setState({ learningCenterWorkImportOffer: true });
+  });
+
+  it("renders complete before the probe answers, and hides the question behind it", () => {
+    render(<WorkImportOffer />);
+
+    // The probe (mocked to hang) must not block the card: the intro's prose
+    // and its checking note are up immediately (FR-035's rule, inherited).
+    expect(screen.getByText(PROVIDER_INTRO_TITLE)).toBeInTheDocument();
+    expect(screen.getByTestId("provider-intro-checking")).toHaveTextContent(
+      PROVIDER_INTRO_CHECKING,
+    );
+    expect(screen.queryByText(OFFER_TITLE)).not.toBeInTheDocument();
+  });
+
+  it("lists every provider the backend reports — greyed when not set up, never hidden", async () => {
+    // The rows come whole from the availability report (ADR-034 FR-020a/b:
+    // no hand-maintained key or label list in the frontend), so the fixture
+    // is the report, and a sixth provider would appear with no code change.
+    const { fetchAgentAvailability } = await import("../../lib/api/agentAvailability");
+    vi.mocked(fetchAgentAvailability).mockResolvedValue({
+      state: "ready",
+      providers: [
+        {
+          key: "provider-a",
+          label: "Provider A",
+          state: "ready",
+          cause: null,
+          next_step: null,
+          session_unsupported_reason: null,
+        },
+        {
+          key: "provider-b",
+          label: "Provider B",
+          state: "not_installed",
+          cause: null,
+          next_step: "Install the `provider-b` executable; SciStudio looked in ~/.local/bin.",
+          session_unsupported_reason: null,
+        },
+      ],
+    });
+
+    render(<WorkImportOffer />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("provider-intro-provider-a")).toHaveTextContent("Provider A"),
+    );
+    expect(screen.getByTestId("provider-intro-provider-a")).toHaveTextContent("ready");
+
+    const other = screen.getByTestId("provider-intro-provider-b");
+    // Greyed, never hidden — the same rule as the work-import dropdown.
+    expect(other).toBeInTheDocument();
+    expect(other.className).toContain("opacity-60");
+    expect(other).toHaveTextContent("not installed");
+    // The configure line is the backend's own guidance, never a local copy.
+    expect(other).toHaveTextContent("SciStudio looked in ~/.local/bin");
+  });
+
+  it("continue leads to the import question; the offer is not yet answered", () => {
+    render(<WorkImportOffer />);
+
+    continueThroughIntro();
+
+    expect(screen.getByText(OFFER_TITLE)).toBeInTheDocument();
+    expect(learningCenterApi.dismissTutorialUnlock).not.toHaveBeenCalled();
   });
 });

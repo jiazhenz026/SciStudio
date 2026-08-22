@@ -1,0 +1,399 @@
+# Core tutorial 4 — "What AI can do" (scenarios doc, 关卡 4).
+#
+# A declared-fake AI session: the terminal plays a pre-recorded agent
+# transcript, and every claim the transcript makes is matched by a real file
+# landing in the project before the claim is readable (FR-061b). The reader
+# spends no tokens and configures no provider — that is the point of the fake —
+# but the blocks, the workflow, the failed run, the fix, the plot and the
+# AI Block output are all real product state, judged by real conditions.
+#
+# Pacing: each step's button appends the next reply to the SAME terminal tab
+# (replay continue_tab, #2089). Conversation-only steps bind a clean-text copy
+# of the reply into data/agent_log/ so the press itself is judgeable
+# (file_exists) and the reader keeps a browsable record; steps whose reply
+# changes the product are judged on the product fact instead.
+#
+# Completing this tutorial is the work-import milestone (FR-079): the ending
+# hands over to the provider introduction and the one-time import offer.
+manifest_version: 1
+id: what-ai-can-do
+title: What AI can do
+summary: >-
+  Watch a scripted AI session drive SciStudio for real: it writes a QC block,
+  wires a workflow, hits an error and fixes itself from the logs, tunes a
+  threshold that changes the science, draws the picture — and then shows what
+  an AI Block is for.
+order: 4
+
+requires:
+  # to_memory() and the table accessors the shipped blocks rely on are stable
+  # from 0.3.1 (ADR-052 §10).
+  scistudio: ">=0.3.1"
+  # Deliberately false: the scripted session exists precisely so no live agent
+  # is needed. The provider introduction at the end is where real agents enter.
+  agent: false
+  packages: []
+
+bootstrap:
+  project_name: What AI Can Do
+  do:
+    # Lands the plate table at data/raw/plate_measurements.csv and the three
+    # undocumented instrument exports under data/raw/undocumented/.
+    - copy:
+        source: assets/data
+        destination: data/raw
+
+steps:
+  - id: welcome
+    title: A session you can trust
+    route_to: ai_chat
+    say: >-
+      This tutorial shows what an AI agent can do in SciStudio — without using
+      your tokens or asking you to configure anything. Honesty first: the
+      session you are about to watch is a recording. The replies are scripted
+      and the terminal accepts no typing. Everything else is real — every file
+      the agent claims to write genuinely lands in this project, and every step
+      is judged against what is actually on disk.
+
+  - id: ask-what-scistudio-is
+    title: Warm up
+    route_to: ai_chat
+    trigger:
+      label: Ask what SciStudio is
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            segments:
+              - id: what-is-scistudio
+                source: assets/replay/01-what-is-scistudio.txt
+                do:
+                  - write:
+                      source: assets/replay/log/01-what-is-scistudio.txt
+                      destination: data/agent_log/01-what-is-scistudio.txt
+    say: >-
+      Press the button to ask the first question. The reply appears in the AI
+      Chat terminal below — and a clean copy of every answer is saved into
+      data/agent_log/ in your project, so the conversation is part of your
+      records too.
+    done_when:
+      file_exists:
+        path: data/agent_log/01-what-is-scistudio.txt
+
+  - id: ask-what-it-can-see
+    title: The agent knows your palette
+    route_to: ai_chat
+    trigger:
+      label: Ask what blocks it can use
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: list-blocks
+                source: assets/replay/02-list-blocks.txt
+                do:
+                  - write:
+                      source: assets/replay/log/02-list-blocks.txt
+                      destination: data/agent_log/02-list-blocks.txt
+    say: >-
+      Everything in the left panel's palette, the agent can also see — and
+      place, wire, and configure. Ask it what it has to work with.
+    done_when:
+      file_exists:
+        path: data/agent_log/02-list-blocks.txt
+
+  # The reply's bound write lands the block source BEFORE the reply is
+  # readable, and the registries re-scan before the trigger reports done
+  # (FR-059a) — so when the transcript says "the palette now lists QC Outlier
+  # Filter", it does. The block it writes carries a planted mistake (a wrong
+  # column constant) that stays invisible until the workflow runs.
+  - id: ask-for-a-qc-block
+    title: The agent writes a block
+    route_to: ai_chat
+    highlight:
+      palette_block:
+        block_type: qc_outlier_filter
+    trigger:
+      label: Ask for a QC filter block
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: qc-block
+                source: assets/replay/03-qc-block.txt
+                do:
+                  - write:
+                      source: assets/code/qc_outlier_filter_broken.py
+                      destination: blocks/qc_outlier_filter.py
+    say: >-
+      Your plate table has outliers and missing reads, and no block in the
+      palette handles that. Ask the agent to write one. When the reply lands,
+      find QC Outlier Filter in the palette and open
+      blocks/qc_outlier_filter.py if you want to read what you just gained.
+    done_when:
+      block_registered:
+        block_type: qc_outlier_filter
+
+  - id: watch-it-assemble
+    title: The agent builds the workflow
+    route_to: canvas
+    trigger:
+      label: Ask it to wire the analysis
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: assemble
+                source: assets/replay/04-assemble.txt
+                do:
+                  - write:
+                      source: assets/code/summarize_metrics.py
+                      destination: blocks/summarize_metrics.py
+                  - write:
+                      source: assets/workflows/main.yaml
+                      destination: workflows/main.yaml
+    say: >-
+      Now ask it to assemble the whole analysis: load the plate, QC it,
+      summarise what survives, save the summary. Watch the canvas — when the
+      agent says the graph is there, it is there.
+    done_when:
+      all:
+        - node_exists:
+            block_type: qc_outlier_filter
+        - node_exists:
+            block_type: summarize_metrics
+        - edge_exists:
+            source_block_type: load_data
+            target_block_type: qc_outlier_filter
+        - edge_exists:
+            source_block_type: qc_outlier_filter
+            target_block_type: summarize_metrics
+        - edge_exists:
+            source_block_type: summarize_metrics
+            target_block_type: save_data
+
+  # The reader meets the break themselves (run_failed, scoped to this step) —
+  # the same principle tutorial 1 uses for its History beat: damage is met,
+  # not announced.
+  - id: run-and-hit-the-wall
+    title: Run it — and watch it break
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      Press Run. The workflow will fail — that is part of the lesson. When it
+      does, open the Logs tab and read the error yourself before asking the
+      agent about it. It is short, and it names exactly what went wrong.
+    done_when:
+      run_failed:
+        since_step_entry: true
+
+  - id: let-it-debug
+    title: The agent reads its own mess
+    route_to: ai_chat
+    trigger:
+      label: Show the agent its failed run
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: debug
+                source: assets/replay/05-debug.txt
+                do:
+                  - write:
+                      source: assets/code/qc_outlier_filter.py
+                      destination: blocks/qc_outlier_filter.py
+                  - write:
+                      source: assets/replay/log/05-debug.txt
+                      destination: data/agent_log/05-debug.txt
+    say: >-
+      You saw the KeyError in the logs — the agent wrote the wrong column name
+      into its own block. Tell it. It reads the same run status and the same
+      logs you just did, finds its mistake, and fixes the block in place. Real
+      agents get things wrong; the ones worth working with debug themselves.
+    done_when:
+      file_exists:
+        path: data/agent_log/05-debug.txt
+
+  - id: run-it-again
+    title: Run it again
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      The block is fixed — same file, one line different. Press Run again and
+      watch the whole graph go green. The summary lands at
+      data/processed/qc_summary.csv; at 3 sigma, 44 of your 48 samples pass QC.
+    done_when:
+      run_succeeded:
+        since_step_entry: true
+
+  # Judged on BOTH halves: the press (the bound log write) and the reader's
+  # own click on the node. The attitude lesson of this level — an agent's
+  # output is something you check — needs the reader's own eyes on the table,
+  # so the agent's summary alone does not advance the step.
+  - id: look-for-yourself
+    title: Check its work yourself
+    route_to: canvas
+    highlight:
+      node:
+        block_type: qc_outlier_filter
+    trigger:
+      label: Ask what the QC'd table looks like
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: inspect
+                source: assets/replay/06-inspect.txt
+                do:
+                  - write:
+                      source: assets/replay/log/06-inspect.txt
+                      destination: data/agent_log/06-inspect.txt
+    say: >-
+      Ask the agent what survived QC — then verify it. Click the QC Outlier
+      Filter node and read the table in the preview: qc_keep says who stayed,
+      qc_reason says why not, and the four flagged rows are exactly the ones
+      you would have caught by eye. Never skip this step in real work.
+    done_when:
+      all:
+        - file_exists:
+            path: data/agent_log/06-inspect.txt
+        - ui_event:
+            name: node_selected
+            block_type: qc_outlier_filter
+
+  # config_equals judges the READER's edit — the agent recommends, the human
+  # decides and types. The value 2 is what the transcript argues for.
+  - id: tighten-the-threshold
+    title: A threshold is a scientific decision
+    route_to: ai_chat
+    highlight:
+      node:
+        block_type: qc_outlier_filter
+    trigger:
+      label: Ask whether 3 sigma is right
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: threshold
+                source: assets/replay/07-threshold.txt
+                do:
+                  - write:
+                      source: assets/replay/log/07-threshold.txt
+                      destination: data/agent_log/07-threshold.txt
+    say: >-
+      Ask the agent whether 3 sigma is the right cut. It will show you four
+      samples sitting just outside 2 sigma — plate drift, most likely — and
+      explain the trade: tighter statistics against lost samples. The decision
+      is yours to make, not its: select the QC node and change sigma_threshold
+      from 3 to 2 in its settings.
+    done_when:
+      all:
+        - file_exists:
+            path: data/agent_log/07-threshold.txt
+        - config_equals:
+            block_type: qc_outlier_filter
+            key: sigma_threshold
+            value: 2
+
+  - id: run-at-two-sigma
+    title: Watch the number change
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      Press Run once more. The QC now keeps 40 of 48 samples — the four drift
+      wells joined the discard pile, and every mean in
+      data/processed/qc_summary.csv moved a little. That is what a QC
+      threshold is: not a magic number, a decision with consequences you can
+      read in the output.
+    done_when:
+      run_succeeded:
+        since_step_entry: true
+
+  - id: plot-the-cut
+    title: The picture of the decision
+    route_to: ai_chat
+    highlight:
+      plot_card:
+        plot_id: qc_before_after
+    trigger:
+      label: Ask for a before/after picture
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: plot
+                source: assets/replay/08-plot.txt
+                do:
+                  - write:
+                      source: assets/code/qc_before_after/plot.yaml
+                      destination: plots/qc_before_after/plot.yaml
+                  - write:
+                      source: assets/code/qc_before_after/render.py
+                      destination: plots/qc_before_after/render.py
+    say: >-
+      Ask for the before/after picture. The agent scaffolds a plot bound to
+      the QC block's output — because the block flags rather than deletes, one
+      table still holds the whole plate. Open the Plots tab and press Run on
+      the qc_before_after card to draw it.
+    done_when:
+      plot_rendered:
+        plot_id: qc_before_after
+
+  # The AI Block beat. The tutorial-only block is a real AIBlock subclass —
+  # the palette infers its category by walking the class hierarchy, so the
+  # only way to look like an AI block is to be one — with a canned run, and
+  # the transcript says so in as many words.
+  - id: one-more-trick
+    title: Chat answers, AI Block data
+    route_to: ai_chat
+    highlight: run_button
+    trigger:
+      label: Ask about the undocumented CSVs
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: ai-block
+                source: assets/replay/09-ai-block.txt
+                do:
+                  - write:
+                      source: assets/code/tutorial_ai_agent.py
+                      destination: blocks/tutorial_ai_agent.py
+                  - write:
+                      source: assets/workflows/main-with-metadata.yaml
+                      destination: workflows/main.yaml
+    say: >-
+      One real lab problem to finish: data/raw/undocumented holds three CSVs
+      nobody labelled. Ask the agent. It could answer in chat — but chat
+      produces prose, and an AI Block produces a typed, validated table that
+      enters your lineage. It adds one to the canvas (a tutorial-only variant
+      with prepared answers — the transcript is honest about that). Press Run,
+      then click the ai-metadata node and read what each column turned out to
+      be.
+    done_when:
+      all:
+        - node_exists:
+            block_type: tutorial_ai_agent
+        - run_succeeded:
+            block_type: tutorial_ai_agent
+            since_step_entry: true
+
+  - id: where-the-real-agents-live
+    title: The real ones are one config away
+    say: >-
+      That was the whole act — a recording, but nothing about your project is
+      fake: the two blocks the agent wrote, the workflow, the failed run and
+      its fix, the summary table, the plot, and the conversation log are all
+      here to keep. A live agent does everything you watched, on your own
+      data, in this same terminal. When you press Continue, SciStudio will
+      introduce the agent providers it can work with and offer to bring your
+      existing analysis across — and if now is not the moment, that offer
+      stays in the toolbar permanently under "Bring in my work".

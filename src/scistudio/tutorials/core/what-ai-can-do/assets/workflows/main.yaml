@@ -1,0 +1,55 @@
+# The workflow the scripted agent assembles in core tutorial 4, beat 2:
+# load -> QC outlier filter -> summary stats -> save. Written into the
+# tutorial project's workflows/main.yaml by a replay segment, so the canvas
+# gains these nodes at the moment the transcript claims them (FR-061b).
+#
+# Paths are project-relative on purpose: workflow runs execute in a worker
+# whose working directory is the project root (engine/runners/local.py), so
+# the same file works wherever the tutorial project lives.
+workflow:
+  id: main
+  version: 1.0.0
+  description: QC-flag the plate measurements, then summarise what survived.
+  nodes:
+    - id: load-plate
+      block_type: load_data
+      config:
+        params:
+          core_type: DataFrame
+          path: data/raw/plate_measurements.csv
+      layout:
+        x: 80
+        y: 180
+    - id: qc-filter
+      block_type: qc_outlier_filter
+      config:
+        params:
+          sigma_threshold: 3
+      layout:
+        x: 380
+        y: 180
+    - id: summarize
+      block_type: summarize_metrics
+      config:
+        params: {}
+      layout:
+        x: 680
+        y: 180
+    - id: save-summary
+      block_type: save_data
+      config:
+        params:
+          core_type: DataFrame
+          path: data/processed
+          filename: qc_summary.csv
+          overwrite: true
+      layout:
+        x: 980
+        y: 180
+  edges:
+    - source: load-plate:data
+      target: qc-filter:table
+    - source: qc-filter:annotated
+      target: summarize:table
+    - source: summarize:summary
+      target: save-summary:data

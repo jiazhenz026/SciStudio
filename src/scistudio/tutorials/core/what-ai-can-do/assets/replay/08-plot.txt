@@ -1,0 +1,14 @@
+[1m[36m> Show me the plate before and after the cut.[0m
+
+[32m* list_plot_targets()[0m
+[2m    qc-filter:annotated (DataFrame, 48 rows) - latest run output available[0m
+[32m* scaffold_plot(plot_id='qc_before_after', target='qc-filter:annotated')[0m
+[2m    wrote plots/qc_before_after/plot.yaml and plots/qc_before_after/render.py[0m
+
+The plot draws every sample's robust z-score - kept samples as dots, flagged
+ones as crosses, with the 2 and 3 sigma lines drawn in. Because the QC block
+flags instead of deleting, one table still holds the whole plate, which is what
+lets a single picture show before and after.
+
+Open the Plots tab and press Run on the qc_before_after card. The render script
+is plots/qc_before_after/render.py - ordinary matplotlib you can edit.

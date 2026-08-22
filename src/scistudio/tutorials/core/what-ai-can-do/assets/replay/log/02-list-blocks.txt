@@ -1,0 +1,17 @@
+> What blocks do you have to work with?
+
+* list_blocks()
+    load_data              Load               read a file into a typed data object
+    save_data              Save               write a typed data object to a file
+    ai.agent               AI Agent           hand a task to an agent CLI in a terminal tab
+    code_block             Code Block         run your own script as a step
+    app_block              App Block          launch an external application on the data
+    subworkflow_block      Sub-Workflow       nest one workflow inside another
+    datarouter_block       Data Router        route collection items interactively
+    mergecollection_block  Merge Collection   merge several inputs into one collection
+    paireditor_block       Pair Editor        pair up items across two collections
+
+Nine, in this project: the core palette. Everything you can drag out of the left
+panel, I can also place, wire, and configure - and when your project defines new
+blocks of its own, those show up in this list too. That matters in a moment,
+because the block your data needs does not exist yet.
