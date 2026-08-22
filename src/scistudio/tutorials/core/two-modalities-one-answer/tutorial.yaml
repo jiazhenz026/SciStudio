@@ -211,11 +211,12 @@ steps:
       that is the order the slides were loaded into the scanner. The workbook
       reads S01, S05, S09, because the sequencing core sorted by section
       label. Every pair is wrong. Drag the rows in one list until each row
-      holds the same section on both sides, then Apply. Before you do, tick
-      "Remember my choice and skip this dialog" — the same interaction memory
-      you met last level — so the following runs do not ask again. It is keyed
-      to these exact items, so the moment you point it at a different file it
-      will ask again, which is the behaviour you want.
+      holds the same section on both sides, then press Confirm. (The window's
+      two buttons are Cancel and Confirm; Confirm is the one that hands your
+      pairing back to the run.) The block also remembers: its Config panel has
+      "Remember my choice and skip this dialog", the same interaction memory
+      you met last level, and it is keyed to these exact items — point it at a
+      different file and it asks again, which is the behaviour you want.
     done_when:
       interaction_completed:
         block_type: paireditor_block
@@ -250,8 +251,8 @@ steps:
       node:
         block_type: segment_cells
     say: >-
-      Before you trust it on a new specimen, read it. Open the Segment Cells
-      node's menu and choose View source. The whole block is there — the
+      Before you trust it on a new specimen, read it. Select the Segment Cells
+      node, then press View source in the toolbar. The whole block is there — the
       threshold, the flood fill, every line. That view works for any block in
       the product: core, package, or your own. There are no black boxes here;
       if something is deciding part of your result, you can read the decision.
@@ -414,8 +415,8 @@ steps:
       You are on batch-2 now, and the workflow came with you — same blocks,
       same wiring, same remembered pairing. Select the counts Load block,
       Browse, and pick data/raw/run2_counts.xlsx. Press Run. Pair Editor opens
-      again: different file, different items, so the remembered decision does
-      not apply — line the sections up once more and Apply. Then re-render the
+      again: different file, different items, so a remembered decision would
+      not apply — line the sections up once more and Confirm. Then re-render the
       plot. The clusters are fourteen, eight and five, and one section has no
       third cluster at all. Nothing broke and nothing errored; the answer is
       simply wrong. In this run the two housekeeping genes soaked up a wildly
@@ -475,7 +476,7 @@ steps:
     say: >-
       That stale figure is not a bug, and it is worth understanding before it
       costs you a day. Git version-controls your project's FILES, and a new
-      project's .gitignore excludes two directories on purpose: data/, because
+      project's .gitignore leaves two of them out on purpose: data/, because
       results are large and derived, and .scistudio/, where plot images and
       run state live. So switching branches brought the recipe back and could
       not bring the results back — they were never in there. Press Run, then

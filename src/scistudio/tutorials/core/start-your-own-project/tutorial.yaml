@@ -71,10 +71,11 @@ steps:
     say: >-
       data/ holds four kinds of place. data/raw is yours: files go in here.
       data/processed is yours too: results you decide to keep land here.
-      data/zarr, data/parquet, and data/artifacts are the system's stores —
-      named for how a payload is persisted, filled during runs, not for you.
-      And data/exchange is where files are handed to software outside
-      SciStudio. You will touch each of them in the next steps.
+      data/zarr, data/parquet, and data/artifacts are the system's stores,
+      named for how a payload is persisted rather than for what it means. A
+      run fills data/zarr as blocks hand data along; the other two hold what a
+      Save block is pointed at. None of the three is a folder you tend. And
+      data/exchange is where files are handed to software outside SciStudio.
 
   # The import beat. The trigger is what makes it real rather than narrated:
   # the reader presses the button and files appear in data/raw — the same
@@ -289,9 +290,10 @@ steps:
       That figure is not in your project. Plots live in the preview cache
       under .scistudio/previews/, and the next run overwrites them — they do
       not travel with the project, and version control never sees them.
-      Export is the only way a figure survives: press Export on the plot card
-      and save it somewhere of yours. We cannot check this one for you —
-      continue when your figure is safe.
+      Saving it out is the only way a figure survives: click the plot card to
+      bring the figure up in the Preview pane on the right, pick a format, and
+      press Save. It lands wherever you choose, outside the cache. We cannot
+      check this one for you — continue when your figure is safe.
 
   - id: your-own-project
     title: Done

@@ -39,6 +39,7 @@ from scistudio.tutorials.manifest import (
     load_schema,
     parse_manifest,
 )
+from tests.helpers import link_to_directory
 
 from .conftest import MINIMAL_MANIFEST, write_tutorial
 
@@ -529,13 +530,12 @@ def test_symlinked_asset_escape_is_rejected_when_the_directory_is_read(tmp_path:
     data["steps"][0]["do"] = [{"write": {"source": "assets/link/evil.py", "destination": "notes.py"}}]
     directory = write_tutorial(tmp_path / "linky", data)
     (directory / "assets").mkdir(exist_ok=True)
-    try:
-        (directory / "assets" / "link").symlink_to(outside, target_is_directory=True)
-    except (OSError, NotImplementedError):
-        # Capability probe, not a platform skip: on Windows, creating a
-        # symlink needs Developer Mode or elevation; with either granted,
-        # this test runs instead of skipping (#2075).
-        pytest.skip("symlink creation is not permitted in this environment")
+    # #2075: a real symlink needs Developer Mode or elevation on Windows, so
+    # the helper falls back to a directory junction and only skips when the OS
+    # refuses both. The escape being tested is a directory link, and a junction
+    # is one — skipping here would leave the containment rule unexercised on
+    # the platform most likely to have a link the validator must refuse.
+    link_to_directory(directory / "assets" / "link", outside)
     with pytest.raises(ManifestValidationError) as excinfo:
         load_manifest(directory, source_kind=TutorialSourceKind.CORE)
     assert "symbolic link" in str(excinfo.value)
