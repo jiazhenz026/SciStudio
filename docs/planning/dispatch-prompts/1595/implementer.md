@@ -47,6 +47,7 @@ Read and follow:
 You own implementation edits only in:
 
 - `src/scistudio/engine/resources.py`
+- `src/scistudio/engine/events.py` (only the stale ResourceManager routing row)
 - `src/scistudio/engine/scheduler/**`
 - `src/scistudio/engine/runners/process_handle.py`
 - `src/scistudio/api/runtime/__init__.py`
@@ -57,6 +58,9 @@ You own implementation edits only in:
 - `tests/engine/test_process_handle.py`
 - `tests/engine/test_local_runner.py`
 - `tests/test_import_coverage.py`
+- `tests/api/test_runtime_host_safety.py`
+- `.workflow/records/1595-impl-host-safety-runtime.json` (branch-local gate
+  evidence only; initialize and update it solely to satisfy repository hooks)
 - `docs/architecture/ARCHITECTURE.md`
 - `docs/architecture/PROJECT_TREE.md`
 - `docs/package-development/blocks.md`
@@ -110,9 +114,16 @@ reason. Do not edit it before manager approval.
 - Cover explicit `1` and greater-than-255 configurations.
 - Cover memory thresholds, wait reasons, retry, idempotent release, and every
   terminal/launch-failure path named by the addendum.
+- Cover `ApiRuntime` default, explicit override, and invalid configuration
+  without changing unrelated runtime components.
 - Run focused tests with `--timeout=60`.
 - Run `ruff check`/`ruff format --check` on changed Python paths if available.
 - Report exact commands and results. The manager owns final gate reconciliation.
+- Before committing, initialize the authorized branch-local gate ledger for
+  `fix/1595-host-safety-implementation`, record the assigned implementation,
+  documentation, tests, and protected-path labels, and let the normal commit
+  hooks validate it. Do not bypass hooks. The manager will retain this ledger
+  as dispatch evidence and reconcile the final PR through the manager ledger.
 
 ## 7. Output Required
 

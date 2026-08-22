@@ -64,6 +64,36 @@
       "tool_versions": {
         "ruff": "0.15.15"
       }
+    },
+    {
+      "at": "2026-08-22T02:29:25.364705Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d82883a8bc128c7e7124ccebb010668e008274471f0d7a8160618d4e785f4b2e",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T02:39:25.399538Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": null,
+      "input_fingerprint": "sha256:a712b645f2570bd2fbb5444ebb0eb1d663173ebc663292de02196566d723ad2c",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -522,6 +552,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:39:25.566341Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:39:25.632245Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:39:25.698091Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:39:25.788701Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:39:25.858122Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:39:25.931072Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:39:26.000054Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:39:26.070960Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:39:26.136153Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:39:26.215537Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:39:26.293243Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -536,12 +654,17 @@
   "observed_diff": {
     "base": "origin/main",
     "base_sha": "ed47cafee",
-    "changed_files": [],
-    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "changed_files": [
+      ".workflow/records/1595-docs-1595-adr022-addendum1-host-safety.json",
+      "docs/adr/ADR-022-addendum1.md",
+      "docs/planning/1595-host-safety-implementation-checklist.md",
+      "docs/planning/dispatch-prompts/1595/implementer.md"
+    ],
+    "diff_fingerprint": "sha256:bbf719939bcce8fad8bb6281e54a9bd4db9bc7b2eba97ce86bc0a26e0e4737fc",
     "head": "HEAD",
-    "head_sha": "ed47cafee",
+    "head_sha": "3118790a4",
     "surfaces": {
-      "docs": 0,
+      "docs": 3,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
@@ -549,7 +672,7 @@
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 0,
+      "sentrux": 1,
       "test": 0,
       "workflow_ci": 0
     }
@@ -599,6 +722,14 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-08-22T02:39:26.293339Z",
+      "diff_fingerprint": "sha256:bbf719939bcce8fad8bb6281e54a9bd4db9bc7b2eba97ce86bc0a26e0e4737fc",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
     }
   ],
   "record_id": "1595-docs-1595-adr022-addendum1-host-safety",
@@ -608,6 +739,12 @@
       "applied_at": null,
       "applied_by": null,
       "name": "admin-approved:architecture-doc"
+    },
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
     }
   ],
   "required_obligations": {
@@ -615,7 +752,8 @@
     "checks": [
       "format_check",
       "full_audit",
-      "lint_format"
+      "lint_format",
+      "semantic_dup"
     ],
     "docs": [],
     "guards": [
@@ -749,6 +887,24 @@
       "at": "2026-08-22T02:28:15.933742Z",
       "pattern": "tests/engine/test_local_runner.py",
       "reason": "ProcessHandle resource_request removal requires updating stale LocalRunner test constructions discovered during dispatch preflight."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:44:34.973909Z",
+      "pattern": "tests/api/test_runtime_host_safety.py",
+      "reason": "ApiRuntime exposes the global concurrency configuration and needs focused construction/default/environment validation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:53:06.933715Z",
+      "pattern": "src/scistudio/engine/events.py",
+      "reason": "Current engine event-routing comment still claims removed ResourceManager terminal-event allocation release."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T03:00:10.484231Z",
+      "pattern": ".workflow/records/1595-impl-host-safety-runtime.json",
+      "reason": "Dispatched implementer needs a branch-local gate ledger so repository commit hooks can validate its isolated branch without bypass."
     }
   ],
   "session_id": "bddad3d7-7f6c-4c58-8e78-8d7d161c68d6",
@@ -832,6 +988,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/engine/test_local_runner.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T02:44:34.973933Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_host_safety.py",
       "rationale": null,
       "verified_in_diff": null
     }

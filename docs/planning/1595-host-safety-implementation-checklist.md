@@ -43,6 +43,9 @@ language_source: en
   - remote-runner resource profiles;
   - UI changes and browser e2e;
   - automatic cancellation of running work under memory pressure.
+- Protected paths:
+  - `src/scistudio/engine/**`; owner authorized complete implementation and the
+    final PR requires `admin-approved:core-change`.
 - Deferred work: N/A. Any newly discovered deferral requires a tracked issue.
 
 ## 3. Conventions
@@ -96,6 +99,8 @@ language_source: en
 - [ ] Scheduler integration tests cover 256 READY blocks, shared runtime
   permits, retry, and success/error/cancel/launch-failure release paths.
 - [ ] Process-handle and import-coverage tests reflect removed contracts.
+- [ ] API runtime tests cover default, explicit override, and invalid global
+  concurrency configuration.
 - [ ] Relevant existing engine tests pass with a timeout.
 
 ### 6.3 Documentation
@@ -134,6 +139,9 @@ language_source: en
 |---|---|---|---|---|
 | 2026-08-21 | manager | Canonical multi-agent flow normally opens an umbrella PR, but the owner requires one public PR. | Use one implementer worktree and keep the manager branch as the sole final PR branch. | N/A |
 | 2026-08-21 | I1 | Removing `ProcessHandle.resource_request` affects two stale constructors in `tests/engine/test_local_runner.py`, outside the initial write set. | Manager amended the gate and dispatch prompt before implementation edits. | `#1595` |
+| 2026-08-21 | manager | Incremental review found the runtime option was initially placed on `LogBroadcaster` instead of `ApiRuntime`. | Correct the ownership boundary and add focused `ApiRuntime` construction tests. | `tests/api/test_runtime_host_safety.py` |
+| 2026-08-21 | I1 | `engine/events.py` still routed terminal events to the removed CPU/GPU allocation release contract. | Manager added the single stale routing row to scope and recorded the core-change label requirement. | `src/scistudio/engine/events.py` |
+| 2026-08-21 | I1 | The commit hook could not discover the manager ledger because gate ledgers are branch-scoped. | Manager authorized a separate implementer ledger, without hook bypass, and added it to final integration scope. | `.workflow/records/1595-impl-host-safety-runtime.json` |
 
 ## 10. Final Readiness
 
