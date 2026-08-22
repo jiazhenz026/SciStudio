@@ -41,7 +41,10 @@ def mirror_repo(tmp_path: Path) -> Path:
     (repo / "src/scistudio/qa/governance").mkdir(parents=True)
     (repo / "tests/qa").mkdir(parents=True)
     (repo / "tests/core").mkdir(parents=True)
+    (repo / "src/scistudio/qa/a.py").write_text("x = 1\n", encoding="utf-8")
+    (repo / "src/scistudio/qa/governance/x.py").write_text("x = 1\n", encoding="utf-8")
     (repo / "tests/qa/test_gate_record.py").write_text("def test_gate(): ...\n", encoding="utf-8")
+    (repo / "tests/qa/test_a.py").write_text("def test_a(): ...\n", encoding="utf-8")
     (repo / "tests/core/conftest.py").write_text("\n", encoding="utf-8")
     (repo / "tests/test_version.py").write_text("def test_v(): ...\n", encoding="utf-8")
     _git(repo, "init", "-q")
@@ -160,6 +163,67 @@ def test_type_variant_covers_only_source_files(mirror_repo: Path) -> None:
     )
 
     assert command == ("mypy", "src/scistudio/qa/a.py", "--ignore-missing-imports")
+
+
+@pytest.mark.parametrize(
+    ("check_name", "deleted_path"),
+    [
+        pytest.param("lint_format", "tests/qa/test_deleted.py", id="ruff-check"),
+        pytest.param("format_check", "tests/qa/test_deleted.py", id="ruff-format"),
+        pytest.param("type_check", "src/scistudio/qa/deleted.py", id="mypy"),
+    ],
+)
+def test_deleted_only_python_files_fall_back_to_repo_scope(
+    mirror_repo: Path,
+    check_name: str,
+    deleted_path: str,
+) -> None:
+    assert (
+        diff_scoped_command(
+            CHECK_CATALOG[check_name],
+            repo_root=mirror_repo,
+            changed_files=[deleted_path],
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    ("check_name", "deleted_path", "expected"),
+    [
+        pytest.param(
+            "lint_format",
+            "tests/qa/test_deleted.py",
+            ("ruff", "check", "src/scistudio/qa/a.py"),
+            id="ruff-check",
+        ),
+        pytest.param(
+            "format_check",
+            "tests/qa/test_deleted.py",
+            ("ruff", "format", "src/scistudio/qa/a.py"),
+            id="ruff-format",
+        ),
+        pytest.param(
+            "type_check",
+            "src/scistudio/qa/deleted.py",
+            ("mypy", "src/scistudio/qa/a.py", "--ignore-missing-imports"),
+            id="mypy",
+        ),
+    ],
+)
+def test_mixed_existing_and_deleted_python_files_use_only_existing_targets(
+    mirror_repo: Path,
+    check_name: str,
+    deleted_path: str,
+    expected: tuple[str, ...],
+) -> None:
+    command = diff_scoped_command(
+        CHECK_CATALOG[check_name],
+        repo_root=mirror_repo,
+        changed_files=[deleted_path, "src/scistudio/qa/a.py"],
+    )
+
+    assert command == expected
 
 
 def test_test_variant_disables_the_coverage_floor_and_names_targets(mirror_repo: Path) -> None:
