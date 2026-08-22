@@ -105,7 +105,17 @@ export function useLearningCenter({
    * a project refreshes the project list and the block catalogue and would
    * otherwise re-trigger this effect before `currentProjectId` has caught up.
    */
-  const tutorialProjectId = useAppStore((state) => state.learningCenterSession?.project_id ?? null);
+  /*
+   * Only a live session moves the window. The backend keeps an ended session
+   * as the active record with status `complete` or `error`, so the session
+   * adopted at start-up can be one that finished long ago (#2079) — opening
+   * its project then would resurrect a workspace the lesson is done with.
+   */
+  const tutorialProjectId = useAppStore((state) =>
+    state.learningCenterSession?.status === "active"
+      ? (state.learningCenterSession.project_id ?? null)
+      : null,
+  );
   const currentProjectId = useAppStore((state) => state.currentProject?.id ?? null);
   const openingTutorialProject = useRef<string | null>(null);
 
@@ -171,23 +181,48 @@ export function useLearningCenter({
    * FR-079 — when a tutorial finishes, ask whether the product should now
    * volunteer the work-import offer.
    *
-   * The ref only stops the same completion asking twice; it is not a record of
-   * whether the offer has been shown. That question has one owner, and it is
-   * the backend: `GET /unlock` answers it, and a second copy here would be the
-   * thing that makes a once-only offer appear twice.
+   * A completion is only news when this app run watched the tutorial run.
+   * The backend keeps an ended session as the active record with status
+   * `complete` rather than erasing it (see `tutorials/session.py`), so every
+   * launch adopts the last finished tutorial as a session that is complete
+   * already — through the catalogue fetch or through the active-session fetch,
+   * whichever answers first. Treating that record as a fresh finish is the
+   * #2079 bug: the Learning Center opened — and the open project closed — on
+   * every restart. The reaction below therefore fires only for a session this
+   * app run first saw in a non-complete state. That test is deliberately
+   * indifferent to which start-up request answers first: an earlier version
+   * classified the stale record off the first catalogue load, and a session
+   * adopted by the faster active-session request slipped past the guard before
+   * the catalogue arrived (PR #2092 review). A finish that happened while the
+   * frontend was disconnected still lands here, because the session was seen
+   * running before the disconnect.
+   *
+   * The `lastCompletionAsked` ref only stops the same completion asking twice;
+   * it is not a record of whether the offer has been shown. That question has
+   * one owner, and it is the backend: `GET /unlock` answers it, and a second
+   * copy here would be the thing that makes a once-only offer appear twice.
    */
   const checkWorkImportOffer = useAppStore((state) => state.checkWorkImportOffer);
-  const completedTutorialKey = useAppStore((state) => {
+  const tutorialSessionKey = useAppStore((state) => {
     const active = state.learningCenterSession;
-    if (!active || active.status !== "complete") return null;
+    if (!active) return null;
     return `${active.source_kind}:${active.source_id}:${active.tutorial_id}`;
   });
+  const tutorialSessionComplete = useAppStore(
+    (state) => state.learningCenterSession?.status === "complete",
+  );
+  const seenRunningTutorial = useRef<string | null>(null);
   const lastCompletionAsked = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!completedTutorialKey) return;
-    if (lastCompletionAsked.current === completedTutorialKey) return;
-    lastCompletionAsked.current = completedTutorialKey;
+    if (!tutorialSessionKey) return;
+    if (!tutorialSessionComplete) {
+      seenRunningTutorial.current = tutorialSessionKey;
+      return;
+    }
+    if (lastCompletionAsked.current === tutorialSessionKey) return;
+    if (seenRunningTutorial.current !== tutorialSessionKey) return;
+    lastCompletionAsked.current = tutorialSessionKey;
     void checkWorkImportOffer();
     /*
      * Finishing lands in the Learning Center rather than in a card saying so.
@@ -200,7 +235,13 @@ export function useLearningCenter({
     // ...and out of the tutorial's project, before it looks like somewhere to
     // keep working. See `closeProject` above.
     closeProject();
-  }, [completedTutorialKey, checkWorkImportOffer, openLearningCenter, closeProject]);
+  }, [
+    tutorialSessionKey,
+    tutorialSessionComplete,
+    checkWorkImportOffer,
+    openLearningCenter,
+    closeProject,
+  ]);
 
   useEffect(() => {
     if (!tutorialStepKey || !tutorialStepRoute) return;
