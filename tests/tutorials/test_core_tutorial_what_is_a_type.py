@@ -262,11 +262,24 @@ def test_the_shipped_tiff_matches_its_recorded_recipe() -> None:
 
 
 def test_the_loader_reads_the_tiff_as_an_image(assets: dict[str, ModuleType]) -> None:
+    """The hand-written baseline reader agrees byte-for-byte with tifffile.
+
+    Core forbids ``import tifffile`` under ``src/scistudio`` (the decoder
+    belongs to imaging packages — ``test_version_alignment`` pins it), so the
+    shipped loader reads the TIFF contract itself with the standard library.
+    tifffile is a dev-extra here, which makes it this test's independent
+    referee: both readers must produce the same pixels.
+    """
+    import tifffile
+
     image = _shipped_image(assets)
     assert isinstance(image, assets["image"].Image)
     assert image.axes == ["y", "x"]
     pixels = image.to_memory()
     assert pixels.shape == _SHAPE and pixels.dtype == np.uint8
+    np.testing.assert_array_equal(pixels, np.asarray(tifffile.imread(ASSETS / "data" / "cells.tif")))
+    loader_source = (ASSETS / "code" / "load_tiff_image.py").read_text(encoding="utf-8")
+    assert "tifffile" not in loader_source, "the shipped loader must not lean on the dev-only decoder"
 
 
 def test_the_loader_declares_exactly_the_missing_capability(assets: dict[str, ModuleType]) -> None:
@@ -280,13 +293,26 @@ def test_the_loader_declares_exactly_the_missing_capability(assets: dict[str, Mo
     assert set(capability.extensions) == {".tif", ".tiff"}
 
 
-def test_the_loader_refuses_a_stack(tmp_path: Path, assets: dict[str, ModuleType]) -> None:
+def test_the_loader_refuses_what_it_does_not_read(tmp_path: Path, assets: dict[str, ModuleType]) -> None:
+    """Outside the narrow contract, the reader refuses by name instead of guessing."""
     import tifffile
+
+    loader = assets["loader"].LoadTiffImage()
 
     stack = tmp_path / "stack.tif"
     tifffile.imwrite(stack, np.zeros((3, 8, 8), dtype=np.uint8), photometric="minisblack")
-    with pytest.raises(ValueError, match="2-D"):
-        assets["loader"].LoadTiffImage().load_file(stack, {})
+    with pytest.raises(ValueError, match="single 2-D plane"):
+        loader.load_file(stack, {})
+
+    compressed = tmp_path / "compressed.tif"
+    tifffile.imwrite(compressed, np.zeros((8, 8), dtype=np.uint8), compression="zlib")
+    with pytest.raises(ValueError, match="uncompressed"):
+        loader.load_file(compressed, {})
+
+    not_tiff = tmp_path / "notes.tif"
+    not_tiff.write_bytes(b"just some text pretending")
+    with pytest.raises(ValueError, match="byte-order mark"):
+        loader.load_file(not_tiff, {})
 
 
 def test_the_threshold_run_finds_seven_objects_six_cells(assets: dict[str, ModuleType]) -> None:

@@ -166,13 +166,15 @@ steps:
             source: assets/code/load_tiff_image.py
             destination: blocks/load_tiff_image.py
     say: >-
-      Capabilities live in IO blocks. Press the button and we will write one
-      for you: blocks/load_tiff_image.py, an IOBlock whose three declared
-      attributes — Image, "tiff", (.tif, .tiff) — register exactly the
-      capability the error named. Open the file if you are curious; the
-      reading is one tifffile line, the declaration is the lesson. Then press
-      Run again. Your Load block has not changed — it asks the registry for
-      "Image from .tif", and now there is an answer.
+      Capabilities live in IO blocks — and the error was honest: core
+      SciStudio ships no TIFF reading at all. Press the button and we will
+      write the missing piece: blocks/load_tiff_image.py, an IOBlock whose
+      three declared attributes — Image, "tiff", (.tif, .tiff) — register
+      exactly the capability the error named. Open the file if you are
+      curious: it even reads the TIFF bytes itself, because a plain TIFF is
+      just a small contract and sixty lines of standard library honour it.
+      Then press Run again. Your Load block has not changed — it asks the
+      registry for "Image from .tif", and now there is an answer.
     done_when:
       run_succeeded:
         since_step_entry: true

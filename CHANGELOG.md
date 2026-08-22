@@ -16,7 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `ui_color` / `ui_ring_color` lines are the one hand edit — the reader picks
   their type's colour); the product's real dispatch error `no load capability
   is registered for type 'Image'`, met by running and fixed by a
-  tutorial-written TIFF `IOBlock` loader; the real previewer fallback — an
+  tutorial-written TIFF `IOBlock` loader that reads the baseline-TIFF contract
+  itself with the standard library (core ships no image decoder — that is why
+  the capability was missing — and a test referees the reader against
+  dev-only tifffile); the real previewer fallback — an
   Image previews as the parent Array's number table until a project previewer
   claiming `target_type: Image` lands and registers live; a NumPy-only
   threshold segmentation whose imperfection is genuine (7 objects on 6 cells;
