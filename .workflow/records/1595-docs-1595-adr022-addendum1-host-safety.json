@@ -1,0 +1,817 @@
+{
+  "branch": "feat/1595-host-safety-runtime",
+  "check_events": [
+    {
+      "at": "2026-08-22T01:48:57.333161Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T01:50:41.424625Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T02:23:08.685764Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-22T02:23:08.791601Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/adr/ADR-022-addendum1.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-22T01:45:50.223252Z",
+      "owner_directive": "Create the addendum only; describe implementation as planned; do not edit owner-controlled ARCHITECTURE.md in this draft",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-08-22T01:51:10.634680Z",
+      "owner_directive": "Set the global concurrent block limit to 20; five modalities commonly run together and 20-way block concurrency is acceptable.",
+      "reason": "Owner changed the runtime-global default concurrency decision from 2 to 20 based on common five-modality workflow fan-out."
+    },
+    {
+      "at": "2026-08-22T01:53:03.980997Z",
+      "owner_directive": "Configure the global concurrent block limit to 255.",
+      "reason": "Owner raised the runtime-global default concurrency decision from 20 to 255 to avoid constraining multimodal workflow fan-out."
+    },
+    {
+      "at": "2026-08-22T02:21:05.113777Z",
+      "owner_directive": "Implement ADR-022 Addendum 1 completely, including code, tests, docs, audit evidence, and one public PR closing #1595.",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "at": "2026-08-22T02:22:55.040808Z",
+      "owner_directive": "Use one isolated implementer worktree and one final public PR; manager owns review, gate, and CI follow-through.",
+      "reason": "Manager preflight and single-agent dispatch artifacts prepared."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-22T01:45:50.223375Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-022-addendum1.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:47:57.679414Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-022-addendum1.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:50:28.358547Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-022-addendum1.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:51:42.547566Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-022-addendum1.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:53:50.461858Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-022-addendum1.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T02:21:05.113828Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-022-addendum1.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T02:21:05.113831Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T02:21:05.113833Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/package-development/blocks.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T02:22:55.040828Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/1595-host-safety-implementation-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T02:22:55.040836Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/dispatch-prompts/1595/implementer.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-08-22T01:48:57.408915Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:48:57.436101Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:48:57.469909Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:48:57.515137Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:48:57.542262Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:48:57.567592Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:48:57.597586Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:48:57.624785Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:48:57.650724Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:48:57.675640Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:48:57.703594Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:50:41.480521Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:50:41.503970Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:50:41.529258Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:50:41.575509Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:50:41.600133Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:50:41.627190Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:50:41.651645Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:50:41.675569Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:50:41.699958Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:50:41.735400Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:50:41.759612Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:51:42.876595Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:51:42.902289Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:51:42.929727Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:51:42.957248Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:51:42.996632Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:51:43.040812Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:51:43.070983Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:51:43.097360Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:51:43.125713Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:51:43.153569Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:51:43.182346Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:53:50.745683Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:53:50.779051Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:53:50.823193Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:53:50.844593Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:53:50.866269Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:53:50.888386Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:53:50.909787Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:53:50.930737Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:53:50.951278Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:53:50.972490Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T01:53:50.993727Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:23:08.867285Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:23:08.894486Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:23:08.921928Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:23:08.949519Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:23:08.976210Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:23:09.001820Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:23:09.045045Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:23:09.072491Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:23:09.101257Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:23:09.142666Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T02:23:09.168489Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1595,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "ed47cafee",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "ed47cafee",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Draft ADR-022 Addendum 1: default global block concurrency limit is 2; blocks own CPU/GPU/internal resource use; SciStudio retains only host-safety admission, process isolation, termination, and diagnostics",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-08-22T01:48:57.703636Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": [
+        "checks.full_audit"
+      ]
+    },
+    {
+      "at": "2026-08-22T01:50:41.759656Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-22T01:51:43.182401Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-22T01:53:50.993775Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-22T02:23:09.168547Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1595-docs-1595-adr022-addendum1-host-safety",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:architecture-doc"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "codex:gpt-5",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-22T01:45:50.223272Z",
+      "pattern": "docs/adr/ADR-022-addendum1.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113792Z",
+      "pattern": "docs/adr/ADR-022-addendum1.md",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113799Z",
+      "pattern": "docs/architecture/ARCHITECTURE.md",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113801Z",
+      "pattern": "docs/architecture/PROJECT_TREE.md",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113802Z",
+      "pattern": "docs/package-development/blocks.md",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113804Z",
+      "pattern": "docs/planning/1595-host-safety-implementation-checklist.md",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113805Z",
+      "pattern": "docs/planning/dispatch-prompts/1595/implementer.md",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113807Z",
+      "pattern": "docs/audit/2026-08-21-1595-host-safety-manager-review.md",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113808Z",
+      "pattern": "src/scistudio/engine/resources.py",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113810Z",
+      "pattern": "src/scistudio/engine/scheduler/**",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113811Z",
+      "pattern": "src/scistudio/engine/runners/process_handle.py",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113813Z",
+      "pattern": "src/scistudio/api/runtime/__init__.py",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113814Z",
+      "pattern": "src/scistudio/cli/main.py",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113815Z",
+      "pattern": "tests/engine/test_resources.py",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113817Z",
+      "pattern": "tests/engine/test_resource_manager_gpu_autodetect.py",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113818Z",
+      "pattern": "tests/engine/test_scheduler_concurrency.py",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113820Z",
+      "pattern": "tests/engine/test_process_handle.py",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:21:05.113822Z",
+      "pattern": "tests/test_import_coverage.py",
+      "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    }
+  ],
+  "session_id": "bddad3d7-7f6c-4c58-8e78-8d7d161c68d6",
+  "strictness_tier": 2,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-08-22T01:45:50.223392Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only architecture decision; expected implementation tests are declared in the addendum",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:47:57.679440Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only architecture decision; expected implementation tests are declared in the addendum",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:50:28.358572Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Documentation-only architecture decision; implementation tests are specified for the follow-up code change.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:51:42.547612Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Documentation-only architecture decision; implementation tests are specified for the follow-up code change.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:53:50.461883Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Documentation-only architecture decision; implementation tests are specified for the follow-up code change.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T02:21:05.113836Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_resources.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T02:21:05.113839Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_scheduler_concurrency.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T02:21:05.113840Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_process_handle.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T02:21:05.113842Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/test_import_coverage.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
