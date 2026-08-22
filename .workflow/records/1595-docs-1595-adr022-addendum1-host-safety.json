@@ -3366,6 +3366,12 @@
       "at": "2026-08-22T04:34:27.387470Z",
       "pattern": "tests/qa/test_gate_incremental_checks.py",
       "reason": "Pre-PR diff-scoped test selection introduced on current main passes a deleted test path to pytest; include the minimal governance-code regression fix required to complete issue #1595 without bypassing the gate."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T04:42:04.421065Z",
+      "pattern": ".workflow/records/1595-impl-gate-deleted-test.json",
+      "reason": "Integrate the implementer branch-local ledger for the approved deleted-test target regression fix."
     }
   ],
   "session_id": "bddad3d7-7f6c-4c58-8e78-8d7d161c68d6",
