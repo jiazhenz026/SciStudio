@@ -82,10 +82,10 @@ export function PreviewerCard({ previewer, choice, onChoose, onClear }: Previewe
         </p>
       ) : null}
 
-      <div className="mt-2 flex flex-wrap items-center gap-1">
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {isChosen ? (
           <button
-            className="rounded-full border border-stone-300 bg-white px-2 py-0.5 text-[11px] text-stone-600 hover:bg-stone-50 disabled:opacity-50"
+            className="rounded-lg border border-stone-300 bg-stone-50 px-2.5 py-1 text-[11px] font-medium text-stone-600 shadow-sm transition hover:border-red-300 hover:bg-white hover:text-red-700 disabled:opacity-50"
             data-testid="previewer-choice-clear"
             disabled={busy}
             onClick={() => run(() => onClear(previewer.target_type, choice.scope))}
@@ -95,9 +95,9 @@ export function PreviewerCard({ previewer, choice, onChoose, onClear }: Previewe
           </button>
         ) : (
           <>
-            <span className="text-[11px] text-stone-500">Prefer:</span>
+            <span className="text-[11px] font-medium text-stone-500">Prefer:</span>
             <button
-              className="rounded-full border border-stone-300 bg-white px-2 py-0.5 text-[11px] text-stone-600 hover:bg-stone-50 disabled:opacity-50"
+              className="rounded-lg border border-stone-300 bg-stone-50 px-2.5 py-1 text-[11px] font-medium text-stone-700 shadow-sm transition hover:border-ember hover:bg-white hover:text-ember disabled:opacity-50"
               data-testid="previewer-choose-project"
               disabled={busy}
               onClick={() => run(() => onChoose(previewer, "project"))}
@@ -107,7 +107,7 @@ export function PreviewerCard({ previewer, choice, onChoose, onClear }: Previewe
               this project
             </button>
             <button
-              className="rounded-full border border-stone-300 bg-white px-2 py-0.5 text-[11px] text-stone-600 hover:bg-stone-50 disabled:opacity-50"
+              className="rounded-lg border border-stone-300 bg-stone-50 px-2.5 py-1 text-[11px] font-medium text-stone-700 shadow-sm transition hover:border-ember hover:bg-white hover:text-ember disabled:opacity-50"
               data-testid="previewer-choose-user"
               disabled={busy}
               onClick={() => run(() => onChoose(previewer, "user"))}

@@ -58,8 +58,8 @@ export interface CanvasReadabilityWiring {
  * that sits between `Blocks` and `Workflows`. #2090 replaced the text tab
  * strip with the VS Code-style `ActivityBar` icon rail and added the
  * `workflows` and `data` sections (`data` is the project tree rooted at
- * `data/`); #2113 added the `previewers` section between `types` and
- * `workflows`; the union is widened here ahead of the pane so all section
+ * `data/`); #2113 added the `previewers` section between `data` and
+ * `project`; the union is widened here ahead of the pane so all section
  * surfaces read one union.
  */
 export type LeftTab = "blocks" | "types" | "previewers" | "workflows" | "data" | "project";

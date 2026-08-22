@@ -29,17 +29,16 @@ interface ActivityBarEntry {
   icon: LucideIcon;
 }
 
-// Top-to-bottom visual order. `workflows` sits between the library sections
-// (blocks / types) and the data/project trees; `data` (#2090) is the project
-// tree rooted at data/.
+// Top-to-bottom visual order (owner call in the #2119 live review): Blocks,
+// Workflows, Data types, Data, Previewers, Project. `workflows` sits right
+// after the block library; `previewers` (#2113) comes after `data` — the
+// thing being previewed — and before the project tree.
 const ACTIVITY_BAR_ENTRIES: readonly ActivityBarEntry[] = [
   { key: "blocks", label: "Blocks", icon: Puzzle },
-  { key: "types", label: "Data types", icon: Shapes },
-  // #2113 — the Previewers section: every registered previewer by tier, with
-  // reload and the per-type choice controls (#2095 / #2049).
-  { key: "previewers", label: "Previewers", icon: Eye },
   { key: "workflows", label: "Workflows", icon: Waypoints },
+  { key: "types", label: "Data types", icon: Shapes },
   { key: "data", label: "Data", icon: Database },
+  { key: "previewers", label: "Previewers", icon: Eye },
   { key: "project", label: "Project", icon: FolderTree },
 ];
 

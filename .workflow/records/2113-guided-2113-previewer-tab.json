@@ -227,6 +227,11 @@
       "at": "2026-08-22T03:50:43.162559Z",
       "owner_directive": "Local full-suite python_tests keeps hitting the known #2107 Windows load flake (failing tests pass in isolation). Open the PR with SCISTUDIO_SKIP_PREFLIGHT=1; CI is the authoritative gate.",
       "reason": "Owner decision on PR creation under the #2107 local flake: open the PR with SCISTUDIO_SKIP_PREFLIGHT=1 and rely on CI (Ubuntu) as the authoritative python_tests gate; the #2107 classification is recorded in this ledger."
+    },
+    {
+      "at": "2026-08-22T04:16:22.780168Z",
+      "owner_directive": "The Prefer buttons do not read as buttons \u2014 give them a more obvious visual treatment. Move the Previewers activity-bar entry below Data; overall order becomes: Blocks, Workflows, Data types, Data, Previewers, Project.",
+      "reason": "Owner live-review feedback on the merged-candidate Previewers tab UI (PR #2119 follow-up)."
     }
   ],
   "docs_events": [
@@ -1118,6 +1123,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/lib/api/__tests__/api-surface.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T04:22:38.423294Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/ActivityBar.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }

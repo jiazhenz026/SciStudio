@@ -753,8 +753,9 @@ wording on the project tree and the Data section's `rootPath="data"` rooting.
 ## 14. Previewers Tab (#2113)
 
 The left panel gains a fourth catalogue section, **Previewers**
-(`frontend/src/components/PreviewerPalette.tsx`), sitting between Data types
-and Workflows in the activity bar. Where the Blocks and Data types sections
+(`frontend/src/components/PreviewerPalette.tsx`), sitting between Data and
+Project in the activity bar — the owner-reviewed order is Blocks, Workflows,
+Data types, Data, Previewers, Project. Where the Blocks and Data types sections
 answer "what can I build with", this one answers "what renders my data, and
 which one did I pick". It is the frontend surface for three backend contracts
 that shipped deliberately headless: the #2095 listing and reload routes

@@ -23,9 +23,24 @@ describe("ActivityBar", () => {
   it("renders one icon button per left-panel section", () => {
     renderBar();
     expect(screen.getByTestId("activity-bar")).toBeInTheDocument();
-    for (const label of ["Blocks", "Data types", "Workflows", "Data", "Project"]) {
+    for (const label of ["Blocks", "Data types", "Workflows", "Data", "Previewers", "Project"]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }
+  });
+
+  it("orders the sections Blocks, Workflows, Data types, Data, Previewers, Project (#2113 owner review)", () => {
+    renderBar();
+    const keys = [...screen.getByTestId("activity-bar").querySelectorAll("button")].map((button) =>
+      button.getAttribute("data-testid"),
+    );
+    expect(keys).toEqual([
+      "activity-bar-blocks",
+      "activity-bar-workflows",
+      "activity-bar-types",
+      "activity-bar-data",
+      "activity-bar-previewers",
+      "activity-bar-project",
+    ]);
   });
 
   it("reports the clicked section", () => {
