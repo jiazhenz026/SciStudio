@@ -1,0 +1,376 @@
+{
+  "branch": "guided/1988-node-fallback-visual",
+  "check_events": [
+    {
+      "at": "2026-08-22T04:51:12.672403Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-22T04:51:28.235932Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T04:51:28.320079Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/nodes/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-22T04:18:14.676104Z",
+      "owner_directive": "Owner: do all three asks in #1988. Colour: candidate B periwinkle (#b5c4f2). For ask (a) name-based category inference, only handle the IO case; do not build a general name->category guesser.",
+      "reason": "Owner reviewed the rendered candidates and settled scope for #1988"
+    },
+    {
+      "at": "2026-08-22T04:24:30.280619Z",
+      "owner_directive": "Owner: use the Lucide 'blocks' glyph for the no-category fallback node. Ask (c) is implemented as a frontend-only visible unresolved state (dashed body, block_type shown as the label, warning affordance); the node-level validate_workflow check is NOT in this PR because src/scistudio/workflow/** is protected and needs admin-approved:core-change.",
+      "reason": "Owner picked the fallback glyph; recording the narrowest reading of ask (c) so the diff stays out of protected core"
+    },
+    {
+      "at": "2026-08-22T04:27:50.518724Z",
+      "owner_directive": "Owner: the concrete case for name-based IO inference is an AI agent wiring a package-owned subclassed load block instead of the core load block. That node renders grey today. It must read as a loader whether it went grey via an unresolved block_type or via base_category=unknown.",
+      "reason": "Owner supplied the real-world scenario that ask (a) has to serve"
+    },
+    {
+      "at": "2026-08-22T04:50:13.806745Z",
+      "owner_directive": "Implement all three #1988 asks in the frontend: periwinkle no-category macaron with the blocks glyph, IO-only name inference for unresolved block types, and a dashed body plus a naming warning that keeps the unresolved fact visible.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-22T04:50:13.806775Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-050.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T04:50:13.806781Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T04:50:13.806787Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR-050 spec describes node geometry and status surface, not the category fallback vocabulary; the fallback contract lives in the ADR section that was updated.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-08-22T04:51:28.357111Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:51:28.372700Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:51:28.387512Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:51:28.401762Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:51:28.417018Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:51:28.431434Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:51:28.463524Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:51:28.478637Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:51:28.494106Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:51:28.510031Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:51:28.525118Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:53:57.192553Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:53:57.209033Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:53:57.226062Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:53:57.242185Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:53:57.258571Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:53:57.274400Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:53:57.289865Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:53:57.306583Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:53:57.323241Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:53:57.339811Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:53:57.355316Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1988,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "4345232e7",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "4f290a9d2",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Owner: blocks that inherit the base Block class directly render with an ugly grey canvas body; replace it with something better looking. Owner recalled this had been raised before; it is issue #1988.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-08-22T04:51:28.525172Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-22T04:53:57.355364Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "1988-guided-1988-node-fallback-visual",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-22T04:18:14.676125Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.parts/**",
+      "reason": "Owner reviewed the rendered candidates and settled scope for #1988"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T04:18:14.676135Z",
+      "pattern": "frontend/src/components/BlockPalette.parts/**",
+      "reason": "Owner reviewed the rendered candidates and settled scope for #1988"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T04:50:13.806761Z",
+      "pattern": "frontend/src/types/ui.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T04:50:13.806766Z",
+      "pattern": "docs/adr/ADR-050.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T04:50:13.806768Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "9b8b8cad-dcb4-42e8-a8d9-08cd318d571c",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-08-22T04:50:13.806792Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/WorkflowCanvas.parts/__tests__/unresolvedBlockNode.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T04:50:13.806795Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/nodes/__tests__/BlockNode/unresolvedNode.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

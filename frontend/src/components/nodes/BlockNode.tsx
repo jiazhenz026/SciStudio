@@ -43,7 +43,14 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   // category (lucide line icon), with optional per-block overrides (#1839):
   // a block may declare its own `ui_color` / `ui_icon` on its summary, which
   // take precedence over the category default (unknown icon name falls back).
-  const visual = getCategoryVisual(data.category, data.summary?.ui_color, data.summary?.ui_icon);
+  // #1988 — `uiIconHint` is the name-derived guess for an UNRESOLVED node and
+  // is only consulted when the block declared nothing itself, which an
+  // unresolved block never can (it has no summary at all).
+  const visual = getCategoryVisual(
+    data.category,
+    data.summary?.ui_color,
+    data.summary?.ui_icon ?? data.uiIconHint,
+  );
   const CategoryIcon = visual.Icon;
 
   // ADR-028 Addendum 1 §D4 — compute effective ports from the dynamic-port
@@ -213,6 +220,14 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
           borderRadius: NODE_BORDER_RADIUS,
           backgroundColor: visual.bg,
           borderColor: selected ? undefined : visual.border,
+          // #1988 — a dashed outline marks the unresolved state. It is driven
+          // by the FACT (`data.unresolved`), not by the palette: an unresolved
+          // loader borrows the solid IO colours so it still reads as a loader,
+          // and it must stay dashed anyway or the borrowed palette would be the
+          // prettier styling that hides the defect. Selection still wins (it
+          // repaints the border via `border-ember`), so the dash never fights
+          // the selection affordance.
+          borderStyle: (visual.dashed || data.unresolved) && !selected ? "dashed" : undefined,
         }}
       >
         {/* Block-kind mark — single lucide line icon in the category accent
@@ -232,6 +247,15 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
           problemSeverity={data.problemSeverity}
           errorSummary={data.errorSummary}
           errorMessage={data.errorMessage}
+          // #1988 — name the actual defect. The generic "open Config" wording
+          // would be a dead end here: no Config exists for a block that never
+          // loaded, and the workflow validator never mentions this node either.
+          warningSummary={
+            data.unresolved
+              ? `Block type "${data.blockType}" is not available in this project — ` +
+                "its package or file could not be loaded, so this node has no ports and will fail on run."
+              : undefined
+          }
           onErrorClick={data.onErrorClick}
           onWarningClick={data.onWarningClick}
         />

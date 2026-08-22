@@ -13,10 +13,28 @@
 // #1839 (per-block color + icon): a block may now declare its OWN node color
 // (`ui_color`, a CSS hex) and/or icon (`ui_icon`, a Lucide icon NAME) on its
 // backend `BlockSummary`. Resolution order is
-// `block-declared ?? category default ?? CUSTOM`: a block that declares neither
+// `block-declared ?? category default ?? UNKNOWN`: a block that declares neither
 // looks exactly as before. An unknown `ui_icon` name (not in the curated set
 // below) silently falls back to the category icon — never an error, never a
 // missing glyph. Custom SVG/asset glyphs are deferred (issue #1839 option b).
+//
+// #1988 (the grey puzzle did two jobs): everything that was not one of the six
+// used to land on a single grey `Puzzle` body, which conflated two unrelated
+// states. They are now separate visuals:
+//
+//   `unknown`    — a REGISTERED block whose class inherits `Block` directly, so
+//                  the registry's `_infer_category` reports "unknown". It has
+//                  ports, it runs, it is simply not one of the six. It gets a
+//                  macaron of its own (periwinkle) and the `Blocks` glyph.
+//   `unresolved` — a `block_type` that resolved to NOTHING here: package not
+//                  installed, drop-in deleted, or an agent naming a block that
+//                  does not exist. There is no class to ask, so there are no
+//                  ports and no metadata. It is drawn as a DASHED hole in the
+//                  canvas rather than a solid body, so it can never be mistaken
+//                  for a block that works.
+//
+// `Puzzle` is retired from both: a puzzle piece reads as "missing", which is
+// the wrong story for the first state and too mild for the second.
 
 import { createElement, forwardRef, type ComponentProps, type CSSProperties } from "react";
 // #1847: a block's `ui_icon` may now name ANY lucide glyph (PascalCase or
@@ -28,11 +46,12 @@ import * as LucideIcons from "lucide-react";
 import {
   // Base-category default icons (the 6 core block kinds), resolved statically.
   AppWindow,
+  Blocks,
   Code2,
+  FileQuestionMark,
   FolderInput,
   FunctionSquare,
   Package,
-  Puzzle,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -48,18 +67,44 @@ export interface CategoryVisual {
   border: string;
   /** Human label for the category (tooltip / a11y). */
   label: string;
+  /**
+   * #1988 — draw the body outline dashed instead of solid. Reserved for
+   * `unresolved`: a dashed outline reads as "there is supposed to be a block
+   * here", which a solid body never can.
+   */
+  dashed?: boolean;
 }
 
 // Saturated macaron fills — chosen to read clearly against the warm
 // `canvas` (#f5f1e8) background while staying soft (not neon). Each base
 // category gets a distinct hue; `fg` (icon/accent) is a deeper shade of the
 // same family for AA contrast, `border` sits one step under the fill.
-const CUSTOM: CategoryVisual = {
-  Icon: Puzzle,
-  bg: "#c9d1d9",
-  fg: "#4f5b66",
-  border: "#aeb9c4",
+
+// #1988 — the seventh macaron. Periwinkle is the widest gap left in the wheel
+// once io (sky), process (mint), code (violet), app (yellow), ai (coral) and
+// subworkflow (pink) are placed, so a no-category block stays tellable apart
+// from all six. Glyph/body contrast is 4.69, inside the 2.77–4.13 band the
+// shipping six already occupy.
+const UNKNOWN: CategoryVisual = {
+  Icon: Blocks,
+  bg: "#b5c4f2",
+  fg: "#33499e",
+  border: "#93a8e8",
   label: "Custom",
+};
+
+// #1988 — the unresolved state deliberately spends NO hue. Its body is a shade
+// of the canvas itself under a dashed border, so it reads as an empty slot in
+// the graph rather than as a seventh kind of block. Pairing it with the warning
+// badge (see `flowNodeBuilder`) is what keeps the "this did not resolve" fact
+// visible instead of hidden behind nicer styling.
+const UNRESOLVED: CategoryVisual = {
+  Icon: FileQuestionMark,
+  bg: "#efeade",
+  fg: "#8a8069",
+  border: "#b8ae99",
+  label: "Unresolved",
+  dashed: true,
 };
 
 export const categoryVisuals: Record<string, CategoryVisual> = {
@@ -81,7 +126,14 @@ export const categoryVisuals: Record<string, CategoryVisual> = {
     border: "#e49dbe",
     label: "Subworkflow",
   },
-  custom: CUSTOM,
+  // #1988 — a registered block that is none of the six (registry
+  // `_infer_category` returns "unknown" for a direct `Block` subclass).
+  unknown: UNKNOWN,
+  // Retained alias: `custom` was the pre-#1988 sentinel for the same "no base
+  // category" idea and is still what some persisted/older node data carries.
+  custom: UNKNOWN,
+  // #1988 — a `block_type` nothing in this environment could load.
+  unresolved: UNRESOLVED,
 };
 
 /** PascalCase a kebab/snake/space name: "folder-down" -> "FolderDown". */
@@ -179,7 +231,7 @@ export function getCategoryVisual(
   uiColor?: string | null,
   uiIcon?: string | null,
 ): CategoryVisual {
-  const base = (category && categoryVisuals[category]) || CUSTOM;
+  const base = (category && categoryVisuals[category]) || UNKNOWN;
   if (!uiColor && !uiIcon) return base;
 
   const resolved = resolveIconByName(uiIcon);
