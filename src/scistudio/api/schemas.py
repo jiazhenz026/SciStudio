@@ -696,10 +696,13 @@ class ErrorResponse(BaseModel):
 # rather than the only line of defence.
 # ---------------------------------------------------------------------------
 
-#: FR-006: the two user-library targets, chosen by the caller and never
+#: FR-006: the three user-library targets, chosen by the caller and never
 #: inferred. The values are the drop-in child directory names from
-#: :mod:`scistudio.core.dropins`.
-UserLibraryTarget = Literal["blocks", "types"]
+#: :mod:`scistudio.core.dropins`. ``previewers`` joined when the
+#: tutorial-scoped library grew its previewer tier (Learning Center FR-070,
+#: #2086), so promoting a project previewer resolves through the same route —
+#: and the same library-root swap — as blocks and types.
+UserLibraryTarget = Literal["blocks", "types", "previewers"]
 
 
 class MoveSourceRef(BaseModel):

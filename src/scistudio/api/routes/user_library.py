@@ -23,10 +23,11 @@ user library root, and ``PUT /api/projects/{project_id}/file`` is untouched
 Four rules make that constraint hold, and each one closes a case the others do
 not:
 
-1. **The caller names the tier.** ``target`` is a ``Literal["blocks", "types"]``
-   and the roots come from :mod:`scistudio.core.dropins`, so the destination is
-   never inferred from file content (FR-006) and this module never spells out
-   ``~/.scistudio`` itself (FR-058).
+1. **The caller names the tier.** ``target`` is a
+   ``Literal["blocks", "types", "previewers"]`` and the roots come from
+   :mod:`scistudio.core.dropins`, so the destination is never inferred from
+   file content (FR-006) and this module never spells out ``~/.scistudio``
+   itself (FR-058).
 2. **The caller supplies a filename, not a path.** Anything carrying a
    separator, a drive, a ``..`` segment, or an absolute or drive-relative form
    is refused before it touches the filesystem. ``C:blocks.py`` is a Windows
@@ -86,7 +87,12 @@ from scistudio.api.schemas import (
     UserLibraryWriteRequest,
     UserLibraryWriteResponse,
 )
-from scistudio.core.dropins import BLOCKS_DIR_NAME, TYPES_DIR_NAME, library_root_for_project
+from scistudio.core.dropins import (
+    BLOCKS_DIR_NAME,
+    PREVIEWERS_DIR_NAME,
+    TYPES_DIR_NAME,
+    library_root_for_project,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +106,9 @@ RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 _TARGET_DIR_NAMES = {
     "blocks": BLOCKS_DIR_NAME,
     "types": TYPES_DIR_NAME,
+    # Learning Center FR-070 / #2086: the previewer tier promotes through the
+    # same door, and the same library-root swap, as blocks and types.
+    "previewers": PREVIEWERS_DIR_NAME,
 }
 
 #: Only Python sources belong in a drop-in tier; both registries scan for

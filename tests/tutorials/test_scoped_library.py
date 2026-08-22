@@ -30,6 +30,34 @@ class TeachingType(DataObject):
     \"\"\"A type saved to the library during a tutorial.\"\"\"
 """
 
+_TEACHING_PREVIEWER_SOURCE = """from scistudio.previewers.models import OwnerKind, PreviewerSpec
+
+
+def get_previewers():
+    return [
+        PreviewerSpec(
+            previewer_id="tutorial.image.viewer",
+            owner_kind=OwnerKind.USER,
+            owner_name="tutorial-library",
+            target_type="Image",
+        )
+    ]
+"""
+
+_PROJECT_PREVIEWER_SOURCE = """from scistudio.previewers.models import OwnerKind, PreviewerSpec
+
+
+def get_previewers():
+    return [
+        PreviewerSpec(
+            previewer_id="project.image.viewer",
+            owner_kind=OwnerKind.PROJECT,
+            owner_name="tutorial-project",
+            target_type="Image",
+        )
+    ]
+"""
+
 
 @pytest.fixture
 def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
@@ -69,7 +97,12 @@ def test_tutorial_project_scans_the_scoped_library_in_place_of_the_user_one(home
 
     assert list(dropins.block_scan_dirs(tutorial_project)) == [tutorial_project / "blocks", library / "blocks"]
     assert list(dropins.type_scan_dirs(tutorial_project)) == [tutorial_project / "types", library / "types"]
+    assert list(dropins.previewer_scan_dirs(tutorial_project)) == [
+        tutorial_project / "previewers",
+        library / "previewers",
+    ]
     assert dropins.user_library_dir() not in {path.parent for path in dropins.type_scan_dirs(tutorial_project)}
+    assert dropins.user_library_dir() not in {path.parent for path in dropins.previewer_scan_dirs(tutorial_project)}
 
 
 def test_real_project_never_scans_the_scoped_library(home: Path, real_project: Path) -> None:
@@ -84,14 +117,33 @@ def test_real_project_never_scans_the_scoped_library(home: Path, real_project: P
         real_project / "types",
         home / ".scistudio" / "types",
     ]
+    assert list(dropins.previewer_scan_dirs(real_project)) == [
+        real_project / "previewers",
+        home / ".scistudio" / "previewers",
+    ]
     assert library not in {path.parent for path in dropins.type_scan_dirs(real_project)}
     assert library not in {path.parent for path in dropins.block_scan_dirs(real_project)}
+    assert library not in {path.parent for path in dropins.previewer_scan_dirs(real_project)}
 
 
 def test_no_project_context_keeps_the_user_library(home: Path) -> None:
     """The swap needs a tutorial project; without one the user tier stands."""
     assert list(dropins.type_scan_dirs(None)) == [home / ".scistudio" / "types"]
+    assert list(dropins.previewer_scan_dirs(None)) == [home / ".scistudio" / "previewers"]
     assert dropins.library_root_for_project(None) == dropins.user_library_dir()
+
+
+def test_the_scoped_library_carries_all_three_tiers(home: Path) -> None:
+    """FR-070 names ``blocks/``, ``types/``, and ``previewers/`` (#2086).
+
+    Eager creation matters for the same reason it does for the other two: the
+    save-to-library action a tutorial teaches has to land somewhere, and a step
+    that fails on a missing directory teaches the wrong lesson.
+    """
+    root = tutorial_projects.ensure_scoped_library()
+
+    assert [path.name for path in tutorial_projects.scoped_library_dirs()] == ["blocks", "types", "previewers"]
+    assert (root / "previewers").is_dir()
 
 
 def test_a_teaching_type_resolves_inside_the_tutorial_and_nowhere_else(
@@ -122,6 +174,73 @@ def test_a_teaching_type_resolves_inside_the_tutorial_and_nowhere_else(
 
     assert _resolved(tutorial_project) is True
     assert _resolved(real_project) is False
+
+
+def test_a_teaching_previewer_registers_inside_the_tutorial_and_nowhere_else(
+    home: Path, tutorial_project: Path, real_project: Path
+) -> None:
+    """FR-070/FR-071 for the third kind (#2086), behaviourally.
+
+    The previewer a tutorial saves must be resolvable by the next tutorial
+    project — that reuse is the levels' teaching spine — and invisible to the
+    user's own projects, exactly as the teaching type above.
+    """
+    from scistudio.previewers.project import load_user_previewers
+    from scistudio.previewers.registry import PreviewerRegistry
+
+    library_previewers = dropins.tutorial_library_dir() / "previewers"
+    library_previewers.mkdir(parents=True)
+    (library_previewers / "teaching_image_previewer.py").write_text(_TEACHING_PREVIEWER_SOURCE, encoding="utf-8")
+
+    def _registered(project_dir: Path | None) -> set[str]:
+        registry = PreviewerRegistry()
+        load_user_previewers(registry, project_dir)
+        return {spec.previewer_id for spec in registry.all_specs()}
+
+    assert "tutorial.image.viewer" in _registered(tutorial_project)
+    assert "tutorial.image.viewer" not in _registered(real_project)
+    assert "tutorial.image.viewer" not in _registered(None)
+
+
+def test_a_scoped_library_previewer_rides_the_user_tier_and_the_project_tier_still_wins(
+    home: Path, tutorial_project: Path
+) -> None:
+    """#2086's shape claim: the swap is a root, not a fourth tier.
+
+    A scoped-library previewer registers as ``OwnerKind.USER`` — the entry the
+    previewer listing reports as the user tier while a tutorial project is
+    open — so routing precedence stays project > user > package > core with
+    nothing new in the ladder. Both halves are held: the scoped previewer wins
+    for its type, and a project previewer for the same type shadows it.
+    """
+    from scistudio.previewers.models import OwnerKind, PreviewTarget, TargetKind
+    from scistudio.previewers.project import load_project_previewers, load_user_previewers
+    from scistudio.previewers.registry import PreviewerRegistry
+    from scistudio.previewers.router import PreviewRouter
+
+    library_previewers = dropins.tutorial_library_dir() / "previewers"
+    library_previewers.mkdir(parents=True)
+    (library_previewers / "teaching_image_previewer.py").write_text(_TEACHING_PREVIEWER_SOURCE, encoding="utf-8")
+    target = PreviewTarget(kind=TargetKind.DATA_REF, ref="r", recorded_type="Image", type_chain=("Image",))
+
+    registry = PreviewerRegistry()
+    load_project_previewers(registry, tutorial_project)
+    load_user_previewers(registry, tutorial_project)
+
+    scoped = registry.get("tutorial.image.viewer")
+    assert scoped is not None
+    assert scoped.owner_kind is OwnerKind.USER
+    assert PreviewRouter(registry).resolve(target).previewer_id == "tutorial.image.viewer"
+
+    (tutorial_project / "previewers").mkdir()
+    (tutorial_project / "previewers" / "project_image_previewer.py").write_text(
+        _PROJECT_PREVIEWER_SOURCE, encoding="utf-8"
+    )
+    shadowing = PreviewerRegistry()
+    load_project_previewers(shadowing, tutorial_project)
+    load_user_previewers(shadowing, tutorial_project)
+
+    assert PreviewRouter(shadowing).resolve(target).previewer_id == "project.image.viewer"
 
 
 def test_import_roots_carry_the_swap(home: Path, tutorial_project: Path, monkeypatch: pytest.MonkeyPatch) -> None:

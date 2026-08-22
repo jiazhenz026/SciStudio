@@ -1228,6 +1228,9 @@ def test_only_a_write_into_a_scanned_directory_asks_for_a_re_scan(tmp_path: Path
 
     assert wrote("blocks/probe.py") is True
     assert wrote("types/spectrum.py") is True
+    # The third scanned tier (#2086): a tutorial-written previewer must be
+    # registered before the step's text is readable, so its directory settles.
+    assert wrote("previewers/image_viewer.py") is True
     # One block among data files is still a block.
     assert wrote("data/raw/cells.csv", "blocks/probe.py") is True
 

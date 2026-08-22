@@ -356,9 +356,10 @@ def library_root_for_project(project_dir: str | Path | None) -> Path:
 
     :func:`tutorial_library_dir` for a project under the tutorial parent and
     :func:`user_library_dir` for every other project, including the no-project
-    case. The tier *shape* is unchanged — ``<root>/blocks`` and ``<root>/types``
-    either way — so the swap is one root rather than a fourth tier, which is
-    what keeps :func:`block_scan_dirs`, :func:`type_scan_dirs`,
+    case. The tier *shape* is unchanged — ``<root>/blocks``, ``<root>/types``,
+    and ``<root>/previewers`` either way — so the swap is one root rather than
+    a fourth tier, which is what keeps :func:`block_scan_dirs`,
+    :func:`type_scan_dirs`, :func:`previewer_scan_dirs`,
     :func:`dropin_import_roots`, and :func:`dropin_type_roots_for_block_dirs`
     correct for tutorial projects without any of them learning what a tutorial
     is.
@@ -385,7 +386,7 @@ def _tier_dirs(child: str, project_dir: str | Path | None, user_root: Path | Non
     project context exists, then the user tier unconditionally (FR-060).
 
     *user_root* names the root the user tier lives under, defaulting to
-    :func:`user_library_dir`. Only the two library kinds pass anything else —
+    :func:`user_library_dir`. Only the three library kinds pass anything else —
     see :func:`library_root_for_project`.
     """
     dirs: list[Path] = []
@@ -436,8 +437,14 @@ def previewer_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ..
 
     Same tier definition as :func:`type_scan_dirs` (FR-058): the project tier
     when a project context exists, then the user tier unconditionally (FR-060).
+
+    A tutorial project's user tier is the tutorial-scoped library
+    (:func:`library_root_for_project`, FR-070/FR-071) — the same one-root swap
+    blocks and types make, extended to previewers by #2086 so a previewer saved
+    during one tutorial travels to the next tutorial project and never into
+    ``~/.scistudio/previewers``.
     """
-    return _tier_dirs(PREVIEWERS_DIR_NAME, project_dir)
+    return _tier_dirs(PREVIEWERS_DIR_NAME, project_dir, library_root_for_project(project_dir))
 
 
 def dropin_import_roots(project_dir: str | Path | None = None) -> tuple[Path, ...]:

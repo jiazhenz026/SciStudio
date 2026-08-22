@@ -6,6 +6,10 @@ target type to resolve otherwise-ambiguous matches. The user library
 (``~/.scistudio/previewers``) registers previewers the same way, in every
 project, with no project open required (#2017) — the same tier rule blocks and
 types already follow (ADR-053 FR-058/FR-060, :mod:`scistudio.core.dropins`).
+For a tutorial project the user tier is the tutorial-scoped library's
+``previewers/`` directory rather than ``~/.scistudio/previewers`` (Learning
+Center FR-070/FR-071, #2086) — the same one-root swap the block and type scans
+make through :func:`scistudio.core.dropins.library_root_for_project`.
 
 Discovery surface (kept deliberately small per spec §4.5 risk mitigation):
 
@@ -52,9 +56,9 @@ from scistudio.core.dropins import (
     PREVIEWERS_DIR_NAME,
     evict_cached_bytecode,
     guard_dropin_roots,
+    previewer_scan_dirs,
     project_previewers_dir,
     transient_dropin_modules,
-    user_previewers_dir,
 )
 from scistudio.desktop.paths import prepended_sys_paths
 from scistudio.previewers.models import (
@@ -84,15 +88,22 @@ def load_project_previewers(registry: PreviewerRegistry, project_dir: Path | Non
 
 
 @internal()
-def load_user_previewers(registry: PreviewerRegistry) -> None:
+def load_user_previewers(registry: PreviewerRegistry, project_dir: Path | None = None) -> None:
     """Load user-library previewers into *registry* (#2017).
 
     Unconditional, matching the user type/block tiers (ADR-053 FR-060): the
-    user library is defined by the user's home directory and has no
-    relationship to which project happens to be open. Best-effort like
-    :func:`load_project_previewers`; never raises.
+    user tier does not require an open project. *Which* library answers as the
+    user tier does follow the open project, though (Learning Center
+    FR-070/FR-071, #2086): a tutorial project's user tier is the
+    tutorial-scoped library, so the root is read off
+    :func:`scistudio.core.dropins.previewer_scan_dirs` — the same tuple the
+    session manager reads its owning roots from — rather than recomputed as
+    ``~/.scistudio/previewers``. Scoped-library previewers therefore register
+    as ``OwnerKind.USER``, riding the user-tier slot in the routing precedence
+    (project > user > package > core) instead of adding a fifth tier.
+    Best-effort like :func:`load_project_previewers`; never raises.
     """
-    _scan_previewer_dropins(registry, user_previewers_dir(), expected_owner=OwnerKind.USER)
+    _scan_previewer_dropins(registry, previewer_scan_dirs(project_dir)[-1], expected_owner=OwnerKind.USER)
 
 
 def _load_manifest_defaults(registry: PreviewerRegistry, project_dir: Path) -> None:

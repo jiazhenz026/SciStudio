@@ -46,6 +46,7 @@ from typing import Protocol, runtime_checkable
 
 from scistudio.core.dropins import (
     BLOCKS_DIR_NAME,
+    PREVIEWERS_DIR_NAME,
     TYPES_DIR_NAME,
     is_tutorial_location,
     tutorial_library_dir,
@@ -285,9 +286,14 @@ def ensure_tutorial_parent() -> Path:
 
 
 def scoped_library_dirs() -> tuple[Path, ...]:
-    """Return the tutorial-scoped library's tier directories (FR-070)."""
+    """Return the tutorial-scoped library's tier directories (FR-070).
+
+    ``previewers/`` sits beside ``blocks/`` and ``types/`` (#2086): the level
+    designs have one tutorial's previewer travel to the next tutorial's project,
+    which needs the same swap the other two kinds already make.
+    """
     root = tutorial_library_dir()
-    return (root / BLOCKS_DIR_NAME, root / TYPES_DIR_NAME)
+    return (root / BLOCKS_DIR_NAME, root / TYPES_DIR_NAME, root / PREVIEWERS_DIR_NAME)
 
 
 def ensure_scoped_library() -> Path:
@@ -296,7 +302,7 @@ def ensure_scoped_library() -> Path:
     Created eagerly at bootstrap rather than on first write, because the
     save-to-library action the scenarios teach has to land somewhere and a
     tutorial step that fails on a missing directory teaches the wrong lesson.
-    Both registries skip missing scan directories, so an empty library costs
+    Every registry skips missing scan directories, so an empty library costs
     nothing until something is saved into it.
     """
     root = tutorial_library_dir()

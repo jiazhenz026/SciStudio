@@ -116,8 +116,21 @@ describe("promotableFileTab — entry point E1", () => {
     });
   });
 
+  it("resolves an edited project drop-in previewer file to the previewers target", () => {
+    // Learning Center #2086 — E1 is the previewer's one entry point: it has
+    // no palette card (E5) and no canvas node (E2) to hang the action on.
+    expect(promotableFileTab(fileTab({ filePath: "previewers/image_viewer.py" }), blocks)).toEqual({
+      target: "previewers",
+      kind: "previewer",
+      label: "image_viewer",
+      origin: "project",
+      source: { from: "projectFile", path: "previewers/image_viewer.py" },
+    });
+  });
+
   it("refuses a nested file that no drop-in scan would pick up", () => {
     expect(promotableFileTab(fileTab({ filePath: "blocks/vendor/x.py" }), blocks)).toBeNull();
+    expect(promotableFileTab(fileTab({ filePath: "previewers/vendor/x.py" }), blocks)).toBeNull();
   });
 
   it("refuses a non-Python file and a non-drop-in directory", () => {
