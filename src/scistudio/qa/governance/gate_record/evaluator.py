@@ -82,6 +82,20 @@ _CI_OWNED_QUALITY_CHECKS: frozenset[str] = frozenset(
 # pre-pr / CI, and the governance guards + fast checks still run at commit time
 # (#1628).
 _PRE_COMMIT_SKIP_CHECKS: frozenset[str] = frozenset({"python_tests", "semantic_dup"})
+
+# Checks with no diff-scoped variant whose verdict is a property of the whole
+# corpus rather than of the current edit, deferred to CI in every local mode.
+# ``semantic_dup`` embeds every function in ``src/scistudio`` and compares them
+# pairwise, so a subset has no meaning. Measured on a warm parity venv it costs
+# 135s, which is 65% of a Tier 1 local run; ``semantic-dup-scan.yml`` runs it
+# authoritatively on the same PR and ``--force-checks`` restores it locally.
+#
+# Deliberately NOT deferred, on measured cost rather than the ledger-derived
+# proxy that first suggested otherwise: ``architecture_tests`` (7.5s, and it
+# catches layer-dependency violations and new import cycles introduced by the
+# current edit), ``full_audit`` (20s, catches doc drift caused by the current
+# edit), ``deferral_discipline`` (2s), ``import_contracts`` (<1s).
+_LOCAL_DEFERRED_CHECKS: frozenset[str] = frozenset({"semantic_dup"})
 _CHECK_EVIDENCE_IGNORED_PREFIXES: tuple[str, ...] = (".workflow/records/",)
 _CHECK_FINGERPRINT_VERSION = "gate-check-input-v2"
 
@@ -596,8 +610,20 @@ def _check_input_paths(name: str, changed_files: Sequence[str]) -> list[str]:
     spec = checks.CHECK_CATALOG.get(name)
     if spec is None:
         return normalized
-    if name in {"full_audit", "deferral_discipline"}:
-        return normalized
+    if name == "full_audit":
+        # The audit reads docs, source, and its own config. The frontend and
+        # desktop trees carry no frontmatter, governed symbols, or generated
+        # facts it consumes, so a change confined to them cannot alter its
+        # verdict (spec gate-local-incremental-checks FR-007).
+        return [p for p in normalized if not p.startswith(("frontend/", "desktop/"))]
+    if name == "deferral_discipline":
+        # ``scripts/deferral_scan.py`` rglobs ``*.py`` and reads its baseline;
+        # nothing else can move the ratchet (spec FR-007).
+        return [
+            p
+            for p in normalized
+            if p.endswith(".py") or p.startswith("docs/audit/baselines/deferral") or _is_global_check_config_path(p)
+        ]
     if name == "semantic_dup":
         return [
             p
@@ -606,7 +632,23 @@ def _check_input_paths(name: str, changed_files: Sequence[str]) -> list[str]:
             or p.startswith("docs/audit/baselines/semantic-dup")
             or _is_global_check_config_path(p)
         ]
-    if spec.covered_surface == "python":
+    if spec.covered_surface == "python_types":
+        # mypy reads the package it is pointed at, plus its own config.
+        return [
+            p
+            for p in normalized
+            if (p.startswith("src/") and p.endswith((".py", ".pyi")))
+            or p in {"mypy.ini", "pyrightconfig.json"}
+            or _is_global_check_config_path(p)
+        ]
+    if spec.covered_surface == "python_imports":
+        # import-linter reads the source tree and its contract config.
+        return [
+            p
+            for p in normalized
+            if (p.startswith("src/") and p.endswith((".py", ".pyi"))) or _is_global_check_config_path(p)
+        ]
+    if spec.covered_surface.startswith("python"):
         return [p for p in normalized if _is_python_check_input(p)]
     if spec.covered_surface == "frontend":
         return [p for p in normalized if _is_frontend_check_input(p)]
@@ -656,11 +698,20 @@ def _valid_prior_check_event(
     *,
     name: str,
     input_fingerprint: str | None,
+    require_repo_scope: bool = False,
 ) -> CheckEvent | None:
-    """Return the newest passing event for ``name`` that still covers this diff."""
+    """Return the newest passing event for ``name`` that still covers this diff.
+
+    ``require_repo_scope`` rejects diff-scoped evidence, so a fast local run can
+    never stand in for a CI-mirror obligation (spec FR-008).
+    """
 
     for event in reversed(ledger.check_events):
-        if event.name == name and checks.event_is_valid_for(event, input_fingerprint=input_fingerprint):
+        if event.name == name and checks.event_is_valid_for(
+            event,
+            input_fingerprint=input_fingerprint,
+            require_repo_scope=require_repo_scope,
+        ):
             return event
     return None
 
@@ -673,6 +724,7 @@ def _validate_prior_check_events(
     only: Sequence[str] | None,
     pr_readiness_mode: bool,
     input_fingerprints: Mapping[str, str | None],
+    require_repo_scope: bool = False,
 ) -> tuple[list[CheckEvent], list[str], list[str]]:
     """Validate reusable check evidence for the current candidate."""
 
@@ -683,7 +735,12 @@ def _validate_prior_check_events(
     if only is not None:
         to_validate = [name for name in to_validate if name in set(only)]
     for name in to_validate:
-        prior = _valid_prior_check_event(ledger, name=name, input_fingerprint=input_fingerprints.get(name))
+        prior = _valid_prior_check_event(
+            ledger,
+            name=name,
+            input_fingerprint=input_fingerprints.get(name),
+            require_repo_scope=require_repo_scope,
+        )
         if prior is not None:
             validated.append(prior)
             continue
@@ -731,6 +788,38 @@ def _select_checks_to_execute(
         else:
             current.append(prior)
     return to_run, current
+
+
+def required_for_mode(
+    required: Sequence[str],
+    *,
+    mode: EvaluatorMode,
+    force_checks: bool,
+) -> list[str]:
+    """Narrow the tier-selected check set to what THIS caller must prove.
+
+    ``select_checks`` answers which checks the tier requires. This answers which
+    of those the current caller is responsible for proving, given that separate
+    CI jobs own the quality matrix authoritatively on the same PR.
+
+    - ``ci``: the workflow-gate job validates governance and guards, not the
+      ``ci.yml`` quality matrix (§7.5). Re-requiring ledger events for it would
+      duplicate ``ci.yml`` and block on evidence this job was never meant to
+      demand.
+    - ``pre-commit``: a fast local gate that drops the two slowest checks
+      (#1628), so a commit neither proves nor runs them.
+    - every local mode: corpus-wide checks that cannot be narrowed are deferred
+      to CI (ADR-042 Addendum 7 §2.5). ``--force-checks`` opts back in.
+    """
+
+    if mode == "ci":
+        return [name for name in required if name not in _CI_OWNED_QUALITY_CHECKS]
+    selected = list(required)
+    if mode == "pre-commit":
+        selected = [name for name in selected if name not in _PRE_COMMIT_SKIP_CHECKS]
+    if not force_checks:
+        selected = [name for name in selected if name not in _LOCAL_DEFERRED_CHECKS]
+    return selected
 
 
 def reconcile(
@@ -849,21 +938,7 @@ def reconcile(
     selection = checks.select_checks(tier=tier, changed_files=observed_files)
     parity_gaps.extend(selection.parity_gaps)
 
-    # In ci mode the workflow-gate job does NOT own the ci.yml quality matrix
-    # (§7.5): those checks run as separate authoritative ci.yml jobs on the same
-    # PR. Drop them from the required obligations so the shared evaluator does
-    # not re-require ledger check_events for them (which would duplicate ci.yml
-    # and block on evidence the workflow-gate job was never meant to demand).
-    # local / pre-pr keep the full CI-equivalent preflight selection.
-    if mode == "ci":
-        selection.required = [name for name in selection.required if name not in _CI_OWNED_QUALITY_CHECKS]
-
-    # pre-commit is a fast local gate: drop the two slowest checks (#1628). This
-    # removes them from BOTH the required obligations and the executed set below,
-    # so a commit is neither required to prove nor runs them; pre-pr / CI keep the
-    # full selection. Governance guards and the fast checks still run at commit.
-    if mode == "pre-commit":
-        selection.required = [name for name in selection.required if name not in _PRE_COMMIT_SKIP_CHECKS]
+    selection.required = required_for_mode(selection.required, mode=mode, force_checks=force_checks)
 
     # 5. Infer obligations.
     obligations = _infer_obligations(
@@ -927,6 +1002,12 @@ def reconcile(
                 # Non-PR-readiness local modes still surface provisioning failures so
                 # the agent sees them, but do not hard-fail a WIP invocation.
                 parity_gaps.extend(parity_report.gaps)
+        # Local modes run each check narrowed to the observed diff; ``ci`` mode
+        # and an explicit ``--force-checks`` run the repository-scoped CI mirror.
+        # ci.yml remains authoritative for the full surface on the same PR, which
+        # is the role split ``_CI_OWNED_QUALITY_CHECKS`` already encodes for the
+        # ci side (spec gate-local-incremental-checks FR-002).
+        execution_scope: Literal["repo", "diff"] = "repo" if (mode == "ci" or force_checks) else "diff"
         for name in to_run:
             event = checks.run_check(
                 repo_root,
@@ -934,6 +1015,7 @@ def reconcile(
                 changed_files=observed_files,
                 diff_fingerprint=fingerprint,
                 input_fingerprint=input_fps.get(name),
+                scope=execution_scope,
             )
             check_events.append(event)
             ledger.check_events.append(event)
@@ -1001,6 +1083,9 @@ def reconcile(
             only=only,
             pr_readiness_mode=pr_readiness_mode,
             input_fingerprints=input_fps,
+            # Diff-scoped evidence proves the changed files, not the surface, so
+            # it never satisfies a CI-mirror obligation (spec FR-008).
+            require_repo_scope=mode == "ci",
         )
         check_events.extend(validated)
         unsatisfied.extend(evidence_gaps)

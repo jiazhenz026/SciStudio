@@ -92,6 +92,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   records the page on serve and re-judges the step), and the tutorial
   completes through the same explicit Continue as every other tutorial. The
   window is built for any reading tutorial, not this one.
+- [#2080] **A package can now build tutorials against a supported API.** The
+  Learning Center opened two authoring paths to packages — a `tutorial.yaml`
+  manifest, and a driver class for logic a manifest cannot express — but neither
+  was published: `scistudio.tutorials` was not a canonical root, so by the
+  contract's own rule every symbol a driver author needed was internal and free
+  to move without notice.
+  `scistudio.tutorials` is now the tenth canonical public root. Its `__all__` is
+  the authoring surface and nothing else — sixteen symbols covering the driver
+  protocol (`TutorialDriver`, `DriverContext`, `StepView`, `DeclaresConditions`),
+  step actions, the condition vocabulary and its evaluator, and `TutorialKey`.
+  The root previously re-exported eighty-two names spanning the session store,
+  the discovery walk and the progress file; those remain importable by deep path
+  and carry no promise, which is what they were before. Every public symbol
+  carries a stability tier and `Since`, the generated API reference has a
+  `scistudio.tutorials` page, and `docs/package-development/tutorials.md` is the
+  authoring guide for both paths.
+  The surface is `provisional` at `0.3.4`: the vocabulary and the action set are
+  still settling.
+- [#2049] **You can choose which previewer renders a type.** When several
+  previewers can show the same data — a package's tailored plot, a
+  project-local experiment, core's plain table — SciStudio picked for you, by a
+  fixed precedence of project over user over package over core. That ladder
+  answers *which previewer is best* without ever asking the person looking at
+  the data. Now you can say, and what you say wins.
+  A choice is recorded **per type** and applies to every object of it. It has
+  two layers: this project, or every project, with the project layer winning —
+  the same shape blocks, types, and previewers already use for where they live.
+  Choices made inside a tutorial stay in the tutorial's own library rather than
+  following you into real work afterwards.
+  **A choice is a preference, not a constraint.** If the previewer you chose is
+  not there — a package uninstalled, a drop-in deleted — the preview still
+  renders, through the ordinary ladder, and your choice takes effect again the
+  moment that previewer returns. The same is true if the choice cannot serve
+  what is on the port: a viewer that handles one item is not handed a whole
+  collection. Nothing you can record is able to stop a preview from rendering.
+  The FR-005 project-default manifest is untouched and keeps its narrow role as
+  a tie-breaker between equal-priority previewers in one tier. It answers a
+  different question — what a project's *author* declares, rather than what a
+  *person* prefers for their own view — so the two are stored separately and
+  never arbitrate the same decision.
+- [#2095] **Previewers can be listed, and the previewer surface can reload
+  itself.** `GET /api/previews/previewers` returns every registered previewer
+  with the tier it came from, ordered the way the router considers them —
+  project, then user, then package, then core — and takes an optional
+  `target_type` filter. It also returns the registry's discovery diagnostics,
+  which nothing surfaced before: a drop-in refused for a module-name collision,
+  a duplicate previewer id, or an entry point that failed to import were all
+  recorded and then only logged, so from the product they looked like a
+  previewer that simply never appeared. `PreviewerSpecModel` had been declared
+  since the preview system landed and served by no route; this is the route.
+  `POST /api/previews/reload` gives the previewer surface its own way to
+  rebuild the registry. This is a second surface onto one implementation, not a
+  second reload: `refresh_all_registries()` has rebuilt previewers alongside
+  types and blocks since #2021, and the blocks and types endpoints already
+  reached it. What was missing is the argument FR-027 makes on the type side —
+  a previewer view must not have to call the *blocks* endpoint to do its own
+  job, while all three still rebuild the same world.
 
 - [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
   that are real, runnable projects, reached from a permanent toolbar entry and
@@ -170,6 +227,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2093] **`npm run dev` in `desktop/` starts again on Windows.** The desktop
+  dev launcher spawns npm twice — once for Vite, once for Electron — and on
+  Windows the `npm` it reaches is `npm.cmd`, a batch shim. Node hardened
+  `child_process.spawn` against Windows batch-file argument injection
+  (CVE-2024-27980, in 18.20.1 / 20.12.1 / 21.7.2): spawning a `.cmd` without a
+  shell now raises `EINVAL` rather than running it. The launcher asked for no
+  shell, so it died on its very first spawn and never reached either child; the
+  only way to run the desktop app in development was to start Vite and Electron
+  by hand.
+  The platform decision now lives in `desktop/scripts/npm-spawn.js` as a pure,
+  unit-tested function, mirroring `desktop/runtime-port.js`. Windows gets the
+  shell it needs, and because passing an argument *array* alongside `shell: true`
+  is deprecated (DEP0190 — those arguments are concatenated rather than escaped),
+  the shell is handed one finished command line instead. Building that line is
+  only sound while no argument needs quoting, so arguments outside a
+  conservative safe set are refused with an explicit error rather than
+  concatenated: cmd.exe quoting is subtle enough that a half-correct escaper
+  would fail silently, at launch, on someone else's machine. POSIX is unchanged
+  — no shell, argument array passed straight through.
+- [#2095] **A new project gets the directories its drop-in tiers are actually
+  scanned from.** Two commands create a project — the GUI's "New project" and
+  `scistudio init` — and each carried its own hand-written directory list. The
+  lists had drifted: the CLI omitted `data/processed` while a comment above it
+  claimed to be "Symmetric with `api/runtime.py::create_project`", and *neither*
+  created `previewers/` or `tutorials/`, so a user who wanted a project-local
+  previewer had to guess the folder name and create it by hand.
+  Both now read one definition, `scistudio.api.project_layout`, which takes the
+  drop-in folder names from `scistudio.core.dropins` rather than respelling
+  them — the folder a project offers and the folder the registry scans can no
+  longer disagree. `docs/architecture/ARCHITECTURE.md` §11.1 gains the two
+  directories and, while there, says plainly which data directories answer to
+  the user (`data/raw`, `data/processed`) and which are runtime-managed stores
+  named for how a payload is persisted (`data/zarr`, `data/parquet`,
+  `data/artifacts`, `data/exchange`). `data/processed` being empty after a run
+  is expected: nothing writes there automatically, because what deserves
+  keeping is a judgement the runtime cannot make.
+- [#2075] **The local test suite passes on Windows again, so the gate check
+  stops blocking unrelated work.** Eight tests that arrived with the Learning
+  Center (#2057) failed on Windows for reasons in the tests themselves, not in
+  `scistudio`. Because CI is Ubuntu-only and green, nothing caught them
+  upstream; they surfaced only when a developer ran the suite locally, where
+  `python_tests` is a merge-blocking check that CI owns and `--check-na` cannot
+  waive — so every unrelated PR had to be opened with the preflight skipped.
+  Four simulated an out-of-product delete with `shutil.rmtree`, which cannot
+  remove the read-only `.git/objects` that auto-init leaves behind on Windows;
+  they now use `_rmtree_force`, the helper the product already uses for exactly
+  this. Two compared bytes against a fixture written in text mode, where a
+  newline becomes CRLF on Windows; the fixture writes byte-for-byte now. One
+  compared `str(Path.relative_to(...))` against a literal spelled with `/`; it
+  uses `as_posix()`. The eighth needed a symlink, which Windows does not grant
+  by default — rather than skip it, it falls back to a **directory junction**,
+  which `os.path.realpath` follows identically and which is exactly how the
+  loader detects the escape, so an asset-escape rejection is now actually
+  verified on Windows instead of deferred to Linux. The junction fallback moved
+  to `tests/helpers.py` so its two callers share one implementation. `~/.scistudio/projects.json` outlives the runtime that
 - [#2079] **The Learning Center no longer opens itself on every launch.** The
   backend keeps a finished tutorial as the active session record, so every
   start-up adopted a session whose status was already `complete` — and the

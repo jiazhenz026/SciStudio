@@ -1,6 +1,10 @@
 /**
  * Tree-state hook for ProjectTree (lazy-loaded children, expand/collapse,
  * refresh wiring). Extracted in #1413 so the parent function stays small.
+ *
+ * `basePath` roots the tree at a project subdirectory instead of the project
+ * root — the #2090 Data section passes "data" so the panel shows only the
+ * project's data folders while every path below stays project-relative.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -48,7 +52,7 @@ export interface UseTreeNodesResult {
   handleToggle: (node: TreeNodeData) => Promise<void>;
 }
 
-export function useTreeNodes(projectId: string): UseTreeNodesResult {
+export function useTreeNodes(projectId: string, basePath = ""): UseTreeNodesResult {
   const [rootNodes, setRootNodes] = useState<TreeNodeData[]>([]);
   const [loading, setLoading] = useState(false);
   // Mirror the latest tree so `refresh()` (a stable callback) can read the
@@ -81,7 +85,7 @@ export function useTreeNodes(projectId: string): UseTreeNodesResult {
       // loaded before a descendant is merged into them; folders that vanished
       // since the last load are skipped and simply stay collapsed.
       const expandedPaths = collectExpandedPaths(rootNodesRef.current);
-      let tree = await loadChildren("");
+      let tree = await loadChildren(basePath);
       for (const path of expandedPaths) {
         try {
           const children = await loadChildren(path);
@@ -96,7 +100,7 @@ export function useTreeNodes(projectId: string): UseTreeNodesResult {
     } finally {
       setLoading(false);
     }
-  }, [loadChildren]);
+  }, [loadChildren, basePath]);
 
   useEffect(() => {
     void refresh();

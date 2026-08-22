@@ -69,6 +69,13 @@ class PreviewerRegistry:
         self._by_id: dict[str, PreviewerSpec] = {}
         self._diagnostics: list[str] = []
         self._project_default_previewers: dict[str, str] = {}
+        # #2049: the person's own per-type choice, loaded from
+        # :mod:`scistudio.previewers.choices`. Distinct from the field above:
+        # that one is the FR-005 project-author declaration and only breaks a
+        # same-tier priority tie, while this one short-circuits the whole
+        # FR-003 ladder. They are kept apart here for the same reason they are
+        # kept in separate files.
+        self._previewer_choices: dict[str, str] = {}
 
     # -- registration -------------------------------------------------------
 
@@ -95,6 +102,15 @@ class PreviewerRegistry:
         """Declare a project default previewer for *target_type* (FR-005)."""
         self._project_default_previewers[target_type] = previewer_id
 
+    def set_previewer_choices(self, choices: dict[str, str]) -> None:
+        """Install the person's per-type previewer choices (#2049).
+
+        Replaces the set wholesale, because the caller loads both layers and
+        resolves them together; a partial update here would let a cleared
+        project-layer choice keep shadowing the user-layer one it overrode.
+        """
+        self._previewer_choices = dict(choices)
+
     def record_diagnostic(self, message: str) -> None:
         """Record a discovery-scan diagnostic from an external scan pass.
 
@@ -118,6 +134,14 @@ class PreviewerRegistry:
     def project_default_for(self, target_type: str) -> str | None:
         return self._project_default_previewers.get(target_type)
 
+    def choice_for(self, target_type: str) -> str | None:
+        """Return the previewer id chosen for *target_type*, if any (#2049)."""
+        return self._previewer_choices.get(target_type)
+
+    def previewer_choices(self) -> dict[str, str]:
+        """Return a copy of the installed per-type choices (#2049)."""
+        return dict(self._previewer_choices)
+
     @property
     def diagnostics(self) -> list[str]:
         return list(self._diagnostics)
@@ -126,6 +150,7 @@ class PreviewerRegistry:
         self._by_id.clear()
         self._diagnostics.clear()
         self._project_default_previewers.clear()
+        self._previewer_choices.clear()
 
     # -- discovery ----------------------------------------------------------
 

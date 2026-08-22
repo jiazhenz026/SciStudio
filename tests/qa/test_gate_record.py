@@ -1122,11 +1122,18 @@ def test_pre_commit_mode_skips_python_tests_and_semantic_dup(
     pre_commit = capsys.readouterr().out
     _run(git_repo, "check", "--base", "HEAD~1", "--mode", "pre-pr", "--skip-execution")
     pre_pr = capsys.readouterr().out
-    # pre-commit drops the two slow checks; pre-pr keeps the full selection.
+    _run(git_repo, "check", "--base", "HEAD~1", "--mode", "pre-pr", "--skip-execution", "--force-checks")
+    forced = capsys.readouterr().out
+    # pre-commit drops both slow checks.
     assert "python_tests" not in pre_commit
     assert "semantic_dup" not in pre_commit
+    # pre-pr keeps python_tests, which now runs diff-scoped rather than whole-suite.
     assert "python_tests" in pre_pr
-    assert "semantic_dup" in pre_pr
+    # semantic_dup has no diff-scoped form and its verdict is a corpus property,
+    # so ADR-042 Addendum 7 defers it to semantic-dup-scan.yml in local modes.
+    # --force-checks opts back in.
+    assert "semantic_dup" not in pre_pr
+    assert "semantic_dup" in forced
 
 
 def test_failed_check_excerpt_surfaces_log_tail(tmp_path: Path) -> None:
