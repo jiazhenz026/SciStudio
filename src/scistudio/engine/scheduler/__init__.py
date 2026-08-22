@@ -106,7 +106,7 @@ class DAGScheduler:
     event_bus:
         EventBus instance for publish/subscribe coordination.
     resource_manager:
-        ResourceManager for dispatch gating (can_dispatch check).
+        Runtime-global ResourceManager for host-safety admission.
     process_registry:
         ProcessRegistry for active subprocess tracking.
     runner:
@@ -155,6 +155,20 @@ class DAGScheduler:
         # and popped by that task's ``finally`` clause on exit.
         self._active_tasks: dict[str, asyncio.Task[None]] = {}
 
+        # Opaque host-safety permits are scoped to this scheduler instance and
+        # keyed only for local cleanup. The ResourceManager tracks permit
+        # identity, so colliding node ids in different workflows remain safe.
+        self._resource_permits: dict[str, Any] = {}
+        # Machine-readable diagnostics for READY blocks whose admission was
+        # denied. Cleared as soon as the block acquires a permit.
+        self.wait_reasons: dict[str, str] = {}
+        self._event_loop: asyncio.AbstractEventLoop | None = None
+        self._resource_retry_task: asyncio.Task[None] | None = None
+        self._resource_release_listener = self._on_resource_permit_released
+        subscribe_release = getattr(self._resource_manager, "subscribe_release", None)
+        if callable(subscribe_release):
+            subscribe_release(self._resource_release_listener)
+
         self._completed_event = asyncio.Event()
         self._paused = False
         self._reset_lock = asyncio.Lock()
@@ -191,10 +205,40 @@ class DAGScheduler:
             return
         self._event_bus.unsubscribe(BLOCK_DONE, self._on_block_done)
         self._event_bus.unsubscribe(BLOCK_ERROR, self._on_block_error)
+        unsubscribe_release = getattr(self._resource_manager, "unsubscribe_release", None)
+        if callable(unsubscribe_release):
+            unsubscribe_release(self._resource_release_listener)
+        if self._resource_retry_task is not None and not self._resource_retry_task.done():
+            self._resource_retry_task.cancel()
         self._event_bus.unsubscribe(CANCEL_BLOCK_REQUEST, self._on_cancel_block)
         self._event_bus.unsubscribe(CANCEL_WORKFLOW_REQUEST, self._on_cancel_workflow)
         self._event_bus.unsubscribe(INTERACTIVE_COMPLETE, self._on_interactive_complete)
         self._disposed = True
+
+    def _on_resource_permit_released(self) -> None:
+        """Wake this scheduler when any shared-runtime permit is released."""
+        if self._disposed or self._event_loop is None or self._event_loop.is_closed():
+            return
+        try:
+            self._event_loop.call_soon_threadsafe(self._schedule_resource_retry)
+        except RuntimeError:
+            # The loop can close between is_closed() and scheduling.
+            logger.debug("Resource retry ignored because the scheduler loop closed")
+
+    def _schedule_resource_retry(self) -> None:
+        """Coalesce manager release notifications into one READY scan."""
+        if self._disposed:
+            return
+        if self._resource_retry_task is not None and not self._resource_retry_task.done():
+            return
+
+        async def _retry() -> None:
+            await self._dispatch_newly_ready()
+
+        self._resource_retry_task = asyncio.create_task(
+            _retry(),
+            name=f"resource-retry:{self._workflow.id}",
+        )
 
     async def execute(self) -> None:
         """Begin executing the workflow from its current state.
@@ -206,6 +250,7 @@ class DAGScheduler:
         handles and cancel pre-subprocess tasks, preventing zombie
         processes on engine-level failure.
         """
+        self._event_loop = asyncio.get_running_loop()
         await self._event_bus.emit(EngineEvent(event_type=WORKFLOW_STARTED, data={"workflow_id": self._workflow.id}))
 
         if not self._dag.nodes:
@@ -504,6 +549,7 @@ class DAGScheduler:
     # Block dispatch (see ``_dispatch.py``)
     _emit_block_ready = _dispatch_mod._emit_block_ready
     _dispatch = _dispatch_mod._dispatch
+    _release_resource_permit = _dispatch_mod._release_resource_permit
     _run_and_finalize = _dispatch_mod._run_and_finalize
     _run_interactive = _dispatch_mod._run_interactive
     _dispatch_newly_ready = _dispatch_mod._dispatch_newly_ready

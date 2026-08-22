@@ -31,7 +31,7 @@ from scistudio.engine.events import (
     INTERACTIVE_PROMPT,
     EngineEvent,
 )
-from scistudio.engine.resources import ResourceRequest
+from scistudio.engine.resources import AdmissionDecision
 from scistudio.engine.runners.terminal_state import BlockTerminalStateReportedError
 
 if TYPE_CHECKING:
@@ -75,24 +75,13 @@ async def _dispatch(self: DAGScheduler, node_id: str) -> None:
     ``self._active_tasks`` and the method returns immediately so
     that independent branches can run concurrently.
 
-    If ``_paused`` is True or ``ResourceManager.can_dispatch`` returns
-    False, the block stays in its current state (READY) and the
+    If ``_paused`` is True or host-safety admission is denied, the block stays
+    in its current state (READY) and the
     method returns without creating a task — it will be retried on
     the next successor event via ``_dispatch_newly_ready``.
     """
+    self._event_loop = asyncio.get_running_loop()
     if self._paused:
-        return
-
-    # TODO(#887): ADR-022 L1 GPU/CPU slot gating is not wired — this passes a
-    #   default ``ResourceRequest()`` instead of the block's real request, so
-    #   the discrete GPU/CPU counters never gate dispatch (only the psutil
-    #   memory watermark + active-task count do). Confirmed low-risk at present
-    #   per the owner decision on #887 (cloud-LLM AI blocks, chunked large
-    #   data); see also #1595. Deferred until a real local-GPU contention
-    #   trigger.
-    if not self._resource_manager.can_dispatch(ResourceRequest(), active_count=len(self._active_tasks)):
-        # Stay READY; retried by _dispatch_newly_ready on the next
-        # resource-freeing event (BLOCK_DONE).
         return
 
     # A task already exists for this block — guard against double
@@ -100,22 +89,49 @@ async def _dispatch(self: DAGScheduler, node_id: str) -> None:
     if node_id in self._active_tasks:
         return
 
-    self._block_states[node_id] = BlockState.RUNNING
-    await self._event_bus.emit(
-        EngineEvent(
-            event_type=BLOCK_RUNNING,
-            block_id=node_id,
-            data={"workflow_id": self._workflow.id},
-        )
+    # Admission is synchronous and atomic: no await or RUNNING transition may
+    # occur between checking the runtime-global pool and claiming its permit.
+    # The fallback keeps narrow structural tests with a minimal resource stub
+    # working; production runtimes always provide the real ResourceManager.
+    try_acquire = getattr(self._resource_manager, "try_acquire", None)
+    decision = (
+        try_acquire() if callable(try_acquire) else AdmissionDecision(permit=object())  # type: ignore[arg-type]
     )
+    if not decision.admitted:
+        if decision.wait_reason is not None:
+            self.wait_reasons[node_id] = decision.wait_reason.value
+        return
 
-    if self._lineage_recorder is not None:
-        self._lineage_recorder.record_start(node_id)
+    permit = decision.permit
+    if permit is None:  # defensive: admitted implies a permit
+        raise RuntimeError("ResourceManager admitted a block without a permit")
+    self._resource_permits[node_id] = permit
+    self.wait_reasons.pop(node_id, None)
 
-    inputs = self._gather_inputs(node_id)
-    node = self._dag.nodes[node_id]
+    self._block_states[node_id] = BlockState.RUNNING
+    try:
+        await self._event_bus.emit(
+            EngineEvent(
+                event_type=BLOCK_RUNNING,
+                block_id=node_id,
+                data={"workflow_id": self._workflow.id},
+            )
+        )
+    except BaseException:
+        _release_resource_permit(self, node_id)
+        raise
+
+    # A synchronous BLOCK_RUNNING subscriber may cancel before the execution
+    # task exists. Honour that state instead of continuing into worker launch.
+    if self._block_states.get(node_id) != BlockState.RUNNING:
+        _release_resource_permit(self, node_id)
+        return
 
     try:
+        if self._lineage_recorder is not None:
+            self._lineage_recorder.record_start(node_id)
+        inputs = self._gather_inputs(node_id)
+        node = self._dag.nodes[node_id]
         block = self._instantiate_block(node_id)
     except Exception as exc:
         # Block instantiation failed before a task could be created.
@@ -123,6 +139,7 @@ async def _dispatch(self: DAGScheduler, node_id: str) -> None:
         # skip propagation fires via the normal event path.
         logger.exception("Block %s failed to instantiate", node_id)
         self._block_states[node_id] = BlockState.ERROR
+        _release_resource_permit(self, node_id)
         error_str = str(exc)
         await self._event_bus.emit(
             EngineEvent(
@@ -141,6 +158,71 @@ async def _dispatch(self: DAGScheduler, node_id: str) -> None:
     # Config values may live in node.config["params"] (BlockConfig's
     # params dict) OR at the top level of node.config (extras readable
     # via BlockConfig(**config).get(key)).  Check both locations.
+    try:
+        enriched_config, is_interactive = _prepare_block_run(self, node_id, node, block)
+    except Exception as exc:
+        logger.exception("Block %s failed pre-dispatch validation", node_id)
+        self._block_states[node_id] = BlockState.ERROR
+        _release_resource_permit(self, node_id)
+        await self._event_bus.emit(
+            EngineEvent(
+                event_type=BLOCK_ERROR,
+                block_id=node_id,
+                data=self._build_block_terminal_data(node_id=node_id, error=str(exc)),
+            )
+        )
+        self.save_checkpoint(self._checkpoint_manager)
+        return
+
+    run_coro = None
+    try:
+        if is_interactive:
+            run_coro = self._run_interactive(node_id, block, inputs, enriched_config)
+            task_name = f"dispatch-interactive:{node_id}"
+        else:
+            run_coro = self._run_and_finalize(node_id, block, inputs, enriched_config)
+            task_name = f"dispatch:{node_id}"
+        task = asyncio.create_task(run_coro, name=task_name)
+    except Exception as exc:
+        if run_coro is not None:
+            run_coro.close()
+        _release_resource_permit(self, node_id)
+        self._block_states[node_id] = BlockState.ERROR
+        await self._event_bus.emit(
+            EngineEvent(
+                event_type=BLOCK_ERROR,
+                block_id=node_id,
+                data=self._build_block_terminal_data(node_id=node_id, error=str(exc)),
+            )
+        )
+        self.save_checkpoint(self._checkpoint_manager)
+        return
+    self._active_tasks[node_id] = task
+
+
+def _release_resource_permit(self: DAGScheduler, node_id: str) -> bool:
+    """Release a scheduler-owned permit at most once.
+
+    The ResourceManager also makes release idempotent. Combining both guards
+    safely covers terminal-event cleanup and the task ``finally`` fallback.
+    """
+    self.wait_reasons.pop(node_id, None)
+    permit = self._resource_permits.pop(node_id, None)
+    if permit is None:
+        return False
+    release = getattr(self._resource_manager, "release", None)
+    if callable(release):
+        return bool(release(permit))
+    return True
+
+
+def _prepare_block_run(
+    self: DAGScheduler,
+    node_id: str,
+    node: Any,
+    block: Any,
+) -> tuple[dict[str, Any], bool]:
+    """Validate and enrich a block after admission but before task creation."""
     config_schema = getattr(block, "config_schema", None)
     if isinstance(config_schema, dict) and config_schema.get("required"):
         required_fields = config_schema["required"]
@@ -148,48 +230,24 @@ async def _dispatch(self: DAGScheduler, node_id: str) -> None:
         params = node.config.get("params", {}) if isinstance(node.config.get("params"), dict) else {}
         top_level = node.config if isinstance(node.config, dict) else {}
         missing = [
-            f
-            for f in required_fields
-            if (params.get(f) is None and top_level.get(f) is None and "default" not in properties.get(f, {}))
+            field
+            for field in required_fields
+            if (
+                params.get(field) is None
+                and top_level.get(field) is None
+                and "default" not in properties.get(field, {})
+            )
         ]
         if missing:
-            error_str = f"Block '{node_id}' config is missing required field(s): {', '.join(sorted(missing))}"
-            logger.error("Pre-dispatch config validation failed for %s: %s", node_id, error_str)
-            self._block_states[node_id] = BlockState.ERROR
-            await self._event_bus.emit(
-                EngineEvent(
-                    event_type=BLOCK_ERROR,
-                    block_id=node_id,
-                    data=self._build_block_terminal_data(node_id=node_id, error=error_str),
-                )
-            )
-            self.save_checkpoint(self._checkpoint_manager)
-            return
+            raise ValueError(f"Block '{node_id}' config is missing required field(s): {', '.join(sorted(missing))}")
 
-    # Enrich the block config with runtime context (#444).
     enriched_config = dict(node.config)
     enriched_config["block_id"] = node_id
     enriched_config["workflow_id"] = self._workflow.id
     if self._project_dir:
         enriched_config["project_dir"] = self._project_dir
-
-    # ADR-051: interactive blocks run as two worker subprocesses around an
-    # engine-held pause (prompt phase builds the panel view, the engine holds
-    # the wait with nothing resident, the compute phase runs with the user's
-    # decision). They are no longer the in-process exception to ADR-017.
     is_interactive = getattr(block, "execution_mode", None) == ExecutionMode.INTERACTIVE
-
-    if is_interactive:
-        task = asyncio.create_task(
-            self._run_interactive(node_id, block, inputs, enriched_config),
-            name=f"dispatch-interactive:{node_id}",
-        )
-    else:
-        task = asyncio.create_task(
-            self._run_and_finalize(node_id, block, inputs, enriched_config),
-            name=f"dispatch:{node_id}",
-        )
-    self._active_tasks[node_id] = task
+    return enriched_config, is_interactive
 
 
 async def _run_and_finalize(
@@ -242,6 +300,7 @@ async def _run_and_finalize(
                 terminal.state.value,
             )
             self._block_states[node_id] = terminal.state
+            _release_resource_permit(self, node_id)
             # Persist any partial outputs the block returned alongside
             # the terminal state, so downstream lineage and re-runs see
             # the same view as the worker.
@@ -278,6 +337,7 @@ async def _run_and_finalize(
                     )
                 )
                 await self._propagate_skip(node_id, "skipped")
+            await self._dispatch_newly_ready()
             self.save_checkpoint(self._checkpoint_manager)
             return
         except Exception as exc:
@@ -287,6 +347,7 @@ async def _run_and_finalize(
                 return
             logger.exception("Block %s failed with exception", node_id)
             self._block_states[node_id] = BlockState.ERROR
+            _release_resource_permit(self, node_id)
             error_str = str(exc)
             await self._event_bus.emit(
                 EngineEvent(
@@ -333,6 +394,7 @@ async def _run_and_finalize(
         # on the recorder's ``block_io`` insert is already valid.
         self._persist_output_metadata(node_id, result, self._workflow.id)
         self._block_states[node_id] = BlockState.DONE
+        _release_resource_permit(self, node_id)
         await self._event_bus.emit(
             EngineEvent(
                 event_type=BLOCK_DONE,
@@ -349,6 +411,7 @@ async def _run_and_finalize(
         )
         self.save_checkpoint(self._checkpoint_manager)
     finally:
+        _release_resource_permit(self, node_id)
         # Always pop the task entry so _check_completion can observe
         # "no active tasks" once the final block finalises.
         self._active_tasks.pop(node_id, None)
@@ -554,6 +617,7 @@ async def _run_interactive(
                 return
             logger.exception("Interactive block %s failed with exception", node_id)
             self._block_states[node_id] = BlockState.ERROR
+            _release_resource_permit(self, node_id)
             error_str = str(exc)
             await self._event_bus.emit(
                 EngineEvent(
@@ -588,6 +652,7 @@ async def _run_interactive(
         self._block_outputs[node_id] = result
         self._persist_output_metadata(node_id, result, self._workflow.id)
         self._block_states[node_id] = BlockState.DONE
+        _release_resource_permit(self, node_id)
         # ADR-051 / FR-011: record the user's decision in lineage by passing the
         # response-merged config to ``_build_block_done_data`` (the former
         # in-process path passed the pre-response config, dropping the
@@ -611,6 +676,7 @@ async def _run_interactive(
         )
         self.save_checkpoint(self._checkpoint_manager)
     finally:
+        _release_resource_permit(self, node_id)
         # ADR-051 §3 / FR-012: the intermediate scratch is ephemeral, not
         # provenance — release it after the run completes OR on cancellation
         # (this finally runs on success, error, and CancelledError alike).
@@ -673,9 +739,9 @@ async def _dispatch_newly_ready(self: DAGScheduler) -> None:
     * IDLE blocks whose predecessors are all DONE — transition to
       READY and dispatch.
     * READY blocks with no active task — previously refused by
-      ``ResourceManager.can_dispatch`` and now eligible for a retry.
+      host-safety admission and now eligible for a retry.
 
-    ``_dispatch`` is itself idempotent: if ``can_dispatch`` still
+    ``_dispatch`` is itself idempotent: if admission is still
     returns False, the block stays READY and no task is created.
     """
     for node_id in self._order:
@@ -685,5 +751,5 @@ async def _dispatch_newly_ready(self: DAGScheduler) -> None:
             await self._emit_block_ready(node_id)
             await self._dispatch(node_id)
         elif state == BlockState.READY and node_id not in self._active_tasks:
-            # Previously blocked by can_dispatch / paused; retry now.
+            # Previously blocked by host-safety admission / paused; retry now.
             await self._dispatch(node_id)

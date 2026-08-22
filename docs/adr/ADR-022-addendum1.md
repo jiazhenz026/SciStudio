@@ -2,9 +2,9 @@
 adr: 22
 addendum: 1
 title: "Host Safety Guard Replaces Predictive CPU And GPU Accounting"
-status: Proposed
+status: Accepted
 date_created: 2026-08-21
-date_accepted: null
+date_accepted: 2026-08-21
 date_superseded: null
 
 supersedes: []
@@ -21,7 +21,9 @@ governs:
     - scistudio.engine.runners
     - scistudio.engine.scheduler
   contracts:
-    - scistudio.engine.resources.ResourceRequest
+    - scistudio.engine.resources.AdmissionDecision
+    - scistudio.engine.resources.AdmissionWaitReason
+    - scistudio.engine.resources.ResourcePermit
     - scistudio.engine.resources.ResourceSnapshot
     - scistudio.engine.resources.ResourceManager
     - scistudio.engine.runners.process_handle.ProcessHandle
@@ -46,7 +48,7 @@ agent_editable: false
 assisted_by:
   - "Codex:gpt-5"
 
-phase: planning
+phase: implementation
 tags: [runtime, resources, scheduling, concurrency, host-safety]
 owner: "@jiazhenz026"
 co_authors: ["@codex"]
@@ -80,9 +82,9 @@ block subprocess:
 This addendum replaces ADR-022's predictive CPU/GPU accounting and ADR-027's
 `max_internal_workers`, effective-CPU, and GPU auto-detection decisions wherever
 they conflict. It preserves ADR-022's OS-memory-pressure decision and ADR-017's
-subprocess-isolation boundary. The implementation described here is planned;
-the current scheduler still passes a default `ResourceRequest` and does not
-enforce the global concurrency limit defined by this addendum.
+subprocess-isolation boundary. The implementation is delivered with this
+addendum: the scheduler acquires runtime-global permits and no longer carries a
+per-block resource request.
 
 ### 1.1 Problems Addressed
 
@@ -263,10 +265,8 @@ Out of scope:
 - automatic cancellation of running work under memory pressure.
 
 `docs/architecture/ARCHITECTURE.md` is owner-controlled. Its Sections 6.1-6.4
-currently describe CPU/GPU resource gating as implemented behavior. The
-implementation change is not complete until the owner-approved architecture
-update replaces those claims. This addendum records the decision but does not
-claim that the current implementation already follows it.
+are updated with this implementation to replace CPU/GPU resource-gating claims
+with the runtime-global host-safety boundary.
 
 ## 9. Verification And Tooling Impact
 

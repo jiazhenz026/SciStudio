@@ -167,3 +167,8 @@ async def _cancel_active_tasks_on_shutdown(self: DAGScheduler) -> None:
             # masked.
             with contextlib.suppress(BaseException):
                 await task
+    retry_task = self._resource_retry_task
+    if retry_task is not None and retry_task is not asyncio.current_task() and not retry_task.done():
+        retry_task.cancel()
+        with contextlib.suppress(BaseException):
+            await retry_task

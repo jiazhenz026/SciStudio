@@ -20,7 +20,7 @@ from __future__ import annotations
 import asyncio
 import time
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -33,6 +33,7 @@ from scistudio.engine.events import (
     EngineEvent,
     EventBus,
 )
+from scistudio.engine.resources import AdmissionWaitReason, ResourceManager
 from scistudio.engine.scheduler import DAGScheduler
 from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
 
@@ -60,8 +61,7 @@ def _make_scheduler(
     """Build a DAGScheduler wired to ``runner`` with mockable supporting parts."""
     event_bus = EventBus()
     if resource_manager is None:
-        resource_manager = MagicMock()
-        resource_manager.can_dispatch.return_value = True
+        resource_manager = ResourceManager(memory_high_watermark=0.999, memory_critical=1.0)
     if process_registry is None:
         process_registry = MagicMock()
         process_registry.get_handle.return_value = None
@@ -99,11 +99,13 @@ class TestIndependentBranchesConcurrency:
         scheduler, _event_bus = _make_scheduler(wf, runner)
 
         start = time.perf_counter()
-        asyncio.run(scheduler.execute())
+        with patch("psutil.virtual_memory", return_value=type("Memory", (), {"percent": 10.0})()):
+            asyncio.run(scheduler.execute())
         elapsed = time.perf_counter() - start
 
         assert scheduler._block_states["A"] == BlockState.DONE
         assert scheduler._block_states["B"] == BlockState.DONE
+        assert scheduler._resource_manager.available.active_blocks == 0
         # Concurrent execution should finish well below 2x sleep.
         # Use a loose upper bound to tolerate scheduler overhead on CI.
         assert elapsed < sleep_seconds * 1.8, (
@@ -119,41 +121,25 @@ class TestIndependentBranchesConcurrency:
 
 
 class TestResourceThrottlingRetry:
-    """READY blocks blocked by can_dispatch must be retried on the next event."""
+    """READY blocks denied a real permit are retried after release."""
 
     def test_resource_throttling_retries_dispatch(self) -> None:
-        """With a 1-slot GPU pool and two GPU blocks, the second starts only
-        after the first completes.
-
-        We simulate ``ResourceManager.can_dispatch`` with a stateful mock:
-        it returns True only when ``slot_in_use`` is False. The runner
-        sets the slot busy on entry and clears it on exit, modelling the
-        ResourceManager acquire/release that happens during a real
-        subprocess run. Because the scheduler calls
-        ``_dispatch_newly_ready`` after every BLOCK_DONE, the second
-        block is retried and enters RUNNING only once the first has
-        finished.
-        """
-        state = {"slot_in_use": False}
+        """A limit of one keeps the second root READY until the first ends."""
         running_events: list[str] = []
         finish_order: list[str] = []
 
-        def can_dispatch(_request: Any, active_count: int = 0) -> bool:
-            return not state["slot_in_use"]
-
         async def gated_run(block: Any, inputs: dict, config: dict) -> dict:
-            # Simulate ResourceManager.acquire by marking the slot busy
-            # on entry; release it on exit.
-            state["slot_in_use"] = True
             await asyncio.sleep(0.05)
-            state["slot_in_use"] = False
             finish_order.append(block.id)
             return {"out": block.id}
 
         wf = _wf(nodes=[("A", "proc"), ("B", "proc")])  # independent
 
-        resource_manager = MagicMock()
-        resource_manager.can_dispatch.side_effect = can_dispatch
+        resource_manager = ResourceManager(
+            max_concurrent_blocks=1,
+            memory_high_watermark=0.999,
+            memory_critical=1.0,
+        )
 
         runner = AsyncMock()
         runner.run.side_effect = gated_run
@@ -179,6 +165,195 @@ class TestResourceThrottlingRetry:
         first, second = running_events
         assert finish_order[0] == first
         assert finish_order.index(first) < finish_order.index(second)
+        assert scheduler.wait_reasons == {}
+        assert resource_manager.available.active_blocks == 0
+
+
+class TestRuntimeGlobalConcurrency:
+    @staticmethod
+    def _wide_workflow(workflow_id: str, count: int) -> WorkflowDefinition:
+        return WorkflowDefinition(
+            id=workflow_id,
+            nodes=[NodeDef(id=f"node-{index}", block_type="proc") for index in range(count)],
+        )
+
+    def test_default_255_bounds_256_ready_blocks(self) -> None:
+        manager = ResourceManager()
+        runner = AsyncMock()
+        release = asyncio.Event()
+        all_default_permits_active = asyncio.Event()
+        active = 0
+        peak = 0
+
+        async def held_run(block: Any, inputs: dict, config: dict) -> dict:
+            nonlocal active, peak
+            active += 1
+            peak = max(peak, active)
+            if active == 255:
+                all_default_permits_active.set()
+            await release.wait()
+            active -= 1
+            return {"out": block.id}
+
+        runner.run.side_effect = held_run
+        scheduler, _ = _make_scheduler(self._wide_workflow("wf-default", 256), runner, manager)
+
+        async def drive() -> None:
+            execution = asyncio.create_task(scheduler.execute())
+            await asyncio.wait_for(all_default_permits_active.wait(), timeout=5)
+            assert manager.available.active_blocks == 255
+            waiting = [node for node, state in scheduler._block_states.items() if state == BlockState.READY]
+            assert len(waiting) == 1
+            assert scheduler.wait_reasons[waiting[0]] == AdmissionWaitReason.CONCURRENCY_LIMIT.value
+            release.set()
+            await execution
+
+        with patch("psutil.virtual_memory", return_value=type("Memory", (), {"percent": 10.0})()):
+            asyncio.run(drive())
+
+        assert peak == 255
+        assert manager.available.active_blocks == 0
+        assert all(state == BlockState.DONE for state in scheduler._block_states.values())
+
+    def test_limit_above_255_admits_256_ready_blocks(self) -> None:
+        manager = ResourceManager(max_concurrent_blocks=300)
+        runner = AsyncMock()
+        release = asyncio.Event()
+        all_started = asyncio.Event()
+        active = 0
+        peak = 0
+
+        async def held_run(block: Any, inputs: dict, config: dict) -> dict:
+            nonlocal active, peak
+            active += 1
+            peak = max(peak, active)
+            if active == 256:
+                all_started.set()
+            await release.wait()
+            active -= 1
+            return {"out": block.id}
+
+        runner.run.side_effect = held_run
+        scheduler, _ = _make_scheduler(self._wide_workflow("wf-wide", 256), runner, manager)
+
+        async def drive() -> None:
+            execution = asyncio.create_task(scheduler.execute())
+            await asyncio.wait_for(all_started.wait(), timeout=5)
+            assert manager.available.active_blocks == 256
+            release.set()
+            await execution
+
+        with patch("psutil.virtual_memory", return_value=type("Memory", (), {"percent": 10.0})()):
+            asyncio.run(drive())
+
+        assert peak == 256
+        assert manager.available.active_blocks == 0
+
+    def test_shared_manager_is_global_with_colliding_node_ids(self) -> None:
+        manager = ResourceManager(max_concurrent_blocks=1)
+        release_first = asyncio.Event()
+        first_started = asyncio.Event()
+        second_started = asyncio.Event()
+        start_order: list[str] = []
+
+        async def run(block: Any, inputs: dict, config: dict) -> dict:
+            workflow_id = config["workflow_id"]
+            start_order.append(workflow_id)
+            if workflow_id == "wf-a":
+                first_started.set()
+                await release_first.wait()
+            else:
+                second_started.set()
+            return {"out": block.id}
+
+        runner = AsyncMock()
+        runner.run.side_effect = run
+        registry = MagicMock()
+        registry.get_handle.return_value = None
+        workflow_a = WorkflowDefinition(id="wf-a", nodes=[NodeDef(id="load", block_type="proc")])
+        workflow_b = WorkflowDefinition(id="wf-b", nodes=[NodeDef(id="load", block_type="proc")])
+        scheduler_a = DAGScheduler(workflow_a, EventBus(), manager, registry, runner)
+        scheduler_b = DAGScheduler(workflow_b, EventBus(), manager, registry, runner)
+
+        async def drive() -> None:
+            execution_a = asyncio.create_task(scheduler_a.execute())
+            await first_started.wait()
+            execution_b = asyncio.create_task(scheduler_b.execute())
+            await asyncio.sleep(0)
+            assert scheduler_b._block_states["load"] == BlockState.READY
+            assert scheduler_b.wait_reasons["load"] == AdmissionWaitReason.CONCURRENCY_LIMIT.value
+            assert manager.available.active_blocks == 1
+            release_first.set()
+            await asyncio.wait_for(second_started.wait(), timeout=2)
+            await asyncio.gather(execution_a, execution_b)
+
+        with patch("psutil.virtual_memory", return_value=type("Memory", (), {"percent": 10.0})()):
+            asyncio.run(drive())
+
+        assert start_order == ["wf-a", "wf-b"]
+        assert scheduler_a._resource_permits == {}
+        assert scheduler_b._resource_permits == {}
+        assert manager.available.active_blocks == 0
+
+    def test_dispose_unsubscribes_shared_manager_wakeup(self) -> None:
+        manager = ResourceManager(max_concurrent_blocks=1)
+        scheduler, _ = _make_scheduler(_wf([("A", "proc")]), AsyncMock(), manager)
+        listener = scheduler._resource_release_listener
+        assert listener in manager._release_listeners
+        scheduler.dispose()
+        assert listener not in manager._release_listeners
+
+    def test_memory_wait_reason_is_cleared_after_retry(self) -> None:
+        manager = ResourceManager(max_concurrent_blocks=1, memory_high_watermark=0.80, memory_critical=0.95)
+        runner = AsyncMock()
+        runner.run.return_value = {"out": "A"}
+        scheduler, _ = _make_scheduler(_wf([("A", "proc")]), runner, manager)
+        scheduler._block_states["A"] = BlockState.READY
+
+        async def drive() -> None:
+            with patch("psutil.virtual_memory", return_value=type("Memory", (), {"percent": 95.0})()):
+                await scheduler._dispatch("A")
+            assert scheduler._block_states["A"] == BlockState.READY
+            assert scheduler.wait_reasons["A"] == AdmissionWaitReason.MEMORY_PRESSURE_CRITICAL.value
+            with patch("psutil.virtual_memory", return_value=type("Memory", (), {"percent": 10.0})()):
+                await scheduler._dispatch("A")
+                await scheduler._drain_active_tasks()
+
+        asyncio.run(drive())
+        assert scheduler._block_states["A"] == BlockState.DONE
+        assert scheduler.wait_reasons == {}
+        assert manager.available.active_blocks == 0
+
+    def test_task_launch_failure_releases_permit(self) -> None:
+        manager = ResourceManager(max_concurrent_blocks=1)
+        runner = AsyncMock()
+        scheduler, _ = _make_scheduler(_wf([("A", "proc")]), runner, manager)
+        scheduler._block_states["A"] = BlockState.READY
+
+        async def drive() -> None:
+            with (
+                patch("psutil.virtual_memory", return_value=type("Memory", (), {"percent": 10.0})()),
+                patch("scistudio.engine.scheduler._dispatch.asyncio.create_task", side_effect=RuntimeError("launch")),
+            ):
+                await scheduler._dispatch("A")
+
+        asyncio.run(drive())
+        assert scheduler._block_states["A"] == BlockState.ERROR
+        assert manager.available.active_blocks == 0
+        assert scheduler._resource_permits == {}
+
+    def test_abnormal_runner_exit_releases_permit(self) -> None:
+        manager = ResourceManager(max_concurrent_blocks=1)
+        runner = AsyncMock()
+        runner.run.side_effect = RuntimeError("worker exited 137")
+        scheduler, _ = _make_scheduler(_wf([("A", "proc")]), runner, manager)
+
+        with patch("psutil.virtual_memory", return_value=type("Memory", (), {"percent": 10.0})()):
+            asyncio.run(scheduler.execute())
+
+        assert scheduler._block_states["A"] == BlockState.ERROR
+        assert manager.available.active_blocks == 0
+        assert scheduler._resource_permits == {}
 
 
 # ---------------------------------------------------------------------------
@@ -244,6 +419,7 @@ class TestShutdownCleanupOnException:
 
         # After execute() unwinds, no tasks may remain.
         assert scheduler._active_tasks == {}
+        assert scheduler._resource_manager.available.active_blocks == 0
         # At least one terminate call was issued during shutdown (for
         # whichever block was still tracked in the registry when the
         # cancellation occurred).
@@ -304,6 +480,7 @@ class TestCancelBeforeSubprocessStarts:
         # task-cancel, not process-terminate.
         assert process_registry.get_handle.called
         assert scheduler._active_tasks == {}
+        assert scheduler._resource_manager.available.active_blocks == 0
 
 
 # ---------------------------------------------------------------------------
@@ -358,6 +535,7 @@ class TestCancelDuringSubprocessRun:
 
         assert scheduler._block_states["A"] == BlockState.CANCELLED
         assert terminated == ["A"], f"Expected ProcessHandle.terminate() to be called; got {terminated}"
+        assert scheduler._resource_manager.available.active_blocks == 0
 
 
 # ---------------------------------------------------------------------------
@@ -439,6 +617,7 @@ class TestCancelWorkflowMixed:
         assert "workflow cancelled" in scheduler.skip_reasons.get("C", "")
         handle_a.terminate.assert_called_once()
         assert scheduler._active_tasks == {}
+        assert scheduler._resource_manager.available.active_blocks == 0
 
 
 # ---------------------------------------------------------------------------
@@ -451,7 +630,6 @@ class TestRunIdentityIsolation:
 
     def _scheduler_on_bus(self, workflow: WorkflowDefinition, bus: EventBus) -> DAGScheduler:
         rm = MagicMock()
-        rm.can_dispatch.return_value = True
         reg = MagicMock()
         reg.get_handle.return_value = None
         return DAGScheduler(
@@ -489,11 +667,9 @@ class TestRunIdentityIsolation:
         wf_b = WorkflowDefinition(id="wf-B", nodes=[NodeDef(id="x", block_type="proc")])
         sched_a = self._scheduler_on_bus(wf_a, bus)
         self._scheduler_on_bus(wf_b, bus)
-        sched_a._dispatch_newly_ready = AsyncMock()
-
-        asyncio.run(bus.emit(EngineEvent(event_type=BLOCK_DONE, block_id="x", data={"workflow_id": "wf-B"})))
-
-        sched_a._dispatch_newly_ready.assert_not_called()
+        with patch.object(sched_a, "_dispatch_newly_ready", new_callable=AsyncMock) as dispatch_ready:
+            asyncio.run(bus.emit(EngineEvent(event_type=BLOCK_DONE, block_id="x", data={"workflow_id": "wf-B"})))
+        dispatch_ready.assert_not_called()
 
     def test_dispose_unsubscribes(self) -> None:
         """#1517: a disposed scheduler stops receiving events; dispose is idempotent."""

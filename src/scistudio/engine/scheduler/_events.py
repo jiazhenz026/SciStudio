@@ -123,7 +123,9 @@ async def _on_block_error(self: DAGScheduler, event: EngineEvent) -> None:
         return
 
     self._block_states[event.block_id] = BlockState.ERROR
+    self._release_resource_permit(event.block_id)
     await self._propagate_skip(event.block_id, "error")
+    await self._dispatch_newly_ready()
     self._check_completion()
     self.save_checkpoint(self._checkpoint_manager)
 
@@ -213,6 +215,7 @@ async def _on_cancel_block(self: DAGScheduler, event: EngineEvent) -> None:
     # _run_and_finalize's exception path sees the CANCELLED state
     # and does not re-emit BLOCK_ERROR.
     self._block_states[block_id] = BlockState.CANCELLED
+    self._release_resource_permit(block_id)
 
     # #591/#594: Cancel pending interactive future so _run_interactive
     # receives CancelledError and unwinds.
@@ -247,6 +250,7 @@ async def _on_cancel_block(self: DAGScheduler, event: EngineEvent) -> None:
         )
     )
     await self._propagate_skip(block_id, "cancelled")
+    await self._dispatch_newly_ready()
     self._check_completion()
     self.save_checkpoint(self._checkpoint_manager)
 
@@ -283,6 +287,7 @@ async def _on_cancel_workflow(self: DAGScheduler, event: EngineEvent) -> None:
         # Mark CANCELLED before terminating/cancelling so that
         # _run_and_finalize observes the CANCELLED state.
         self._block_states[block_id] = BlockState.CANCELLED
+        self._release_resource_permit(block_id)
 
         if handle is not None:
             pending_terminations.append((block_id, handle))
@@ -308,6 +313,7 @@ async def _on_cancel_workflow(self: DAGScheduler, event: EngineEvent) -> None:
     for block_id, state in list(self._block_states.items()):
         if state in (BlockState.IDLE, BlockState.READY):
             self._block_states[block_id] = BlockState.SKIPPED
+            self._release_resource_permit(block_id)
             self.skip_reasons[block_id] = "workflow cancelled"
             await self._event_bus.emit(
                 EngineEvent(

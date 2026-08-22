@@ -11,7 +11,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from scistudio.engine.resources import ResourceRequest
 from scistudio.engine.runners.platform import (
     PlatformOps,
     PosixOps,
@@ -227,18 +226,16 @@ class TestIsAlive:
 
 class TestProcessHandle:
     def test_construction(self) -> None:
-        rr = ResourceRequest()
         now = datetime.now()
         handle = ProcessHandle(
             block_id="block-1",
             pid=12345,
             start_time=now,
-            resource_request=rr,
         )
         assert handle.block_id == "block-1"
         assert handle.pid == 12345
         assert handle.start_time == now
-        assert handle.resource_request is rr
+        assert not hasattr(handle, "resource_request")
         assert handle.was_killed_by_framework is False
         assert handle._popen is None
 
@@ -250,7 +247,6 @@ class TestProcessHandle:
             block_id="block-1",
             pid=99999,
             start_time=datetime.now(),
-            resource_request=ResourceRequest(),
         )
         handle._platform_ops = mock_ops
 
@@ -266,7 +262,6 @@ class TestProcessHandle:
             block_id="block-1",
             pid=99999,
             start_time=datetime.now(),
-            resource_request=ResourceRequest(),
         )
         handle._platform_ops = mock_ops
 
@@ -283,7 +278,6 @@ class TestProcessHandle:
             block_id="block-1",
             pid=99999,
             start_time=datetime.now(),
-            resource_request=ResourceRequest(),
         )
         handle._platform_ops = mock_ops
 
@@ -301,7 +295,6 @@ class TestProcessHandle:
             block_id="block-1",
             pid=99999,
             start_time=datetime.now(),
-            resource_request=ResourceRequest(),
         )
         handle._platform_ops = mock_ops
 
@@ -322,7 +315,6 @@ class TestProcessRegistry:
             block_id=block_id,
             pid=pid,
             start_time=datetime.now(),
-            resource_request=ResourceRequest(),
             workflow_id=workflow_id,
         )
 
@@ -510,7 +502,6 @@ class TestSpawnBlockProcess:
                 config={"param": 1},
                 event_bus=mock_bus,
                 registry=registry,
-                resource_request=ResourceRequest(cpu_cores=2),
             )
             await asyncio.sleep(0)  # Let create_task run
             return h
@@ -529,7 +520,7 @@ class TestSpawnBlockProcess:
         # Verify handle is correct
         assert handle.block_id == "mymodule.MyBlock"
         assert handle.pid == 42
-        assert handle.resource_request.cpu_cores == 2
+        assert not hasattr(handle, "resource_request")
         assert handle._popen is mock_proc
         assert handle._stdin_payload is not None
 
@@ -572,8 +563,8 @@ class TestSpawnBlockProcess:
         assert "FakeBlock" in handle.block_id
 
     @patch("scistudio.engine.runners.process_handle.subprocess.Popen")
-    def test_spawn_default_resource_request(self, mock_popen_cls: MagicMock) -> None:
-        """When no resource_request given, should default to ResourceRequest()."""
+    def test_spawn_does_not_attach_resource_request(self, mock_popen_cls: MagicMock) -> None:
+        """Process lifecycle does not carry scheduler resource metadata."""
         mock_proc = MagicMock()
         mock_proc.pid = 55
         mock_proc.stdin = MagicMock()
@@ -590,8 +581,7 @@ class TestSpawnBlockProcess:
             registry=registry,
         )
 
-        assert handle.resource_request.cpu_cores == 1
-        assert handle.resource_request.requires_gpu is False
+        assert not hasattr(handle, "resource_request")
 
     @patch("scistudio.engine.runners.process_handle.subprocess.Popen")
     def test_spawn_sets_platform_process_group(self, mock_popen_cls: MagicMock) -> None:

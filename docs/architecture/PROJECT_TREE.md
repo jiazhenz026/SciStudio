@@ -126,8 +126,8 @@ scistudio/                               # ← repo root
 │       │   │   │                       #   circular imports when external packages import it.
 │       │   │   ├── block.py            # Block ABC: validate(), run(), postprocess()
 │       │   │   │                       #   Fields: name, version, input_ports, output_ports,
-│       │   │   │                       #   execution_mode, resource_request,
-│       │   │   │                       #   terminate_grace_sec (ADR-019). run() always
+│       │   │   │                       #   execution_mode and terminate_grace_sec
+│       │   │   │                       #   (ADR-019). run() always
 │       │   │   │                       #   executes in subprocess, not engine process (ADR-017).
 │       │   │   │                       #   Utilities: pack(), unpack(), map_items(),
 │       │   │   │                       #   parallel_map() for Collection handling (ADR-020).
@@ -269,10 +269,9 @@ scistudio/                               # ← repo root
 │       │   │                           #   Subscribes to EventBus for cancel/error/done events.
 │       │   │                           #   Propagates SKIPPED to unreachable downstream blocks.
 │       │   │
-│       │   ├── resources.py            # ResourceManager: GPU slots, CPU workers, OS memory
-│       │   │                           #   monitoring via psutil (ADR-022). ResourceRequest
-│       │   │                           #   dataclass (no estimated_memory_gb). can_dispatch()/
-│       │   │                           #   release(). Auto-release via EventBus (ADR-018).
+│       │   ├── resources.py            # ResourceManager: runtime-global concurrency permits
+│       │   │                           #   plus live OS-memory admission (ADR-022 Addendum 1).
+│       │   │                           #   Opaque idempotent permits wake shared schedulers.
 │       │   │
 │       │   ├── runners/                # BlockRunner protocol + implementations
 │       │   │   ├── __init__.py
@@ -595,7 +594,7 @@ scistudio/                               # ← repo root
 │   ├── engine/
 │   │   ├── test_dag.py                # DAG construction, topological sort, cycle detection
 │   │   ├── test_scheduler.py          # Event-driven execution, cancel propagation, SKIPPED
-│   │   ├── test_resources.py          # ResourceManager acquire/release, auto-release via EventBus
+│   │   ├── test_resources.py          # Global permits, memory admission, diagnostics, wakeups
 │   │   ├── test_checkpoint.py         # Serialise/restore with CANCELLED/SKIPPED states
 │   │   ├── test_process_handle.py     # ProcessHandle terminate/kill, platform ops (ADR-019)
 │   │   ├── test_process_monitor.py    # Death detection, event emission (ADR-019)

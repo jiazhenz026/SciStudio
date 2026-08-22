@@ -3,11 +3,12 @@ doc_type: architecture
 title: "SciStudio Architecture Document"
 status: living
 owner: "@jiazhenz026"
-last_updated: 2026-05-20
+last_updated: 2026-08-21
 governed_by:
   - ADR-042
   - ADR-043
 related_adrs:
+  - 22
   - 25
   - 26
   - 27
@@ -25,7 +26,7 @@ summary: "Stable architecture overview for SciStudio runtime, data, block, regis
 # SciStudio Architecture Document
 
 > Status: Living architecture reference
-> Last updated: 2026-05-20
+> Last updated: 2026-08-21
 > Audit rule: implementation contracts must match current repository facts
 
 ---
@@ -993,7 +994,7 @@ Port validation happens in layers:
 
 The execution engine turns a validated workflow graph into coordinated runtime
 work. It owns graph scheduling, event propagation, subprocess dispatch,
-checkpoint updates, resource gating, data transport, and terminal-state
+checkpoint updates, host-safety admission, data transport, and terminal-state
 handling. It does not own scientific algorithms; those live inside blocks.
 
 ### 6.1 Engine Responsibilities And Scope
@@ -1010,7 +1011,8 @@ In scope:
 - Dispatch blocks through a `BlockRunner`, normally `LocalRunner`.
 - Coordinate subprocess lifecycle through `ProcessHandle` and
   `ProcessRegistry`.
-- Apply resource gating through `ResourceManager` before starting work.
+- Acquire a runtime-global concurrency permit and apply live host-memory
+  admission through `ResourceManager` before starting work.
 - Preserve pause/resume and latest-run checkpoint state through
   `CheckpointManager` and `WorkflowCheckpoint`.
 - Move data between blocks as `Collection` transport units.
@@ -1032,7 +1034,7 @@ own responsibilities.
 ### 6.2 Event Bus
 
 `EventBus` is the runtime publish/subscribe backbone defined by ADR-018.
-Schedulers, resource managers, process monitors, checkpoint handlers, lineage
+Schedulers, process monitors, checkpoint handlers, lineage
 recorders, WebSocket handlers, and API surfaces coordinate by emitting and
 subscribing to `EngineEvent` values.
 
@@ -1067,18 +1069,21 @@ The main subscriber pattern is:
 | Subscriber | Typical events consumed | Result |
 |---|---|---|
 | `DAGScheduler` | Block terminal events and cancellation requests | Dispatch successors, cancel running work, or mark downstream blocks skipped. |
-| `ResourceManager` | Terminal block events | Release GPU and CPU allocations. |
 | `ProcessRegistry` | Process spawn and cancellation requests | Track active handles and terminate requested processes. |
 | `CheckpointManager` | Terminal block events | Writes latest-run checkpoint state. |
 | Lineage recorder | Terminal block events and run lifecycle context | Writes durable run, block, object, and port-edge records. |
 | WebSocket/API handlers | Workflow and block state events | Push runtime status to clients. |
 
+`ResourceManager` is not an `EventBus` subscriber. Schedulers acquire and
+release its opaque permits directly, and its isolated release-listener callbacks
+wake every scheduler sharing the runtime-global pool.
+
 ### 6.3 DAG Scheduler
 
 `DAGScheduler` executes the workflow graph. It treats each workflow node as a
 block execution unit and each edge as a typed dependency. A block can run only
-after required upstream outputs are available and the resource manager allows
-dispatch.
+after required upstream outputs are available and the runtime-global
+host-safety manager admits it.
 
 Scheduler responsibilities:
 
@@ -1088,7 +1093,7 @@ Scheduler responsibilities:
 - Await block completion through the runner result path.
 - Store block outputs for downstream inputs.
 - Emit terminal events for done, error, cancelled, or skipped blocks.
-- Retry ready-but-resource-blocked nodes after resources are released.
+- Retry ready-but-admission-blocked nodes after a permit is released.
 - Propagate `SKIPPED` to downstream nodes whose required inputs can no longer be
   produced.
 
@@ -1106,7 +1111,7 @@ pending block.
 ### 6.4 Checkpointing And Resource Management
 
 The engine keeps two runtime control systems close to scheduling: latest-run
-checkpointing and resource gating. Both are deliberately operational; neither is
+checkpointing and host-safety admission. Both are deliberately operational; neither is
 the durable lineage record described in Section 4.5.
 
 `CheckpointManager` saves the latest known workflow state after terminal block
@@ -1121,22 +1126,36 @@ intermediate outputs, older intermediate states are not guaranteed to be
 loadable from the checkpoint. Historical reproducibility comes from the lineage
 recipe plus re-execution, not from storing every intermediate payload forever.
 
-`ResourceManager` gates dispatch before a block starts. It tracks discrete GPU
-slots and CPU worker budget, and it checks current system memory before allowing
-new subprocesses to launch. Resource release happens from terminal events and
-process-exit events.
+`ResourceManager` atomically grants an opaque concurrency permit before a block
+enters `RUNNING`. One manager instance is shared by every workflow scheduler in
+an `ApiRuntime`, so the default `max_concurrent_blocks = 255` applies across the
+whole runtime rather than independently to each workflow. The positive integer
+limit may be set programmatically, through
+`SCISTUDIO_MAX_CONCURRENT_BLOCKS`, or by the headless CLI's
+`--max-concurrent-blocks` option. Values above 255 require an explicit choice.
+
+The same admission attempt reads current system-memory pressure. At or above
+the critical threshold (default 95%), no new block starts. Above the high
+threshold (default 90%), no additional block starts while another permit is
+active; when the runtime is idle, one block may start below the critical
+threshold to avoid a baseline-memory deadlock. Existing work is not terminated
+when a watermark is crossed.
 
 The resource model has three layers:
 
 | Layer | Responsibility |
 |---|---|
-| Dispatch gating | `ResourceManager` decides whether a block may start based on GPU, CPU, and memory state. |
-| Block-local memory behavior | Collection helpers, lazy loading, and block logic decide how much data is loaded at once. |
+| Host-safety admission | `ResourceManager` bounds active block executions and checks live system memory. |
+| Block-owned resource behavior | Block logic chooses CPU/GPU use, device selection, batching, lazy loading, and internal thread/process pools. |
 | OS/process fallback | If a subprocess crashes or is killed by the OS, the runner observes the non-zero exit and the scheduler marks the block failed. |
 
-Blocks declare resource needs through resource request metadata. The scheduler
-uses those declarations as an admission-control signal, not as proof that a
-scientific method is safe or efficient.
+The local runtime does not predict, reserve, or enforce CPU cores, GPU devices,
+GPU memory, or block-internal workers. A permit is only a process-fan-out bound;
+it is released idempotently on every terminal, launch-failure, cancellation,
+and task-cleanup path. READY blocks expose machine-readable
+`concurrency_limit`, `memory_pressure_high`, or `memory_pressure_critical` wait
+reasons. Hard resource profiles belong to a future runner or provisioner
+contract, not the local DAG scheduler.
 
 ### 6.5 Process Lifecycle Management
 
@@ -1210,7 +1229,7 @@ Main error classes:
 
 | Error class | Engine behavior |
 |---|---|
-| Block exception | Mark block `ERROR`, emit `BLOCK_ERROR`, release resources, checkpoint, and skip unreachable downstream blocks. |
+| Block exception | Mark block `ERROR`, emit `BLOCK_ERROR`, release its concurrency permit, checkpoint, and skip unreachable downstream blocks. |
 | User cancellation | Mark block or workflow `CANCELLED`, terminate active processes, emit cancellation events, and skip dependent work. |
 | Missing required upstream output | Mark downstream block `SKIPPED` with a skip reason. |
 | Subprocess crash or OS kill | The runner observes the non-zero subprocess exit, marks the block `ERROR`, and propagates skip where needed. |

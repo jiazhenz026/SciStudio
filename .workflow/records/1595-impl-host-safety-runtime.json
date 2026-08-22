@@ -1,0 +1,231 @@
+{
+  "branch": "fix/1595-host-safety-implementation",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      ".workflow/records/1595-impl-host-safety-runtime.json",
+      "docs/architecture/ARCHITECTURE.md",
+      "docs/architecture/PROJECT_TREE.md",
+      "docs/package-development/blocks.md",
+      "src/scistudio/api/runtime/__init__.py",
+      "src/scistudio/cli/main.py",
+      "src/scistudio/engine/events.py",
+      "src/scistudio/engine/resources.py",
+      "src/scistudio/engine/runners/process_handle.py",
+      "src/scistudio/engine/scheduler/**",
+      "tests/api/test_runtime_host_safety.py",
+      "tests/engine/test_local_runner.py",
+      "tests/engine/test_process_handle.py",
+      "tests/engine/test_resource_manager_gpu_autodetect.py",
+      "tests/engine/test_resources.py",
+      "tests/engine/test_scheduler_concurrency.py",
+      "tests/test_import_coverage.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-22T03:02:45.808632Z",
+      "owner_directive": "Manager-approved implementation plan covers ADR-022 Addendum 1 runtime host safety, regression tests, implementation-linked docs, and branch-local gate evidence.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-08-22T03:19:24.267434Z",
+      "owner_directive": "Apply only the manager-authored current five-file ADR patch to reconcile accepted Addendum 1 with implemented contracts; do not make independent ADR decisions.",
+      "reason": "Manager and ADR owner approved five minimal ADR contract-drift updates after full_audit identified superseded ResourceRequest, GPU test, and process signature claims."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-22T03:02:45.808653Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T03:02:45.808664Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/PROJECT_TREE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T03:02:45.808666Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/package-development/blocks.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T03:19:24.267466Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-017.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T03:19:24.267470Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-019.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T03:19:24.267472Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-022.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T03:19:24.267473Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-027.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T03:19:24.267475Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-022-addendum1.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1595,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-022 Addendum 1 completely within the manager-approved write set; manager authorized a branch-local implementer ledger and will own the final public PR.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "1595-impl-host-safety-runtime",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:architecture-doc"
+    },
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "Codex",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-22T03:19:24.267450Z",
+      "pattern": "docs/adr/ADR-017.md",
+      "reason": "Manager and ADR owner approved five minimal ADR contract-drift updates after full_audit identified superseded ResourceRequest, GPU test, and process signature claims."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T03:19:24.267457Z",
+      "pattern": "docs/adr/ADR-019.md",
+      "reason": "Manager and ADR owner approved five minimal ADR contract-drift updates after full_audit identified superseded ResourceRequest, GPU test, and process signature claims."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T03:19:24.267459Z",
+      "pattern": "docs/adr/ADR-022.md",
+      "reason": "Manager and ADR owner approved five minimal ADR contract-drift updates after full_audit identified superseded ResourceRequest, GPU test, and process signature claims."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T03:19:24.267460Z",
+      "pattern": "docs/adr/ADR-027.md",
+      "reason": "Manager and ADR owner approved five minimal ADR contract-drift updates after full_audit identified superseded ResourceRequest, GPU test, and process signature claims."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T03:19:24.267462Z",
+      "pattern": "docs/adr/ADR-022-addendum1.md",
+      "reason": "Manager and ADR owner approved five minimal ADR contract-drift updates after full_audit identified superseded ResourceRequest, GPU test, and process signature claims."
+    }
+  ],
+  "session_id": "9c43dc58-9410-44e6-8094-6253c6edf754",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-08-22T03:02:45.808670Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_host_safety.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T03:02:45.808675Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_local_runner.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T03:02:45.808677Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_process_handle.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T03:02:45.808679Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_resources.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T03:02:45.808681Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_scheduler_concurrency.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T03:02:45.808682Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/test_import_coverage.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
