@@ -250,6 +250,34 @@ they establish relative magnitude and are not offered as runtimes.
 No CI workflow changes. `ci.yml` already runs the full matrix on every PR, which
 is what makes the local narrowing safe.
 
+## 4.1 Measured Outcome
+
+Measured on this change's own diff, through the same command path, on a warm
+parity environment:
+
+| Run | Wall clock |
+|---|---:|
+| `check --mode pre-pr --force-checks` (every selected check at repository scope) | 958s |
+| `check --mode pre-pr` (diff-scoped, `semantic_dup` deferred) | 58.8s |
+
+The ledger confirms the 58.8s run executed all eight selected checks and reused
+no prior evidence, so the comparison is not an artifact of caching.
+
+Two observations from the baseline run are worth recording. `semantic_dup` did
+not complete: it hit the 600s subprocess timeout and recorded `unknown`, which is
+#2099 reproducing under measurement rather than in the abstract. Excluding that
+timeout the repository-scoped set costs roughly 358s, consistent with the
+per-check table in Section 1.
+
+And the repository-scoped `python_tests` phase failed. Running the same tests on
+unmodified `origin/main` reproduces the same failures, so they are pre-existing
+and platform-specific rather than caused by this change; `ci.yml` is green on
+`main`. That is worth stating plainly because it cuts toward this addendum rather
+than against it: on a developer machine where the full local suite is already
+red for reasons unrelated to the current edit, running it on every iteration was
+never the safety property it appeared to be. The tests that cover the changed
+modules, which is what the diff-scoped run executes, were green throughout.
+
 ## 5. Consequences
 
 Local gate invocations get materially faster in the common case of an agent

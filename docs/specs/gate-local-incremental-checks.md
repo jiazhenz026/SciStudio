@@ -441,14 +441,20 @@ forbid.
 
 - SC-001: A Tier 1 `gate_record check` completes in under half the time the same
   selection takes at repository scope, measured on the same machine with a warm
-  parity environment. Measured: ~349s before, ~205s with narrowing alone, ~70s
-  with `semantic_dup` deferred — a 5.0x reduction against a 2x target.
+  parity environment. Measured on this change's own diff: 958s with
+  `--force-checks` versus 58.8s diff-scoped, a 16.3x reduction against a 2x
+  target. The ledger confirms the fast run executed all eight selected checks and
+  reused no prior evidence. The baseline includes a 600s `semantic_dup` timeout
+  (#2099 reproducing); excluding it the repository-scoped set is roughly 358s,
+  still a 6.1x reduction.
 - SC-002: `format_check` produces zero gate failures across the ledgers recorded
   after the change, measured over at least twenty subsequent sessions, compared
   with 98 failures in 304 runs before.
 - SC-003: The proportion of non-dependabot PR branches that fail `ci.yml` at
   least once does not increase, measured over at least thirty branches after the
   change against the pre-change baseline of 12 of 81 branches, or 15 percent.
+  This is the criterion that would falsify the change, and it can only be
+  evaluated after the change has been in use; it is not satisfied by this PR.
 - SC-004: A Python edit that changes only formatting no longer invalidates
   recorded `type_check` or `python_tests` evidence, verified by unit test.
 - SC-005: The configured coverage floor is unchanged and `ci.yml` continues to
