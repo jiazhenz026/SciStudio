@@ -1,0 +1,87 @@
+{
+  "branch": "feat/2082-core-tutorial-3",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-22T07:23:33.033446Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2082,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Author core tutorial 3 - multimodal joint analysis over tutorial 2's library artefacts (Image type, segment_cells block, Image previewer), real numpy k-means clustering in a block, PairEditor for misaligned exports, and git branches as long-lived workflow variants. Scope: src/scistudio/tutorials/core/<t3-id>/**, tests/tutorials/, CHANGELOG.md, checklist row L3.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2082-core-tutorial-3",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-22T07:23:33.033412Z",
+      "pattern": "src/scistudio/tutorials/core/two-modalities-one-answer/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T07:23:33.033431Z",
+      "pattern": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T07:23:33.033435Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T07:23:33.033437Z",
+      "pattern": "docs/planning/learning-center-levels-checklist.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "f9204ad2-7d51-400c-9627-482136a5b27c",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-08-22T07:23:33.033451Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

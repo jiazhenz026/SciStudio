@@ -1,0 +1,502 @@
+# Core tutorial 3 — "Two modalities, one answer" (scenarios doc, 关卡 3).
+#
+# The multimodal level, and the git level. Two instruments looked at the same
+# three sections of tissue and neither one can answer the question alone: a
+# scanner produced pictures, a sequencer produced counts, and the only thing
+# linking them is space. The reader builds the first forked canvas in the
+# course, meets index pairing as a real hazard rather than a demo, computes a
+# clustering in a block (never in a plot), and then meets the reason a
+# scientist keeps two branches alive at once: two sequencing runs that need
+# two different normalisations, both of which must stay runnable.
+#
+# Everything the level teaches is reused or real:
+#   * the Image type, the Segment Cells block and the Image previewer all come
+#     out of My Library, where tutorial 2 put them — nothing is rebuilt;
+#   * the misalignment is what actually happens when a scope names files by
+#     acquisition order and a sequencing core names sheets by section label;
+#   * the clustering is hand-written NumPy k-means, opened and read;
+#   * the two normalisations fail in opposite, textbook ways — total-count
+#     loses to a runaway housekeeping gene, median-of-ratios loses to shallow,
+#     zero-heavy data — so neither is "the good one";
+#   * the stale figure after a branch switch is the product's real behaviour:
+#     data/ and .scistudio/ are not in version control.
+#
+# Every number quoted in a step below is recomputed from the shipped assets by
+# tests/tutorials/test_core_tutorial_two_modalities.py.
+manifest_version: 1
+id: two-modalities-one-answer
+title: Two modalities, one answer
+summary: >-
+  A scanner and a sequencer looked at the same tissue and neither can answer
+  alone. Fork the canvas, reuse the type and the block you saved last level,
+  pair the two streams by hand before they silently mispair, cluster the
+  regions in a block — then meet the second sequencing run, and the branch
+  that keeps both recipes alive.
+order: 3
+
+requires:
+  # Same floor as the other levels: to_memory() and the ergonomic accessors
+  # the shipped block sources rely on are stable from 0.3.1 (ADR-052 §10).
+  #
+  # This level genuinely depends on tutorial 2 — it consumes the Image type,
+  # the Segment Cells block, and the Image previewer straight out of the
+  # tutorial-scoped library, which is where tutorial 2's last three steps put
+  # them. `requires.tutorials: [what-is-a-type]` (#2088) is exactly the
+  # declaration for that, and it is deliberately NOT made here: a core
+  # tutorial declaring it is judged unavailable by
+  # test_core_tutorials.py::test_every_shipped_tutorial_is_startable_in_this_tree,
+  # which runs real discovery against an empty progress store and requires
+  # every shipped tutorial to be startable. Gating the core levels on each
+  # other is therefore a track-integration decision (see #2082), not one a
+  # level author can take alone; tutorial 2 records the same reasoning.
+  scistudio: ">=0.3.1"
+  agent: false
+  packages: []
+
+bootstrap:
+  project_name: Two Modalities
+  do:
+    # The dataset: one three-page section stack in the scanner's acquisition
+    # order, and two workbooks — one sheet per section, in section-label
+    # order. The two orders disagree, which is the point.
+    - copy:
+        source: assets/data
+        destination: data/raw
+    # The reader for this facility's stack format ships WITH the dataset, not
+    # from the library: tutorial 2 taught what an IO block is and deliberately
+    # kept its TIFF loader out of My Library, because an instrument's reader
+    # is not a tool you carry between projects.
+    - write:
+        source: assets/code/load_section_stack.py
+        destination: blocks/load_section_stack.py
+
+steps:
+  - id: two-instruments-one-block-of-tissue
+    title: Two instruments, one question
+    route_to: canvas
+    say: >-
+      Three serial sections were cut from one block of tissue. Each was
+      scanned, and each was sequenced. In data/raw you have what came back:
+      sections.tif, the scanner's stack, and run1_counts.xlsx, the sequencing
+      core's workbook — a few hundred measured positions per section, twelve
+      genes each. The question is which tissue regions share an expression
+      programme, and neither file can answer it. The pictures show structure
+      with no expression; the counts show expression with no structure. What
+      joins them is that every count carries the y and x it was measured at —
+      no shared identifier, no key column, nothing the two instruments agreed
+      on in advance. Just space. That is what makes this analysis joint rather
+      than two analyses in a row.
+
+  - id: your-library-came-with-you
+    title: The library came with you
+    route_to: data_types
+    say: >-
+      This is a brand-new project — and open the Data types tab anyway. Image
+      is there, in your colours, filed under your library rather than this
+      project. So is Segment Cells, over in the block palette, and so is the
+      previewer that draws an Image as a picture. You built all three in the
+      last level and moved them to My Library; that is the whole reason they
+      are here on day one. One thing did NOT come: the TIFF loader, which you
+      were told not to take. This dataset brought its own reader instead —
+      look for Load Section Stack in the palette. An instrument's reader
+      belongs to the instrument.
+    done_when:
+      type_registered:
+        type_name: Image
+
+  - id: load-the-slides
+    title: One file, three sections
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: load_data
+    say: >-
+      Drag a Load block onto the canvas. Press Browse, open data then raw, and
+      pick sections.tif; then set core_type to Image. One file, but it holds
+      three pages — the reader that shipped with the dataset turns each page
+      into its own Image and hands the Load block a collection of three. Every
+      block downstream will then run once per section without you drawing
+      anything three times. That is what a collection is for.
+    done_when:
+      all:
+        - node_exists:
+            block_type: load_data
+        - config_matches:
+            block_type: load_data
+            key: path
+            pattern: data/raw/sections.tif
+        - config_equals:
+            block_type: load_data
+            key: core_type
+            value: Image
+
+  - id: see-the-sections
+    title: Look at them
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      Press Run, then click the Load block and open the preview panel. Three
+      sections, drawn as pictures — pick one to look at. No number tables this
+      time: your previewer travelled with your type, so an Image knows how to
+      show itself in this project too. Notice the names beside them — S05, S09,
+      S01. That is the order the slides went into the scanner, and it is
+      recorded in the file. Remember it.
+    done_when:
+      all:
+        - run_succeeded:
+            since_step_entry: true
+        - ui_event:
+            name: node_selected
+            block_type: load_data
+
+  - id: load-the-counts
+    title: The other instrument
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: load_data
+    say: >-
+      Now the second modality. Drag a SECOND Load block onto the canvas —
+      leave the first one alone — press Browse and pick
+      data/raw/run1_counts.xlsx, and set core_type to DataFrame. The workbook
+      has one sheet per section, and core Load fans a multi-sheet workbook out
+      into a collection the same way: three tables, named
+      "run1_counts.xlsx — S01", "run1_counts.xlsx — S05",
+      "run1_counts.xlsx — S09". Look at your canvas: for the first time it has
+      two roots. That fork IS the multimodality — two instruments, two
+      branches, and everything downstream is about bringing them back together.
+    done_when:
+      all:
+        - config_matches:
+            block_type: load_data
+            key: path
+            pattern: data/raw/run1_counts.xlsx
+        - config_equals:
+            block_type: load_data
+            key: core_type
+            value: DataFrame
+
+  # The pairing is placed here, on the raw items, rather than further down —
+  # deliberately, and the step says why. A processing block returns a result,
+  # not a filename, so item identity is at its strongest right after loading.
+  - id: pair-the-two-streams
+    title: Pair them before you use them
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: paireditor_block
+    say: >-
+      Two collections of three are about to be analysed side by side, and
+      SciStudio pairs collections by POSITION — first with first, second with
+      second. Nothing checks that position two of one is the same section as
+      position two of the other, because nothing can: a picture does not carry
+      a sheet name. Drag Pair Editor onto the canvas. It arrives with no ports
+      at all — it takes between two and eight, and you say how many: press the
+      + on its left edge twice and on its right edge twice, accepting the
+      offered names. Then connect the image Load to its first input and the
+      counts Load to its second.
+    done_when:
+      all:
+        - node_exists:
+            block_type: paireditor_block
+        - edge_exists:
+            source_block_type: load_data
+            target_block_type: paireditor_block
+
+  - id: they-do-not-line-up
+    title: They do not line up
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      Press Run. Pair Editor is an interactive block, so the workflow pauses
+      and its window opens with the two collections side by side — and there
+      is the problem, in plain sight. The stack reads S05, S09, S01, because
+      that is the order the slides were loaded into the scanner. The workbook
+      reads S01, S05, S09, because the sequencing core sorted by section
+      label. Every pair is wrong. Drag the rows in one list until each row
+      holds the same section on both sides, then Apply. Before you do, tick
+      "Remember my choice and skip this dialog" — the same interaction memory
+      you met last level — so the following runs do not ask again. It is keyed
+      to these exact items, so the moment you point it at a different file it
+      will ask again, which is the behaviour you want.
+    done_when:
+      interaction_completed:
+        block_type: paireditor_block
+
+  - id: segment-the-regions
+    title: Your own block, on new tissue
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: segment_cells
+    say: >-
+      Find Segment Cells in the palette — the block you wrote last level, now
+      coming from your library — and drag it out. Connect Pair Editor's FIRST
+      output to its image input. The port accepts it because the type came
+      along too: an Image is an Image, in any project. It was written to find
+      cells; here it finds tissue regions, and it is doing exactly the same
+      thing either way — threshold, then label each connected patch. Which is
+      worth noticing: a block does not know what your specimen is. Nine
+      regions per section, twenty-seven in all.
+    done_when:
+      all:
+        - node_exists:
+            block_type: segment_cells
+        - edge_exists:
+            source_block_type: paireditor_block
+            target_block_type: segment_cells
+
+  - id: read-the-source
+    title: Read what it does
+    route_to: canvas
+    highlight:
+      node:
+        block_type: segment_cells
+    say: >-
+      Before you trust it on a new specimen, read it. Open the Segment Cells
+      node's menu and choose View source. The whole block is there — the
+      threshold, the flood fill, every line. That view works for any block in
+      the product: core, package, or your own. There are no black boxes here;
+      if something is deciding part of your result, you can read the decision.
+      Two things about that window: it is READ-ONLY, and to change a block of
+      your own you open its file from the project tree instead — where saving
+      reloads it live.
+    done_when:
+      ui_event:
+        name: block_source_viewed
+        block_type: segment_cells
+
+  - id: normalise-the-counts
+    title: The other branch
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: normalize_expression
+    trigger:
+      label: Write the normalisation block for me
+      do:
+        - write:
+            source: assets/code/normalize_expression.py
+            destination: blocks/normalize_expression.py
+    say: >-
+      The counts branch needs its own step. Raw counts are not comparable
+      between positions, because positions do not capture the same amount of
+      material; normalisation is the correction. Press the button and we will
+      write Normalize Expression — two standard methods, twenty lines each,
+      and neither is right everywhere. Drag it onto the canvas and connect Pair
+      Editor's SECOND output to its counts input. Leave it on total_count for
+      now.
+    done_when:
+      all:
+        - node_exists:
+            block_type: normalize_expression
+        - edge_exists:
+            source_block_type: paireditor_block
+            target_block_type: normalize_expression
+
+  - id: the-joint-block
+    title: Where the two branches meet
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: joint_region_profiles
+    trigger:
+      label: Write the joint analysis block for me
+      do:
+        - write:
+            source: assets/code/joint_region_profiles.py
+            destination: blocks/joint_region_profiles.py
+    say: >-
+      Press the button: Joint Region Profiles takes TWO inputs and is the only
+      thing in this workflow that sees both modalities. It looks up each
+      position's y and x in the label map to find which region it fell in,
+      averages the positions inside each region into one profile, pools every
+      section's regions, and clusters them with k-means. Open its source — the
+      k-means is twenty lines of NumPy, written out, because you should be
+      able to read an algorithm that decides your result. Drag it onto the
+      canvas and connect Segment Cells' labels to its labels input and
+      Normalize Expression's normalized to its expression input.
+    done_when:
+      all:
+        - node_exists:
+            block_type: joint_region_profiles
+        - edge_exists:
+            source_block_type: segment_cells
+            target_block_type: joint_region_profiles
+        - edge_exists:
+            source_block_type: normalize_expression
+            target_block_type: joint_region_profiles
+
+  - id: run-the-joint-analysis
+    title: Twenty-seven regions
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      Press Run, then click Joint Region Profiles and read its table. One row
+      per region: which section it is on, where its centre is, how many
+      positions landed inside it, its mean profile, and its cluster.
+      Twenty-seven rows, and the three clusters come out nine, nine and nine —
+      three of each on every section. That balance is the first thing worth
+      checking in any clustering: three sections of one tissue block should
+      carry a comparable mixture, and a cluster that has swallowed half your
+      regions usually found something other than biology. Note also what the
+      clustering is NOT allowed to be: an opinion in a picture. It is a column
+      in a table, computed by a block, recorded with the run.
+    done_when:
+      all:
+        - run_succeeded:
+            since_step_entry: true
+        - ui_event:
+            name: node_selected
+            block_type: joint_region_profiles
+
+  - id: bind-a-plot
+    title: Put it back on the slide
+    route_to: plots
+    highlight: plots_new_button
+    prefill:
+      - new_plot:
+          name: region_map
+    say: >-
+      A table of twenty-seven rows is correct and unreadable. Press New in the
+      Plots tab and bind the plot to Joint Region Profiles' regions output.
+    done_when:
+      plot_exists:
+        plot_id: region_map
+
+  - id: draw-it
+    title: Three of each, everywhere
+    route_to: plots
+    highlight:
+      plot_card:
+        plot_id: region_map
+    do:
+      - write:
+          source: assets/code/region_map_render.py
+          destination: plots/region_map/render.py
+    say: >-
+      We filled in the drawing code at plots/region_map/render.py. Press Run
+      on the plot card. Three panels, one per section, every region back where
+      it came from and coloured by its cluster — three of each colour on each
+      slide. The picture draws the answer; it does not decide it. That is
+      deliberate: a plot is preview-only. Its output goes to a cache the next
+      run overwrites, version control never sees it, and it is not recorded in
+      the project's history. Anything you would put in a paper has to be
+      computed by a block.
+    done_when:
+      plot_rendered:
+        plot_id: region_map
+
+  - id: a-second-run-arrives
+    title: The second run
+    route_to: git
+    say: >-
+      The same three sections were sequenced again — deeper, on a different
+      chemistry — and that workbook is already in data/raw as
+      run2_counts.xlsx. Two sequencing runs are two batches, and batches
+      differ in ways that normalisation has to absorb, so this second batch
+      may well need a different setting from the first. Stop before you change
+      anything. Last level you tried a segmentation method, disliked it, and
+      switched back: config is for experiments you finish. This is the other
+      case — BOTH settings will be right, each for its own batch, and both have
+      to stay runnable. That is what a branch is for: a branch is a workflow
+      variant for a data situation, and merging is often not the goal. Open the
+      Git tab and create a branch called batch-2.
+    done_when:
+      all:
+        - git_branch_exists:
+            branch: batch-2
+        - git_current_branch:
+            branch: batch-2
+
+  - id: point-it-at-the-second-run
+    title: Same recipe, second batch
+    route_to: config
+    highlight: config_panel
+    say: >-
+      You are on batch-2 now, and the workflow came with you — same blocks,
+      same wiring, same remembered pairing. Select the counts Load block,
+      Browse, and pick data/raw/run2_counts.xlsx. Press Run. Pair Editor opens
+      again: different file, different items, so the remembered decision does
+      not apply — line the sections up once more and Apply. Then re-render the
+      plot. The clusters are fourteen, eight and five, and one section has no
+      third cluster at all. Nothing broke and nothing errored; the answer is
+      simply wrong. In this run the two housekeeping genes soaked up a wildly
+      variable share of each position's library, so scaling by the total
+      scaled everything by that noise, and the clustering found sequencing
+      depth instead of tissue.
+    done_when:
+      all:
+        - config_matches:
+            block_type: load_data
+            key: path
+            pattern: data/raw/run2_counts.xlsx
+        - run_succeeded:
+            since_step_entry: true
+
+  - id: a-normalisation-for-this-batch
+    title: The setting this batch needs
+    route_to: config
+    highlight: config_panel
+    say: >-
+      Select Normalize Expression and switch method to median_ratio, then Run
+      and re-render. Nine, nine and nine — three of each on every section
+      again. Median-of-ratios compares every position against a reference
+      profile and takes the MEDIAN of the per-gene ratios, so two runaway
+      genes out of twelve barely move it. Now the honest half: it is not the
+      better method, it is the right one HERE. On batch 1 it does worse than
+      what you already had — that run was shallow, most genes are zero at most
+      positions, and its reference has almost nothing to rest on; it splits
+      those regions seven, eighteen and two. Two batches, two settings,
+      neither one wrong. This is the situation a branch exists for.
+    done_when:
+      all:
+        - config_equals:
+            block_type: normalize_expression
+            key: method
+            value: median_ratio
+        - run_succeeded:
+            since_step_entry: true
+
+  - id: switch-back
+    title: Go back to batch 1
+    route_to: git
+    say: >-
+      Both variants are now real and both are finished. Go back: in the Git
+      tab, check out main. Watch the canvas — the counts Load points at
+      run1_counts.xlsx again and Normalize Expression is back on total_count,
+      because that is what main's recipe says. Now look at the Plots tab. The
+      figure is still batch 2's.
+    done_when:
+      git_current_branch:
+        branch: main
+
+  - id: git-stores-the-recipe
+    title: The recipe, not the results
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      That stale figure is not a bug, and it is worth understanding before it
+      costs you a day. Git version-controls your project's FILES, and a new
+      project's .gitignore excludes two directories on purpose: data/, because
+      results are large and derived, and .scistudio/, where plot images and
+      run state live. So switching branches brought the recipe back and could
+      not bring the results back — they were never in there. Press Run, then
+      re-render the plot. Nine, nine and nine: batch 1's answer, recreated from
+      batch 1's recipe. Git stores the recipe. You rerun.
+    done_when:
+      run_succeeded:
+        since_step_entry: true
+
+  - id: two-variants-alive
+    title: Two variants, both alive
+    say: >-
+      Look at what you have. Two branches, each holding a workflow that is
+      correct for its own batch, and you can move between them whenever a
+      question needs the other one. Neither is a draft of the other and there
+      is nothing here to merge — the two batches did not stop being two
+      batches. And look at what you did not build: the type, the segmentation
+      and the previewer all came out of your library, so this level's work was
+      the two things only this experiment needed — a normalisation and a joint
+      analysis. That is the shape the product is aiming at. Build once, keep
+      it, spend the next project's effort on the part that is actually new.

@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2082] **Core tutorial 3 — *Two modalities, one answer*.** The multimodal
+  level, and the git level. A scanner and a sequencer looked at the same three
+  tissue sections and neither file can answer alone — the only thing joining
+  them is the `y`/`x` every measured position carries, so the analysis is
+  genuinely joint rather than two analyses in a row. It is also the first level
+  that mostly *reuses*: the `Image` type, the `Segment Cells` block, and the
+  `Image` previewer all arrive from My Library where tutorial 2 put them, and
+  the only new blocks are the two this experiment actually needs. The reader
+  builds the first forked canvas, meets index pairing as a real hazard — the
+  stack's pages are in the scanner's acquisition order (`S05`, `S09`, `S01`)
+  and the workbook's sheets in section-label order (`S01`, `S05`, `S09`), so
+  every pair is wrong, and the Pair Editor's panel is where that is visible at
+  all — then aggregates expression inside imaged regions and clusters them with
+  hand-written NumPy k-means, deliberately in a block rather than in a plot,
+  because a plot is preview-only and overwritten next run. The second half is
+  git: a second, deeper sequencing run needs a different normalisation from the
+  first (total-count loses batch 2 to two runaway housekeeping genes;
+  median-of-ratios loses batch 1 to shallow, zero-heavy counts — both real
+  statistics, both recomputed by the tests), so the reader keeps a `batch-2`
+  branch alive alongside `main`, switches back, meets the stale figure, and
+  lands the lesson that git stores the recipe and not the results because
+  `data/` and `.scistudio/` are not in version control. Every number the steps
+  quote — nine regions per section, twenty-seven in all, and the 9/9/9, 14/8/5
+  and 7/18/2 cluster splits — is recomputed from the shipped stack and
+  workbooks by `tests/tutorials/test_core_tutorial_two_modalities.py`.
 - [#2081] **Core tutorial 2 — *What is a type*.** The type-system level. An
   image-analysis task arrives and the reader builds the missing vocabulary one
   real gap at a time: a project-tier `Image` type created through New → New
