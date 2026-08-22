@@ -205,7 +205,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "5990c4ba0cc510e761262c364b5141645a628d1f",
+    "shas": [
+      "5990c4ba0cc510e761262c364b5141645a628d1f"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -595,6 +601,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-22T06:26:21.898928Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T06:26:21.914987Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T06:26:21.930113Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T06:26:21.945206Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T06:26:21.960882Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T06:26:21.976722Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T06:26:21.992149Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T06:26:22.007774Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T06:26:22.024150Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T06:26:22.039218Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T06:26:22.063273Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -613,7 +707,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/guided/1646-gate-check-incrementality",
+    "base": "47cf842e6b91a155b637dd80a36bb31ef405d3c4",
     "base_sha": "47cf842e6",
     "changed_files": [
       ".github/workflows/semantic-dup-scan.yml",
@@ -641,9 +735,9 @@
       "tests/qa/test_guard_calculators.py",
       "tests/scripts/test_semantic_dup_scan.py"
     ],
-    "diff_fingerprint": "sha256:7a59999e4a35b81c7dc0e76358ad36a2957f60d74136c7c32c12fae0cc8f2d73",
+    "diff_fingerprint": "sha256:b3086b07948aa62c30f78f80c4fc5dbe99d1b7599a17fb5ebde7c7345e06fd31",
     "head": "HEAD",
-    "head_sha": "20029c0ba",
+    "head_sha": "5990c4ba0",
     "surfaces": {
       "docs": 7,
       "frontend": 0,
@@ -660,7 +754,12 @@
   },
   "owner_directive": "27 minutes is unacceptable. This check currently has little value and often produces false positives. I authorize you to remove it outright, and drop it from CI too - it wastes time.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [],
+    "number": 2123,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-22T04:27:50.430188Z",
@@ -691,6 +790,16 @@
     {
       "at": "2026-08-22T04:51:01.527216Z",
       "diff_fingerprint": "sha256:7a59999e4a35b81c7dc0e76358ad36a2957f60d74136c7c32c12fae0cc8f2d73",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-22T06:26:22.063300Z",
+      "diff_fingerprint": "sha256:b3086b07948aa62c30f78f80c4fc5dbe99d1b7599a17fb5ebde7c7345e06fd31",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 1,
