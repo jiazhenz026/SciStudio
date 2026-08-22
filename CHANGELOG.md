@@ -31,6 +31,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   different question — what a project's *author* declares, rather than what a
   *person* prefers for their own view — so the two are stored separately and
   never arbitrate the same decision.
+- [#2095] **Previewers can be listed, and the previewer surface can reload
+  itself.** `GET /api/previews/previewers` returns every registered previewer
+  with the tier it came from, ordered the way the router considers them —
+  project, then user, then package, then core — and takes an optional
+  `target_type` filter. It also returns the registry's discovery diagnostics,
+  which nothing surfaced before: a drop-in refused for a module-name collision,
+  a duplicate previewer id, or an entry point that failed to import were all
+  recorded and then only logged, so from the product they looked like a
+  previewer that simply never appeared. `PreviewerSpecModel` had been declared
+  since the preview system landed and served by no route; this is the route.
+  `POST /api/previews/reload` gives the previewer surface its own way to
+  rebuild the registry. This is a second surface onto one implementation, not a
+  second reload: `refresh_all_registries()` has rebuilt previewers alongside
+  types and blocks since #2021, and the blocks and types endpoints already
+  reached it. What was missing is the argument FR-027 makes on the type side —
+  a previewer view must not have to call the *blocks* endpoint to do its own
+  job, while all three still rebuild the same world.
 
 - [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
   that are real, runnable projects, reached from a permanent toolbar entry and
@@ -108,6 +125,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   breaking regardless, because a route leaves the API surface.
 
 ### Fixed
+
+- [#2095] **A new project gets the directories its drop-in tiers are actually
+  scanned from.** Two commands create a project — the GUI's "New project" and
+  `scistudio init` — and each carried its own hand-written directory list. The
+  lists had drifted: the CLI omitted `data/processed` while a comment above it
+  claimed to be "Symmetric with `api/runtime.py::create_project`", and *neither*
+  created `previewers/` or `tutorials/`, so a user who wanted a project-local
+  previewer had to guess the folder name and create it by hand.
+  Both now read one definition, `scistudio.api.project_layout`, which takes the
+  drop-in folder names from `scistudio.core.dropins` rather than respelling
+  them — the folder a project offers and the folder the registry scans can no
+  longer disagree. `docs/architecture/ARCHITECTURE.md` §11.1 gains the two
+  directories and, while there, says plainly which data directories answer to
+  the user (`data/raw`, `data/processed`) and which are runtime-managed stores
+  named for how a payload is persisted (`data/zarr`, `data/parquet`,
+  `data/artifacts`, `data/exchange`). `data/processed` being empty after a run
+  is expected: nothing writes there automatically, because what deserves
+  keeping is a judgement the runtime cannot make.
+- [#2075] **The local test suite passes on Windows again, so the gate check
+  stops blocking unrelated work.** Eight tests that arrived with the Learning
+  Center (#2057) failed on Windows for reasons in the tests themselves, not in
+  `scistudio`. Because CI is Ubuntu-only and green, nothing caught them
+  upstream; they surfaced only when a developer ran the suite locally, where
+  `python_tests` is a merge-blocking check that CI owns and `--check-na` cannot
+  waive — so every unrelated PR had to be opened with the preflight skipped.
+  Four simulated an out-of-product delete with `shutil.rmtree`, which cannot
+  remove the read-only `.git/objects` that auto-init leaves behind on Windows;
+  they now use `_rmtree_force`, the helper the product already uses for exactly
+  this. Two compared bytes against a fixture written in text mode, where a
+  newline becomes CRLF on Windows; the fixture writes byte-for-byte now. One
+  compared `str(Path.relative_to(...))` against a literal spelled with `/`; it
+  uses `as_posix()`. The eighth needed a symlink, which Windows does not grant
+  by default — rather than skip it, it falls back to a **directory junction**,
+  which `os.path.realpath` follows identically and which is exactly how the
+  loader detects the escape, so an asset-escape rejection is now actually
+  verified on Windows instead of deferred to Linux. The junction fallback moved
+  to `tests/helpers.py` so its two callers share one implementation. `~/.scistudio/projects.json` outlives the runtime that
+- [#2079] **The Learning Center no longer opens itself on every launch.** The
+  backend keeps a finished tutorial as the active session record, so every
+  start-up adopted a session whose status was already `complete` — and the
+  frontend reacted to that record the way it reacts to a live finish: the
+  Learning Center opened, the project you had open was closed, and the
+  work-import unlock was asked, on every single restart. A completion the
+  running app never watched happen is now treated as history rather than news:
+  the finish reaction fires only for a session this app run first saw in a
+  non-complete state, and only a session that is actually running may move the
+  window into its tutorial project. Finishing a tutorial still lands in the
+  Learning Center exactly as before; what changed is that *having finished one
+  yesterday* no longer does.
 
 - [#2073] **A project registry written by a newer build no longer stops an older
   runtime from starting.** `~/.scistudio/projects.json` outlives the runtime that

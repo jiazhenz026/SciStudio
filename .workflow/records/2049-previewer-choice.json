@@ -726,7 +726,14 @@
     }
   ],
   "record_id": "2049-previewer-choice",
-  "requested_admin_labels": [],
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:architecture-doc"
+    }
+  ],
   "required_obligations": {
     "admin_labels": [],
     "checks": [
@@ -764,6 +771,42 @@
       "at": "2026-08-22T01:22:46.254053Z",
       "pattern": "src/scistudio/api/routes/data.py",
       "reason": "Owner requested repair of PR #2110 CI after the registry reload symmetry test exposed a direct single-registry refresh."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:39:11.456748Z",
+      "pattern": "docs/**",
+      "reason": "Merging origin/main into the PR branch to resolve the conflicts created by #2100 merging first. The pre-commit (staged) scope check falls back to the full staged diff (gate_record io.py scope_changed_files staged=True), which attributes the incoming main-side files to this commit; post-commit and CI reconciliation use first-parent PR-authored commits only, where these paths never appear. Recording the incoming surface explicitly so the merge commit is honest. docs/architecture/ARCHITECTURE.md arrives via #2100, which carried its own owner approval."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:39:11.456768Z",
+      "pattern": "frontend/**",
+      "reason": "Merging origin/main into the PR branch to resolve the conflicts created by #2100 merging first. The pre-commit (staged) scope check falls back to the full staged diff (gate_record io.py scope_changed_files staged=True), which attributes the incoming main-side files to this commit; post-commit and CI reconciliation use first-parent PR-authored commits only, where these paths never appear. Recording the incoming surface explicitly so the merge commit is honest. docs/architecture/ARCHITECTURE.md arrives via #2100, which carried its own owner approval."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:39:11.456772Z",
+      "pattern": "tests/**",
+      "reason": "Merging origin/main into the PR branch to resolve the conflicts created by #2100 merging first. The pre-commit (staged) scope check falls back to the full staged diff (gate_record io.py scope_changed_files staged=True), which attributes the incoming main-side files to this commit; post-commit and CI reconciliation use first-parent PR-authored commits only, where these paths never appear. Recording the incoming surface explicitly so the merge commit is honest. docs/architecture/ARCHITECTURE.md arrives via #2100, which carried its own owner approval."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:39:11.456774Z",
+      "pattern": "src/scistudio/**",
+      "reason": "Merging origin/main into the PR branch to resolve the conflicts created by #2100 merging first. The pre-commit (staged) scope check falls back to the full staged diff (gate_record io.py scope_changed_files staged=True), which attributes the incoming main-side files to this commit; post-commit and CI reconciliation use first-parent PR-authored commits only, where these paths never appear. Recording the incoming surface explicitly so the merge commit is honest. docs/architecture/ARCHITECTURE.md arrives via #2100, which carried its own owner approval."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:39:11.456777Z",
+      "pattern": ".workflow/records/**",
+      "reason": "Merging origin/main into the PR branch to resolve the conflicts created by #2100 merging first. The pre-commit (staged) scope check falls back to the full staged diff (gate_record io.py scope_changed_files staged=True), which attributes the incoming main-side files to this commit; post-commit and CI reconciliation use first-parent PR-authored commits only, where these paths never appear. Recording the incoming surface explicitly so the merge commit is honest. docs/architecture/ARCHITECTURE.md arrives via #2100, which carried its own owner approval."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:39:11.456779Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "Merging origin/main into the PR branch to resolve the conflicts created by #2100 merging first. The pre-commit (staged) scope check falls back to the full staged diff (gate_record io.py scope_changed_files staged=True), which attributes the incoming main-side files to this commit; post-commit and CI reconciliation use first-parent PR-authored commits only, where these paths never appear. Recording the incoming surface explicitly so the merge commit is honest. docs/architecture/ARCHITECTURE.md arrives via #2100, which carried its own owner approval."
     }
   ],
   "session_id": "5ad6dc69-6c9c-4ec1-ad7e-903300c6614f",
@@ -791,6 +834,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_previewer_choice_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T02:43:52.939815Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_previewer_discovery.py",
       "rationale": null,
       "verified_in_diff": null
     }
