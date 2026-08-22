@@ -741,8 +741,8 @@ async def _dispatch_newly_ready(self: DAGScheduler) -> None:
     * READY blocks with no active task — previously refused by
       host-safety admission and now eligible for a retry.
 
-    ``_dispatch`` is itself idempotent: if admission is still
-    returns False, the block stays READY and no task is created.
+    ``_dispatch`` is itself idempotent: if admission still fails,
+    the block stays READY and no task is created.
     """
     for node_id in self._order:
         state = self._block_states[node_id]

@@ -26,8 +26,10 @@ import pytest
 
 from scistudio.blocks.base.state import BlockState
 from scistudio.engine.events import (
+    BLOCK_CANCELLED,
     BLOCK_DONE,
     BLOCK_RUNNING,
+    BLOCK_SKIPPED,
     CANCEL_BLOCK_REQUEST,
     CANCEL_WORKFLOW_REQUEST,
     EngineEvent,
@@ -618,6 +620,84 @@ class TestCancelWorkflowMixed:
         handle_a.terminate.assert_called_once()
         assert scheduler._active_tasks == {}
         assert scheduler._resource_manager.available.active_blocks == 0
+
+    def test_cancel_marks_waiting_block_terminal_before_permit_retry(self) -> None:
+        manager = ResourceManager(
+            max_concurrent_blocks=1,
+            memory_high_watermark=0.999,
+            memory_critical=1.0,
+        )
+        runner_started = asyncio.Event()
+        runner_cancelled = asyncio.Event()
+        waiting_started = asyncio.Event()
+        terminal_events: list[tuple[str, str | None]] = []
+        cancelled_subscriber_snapshots: list[tuple[BlockState, str | None, str | None]] = []
+
+        async def held_run(block: Any, inputs: dict, config: dict) -> dict:
+            if block.id == "B":
+                waiting_started.set()
+                return {"out": block.id}
+            runner_started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                runner_cancelled.set()
+                raise
+            raise AssertionError("running block was unexpectedly released")
+
+        runner = AsyncMock()
+        runner.run.side_effect = held_run
+        scheduler, event_bus = _make_scheduler(
+            _wf(nodes=[("A", "proc"), ("B", "proc")]),
+            runner,
+            resource_manager=manager,
+        )
+
+        async def yielding_cancelled_subscriber(event: EngineEvent) -> None:
+            terminal_events.append((event.event_type, event.block_id))
+            cancelled_subscriber_snapshots.append(
+                (
+                    scheduler._block_states["B"],
+                    scheduler.skip_reasons.get("B"),
+                    scheduler.wait_reasons.get("B"),
+                )
+            )
+            # Permit release schedules a READY retry. Yield twice so the retry
+            # deterministically gets a chance to run before cancellation resumes.
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+
+        event_bus.subscribe(BLOCK_CANCELLED, yielding_cancelled_subscriber)
+        event_bus.subscribe(
+            BLOCK_SKIPPED,
+            lambda event: terminal_events.append((event.event_type, event.block_id)),
+        )
+
+        async def drive() -> None:
+            execution = asyncio.create_task(scheduler.execute())
+            await runner_started.wait()
+            assert scheduler._block_states["A"] == BlockState.RUNNING
+            assert scheduler._block_states["B"] == BlockState.READY
+            assert scheduler.wait_reasons["B"] == AdmissionWaitReason.CONCURRENCY_LIMIT.value
+
+            await event_bus.emit(
+                EngineEvent(
+                    event_type=CANCEL_WORKFLOW_REQUEST,
+                    data={"workflow_id": scheduler._workflow.id},
+                )
+            )
+            await asyncio.wait_for(execution, timeout=2)
+
+        with patch("psutil.virtual_memory", return_value=type("Memory", (), {"percent": 10.0})()):
+            asyncio.run(drive())
+
+        assert waiting_started.is_set() is False
+        assert runner_cancelled.is_set()
+        assert cancelled_subscriber_snapshots == [(BlockState.SKIPPED, "workflow cancelled", None)]
+        assert scheduler._block_states == {"A": BlockState.CANCELLED, "B": BlockState.SKIPPED}
+        assert terminal_events == [(BLOCK_CANCELLED, "A"), (BLOCK_SKIPPED, "B")]
+        assert scheduler._resource_permits == {}
+        assert manager.available.active_blocks == 0
 
 
 # ---------------------------------------------------------------------------

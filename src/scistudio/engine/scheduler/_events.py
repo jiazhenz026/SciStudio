@@ -271,6 +271,17 @@ async def _on_cancel_workflow(self: DAGScheduler, event: EngineEvent) -> None:
     cancelable_blocks = [
         bid for bid, state in self._block_states.items() if state in (BlockState.RUNNING, BlockState.PAUSED)
     ]
+    skipped_blocks = [bid for bid, state in self._block_states.items() if state in (BlockState.IDLE, BlockState.READY)]
+
+    # Freeze every not-yet-started block before releasing a running permit.
+    # Permit release wakes READY scans on the shared ResourceManager, and the
+    # BLOCK_CANCELLED emit below may yield to arbitrary async subscribers. No
+    # retry can launch a waiting block once this synchronous transition lands.
+    for block_id in skipped_blocks:
+        self._block_states[block_id] = BlockState.SKIPPED
+        self.skip_reasons[block_id] = "workflow cancelled"
+    for block_id in skipped_blocks:
+        self._release_resource_permit(block_id)
 
     # #1789: subprocess teardown (terminate_tree: SIGTERM → grace → SIGKILL) can
     # take several seconds, and awaiting it inline made Stop feel frozen — the UI
@@ -310,18 +321,14 @@ async def _on_cancel_workflow(self: DAGScheduler, event: EngineEvent) -> None:
             )
         )
 
-    for block_id, state in list(self._block_states.items()):
-        if state in (BlockState.IDLE, BlockState.READY):
-            self._block_states[block_id] = BlockState.SKIPPED
-            self._release_resource_permit(block_id)
-            self.skip_reasons[block_id] = "workflow cancelled"
-            await self._event_bus.emit(
-                EngineEvent(
-                    event_type=BLOCK_SKIPPED,
-                    block_id=block_id,
-                    data=self._build_block_terminal_data(node_id=block_id),
-                )
+    for block_id in skipped_blocks:
+        await self._event_bus.emit(
+            EngineEvent(
+                event_type=BLOCK_SKIPPED,
+                block_id=block_id,
+                data=self._build_block_terminal_data(node_id=block_id),
             )
+        )
 
     self._check_completion()
     self.save_checkpoint(self._checkpoint_manager)
