@@ -1,0 +1,473 @@
+# Core tutorial 2 — "What is a type" (scenarios doc, 关卡 2).
+#
+# The type-system level. An image-analysis task arrives and the reader builds
+# the missing pieces one real gap at a time: a project-tier Image type (with a
+# colour of their own choosing), a TIFF loader met at the real "no load
+# capability" error, an Image previewer met at the real number-table fallback,
+# a threshold segmentation whose imperfection is genuine science, an
+# interactive block to fix by hand what no method fixes, and a per-cell area
+# export. The ending is the bridge: Image, the segmentation block, and the
+# previewer go to My Library, which is how tutorial 3's fresh project will
+# already have them.
+#
+# The three plot twists are real product behaviour, never staged: the
+# capability error is the real dispatch error, the number table is the real
+# previewer fallback walking the type chain, and the segmentation being
+# imperfect is what segmentation is like. The reader writes no code; the one
+# file they edit by hand is their own type's colour.
+manifest_version: 1
+id: what-is-a-type
+title: What is a type
+summary: >-
+  Make SciStudio speak your data's language: create your own Image type, teach
+  the product to load it, preview it, and segment it — then meet the block
+  that lets you fix by hand what no algorithm gets right, and save the whole
+  toolkit to My Library for the next level.
+order: 2
+
+requires:
+  # Same floor as tutorials 1 and 4: to_memory() and the ergonomic accessors
+  # the shipped block sources rely on are stable from 0.3.1 (ADR-052 §10).
+  # Deliberately no requires.tutorials entry: gating the core levels on each
+  # other is a track-integration decision, and a shipped core tutorial must be
+  # startable in the tree that ships it
+  # (test_core_tutorials.py::test_every_shipped_tutorial_is_startable_in_this_tree).
+  scistudio: ">=0.3.1"
+  agent: false
+  packages: []
+
+bootstrap:
+  project_name: What Is A Type
+  do:
+    # Lands as data/raw/cells.tif — a real 120x120 uint8 TIFF micrograph with
+    # six cells, one debris speck, and the uneven illumination every scope
+    # delivers. Every number the steps below quote is recomputed from this
+    # file by the tutorial's tests.
+    - copy:
+        source: assets/data
+        destination: data/raw
+
+steps:
+  # One framing step that also plays beat 2: the reader looks at what exists
+  # before building what does not. The Data types tab is product truth — six
+  # core types, no Image — so the gap is seen, not announced.
+  - id: a-task-arrives
+    title: An image walks in
+    route_to: data_types
+    say: >-
+      Your lab hands you a micrograph — data/raw/cells.tif, freshly landed in
+      this project — and wants a table of cell areas back. Before touching the
+      canvas, look at the Data types tab on the left: these are the kinds of
+      thing SciStudio can hold. Array, Series, DataFrame, Text, Artifact,
+      CompositeData — general shapes, every one of them. Nothing here knows
+      what a microscope image is. This level is about fixing that.
+
+  - id: create-the-image-type
+    title: New type, your project
+    highlight: new_menu_button
+    prefill:
+      - new_data_type:
+          filename: image
+    say: >-
+      Types are not fixed equipment — they are files. Press New, choose New
+      data type, keep the offered filename, and save it to this project. That
+      puts a starter template at types/image.py and opens it in the editor.
+    done_when:
+      file_exists:
+        path: types/image.py
+
+  # The entry action rewrites the dialog's template into the real Image type
+  # before this step's text is readable (FR-059), and the registry settles on
+  # the write (FR-059a) — so type_registered is typically already true here.
+  # That is deliberate: the one thing this step asks the READER to do — pick a
+  # colour — is a fact no vocabulary term can judge, so the step judges the
+  # registration and leaves the colour to them (the file save re-registers the
+  # type live either way).
+  - id: make-it-image
+    title: Meet your type
+    say: >-
+      We rewrote that template into the real thing — look at the editor:
+      types/image.py now declares class Image(Array). Subclassing is the whole
+      trick: an Image *is* an Array, so it inherits Array's storage and
+      everything that accepts an Array accepts your Image; the subclass only
+      adds meaning — every Image must carry y and x axes. Check the Data types
+      tab: Image is there, project tier. One more thing before you move on:
+      near the bottom of the file two colour lines are commented out.
+      Uncomment them, pick your own colours, and save — from now on that is
+      how YOUR type looks on every canvas port that carries it. The next level
+      will show it back to you.
+    do:
+      - write:
+          source: assets/code/image.py
+          destination: types/image.py
+    done_when:
+      type_registered:
+        type_name: Image
+
+  - id: add-load
+    title: Load, as always
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: load_data
+    say: >-
+      Now use it. Drag a Load block onto the canvas — the same Load as in
+      tutorial 1. There is only one Load block, whatever the format; keep that
+      thought, it is about to matter.
+    done_when:
+      node_exists:
+        block_type: load_data
+
+  - id: point-load-at-the-image
+    title: Point it at the image
+    route_to: config
+    highlight: config_panel
+    say: >-
+      Click the Load block. Press Browse, open data then raw, and pick
+      cells.tif. Then open the core_type list — your own Image is in it,
+      alongside the six core types. Select it.
+    done_when:
+      all:
+        - config_matches:
+            block_type: load_data
+            key: path
+            pattern: data/raw/cells.tif
+        - config_equals:
+            block_type: load_data
+            key: core_type
+            value: Image
+
+  # The first plot twist, met head-on. The error is the product's real
+  # dispatch error, quoted verbatim; run_failed is scoped to this step so
+  # only the run the reader performs here satisfies it.
+  - id: run-into-the-wall
+    title: Hit the wall
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      Press Run. It will fail — on purpose. Open the Logs tab and read the
+      error yourself: "Load: no load capability is registered for type
+      'Image'." A type is a name and a shape; READING A FILE into it is a
+      separate skill the product calls a capability, and nobody has taught
+      SciStudio to load an Image yet. You declared the noun; the verb is
+      missing.
+    done_when:
+      run_failed:
+        since_step_entry: true
+
+  - id: meet-ioblock
+    title: Teach it to load
+    route_to: canvas
+    highlight: run_button
+    trigger:
+      label: Write the TIFF loader for me
+      do:
+        - write:
+            source: assets/code/load_tiff_image.py
+            destination: blocks/load_tiff_image.py
+    say: >-
+      Capabilities live in IO blocks. Press the button and we will write one
+      for you: blocks/load_tiff_image.py, an IOBlock whose three declared
+      attributes — Image, "tiff", (.tif, .tiff) — register exactly the
+      capability the error named. Open the file if you are curious; the
+      reading is one tifffile line, the declaration is the lesson. Then press
+      Run again. Your Load block has not changed — it asks the registry for
+      "Image from .tif", and now there is an answer.
+    done_when:
+      run_succeeded:
+        since_step_entry: true
+
+  # The second plot twist: the previewer fallback walking the type chain.
+  # Real behaviour, worth meeting before fixing — so this step only asks the
+  # reader to look.
+  - id: numbers-not-pictures
+    title: Numbers, not pictures
+    route_to: canvas
+    highlight:
+      node:
+        block_type: load_data
+    say: >-
+      The run went green — so click the Load block and look at the preview
+      panel. Your micrograph came out as a table of numbers. That is not a
+      bug: previews are connected to TYPES, Image has no previewer of its own,
+      so the panel walks up the type chain — Image is an Array — and the core
+      Array previewer shows what an Array is: numbers. Correct, and useless
+      for looking at cells.
+    done_when:
+      ui_event:
+        name: node_selected
+        block_type: load_data
+
+  - id: a-previewer-for-image
+    title: A previewer of your own
+    route_to: canvas
+    highlight:
+      node:
+        block_type: load_data
+    trigger:
+      label: Write the Image previewer for me
+      do:
+        - write:
+            source: assets/code/image_preview.py
+            destination: previewers/image_preview.py
+    say: >-
+      Previewers are files too. Press the button: previewers/image_preview.py
+      claims target_type "Image" and renders the pixels as an actual picture —
+      the file even builds its PNG by hand from the standard library, so you
+      can read the whole chain from data to image. It registers the moment it
+      lands. Click the Load block again: cells, six of them, on that uneven
+      glow every real scope delivers.
+    done_when:
+      all:
+        - previewer_registered:
+            type_name: Image
+        - ui_event:
+            name: node_selected
+            block_type: load_data
+
+  - id: segment-the-cells
+    title: Segment it
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: segment_cells
+    trigger:
+      label: Write the segmentation block for me
+      do:
+        - write:
+            source: assets/code/segment_cells.py
+            destination: blocks/segment_cells.py
+    say: >-
+      Time for the actual science. Press the button and we will write Segment
+      Cells — an ordinary process block: threshold the image, then label each
+      connected patch with a hand-written flood fill. NumPy only; open
+      blocks/segment_cells.py and you can read every line of it. Then drag
+      Segment Cells from the palette onto the canvas and connect the Load
+      block's data output to its image input — the port accepts it because an
+      Image is an Image.
+    done_when:
+      all:
+        - node_exists:
+            block_type: segment_cells
+        - edge_exists:
+            source_block_type: load_data
+            target_block_type: segment_cells
+
+  # The third plot twist begins: the segmentation genuinely is imperfect.
+  # Seven objects, six cells — the debris speck crossed the threshold too.
+  - id: run-the-segmentation
+    title: Seven objects, six cells
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      Press Run, then click Segment Cells and look at its labels output —
+      your previewer draws label maps too, since labels are just an Image.
+      Seven objects found. Now count the cells in the picture: six. That
+      bright nine-pixel dot near the top-right corner is debris on the slide,
+      and it crossed the brightness threshold just like a cell. Nobody staged
+      this — thresholds cannot tell dust from cells. Welcome to segmentation.
+    done_when:
+      all:
+        - run_succeeded:
+            since_step_entry: true
+        - ui_event:
+            name: node_selected
+            block_type: segment_cells
+
+  - id: try-another-method
+    title: Try the other method
+    route_to: config
+    highlight: config_panel
+    say: >-
+      Maybe a cleverer method helps? Click Segment Cells and look at its
+      settings: method has a second option, adaptive — each pixel judged
+      against its local neighbourhood instead of one global cut-off. Switch to
+      it and press Run. Seventy-three objects. Worse, and instructively so: on
+      an image that is mostly background, chasing local contrast promotes
+      every noise grain to an object of its own.
+    done_when:
+      all:
+        - config_equals:
+            block_type: segment_cells
+            key: method
+            value: adaptive
+        - run_succeeded:
+            since_step_entry: true
+
+  - id: and-back-again
+    title: Config is for experiments
+    route_to: config
+    highlight: config_panel
+    say: >-
+      Switch method back to threshold and run once more. That round trip —
+      try, compare, revert — is what block config is FOR; nothing you did
+      touched a line of code. But notice where you landed: the best method
+      still counts seven. No knob in this panel knows that the seventh object
+      is dust. You know. That calls for a different kind of block.
+    done_when:
+      all:
+        - config_equals:
+            block_type: segment_cells
+            key: method
+            value: threshold
+        - run_succeeded:
+            since_step_entry: true
+
+  - id: add-the-review-block
+    title: The human in the loop
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: review_labels
+    trigger:
+      label: Write the review block for me
+      do:
+        - write:
+            source: assets/code/review_labels.py
+            destination: blocks/review_labels.py
+        - copy:
+            source: assets/panels/review_labels
+            destination: blocks/review_labels_panel
+    say: >-
+      Press the button: Review Labels is an INTERACTIVE block — when a run
+      reaches it, the workflow pauses, a window opens on the real data, and
+      your decision becomes part of the computation. The window itself is a
+      small plain-JavaScript file the block carries beside it
+      (blocks/review_labels_panel/) — a block's dialog is just another file it
+      owns. Drag Review Labels onto the canvas and connect Segment Cells'
+      labels output to its labels input.
+    done_when:
+      all:
+        - node_exists:
+            block_type: review_labels
+        - edge_exists:
+            source_block_type: segment_cells
+            target_block_type: review_labels
+
+  - id: delete-the-speck
+    title: Delete the speck
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      Press Run. When the run reaches Review Labels it pauses and its window
+      opens: the label map on the left, one row per label on the right. Find
+      the intruder — nine pixels, top-right — click it in either place, and
+      press Apply. The run resumes with your decision applied: six labels
+      remain. One more thing worth knowing: an interactive block's settings
+      carry "Remember my choice and skip this dialog" — SciStudio's
+      interaction memory — so a decision like this can replay on future runs
+      instead of asking again.
+    done_when:
+      interaction_completed:
+        block_type: review_labels
+
+  - id: add-save
+    title: Ship the numbers
+    route_to: block_palette
+    highlight:
+      palette_block:
+        block_type: save_data
+    say: >-
+      The task wanted a table of areas, and Review Labels has been computing
+      one all along: its areas output is a DataFrame — one row per kept cell
+      with its pixel area and centroid. Drag a Save block onto the canvas and
+      connect areas to its data input. Your Image goes in one port; a plain
+      core DataFrame comes out the other. Custom types and core types mix
+      freely in one graph.
+    done_when:
+      all:
+        - node_exists:
+            block_type: save_data
+        - edge_exists:
+            source_block_type: review_labels
+            target_block_type: save_data
+  - id: choose-where-it-lands
+    title: Choose where it lands
+    route_to: config
+    highlight: config_panel
+    prefill:
+      # The filename is named by the step, so the reader chooses a folder
+      # rather than inventing a name. Its .csv suffix is what picks the format.
+      - block_config:
+          block_type: save_data
+          key: filename
+          value: cell_areas.csv
+    say: >-
+      Select the Save block, press Browse, and choose the data/processed
+      folder — results live there, raw data stays in data/raw.
+    done_when:
+      config_matches:
+        block_type: save_data
+        key: path
+        pattern: data/processed
+
+  - id: export-the-areas
+    title: Run it through
+    route_to: canvas
+    highlight: run_button
+    say: >-
+      Press Run one last time. The panel opens again — same block, same
+      question (unless you switched its memory on); delete the speck and
+      Apply. Six rows land in data/processed/cell_areas.csv. Task done: image
+      in, judgement applied, table out.
+    done_when:
+      all:
+        - run_succeeded:
+            since_step_entry: true
+        - file_exists:
+            path: data/processed/cell_areas.csv
+
+  # The ending: the bridge to tutorial 3. Each promotion is judged against
+  # the library that tutorial projects actually scan (FR-070); the first step
+  # carries the FR-072 sentence about what the same action does in a real
+  # project.
+  - id: save-the-type
+    title: Move Image to My Library
+    route_to: data_types
+    say: >-
+      Everything you built lives in THIS project — and this is a tutorial
+      project, a disposable one at that. The next level starts fresh and
+      needs Image on day one. So: in the Data types tab, hover the Image tile
+      and choose "Move to My Library". In a tutorial the library is a
+      tutorial-scoped one; do the same thing in your own project and it goes
+      to your real library, available in every project you open.
+    done_when:
+      library_contains:
+        kind: type
+        name: Image
+
+  - id: save-the-block
+    title: Move the block too
+    route_to: block_palette
+    say: >-
+      Same move for the segmentation block: find Segment Cells in the palette,
+      hover it, "Move to My Library". (Notice what is NOT worth saving: the
+      TIFF loader teaches, but tutorial 3's data ships ready to load — take
+      only the tools you will reuse.)
+    done_when:
+      library_contains:
+        kind: block
+        name: segment_cells
+
+  - id: save-the-previewer
+    title: And the previewer
+    say: >-
+      Last one, and the one people forget: without the previewer, the next
+      project would greet your Image with the number table all over again.
+      Open previewers/image_preview.py from the project tree — the editor
+      toolbar offers "Move to My Library" for it, right beside Save.
+    done_when:
+      library_contains:
+        kind: previewer
+        name: Image
+
+  - id: what-a-type-is
+    title: A language, not a label
+    say: >-
+      Look at what "one little type" turned out to be: a name the Load block
+      offers, a capability that reads files into it, a previewer that knows
+      how to show it, blocks whose ports speak it, a colour of your own
+      choosing — a piece of vocabulary the whole product now understands. And
+      because you moved it to My Library with its block and previewer, that
+      vocabulary is no longer this project's: the next level opens on a fresh
+      project where Image simply exists. See you there.

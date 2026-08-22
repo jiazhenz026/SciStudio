@@ -1,0 +1,86 @@
+{
+  "branch": "feat/2081-core-tutorial-2",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [
+      "src/scistudio/tutorials/manifest.py",
+      "src/scistudio/tutorials/conditions.py",
+      "src/scistudio/tutorials/session.py",
+      "docs/ai-developer/**"
+    ],
+    "include": [
+      "src/scistudio/tutorials/core/what-is-a-type/**",
+      "tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "CHANGELOG.md",
+      "docs/planning/learning-center-levels-checklist.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-22T04:00:23.826034Z",
+      "owner_directive": "Plan: tutorial directory what-is-a-type (tutorial.yaml + assets/code: image type, tiff loader, segment block, review interactive block, image previewer; assets/panels: hand-written ESM label-review panel; assets/data: generated real TIFF). Tests: tests/tutorials/test_core_tutorial_what_is_a_type.py (beat map pins, real-science recomputation, full runtime walk). Docs: CHANGELOG.md entry, checklist row L2. Manifest validation rides tests/tutorials/test_core_tutorials.py scan.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-22T04:00:23.826057Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T04:00:23.826065Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/learning-center-levels-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2081,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Author core tutorial 2 (What is a type, scenarios doc level 2): project-tier Image type via New data type with colour edit, real capability-gap error met by a tutorial-written TIFF IOBlock loader, Array number-table previewer fallback met by a project Image previewer, threshold segmentation with a config method switch, an interactive label-review block with a hand-written dependency-free ESM panel, per-cell area DataFrame export, and the Move-to-My-Library bridge (type+block+previewer) seeding tutorial 3. Tutorial directory, its tests, CHANGELOG, checklist row L2 only.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2081-core-tutorial-2",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "72cf78c6-0893-462a-8662-7280817cb03d",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-08-22T04:00:23.826069Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
