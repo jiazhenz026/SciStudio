@@ -181,10 +181,35 @@ Evidence: `t3-01-welcome.png`, `t3-02-library-types.png`, `t3-03-load-config.png
    preview toolbar shows that MIME type beside a control row while displaying a
    PNG the previewer just produced. Cosmetic, but it is the one place the pane
    tells the reader what they are looking at.
-4. **Not observed here:** the intermittent zarr publish failure (level-2
+4. **P2 — core tutorial 3 landed on the track with its own runtime test red.**
+   Found while running the gate's Python suite on this branch (whose diff is
+   docs-only, so the failure is inherited from the base):
+
+   ```
+   FAILED tests/tutorials/test_core_tutorial_two_modalities.py::
+          test_the_whole_tutorial_walks_through_the_real_runtime
+
+   scistudio.tutorials.session.TutorialUnavailableError:
+     tutorial 'two-modalities-one-answer' cannot be started:
+     needs the tutorial 'what-is-a-type' from the same source to be completed first
+   ```
+
+   The test walks the level through the real runtime but never marks tutorial 2
+   complete, so `TutorialRuntime.start()` refuses at the prerequisite the level
+   itself declares. The gate is working; the test simply does not satisfy it.
+   Same shape as the seeding this session had to do by hand (7.1) — the fix is
+   to mark `what-is-a-type` completed in the test's progress store before
+   `start()`, and to place the three library artefacts the level consumes.
+
+5. **Not observed here:** the intermittent zarr publish failure (level-2
    observation 7.3.2) did not fire in the four runs of this session, though this
-   level does persist `Image` (zarr) outputs. Consistent with a ~3.5% per-publish
-   race rather than absence.
+   level does persist `Image` (zarr) outputs. Consistent with a ~3.5%
+   per-publish race rather than absence.
+
+6. **Separately, one flaky test** —
+   `tests/api/test_workflows.py::test_cancel_block_and_cancel_workflow_propagate_terminal_states`
+   failed inside the full suite and **passes in isolation**. Unrelated to the
+   Learning Center; recorded so the next reader of a red suite does not chase it.
 
 ### 7.5 Sentinels
 
@@ -192,10 +217,12 @@ None fired. `pageErrors: []`; no 5xx; backend and Vite stayed up.
 
 ### 7.6 Follow-ups
 
-1. **Blocked on level-2 follow-up 1.** Once the validator is fixed, tutorial 2
+1. **P2** fix `test_core_tutorial_two_modalities.py`'s runtime walk to satisfy
+   the prerequisite it declares (see 7.4.4) — it is red on the track today.
+2. **Blocked on level-2 follow-up 1.** Once the validator is fixed, tutorial 2
    should be completed honestly end-to-end and this session re-run **without the
    seed**, walking steps 5-20 (index pairing, the PairEditor interaction, the
    k-means block, and the two git-branch beats), which this session did not
    touch.
-2. **Low** reword the unavailable reason to use the tutorial's title.
-3. **Low** the preview's MIME label for a previewer-rendered image.
+3. **Low** reword the unavailable reason to use the tutorial's title.
+4. **Low** the preview's MIME label for a previewer-rendered image.
