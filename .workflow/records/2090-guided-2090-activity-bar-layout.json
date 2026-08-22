@@ -250,6 +250,11 @@
       "at": "2026-08-22T00:40:13.475774Z",
       "owner_directive": "Fix the 3 Codex P2 comments and the P1 about tracking the deferred preview work in a follow-up issue; ignore the rest, then push one commit.",
       "reason": "Owner directed fixing the 3 Codex P2s (drag-collapse desync, stale workflow list on project switch, no structural-event refresh) and the P1 deferral tracking (follow-up issue #2112 created for click-to-preview); the other P1 (final reconciliation fail) is the known semantic_dup environment issue, explicitly ignored per owner."
+    },
+    {
+      "at": "2026-08-22T01:03:14.773671Z",
+      "owner_directive": "Fix the 3 Codex P2s and the deferral-tracking P1; ignore the rest.",
+      "reason": "Correction: #2112 is the follow-up for the DEFERRED click-to-preview work, not delivered by this PR; linking it as a delivered issue broke the issue_link guard in CI (PR body must close every delivered issue). The TODO in ProjectWorkspace.tsx cites #2112, which satisfies the deferral-tracking requirement."
     }
   ],
   "docs_events": [
@@ -1744,12 +1749,6 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 2090,
-      "url": null
-    },
-    {
-      "close_in_pr": true,
-      "followup_rationale": null,
-      "number": 2112,
       "url": null
     }
   ],
