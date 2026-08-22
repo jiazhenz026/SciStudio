@@ -707,7 +707,10 @@ batch without anything reading it: `ProjectWorkspace` now drives the left
 `ResizablePanel`'s imperative handle from it. Programmatic section switches —
 the FR-020 library reveal and Learning Center step routing — always expand the
 panel, because a section switch that lands behind a collapsed panel is
-invisible.
+invisible. Dragging the separator below `minSize` collapses the panel from
+the resizable side, so the panel's `onResize` mirrors that back into
+`paletteCollapsed` — the activity bar's click decision never reads a stale
+value (Codex P2 on #2106).
 
 ### 13.2 The Workflows Section
 
@@ -718,7 +721,11 @@ ids, then one `GET /api/workflows/{id}` per workflow for the description — so
 the section needed no backend change. A workflow whose detail fetch fails
 (e.g. a mid-write YAML) still appears, without a description. The workflow
 currently on the canvas is highlighted (`aria-current`), and a Reload button
-matches the project tree's affordance.
+matches the Blocks palette's affordance. The list refetches when the
+filesystem-watcher's structural-change counter bumps (the same one the
+project tree subscribes to), and in-flight refreshes carry a sequence token
+so a response from a previous project can never overwrite the current list
+(Codex P2s on #2106).
 
 ### 13.3 The Data Section
 
@@ -730,7 +737,8 @@ menu, reload flash, and watcher auto-refresh behave exactly as they do on the
 Project section). All of `data/` shows — `raw`, `processed`, `zarr`,
 `parquet`, `artifacts`, `exchange` — per the owner's call in the live session.
 Single-click file preview in the right-hand DataPreview panel was discussed
-and explicitly deferred (tracked TODO in `ProjectWorkspace.tsx`).
+and explicitly deferred — tracked as issue #2112 (TODO in
+`ProjectWorkspace.tsx`).
 
 ### 13.4 Test Plan
 

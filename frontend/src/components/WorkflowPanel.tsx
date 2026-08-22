@@ -7,9 +7,10 @@
 // so the panel needed no backend change. Layout and the Reload affordance
 // mirror the Blocks palette so the left panel reads as one surface.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "../lib/api";
+import { useAppStore } from "../store";
 import { cn } from "@/lib/utils";
 
 interface WorkflowListItem {
@@ -28,8 +29,15 @@ export interface WorkflowPanelProps {
 export function WorkflowPanel({ projectId, activeWorkflowId, onOpenWorkflow }: WorkflowPanelProps) {
   const [items, setItems] = useState<WorkflowListItem[]>([]);
   const [loading, setLoading] = useState(false);
+  // Codex P2 on #2106 — `listWorkflows`/`getWorkflow` resolve against the
+  // backend's *active* project, so when the user switches projects with a
+  // refresh still in flight, the older request can finish last and overwrite
+  // the new project's list. A monotonic sequence token discards stale
+  // completions.
+  const requestSeq = useRef(0);
 
   const refresh = useCallback(async () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     try {
       const ids = await api.listWorkflows();
@@ -45,11 +53,11 @@ export function WorkflowPanel({ projectId, activeWorkflowId, onOpenWorkflow }: W
           }
         }),
       );
-      setItems(summaries);
+      if (seq === requestSeq.current) setItems(summaries);
     } catch {
-      setItems([]);
+      if (seq === requestSeq.current) setItems([]);
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   }, []);
 
@@ -57,6 +65,16 @@ export function WorkflowPanel({ projectId, activeWorkflowId, onOpenWorkflow }: W
     setItems([]);
     void refresh();
   }, [projectId, refresh]);
+
+  // Codex P2 on #2106 — structural workflow changes (create/delete/rename by
+  // the embedded agent or another tab) bump the same watcher counter the
+  // project tree subscribes to; without it the list goes stale until the user
+  // clicks Reload.
+  const refreshCounter = useAppStore((s) => s.projectTreeRefreshCounter);
+  useEffect(() => {
+    if (refreshCounter === 0) return;
+    void refresh();
+  }, [refreshCounter, refresh]);
 
   return (
     <aside

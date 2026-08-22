@@ -10,7 +10,7 @@
 import type { PanelImperativeHandle } from "react-resizable-panels";
 import { useEffect, useRef, type RefObject } from "react";
 
-import type { useAppStore } from "../store";
+import { useAppStore } from "../store";
 import type { AnyTab, FileTab } from "../store/types";
 import type {
   BlockSchemaResponse,
@@ -203,10 +203,10 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
         // data/ so the panel shows only the project's data folders
         // (raw / processed / zarr / parquet / artifacts / exchange).
         //
-        // TODO(#2090): click-to-preview (option C from the live design
+        // TODO(#2112): click-to-preview (option C from the live design
         // discussion) — single-click a data file to show its content in the
         // right DataPreview panel. Deferred per owner decision in the guided
-        // session; follow-up issue to be filed when picked up.
+        // session. Followup: https://github.com/jiazhenz026/SciStudio/issues/2112
         <ProjectTree
           projectId={currentProject.id}
           projectPath={currentProject.path}
@@ -446,6 +446,17 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
           maxSize="28%"
           collapsible
           collapsedSize="0%"
+          onResize={(size) => {
+            // Codex P2 on #2106 — dragging the separator below `minSize`
+            // collapses the panel internally without touching the store,
+            // leaving the activity bar's click decision stale. Mirror the
+            // panel's collapsed state back into `paletteCollapsed` (the
+            // reverse direction — store → panel — is the effect above).
+            const collapsed = size.asPercentage <= 0.5;
+            if (collapsed !== useAppStore.getState().paletteCollapsed) {
+              useAppStore.setState({ paletteCollapsed: collapsed });
+            }
+          }}
         >
           <PaletteOrProjectPane {...props} />
         </ResizablePanel>

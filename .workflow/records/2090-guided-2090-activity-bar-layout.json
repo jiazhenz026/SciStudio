@@ -245,6 +245,11 @@
       "at": "2026-08-21T23:00:09.314161Z",
       "owner_directive": "\u522b\u8dd1\u4e86\uff0c\u76f4\u63a5\u5f00PR\u7b49CI\u5c31\u884c\u4e86 (skip the stuck semantic_dup local preflight; rely on CI)",
       "reason": "Owner directed: open the PR and rely on CI for semantic_dup \u2014 the check times out only inside the per-worktree gate venv (environmental); standalone scan passes in 108s. One-off bypass for this session's local preflight; CI remains authoritative."
+    },
+    {
+      "at": "2026-08-22T00:40:13.475774Z",
+      "owner_directive": "Fix the 3 Codex P2 comments and the P1 about tracking the deferred preview work in a follow-up issue; ignore the rest, then push one commit.",
+      "reason": "Owner directed fixing the 3 Codex P2s (drag-collapse desync, stale workflow list on project switch, no structural-event refresh) and the P1 deferral tracking (follow-up issue #2112 created for click-to-preview); the other P1 (final reconciliation fail) is the known semantic_dup environment issue, explicitly ignored per owner."
     }
   ],
   "docs_events": [
@@ -1739,6 +1744,12 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 2090,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2112,
       "url": null
     }
   ],
