@@ -20,8 +20,8 @@ control of devices, batching, threads, processes, and library-level resource
 behavior.
 
 The review covered implementation commit `4859871a6`, the manager integration
-fix described below, every changed source/test/document path, and the diff from
-`origin/main` at `ed47cafee`.
+fixes described below, every changed source/test/document path, and the diff
+from `origin/main` at `4345232e7`.
 
 ## 2. Findings
 
@@ -41,6 +41,18 @@ The manager integration fix registers scheduler teardown independently of
 lineage construction. An API regression test runs a workflow with
 `lineage_store = None` and verifies that its release listener is removed after
 completion.
+
+### M-02: diff-scoped checks selected a deleted test path
+
+**Severity:** pre-PR blocker before fix; resolved in this branch.
+
+The current-main incremental gate initially passed the intentionally deleted
+`tests/engine/test_resource_manager_gpu_autodetect.py` to pytest and then to
+Ruff format/check. Both failures were deterministic command-construction bugs,
+not host-safety product failures. The integrated fix filters non-existent
+Python paths from pytest, Ruff, format, and Mypy targets. A deleted-only diff
+widens to the repository command instead of producing an empty narrow pass;
+mixed diffs retain only provably existing targets.
 
 ## 3. Contract Review
 
@@ -72,10 +84,12 @@ completion.
 | Full engine suite | 493 passed, 4 Windows platform skips on implementer branch |
 | CLI suite | 23 passed on implementer branch |
 | Manager final targeted API/engine regression set | 171 passed |
+| Incremental-gate deleted-path regressions | 42 passed |
 | Ruff format/check | Passed for implementer paths and manager lifecycle fix |
 | Mypy | 16 changed source files, no issues on implementer branch |
 | Full audit | Passed with zero top-level findings on both implementer and final manager diffs |
 | Tier-1 local gate | All non-Python checks passed; full Python suite was blocked by unrelated Windows Zarr rename flakes described below |
+| Tier-1 pre-PR gate | Reconciliation passed; 487 architecture tests passed with 1 skip; diff-scoped Python runner passed both phases (1,692 passed/13 skipped and 112 passed); Ruff, Mypy, full audit, imports, and deferral scan passed |
 | Browser e2e | N/A: no UI or browser-visible contract changed |
 | Sentrux | N/A: no CLI or MCP integration was available in this session |
 
@@ -84,7 +98,8 @@ pre-existing rerun assertions under the new test function. It was a test-edit
 error, not a product failure; the assertions were restored to their original
 test and both affected tests passed on rerun.
 
-The tier-1 gate's full Python runs consistently completed more than 6,800 tests
+Before the current-main incremental gate was integrated, the tier-1 gate's full
+Python runs consistently completed more than 6,800 tests
 but encountered changing failures in unmodified paths. The first run reported
 one timing-sensitive AI watcher failure and one Zarr `WinError 5`; later runs
 reported different Zarr tests failing at the same `Path.rename` call in
@@ -96,7 +111,9 @@ audit does not count that command as a pass. GitHub's Linux Python job remains
 the authoritative complete-suite verdict. The Zarr race is already tracked by
 issue #2047. The changing tutorial/coverage worker failure on a loaded Windows
 host is tracked by #2103; that issue records the same tutorial test and states
-that Ubuntu CI is unaffected.
+that Ubuntu CI is unaffected. The final local gate uses the accepted
+diff-scoped mode and passed; GitHub CI still owns the authoritative full-suite
+verdict.
 
 ## 5. Recommendation
 
