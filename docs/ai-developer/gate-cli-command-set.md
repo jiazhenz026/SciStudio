@@ -343,7 +343,7 @@ Important `ci` mode split: `ci` mode validates **governance and guards**
 guards, weakened-CI, Sentrux, etc.). It does **not** re-require ledger check
 events for the `ci.yml` quality matrix (lint/format, type check, architecture
 tests, full audit, python tests, import contracts, frontend, wheel release
-smoke, semantic-dup). Those run as **separate authoritative `ci.yml` jobs** on
+smoke, deferral ratchet). Those run as **separate authoritative `ci.yml` jobs** on
 the same PR. `local` and `pre-pr` modes still run the full preflight selection,
 narrowed to the observed diff, so a local pass is a fast signal on the changed
 files while `ci.yml` proves the full surface (ADR-042 Addendum 7).
@@ -414,7 +414,7 @@ The tier-selected check baselines the evaluator actually runs are:
 
 | Tier | Baseline checks (before surface-specific additions) |
 |---|---|
-| Tier 1 | `lint_format`, `format_check`, `type_check`, `architecture_tests`, `full_audit`, `python_tests`, `import_contracts`, `semantic_dup` |
+| Tier 1 | `lint_format`, `format_check`, `type_check`, `architecture_tests`, `full_audit`, `python_tests`, `import_contracts`, `deferral_discipline` |
 | Tier 2 | `lint_format`, `format_check`, `full_audit` |
 | Tier 3 | `full_audit` |
 
@@ -424,7 +424,7 @@ lint/format/python-tests; QA/governance source under `src/scistudio/qa/**` adds
 those plus `full_audit`; ADR/spec/architecture/governed-docs and
 `docs/block-development/**` developer docs add `full_audit`; frontend surfaces
 add `frontend`; workflow/CI files add `full_audit`; packaging surfaces add
-`wheel_release_smoke`; Sentrux-applicable changes add `semantic_dup`. The
+`wheel_release_smoke`. The
 `codex_review` check is PR-only review automation and is never a local `check`
 failure.
 
@@ -703,7 +703,7 @@ PR body must close every gate-listed issue with a GitHub closing keyword
 - **`--check-na` has no force for `ci.yml`-owned checks.** An N/A for a check
   the standalone `ci.yml` job owns (`lint_format`, `format_check`, `type_check`,
   `architecture_tests`, `full_audit`, `python_tests`, `import_contracts`,
-  `frontend`, `wheel_release_smoke`, `semantic_dup`) does **not** waive the
+  `frontend`, `wheel_release_smoke`, `deferral_discipline`) does **not** waive the
   obligation for PR readiness — `ci.yml` runs the check regardless. The tool
   emits a loud non-blocking warning and ignores the N/A for that check. Fix the
   check or rely on CI. `--check-na` does waive task-specific / non-`ci.yml`-owned

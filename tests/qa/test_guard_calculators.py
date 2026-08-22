@@ -441,7 +441,7 @@ def test_weakened_ci_tokens_are_specific_not_generic_python_head() -> None:
     assert tokens["wheel_release_smoke"] == "build"
     assert tokens["type_check"] == "mypy"
     assert tokens["import_contracts"] == "lint-imports"
-    assert tokens["semantic_dup"] == "scripts/semantic_dup_scan.py"
+    assert "semantic_dup" not in tokens
 
 
 def test_weakened_ci_does_not_flag_gate_record_ci_to_check_fold() -> None:

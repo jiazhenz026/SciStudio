@@ -1110,30 +1110,19 @@ def test_commit_msg_check_discovers_finalized_ledger(git_repo: Path, capsys: pyt
 # ---------------------------------------------------------------------------
 
 
-def test_pre_commit_mode_skips_python_tests_and_semantic_dup(
-    git_repo: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_pre_commit_mode_skips_the_slowest_check(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _init(git_repo)
-    # A python-src change selects both python_tests (has_python_src) and
-    # semantic_dup (sentrux-applicable).
+    # A python-src change selects python_tests via has_python_src.
     _commit(git_repo, "src/scistudio/x.py", "y = 1\n")
     capsys.readouterr()
     _run(git_repo, "check", "--base", "HEAD~1", "--mode", "pre-commit", "--skip-execution")
     pre_commit = capsys.readouterr().out
     _run(git_repo, "check", "--base", "HEAD~1", "--mode", "pre-pr", "--skip-execution")
     pre_pr = capsys.readouterr().out
-    _run(git_repo, "check", "--base", "HEAD~1", "--mode", "pre-pr", "--skip-execution", "--force-checks")
-    forced = capsys.readouterr().out
-    # pre-commit drops both slow checks.
+    # pre-commit drops the slowest check (#1628); pre-pr keeps it, running it
+    # diff-scoped rather than over the whole suite.
     assert "python_tests" not in pre_commit
-    assert "semantic_dup" not in pre_commit
-    # pre-pr keeps python_tests, which now runs diff-scoped rather than whole-suite.
     assert "python_tests" in pre_pr
-    # semantic_dup has no diff-scoped form and its verdict is a corpus property,
-    # so ADR-042 Addendum 7 defers it to semantic-dup-scan.yml in local modes.
-    # --force-checks opts back in.
-    assert "semantic_dup" not in pre_pr
-    assert "semantic_dup" in forced
 
 
 def test_failed_check_excerpt_surfaces_log_tail(tmp_path: Path) -> None:

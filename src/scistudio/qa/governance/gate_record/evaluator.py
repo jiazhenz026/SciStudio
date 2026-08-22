@@ -55,7 +55,7 @@ _BASELINE_TIER: dict[str, StrictnessTier] = {
 # §7.5 CI command-source table). The ``workflow-gate.yml`` / "Verify Workflow
 # Compliance" job validates GOVERNANCE + guards, NOT this quality matrix: those
 # jobs are authoritative for lint/format/type/test/audit/architecture/import-
-# contracts/frontend/wheel/semantic-dup and run independently. So in ``ci`` mode
+# contracts/frontend/wheel/deferral and run independently. So in ``ci`` mode
 # the shared evaluator must NOT re-require ledger ``check_events`` for these --
 # doing so both duplicates ``ci.yml`` and blocks on evidence the workflow-gate
 # job was never meant to demand. ``local``/``pre-pr`` modes still run them as the
@@ -72,30 +72,15 @@ _CI_OWNED_QUALITY_CHECKS: frozenset[str] = frozenset(
         "import_contracts",
         "frontend",
         "wheel_release_smoke",
-        "semantic_dup",
         "deferral_discipline",
     }
 )
 
-# The two slowest checks (~3min combined: full pytest + src-wide embeddings).
-# pre-commit is a fast local gate, so it skips these — they still run in
-# pre-pr / CI, and the governance guards + fast checks still run at commit time
-# (#1628).
-_PRE_COMMIT_SKIP_CHECKS: frozenset[str] = frozenset({"python_tests", "semantic_dup"})
+# pre-commit is a fast local gate, so it skips the slowest check — it still runs
+# in pre-pr / CI, and the governance guards + fast checks still run at commit
+# time (#1628).
+_PRE_COMMIT_SKIP_CHECKS: frozenset[str] = frozenset({"python_tests"})
 
-# Checks with no diff-scoped variant whose verdict is a property of the whole
-# corpus rather than of the current edit, deferred to CI in every local mode.
-# ``semantic_dup`` embeds every function in ``src/scistudio`` and compares them
-# pairwise, so a subset has no meaning. Measured on a warm parity venv it costs
-# 135s, which is 65% of a Tier 1 local run; ``semantic-dup-scan.yml`` runs it
-# authoritatively on the same PR and ``--force-checks`` restores it locally.
-#
-# Deliberately NOT deferred, on measured cost rather than the ledger-derived
-# proxy that first suggested otherwise: ``architecture_tests`` (7.5s, and it
-# catches layer-dependency violations and new import cycles introduced by the
-# current edit), ``full_audit`` (20s, catches doc drift caused by the current
-# edit), ``deferral_discipline`` (2s), ``import_contracts`` (<1s).
-_LOCAL_DEFERRED_CHECKS: frozenset[str] = frozenset({"semantic_dup"})
 _CHECK_EVIDENCE_IGNORED_PREFIXES: tuple[str, ...] = (".workflow/records/",)
 _CHECK_FINGERPRINT_VERSION = "gate-check-input-v2"
 
@@ -624,14 +609,6 @@ def _check_input_paths(name: str, changed_files: Sequence[str]) -> list[str]:
             for p in normalized
             if p.endswith(".py") or p.startswith("docs/audit/baselines/deferral") or _is_global_check_config_path(p)
         ]
-    if name == "semantic_dup":
-        return [
-            p
-            for p in normalized
-            if surfaces.sentrux_applies_to_changes([p])
-            or p.startswith("docs/audit/baselines/semantic-dup")
-            or _is_global_check_config_path(p)
-        ]
     if spec.covered_surface == "python_types":
         # mypy reads the package it is pointed at, plus its own config.
         return [
@@ -790,12 +767,7 @@ def _select_checks_to_execute(
     return to_run, current
 
 
-def required_for_mode(
-    required: Sequence[str],
-    *,
-    mode: EvaluatorMode,
-    force_checks: bool,
-) -> list[str]:
+def required_for_mode(required: Sequence[str], *, mode: EvaluatorMode) -> list[str]:
     """Narrow the tier-selected check set to what THIS caller must prove.
 
     ``select_checks`` answers which checks the tier requires. This answers which
@@ -808,18 +780,15 @@ def required_for_mode(
       demand.
     - ``pre-commit``: a fast local gate that drops the two slowest checks
       (#1628), so a commit neither proves nor runs them.
-    - every local mode: corpus-wide checks that cannot be narrowed are deferred
-      to CI (ADR-042 Addendum 7 §2.5). ``--force-checks`` opts back in.
+    Every remaining check either has a diff-scoped variant or costs under 20s, so
+    no local mode defers one outright (ADR-042 Addendum 7 §2.5).
     """
 
     if mode == "ci":
         return [name for name in required if name not in _CI_OWNED_QUALITY_CHECKS]
-    selected = list(required)
     if mode == "pre-commit":
-        selected = [name for name in selected if name not in _PRE_COMMIT_SKIP_CHECKS]
-    if not force_checks:
-        selected = [name for name in selected if name not in _LOCAL_DEFERRED_CHECKS]
-    return selected
+        return [name for name in required if name not in _PRE_COMMIT_SKIP_CHECKS]
+    return list(required)
 
 
 def reconcile(
@@ -938,7 +907,7 @@ def reconcile(
     selection = checks.select_checks(tier=tier, changed_files=observed_files)
     parity_gaps.extend(selection.parity_gaps)
 
-    selection.required = required_for_mode(selection.required, mode=mode, force_checks=force_checks)
+    selection.required = required_for_mode(selection.required, mode=mode)
 
     # 5. Infer obligations.
     obligations = _infer_obligations(

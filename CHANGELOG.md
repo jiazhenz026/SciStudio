@@ -166,6 +166,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Removed
 
+- [#2120 #2099] **Remove the semantic-duplication check and its CI workflow.** The
+  ratchet took **27m31s** on PR #2111 and, run locally, hit the gate's 600s
+  subprocess timeout and recorded `status=unknown`. Standalone on a warm parity
+  venv it took 135s, which was 65% of a Tier 1 local gate run. Owner grounds,
+  recorded as a directive event in the #2120 gate ledger: 27 minutes is
+  unacceptable, the check's current value is low, and it produces frequent false
+  positives. This is an owner-approved CI-weakening scope per `AGENTS.md` §3.1.
+  Removed: `.github/workflows/semantic-dup-scan.yml`,
+  `scripts/semantic_dup_scan.py`, `src/scistudio/qa/audit/semantic_dup.py` and
+  its opt-in `full_audit` child (`--include-semantic-dup` /
+  `--semantic-dup-model`), `docs/audit/baselines/semantic-dup-baseline.json`, the
+  `fastembed` dev dependency, and every gate-selection reference (check catalog,
+  Tier 1 baseline, Sentrux-driven surface selection, CI-owned and
+  pre-commit-skip sets). Because `semantic_dup` was the only member of the
+  local-deferral set introduced by ADR-042 Addendum 7, that mechanism would have
+  been a permanent no-op and is removed with it; `required_for_mode` now
+  distinguishes only `ci` and `pre-commit`. ADR-042 Addendum 2, which introduced
+  the check, is marked `Superseded`; Addendum 7 §2.5 records the removal and why
+  it superseded that section's own deferral proposal within one review cycle.
+  Duplication pressure and layering remain covered by `import_contracts` and
+  `architecture_tests`, which stay local and cost under 8s combined. #2099
+  (pinning `onnxruntime` to fix the timeout) is closed as moot. Tests:
+  `tests/qa/test_gate_incremental_checks.py` (no check is deferred out of the
+  local gate; `semantic_dup` is absent from every selection surface),
+  `tests/qa/test_guard_calculators.py` (the weakened-CI token set no longer
+  requires the deleted scanner), `tests/qa/test_gate_record.py` (pre-commit drops
+  only the slowest check). (@claude, 2026-08-22, branch: chore/2120-remove-semantic-dup)
+
 - [#2057] **Breaking: `POST /api/tutorials/run-first-workflow/bootstrap` is
   deleted**, with no alias, along with the single-tutorial implementation behind
   it — one backend route that created one named project and wrote one CSV, and

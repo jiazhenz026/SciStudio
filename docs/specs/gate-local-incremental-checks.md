@@ -86,7 +86,7 @@ Failure counts come from the 130 committed ledgers under `.workflow/records/`
 | `format_check` | 304 | 98 |
 | `full_audit` | 344 | 47 |
 | `lint_format` | 262 | 27 |
-| `semantic_dup` | 277 | 16 |
+| `semantic_dup` (removed, #2120) | 277 | 16 |
 | `frontend` | 78 | 15 |
 | `deferral_discipline` | 172 | 10 |
 | `architecture_tests` | 148 | 9 |
@@ -103,7 +103,7 @@ in fact costs 7.5 seconds. Every cost below is measured:
 | Check | Repository-scoped | Diff-scoped |
 |---|---:|---:|
 | `python_tests` | 159s | 39s |
-| `semantic_dup` | 135s | no narrow form |
+| `semantic_dup` | 135s | removed, #2120 |
 | `type_check` | 25.4s | 0.9s |
 | `full_audit` | 20s | no narrow form |
 | `architecture_tests` | 7.5s | no narrow form |
@@ -111,9 +111,11 @@ in fact costs 7.5 seconds. Every cost below is measured:
 | `lint_format` + `format_check` | 0.35s | 0.2s |
 | **Tier 1 total** | **~349s** | **~205s** |
 
-Narrowing alone takes a Tier 1 local run from ~349s to ~205s. Deferring
-`semantic_dup` — the one check whose verdict is a property of the whole corpus
-rather than of the current edit — takes it to ~70s.
+Narrowing alone takes a Tier 1 local run from ~349s to ~205s. `semantic_dup` —
+the one check whose verdict is a property of the whole corpus rather than of the
+current edit, and which cannot be narrowed — was first deferred to CI and then
+removed outright on owner authorization (#2120) after it measured 27m31s in CI.
+That takes a Tier 1 local run to ~70s.
 
 Of 2,316 executions, 1,029 re-ran because the fingerprint genuinely changed and
 278 re-ran on an unchanged fingerprint, of which 69 had a prior passing event.
@@ -284,7 +286,7 @@ Three mechanisms carry the work.
 First, command variants. `CheckSpec` gains a second command form built from the
 observed changed files. `lint_format`, `format_check`, `type_check`, and
 `frontend` take a file list directly. `python_tests` takes a selected node set.
-`full_audit`, `semantic_dup`, `deferral_discipline`, `architecture_tests`, and
+`full_audit`, `deferral_discipline`, `architecture_tests`, and
 `wheel_release_smoke` have no natural file-list form; their breadth is governed
 by mode selection instead.
 
@@ -444,9 +446,9 @@ forbid.
   parity environment. Measured on this change's own diff: 958s with
   `--force-checks` versus 58.8s diff-scoped, a 16.3x reduction against a 2x
   target. The ledger confirms the fast run executed all eight selected checks and
-  reused no prior evidence. The baseline includes a 600s `semantic_dup` timeout
-  (#2099 reproducing); excluding it the repository-scoped set is roughly 358s,
-  still a 6.1x reduction.
+  reused no prior evidence. The baseline included a 600s `semantic_dup` timeout
+  (#2099 reproducing); excluding it the repository-scoped set was roughly 358s,
+  still a 6.1x reduction. With `semantic_dup` removed (#2120) it is roughly 223s.
 - SC-002: `format_check` produces zero gate failures across the ledgers recorded
   after the change, measured over at least twenty subsequent sessions, compared
   with 98 failures in 304 runs before.
