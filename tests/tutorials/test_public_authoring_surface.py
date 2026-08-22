@@ -114,6 +114,9 @@ def test_a_driver_authored_from_the_root_alone_satisfies_the_protocol() -> None:
     driver = _PackageDriver(("first", "second"), _condition())
 
     # runtime_checkable: this is the check load_driver performs on a package's class.
+    # A package implementation must not need SciStudio's stability marker merely
+    # because the public protocol itself carries one.
+    assert "__scistudio_stability__" not in vars(type(driver))
     assert isinstance(driver, TutorialDriver)
 
 

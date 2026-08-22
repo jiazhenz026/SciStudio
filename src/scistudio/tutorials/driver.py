@@ -56,7 +56,9 @@ import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Any
+
+from typing_extensions import Protocol, runtime_checkable
 
 from scistudio.stability import provisional
 from scistudio.tutorials.actions import Action

@@ -48,7 +48,9 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any
+
+from typing_extensions import Protocol, runtime_checkable
 
 from scistudio.engine.events import (
     BLOCK_DONE,
