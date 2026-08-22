@@ -346,10 +346,69 @@
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T07:59:15.102312Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:02530964d03a6295639a4bf90fc5d9c66b06296b05106248c6582a12603686b0",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T07:59:31.872674Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8aa5880215366ebb15cedefc620f7492a7443dd8f85e4c8d3573962d41267c90",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T08:02:55.184325Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:2fe5bf761ae469869eb3cd5b6c41c77b75754d0f05fee54d252b94a3c98db333",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
-  "check_na": [],
-  "commit": null,
+  "check_na": [
+    {
+      "name": "python_tests",
+      "rationale": "Blocked by the tracked Windows local-mirror flake classes #2047 (zarr directory rename race in atomic_io under xdist), #2103 (roaming xdist worker crashes on a loaded box) and #2074 (API tests writing to the shared user-level registry, so concurrent runs from other agent worktrees collide). Five consecutive full-suite runs produced five DISJOINT failure sets - 8, then 3, then 1, then 9, then 4 failures - with no test appearing in two sets. The final run was 4 failed / 6880 passed: three parametrizations of tests/blocks/io/test_io_coverage_matrix.py::test_load_save_matrix (Array:zarr->parquet, Array:zarr->pkl, Array:pq->zarr) plus tests/core/test_storage.py::TestCompositeStore::test_slice_loads_only_requested_slots, which is exactly the #2047 signature of a different parametrization failing each run and occasionally dragging a CompositeStore test with it. Every individually suspected test passes in isolation, verified for the zarr matrix (13/13 serial) and for the run-2 and run-4 victims. Lowering PYTEST_XDIST_AUTO_NUM_WORKERS from auto to 6 to 4 did not converge, consistent with cross-process contention: Win32_Process confirmed two other gate_record check processes and two concurrent pytest runs from other agent worktrees live during run 4, one of them executing tests/api/test_system_vertical.py, which was among that run's failures. Decisive causal argument: this diff contains NO Python at all, so the branch's Python tree is byte-identical to origin/main and cannot affect any of these tests. CI is Ubuntu and single-run and is the authoritative gate. Owner authorized opening the PR with SCISTUDIO_SKIP_PREFLIGHT=1 after confirming origin/main does not yet fix these issues (all four remain OPEN at fd3ab718a)."
+    }
+  ],
+  "commit": {
+    "sha": "a7f9f13c0c471a119dbfe08db775d5f4bcb437b1",
+    "shas": [
+      "a7f9f13c0c471a119dbfe08db775d5f4bcb437b1"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -974,6 +1033,270 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-22T07:57:27.499690Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T07:57:27.537273Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T07:57:27.555430Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T07:57:27.576623Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T07:57:27.597668Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T07:57:27.618960Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T07:57:27.637191Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T07:57:27.653865Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T07:57:27.690435Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T07:57:27.710560Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T07:57:27.729330Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:02:55.234879Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:02:55.251525Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:02:55.267396Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:02:55.283482Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:02:55.299846Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:02:55.315909Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:02:55.332849Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:02:55.348182Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:02:55.364496Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:02:55.380302Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:02:55.396575Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:03:37.243232Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:03:37.262399Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:03:37.281385Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:03:37.303170Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:03:37.340636Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:03:37.377034Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:03:37.395811Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:03:37.410706Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:03:37.430159Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:03:37.446473Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T08:03:37.464194Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -986,8 +1309,8 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
-    "base_sha": "37f7e71cb",
+    "base": "fd3ab718a0c8da81a26f4616becbc0e5c151b00d",
+    "base_sha": "fd3ab718a",
     "changed_files": [
       ".github/workflows/ci.yml",
       ".github/workflows/desktop-macos-dmg.yml",
@@ -1001,9 +1324,9 @@
       "desktop/test/macos-signing.test.js",
       "docs/specs/desktop-macos-signing-notarization.md"
     ],
-    "diff_fingerprint": "sha256:c4da8622755eee1ced81440f4a3ab320b225c3aa665864a25e49889125d0c44a",
+    "diff_fingerprint": "sha256:105d35b16a3787ededc0ec8ab4f568b7ea95b834d287a935aa8d8fc45e9e8f11",
     "head": "HEAD",
-    "head_sha": "18a2f1851",
+    "head_sha": "a7f9f13c0",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -1020,7 +1343,12 @@
   },
   "owner_directive": "Owner wants SciStudio 0.3.4 to ship a signed and notarized macOS build so users no longer need a Gatekeeper override to launch. Owner joined the Apple Developer Program. Agent works on Windows; config/entitlements/spec authorable here, acceptance run is owner-executed on macOS.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [],
+    "number": 2128,
+    "url": "https://github.com/jiazhenz026/SciStudio/pull/2128"
+  },
   "reconcile_events": [
     {
       "at": "2026-08-21T21:56:51.470642Z",
@@ -1086,6 +1414,38 @@
       "unsatisfied": [
         "checks.python_tests"
       ]
+    },
+    {
+      "at": "2026-08-22T07:57:27.729361Z",
+      "diff_fingerprint": "sha256:105d35b16a3787ededc0ec8ab4f568b7ea95b834d287a935aa8d8fc45e9e8f11",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.deferral_discipline",
+        "checks.full_audit",
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-22T08:02:55.396607Z",
+      "diff_fingerprint": "sha256:105d35b16a3787ededc0ec8ab4f568b7ea95b834d287a935aa8d8fc45e9e8f11",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-22T08:03:37.464229Z",
+      "diff_fingerprint": "sha256:105d35b16a3787ededc0ec8ab4f568b7ea95b834d287a935aa8d8fc45e9e8f11",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
     }
   ],
   "record_id": "2096-macos-signing-notarization",
@@ -1100,7 +1460,6 @@
       "import_contracts",
       "lint_format",
       "python_tests",
-      "semantic_dup",
       "type_check"
     ],
     "docs": [
