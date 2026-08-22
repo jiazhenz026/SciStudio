@@ -105,6 +105,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   concatenated: cmd.exe quoting is subtle enough that a half-correct escaper
   would fail silently, at launch, on someone else's machine. POSIX is unchanged
   — no shell, argument array passed straight through.
+- [#2079] **The Learning Center no longer opens itself on every launch.** The
+  backend keeps a finished tutorial as the active session record, so every
+  start-up adopted a session whose status was already `complete` — and the
+  frontend reacted to that record the way it reacts to a live finish: the
+  Learning Center opened, the project you had open was closed, and the
+  work-import unlock was asked, on every single restart. A completion the
+  running app never watched happen is now treated as history rather than news:
+  the finish reaction fires only for a session this app run first saw in a
+  non-complete state, and only a session that is actually running may move the
+  window into its tutorial project. Finishing a tutorial still lands in the
+  Learning Center exactly as before; what changed is that *having finished one
+  yesterday* no longer does.
 
 - [#2073] **A project registry written by a newer build no longer stops an older
   runtime from starting.** `~/.scistudio/projects.json` outlives the runtime that

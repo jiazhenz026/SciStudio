@@ -30,6 +30,7 @@ and writes under ``.scistudio/previews/``.
 from __future__ import annotations
 
 import logging
+import shutil
 from functools import partial
 from pathlib import Path
 from typing import Annotated, Any
@@ -238,6 +239,33 @@ async def create_plot(payload: PlotCreateRequest, runtime: RuntimeDep) -> PlotCr
         warnings=warnings,
         target=_target_item(target),
     )
+
+
+@router.delete("/{plot_id}", status_code=204)
+async def delete_plot(plot_id: str, runtime: RuntimeDep) -> None:
+    """Delete one project-local plot directory after confined path resolution."""
+    from scistudio.plot.validation import PlotNotFoundError, resolve_manifest_path
+
+    try:
+        runtime.require_active_project()
+        manifest_path = resolve_manifest_path(runtime, plot_id=plot_id, path=None)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (PermissionError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PlotNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    if not manifest_path.is_file():
+        raise HTTPException(status_code=404, detail=f"Plot {plot_id!r} does not exist.")
+
+    try:
+        shutil.rmtree(manifest_path.parent)
+    except OSError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete plot {plot_id!r}: {exc}",
+        ) from exc
 
 
 @router.post("/{plot_id}/relink", response_model=PlotRelinkResponse)
