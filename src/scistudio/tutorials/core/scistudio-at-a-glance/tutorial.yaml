@@ -1,0 +1,150 @@
+# Core tutorial 5 — "SciStudio at a Glance" (scenarios doc, 关卡 5).
+#
+# The summary level. It is REVIEW, not new material: it names and organises
+# what the reader already did in levels 1-4, which is its licence to be
+# reading-only (ADR-053 §2.2 as revised by FR-092). One step per card, eight
+# cards; each step's pages live under assets/pages/ and each step is satisfied
+# when all of its pages have been served (page_reached is recorded by the
+# pages route — serving IS reaching).
+#
+# The only thing here the reader has never used is CompositeData, presented on
+# the data-type card as "one more thing that exists", deliberately shallower
+# than the five types they have handled.
+#
+# The `summary` below is the reading window's top sentence. Its wording is an
+# owner-iteration item — flagged in the PR body, not final copy.
+manifest_version: 1
+id: scistudio-at-a-glance
+title: SciStudio at a Glance
+summary: >-
+  Your analysis in SciStudio is a workflow of blocks passing typed data —
+  and every run is recorded, so what you did once can be done again.
+order: 5
+
+# No bootstrap: a reading tutorial creates no project (nothing here touches
+# disk, so there is nothing to make temporary).
+
+steps:
+  - id: workflow-card
+    title: Workflow
+    say: The graph you build — blocks, wires, and the Run button.
+    pages:
+      - workflow-what-it-is
+      - workflow-port-colours
+      - workflow-running
+      - workflow-tidy-focus
+    done_when:
+      all:
+        - page_reached: {page: workflow-what-it-is}
+        - page_reached: {page: workflow-port-colours}
+        - page_reached: {page: workflow-running}
+        - page_reached: {page: workflow-tidy-focus}
+
+  - id: block-card
+    title: Block
+    say: One unit of processing — six kinds, a few built-ins, and your own.
+    pages:
+      - block-what-it-is
+      - block-six-kinds
+      - block-built-ins
+      - block-tips
+    done_when:
+      all:
+        - page_reached: {page: block-what-it-is}
+        - page_reached: {page: block-six-kinds}
+        - page_reached: {page: block-built-ins}
+        - page_reached: {page: block-tips}
+
+  - id: data-type-card
+    title: Data type
+    say: What flows through the wires, and why there are six core types.
+    pages:
+      - type-what-it-is
+      - type-six-core
+      - type-canonical-zone
+      - type-tips
+    done_when:
+      all:
+        - page_reached: {page: type-what-it-is}
+        - page_reached: {page: type-six-core}
+        - page_reached: {page: type-canonical-zone}
+        - page_reached: {page: type-tips}
+
+  - id: previewer-card
+    title: Previewer
+    say: How you look at any block's output — and how that view is chosen.
+    pages:
+      - previewer-the-pane
+      - previewer-typed
+      - previewer-custom
+      - previewer-tips
+    done_when:
+      all:
+        - page_reached: {page: previewer-the-pane}
+        - page_reached: {page: previewer-typed}
+        - page_reached: {page: previewer-custom}
+        - page_reached: {page: previewer-tips}
+
+  - id: plot-card
+    title: Plot card
+    say: Figures drawn from any block output — preview only, export to keep.
+    pages:
+      - plot-what-it-is
+      - plot-binding
+      - plot-code
+      - plot-collection
+      - plot-tips
+    done_when:
+      all:
+        - page_reached: {page: plot-what-it-is}
+        - page_reached: {page: plot-binding}
+        - page_reached: {page: plot-code}
+        - page_reached: {page: plot-collection}
+        - page_reached: {page: plot-tips}
+
+  - id: history-card
+    title: History
+    say: Every run remembered — Restore puts the past back, and you press Run.
+    pages:
+      - history-the-tab
+      - history-restore
+      - history-git
+      - history-branches
+      - history-tips
+    done_when:
+      all:
+        - page_reached: {page: history-the-tab}
+        - page_reached: {page: history-restore}
+        - page_reached: {page: history-git}
+        - page_reached: {page: history-branches}
+        - page_reached: {page: history-tips}
+
+  - id: my-library-card
+    title: My library
+    say: Your personal toolbox — blocks, types, and previewers, in every project.
+    pages:
+      - library-what-it-is
+      - library-what-it-holds
+      - library-project-vs-library
+    done_when:
+      all:
+        - page_reached: {page: library-what-it-is}
+        - page_reached: {page: library-what-it-holds}
+        - page_reached: {page: library-project-vs-library}
+
+  - id: others-card
+    title: Others
+    say: When you are stuck — the AI, packages, logs, and the docs.
+    pages:
+      - others-ask-the-ai
+      - others-packages
+      - others-when-a-run-fails
+      - others-the-docs
+      - others-bring-in-work
+    done_when:
+      all:
+        - page_reached: {page: others-ask-the-ai}
+        - page_reached: {page: others-packages}
+        - page_reached: {page: others-when-a-run-fails}
+        - page_reached: {page: others-the-docs}
+        - page_reached: {page: others-bring-in-work}
