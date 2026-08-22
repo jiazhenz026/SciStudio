@@ -86,6 +86,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2075] **The local test suite passes on Windows again, so the gate check
+  stops blocking unrelated work.** Eight tests that arrived with the Learning
+  Center (#2057) failed on Windows for reasons in the tests themselves, not in
+  `scistudio`. Because CI is Ubuntu-only and green, nothing caught them
+  upstream; they surfaced only when a developer ran the suite locally, where
+  `python_tests` is a merge-blocking check that CI owns and `--check-na` cannot
+  waive — so every unrelated PR had to be opened with the preflight skipped.
+  Four simulated an out-of-product delete with `shutil.rmtree`, which cannot
+  remove the read-only `.git/objects` that auto-init leaves behind on Windows;
+  they now use `_rmtree_force`, the helper the product already uses for exactly
+  this. Two compared bytes against a fixture written in text mode, where a
+  newline becomes CRLF on Windows; the fixture writes byte-for-byte now. One
+  compared `str(Path.relative_to(...))` against a literal spelled with `/`; it
+  uses `as_posix()`. The eighth needed a symlink, which Windows does not grant
+  by default — rather than skip it, it falls back to a **directory junction**,
+  which `os.path.realpath` follows identically and which is exactly how the
+  loader detects the escape, so an asset-escape rejection is now actually
+  verified on Windows instead of deferred to Linux. The junction fallback moved
+  to `tests/helpers.py` so its two callers share one implementation. `~/.scistudio/projects.json` outlives the runtime that
 - [#2079] **The Learning Center no longer opens itself on every launch.** The
   backend keeps a finished tutorial as the active session record, so every
   start-up adopted a session whose status was already `complete` — and the
