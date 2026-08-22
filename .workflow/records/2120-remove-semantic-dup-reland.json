@@ -1,0 +1,148 @@
+{
+  "branch": "chore/2120-remove-semantic-dup-reland",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/qa/**",
+      "scripts/**",
+      ".github/workflows/**",
+      "docs/**",
+      "tests/**",
+      "pyproject.toml",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-22T06:45:44.172193Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-042-addendum2.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T06:45:44.172213Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-042-addendum7.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T06:45:44.172216Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-042-addendum6.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T06:45:44.172217Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/gate-local-incremental-checks.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T06:45:44.172219Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-042-consistency-tools.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T06:45:44.172220Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/gate-cli-command-set.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T06:45:44.172222Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2120,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2099,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "OK, do it now. (Re-land: PR #2123 merged into an already-merged branch, so the removal never reached main.)",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2120-remove-semantic-dup-reland",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "7318efdb-64ee-4228-8d17-c37b84bd927d",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-08-22T06:45:44.172226Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_incremental_checks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T06:45:44.172230Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_guard_calculators.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T06:45:44.172232Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_record.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T06:45:44.172233Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_parity_provision.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
