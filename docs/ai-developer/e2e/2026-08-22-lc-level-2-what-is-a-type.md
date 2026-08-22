@@ -5,10 +5,10 @@ created: "2026-08-22"
 owner: "@jiazhenz026"
 trigger:
   kind: "feature-sweep"
-  ref: "PR #2122 on track/learning-center-levels (#2081); re-verified at tip c00bb197c"
+  ref: "PR #2122 on track/learning-center-levels (#2081); re-verified after the #2134 validator fix"
 related_adrs:
   - 53
-status: "failed"
+status: "passed"
 language_source: en
 ---
 
@@ -33,8 +33,9 @@ language_source: en
 
 ## 2. Preconditions
 
-- **Repo state**: `test/2081-level-e2e-sessions` @ `5ca880d7f` for the runs
-  below, re-checked at `c00bb197c` (the tip that adds core tutorial 3)
+- **Repo state**: `test/2081-level-e2e-sessions` @ `a7cd4b862`
+  (= `track/learning-center-levels` with core tutorial 3 and the #2134 fix).
+  The superseded FAIL was observed at `5ca880d7f` and `c00bb197c`.
 - **Working tree**: clean apart from the untracked gate ledger
 - **Worktree to run from**: `C:/Users/jiazh/workspace/SciStudio-wt-lcE2E`
 - **Backend port**: 8032 (a sibling session owns 8031)
@@ -139,62 +140,90 @@ language_source: en
 
 ### 7.1 Verdict
 
-**FAIL — P1.** 2026-08-22, `test/2081-level-e2e-sessions` @ `5ca880d7f`,
-still failing at `c00bb197c` (the merge that added core tutorial 3 does not
-touch `src/scistudio/blocks/base/ports.py`, so nothing about this changed).
+**PASS — 22/22 steps.** 2026-08-22, `test/2081-level-e2e-sessions` @ `a7cd4b862`
+(= `track/learning-center-levels` with the #2134 validator fix).
 
-**This blocker gates two levels, not one.** Core tutorial 3 declares
-`requires.tutorials: [what-is-a-type]`, so while tutorial 2 cannot be completed,
-tutorial 3 cannot be started by any reader either. See
-`2026-08-22-lc-level-3-two-modalities.md`.
+> **This verdict supersedes an earlier FAIL.** On the first tip tested
+> (`5ca880d7f`, still failing at `c00bb197c`) this level stopped dead at step 14
+> of 22: the workflow API refused the Segment Cells → Review Labels edge with
+> `Source port 'labels' produces ['Image'] but target port 'labels' accepts
+> ['Image']` (HTTP 422). That was a real P1 and it is now fixed — see 7.3.1 for
+> the diagnosis, which the fix confirmed, and which is kept here as provenance.
 
-**Core tutorial 2 cannot be completed by a real reader.** Step 14
-(`add-the-review-block`) requires an edge from Segment Cells to Review Labels,
-and the product refuses to create it. The workflow API rejects that edge with
-HTTP 422 and a self-contradictory message:
+The level now completes by its own designed actions: the type is created and
+registered, the capability error is met and answered, the previewer is written
+and takes effect, the segmentation is run and argued with, the interactive block
+pauses the run and takes the reader's decision, the areas table is exported, and
+all three artefacts are promoted into My Library.
+
+Backend truth after the run:
 
 ```
-Edge 'segment_cells-...:labels' -> 'review_labels-...:labels':
-Source port 'labels' produces ['Image'] but target port 'labels' accepts ['Image']
+group SciStudio -> completed 1 of 6
+    what-is-a-type            = complete      <-- this session
+    two-modalities-one-answer = not_started   <-- gate cleared by that completion
 ```
 
-Both ports declare the same type. The step's `done_when` can therefore never be
-satisfied, and the level stops dead at step 14 of 22 — with the interactive
-block, the export, the three My Library promotions and the closing payoff all
-behind it.
+The tutorial-scoped library afterwards — the whole point of the ending:
 
-This is **not a tutorial defect**. It is a core workflow-validation defect that
-core tutorial 2 happens to be the first shipped surface to exercise (see 7.3.1).
+```
+<home>/SciStudio Tutorials/.library/types/image.py
+<home>/SciStudio Tutorials/.library/blocks/segment_cells.py
+<home>/SciStudio Tutorials/.library/previewers/image_preview.py
+```
 
-Reproduced on **three consecutive independent runs** from a clean profile.
+`GET /api/tutorials/unlock` → `{"work_import_offer_pending": false}` — correct;
+the milestone is tutorial 4.
 
-### 7.2 How far the level got
+### 7.2 What ran
 
-Steps 1-13 all behaved as designed, driven by their own designed actions in a
-real browser against a live backend:
+Every step was driven by the action its own text asks for, in a real browser
+against a live backend, from a clean profile. Wall time 7.1m.
 
 | Steps | Outcome | Notes |
 |-------|---------|-------|
 | 1 | pass | Data types tab lists the core types and no `Image` — the gap the level opens on |
-| 2 | pass | New → New data type; filename prefilled `image`; destination "this project"; `types/image.py` lands |
+| 2 | pass | New → New data type, filename prefilled `image`, destination "this project"; `types/image.py` lands |
 | 3 | pass | Entry action rewrites the template; `Image` registers (`type_registered`) |
 | 4 | pass | Load added from the palette |
 | 5 | pass | `data/raw/cells.tif` + `core_type: Image`. The step's claim that the reader's own Image is in the list **holds**: `["Array","DataFrame","Series","Text","Artifact","CompositeData","DataObject","Image"]` |
-| 6 | pass | The wall, met for real: `ValueError: Load: no load capability is registered for type 'Image'.` — the manifest quotes this error verbatim and the product raises it verbatim |
+| 6 | pass | The wall, met for real: `ValueError: Load: no load capability is registered for type 'Image'.` — quoted verbatim by the manifest and raised verbatim by the product |
 | 7 | pass | Loader trigger writes `blocks/load_tiff_image.py`; the re-run genuinely reads the TIFF |
 | 8 | pass | The number-table fallback — the core Array previewer walking the type chain |
 | 9 | pass | Previewer trigger writes `previewers/image_preview.py`; `previewer_registered` |
-| 10 | pass | Segmentation trigger writes the block; Load → Segment Cells wired and backend-verified |
-| 11 | pass | Run + node inspection (`run_succeeded` + `node_selected`) |
-| 12 | pass | `method: adaptive` + run — **needed 2 Run presses** (see 7.3.2) |
+| 10 | pass | Segmentation trigger writes the block; Load → Segment Cells wired, backend-verified |
+| 11 | pass | Run + node inspection; the label map really is computed |
+| 12 | pass | `method: adaptive` + run |
 | 13 | pass | `method: threshold` + run |
-| **14** | **FAIL** | Review Labels registers and lands on the canvas, but **the edge Segment Cells → Review Labels is refused** |
-| 15-22 | not reached | interactive panel, areas → Save, `data/processed/cell_areas.csv`, the three promotions, the closing step |
+| **14** | **pass** | **Segment Cells → Review Labels now connects** — the edge the old P1 refused |
+| 15 | pass | Run pauses on the interactive block, its window opens on the real label map, the nine-pixel intruder is removed by hand, the run resumes (`interaction_completed`) |
+| 16 | pass | Save added and the **areas** output (not labels) wired into it |
+| 17 | pass | Save pointed at `data/processed`, filename prefilled `cell_areas.csv` |
+| 18 | pass | Final run through the panel; **`data/processed/cell_areas.csv` genuinely lands** |
+| 19 | pass | `Image` promoted from the Data types tab (E5) — file moves into the library |
+| 20 | pass | `segment_cells` promoted from the palette (E5) |
+| 21 | pass | `image_preview.py` opened from the project tree and promoted from the editor toolbar (E1) |
+| 22 | pass | Closing step; session completes |
+
+The interactive block was exercised twice (steps 15 and 18) and behaved
+identically both times: seven labels, one of them the nine-pixel debris speck,
+`Apply (remove 1)`, run resumes, six rows written.
+
+Evidence: step screenshots `t2-01-data-types.png` … `t2-22-final.png` under the
+session scratchpad `pw-artifacts/`; driver `tutorial2.live.ts` in the
+out-of-repo harness.
 
 ### 7.3 Product observations
 
-**1. P1 — the static workflow validator rejects two drop-in blocks that share a
-drop-in type.**
+**1. P1, FIXED and verified — the static workflow validator rejected two drop-in
+blocks that shared a drop-in type.**
+
+> Fixed on the track in `34b7b9eea` (issue #2134) after this session reported it:
+> `validate_connection` now falls back to `same_registered_type` when
+> `issubclass` says no, so two by-path imports of one project type connect while
+> genuinely different types still refuse — both pinned by new tests in
+> `tests/blocks/test_port_subclass.py`. Re-verified live here: step 14 connects
+> and the level completes. The diagnosis below is kept as provenance.
 
 `validate_connection` (`src/scistudio/blocks/base/ports.py`, ~line 205) decides
 compatibility purely by class identity:
@@ -245,11 +274,17 @@ chase the sequence.
 Handoff: an implementer, not this persona. No product code was changed here.
 
 **2. P1 (intermittent) — persisting a zarr-backed type dies with `WinError 5`
-and fails the whole run.**
+and fails the whole run. Evidence for #2047.**
 
-Seen live twice, on two different blocks (`load_data`, `segment_cells`) and
-under two different profile homes (one under `%TEMP%`, one not — so it is not an
-artefact of a scanned temp tree):
+> Recorded here in full, with its reproduction inline, because #2047 has been
+> carried as a *flaky test*. This is not flaky-test behaviour: it is a missing
+> retry around a non-atomic Windows directory rename in the storage layer, and
+> it fails real runs in front of real readers. The numbers below are the
+> measurement to cite.
+
+Seen live twice during this session, on two different blocks (`load_data`,
+`segment_cells`) and under two different profile homes — one under `%TEMP%`, one
+not — so it is not an artefact of a heavily scanned temp tree:
 
 ```
 File "src/scistudio/core/storage/zarr_backend.py", line 104, in write
@@ -261,26 +296,106 @@ PermissionError: [WinError 5] Access is denied:
 ```
 
 It is a **race, not a deterministic break**: the same block succeeds on a later
-attempt. Step 12 of this session needed 2 Run presses for exactly this reason.
+attempt. Step 12 of this session needed 2 Run presses for exactly this reason —
+which is also why it reads as flakiness from a test's point of view.
 
-Quantified with a standalone reproduction that does not involve SciStudio at
-all — write a small directory tree, then rename it into place, in a loop
-(`repro_zarr_rename.py`, kept in the session scratchpad):
+**Mechanism.** `zarr_backend.write` publishes a store by building it in a
+`.zarr_tmp_*` directory and then renaming that directory into place. On Windows
+`os.rename` of a *directory* fails with `WinError 5` (ACCESS_DENIED) whenever
+anything still holds a handle inside it — an indexer, a scanner, or the writer's
+own not-yet-closed file objects. The call has **no retry**, so a transient
+handle becomes a failed block, a failed run, and an unsatisfiable tutorial step.
+
+**Measurement.** Reproduced with a standalone script that does not import
+SciStudio at all — it performs the same publish shape (write a small directory
+tree, then rename it next to its siblings) in a loop:
 
 ```
 14 failures in 400 publishes (3.50%) in 1.5s
 ```
 
-3.5% per publish is not rare. A 22-step level with seven runs, each persisting
-several outputs, will hit it regularly — and when it does the reader sees a red
-failed run on a step whose text promises green, with no explanation and no hint
-that simply pressing Run again clears it. `zarr_backend.write` performs the
-publish rename with **no retry**; a short bounded retry (the standard Windows
-remedy for a transient sharing/scanner handle) would remove it.
+Run against `C:\Users\jiazh\lce2e-zarrrepro` (deliberately **not** under
+`%TEMP%`), Windows 11, this repository's Python. Every failure was `WinError 5`
+on the rename; none were on the writes.
 
-Core storage defect. Tutorial 2 exposes it because it is the first level to
-persist zarr-backed (Array-family) types — tutorial 1 persists DataFrames to
-parquet, a single-file write.
+<details>
+<summary>Reproduction script (self-contained; imports no SciStudio code)</summary>
+
+```python
+"""Reproduce the intermittent zarr-store publish failure on Windows (#2047).
+
+Drives the same publish shape ZarrBackend.write uses -- build a directory tree,
+then rename it into place beside its siblings -- and reports how often the
+rename fails.
+
+Usage:  python repro_zarr_rename.py [iterations] [root]
+"""
+from __future__ import annotations
+
+import os
+import secrets
+import sys
+import time
+from pathlib import Path
+
+
+def publish_once(parent: Path) -> None:
+    """One write-then-rename publish, shaped like ZarrBackend.write."""
+    tmp = parent / f".zarr_tmp_{secrets.token_hex(4)}"
+    tmp.mkdir(parents=True, exist_ok=False)
+    # A zarr store is a directory of small files; write a few.
+    (tmp / "zarr.json").write_text('{"zarr_format":3,"node_type":"group"}', encoding="utf-8")
+    chunks = tmp / "c"
+    chunks.mkdir()
+    for i in range(8):
+        (chunks / str(i)).write_bytes(os.urandom(4096))
+    target = parent / f"{secrets.token_hex(6)}.zarr"
+    Path(tmp).rename(target)          # <-- the call that intermittently raises
+
+
+def main() -> int:
+    iterations = int(sys.argv[1]) if len(sys.argv) > 1 else 300
+    root = Path(sys.argv[2] if len(sys.argv) > 2 else "./zarr-repro").resolve()
+    parent = root / "main" / "block-0"
+    parent.mkdir(parents=True, exist_ok=True)
+
+    failures: list[str] = []
+    started = time.time()
+    for i in range(iterations):
+        try:
+            publish_once(parent)
+        except OSError as exc:            # WinError 5, and WinError 183 friends
+            failures.append(f"iter {i}: {type(exc).__name__}: {exc}")
+            print(f"FAIL iter {i}: {exc}")
+
+    elapsed = time.time() - started
+    print(
+        f"\n{len(failures)} failures in {iterations} publishes "
+        f"({100 * len(failures) / iterations:.2f}%) in {elapsed:.1f}s"
+    )
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+```
+
+</details>
+
+**Why the rate matters.** 3.5% per publish is not rare. A run persists one store
+per block output, and this level has seven runs; the chance a 22-step reader
+gets through without meeting it is small. When they do meet it they see a red
+run on a step whose text promises green, with no explanation and no hint that
+pressing Run again clears it.
+
+**Suggested fix.** A short bounded retry with a small backoff around the publish
+rename — the standard Windows remedy for a transient sharing violation — plus
+closing any store handles before the rename. That turns a failed run into a few
+milliseconds of delay.
+
+Core storage defect, not a Learning Center one. Tutorial 2 is simply the first
+shipped surface that persists zarr-backed (Array-family) types; tutorial 1
+persists DataFrames to parquet, a single-file write that never takes this path.
 
 **3. Moderate — after "New data type", the level never brings the canvas back.**
 
@@ -338,6 +453,49 @@ comments say this is deliberate and explain why, and this session did **not**
 fake the colour edit. Worth knowing that a reader can press straight through the
 level's one piece of self-expression without noticing it.
 
+**8. P2 (new) — the interactive block's panel is mounted twice into one
+container, and the leak is not only a dev-mode artefact.**
+
+Observed on every run of steps 15 and 18:
+
+```
+OBS t2-15 interactive panel mounted 2 times into one container
+```
+
+The Review Labels window then shows **every label twice** and carries **two
+Apply buttons**. A reader can still finish — the second (live) panel works —
+but they are looking at a dialog that lists fourteen objects when the run found
+seven, in a step whose entire lesson is "seven objects, six cells".
+
+Mechanism, in `App.parts/InteractiveModals.parts/DynamicPanel.tsx`:
+
+```ts
+void mountDynamicPanel(manifest, container, host, importer).then((result) => {
+  if (disposed) return;                 // <-- drops the instance on the floor
+  if (result.ok) instanceRef.current = result.instance;
+  ...
+});
+return () => {
+  disposed = true;
+  if (instanceRef.current) { instanceRef.current.unmount(); ... }   // still null
+};
+```
+
+The mount is asynchronous. When the effect is torn down before the promise
+resolves, cleanup runs while `instanceRef.current` is still `null`, so it
+unmounts nothing; the promise then resolves, sees `disposed`, and returns
+**without unmounting the DOM the panel module has already appended**. The first
+panel is orphaned in the container and the second mount appends beside it.
+
+`React.StrictMode` (enabled in `main.tsx`) makes this deterministic in dev by
+running every effect mount→unmount→mount, which is why it reproduces every time
+under the dev server. But the leak is not caused by StrictMode: any unmount that
+beats the mount promise does it — a reader who cancels quickly, or a prompt
+superseded by another. StrictMode is the microscope, not the disease.
+
+Fix: unmount in the `disposed` branch rather than returning, i.e.
+`if (disposed) { if (result.ok) result.instance.unmount(); return; }`.
+
 ### 7.4 Sentinels
 
 - No 5xx from the API. The 422 in 7.3.1 is a deliberate validation rejection,
@@ -349,14 +507,19 @@ level's one piece of self-expression without noticing it.
 
 ### 7.5 Follow-ups
 
-To be filed by the manager — this session changed no product code:
+Filed / to be filed by the manager — this session changed no product code:
 
-1. **P1** static `validate_connection` must use `same_registered_type`; blocks
-   core tutorial 2 at step 14. Precedent: #1950.
-2. **P1** `zarr_backend.write` needs a bounded retry around the publish rename;
-   intermittently fails whole runs on Windows (~3.5% per publish measured).
-3. **Moderate** tutorial 2 steps 4-5 should route back to the canvas
-   (`route_to: canvas`) or say so in their text.
-4. **Low** suppress the palette tip while a tutorial step highlights the palette.
-5. **Low** de-duplicate identical edges on workflow save.
-6. **Low** drop `DataObject` from the Load/Save `core_type` enum.
+1. ~~**P1** static `validate_connection` must use `same_registered_type`~~ —
+   **fixed** in `34b7b9eea` (#2134) and re-verified live here.
+2. **P1** `zarr_backend.write` needs a bounded retry around the publish rename.
+   Evidence and a standalone reproduction are in 7.3.2 — this is the measurement
+   for **#2047**, which has been carried as a flaky test rather than a product
+   defect. Across the runs in this session it forced extra Run presses at steps
+   7, 11, 12 and 13, and once consumed a whole 25-minute test budget.
+3. **P2** `DynamicPanel` leaks its panel when the mount promise resolves after
+   unmount, so the interactive window renders twice (7.3.8).
+4. **Moderate** tutorial 2 steps 4-5 should route back to the canvas
+   (`route_to: canvas`) or say so in their text (7.3.3).
+5. **Low** suppress the palette tip while a tutorial step highlights the palette.
+6. **Low** de-duplicate identical edges on workflow save.
+7. **Low** drop `DataObject` from the Load/Save `core_type` enum.

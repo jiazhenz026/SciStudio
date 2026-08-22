@@ -5,10 +5,10 @@ created: "2026-08-22"
 owner: "@jiazhenz026"
 trigger:
   kind: "feature-sweep"
-  ref: "PR #2082 on track/learning-center-levels (tip c00bb197c)"
+  ref: "PR #2082 on track/learning-center-levels; re-verified after the #2134 fix"
 related_adrs:
   - 53
-status: "failed"
+status: "passed"
 language_source: en
 ---
 
@@ -32,13 +32,13 @@ language_source: en
 
 ## 2. Preconditions
 
-- **Repo state**: `test/2081-level-e2e-sessions` @ `c00bb197c`
+- **Repo state**: `test/2081-level-e2e-sessions` @ `a7cd4b862`
 - **Worktree**: `C:/Users/jiazh/workspace/SciStudio-wt-lcE2E`
 - **Backend**: 8032; **Vite**: 5182 (a sibling session owns 8031/5181)
 - **Env**: isolated short-path `USERPROFILE` (`C:/Users/jiazh/lce2e`)
 - **Phase A (gate)**: a profile with tutorial 2 **not** completed
-- **Phase B (bridge)**: a **seeded** profile — see 7.1, this is stated openly
-  because it is not the reader's path
+- **Phase B (bridge)**: the profile on which tutorial 2 had just been completed
+  end to end — the reader's own path, no seeding
 
 ## 3. Launch Plan
 
@@ -79,34 +79,23 @@ before launch (commands recorded in 7.1).
 
 ### 7.1 Verdict
 
-**Gate: PASS. Bridge: PASS (on a seeded profile). Level as a whole: FAIL —
-unreachable by a real reader.**
-2026-08-22, `test/2081-level-e2e-sessions` @ `c00bb197c`.
+**Gate: PASS. Bridge: PASS, on the real reader path. Steps 5-20: not tested.**
+2026-08-22, `test/2081-level-e2e-sessions` @ `a7cd4b862`.
 
-The gate and the bridge both work. The level is nevertheless **not reachable by
-any reader on this tip**, because its prerequisite is tutorial 2 and
-**tutorial 2 cannot be completed** — the workflow validator refuses the edge its
-step 14 requires (full write-up in
-`2026-08-22-lc-level-2-what-is-a-type.md`, observation 7.3.1). The level-2 P1
-therefore blocks two levels, not one. That is the single most important fact in
-this file.
+> **This supersedes an earlier verdict of "level FAIL — unreachable".** When
+> this session first ran, tutorial 3 could not be reached by any reader because
+> its prerequisite, tutorial 2, could not be completed (the #2134 validator
+> defect). That is fixed. Tutorial 2 now completes end to end, its last three
+> steps put the `Image` type, the `Segment Cells` block and the `Image`
+> previewer into the tutorial-scoped library, and tutorial 3's gate opens on
+> that completion. **No seeding was used for the run recorded below** — an
+> earlier, clearly-labelled seeded run reached the same conclusion, and this one
+> confirms it on the path a reader actually walks.
 
-**The seeding, stated plainly.** To test anything past the gate, this session
-reproduced the state a completed tutorial 2 leaves behind, rather than
-completing tutorial 2 (which is impossible here):
-
-```
-<home>/SciStudio Tutorials/.library/types/image.py            <- from t2 assets/code/image.py
-<home>/SciStudio Tutorials/.library/blocks/segment_cells.py   <- from t2 assets/code/segment_cells.py
-<home>/SciStudio Tutorials/.library/previewers/image_preview.py <- from t2 assets/code/image_preview.py
-<home>/.scistudio/tutorial-progress.json
-    completed += {"source_kind":"core","source_id":"","tutorial_id":"what-is-a-type"}
-```
-
-These are exactly the three files tutorial 2's steps 19-21 promote and the
-progress record its completion writes. Everything after the seed is the product
-doing its own work, unaided. This is **not** the reader's path and no claim in
-this file should be read as evidence that the reader's path works.
+What is verified: the prerequisite gate, and the level-2 → level-3 bridge, which
+is the level's whole premise. What is **not** verified: steps 5-20 — index
+pairing, the PairEditor interaction, the k-means block, the plot, and the two
+git-branch beats. Those need their own session.
 
 ### 7.2 Phase A — the prerequisite gate: PASS
 
@@ -115,37 +104,40 @@ On a profile with tutorial 2 not completed:
 ```
 {"id":"two-modalities-one-answer","order":3,"state":"unavailable",
  "reason":"needs the tutorial 'what-is-a-type' from the same source to be completed first"}
-core group: completed 1 of 6
 ```
 
-And through the UI a reader actually sees:
+Through the UI a reader actually sees:
 
-- the level is **listed** in the catalogue at position 3, with the ⚠ unavailable
-  icon;
-- the detail pane shows the **"Unavailable"** badge;
-- the reason is printed in the detail pane (FR-085 satisfied — it does not just
-  refuse, it says what to do);
-- `tutorial-detail-start` has **count 0** — there is no Start control at all,
-  rather than a disabled one.
+- the level **listed** at position 3, carrying the unavailable warning icon;
+- the **"Unavailable"** badge in the detail pane;
+- the reason printed there (FR-085 — it does not just refuse, it says what to do);
+- `tutorial-detail-start` with **count 0** — no Start control at all, rather
+  than a disabled one.
+
+And the gate **opens on completion**: immediately after tutorial 2 finished in
+the same profile, the catalogue reported
+
+```
+what-is-a-type            = complete
+two-modalities-one-answer = not_started      <-- no longer unavailable
+```
 
 Evidence: `t3-00-gated.png`.
 
-### 7.3 Phase B — the bridge: PASS
+### 7.3 Phase B — the bridge, on the real path: PASS
 
-After seeding, the level's state cleared from `unavailable` to `not_started`,
-so the gate opens on completion rather than on anything incidental.
+Tutorial 3 was started on the profile tutorial 2 had just completed. With no
+help from the driver:
 
-Then, with no help from the driver:
-
-- **Step 2 (`type_registered: Image`) was satisfied on entry.** The level builds
+- **Step 2 (`type_registered: Image`) was satisfied on entry.** This level builds
   no type; `Image` arrived from the tutorial-scoped library into a brand-new
-  project.
-- The Data types tab in tutorial 3's fresh project listed:
+  project, which is exactly the claim the level's premise rests on.
+- The Data types tab in tutorial 3's fresh project listed
   `["Array","Artifact","CompositeData","DataFrame","DataObject","Series","Text","Image"]`
-  — `Image` beside the core types, in a project that never created it.
-- **Step 4 (`run_succeeded` + `node_selected`) passed**, and the preview pane
-  showed the collection as `3 IMAGE (SHOWING 3)` with the three sections named
-  `S05`, `S09`, `S01` — typed as `Image`, **no table element in the pane**.
+  — the reader's own type beside the core ones, in a project that never created it.
+- **Step 4 (`run_succeeded` + `node_selected`) passed.** The preview pane showed
+  the collection as `3 IMAGE (SHOWING 3)`, the three sections named `S05`, `S09`,
+  `S01`, typed as `Image`, with **no table element in the pane**.
 - Opening one section rendered **actual pixels**:
 
 ```
@@ -156,20 +148,21 @@ Then, with no help from the driver:
   and the screenshot shows the micrograph — a dark field with bright cell blobs
   (`t3-05-section-opened.png`).
 
-**The #2125 shape did not reproduce.** The previewer travelled with the type,
-and an `Image` knows how to show itself in a project that never defined it.
-This is the design's central claim and it holds.
+**The #2125 shape did not reproduce.** The previewer travelled with the type, and
+an `Image` knows how to show itself in a project that never defined it. That is
+the design's central claim, and on the reader's own path it holds.
 
 Evidence: `t3-01-welcome.png`, `t3-02-library-types.png`, `t3-03-load-config.png`,
-`t3-04-image-preview.png`, `t3-05-section-opened.png`; driver
+`t3-04-image-preview.png`, `t3-05-section-opened.png`; drivers
 `tutorial3.live.ts` and `tutorial3gate.live.ts` in the out-of-repo harness.
 
 ### 7.4 Product observations
 
-1. **P1 (inherited, not this level's fault) — tutorial 3 is unreachable.** Its
-   prerequisite is tutorial 2, and tutorial 2 stops at step 14 on this tip. The
-   fix is the level-2 follow-up 1 (static `validate_connection` must use
-   `same_registered_type`); nothing in tutorial 3 needs changing for this.
+1. ~~**P1 (inherited) — tutorial 3 is unreachable.**~~ **Resolved.** Its
+   prerequisite is tutorial 2, which could not be completed until `34b7b9eea`
+   (#2134). With that fix in, tutorial 2 completes, the gate opens on its
+   completion, and tutorial 3 starts normally. Nothing in tutorial 3 needed
+   changing. Re-verified live on the unseeded path.
 2. **Low — the unavailable reason speaks in manifest ids.** It reads
    *"needs the tutorial 'what-is-a-type' from the same source to be completed
    first"*. Two rows above it in the same list the tutorial is called
@@ -235,9 +228,9 @@ None fired. `pageErrors: []`; no 5xx; backend and Vite stayed up.
 
 ### 7.6 Follow-ups
 
-1. **P2** fix `test_core_tutorial_two_modalities.py`'s runtime walk to satisfy
-   the prerequisite it declares (see 7.4.4) — it is red on the track today.
-2. **Blocked on level-2 follow-up 1.** Once the validator is fixed, tutorial 2
+1. ~~**P2** fix `test_core_tutorial_two_modalities.py`'s runtime walk~~ —
+   **fixed** on the track (`5e6bd60f0`); `tests/tutorials` is green again.
+2. **Still open — steps 5-20 are untested.** Once the validator is fixed, tutorial 2
    should be completed honestly end-to-end and this session re-run **without the
    seed**, walking steps 5-20 (index pairing, the PairEditor interaction, the
    k-means block, and the two git-branch beats), which this session did not
