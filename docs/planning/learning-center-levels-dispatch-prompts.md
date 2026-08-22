@@ -620,3 +620,127 @@ highlight/route target).
 Standard gate flow (base track/learning-center-levels; --closes "#2085";
 wrapper PR; post-PR finalize; SCISTUDIO_GATE_BASE hint; AI trailers).
 ```
+
+---
+
+## §A1 — Integration audit, with-context — dispatch after L2/L3 integrate
+
+```markdown
+[DISPATCH-TEMPLATE-V1: audit-with-context]
+
+## Task Identity
+
+- Repository: SciStudio
+- Persona: audit_reviewer
+- Audit mode: with-context
+- Issues: #2061 #2062 #2063 #2066 #2075 #2079 #2081 #2082 #2083 #2084 #2085
+  #2086 #2088 #2089 (the final PR's close set)
+- Owner request: all remaining Learning Center levels and their prerequisite
+  work, integrated on track/learning-center-levels as one final PR.
+- Umbrella PR: #2087 [DO NOT MERGE]
+- Protected branch: main
+- Umbrella branch: track/learning-center-levels
+- Audit branch: audit/lc-levels-with-context
+- Audit worktree: C:/Users/jiazh/workspace/SciStudio-wt-lcA1
+- Checklist: docs/planning/learning-center-levels-checklist.md
+- PRs to audit: #2098 #2104 #2109 #2114 #2117 #2118 plus the L2/L3 PRs named
+  in the checklist matrix at dispatch time
+- Audit report path: docs/audit/2026-08-22-lc-levels-with-context.md
+
+## Audit Goal
+
+Verify the claimed work against the issues, the checklist, the revised
+docs/specs/adr-053-learning-center.md, the scenario design
+(docs/planning/learning-center-scenarios.md), code, tests, gate ledgers, and
+the per-level e2e verdicts under docs/ai-developer/e2e/. Report findings
+first (P1 blocks merge / P2 fix before completion / P3 follow-up).
+
+## Scope — audit these claims
+
+- Every issue in the close set is actually resolved by the diff, not just
+  referenced.
+- The spec revisions match the implemented contracts (trigger, block_type
+  selectors, ui_event targets, since_step_entry, plot_rendered coexistence,
+  requires.tutorials, replay continue_tab, pages field, session outline,
+  scoped-library previewer tier / FR-070).
+- welcome-to-scistudio still validates byte-identical claims hold.
+- Each level's manifest is judged by backend vocabulary wherever the
+  vocabulary can express it (count continue-only steps and challenge each).
+- Level content facts match the code (five palette built-ins, previewer tier
+  order project > user > package > core, restore semantics, run-from-here,
+  plots preview-only, milestone = what-ai-can-do and only the core group
+  drives the unlock).
+- Tier rules: no level ships assets or writes that violate FR-020a; the
+  tutorial-scoped library isolation holds (real projects never scan it).
+- Gate ledgers: every agent PR carries init/plan/check/finalize evidence and
+  the commit trailers; the manager ledger records the owner-authorized
+  admin labels with reasons.
+- The main merge unions (previewers/__init__.py choices+library-root,
+  conditions evaluate signature+provisional, actions continue_tab+docstring)
+  lost nothing from either parent.
+- e2e verdicts: the recorded PASS evidence is consistent with the scenario
+  files' own steps.
+
+## Audit these files or surfaces
+
+- src/scistudio/tutorials/** (runtime + all five core tutorial dirs)
+- src/scistudio/core/dropins.py, src/scistudio/previewers/**
+- src/scistudio/api/routes/tutorials.py, user_library.py, ai_pty/replay.py
+- frontend/src/components/LearningCenter*, promotion/**, the emitter sites,
+  terminal tab adoption, WorkImportOffer/ProviderIntro
+- docs/specs/adr-053-learning-center.md; docs/ai-developer/e2e/2026-08-*
+- tests/tutorials/**, tests/api/test_tutorial_*.py, test_user_library_write,
+  test_scoped_library, frontend vitest for the surfaces above
+
+Do not write feature code. MUST write the audit report to the repository
+file named above and commit it on your audit branch. Only write the audit
+report and your checklist audit rows.
+```
+
+---
+
+## §A2 — Independent audit, no-context — dispatch after L2/L3 integrate
+
+```markdown
+[DISPATCH-TEMPLATE-V1: audit-no-context]
+
+## Task Identity
+
+- Repository: SciStudio
+- Persona: audit_reviewer
+- Audit mode: no-context
+- Audit branch: audit/lc-levels-no-context
+- Audit worktree: C:/Users/jiazh/workspace/SciStudio-wt-lcA2
+- Allowed audit surfaces:
+  - src/scistudio/tutorials/** and its API routes
+  - src/scistudio/previewers/**, src/scistudio/core/dropins.py
+  - frontend/src/components/LearningCenter* and frontend tutorial surfaces
+  - docs/specs/adr-053-learning-center.md, docs/adr/ADR-053.md
+  - tests for the above
+- Audit report path: docs/audit/2026-08-22-lc-levels-no-context.md
+
+## Context Limits
+
+You must not read or use: the current owner request; current GitHub issues;
+manager checklist files for the current work; dispatch prompt files; PR
+descriptions/comments/commit messages for the current work; chat summaries.
+You may read only repository docs, code, tests, committed generated facts,
+and tool output from commands you run yourself.
+
+## Audit Goal
+
+Independently compare the Learning Center spec and ADR against the shipped
+code, tutorials, and tests on this branch. Find: contract drift between
+docs/specs/adr-053-learning-center.md and the runtime; tutorial manifests
+whose steps cannot be satisfied or auto-complete wrongly; tier/containment
+violations (executable content reachable from user/project-tier surfaces);
+isolation leaks between the tutorial-scoped library and the real user
+library; factual claims in tutorial content that the code contradicts;
+dead or untested vocabulary; frontend/backend contract mismatches on the
+tutorial session surfaces. Run the test suites and any tutorial you can
+drive through the API to check behaviour yourself. Report findings first
+(P1/P2/P3), then the evidence for each.
+
+MUST write the audit report to the repository file named above and commit it
+on your audit branch. Stay read-only outside the report.
+```

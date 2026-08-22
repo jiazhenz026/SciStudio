@@ -82,6 +82,14 @@
       "path": "docs/planning/learning-center-levels-checklist.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T06:42:03.678675Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/learning-center-levels-dispatch-prompts.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": true,
