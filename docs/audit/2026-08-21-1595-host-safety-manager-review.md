@@ -93,7 +93,10 @@ reported different Zarr tests failing at the same `Path.rename` call in
 baseline runs. A one-worker diagnostic exceeded the gate timeout; although the
 recovery reconciliation returned zero, its check event is `unknown`, so this
 audit does not count that command as a pass. GitHub's Linux Python job remains
-the authoritative complete-suite verdict.
+the authoritative complete-suite verdict. The Zarr race is already tracked by
+issue #2047. The changing tutorial/coverage worker failure on a loaded Windows
+host is tracked by #2103; that issue records the same tutorial test and states
+that Ubuntu CI is unaffected.
 
 ## 5. Recommendation
 
