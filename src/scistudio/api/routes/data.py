@@ -304,7 +304,7 @@ async def set_previewer_choice(
 
     write_choice(path, target_type, payload.previewer_id)
     logger.info("PUT /api/previews/choices/%s: scope=%s", target_type, payload.scope)
-    runtime.refresh_preview_service()
+    runtime.refresh_all_registries()
     return _effective_choices(runtime)
 
 
@@ -321,7 +321,7 @@ async def clear_previewer_choice(
     path = _choices_path_for_scope(runtime, scope)
     clear_choice(path, target_type)
     logger.info("DELETE /api/previews/choices/%s: scope=%s", target_type, scope)
-    runtime.refresh_preview_service()
+    runtime.refresh_all_registries()
     return _effective_choices(runtime)
 
 
