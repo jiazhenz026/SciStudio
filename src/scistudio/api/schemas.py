@@ -458,6 +458,32 @@ class PreviewerSpecModel(BaseModel):
     api_version: str = "1"
 
 
+class PreviewerListResponse(BaseModel):
+    """Response body for ``GET /api/previews/previewers`` (#2095).
+
+    ``PreviewerSpecModel`` was declared when the preview system landed and
+    never served; this is the route that makes previewer provenance answerable
+    the way the Data types tab answers it for types.
+    """
+
+    previewers: list[PreviewerSpecModel] = Field(default_factory=list)
+    """Registered specs, ordered project -> user -> package -> core, then by id."""
+    diagnostics: list[str] = Field(default_factory=list)
+    """Discovery problems recorded during the scan: a duplicate previewer id, a
+    drop-in refused for a module-name collision, an entry point that failed to
+    import. Nothing surfaced these before, so a refused drop-in was silent."""
+
+
+class PreviewerReloadResponse(BaseModel):
+    """Response body for ``POST /api/previews/reload`` (#2095)."""
+
+    reloaded: int
+    """Number of previewer specs registered after the rebuild."""
+    added: list[str] = Field(default_factory=list)
+    removed: list[str] = Field(default_factory=list)
+    diagnostics: list[str] = Field(default_factory=list)
+
+
 class PreviewResourceResponse(BaseModel):
     """Response body for a bounded session resource read."""
 
