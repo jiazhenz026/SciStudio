@@ -184,15 +184,25 @@ describe("Previewers tab — reload (#2095)", () => {
   });
 });
 
-describe("Previewers tab — per-type choice (#2049)", () => {
-  it("marks the chosen card and names the scope", () => {
+describe("Previewers tab — per-type choice (#2049, segmented control)", () => {
+  it("highlights the chosen card's scope segment; every other card reads Auto", () => {
     renderPalette();
     act(() => {
       useAppStore.getState().setPreviewerChoices([makeChoice()]);
     });
-    expect(
-      within(card("user.spectrum.view")).getByTestId("previewer-choice-badge"),
-    ).toHaveTextContent("Preferred · all projects");
+    expect(within(card("user.spectrum.view")).getByTestId("previewer-seg-user")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(card("user.spectrum.view")).getByTestId("previewer-seg-auto")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    // The competing card for the same type reads Auto — the choice is not its.
+    expect(within(card("project.spectrum.view")).getByTestId("previewer-seg-auto")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("names the current choice on a competing card for the same type", () => {
@@ -205,12 +215,12 @@ describe("Previewers tab — per-type choice (#2049)", () => {
     ).toHaveTextContent("user.spectrum.view");
   });
 
-  it("writes a user-scope choice from the card, applies the answer, and re-routes", async () => {
+  it("writes a user-scope choice from the All projects segment and re-routes", async () => {
     renderPalette();
     setPreviewerChoice.mockResolvedValue({ choices: [makeChoice()] });
     const versionBefore = useAppStore.getState().previewerChoiceVersion;
 
-    fireEvent.click(within(card("user.spectrum.view")).getByTestId("previewer-choose-user"));
+    fireEvent.click(within(card("user.spectrum.view")).getByTestId("previewer-seg-user"));
 
     await waitFor(() =>
       expect(setPreviewerChoice).toHaveBeenCalledWith("Spectrum", "user.spectrum.view", "user"),
@@ -223,13 +233,13 @@ describe("Previewers tab — per-type choice (#2049)", () => {
     expect(useAppStore.getState().previewerChoiceVersion).toBe(versionBefore + 1);
   });
 
-  it("writes a project-scope choice from the card", async () => {
+  it("writes a project-scope choice from the This project segment", async () => {
     renderPalette();
     setPreviewerChoice.mockResolvedValue({
       choices: [makeChoice({ scope: "project", previewer_id: "project.spectrum.view" })],
     });
 
-    fireEvent.click(within(card("project.spectrum.view")).getByTestId("previewer-choose-project"));
+    fireEvent.click(within(card("project.spectrum.view")).getByTestId("previewer-seg-project"));
 
     await waitFor(() =>
       expect(setPreviewerChoice).toHaveBeenCalledWith(
@@ -240,13 +250,18 @@ describe("Previewers tab — per-type choice (#2049)", () => {
     );
     await waitFor(() =>
       expect(
-        within(card("project.spectrum.view")).getByTestId("previewer-choice-badge"),
-      ).toHaveTextContent("Preferred · this project"),
+        within(card("project.spectrum.view")).getByTestId("previewer-seg-project"),
+      ).toHaveAttribute("aria-pressed", "true"),
     );
   });
 
-  it("clears the choice from the chosen card at the scope it was recorded", async () => {
+  it("clears BOTH layers from the chosen card's Auto segment, returning the type to the ladder", async () => {
+    // Auto means "no preference anywhere": clearing only the project layer
+    // would reveal a user-layer choice underneath (#2049 reveal semantics),
+    // which is correct for a scoped clear and wrong for Auto. Both DELETEs
+    // succeed even when a layer holds nothing.
     renderPalette();
+    clearPreviewerChoice.mockResolvedValue({ choices: [] });
     act(() => {
       useAppStore
         .getState()
@@ -255,22 +270,56 @@ describe("Previewers tab — per-type choice (#2049)", () => {
         ]);
     });
 
-    fireEvent.click(within(card("user.spectrum.view")).getByTestId("previewer-choice-clear"));
+    fireEvent.click(within(card("user.spectrum.view")).getByTestId("previewer-seg-auto"));
 
     await waitFor(() => expect(clearPreviewerChoice).toHaveBeenCalledWith("Spectrum", "project"));
+    await waitFor(() => expect(clearPreviewerChoice).toHaveBeenCalledWith("Spectrum", "user"));
+    await waitFor(() =>
+      expect(within(card("user.spectrum.view")).getByTestId("previewer-seg-auto")).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      ),
+    );
+  });
+
+  it("Auto on an unchosen card is a no-op — it must not clear another previewer's choice", async () => {
+    renderPalette();
+    act(() => {
+      useAppStore.getState().setPreviewerChoices([makeChoice()]);
+    });
+
+    fireEvent.click(within(card("project.spectrum.view")).getByTestId("previewer-seg-auto"));
+
+    await Promise.resolve();
+    expect(clearPreviewerChoice).not.toHaveBeenCalled();
   });
 
   it("shows a card-level error instead of losing the click when the write fails", async () => {
     renderPalette();
     setPreviewerChoice.mockRejectedValue(new Error("Unknown previewer 'nope'"));
 
-    fireEvent.click(within(card("user.spectrum.view")).getByTestId("previewer-choose-user"));
+    fireEvent.click(within(card("user.spectrum.view")).getByTestId("previewer-seg-user"));
 
     await waitFor(() =>
       expect(within(card("user.spectrum.view")).getByRole("alert")).toHaveTextContent(
         "Unknown previewer 'nope'",
       ),
     );
+  });
+
+  it("renders the choice control as one pill-shaped segmented group with visible depth (owner review on #2119)", () => {
+    // Owner call: keep the pill shape (the toolbar-button design language);
+    // the control reads as interactive through the container's border + shadow.
+    renderPalette();
+    const segments = within(card("user.spectrum.view")).getByTestId("previewer-choice-segments");
+    expect(segments.className).toContain("rounded-full");
+    expect(segments.className).toContain("shadow-sm");
+    expect(segments.className).toContain("border");
+    expect(
+      within(segments)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Auto", "This project", "All projects"]);
   });
 });
 

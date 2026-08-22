@@ -775,19 +775,24 @@ collects under `Packages` rather than vanishing. A card shows the previewer
 id, the exact `target_type` it renders, collection support, its tier, and
 whether it carries a dynamic frontend bundle.
 
-### 14.2 The Choice Controls Live On The Card
+### 14.2 The Choice Control Lives On The Card
 
-Each card carries the #2049 choice affordance for its `target_type`, at both
-scopes — **this project** and **all projects** — as two labelled buttons, so
-the person chooses the layer the preference lives in at the moment they make
-it. The card holding the effective choice shows a badge naming the scope and a
-*Clear preference* action that clears at that same scope; competing cards for
-the same type name the current choice, so an existing preference is never
-invisible from the cards it suppresses. Choices whose previewer is no longer
-registered (`available: false`) have no card; they render in an *unavailable
-choices* strip under the header, each with its own Clear, because otherwise a
-stale preference would be both invisible and un-clearable from the surface
-that owns choices.
+Each card carries the #2049 choice affordance for its `target_type` as a
+three-way segmented selector — **Auto / This project / All projects** (owner
+call in the #2119 live review). Auto is the default and means "no recorded
+preference, the FR-003 ladder decides"; the active segment is highlighted, so
+the card that holds the effective choice shows its scope lit and every other
+card for that type reads Auto. The selector's state is per card, not per type:
+clicking Auto on an unchosen card is a no-op, because clearing from there would
+silently delete a preference that points at a *different* previewer; on the
+chosen card, Auto clears both layers so the type deterministically returns to
+the ladder rather than revealing a user-layer choice underneath. Competing
+cards still name the current choice in a one-line note, so an existing
+preference is never invisible from the cards it suppresses. Choices whose
+previewer is no longer registered (`available: false`) have no card; they
+render in an *unavailable choices* strip under the header, each with its own
+Clear, because otherwise a stale preference would be both invisible and
+un-clearable from the surface that owns choices.
 
 ### 14.3 Reload And Invalidation
 
@@ -821,8 +826,8 @@ rendering.
 grouping and order, package-remainder naming including the unnamed fallback,
 empty-hint behaviour under search, search facets, and the exact-match choice
 lookup. `components/__tests__/PreviewerPalette.test.tsx` covers the tab:
-section order, cards, the choice badge and competing-card note, both scope
-writes and the clear action, the stale-choice strip, reload ordering, and the
-diagnostics banner. `store/__tests__/previewerCatalogInvalidation.test.ts`
+section order, cards, the segmented control's per-card state (including the
+unchosen-card Auto no-op and the chosen-card two-layer clear), the
+stale-choice strip, reload ordering, and the diagnostics banner. `store/__tests__/previewerCatalogInvalidation.test.ts`
 covers the loader: cache-then-invalidate on `blocks.reloaded`, reload ordering
 (scan before list), and the choice mutations bumping the routing epoch.

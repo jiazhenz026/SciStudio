@@ -24,6 +24,7 @@ import { useReloadFlash } from "../hooks/useReloadFlash";
 import {
   choosePreviewer,
   clearPreviewerChoiceAt,
+  clearPreviewerChoiceEverywhere,
   usePreviewerCatalog,
 } from "../store/usePreviewerCatalog";
 import type { PreviewerChoice, PreviewerSpecSummary } from "../types/api";
@@ -80,7 +81,7 @@ function SectionView({ section, forceOpen, choices }: SectionViewProps) {
               choice={choiceForType(choices, previewer.target_type)}
               key={previewer.previewer_id}
               onChoose={(p, scope) => choosePreviewer(p.target_type, p.previewer_id, scope)}
-              onClear={clearPreviewerChoiceAt}
+              onClearEverywhere={clearPreviewerChoiceEverywhere}
               previewer={previewer}
             />
           ))}

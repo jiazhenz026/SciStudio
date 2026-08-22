@@ -2,15 +2,17 @@
 //
 // The card answers three questions at a glance: what is this previewer (id,
 // target type, capabilities), where did it come from (tier section + owner),
-// and is it the one rendering its type right now (the choice badge). The
-// choice controls are the card's job rather than a separate settings surface
-// because the choice *is* about the card: "render this type with THIS
-// previewer" (#2049).
+// and is it the one rendering its type right now. The choice control is a
+// three-way segmented selector — Auto / This project / All projects (owner
+// call in the #2119 live review): Auto is the default and means "no recorded
+// preference, the FR-003 ladder decides"; the active segment is highlighted.
 //
-// Two scopes, two buttons — `This project` writes the project layer, `All
-// projects` the user layer. Both come from the same card rather than a
-// dropdown: two labelled buttons are one click each and say exactly where the
-// preference will live, which is the distinction the person is choosing on.
+// The selector's state is per card, not per type: a card whose previewer does
+// not hold the type's choice reads Auto — clicking Auto there changes nothing,
+// because clearing from an unchosen card would silently delete a preference
+// that points at a *different* previewer. On the chosen card, Auto clears both
+// layers for the type, so it deterministically returns to the ladder rather
+// than revealing a user-layer choice underneath (#2049's reveal semantics).
 
 import { useState } from "react";
 
@@ -18,23 +20,50 @@ import type { PreviewerChoice, PreviewerSpecSummary } from "../../types/api";
 
 import { ownerKindLabel } from "./previewerModel";
 
+type ChoiceSegment = "auto" | "project" | "user";
+
+const SEGMENTS: readonly { key: ChoiceSegment; label: string; title: string }[] = [
+  {
+    key: "auto",
+    label: "Auto",
+    title: "No preference — the routing ladder decides (project > user > package > core)",
+  },
+  {
+    key: "project",
+    label: "This project",
+    title: "Render this type with this previewer in this project only",
+  },
+  {
+    key: "user",
+    label: "All projects",
+    title: "Render this type with this previewer in every project",
+  },
+];
+
 export interface PreviewerCardProps {
   previewer: PreviewerSpecSummary;
   /** The effective choice for this card's `target_type`, or `null` when the
    *  type is unchosen. */
   choice: PreviewerChoice | null;
   onChoose: (previewer: PreviewerSpecSummary, scope: "user" | "project") => Promise<void>;
-  onClear: (targetType: string, scope: "user" | "project") => Promise<void>;
+  /** Clear the choice for the type at BOTH layers — the Auto segment. */
+  onClearEverywhere: (targetType: string) => Promise<void>;
 }
 
-export function PreviewerCard({ previewer, choice, onChoose, onClear }: PreviewerCardProps) {
+export function PreviewerCard({
+  previewer,
+  choice,
+  onChoose,
+  onClearEverywhere,
+}: PreviewerCardProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isChosen = choice !== null && choice.previewer_id === previewer.previewer_id;
-  // Another previewer holds the choice for this type — say so on this card,
-  // or choosing here reads as if nothing was set before.
+  // Another previewer holds the choice for this type — say so on this card, or
+  // its Auto highlight would read as "no preference exists for this type".
   const choiceHeldElsewhere = choice !== null && !isChosen;
+  const active: ChoiceSegment = isChosen ? choice.scope : "auto";
 
   const run = (action: () => Promise<void>) => {
     setBusy(true);
@@ -46,22 +75,25 @@ export function PreviewerCard({ previewer, choice, onChoose, onClear }: Previewe
       .finally(() => setBusy(false));
   };
 
+  const select = (segment: ChoiceSegment) => {
+    if (segment === active) return;
+    if (segment === "auto") {
+      // Only the chosen card's Auto can change anything (see the module
+      // comment): an unchosen card is already at Auto for this previewer.
+      if (isChosen) {
+        run(() => onClearEverywhere(previewer.target_type));
+      }
+      return;
+    }
+    run(() => onChoose(previewer, segment));
+  };
+
   return (
     <div
       className="rounded-xl border border-stone-200 bg-white p-3 shadow-sm"
       data-testid={`previewer-card-${previewer.previewer_id}`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <p className="break-all text-sm font-medium text-ink">{previewer.previewer_id}</p>
-        {isChosen ? (
-          <span
-            className="shrink-0 rounded-full bg-ember/15 px-2 py-0.5 text-[10px] font-semibold text-ember"
-            data-testid="previewer-choice-badge"
-          >
-            {choice.scope === "project" ? "Preferred · this project" : "Preferred · all projects"}
-          </span>
-        ) : null}
-      </div>
+      <p className="break-all text-sm font-medium text-ink">{previewer.previewer_id}</p>
 
       <p className="mt-1 text-[11px] text-stone-500">
         renders <span className="font-medium text-stone-700">{previewer.target_type}</span>
@@ -82,42 +114,35 @@ export function PreviewerCard({ previewer, choice, onChoose, onClear }: Previewe
         </p>
       ) : null}
 
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {isChosen ? (
-          <button
-            className="rounded-lg border border-stone-300 bg-stone-50 px-2.5 py-1 text-[11px] font-medium text-stone-600 shadow-sm transition hover:border-red-300 hover:bg-white hover:text-red-700 disabled:opacity-50"
-            data-testid="previewer-choice-clear"
-            disabled={busy}
-            onClick={() => run(() => onClear(previewer.target_type, choice.scope))}
-            type="button"
-          >
-            Clear preference
-          </button>
-        ) : (
-          <>
-            <span className="text-[11px] font-medium text-stone-500">Prefer:</span>
+      <div
+        aria-label={`Previewer choice for ${previewer.target_type}`}
+        className="mt-2 inline-flex overflow-hidden rounded-full border border-stone-300 bg-white shadow-sm"
+        data-testid="previewer-choice-segments"
+        role="group"
+      >
+        {SEGMENTS.map((segment, index) => {
+          const isActive = segment.key === active;
+          return (
             <button
-              className="rounded-lg border border-stone-300 bg-stone-50 px-2.5 py-1 text-[11px] font-medium text-stone-700 shadow-sm transition hover:border-ember hover:bg-white hover:text-ember disabled:opacity-50"
-              data-testid="previewer-choose-project"
+              aria-pressed={isActive}
+              className={`px-2.5 py-1 text-[11px] transition disabled:opacity-50 ${
+                index > 0 ? "border-l border-stone-200" : ""
+              } ${
+                isActive
+                  ? "bg-ember/15 font-semibold text-ember shadow-inner"
+                  : "text-stone-500 hover:bg-stone-50 hover:text-stone-700"
+              }`}
+              data-testid={`previewer-seg-${segment.key}`}
               disabled={busy}
-              onClick={() => run(() => onChoose(previewer, "project"))}
-              title="Render this type with this previewer in this project only"
+              key={segment.key}
+              onClick={() => select(segment.key)}
+              title={segment.title}
               type="button"
             >
-              this project
+              {segment.label}
             </button>
-            <button
-              className="rounded-lg border border-stone-300 bg-stone-50 px-2.5 py-1 text-[11px] font-medium text-stone-700 shadow-sm transition hover:border-ember hover:bg-white hover:text-ember disabled:opacity-50"
-              data-testid="previewer-choose-user"
-              disabled={busy}
-              onClick={() => run(() => onChoose(previewer, "user"))}
-              title="Render this type with this previewer in every project"
-              type="button"
-            >
-              all projects
-            </button>
-          </>
-        )}
+          );
+        })}
       </div>
 
       {error ? (

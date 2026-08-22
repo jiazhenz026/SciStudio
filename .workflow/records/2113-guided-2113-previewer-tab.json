@@ -232,6 +232,21 @@
       "at": "2026-08-22T04:16:22.780168Z",
       "owner_directive": "The Prefer buttons do not read as buttons \u2014 give them a more obvious visual treatment. Move the Previewers activity-bar entry below Data; overall order becomes: Blocks, Workflows, Data types, Data, Previewers, Project.",
       "reason": "Owner live-review feedback on the merged-candidate Previewers tab UI (PR #2119 follow-up)."
+    },
+    {
+      "at": "2026-08-22T04:29:24.461926Z",
+      "owner_directive": "Keep the pill (rounded) shape consistent with the app's design language \u2014 do not square the buttons; make them read as buttons through shadow and other depth treatments instead.",
+      "reason": "Owner live-review follow-up on the choice buttons' shape."
+    },
+    {
+      "at": "2026-08-22T04:34:10.390341Z",
+      "owner_directive": "The shadow style does not look good. Replace the choice buttons with a 3-way segmented selector: Auto / This project / All projects. Auto is the default (no recorded choice, routing ladder decides); clicking a segment sets that state and the active segment is highlighted.",
+      "reason": "Owner live-review redirect on the choice control: drop the shadow-button treatment entirely."
+    },
+    {
+      "at": "2026-08-22T06:21:13.710748Z",
+      "owner_directive": "Keep the pill shape and stay in the app design language; add shadow/depth so the control reads as interactive.",
+      "reason": "Owner live-review follow-up on the segmented control's finish."
     }
   ],
   "docs_events": [

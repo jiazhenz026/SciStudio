@@ -154,6 +154,25 @@ export async function clearPreviewerChoiceAt(
   applyChoiceAnswer(result);
 }
 
+/**
+ * Return a type to the routing ladder: clear BOTH layers. `Auto` means "no
+ * preference anywhere", and clearing only the project layer would reveal the
+ * user-layer choice underneath (#2049's reveal semantics) — correct for a
+ * scoped Clear, wrong for Auto. Both DELETEs succeed even when the layer
+ * holds nothing, so the second call is a cheap no-op in the common case.
+ */
+export async function clearPreviewerChoiceEverywhere(targetType: string): Promise<void> {
+  try {
+    await dataApi.clearPreviewerChoice(targetType, "project");
+  } catch {
+    // A project-scope clear 400s when no project is open — in which case no
+    // project-layer choice can exist either, so the user-layer clear below is
+    // the whole job.
+  }
+  const result = await dataApi.clearPreviewerChoice(targetType, "user");
+  applyChoiceAnswer(result);
+}
+
 export interface PreviewerCatalog {
   previewers: PreviewerSpecSummary[];
   /** False until the first listing lands — the tab's own loading window. */
