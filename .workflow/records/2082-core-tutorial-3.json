@@ -157,6 +157,14 @@
       "path": "CHANGELOG.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T08:25:35.429889Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "this commit only rewords English inside two files that already shipped in this PR; the level's user-visible documentation landed with the feature commit (CHANGELOG.md entry for #2082) and its tracking landed with checklist row L3, and neither statement changes because a docstring says 'downstream' instead of 'later'",
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,

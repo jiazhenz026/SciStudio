@@ -24,9 +24,9 @@ that is what a Collection is for.
 **An item carries its own name.** The scanner writes each slide's label into
 the page's ``PageName`` tag, and this loader copies it to
 ``user["display_name"]``, the product's canonical presentation override. That
-one line is why the Pair Editor's two lists later read ``S05`` / ``S09`` /
-``S01`` instead of three identical filenames — an interactive panel can only
-show you what the producing block bothered to name.
+one line is why the Pair Editor's two lists read ``S05`` / ``S09`` / ``S01``
+instead of three identical filenames — an interactive panel can only show you
+what the producing block bothered to name.
 
 The TIFF reading itself is the same narrow, standard-library contract tutorial
 2's loader used — a byte-order mark, a chain of tag directories, uncompressed

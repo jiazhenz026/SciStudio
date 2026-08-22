@@ -689,7 +689,8 @@ def test_a_mispairing_is_silent_downstream_which_is_why_the_panel_exists(
     A mispaired run does not fail, does not warn, and does not even lose
     coverage — the positions are the same grid either way. It just answers a
     different question. That is the argument for fixing the order in the panel,
-    where the item names are still visible, rather than hoping to notice later.
+    where the item names are still visible, rather than hoping to notice
+    downstream.
     """
     mispaired = _analyse(assets, label_maps, tmp_path, run=1, method="total_count", expression_order=SHEET_ORDER)
     assert len(mispaired) == TOTAL_REGIONS, "a wrong pairing still produces a full, plausible table"
@@ -817,7 +818,7 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     on the first judged step, the fork is built out of the reader's own drags,
     the pairing is the reader's own interaction, the plot is judged by the
     backend ``plot_rendered`` term rather than a reported event, and both git
-    beats — make the branch, come back to main — are judged against real
+    beats — make the branch, then return to main — are judged against real
     branch state.
     """
     import ast
@@ -938,7 +939,7 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     def _run() -> None:
         # A millisecond past "now", not five seconds: six steps in this walk
         # say "press Run", and a record stamped into the future would satisfy
-        # every later step's ``since_step_entry`` before the reader ran
+        # every subsequent step's ``since_step_entry`` before the reader ran
         # anything — which is exactly the fault that scoping exists to stop.
         started = (datetime.now(UTC) + timedelta(milliseconds=1)).isoformat()
         product.runs = (
