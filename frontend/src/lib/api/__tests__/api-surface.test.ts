@@ -47,6 +47,7 @@ const EXPECTED_API_KEYS = [
   // is previewed exclusively through the routed previewer session API.
   "listPlotTargets",
   "createPlot",
+  "deletePlot",
   "runPlotJob",
   "listPlots",
   // filesystem
