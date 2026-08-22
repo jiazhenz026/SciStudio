@@ -51,7 +51,12 @@
       }
     }
   ],
-  "check_na": [],
+  "check_na": [
+    {
+      "name": "python_tests",
+      "rationale": "Blocked by issue #2107, a load-dependent flake class where subprocess-spawning tests lose their captured stdout under full-suite xdist load on Windows. It reproduces identically on unmodified origin/main and is not caused by this diff, whose own surface is green: tests/previewers/test_previewer_choice.py 25 passed, tests/api/test_previewer_choice_routes.py 13 passed, plus tests/previewers/, tests/api/test_previewers.py, tests/api/test_data.py and tests/api/test_plot_preview_wiring.py with no regressions. CI is Ubuntu-only, runs this check authoritatively, and is green on the same base."
+    }
+  ],
   "commit": null,
   "declared_scope": {
     "exclude": [],
