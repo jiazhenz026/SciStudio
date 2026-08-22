@@ -134,7 +134,7 @@ language_source: en
 | `gate_record check --mode pre-pr` | `[x]` | Reconciliation passed; 487 architecture tests passed with 1 skip; diff-scoped Python runner passed both phases (1,692 passed/13 skipped and 112 passed); Ruff, Mypy, full audit, imports, and deferral scan passed |
 | Pre-PR finalize | `[x]` | Manager ledger reported `ledger is PR-ready` |
 | PR wrapper preflight | `[x]` | Gate-aware wrapper dry-run passed |
-| Public PR and post-PR finalize | `[ ]` | pending |
+| Public PR and post-PR finalize | `[x]` | Public PR `#2121`; post-PR reconciliation passed |
 | GitHub CI | `[ ]` | pending |
 
 ## 9. Drift Log
@@ -153,8 +153,9 @@ language_source: en
 ## 10. Final Readiness
 
 - [x] Every changed file reviewed by the manager.
-- [ ] Gate record reconciles exact final diff and closes `#1595`.
+- [x] Gate record reconciles the PR diff and closes `#1595`.
 - [x] Documentation and tests match implemented behavior; final full-audit passed with zero top-level findings.
-- [ ] One public PR targets `main`.
-- [ ] Required labels are applied with valid owner provenance.
+- [x] One public PR targets `main` -> `#2121`.
+- [x] Required labels are applied with valid owner provenance ->
+  `admin-approved:architecture-doc`, `admin-approved:core-change`.
 - [ ] CI and review are green.
