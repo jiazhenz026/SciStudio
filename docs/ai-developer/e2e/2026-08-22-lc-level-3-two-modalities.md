@@ -199,28 +199,52 @@ Evidence: `t3-01-welcome.png`, `t3-02-library-types.png`, `t3-03-load-config.png
    level does persist `Image` (zarr) outputs. Consistent with a ~3.5%
    per-publish race rather than absence.
 
-6. **Separately, the suite carries one rotating flake.** Across three full runs
-   a single extra test failed each time and **passed in isolation** every time —
-   a different one each run
-   (`tests/api/test_workflows.py::test_cancel_block_and_cancel_workflow_propagate_terminal_states`,
-   then `tests/ai/test_providers_registry.py::test_kimi_mcp_read_retries_while_the_file_is_busy`).
-   Both are timing-sensitive. Recorded so the next reader of a red suite does not
-   chase it.
+6. **P2 (cross-cutting, blocks a green local gate) — the run-execution and
+   websocket API tests flake under the full parallel suite.**
 
-   A clean full run on this branch, with no live e2e backend competing for the
-   machine, measures:
+   `gate_record check --mode pre-pr` was run **nine times** on this docs-only
+   branch. It never came out green, and the failing set shuffled every time:
 
    ```
-   2 failed, 7194 passed, 81 skipped, 8 xfailed in 137s
-     FAILED tests/tutorials/test_core_tutorial_two_modalities.py::test_the_whole_tutorial_walks_through_the_real_runtime   <- real, inherited
-     FAILED tests/ai/test_providers_registry.py::test_kimi_mcp_read_retries_while_the_file_is_busy                        <- passes in isolation
+   2 failed · 4 failed · 8 failed · 3 failed · 4 failed · 6 failed
+   … then, after cleaning up this session's own leftovers: 1 · 1 · 4
    ```
 
-   **One deterministic failure**, and it is the level-3 test above. Note that an
-   earlier run made while this session's own backend and Vite were still up
-   reported twelve failures; eleven of those were contention, and all eleven
-   passed once the e2e processes were stopped. Anyone re-measuring should stop
-   the live harness first.
+   Every failure came from the same family, and no other part of the suite ever
+   failed:
+
+   ```
+   tests/api/test_workflows.py::test_cancel_block_and_cancel_workflow_propagate_terminal_states
+   tests/api/test_workflows.py::test_workflow_pause_and_resume_keeps_downstream_block_ready
+   tests/api/test_workflows.py::test_workflow_execute_and_execute_from_reuses_cached_outputs
+   tests/api/test_workflows.py::test_execute_while_running_is_rejected_with_409
+   tests/api/test_workflows.py::test_execute_after_completion_is_allowed
+   tests/api/test_system_vertical.py::test_execute_from_records_parent_run_and_websocket_completion
+   tests/api/test_system_vertical.py::test_execute_broadcasts_runtime_lifecycle_events_to_websocket
+   tests/api/test_system_vertical.py::test_multi_session_execute_broadcasts_terminal_state_and_get_matches
+   tests/api/test_system_vertical.py::test_completed_run_lineage_outputs_are_previewable
+   ```
+
+   **They all pass in isolation.** Both files together: `23 passed in 38s`
+   serially, and `23 passed in 15s` under `-n auto`. A single failing test alone:
+   `1 passed in 3.3s`. They only fail when the *whole* suite runs in parallel.
+
+   These tests spawn real block subprocesses and drive websockets — precisely
+   the category the repository already has a mechanism for. `pyproject.toml`
+   defines a `serial` marker for "process/PTY/thread/timing-sensitive tests that
+   must run OUTSIDE xdist", and `scistudio.qa.testing.run_python_tests` runs a
+   two-phase batch for it (#1867, #1896). **Neither file contains a single
+   `pytest.mark.serial`** (`grep -c` → 0 in both). Marking this family `serial`
+   is the fix the mechanism was built for.
+
+   One caveat learned the hard way, and worth passing on: leftover
+   `chrome-headless-shell` processes from a live e2e session make this much
+   worse — the failure count dropped from 8/6/4 to a steady 1 as soon as this
+   session's browsers were killed. Anyone measuring the suite should stop any
+   live harness first, or they will misattribute the noise.
+
+   This is inherited, not caused here: this branch's diff touches only `docs/**`
+   and its own gate ledger.
 
 ### 7.5 Sentinels
 
@@ -230,6 +254,9 @@ None fired. `pageErrors: []`; no 5xx; backend and Vite stayed up.
 
 1. ~~**P2** fix `test_core_tutorial_two_modalities.py`'s runtime walk~~ —
    **fixed** on the track (`5e6bd60f0`); `tests/tutorials` is green again.
+1b. **P2** mark the run-execution / websocket API tests `serial` (7.4.6). They
+   are the only thing standing between this branch and a green local gate, and
+   the `serial` mechanism (#1867, #1896) already exists for exactly them.
 2. **Still open — steps 5-20 are untested.** Once the validator is fixed, tutorial 2
    should be completed honestly end-to-end and this session re-run **without the
    seed**, walking steps 5-20 (index pairing, the PairEditor interaction, the
