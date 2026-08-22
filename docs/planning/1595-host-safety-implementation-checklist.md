@@ -81,6 +81,7 @@ language_source: en
 |---|---|---|---|---|---|---|---|
 | I1 | `implementer` | `docs/planning/dispatch-prompts/1595/implementer.md` | Runtime, tests, and implementation-linked docs | `fix/1595-host-safety-implementation` | `../SciStudio-wt-1595-impl` | Prompt Section 3 plus manager-approved drift paths | `[x]` -> `1706848e9` |
 | I2 | `implementer` | manager follow-up directive | Deleted-path handling in diff-scoped gate commands | `impl/1595-gate-deleted-test` | `../SciStudio-wt-1595-gate-deleted-test` | Gate selector, focused tests, and branch ledger | `[x]` -> `8cf10e0a2`, `8b404c3c1` |
+| I3 | `implementer` | manager PR-review directive | Workflow-cancel permit-release race | `impl/1595-review-cancel-race` | `../SciStudio-wt-1595-review-cancel-race` | Scheduler cancellation, concurrency regression, and branch ledger | `[x]` -> `a82785cbd` |
 
 ## 6. Implementation Track
 
@@ -130,6 +131,7 @@ language_source: en
 | Targeted resource/scheduler/process tests | `[x]` | Manager final targeted set: 171 passed |
 | Relevant engine regression tests | `[x]` | Implementer full engine: 493 passed, 4 Windows platform skips |
 | Incremental-gate regression tests | `[x]` | 42 passed; deleted-only and mixed diffs covered for pytest, Ruff, format, and Mypy |
+| PR-review cancellation regression | `[x]` | Test-only mutation failed on `f963bfd2a` because the waiting block launched; fixed concurrency/cancel suite: 56 passed |
 | `gate_record check --mode local` | `[!]` | Tier-1 non-Python checks passed; full Python runs hit #2047 Windows Zarr races and #2103 loaded-host xdist failures; final Linux CI required |
 | `gate_record check --mode pre-pr` | `[x]` | Reconciliation passed; 487 architecture tests passed with 1 skip; diff-scoped Python runner passed both phases (1,692 passed/13 skipped and 112 passed); Ruff, Mypy, full audit, imports, and deferral scan passed |
 | Pre-PR finalize | `[x]` | Manager ledger reported `ledger is PR-ready` |
@@ -149,6 +151,7 @@ language_source: en
 | 2026-08-21 | I1 | Full-audit found legacy ADR governed contracts and expected signatures still named the removed resource-request API. | Manager amended scope, authored the minimal ADR contract patch, and authorized I1 to apply that exact patch before committing. | `docs/adr/ADR-017.md`, `ADR-019.md`, `ADR-022.md`, `ADR-027.md`, `ADR-022-addendum1.md` |
 | 2026-08-22 | manager | Tier-1 full Python runs hit changing Windows Zarr rename failures in unmodified storage tests; the same `WinError 5` reproduced on current `origin/main` in the gate venv. A later tutorial/coverage worker failure matches the loaded-host signature. | Preserve failed/timeout gate events, retain passing targeted and full-engine evidence, and require green Linux CI before completion. | `#2047`, `#2103`, manager review Section 4 |
 | 2026-08-22 | I2 | The newly merged diff-scoped gate passed the deleted GPU test path first to pytest, then to Ruff format/check. | Declare `governance_touch`, filter non-existent Python paths for every local file strategy, preserve repo-wide fallback for deleted-only diffs, and add 8 focused regression cases. | `7406e2207`, `618b76cec`, manager review M-02 |
+| 2026-08-22 | I3 | PR #2121 review found that releasing a running permit before the later IDLE/READY cancellation sweep could retry and launch a waiting block. | Mark every not-yet-started block terminal before any running permit release; preserve CANCELLED-before-SKIPPED event order; prove the old failure with a test-only mutation. | `19e17908e`, manager review M-03 |
 
 ## 10. Final Readiness
 

@@ -54,6 +54,40 @@ Python paths from pytest, Ruff, format, and Mypy targets. A deleted-only diff
 widens to the repository command instead of producing an empty narrow pass;
 mixed diffs retain only provably existing targets.
 
+### M-03: workflow cancellation could retry a waiting block
+
+**Severity:** P1 before fix; resolved in this branch.
+
+The resource release listener schedules a READY scan immediately when a
+running block releases its permit. Workflow cancellation previously released
+that permit before its later IDLE/READY sweep, then awaited the
+`BLOCK_CANCELLED` event. An asynchronous subscriber could yield long enough for
+the scan to launch an independent waiting block that was absent from the
+earlier running-block snapshot.
+
+The fix synchronously marks every IDLE/READY block SKIPPED, records its reason,
+and clears its wait state before releasing any running permit. External event
+ordering remains CANCELLED before SKIPPED. A test-only mutation against
+`f963bfd2a` reproduced the old launch; the same deterministic test passes with
+the fix.
+
+### Other PR review comments
+
+- The compatibility fallback's opaque `object()` permit cannot reach
+  `ResourceManager.release`: production managers always provide
+  `try_acquire()`, while fallback stubs without it also omit `release`; the
+  release helper checks callability before use. The reported `AttributeError`
+  has no runtime path.
+- `EventBus.emit()` isolates ordinary subscriber exceptions. The dispatch
+  `BaseException` branch handles external cancellation and releases its permit;
+  converting cancellation into ERROR would misclassify the lifecycle.
+- Sampling host memory under the manager lock is intentional: the addendum
+  requires the memory decision and permit claim to form one admission critical
+  section.
+- Suggested finalization deduplication is a non-behavioral refactor outside the
+  accepted contract change; no correctness drift was identified. The comment
+  grammar noted by review was corrected.
+
 ## 3. Contract Review
 
 - Admission is synchronous and atomic before `RUNNING`, event emission, or any
@@ -85,6 +119,7 @@ mixed diffs retain only provably existing targets.
 | CLI suite | 23 passed on implementer branch |
 | Manager final targeted API/engine regression set | 171 passed |
 | Incremental-gate deleted-path regressions | 42 passed |
+| PR-review cancellation regression | Test-only mutation failed on old head as expected; fixed cancel/concurrency set: 56 passed |
 | Ruff format/check | Passed for implementer paths and manager lifecycle fix |
 | Mypy | 16 changed source files, no issues on implementer branch |
 | Full audit | Passed with zero top-level findings on both implementer and final manager diffs |
