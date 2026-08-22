@@ -443,6 +443,38 @@ class PreviewEnvelopeModel(BaseModel):
     frontend_manifest: PreviewFrontendManifestModel | None = None
 
 
+class PreviewerChoiceModel(BaseModel):
+    """One recorded per-type previewer choice (#2049)."""
+
+    target_type: str
+    """Type name the choice applies to. Exact: a choice on a type does not
+    govern types that merely descend from it."""
+    previewer_id: str
+    """Previewer the person picked for that type."""
+    scope: str
+    """``user`` or ``project`` -- which layer this effective choice came from.
+    A project-layer choice overrides the user-layer choice for the same type."""
+    available: bool
+    """Whether ``previewer_id`` is registered right now. A choice whose
+    previewer was uninstalled stays recorded and reads ``false``; routing falls
+    back to the ordinary precedence ladder until it returns."""
+
+
+class PreviewerChoiceListResponse(BaseModel):
+    """Response body for ``GET /api/previews/choices`` (#2049)."""
+
+    choices: list[PreviewerChoiceModel] = Field(default_factory=list)
+    """Effective choices after the project layer overrides the user layer."""
+
+
+class PreviewerChoiceRequest(BaseModel):
+    """Request body for ``PUT /api/previews/choices/{target_type}`` (#2049)."""
+
+    previewer_id: str
+    scope: str = "user"
+    """``user`` (default, every project) or ``project`` (this project only)."""
+
+
 class PreviewerSpecModel(BaseModel):
     """Wire shape of a :class:`PreviewerSpec` for capability discovery."""
 

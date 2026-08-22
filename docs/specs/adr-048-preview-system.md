@@ -319,6 +319,44 @@ Acceptance Scenarios:
   ambiguity.
 - FR-030: Previewer discovery must support monorepo package development in the
   same spirit as existing block and type registry monorepo fallbacks.
+- FR-034 (#2049): A person must be able to choose which previewer renders a
+  given type, and that choice must win over the FR-003 ladder. FR-003 answers
+  "which previewer is best" without asking the person looking at the data; when
+  several can render a type, the person may prefer one the ladder does not
+  pick. The choice is keyed on the **exact** type name: a choice made for a
+  type does not govern types that merely descend from it, because a preference
+  silently reaching subtypes the person never looked at is harder to explain
+  than one that does not apply yet.
+- FR-035 (#2049): The choice has two layers — the open project, and the person's
+  library — with the project layer overriding the user layer per type. The user
+  layer resolves through `library_root_for_project`, so a tutorial project's
+  choices land in the tutorial-scoped library rather than following the person
+  into every real project afterwards (ADR-053 FR-070/FR-071). Clearing a
+  project-layer choice must reveal the user-layer choice it overrode rather
+  than leaving the type unchosen.
+- FR-036 (#2049): A choice is a preference, not a constraint. It must be
+  ignored, falling through to the FR-003 ladder without raising, when the
+  chosen previewer is not registered, when it claims neither the target's type
+  nor any ancestor in the target's chain, or when it does not support
+  collections and the target is one. The chain bound is what keeps a choice
+  able to *reorder* the ladder's candidates without *widening* them; the
+  collection rule is FR-003/US4 applied to a choice, since a single-item viewer
+  handed a whole collection is a broken view rather than an honoured
+  preference. A recorded choice must never be able to stop a preview from
+  rendering.
+- FR-037 (#2049): The choice must be recorded separately from the FR-005
+  project-default manifest, and FR-005 keeps its narrow role unchanged: a
+  tie-breaker between same-tier previewers of equal priority. The two answer
+  different questions — an author's declaration about a project versus a
+  person's preference about their own view — and separate files keep them from
+  being mistaken for each other. When a choice applies the ladder does not run,
+  so the two never arbitrate the same decision.
+- FR-038 (#2049): The stored choices must survive a build that does not
+  understand them. An unreadable file, a payload of the wrong shape, an unknown
+  key written by a newer build, or a single malformed entry must be skipped
+  rather than raised, and must not cost the entries beside it — the
+  forward-compatibility rule `projects.json` learned in #2073, for the same
+  reason: this file outlives the build that wrote it.
 
 ### Key Entities
 
@@ -393,6 +431,13 @@ the session routes remain:
 | `PATCH` | `/api/previews/sessions/{session_id}` | Update query state such as slice, page, sort, slot, or item. |
 | `GET` | `/api/previews/sessions/{session_id}/resources/{resource_id}` | Fetch bounded provider resource data. |
 | `GET` | `/api/previews/assets/{asset_id}` | Serve validated same-origin frontend assets. |
+| `GET` | `/api/previews/choices` | List the effective per-type previewer choices, each with the layer it came from and whether its previewer is still registered (FR-034, FR-035). |
+| `PUT` | `/api/previews/choices/{target_type}` | Record a choice at `user` or `project` scope (FR-035). Refuses an unregistered previewer: routing tolerates one that has since disappeared, but a preference that could never apply is a typo, not an intent. |
+| `DELETE` | `/api/previews/choices/{target_type}` | Clear the choice at a scope. Clearing a type that was never chosen succeeds — the caller's intent already holds. |
+
+Whether a chosen previewer can actually render a type is decided at routing
+time against the target's type chain (FR-036), not at write time: the API layer
+knows previewer specs, and the type hierarchy belongs to the type registry.
 
 Session resource descriptors may include provider-defined `params`. Clients
 must copy those params into the resource request as a URL-encoded JSON object in

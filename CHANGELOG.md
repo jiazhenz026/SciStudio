@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2049] **You can choose which previewer renders a type.** When several
+  previewers can show the same data — a package's tailored plot, a
+  project-local experiment, core's plain table — SciStudio picked for you, by a
+  fixed precedence of project over user over package over core. That ladder
+  answers *which previewer is best* without ever asking the person looking at
+  the data. Now you can say, and what you say wins.
+  A choice is recorded **per type** and applies to every object of it. It has
+  two layers: this project, or every project, with the project layer winning —
+  the same shape blocks, types, and previewers already use for where they live.
+  Choices made inside a tutorial stay in the tutorial's own library rather than
+  following you into real work afterwards.
+  **A choice is a preference, not a constraint.** If the previewer you chose is
+  not there — a package uninstalled, a drop-in deleted — the preview still
+  renders, through the ordinary ladder, and your choice takes effect again the
+  moment that previewer returns. The same is true if the choice cannot serve
+  what is on the port: a viewer that handles one item is not handed a whole
+  collection. Nothing you can record is able to stop a preview from rendering.
+  The FR-005 project-default manifest is untouched and keeps its narrow role as
+  a tie-breaker between equal-priority previewers in one tier. It answers a
+  different question — what a project's *author* declares, rather than what a
+  *person* prefers for their own view — so the two are stored separately and
+  never arbitrate the same decision.
+
 - [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
   that are real, runnable projects, reached from a permanent toolbar entry and
   shown on first launch. The first core tutorial, *Welcome to SciStudio*, ships

@@ -11,6 +11,7 @@ the frontend ``TableViewer`` paginates/sorts through the session PATCH like the
 from __future__ import annotations
 
 import json
+import logging
 import math
 from pathlib import Path
 from typing import Annotated, Any
@@ -25,6 +26,9 @@ from scistudio.api.schemas import (
     DataMetadataResponse,
     DataUploadResponse,
     PreviewEnvelopeModel,
+    PreviewerChoiceListResponse,
+    PreviewerChoiceModel,
+    PreviewerChoiceRequest,
     PreviewResourceResponse,
     PreviewResourceSaveRequest,
     PreviewResourceSaveResponse,
@@ -39,7 +43,17 @@ from scistudio.previewers import (
     UnknownTargetError,
 )
 from scistudio.previewers.assets import resolve_asset, validate_manifest
+from scistudio.previewers.choices import (
+    clear_choice,
+    load_choices,
+    project_choices_path,
+    read_choice_layer,
+    user_choices_path,
+    write_choice,
+)
 from scistudio.previewers.models import MissingBundleError, PreviewError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/data", tags=["data"])
 previews_router = APIRouter(prefix="/api/previews", tags=["previews"])
@@ -187,6 +201,128 @@ def _validate_resource_param_value(value: Any, *, depth: int = 0) -> int:
             raise HTTPException(status_code=422, detail="resource param numbers must be finite")
         return 1
     raise HTTPException(status_code=422, detail="resource params must be JSON-compatible")
+
+
+# ---------------------------------------------------------------------------
+# #2049: the person's chosen previewer per type.
+#
+# ADR-048 FR-003 answers "which previewer is best" without asking the person
+# looking at the data. These routes record what they asked for instead. Two
+# layers -- this project, or every project -- with the project layer winning,
+# and a choice that cannot be honoured falls back to the ladder rather than
+# failing, because a preference must never stop a preview from rendering.
+# ---------------------------------------------------------------------------
+
+_USER_SCOPE = "user"
+_PROJECT_SCOPE = "project"
+
+
+def _active_project_dir(runtime: ApiRuntime) -> Path | None:
+    project = getattr(runtime, "active_project", None)
+    return Path(project.path) if project is not None else None
+
+
+def _choices_path_for_scope(runtime: ApiRuntime, scope: str) -> Path:
+    """Return the file a choice at *scope* is written to, or 400."""
+    project_dir = _active_project_dir(runtime)
+    if scope == _USER_SCOPE:
+        # Resolved against the project so a tutorial project writes into the
+        # tutorial-scoped library rather than the real one (ADR-053 FR-070).
+        return user_choices_path(project_dir)
+    if scope == _PROJECT_SCOPE:
+        if project_dir is None:
+            raise HTTPException(
+                status_code=400, detail="No project is open, so a project-scoped choice has nowhere to live."
+            )
+        return project_choices_path(project_dir)
+    raise HTTPException(
+        status_code=400,
+        detail=f"Unknown scope {scope!r}. Known: {_PROJECT_SCOPE!r}, {_USER_SCOPE!r}.",
+    )
+
+
+def _effective_choices(runtime: ApiRuntime) -> PreviewerChoiceListResponse:
+    """Build the effective-choices response.
+
+    A plain function rather than the route handler, so the write routes can
+    return the resulting state without calling a decorated endpoint -- which
+    also keeps their declared return type honest.
+    """
+    project_dir = _active_project_dir(runtime)
+    project_layer = read_choice_layer(project_choices_path(project_dir)) if project_dir is not None else {}
+    effective = load_choices(project_dir)
+    registry = runtime.get_preview_service().registry
+
+    return PreviewerChoiceListResponse(
+        choices=[
+            PreviewerChoiceModel(
+                target_type=target_type,
+                previewer_id=previewer_id,
+                scope=_PROJECT_SCOPE if target_type in project_layer else _USER_SCOPE,
+                available=registry.get(previewer_id) is not None,
+            )
+            for target_type, previewer_id in sorted(effective.items())
+        ]
+    )
+
+
+@previews_router.get("/choices", response_model=PreviewerChoiceListResponse)
+async def list_previewer_choices(runtime: RuntimeDep) -> PreviewerChoiceListResponse:
+    """Return the effective per-type previewer choices, with their layer.
+
+    ``scope`` reports where each effective choice came from, so a reader can
+    tell a project-only preference from a global one without diffing two files.
+    ``available`` reports whether the chosen previewer is registered right now:
+    a choice outlives the package that provided it, and a stale one should read
+    as stale rather than as missing.
+    """
+    return _effective_choices(runtime)
+
+
+@previews_router.put("/choices/{target_type}", response_model=PreviewerChoiceListResponse)
+async def set_previewer_choice(
+    target_type: str, payload: PreviewerChoiceRequest, runtime: RuntimeDep
+) -> PreviewerChoiceListResponse:
+    """Record *target_type* -> ``previewer_id`` at the requested scope.
+
+    The previewer must be registered. Routing tolerates a choice whose
+    previewer has since disappeared -- that is the realistic case, an uninstall
+    -- but accepting one that never existed would store a preference that can
+    never apply and give no clue why.
+
+    Whether the previewer can actually render this type is decided at routing
+    time against the target's type chain, not here: this layer knows previewer
+    specs, and the type hierarchy belongs to the type registry.
+    """
+    path = _choices_path_for_scope(runtime, payload.scope)
+    registry = runtime.get_preview_service().registry
+    if registry.get(payload.previewer_id) is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown previewer {payload.previewer_id!r}. See GET /api/previews/previewers.",
+        )
+
+    write_choice(path, target_type, payload.previewer_id)
+    logger.info("PUT /api/previews/choices/%s: scope=%s", target_type, payload.scope)
+    runtime.refresh_preview_service()
+    return _effective_choices(runtime)
+
+
+@previews_router.delete("/choices/{target_type}", response_model=PreviewerChoiceListResponse)
+async def clear_previewer_choice(
+    target_type: str, runtime: RuntimeDep, scope: str = _USER_SCOPE
+) -> PreviewerChoiceListResponse:
+    """Remove the choice for *target_type* at *scope*.
+
+    Clearing a type that was never chosen succeeds: the caller's intent -- no
+    choice for this type here -- already holds, and reporting a failure would
+    only push every caller into checking first.
+    """
+    path = _choices_path_for_scope(runtime, scope)
+    clear_choice(path, target_type)
+    logger.info("DELETE /api/previews/choices/%s: scope=%s", target_type, scope)
+    runtime.refresh_preview_service()
+    return _effective_choices(runtime)
 
 
 @previews_router.post("/sessions", response_model=PreviewEnvelopeModel)

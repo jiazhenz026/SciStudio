@@ -65,6 +65,10 @@ class PreviewRouter:
     def resolve(self, target: PreviewTarget) -> PreviewerSpec:
         """Return the single best previewer spec for *target* (FR-003).
 
+        A person's own choice for the target's type wins outright (#2049,
+        FR-034); everything below it is the unchanged FR-003 ladder, which also
+        serves as the fallback whenever no usable choice applies.
+
         Raises :class:`RoutingAmbiguityError` on an unresolved priority tie
         within a tier+specificity and :class:`UnknownTargetError` when nothing
         matches (not even a core fallback).
@@ -74,6 +78,15 @@ class PreviewRouter:
         # Type chain ordered specific -> general for "closest parent wins".
         chain = self._specificity_chain(target)
         most_specific = chain[0] if chain else ""
+
+        # ---- 0: the person's own choice for this exact type (#2049) ----
+        # A short circuit, not a new tier: when it applies nothing below runs,
+        # and when it does not the ladder is entered exactly as before. That is
+        # what makes this purely additive — a session with no choice recorded
+        # routes today's answer, unchanged.
+        chosen = self._chosen_spec(most_specific, chain, want_collection=is_collection)
+        if chosen is not None:
+            return chosen
 
         # A collection target must only resolve to collection-capable previewers
         # before reaching the core collection fallback (ADR-048 FR-003 / US4):
@@ -118,6 +131,53 @@ class PreviewRouter:
         )
 
     # -- internals ----------------------------------------------------------
+
+    def _chosen_spec(self, type_name: str, chain: list[str], *, want_collection: bool) -> PreviewerSpec | None:
+        """Return the spec the person chose for *type_name*, if it is usable.
+
+        Four things can make a recorded choice not apply, and all four fall
+        through to the ladder rather than raising. A preference is not a
+        constraint: failing to honour one must never be able to stop a preview
+        from rendering.
+
+        * **No choice for this type.** The common case.
+        * **The chosen previewer is gone** — a package uninstalled, a drop-in
+          deleted or renamed. The choice stays on disk, because the person may
+          reinstall, and takes effect again the moment its previewer does.
+        * **The chosen previewer does not claim this type or any ancestor of
+          it.** Choosing an ancestor's previewer is legitimate and expected —
+          picking core's plain ``Series`` view for a ``Spectrum`` is exactly
+          the kind of preference this exists to serve — but a previewer for an
+          unrelated type would render nothing meaningful. Restricting the
+          choice to ``chain`` bounds it to the same candidate set the ladder
+          below considers, so a choice can reorder that set but never widen it.
+        * **The choice cannot serve this target.** A previewer that does not
+          declare ``supports_collection`` must not be handed a collection, the
+          same rule FR-003/US4 enforces down the ladder: a single-item viewer
+          given a whole collection is a broken view, not an honoured
+          preference.
+        """
+        if not type_name:
+            return None
+        previewer_id = self._registry.choice_for(type_name)
+        if previewer_id is None:
+            return None
+        spec = self._registry.get(previewer_id)
+        if spec is None:
+            logger.debug("chosen previewer %r for %r is not registered; falling back", previewer_id, type_name)
+            return None
+        if spec.target_type not in chain:
+            logger.debug(
+                "chosen previewer %r targets %r, which is not in the type chain for %r; falling back",
+                previewer_id,
+                spec.target_type,
+                type_name,
+            )
+            return None
+        if want_collection and not spec.supports_collection:
+            logger.debug("chosen previewer %r cannot render a collection of %r; falling back", previewer_id, type_name)
+            return None
+        return spec
 
     def _specificity_chain(self, target: PreviewTarget) -> list[str]:
         """Return candidate type names ordered specific -> general.
