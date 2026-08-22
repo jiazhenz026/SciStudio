@@ -49,7 +49,9 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any
+
+from typing_extensions import Protocol, runtime_checkable
 
 from scistudio.engine.events import (
     BLOCK_DONE,
@@ -59,6 +61,7 @@ from scistudio.engine.events import (
     WORKFLOW_CHANGED,
     WORKFLOW_COMPLETED,
 )
+from scistudio.stability import provisional
 
 if TYPE_CHECKING:
     from scistudio.workflow.definition import WorkflowDefinition
@@ -91,6 +94,7 @@ __all__ = [
 ]
 
 
+@provisional(since="0.3.4")
 class ConditionValidationError(ValueError):
     """A ``done_when`` was rejected at manifest validation (FR-049).
 
@@ -369,9 +373,21 @@ those are different messages and only one of them is true.
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class Condition:
-    """A parsed ``done_when``: one vocabulary term, or an ``all``/``any`` of them."""
+    """A parsed ``done_when``: one vocabulary term, or an ``all``/``any`` of them.
+
+    Build one with :func:`parse_condition` rather than by hand — that is where a
+    term outside :data:`VOCABULARY`, or an argument a term does not accept, is
+    rejected with a message naming the offending field. Judge one with
+    :func:`evaluate`.
+
+    A driver only needs this type when it defers part of a step to the core
+    vocabulary; a step whose condition the vocabulary cannot express has no
+    ``Condition`` at all, which is why :meth:`DeclaresConditions.condition` may
+    return ``None``.
+    """
 
     term: str
     """A name from :data:`VOCABULARY`, or ``"all"`` / ``"any"``."""
@@ -461,6 +477,7 @@ def _check_ui_event_target(args: Mapping[str, Any], *, field_name: str) -> None:
         raise ConditionValidationError(f"{field_name}.ui_event: {spec.name!r} {takes}; got {', '.join(unexpected)}")
 
 
+@provisional(since="0.3.4")
 def parse_condition(raw: Any, *, field_name: str = "done_when") -> Condition:
     """Parse a ``done_when`` mapping, rejecting anything outside the vocabulary.
 
@@ -503,6 +520,7 @@ def parse_condition(raw: Any, *, field_name: str = "done_when") -> Condition:
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class RunSummary:
     """The read-only view of one recorded run that ``run_succeeded`` needs.
@@ -526,6 +544,7 @@ class RunSummary:
     *new* run must not advance on one whose time nobody knows."""
 
 
+@provisional(since="0.3.4")
 @runtime_checkable
 class ProductState(Protocol):
     """The one injected port through which conditions read product truth.
@@ -989,6 +1008,7 @@ _SIMPLE_EVALUATORS: Mapping[str, Any] = MappingProxyType(
 _TIME_SCOPED_TERMS: frozenset[str] = frozenset({"run_succeeded", "run_failed"})
 
 
+@provisional(since="0.3.4")
 def evaluate(condition: Condition, state: ProductState, *, entered_at: str | None = None) -> bool:
     """Judge ``condition`` against ``state``.
 

@@ -66,8 +66,10 @@ language_source: en
     reconcile before PR readiness.
 
 - When escalated to Tier 1:
-  - `check` must prove the full local mirror of the merge-blocking CI command
-    surface, reusing current evidence and running missing or stale checks.
+  - `check` must select the full merge-blocking CI check set, reusing current
+    evidence and running missing or stale checks. Locally each selected check
+    runs narrowed to the observed diff; `ci.yml` proves the full surface on the
+    same PR (ADR-042 Addendum 7).
   - Missing plan fields are hard failures before PR readiness.
 
 ## 4. Scope Expansion Through Owner Directive Events
@@ -238,15 +240,17 @@ when the obligation is recorded.
 
 ### 8.3 Checks
 
-- `gate_record check` runs the tier-selected CI-equivalent check set.
+- `gate_record check` runs the tier-selected check set, narrowed locally to the
+  observed diff.
 
 - Do not manually run ruff, mypy, pytest, frontend checks, full audit, or guard
   commands one by one. `check` derives the full set and records sanitized
   evidence.
 
-- When escalated to Tier 1, `check` proves the full local mirror of the
-  merge-blocking CI surface. Current passing evidence is reused; missing or
-  stale checks run.
+- When escalated to Tier 1, `check` selects the full merge-blocking CI set.
+  Current passing evidence is reused; missing or stale checks run, narrowed to
+  the diff. `--force-checks` runs the repository-wide mirror locally, and
+  `ci.yml` proves the full surface on the PR regardless (ADR-042 Addendum 7).
 
 - When running at Tier 2 (default for `guided`), `check` runs the common
   governance/lint/audit baseline plus all CI jobs relevant to the observed diff.

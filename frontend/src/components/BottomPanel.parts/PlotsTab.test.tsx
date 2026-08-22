@@ -11,6 +11,9 @@ const runPlotJob = vi.fn();
 const listPlotTargets = vi.fn();
 const relinkPlot = vi.fn();
 const createPlot = vi.fn();
+const deletePlot = vi.fn();
+const openFileTab = vi.fn();
+const bumpProjectTreeRefresh = vi.fn();
 vi.mock("../../lib/api", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   const actualApi = (actual.api ?? {}) as Record<string, unknown>;
@@ -23,6 +26,7 @@ vi.mock("../../lib/api", async (importOriginal) => {
       listPlotTargets: (...a: unknown[]) => listPlotTargets(...a),
       relinkPlot: (...a: unknown[]) => relinkPlot(...a),
       createPlot: (...a: unknown[]) => createPlot(...a),
+      deletePlot: (...a: unknown[]) => deletePlot(...a),
     },
   };
 });
@@ -68,19 +72,27 @@ beforeEach(() => {
   listPlotTargets.mockReset();
   relinkPlot.mockReset();
   createPlot.mockReset();
+  deletePlot.mockReset();
+  openFileTab.mockReset();
+  bumpProjectTreeRefresh.mockReset();
   listPlots.mockResolvedValue({ plots: [], count: 0, warnings: [] });
   listPlotTargets.mockResolvedValue({ targets: [] });
+  deletePlot.mockResolvedValue(undefined);
   useAppStore.setState({
     workflowId: "main",
     selectedNodeId: null,
     highlightedNodeId: null,
     plotPicker: null,
+    tabs: [],
+    openFileTab,
+    bumpProjectTreeRefresh,
   });
   useAppStore.getState().setPlotPreviewTarget(null);
 });
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
 });
 
 describe("PlotsTab", () => {
@@ -96,6 +108,39 @@ describe("PlotsTab", () => {
     expect(screen.getByText("→ Process Block / output")).toBeInTheDocument();
     // #1713 — language badge.
     expect(screen.getByText("python")).toBeInTheDocument();
+  });
+
+  it("opens the plot render script in an editor tab", async () => {
+    listPlots.mockResolvedValue({ plots: [makePlot()], count: 1, warnings: [] });
+    render(<PlotsTab />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Edit plot My Plot" }));
+
+    expect(openFileTab).toHaveBeenCalledWith("plots/p1/render.py");
+  });
+
+  it("confirms deletion, deletes the plot, and refreshes project files", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    listPlots.mockResolvedValue({ plots: [makePlot()], count: 1, warnings: [] });
+    render(<PlotsTab />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Delete plot My Plot" }));
+
+    await waitFor(() => expect(deletePlot).toHaveBeenCalledWith("p1"));
+    await waitFor(() => expect(screen.queryByTestId("plot-card-p1")).not.toBeInTheDocument());
+    expect(bumpProjectTreeRefresh).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the plot card and shows an error when deletion fails", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    listPlots.mockResolvedValue({ plots: [makePlot()], count: 1, warnings: [] });
+    deletePlot.mockRejectedValue(new Error("delete failed"));
+    render(<PlotsTab />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Delete plot My Plot" }));
+
+    expect(await screen.findByText("delete failed")).toBeInTheDocument();
+    expect(screen.getByTestId("plot-card-p1")).toBeInTheDocument();
   });
 
   it("appends the bound port type to the auto label when there is no display_label (#1721)", async () => {

@@ -11,7 +11,13 @@
       "docs/ai-developer/e2e/**"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-08-22T06:25:13.389729Z",
+      "owner_directive": "Pull main into the track; skip preflight if the gate blocks; CI is the checkpoint.",
+      "reason": "Owner directive (2026-08-22 chat): pull the newly merged main (incl. PR 2111 gate speed-up) into the track now; do not let local gate friction block the pull; preflight may be skipped with CI as the authoritative check. Merge inherits owner-approved protected content (ARCHITECTURE.md via PR 2100, activity-bar frontend via PR 2106)."
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-08-21T20:17:55.704434Z",
@@ -50,6 +56,38 @@
       "class": null,
       "kind": "path",
       "path": "docs/ai-developer/e2e/2026-08-21-lc-level-6-own-project.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T05:39:52.500184Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/e2e/2026-08-21-lc-level-1-regression.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T06:31:11.049291Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T06:31:11.049308Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/learning-center-levels-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T06:42:03.678675Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/learning-center-levels-dispatch-prompts.md",
       "rationale": null,
       "verified_in_diff": null
     }
@@ -149,6 +187,12 @@
       "applied_at": null,
       "applied_by": null,
       "name": "admin-approved:core-change"
+    },
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:architecture-doc"
     }
   ],
   "required_obligations": {

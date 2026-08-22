@@ -100,7 +100,7 @@ Known deferred items:
 - <test command or N/A reason>
 - <lint/check command>
 - `python -m scistudio.qa.governance.gate_record check --mode pre-pr` to run
-  tier-selected CI-equivalent checks and reconcile the gate ledger before PR
+  tier-selected checks and reconcile the gate ledger before PR
   creation (receipt behavior is folded into the ledger per ADR-042 Addendum 6;
   there is no separate `gate_receipt` command)
 - `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#<issue>"` before PR creation

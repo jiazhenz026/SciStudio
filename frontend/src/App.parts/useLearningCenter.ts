@@ -185,13 +185,17 @@ export function useLearningCenter({
    * The backend keeps an ended session as the active record with status
    * `complete` rather than erasing it (see `tutorials/session.py`), so every
    * launch adopts the last finished tutorial as a session that is complete
-   * already. Treating that record as a fresh finish is the #2079 bug: the
-   * Learning Center opened — and the open project closed — on every restart.
-   * The reaction below therefore fires only for a completion this app run
-   * witnessed (the session was seen in a non-complete state first), or for one
-   * that is not the session adopted already-complete at start-up, which keeps
-   * a finish that happened while the frontend was disconnected on the reconnect
-   * path.
+   * already — through the catalogue fetch or through the active-session fetch,
+   * whichever answers first. Treating that record as a fresh finish is the
+   * #2079 bug: the Learning Center opened — and the open project closed — on
+   * every restart. The reaction below therefore fires only for a session this
+   * app run first saw in a non-complete state. That test is deliberately
+   * indifferent to which start-up request answers first: an earlier version
+   * classified the stale record off the first catalogue load, and a session
+   * adopted by the faster active-session request slipped past the guard before
+   * the catalogue arrived (PR #2092 review). A finish that happened while the
+   * frontend was disconnected still lands here, because the session was seen
+   * running before the disconnect.
    *
    * The `lastCompletionAsked` ref only stops the same completion asking twice;
    * it is not a record of whether the offer has been shown. That question has
@@ -208,23 +212,7 @@ export function useLearningCenter({
     (state) => state.learningCenterSession?.status === "complete",
   );
   const seenRunningTutorial = useRef<string | null>(null);
-  const startupCompletedTutorial = useRef<string | null | undefined>(undefined);
   const lastCompletionAsked = useRef<string | null>(null);
-
-  /*
-   * Record the session the first catalogue load arrives with. Declared before
-   * the completion effect so that, when one store update carries both the
-   * catalogue and its already-complete active session, this runs first.
-   */
-  useEffect(() => {
-    if (startupCompletedTutorial.current !== undefined) return;
-    if (!learningCenterCatalogue) return;
-    const active = learningCenterCatalogue.active;
-    startupCompletedTutorial.current =
-      active && active.status === "complete"
-        ? `${active.source_kind}:${active.source_id}:${active.tutorial_id}`
-        : null;
-  }, [learningCenterCatalogue]);
 
   useEffect(() => {
     if (!tutorialSessionKey) return;
@@ -233,9 +221,7 @@ export function useLearningCenter({
       return;
     }
     if (lastCompletionAsked.current === tutorialSessionKey) return;
-    const witnessed = seenRunningTutorial.current === tutorialSessionKey;
-    const staleFromStartUp = startupCompletedTutorial.current === tutorialSessionKey;
-    if (!witnessed && staleFromStartUp) return;
+    if (seenRunningTutorial.current !== tutorialSessionKey) return;
     lastCompletionAsked.current = tutorialSessionKey;
     void checkWorkImportOffer();
     /*

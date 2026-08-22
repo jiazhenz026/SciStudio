@@ -16,7 +16,7 @@ need a package — see the user guide instead. Build a package when you want to:
 
 ## What a package contributes
 
-SciStudio core knows nothing about your science. A package teaches it three
+SciStudio core knows nothing about your science. A package teaches it four
 kinds of thing, each through a published **entry point** core discovers at
 startup:
 
@@ -25,6 +25,7 @@ startup:
 | `scistudio.blocks` | block classes | the workflow engine + the palette |
 | `scistudio.types` | data type classes | the type system + connection checking |
 | `scistudio.previewers` | previewer specs | the preview router |
+| `scistudio.tutorials` | tutorial directories | the Learning Center |
 
 A fourth, equally important contribution has no entry point: the **reuse
 surface** — the public types and helpers that *other* authors import when they
@@ -39,6 +40,7 @@ a package people can build on from one they have to reach into.
 | Designing your data types | [types.md](types.md) |
 | Writing your blocks | [blocks.md](blocks.md) |
 | Giving your types a preview | [previewers.md](previewers.md) |
+| Teaching your blocks in the Learning Center | [tutorials.md](tutorials.md) |
 | Packaging, entry points, versioning, releasing | [publishing.md](publishing.md) |
 
 ## The running example
