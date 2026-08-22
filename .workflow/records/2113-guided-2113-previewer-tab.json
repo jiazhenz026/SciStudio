@@ -156,6 +156,36 @@
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T03:30:38.014613Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:d64f6f01a49f3c805632857d350aae41caf4a2c3ab45b2e59116613a9dc33a1c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T03:40:38.044299Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": null,
+      "input_fingerprint": "sha256:9dc32cef792fdd6876cddd0deba1a1bd15d3c742474dc444a49ae9e94cf48864",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
     }
   ],
   "check_na": [
@@ -164,7 +194,13 @@
       "rationale": "Blocked by issue #2107, a load-dependent flake class where subprocess-spawning tests lose captured stdout under full-suite xdist load on Windows. The 9 failures (tests/api/test_system_vertical.py x4, tests/api/test_workflows.py x3, tests/core/test_storage.py::TestCompositeStore::test_roundtrip, tests/utils/test_atomic_io.py) all pass in isolation: the same four files run alone give 85 passed. This diff's own surface is green: tests/api/test_previewer_discovery.py + tests/api/test_previewer_choice_routes.py + tests/previewers/test_previewer_choice.py 49 passed, frontend 41+25 passed, tsc/eslint/prettier clean. CI is Ubuntu-only and runs this check authoritatively."
     }
   ],
-  "commit": null,
+  "commit": {
+    "sha": "95b8db4e8",
+    "shas": [
+      "95b8db4e8"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -186,6 +222,11 @@
       "at": "2026-08-22T02:08:42.284962Z",
       "owner_directive": "After finishing: start a backend and frontend for live testing. PR #2100 is merged now and #2110 has a conflict with main \u2014 if the conflict was already resolved during this work, push a resolution commit to the #2110 branch; put the new Previewers tab feature in a new PR.",
       "reason": "Owner redirected the session wrap-up: PR #2100 has merged into main and PR #2110 now conflicts with main; resolve that conflict with a commit pushed to feat/2049-previewer-choice (reusing the resolution already worked out in this session's integration merge), open the frontend tab work as a new PR, and start a backend + frontend from the worktree for live owner testing when done."
+    },
+    {
+      "at": "2026-08-22T03:50:43.162559Z",
+      "owner_directive": "Local full-suite python_tests keeps hitting the known #2107 Windows load flake (failing tests pass in isolation). Open the PR with SCISTUDIO_SKIP_PREFLIGHT=1; CI is the authoritative gate.",
+      "reason": "Owner decision on PR creation under the #2107 local flake: open the PR with SCISTUDIO_SKIP_PREFLIGHT=1 and rely on CI (Ubuntu) as the authoritative python_tests gate; the #2107 classification is recorded in this ledger."
     }
   ],
   "docs_events": [
@@ -415,6 +456,270 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:26:41.378523Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:26:41.392437Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:26:41.406434Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:26:41.419922Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:26:41.433369Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:26:41.446129Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:26:41.459768Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:26:41.472991Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:26:41.486223Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:26:41.499574Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:26:41.522901Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:40:38.112539Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:40:38.129349Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:40:38.143963Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:40:38.158693Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:40:38.174508Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:40:38.190857Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:40:38.220118Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:40:38.234293Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:40:38.249008Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:40:38.262524Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:40:38.292324Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:44:31.311496Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:44:31.327421Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:44:31.354911Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:44:31.370447Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:44:31.387188Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:44:31.416097Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:44:31.429695Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:44:31.444151Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:44:31.459637Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:44:31.473581Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:44:31.497912Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -463,9 +768,9 @@
       "tests/api/test_previewer_choice_routes.py",
       "tests/previewers/test_previewer_choice.py"
     ],
-    "diff_fingerprint": "sha256:670d1742aabaef4e0730ace3d8d953db5b39de09090c902a2ce7853a368b6104",
+    "diff_fingerprint": "sha256:b6ca8852d0ae4eea14611b7ced46d30955e0b28dadd6fb6df855ce20c5c8a233",
     "head": "HEAD",
-    "head_sha": "d30dd7803",
+    "head_sha": "95b8db4e8",
     "surfaces": {
       "docs": 2,
       "frontend": 19,
@@ -482,7 +787,14 @@
   },
   "owner_directive": "Add a fourth left-panel tab 'Previewers' (peer of Blocks / Data types / Project): cards for every registered previewer grouped by tier (project/user/package/core), a Reload action, and a per-target-type previewer choice UI exposing both user and project scopes. Baseline strategy (owner-confirmed): locally merge the still-open backend PR branches #2100 (fix/2095-previewer-tier-surface) and #2110 (feat/2049-previewer-choice) as the API base; once they merge into main this PR's diff is frontend-only.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2113
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-22T03:06:07.033382Z",
@@ -502,6 +814,38 @@
       "tier": 2,
       "unsatisfied": [
         "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-22T03:26:41.522931Z",
+      "diff_fingerprint": "sha256:b6ca8852d0ae4eea14611b7ced46d30955e0b28dadd6fb6df855ce20c5c8a233",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests",
+        "checks.semantic_dup"
+      ]
+    },
+    {
+      "at": "2026-08-22T03:40:38.292355Z",
+      "diff_fingerprint": "sha256:b6ca8852d0ae4eea14611b7ced46d30955e0b28dadd6fb6df855ce20c5c8a233",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-22T03:44:31.497946Z",
+      "diff_fingerprint": "sha256:b6ca8852d0ae4eea14611b7ced46d30955e0b28dadd6fb6df855ce20c5c8a233",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests",
+        "checks.semantic_dup"
       ]
     }
   ],
