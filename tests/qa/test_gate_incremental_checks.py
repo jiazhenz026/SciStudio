@@ -41,6 +41,8 @@ def mirror_repo(tmp_path: Path) -> Path:
     (repo / "src/scistudio/qa/governance").mkdir(parents=True)
     (repo / "tests/qa").mkdir(parents=True)
     (repo / "tests/core").mkdir(parents=True)
+    (repo / "tests/qa/test_gate_record.py").write_text("def test_gate(): ...\n", encoding="utf-8")
+    (repo / "tests/core/conftest.py").write_text("\n", encoding="utf-8")
     (repo / "tests/test_version.py").write_text("def test_v(): ...\n", encoding="utf-8")
     _git(repo, "init", "-q")
     return repo
@@ -64,6 +66,19 @@ def test_top_level_module_maps_to_its_mirrored_test_file(mirror_repo: Path) -> N
 
 def test_changed_test_file_selects_itself(mirror_repo: Path) -> None:
     assert select_test_targets(mirror_repo, ["tests/qa/test_gate_record.py"]) == ("tests/qa/test_gate_record.py",)
+
+
+def test_deleted_test_file_widens_to_the_full_suite(mirror_repo: Path) -> None:
+    assert select_test_targets(mirror_repo, ["tests/qa/test_deleted.py"]) is None
+
+
+def test_deleted_test_does_not_hide_an_existing_mapped_target(mirror_repo: Path) -> None:
+    targets = select_test_targets(
+        mirror_repo,
+        ["tests/qa/test_deleted.py", "src/scistudio/qa/governance/gate_record/checks.py"],
+    )
+
+    assert targets == ("tests/qa",)
 
 
 def test_changed_conftest_selects_its_whole_directory(mirror_repo: Path) -> None:

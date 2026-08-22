@@ -254,6 +254,11 @@ def select_test_targets(repo_root: Path, changed_files: Sequence[str]) -> tuple[
                 # read it.
                 return None
             saw_python = True
+            if not (repo_root / path).is_file():
+                # Deleted tests cannot be valid pytest targets. Ignore them and
+                # let the final empty-target guard widen to the full suite when
+                # no other changed path has a provable target.
+                continue
             if Path(path).name == "conftest.py":
                 targets.add(str(Path(path).parent).replace("\\", "/"))
             else:
