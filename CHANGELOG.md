@@ -27,6 +27,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   authoring guide for both paths.
   The surface is `provisional` at `0.3.4`: the vocabulary and the action set are
   still settling.
+- [#2049] **You can choose which previewer renders a type.** When several
+  previewers can show the same data — a package's tailored plot, a
+  project-local experiment, core's plain table — SciStudio picked for you, by a
+  fixed precedence of project over user over package over core. That ladder
+  answers *which previewer is best* without ever asking the person looking at
+  the data. Now you can say, and what you say wins.
+  A choice is recorded **per type** and applies to every object of it. It has
+  two layers: this project, or every project, with the project layer winning —
+  the same shape blocks, types, and previewers already use for where they live.
+  Choices made inside a tutorial stay in the tutorial's own library rather than
+  following you into real work afterwards.
+  **A choice is a preference, not a constraint.** If the previewer you chose is
+  not there — a package uninstalled, a drop-in deleted — the preview still
+  renders, through the ordinary ladder, and your choice takes effect again the
+  moment that previewer returns. The same is true if the choice cannot serve
+  what is on the port: a viewer that handles one item is not handed a whole
+  collection. Nothing you can record is able to stop a preview from rendering.
+  The FR-005 project-default manifest is untouched and keeps its narrow role as
+  a tie-breaker between equal-priority previewers in one tier. It answers a
+  different question — what a project's *author* declares, rather than what a
+  *person* prefers for their own view — so the two are stored separately and
+  never arbitrate the same decision.
 - [#2095] **Previewers can be listed, and the previewer surface can reload
   itself.** `GET /api/previews/previewers` returns every registered previewer
   with the tier it came from, ordered the way the router considers them —
@@ -122,6 +144,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2093] **`npm run dev` in `desktop/` starts again on Windows.** The desktop
+  dev launcher spawns npm twice — once for Vite, once for Electron — and on
+  Windows the `npm` it reaches is `npm.cmd`, a batch shim. Node hardened
+  `child_process.spawn` against Windows batch-file argument injection
+  (CVE-2024-27980, in 18.20.1 / 20.12.1 / 21.7.2): spawning a `.cmd` without a
+  shell now raises `EINVAL` rather than running it. The launcher asked for no
+  shell, so it died on its very first spawn and never reached either child; the
+  only way to run the desktop app in development was to start Vite and Electron
+  by hand.
+  The platform decision now lives in `desktop/scripts/npm-spawn.js` as a pure,
+  unit-tested function, mirroring `desktop/runtime-port.js`. Windows gets the
+  shell it needs, and because passing an argument *array* alongside `shell: true`
+  is deprecated (DEP0190 — those arguments are concatenated rather than escaped),
+  the shell is handed one finished command line instead. Building that line is
+  only sound while no argument needs quoting, so arguments outside a
+  conservative safe set are refused with an explicit error rather than
+  concatenated: cmd.exe quoting is subtle enough that a half-correct escaper
+  would fail silently, at launch, on someone else's machine. POSIX is unchanged
+  — no shell, argument array passed straight through.
 - [#2095] **A new project gets the directories its drop-in tiers are actually
   scanned from.** Two commands create a project — the GUI's "New project" and
   `scistudio init` — and each carried its own hand-written directory list. The
