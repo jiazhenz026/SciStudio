@@ -12,6 +12,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
@@ -27,6 +28,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -42,6 +44,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {
@@ -59,6 +62,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {
@@ -76,6 +80,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -91,6 +96,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": null,
+      "scope": "repo",
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
@@ -106,6 +112,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -121,6 +128,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -136,6 +144,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {
@@ -153,6 +162,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -168,6 +178,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -183,6 +194,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {
@@ -200,6 +212,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
@@ -215,6 +228,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": null,
+      "scope": "repo",
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
@@ -230,6 +244,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {
@@ -247,6 +262,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
@@ -262,6 +278,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
@@ -277,6 +294,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": null,
+      "scope": "repo",
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
@@ -292,6 +310,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -307,6 +326,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -322,6 +342,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
@@ -337,9 +358,92 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": null,
+      "scope": "repo",
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T04:31:41.870747Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:51d618f5d0e2ca456608356a74c74a1671372f159e041de8181492d0f1156807",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T04:31:55.150447Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:415fc6085e082477e0f7c511c75f59814e65c0d181a8c83c98dd254530cfddca",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T04:31:55.449837Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9bcce6f14fe586b1ba98647d8170a2a34a0bb10a97c81c55c54b68f4da91444e",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T04:32:07.697916Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/api tests/api/test_runtime_host_safety.py tests/api/test_workflows.py tests/cli tests/engine tests/engine/test_local_runner.py tests/engine/test_process_handle.py tests/engine/test_resource_manager_gpu_autodetect.py tests/engine/test_resources.py tests/engine/test_scheduler_concurrency.py tests/test_import_coverage.py",
+      "covered_surface": "python_tests",
+      "exit_code": 4,
+      "input_fingerprint": "sha256:94b4fbc7efd4811b31ed7534648e11502dc0f543af9ed7dd370f56112e26e462",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "fail",
+      "summary": "exit 4",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T04:32:08.644496Z",
+      "command": "mypy src/scistudio/api/runtime/__init__.py src/scistudio/api/runtime/_runs.py src/scistudio/cli/main.py src/scistudio/engine/events.py src/scistudio/engine/resources.py src/scistudio/engine/runners/process_handle.py src/scistudio/engine/scheduler/__init__.py src/scistudio/engine/scheduler/_dispatch.py src/scistudio/engine/scheduler/_events.py src/scistudio/engine/scheduler/_rerun.py src/scistudio/engine/scheduler/_state.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:aa14bea3e9d52e223ae9e49226395444879482f2ed42de1a69454bc16fa35687",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
     }
   ],
   "check_na": [],
@@ -467,7 +571,7 @@
       "verified_in_diff": null
     }
   ],
-  "governance_touch": false,
+  "governance_touch": true,
   "guard_events": [
     {
       "at": "2026-08-22T01:48:57.408915Z",
@@ -2560,6 +2664,285 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:32:08.716927Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "docs/architecture/ARCHITECTURE.md",
+          "finding_class": "architecture_doc_guard",
+          "git_evidence": null,
+          "id": "architecture_doc_guard.missing-owner-approval",
+          "line": null,
+          "message": "the architecture document is owner-controlled and this change has no owner approval: apply admin-approved:architecture-doc as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "docs/architecture/ARCHITECTURE.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "architecture_doc_guard.missing-owner-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:32:08.743256Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/events.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/events.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/resources.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/resources.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/runners/process_handle.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/runners/process_handle.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/scheduler/__init__.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/scheduler/__init__.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/scheduler/_dispatch.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/scheduler/_dispatch.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/scheduler/_events.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/scheduler/_events.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/scheduler/_rerun.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/scheduler/_rerun.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/scheduler/_state.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/scheduler/_state.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:32:08.778300Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:32:08.803208Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:32:08.827946Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:32:08.853632Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:32:08.878217Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:32:08.902876Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:32:08.927957Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:32:08.953017Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T04:32:08.991640Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -2573,7 +2956,7 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "origin/main",
-    "base_sha": "4f290a9d2",
+    "base_sha": "4345232e7",
     "changed_files": [
       ".workflow/records/1595-docs-1595-adr022-addendum1-host-safety.json",
       ".workflow/records/1595-impl-host-safety-runtime.json",
@@ -2608,9 +2991,9 @@
       "tests/engine/test_scheduler_concurrency.py",
       "tests/test_import_coverage.py"
     ],
-    "diff_fingerprint": "sha256:28a14eebe8aa6d45bc1f017279967a7a947d43a594e0b8459b45a67720e9e593",
+    "diff_fingerprint": "sha256:5ebc703c8f3e89a4606b0a9437c4a322d3138e8f96d30ea65bbc560037e3099c",
     "head": "HEAD",
-    "head_sha": "d11370e66",
+    "head_sha": "425b995bf",
     "surfaces": {
       "docs": 11,
       "frontend": 0,
@@ -2739,6 +3122,16 @@
         "checks.python_tests",
         "checks.semantic_dup"
       ]
+    },
+    {
+      "at": "2026-08-22T04:32:08.991664Z",
+      "diff_fingerprint": "sha256:5ebc703c8f3e89a4606b0a9437c4a322d3138e8f96d30ea65bbc560037e3099c",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
     }
   ],
   "record_id": "1595-docs-1595-adr022-addendum1-host-safety",
@@ -2769,7 +3162,6 @@
       "import_contracts",
       "lint_format",
       "python_tests",
-      "semantic_dup",
       "type_check"
     ],
     "docs": [
@@ -2962,6 +3354,18 @@
       "at": "2026-08-22T03:23:16.811752Z",
       "pattern": "tests/api/test_workflows.py",
       "reason": "Manager integration review found scheduler release-listener teardown was conditional on lineage recorder construction; add lifecycle cleanup and API regression coverage."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T04:34:27.387450Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/checks.py",
+      "reason": "Pre-PR diff-scoped test selection introduced on current main passes a deleted test path to pytest; include the minimal governance-code regression fix required to complete issue #1595 without bypassing the gate."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T04:34:27.387470Z",
+      "pattern": "tests/qa/test_gate_incremental_checks.py",
+      "reason": "Pre-PR diff-scoped test selection introduced on current main passes a deleted test path to pytest; include the minimal governance-code regression fix required to complete issue #1595 without bypassing the gate."
     }
   ],
   "session_id": "bddad3d7-7f6c-4c58-8e78-8d7d161c68d6",
@@ -3053,6 +3457,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_runtime_host_safety.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T04:34:27.387479Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_incremental_checks.py",
       "rationale": null,
       "verified_in_diff": null
     }
