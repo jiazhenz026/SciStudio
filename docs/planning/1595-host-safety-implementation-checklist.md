@@ -61,8 +61,9 @@ language_source: en
   `.workflow/records/1595-docs-1595-adr022-addendum1-host-safety.json`.
 - [x] Current `origin/main` integrated -> `ed47cafee`.
 - [x] One-public-PR constraint recorded -> owner directive, 2026-08-21.
-- [ ] Addendum/checklist baseline committed.
-- [ ] Implementer branch and worktree created from the baseline.
+- [x] Addendum/checklist baseline committed -> `3118790a4`.
+- [x] Implementer branch and worktree created from the baseline ->
+  `fix/1595-host-safety-implementation`, `../SciStudio-wt-1595-impl`.
 - [x] Import path checked for editable-install pollution -> bare Python cannot
   import `scistudio`; repository checks use `PYTHONPATH=src`.
 - [x] Main CI baseline checked -> CI, Docs, CodeQL, and deferral scan passed for
@@ -74,7 +75,7 @@ language_source: en
 
 | Agent | Persona | Prompt | Task | Branch | Worktree | Write set | Status |
 |---|---|---|---|---|---|---|---|
-| I1 | `implementer` | `docs/planning/dispatch-prompts/1595/implementer.md` | Runtime, tests, and implementation-linked docs | `fix/1595-host-safety-implementation` | `../SciStudio-wt-1595-impl` | Prompt Section 3 | `[ ]` |
+| I1 | `implementer` | `docs/planning/dispatch-prompts/1595/implementer.md` | Runtime, tests, and implementation-linked docs | `fix/1595-host-safety-implementation` | `../SciStudio-wt-1595-impl` | Prompt Section 3, including `tests/engine/test_local_runner.py` | `[~]` |
 
 ## 6. Implementation Track
 
@@ -132,6 +133,7 @@ language_source: en
 | Date | Actor | Drift | Action | Follow-up |
 |---|---|---|---|---|
 | 2026-08-21 | manager | Canonical multi-agent flow normally opens an umbrella PR, but the owner requires one public PR. | Use one implementer worktree and keep the manager branch as the sole final PR branch. | N/A |
+| 2026-08-21 | I1 | Removing `ProcessHandle.resource_request` affects two stale constructors in `tests/engine/test_local_runner.py`, outside the initial write set. | Manager amended the gate and dispatch prompt before implementation edits. | `#1595` |
 
 ## 10. Final Readiness
 

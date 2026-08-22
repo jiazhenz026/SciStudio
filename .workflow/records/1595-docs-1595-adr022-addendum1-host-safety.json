@@ -181,6 +181,14 @@
       "path": "docs/planning/dispatch-prompts/1595/implementer.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T02:26:01.708459Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/1595-host-safety-implementation-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -735,6 +743,12 @@
       "at": "2026-08-22T02:21:05.113822Z",
       "pattern": "tests/test_import_coverage.py",
       "reason": "Owner expanded the accepted addendum into complete manager-owned implementation and one final public PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:28:15.933742Z",
+      "pattern": "tests/engine/test_local_runner.py",
+      "reason": "ProcessHandle resource_request removal requires updating stale LocalRunner test constructions discovered during dispatch preflight."
     }
   ],
   "session_id": "bddad3d7-7f6c-4c58-8e78-8d7d161c68d6",
@@ -810,6 +824,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/test_import_coverage.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T02:28:15.933765Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_local_runner.py",
       "rationale": null,
       "verified_in_diff": null
     }

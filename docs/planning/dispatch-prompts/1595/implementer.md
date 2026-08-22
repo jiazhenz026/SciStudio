@@ -55,6 +55,7 @@ You own implementation edits only in:
 - `tests/engine/test_resource_manager_gpu_autodetect.py`
 - `tests/engine/test_scheduler_concurrency.py`
 - `tests/engine/test_process_handle.py`
+- `tests/engine/test_local_runner.py`
 - `tests/test_import_coverage.py`
 - `docs/architecture/ARCHITECTURE.md`
 - `docs/architecture/PROJECT_TREE.md`
