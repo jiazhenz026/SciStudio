@@ -12,6 +12,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {
@@ -29,6 +30,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -44,6 +46,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {
@@ -61,6 +64,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -76,6 +80,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -91,6 +96,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {
@@ -108,6 +114,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -123,6 +130,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -138,6 +146,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {
@@ -155,6 +164,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
@@ -170,6 +180,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/semantic_dup.log",
+      "scope": "repo",
       "status": "fail",
       "summary": "exit 4294967295",
       "tool_versions": {}
@@ -185,6 +196,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {
@@ -202,6 +214,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": null,
+      "scope": "repo",
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
@@ -217,6 +230,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -232,6 +246,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -247,6 +262,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
@@ -262,6 +278,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": null,
+      "scope": "repo",
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
@@ -277,6 +294,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
@@ -292,6 +310,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": null,
+      "scope": "repo",
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
@@ -307,6 +326,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
@@ -322,6 +342,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": null,
+      "scope": "repo",
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
@@ -355,6 +376,11 @@
       "at": "2026-08-21T22:51:12.170764Z",
       "owner_directive": "Sign and notarize in CI, and add the hard verification step.",
       "reason": "Declaring governance_touch: this change edits two CI workflow files, which are a governance-critical surface. .github/workflows/desktop-macos-dmg.yml is edited because it hard-set CSC_IDENTITY_AUTO_DISCOVERY=false, which would have made every CI dmg unsigned and left #2096 unmet on the actual release path; the edit is gated on the certificate secret so credential-less builds are unchanged, and adds the post-build verification the owner asked for. .github/workflows/ci.yml gains a Desktop job because no CI job ran the desktop JS tests, so the new build-configuration guards would never have executed. Neither edit weakens governance, CI, Sentrux, quality thresholds, or protected paths: both add checks. Owner review required per the mod_guard obligation."
+    },
+    {
+      "at": "2026-08-22T07:56:45.093466Z",
+      "owner_directive": "Owner authorized opening the PR with SCISTUDIO_SKIP_PREFLIGHT=1 after confirming origin/main does not yet fix the local test-isolation issues: 'pull the latest origin main, maybe it is already fixed; if not, skip preflight directly.' Re-fetched origin/main at fd3ab718a and confirmed #2074, #2103, #2047 and #2107 are all still OPEN.",
+      "reason": "python_tests cannot pass on this machine for reasons outside this task's scope. Four consecutive full-suite runs produced four DISJOINT failure sets (8 / 3 / 1 / 9 failures), every member matching a tracked open flakiness issue. Root cause is concurrent test runs from other agent worktrees on this Windows box colliding on the shared user-level SciStudio registry (#2074) plus load-induced xdist worker crashes (#2103); two other gate_record check processes and two pytest runs were confirmed live via Win32_Process at the time of the last run, one of them executing tests/api/test_system_vertical.py, which was among the failures. Lowering PYTEST_XDIST_AUTO_NUM_WORKERS from auto to 6 to 4 did not converge, consistent with cross-process rather than intra-run contention. Every individually suspected test passes in isolation. This diff contains NO Python whatsoever, so the branch's Python tree is byte-identical to origin/main and cannot causally affect these tests. CI is Ubuntu and single-run and is the real gate."
     }
   ],
   "docs_events": [
