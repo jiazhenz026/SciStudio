@@ -51,6 +51,7 @@ from scistudio.core.dropins import (
     tutorial_library_dir,
     tutorial_parent_dir,
 )
+from scistudio.stability import provisional
 
 __all__ = [
     "SOURCE_KINDS",
@@ -89,6 +90,7 @@ _COMPONENT_SEPARATOR = "."
 RemoveTree = Callable[[Path], None]
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class TutorialKey:
     """A tutorial's identity: its source and its id (FR-019, FR-075).
