@@ -338,7 +338,7 @@ export interface UISlice {
    * reports a project-tree-relevant change. ``ProjectTree`` subscribes to
    * this counter so external edits (e.g. ``write_workflow`` from the
    * embedded agent) trigger an auto-refresh without the user clicking
-   * the Refresh button.
+   * the Reload button.
    */
   projectTreeRefreshCounter: number;
   /**

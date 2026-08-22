@@ -22,7 +22,7 @@
 //     BlockNode split; useAppKeyboardShortcuts here).
 
 import { ReactFlowProvider } from "@xyflow/react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useLogStream } from "./hooks/useSSE";
 import { useWorkflowWebSocket } from "./hooks/useWebSocket";
@@ -243,6 +243,38 @@ export default function App() {
   const { activeFileTab, activeTabKind } = useActiveTab(tabs as AnyTab[], activeTabId);
   const [busy, setBusy] = useState(false);
   const [leftTab, setLeftTab] = useState<LeftTab>("blocks");
+  const paletteCollapsed = useAppStore((state) => state.paletteCollapsed);
+  /*
+   * #2090 — left-panel section routing.
+   *
+   * `selectLeftTab` is the programmatic switch (library reveal, tutorial
+   * routing): it always expands the panel, because a section switch that
+   * lands behind a collapsed panel is invisible. `handleActivitySelect` is
+   * the activity-bar icon click: clicking the active section while the panel
+   * is open collapses it (VS Code behavior), anything else opens that
+   * section.
+   *
+   * Both read collapse state through `getState()` so neither needs
+   * `paletteCollapsed` / `togglePalette` in its dependency array.
+   */
+  const selectLeftTab = useCallback((tab: LeftTab) => {
+    setLeftTab(tab);
+    if (useAppStore.getState().paletteCollapsed) {
+      useAppStore.getState().togglePalette();
+    }
+  }, []);
+  const handleActivitySelect = useCallback(
+    (tab: LeftTab) => {
+      const { paletteCollapsed: collapsed, togglePalette: toggle } = useAppStore.getState();
+      if (tab === leftTab && !collapsed) {
+        toggle();
+      } else {
+        setLeftTab(tab);
+        if (collapsed) toggle();
+      }
+    },
+    [leftTab],
+  );
   const openNewPlotPicker = useAppStore((state) => state.openNewPlotPicker);
   const { promptRequest, promptInput, clearPrompt } = usePromptInput();
   const {
@@ -381,7 +413,7 @@ export default function App() {
    */
   useLearningCenter({
     wsConnected,
-    setLeftTab,
+    setLeftTab: selectLeftTab,
     openProject,
     closeProject: () => closeCurrentProject({ setCurrentProject, setWorkflow, resetExecution }),
   });
@@ -475,8 +507,11 @@ export default function App() {
             <>
               <ProjectWorkspace
                 currentProject={currentProject}
+                workflowId={workflowId}
                 leftTab={leftTab}
-                onLeftTabChange={setLeftTab}
+                onLeftTabChange={selectLeftTab}
+                onActivitySelect={handleActivitySelect}
+                paletteCollapsed={paletteCollapsed}
                 blocks={blocks}
                 paletteSearch={paletteSearch}
                 setPaletteSearch={setPaletteSearch}
