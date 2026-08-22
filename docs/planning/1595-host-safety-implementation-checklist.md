@@ -137,7 +137,7 @@ language_source: en
 | Pre-PR finalize | `[x]` | Manager ledger reported `ledger is PR-ready` |
 | PR wrapper preflight | `[x]` | Gate-aware wrapper dry-run passed |
 | Public PR and post-PR finalize | `[x]` | Public PR `#2121`; post-PR reconciliation passed |
-| GitHub CI | `[ ]` | pending |
+| GitHub CI | `[x]` | All 16 checks passed on reviewed code candidate `ab2a1bcce`; semantic ratchet completed in 25m20s |
 
 ## 9. Drift Log
 
@@ -161,4 +161,5 @@ language_source: en
 - [x] One public PR targets `main` -> `#2121`.
 - [x] Required labels are applied with valid owner provenance ->
   `admin-approved:architecture-doc`, `admin-approved:core-change`.
-- [ ] CI and review are green.
+- [x] CI is green and all six automated review threads are resolved on the
+  reviewed code candidate `ab2a1bcce`.
