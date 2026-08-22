@@ -36,8 +36,8 @@ language_source: en
   `C:/Users/jiazh/workspace/SciStudio-wt-lc<agent>` worktree.
 - Protected branch: `main`
 - Umbrella branch: `track/learning-center-levels`
-- Umbrella PR: `#2087` (opened 2026-08-21)
-- Umbrella PR title: `[DO NOT MERGE] track: Learning Center levels 2-6 and prerequisites`
+- Umbrella PR: `#2087` (opened 2026-08-21; promoted to the final PR 2026-08-22)
+- Final PR title: `feat(#2081): the Learning Center's remaining five levels, and the runtime they needed`
 - Final PR target: `main` (the umbrella PR is retitled/promoted or a final PR
   is cut from the umbrella branch once integration completes; final PR closes
   every issue listed above except #2067)
@@ -298,10 +298,37 @@ Append only.
 
 ## 13. Final Readiness
 
-- [ ] All dispatched agents have final outputs.
-- [ ] Manager reviewed every changed file.
-- [ ] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux
-      evidence when needed, commit, and PR evidence.
-- [ ] PR closes every issue fixed by the dispatch.
-- [ ] CI passed.
-- [ ] Checklist final state matches PR and gate record.
+- [x] All dispatched agents have final outputs. -> P1/P2/P3, L2-L6, E2E, A1, A2
+      all reported and integrated; see the dispatch matrix.
+- [x] Manager reviewed every changed file. -> each agent PR scope-checked
+      before merge; the three manager-made changes (main merge, the
+      provisional-marker restoration, the prerequisite decision) were audited
+      by A1 at the manager's request and their findings acted on.
+- [x] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux
+      evidence when needed, commit, and PR evidence. -> pre-PR finalize
+      "ledger is PR-ready"; post-PR finalize "post-PR reconciliation passed".
+- [x] PR closes every issue fixed by the dispatch. -> 15 closing links
+      verified through the GitHub API.
+- [~] CI passed. -> running on PR #2087 at the time of writing.
+- [x] Checklist final state matches PR and gate record.
+
+### 13.1 What the levels cost, and what it bought
+
+Nine agents across three waves, plus two audits and one dedicated end-to-end
+session. The defects that mattered most were not found by any of the layers
+that are supposed to find defects:
+
+- **#2134** — two blocks importing one project type could not be connected,
+  making levels 2 and 3 uncompletable. Every unit test passed. Both audits
+  missed it. It took walking a reader's path in a real browser.
+- The **replay tab surface** and the **covered import offer** were the same
+  shape: correct code, correct tests, wrong place from the reader's seat.
+- The **no-context audit** found four content claims the code contradicted
+  that the with-context audit did not — reading the artifact without knowing
+  the intent is a different instrument, and it earned its dispatch.
+- The **with-context audit** found five steps pointing at controls that do
+  not exist, three on judged steps, plus two holes in the manager's own
+  changes. Auditing one's own integration work is not optional.
+
+The zarr publish race (#2047) was reclassified from a flaky test to a product
+defect on the strength of a 400-run measurement the e2e session produced.
