@@ -46,5 +46,13 @@ export function resetAppStore() {
     types: [],
     typesLoaded: false,
     declaredTypeColors: undefined,
+    // #2113 — the previewer catalogue starts unloaded too, with no choices
+    // recorded and the routing epoch at zero.
+    previewers: [],
+    previewersLoaded: false,
+    previewerDiagnostics: [],
+    previewerChoices: [],
+    previewerChoicesLoaded: false,
+    previewerChoiceVersion: 0,
   });
 }

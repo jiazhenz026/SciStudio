@@ -8,6 +8,8 @@ import type {
   GitStatus,
   LogEntry,
   PreviewTarget,
+  PreviewerChoice,
+  PreviewerSpecSummary,
   ProjectResponse,
   ResolvedSubworkflowPorts,
   TypeSummary,
@@ -441,6 +443,36 @@ export interface TypesSlice {
    */
   declaredTypeColors: DeclaredTypeColors | undefined;
   setTypes: (types: TypeSummary[]) => void;
+}
+
+/**
+ * #2113 — the registered previewer catalogue and the person's per-type
+ * previewer choices, one store-held copy each so the Previewers tab, the
+ * websocket invalidation, and the preview re-route all read the same answer.
+ *
+ * Same independence argument as {@link TypesSlice} (ADR-053 FR-027, applied
+ * one tier over by #2095): the Previewers tab must not have to fetch blocks
+ * to draw previewers. Loading is driven by `store/usePreviewerCatalog.ts`.
+ */
+export interface PreviewerCatalogSlice {
+  previewers: PreviewerSpecSummary[];
+  /** True once `GET /api/previews/previewers` has landed at least once. */
+  previewersLoaded: boolean;
+  /** Registry discovery diagnostics reported alongside the listing (#2095). */
+  previewerDiagnostics: string[];
+  previewerChoices: PreviewerChoice[];
+  /** True once `GET /api/previews/choices` has landed at least once. */
+  previewerChoicesLoaded: boolean;
+  /**
+   * Bumped on every choice mutation. `DataPreview` feeds it to `PreviewHost`
+   * as the routing epoch so an open preview re-creates its session — and thus
+   * re-routes through the new choice — instead of sitting on the envelope the
+   * old choice produced.
+   */
+  previewerChoiceVersion: number;
+  setPreviewers: (previewers: PreviewerSpecSummary[], diagnostics: string[]) => void;
+  setPreviewerChoices: (choices: PreviewerChoice[]) => void;
+  bumpPreviewerChoiceVersion: () => void;
 }
 
 /**
@@ -1011,6 +1043,8 @@ export type AppStore = ProjectSlice &
   PaletteSlice &
   // ADR-053 §7 — the registered data type catalogue.
   TypesSlice &
+  // #2113 — the registered previewer catalogue + per-type choices.
+  PreviewerCatalogSlice &
   TabSlice &
   TerminalTabsSlice &
   // ADR-038 §3.8 — Lineage tab client state.

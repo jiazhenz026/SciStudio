@@ -49,6 +49,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   *person* prefers for their own view — so the two are stored separately and
   never arbitrate the same decision.
 
+- [#2113] **The left panel has a Previewers section.** A new activity-bar entry
+  opens a card list of every registered previewer, grouped by the tier it was
+  discovered from — This Project, My Library, Core, then packages A→Z — over
+  the same shared section machinery the Blocks and Data types sections use.
+  Each card says what the previewer renders and whether it is the one currently
+  chosen for its type, and carries the #2049 choice controls: *prefer this
+  previewer* for this project or for all projects, and *clear* on the card that
+  holds the choice. Choosing re-routes the preview already open, not just the
+  next one. The section's own Reload button re-scans the drop-in directories
+  through `POST /api/previews/reload` (#2095) — the previewer surface no longer
+  borrows the block reload — and the listing's registry diagnostics and any
+  recorded-but-unavailable choices are shown rather than silent, because a
+  drop-in refused at scan time or a choice outliving its package used to be
+  indistinguishable from "never existed".
+
 - [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
   that are real, runnable projects, reached from a permanent toolbar entry and
   shown on first launch. The first core tutorial, *Welcome to SciStudio*, ships

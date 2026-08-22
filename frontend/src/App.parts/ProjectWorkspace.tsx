@@ -26,6 +26,7 @@ import { BottomPanel } from "../components/BottomPanel";
 import { CodeEditor } from "../components/CodeEditor";
 import { DataPreview } from "../components/DataPreview";
 import { PaletteTipCard } from "../components/palette/tips/PaletteTipCard";
+import { PreviewerPalette } from "../components/PreviewerPalette";
 import { ProjectTree } from "../components/ProjectTree";
 import { useLibraryReveal } from "../components/promotion/revealInLibrary";
 import { TabBar } from "../components/TabBar";
@@ -57,10 +58,11 @@ export interface CanvasReadabilityWiring {
  * that sits between `Blocks` and `Workflows`. #2090 replaced the text tab
  * strip with the VS Code-style `ActivityBar` icon rail and added the
  * `workflows` and `data` sections (`data` is the project tree rooted at
- * `data/`); the union is widened here ahead of the pane so all section
+ * `data/`); #2113 added the `previewers` section between `types` and
+ * `workflows`; the union is widened here ahead of the pane so all section
  * surfaces read one union.
  */
-export type LeftTab = "blocks" | "types" | "workflows" | "data" | "project";
+export type LeftTab = "blocks" | "types" | "previewers" | "workflows" | "data" | "project";
 
 export interface ProjectWorkspaceProps {
   // Project / workflow context
@@ -180,9 +182,12 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
     <div className="relative h-full overflow-hidden">
       {/* FR-027 — the Data types pane takes no props: it reads the type
           catalogue directly, so opening it neither waits for nor
-          re-triggers a blocks fetch. */}
+          re-triggers a blocks fetch. #2113 — the Previewers pane reads its
+          own catalogue the same way, one tier over. */}
       {leftTab === "types" ? (
         <TypePalette />
+      ) : leftTab === "previewers" ? (
+        <PreviewerPalette />
       ) : leftTab === "blocks" ? (
         <BlockPalette
           blocks={blocks}

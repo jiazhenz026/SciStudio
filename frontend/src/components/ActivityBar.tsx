@@ -8,7 +8,15 @@
 // resizes and stays visible when the panel is collapsed, which is what makes
 // the collapsed state discoverable.
 
-import { Database, FolderTree, Puzzle, Shapes, Waypoints, type LucideIcon } from "lucide-react";
+import {
+  Database,
+  Eye,
+  FolderTree,
+  Puzzle,
+  Shapes,
+  Waypoints,
+  type LucideIcon,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -27,6 +35,9 @@ interface ActivityBarEntry {
 const ACTIVITY_BAR_ENTRIES: readonly ActivityBarEntry[] = [
   { key: "blocks", label: "Blocks", icon: Puzzle },
   { key: "types", label: "Data types", icon: Shapes },
+  // #2113 — the Previewers section: every registered previewer by tier, with
+  // reload and the per-type choice controls (#2095 / #2049).
+  { key: "previewers", label: "Previewers", icon: Eye },
   { key: "workflows", label: "Workflows", icon: Waypoints },
   { key: "data", label: "Data", icon: Database },
   { key: "project", label: "Project", icon: FolderTree },

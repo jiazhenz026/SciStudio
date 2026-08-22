@@ -14,6 +14,16 @@
       "at": "2026-08-22T01:40:31.886795Z",
       "owner_directive": "Baseline strategy (owner-confirmed): merge PR #2100 and #2110 branches locally as the integration baseline; after they land on main this PR's diff reduces to the frontend work.",
       "reason": "Integration baseline: merged the two still-open backend PR branches #2100 (fix/2095) and #2110 (feat/2049) locally as the API base for the frontend work (owner-confirmed baseline strategy). The merge carried both PRs' backend, docs, and test files into this branch's diff."
+    },
+    {
+      "at": "2026-08-22T01:48:34.497725Z",
+      "owner_directive": "Left-panel Previewers tab (#2113): fourth activity-bar section rendering every registered previewer as a card, grouped by tier in routing order (This Project / My Library / packages A-Z / Core), with a Reload button wired to POST /api/previews/reload and per-target-type choice controls on each card exposing both scopes (This project / All projects) from the #2049 choice API. Setting or clearing a choice re-routes the currently open preview (routing epoch passed into PreviewHost). Built on the merged #2100+#2110 integration baseline.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-08-22T02:08:42.284962Z",
+      "owner_directive": "After finishing: start a backend and frontend for live testing. PR #2100 is merged now and #2110 has a conflict with main \u2014 if the conflict was already resolved during this work, push a resolution commit to the #2110 branch; put the new Previewers tab feature in a new PR.",
+      "reason": "Owner redirected the session wrap-up: PR #2100 has merged into main and PR #2110 now conflicts with main; resolve that conflict with a commit pushed to feat/2049-previewer-choice (reusing the resolution already worked out in this session's integration merge), open the frontend tab work as a new PR, and start a backend + frontend from the worktree for live owner testing when done."
     }
   ],
   "docs_events": [
@@ -30,6 +40,38 @@
       "class": null,
       "kind": "path",
       "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:48:34.497747Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/frontend-block-palette.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:48:34.497753Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:48:34.497760Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "frontend-only tab over already-merged backend contracts; no architectural decision",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T02:37:24.283125Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/frontend-block-palette.md",
       "rationale": null,
       "verified_in_diff": null
     }
@@ -140,6 +182,18 @@
       "at": "2026-08-22T01:40:31.886847Z",
       "pattern": ".workflow/records/2049-previewer-choice.json",
       "reason": "Integration baseline: merged the two still-open backend PR branches #2100 (fix/2095) and #2110 (feat/2049) locally as the API base for the frontend work (owner-confirmed baseline strategy). The merge carried both PRs' backend, docs, and test files into this branch's diff."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:08:42.284980Z",
+      "pattern": "frontend/src/testUtils.ts",
+      "reason": "Owner redirected the session wrap-up: PR #2100 has merged into main and PR #2110 now conflicts with main; resolve that conflict with a commit pushed to feat/2049-previewer-choice (reusing the resolution already worked out in this session's integration merge), open the frontend tab work as a new PR, and start a backend + frontend from the worktree for live owner testing when done."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T02:37:24.283095Z",
+      "pattern": "docs/specs/frontend-block-palette.md",
+      "reason": "Docs landing for the Previewers tab: frontend palette spec gains section 14; CHANGELOG gains the #2113 entry. Also recording the shared-scope fix to data.py carried over from the #2110 conflict resolution (choice routes use refresh_all_registries, matching the updated feat/2049 branch tip)."
     }
   ],
   "session_id": "c8d079c6-349b-4630-96bd-5b6c2de72b06",
@@ -159,6 +213,30 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_previewer_choice_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:48:34.497764Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/PreviewerPalette.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:48:34.497768Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/PreviewerPalette.parts/previewerModel.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T01:48:34.497770Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/api/__tests__/api-surface.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }
