@@ -28,10 +28,10 @@ order: 2
 requires:
   # Same floor as tutorials 1 and 4: to_memory() and the ergonomic accessors
   # the shipped block sources rely on are stable from 0.3.1 (ADR-052 §10).
-  # Deliberately no requires.tutorials entry: gating the core levels on each
-  # other is a track-integration decision, and a shipped core tutorial must be
-  # startable in the tree that ships it
-  # (test_core_tutorials.py::test_every_shipped_tutorial_is_startable_in_this_tree).
+  # No requires.tutorials entry, and here that is a statement rather than a
+  # concession: this level builds everything it uses. Tutorial 3 declares one
+  # (#2088) because it consumes what this level's last three steps put in the
+  # library.
   scistudio: ">=0.3.1"
   agent: false
   packages: []
@@ -49,8 +49,11 @@ bootstrap:
 
 steps:
   # One framing step that also plays beat 2: the reader looks at what exists
-  # before building what does not. The Data types tab is product truth — six
-  # core types, no Image — so the gap is seen, not announced.
+  # before building what does not. The Data types tab is product truth — the
+  # core types are there and Image is not — so the gap is seen, not announced.
+  # The tab also lists DataObject, the root every type descends from, so the
+  # step does not ask the reader to count: a number would be wrong the moment
+  # a package registers one.
   - id: a-task-arrives
     title: An image walks in
     route_to: data_types
@@ -125,7 +128,7 @@ steps:
     say: >-
       Click the Load block. Press Browse, open data then raw, and pick
       cells.tif. Then open the core_type list — your own Image is in it,
-      alongside the six core types. Select it.
+      alongside the ones that came with the product. Select it.
     done_when:
       all:
         - config_matches:

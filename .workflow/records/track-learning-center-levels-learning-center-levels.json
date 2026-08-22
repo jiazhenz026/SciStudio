@@ -1,6 +1,173 @@
 {
   "branch": "track/learning-center-levels",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-08-22T10:07:16.253993Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:eb43893a0c4f4d67ff236234613034e40fb3829340195b9e30baab54b8fc1654",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T10:07:18.155796Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4aa7800d2dfacf12207a312c2de012a6d2491c30099cdd0c2dda30c2c9d43098",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T10:07:18.205355Z",
+      "command": "ruff format src/scistudio/api/routes/ai_pty/replay.py src/scistudio/api/routes/tutorials.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/core/dropins.py src/scistudio/previewers/__init__.py src/scistudio/previewers/project.py src/scistudio/tutorials/actions.py src/scistudio/tutorials/conditions.py src/scistudio/tutorials/core/start-your-own-project/assets/code/growth_curves_render.py src/scistudio/tutorials/core/start-your-own-project/assets/code/summarize_growth.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/joint_region_profiles.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_section_stack.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/region_map_render.py src/scistudio/tutorials/core/what-ai-can-do/assets/code/qc_before_after/render.py src/scistudio/tutorials/core/what-ai-can-do/assets/code/qc_outlier_filter.py src/scistudio/tutorials/core/what-ai-can-do/assets/code/qc_outlier_filter_broken.py src/scistudio/tutorials/core/what-ai-can-do/assets/code/summarize_metrics.py src/scistudio/tutorials/core/what-ai-can-do/assets/code/tutorial_ai_agent.py src/scistudio/tutorials/core/what-is-a-type/assets/code/image.py src/scistudio/tutorials/core/what-is-a-type/assets/code/image_preview.py src/scistudio/tutorials/core/what-is-a-type/assets/code/load_tiff_image.py src/scistudio/tutorials/core/what-is-a-type/assets/code/review_labels.py src/scistudio/tutorials/core/what-is-a-type/assets/code/segment_cells.py src/scistudio/tutorials/discovery.py src/scistudio/tutorials/driver.py src/scistudio/tutorials/manifest.py src/scistudio/tutorials/progress.py src/scistudio/tutorials/projects.py src/scistudio/tutorials/session.py tests/api/test_registry_provisioning_parity.py tests/api/test_registry_reload_symmetry.py tests/api/test_tutorial_library_write.py tests/api/test_tutorial_project_visibility.py tests/api/test_tutorial_replay.py tests/api/test_tutorial_routes.py tests/api/test_user_library_write.py tests/tutorials/conftest.py tests/tutorials/test_condition_events.py tests/tutorials/test_conditions.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_core_tutorial_what_ai_can_do.py tests/tutorials/test_core_tutorial_what_is_a_type.py tests/tutorials/test_core_tutorials.py tests/tutorials/test_discovery_tiers.py tests/tutorials/test_driver_parity.py tests/tutorials/test_manifest_schema.py tests/tutorials/test_progress.py tests/tutorials/test_replay.py tests/tutorials/test_scoped_library.py tests/tutorials/test_session_lifecycle.py tests/tutorials/test_start_your_own_project.py tests/tutorials/test_summary_reading_tutorial.py tests/tutorials/test_tier_asset_rules.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c28d8a294d4b2cacd400294651779d52f45249b0235a61f10ccc98b8a62854b2",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-22T10:07:49.377949Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:9da117c38eb2da3167f3d3eabdd898d258e5c2bd44cb27185945cce3960cf703",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T10:08:01.005232Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:90b56684e16d09dfb1e5f98bb7c2317f565b79745d7553735cbc2c332cccdcfd",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T10:08:01.315044Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cc910cdbf6af5d48185be19ef3fa3e6aa4470048e10a8eabcf3935ebcfa8fc4b",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T10:08:01.346887Z",
+      "command": "ruff check src/scistudio/api/routes/ai_pty/replay.py src/scistudio/api/routes/tutorials.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/core/dropins.py src/scistudio/previewers/__init__.py src/scistudio/previewers/project.py src/scistudio/tutorials/actions.py src/scistudio/tutorials/conditions.py src/scistudio/tutorials/core/start-your-own-project/assets/code/growth_curves_render.py src/scistudio/tutorials/core/start-your-own-project/assets/code/summarize_growth.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/joint_region_profiles.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_section_stack.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/region_map_render.py src/scistudio/tutorials/core/what-ai-can-do/assets/code/qc_before_after/render.py src/scistudio/tutorials/core/what-ai-can-do/assets/code/qc_outlier_filter.py src/scistudio/tutorials/core/what-ai-can-do/assets/code/qc_outlier_filter_broken.py src/scistudio/tutorials/core/what-ai-can-do/assets/code/summarize_metrics.py src/scistudio/tutorials/core/what-ai-can-do/assets/code/tutorial_ai_agent.py src/scistudio/tutorials/core/what-is-a-type/assets/code/image.py src/scistudio/tutorials/core/what-is-a-type/assets/code/image_preview.py src/scistudio/tutorials/core/what-is-a-type/assets/code/load_tiff_image.py src/scistudio/tutorials/core/what-is-a-type/assets/code/review_labels.py src/scistudio/tutorials/core/what-is-a-type/assets/code/segment_cells.py src/scistudio/tutorials/discovery.py src/scistudio/tutorials/driver.py src/scistudio/tutorials/manifest.py src/scistudio/tutorials/progress.py src/scistudio/tutorials/projects.py src/scistudio/tutorials/session.py tests/api/test_registry_provisioning_parity.py tests/api/test_registry_reload_symmetry.py tests/api/test_tutorial_library_write.py tests/api/test_tutorial_project_visibility.py tests/api/test_tutorial_replay.py tests/api/test_tutorial_routes.py tests/api/test_user_library_write.py tests/tutorials/conftest.py tests/tutorials/test_condition_events.py tests/tutorials/test_conditions.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_core_tutorial_what_ai_can_do.py tests/tutorials/test_core_tutorial_what_is_a_type.py tests/tutorials/test_core_tutorials.py tests/tutorials/test_discovery_tiers.py tests/tutorials/test_driver_parity.py tests/tutorials/test_manifest_schema.py tests/tutorials/test_progress.py tests/tutorials/test_replay.py tests/tutorials/test_scoped_library.py tests/tutorials/test_session_lifecycle.py tests/tutorials/test_start_your_own_project.py tests/tutorials/test_summary_reading_tutorial.py tests/tutorials/test_tier_asset_rules.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7f90463406929aeb6132235cefca8b8790a3ad706f167ec2443d71ca65c7e7a4",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-22T10:11:36.914628Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/api tests/api/routes tests/api/routes/ai_pty tests/api/test_registry_provisioning_parity.py tests/api/test_registry_reload_symmetry.py tests/api/test_tutorial_library_write.py tests/api/test_tutorial_project_visibility.py tests/api/test_tutorial_replay.py tests/api/test_tutorial_routes.py tests/api/test_user_library_write.py tests/core tests/previewers tests/tutorials tests/tutorials/test_condition_events.py tests/tutorials/test_conditions.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_core_tutorial_what_ai_can_do.py tests/tutorials/test_core_tutorial_what_is_a_type.py tests/tutorials/test_core_tutorials.py tests/tutorials/test_discovery_tiers.py tests/tutorials/test_driver_parity.py tests/tutorials/test_manifest_schema.py tests/tutorials/test_progress.py tests/tutorials/test_replay.py tests/tutorials/test_scoped_library.py tests/tutorials/test_session_lifecycle.py tests/tutorials/test_start_your_own_project.py tests/tutorials/test_summary_reading_tutorial.py tests/tutorials/test_tier_asset_rules.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cc654a45d9ea47c12adb7bfa3944538b4373ab795ecf1b622b5afa0d438e4b2f",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-22T10:11:41.102063Z",
+      "command": "mypy src/scistudio/api/routes/ai_pty/replay.py src/scistudio/api/routes/tutorials.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/core/dropins.py src/scistudio/previewers/__init__.py src/scistudio/previewers/project.py src/scistudio/tutorials/actions.py src/scistudio/tutorials/conditions.py src/scistudio/tutorials/core/start-your-own-project/assets/code/growth_curves_render.py src/scistudio/tutorials/core/start-your-own-project/assets/code/summarize_growth.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/joint_region_profiles.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_section_stack.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/region_map_render.py src/scistudio/tutorials/core/what-ai-can-do/assets/code/qc_before_after/render.py src/scistudio/tutorials/core/what-ai-can-do/assets/code/qc_outlier_filter.py src/scistudio/tutorials/core/what-ai-can-do/assets/code/qc_outlier_filter_broken.py src/scistudio/tutorials/core/what-ai-can-do/assets/code/summarize_metrics.py src/scistudio/tutorials/core/what-ai-can-do/assets/code/tutorial_ai_agent.py src/scistudio/tutorials/core/what-is-a-type/assets/code/image.py src/scistudio/tutorials/core/what-is-a-type/assets/code/image_preview.py src/scistudio/tutorials/core/what-is-a-type/assets/code/load_tiff_image.py src/scistudio/tutorials/core/what-is-a-type/assets/code/review_labels.py src/scistudio/tutorials/core/what-is-a-type/assets/code/segment_cells.py src/scistudio/tutorials/discovery.py src/scistudio/tutorials/driver.py src/scistudio/tutorials/manifest.py src/scistudio/tutorials/progress.py src/scistudio/tutorials/projects.py src/scistudio/tutorials/session.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a9b38c63ba54b33a4939c549b51dcfca0f7e81a336fb9525bc5b06f098f4e350",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
+    },
+    {
+      "at": "2026-08-22T10:13:58.291483Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9da117c38eb2da3167f3d3eabdd898d258e5c2bd44cb27185945cce3960cf703",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -101,7 +268,228 @@
     }
   ],
   "governance_touch": true,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-08-22T10:11:41.148624Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:11:41.162475Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/dropins.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/dropins.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:11:41.175914Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:11:41.189863Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:11:41.203383Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:11:41.216777Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:11:41.230442Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:11:41.250525Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:11:41.266994Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:11:41.281808Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:11:41.298122Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:13:58.336629Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:13:58.352044Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/dropins.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/dropins.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:13:58.367423Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:13:58.382856Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:13:58.398349Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:13:58.414265Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:13:58.429867Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:13:58.445777Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:13:58.465774Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:13:58.480586Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T10:13:58.495974Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -180,14 +568,240 @@
       "followup_rationale": null,
       "number": 2086,
       "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2134,
+      "url": null
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "fd3ab718a",
+    "changed_files": [
+      ".workflow/records/2061-tutorial-step-vocabulary.json",
+      ".workflow/records/2075-fix-2075-lc-windows-tests.json",
+      ".workflow/records/2081-audit-lc-levels-no-context.json",
+      ".workflow/records/2081-core-tutorial-2.json",
+      ".workflow/records/2081-lc-levels-with-context.json",
+      ".workflow/records/2082-core-tutorial-3.json",
+      ".workflow/records/2083-core-tutorial-4.json",
+      ".workflow/records/2084-core-tutorial-5.json",
+      ".workflow/records/2085-feat-2085-core-tutorial-6.json",
+      ".workflow/records/2086-tutorial-library-previewer-tier.json",
+      ".workflow/records/track-learning-center-levels-learning-center-levels.json",
+      "CHANGELOG.md",
+      "docs/ai-developer/e2e/2026-08-21-lc-level-1-regression.md",
+      "docs/ai-developer/e2e/2026-08-21-lc-level-5-summary.md",
+      "docs/ai-developer/e2e/2026-08-21-lc-level-6-own-project.md",
+      "docs/audit/2026-08-22-lc-levels-no-context.md",
+      "docs/audit/2026-08-22-lc-levels-with-context.md",
+      "docs/planning/learning-center-levels-checklist.md",
+      "docs/planning/learning-center-levels-dispatch-prompts.md",
+      "docs/specs/adr-053-learning-center.md",
+      "frontend/src/App.parts/__tests__/useTutorialReplayTab.test.tsx",
+      "frontend/src/App.parts/useBottomPanelControls.ts",
+      "frontend/src/App.parts/useProjectActions.ts",
+      "frontend/src/App.parts/useTutorialReplayTab.ts",
+      "frontend/src/App.tsx",
+      "frontend/src/components/BottomPanel.parts/PlotsTab.test.tsx",
+      "frontend/src/components/BottomPanel.parts/PlotsTab.tsx",
+      "frontend/src/components/LearningCenter.parts/ActiveStep.tsx",
+      "frontend/src/components/LearningCenter.parts/PageMarkdown.tsx",
+      "frontend/src/components/LearningCenter.parts/ProviderIntro.tsx",
+      "frontend/src/components/LearningCenter.parts/ReadingSurface.tsx",
+      "frontend/src/components/LearningCenter.parts/WorkImportOffer.tsx",
+      "frontend/src/components/LearningCenter.parts/__tests__/ActiveStep.test.tsx",
+      "frontend/src/components/LearningCenter.parts/__tests__/PageMarkdown.test.tsx",
+      "frontend/src/components/LearningCenter.parts/__tests__/ReadingSurface.test.tsx",
+      "frontend/src/components/LearningCenter.parts/__tests__/readingCards.test.ts",
+      "frontend/src/components/LearningCenter.parts/readingCards.ts",
+      "frontend/src/components/LearningCenter.parts/targets.ts",
+      "frontend/src/components/LearningCenter.tsx",
+      "frontend/src/components/Toolbar.tsx",
+      "frontend/src/components/__tests__/WorkImportOffer.test.tsx",
+      "frontend/src/components/__tests__/tutorialAutoAdvance.test.tsx",
+      "frontend/src/components/__tests__/tutorialTargets.test.tsx",
+      "frontend/src/components/promotion/UserLibraryDialogs.tsx",
+      "frontend/src/components/promotion/__tests__/promotable.test.ts",
+      "frontend/src/components/promotion/__tests__/runPromotion.test.ts",
+      "frontend/src/components/promotion/promotable.ts",
+      "frontend/src/components/promotion/promoteToUserLibrary.ts",
+      "frontend/src/components/promotion/runPromotion.ts",
+      "frontend/src/lib/api/learningCenter.ts",
+      "frontend/src/store/__tests__/terminalTabsSlice.tutorialReplay.test.ts",
+      "frontend/src/store/learningCenterSlice.ts",
+      "frontend/src/store/tabSlice.parts/fileTabActions.ts",
+      "frontend/src/store/terminalTabsSlice.ts",
+      "frontend/src/store/types.ts",
+      "frontend/src/types/api.ts",
+      "src/scistudio/api/routes/ai_pty/replay.py",
+      "src/scistudio/api/routes/tutorials.py",
+      "src/scistudio/api/routes/user_library.py",
+      "src/scistudio/api/schemas.py",
+      "src/scistudio/core/dropins.py",
+      "src/scistudio/previewers/__init__.py",
+      "src/scistudio/previewers/project.py",
+      "src/scistudio/tutorials/actions.py",
+      "src/scistudio/tutorials/conditions.py",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/block-built-ins.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/block-six-kinds.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/block-tips.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/block-what-it-is.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/history-branches.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/history-git.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/history-restore.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/history-the-tab.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/history-tips.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/library-project-vs-library.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/library-what-it-holds.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/library-what-it-is.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/others-ask-the-ai.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/others-bring-in-work.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/others-packages.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/others-the-docs.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/others-when-a-run-fails.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/plot-binding.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/plot-code.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/plot-collection.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/plot-tips.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/plot-what-it-is.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/previewer-custom.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/previewer-the-pane.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/previewer-tips.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/previewer-typed.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/type-canonical-zone.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/type-six-core.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/type-tips.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/type-what-it-is.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/workflow-port-colours.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/workflow-running.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/workflow-tidy-focus.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/assets/pages/workflow-what-it-is.md",
+      "src/scistudio/tutorials/core/scistudio-at-a-glance/tutorial.yaml",
+      "src/scistudio/tutorials/core/start-your-own-project/assets/code/growth_curves_render.py",
+      "src/scistudio/tutorials/core/start-your-own-project/assets/code/summarize_growth.py",
+      "src/scistudio/tutorials/core/start-your-own-project/assets/data/growth_measurements.csv",
+      "src/scistudio/tutorials/core/start-your-own-project/assets/data/notes.txt",
+      "src/scistudio/tutorials/core/start-your-own-project/tutorial.yaml",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/joint_region_profiles.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_section_stack.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/region_map_render.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/run1_counts.xlsx",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/run2_counts.xlsx",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/sections.tif",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/tutorial.yaml",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/code/qc_before_after/plot.yaml",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/code/qc_before_after/render.py",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/code/qc_outlier_filter.py",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/code/qc_outlier_filter_broken.py",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/code/summarize_metrics.py",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/code/tutorial_ai_agent.py",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/data/plate_measurements.csv",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/data/undocumented/mmx_007.csv",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/data/undocumented/mmx_012.csv",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/data/undocumented/plate2_export.csv",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/replay/.gitattributes",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/replay/01-what-is-scistudio.txt",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/replay/02-list-blocks.txt",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/replay/03-qc-block.txt",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/replay/04-assemble.txt",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/replay/05-debug.txt",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/replay/06-inspect.txt",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/replay/07-threshold.txt",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/replay/08-plot.txt",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/replay/09-ai-block.txt",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/replay/log/01-what-is-scistudio.txt",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/replay/log/02-list-blocks.txt",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/replay/log/05-debug.txt",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/replay/log/06-inspect.txt",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/replay/log/07-threshold.txt",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/workflows/main-with-metadata.yaml",
+      "src/scistudio/tutorials/core/what-ai-can-do/assets/workflows/main.yaml",
+      "src/scistudio/tutorials/core/what-ai-can-do/tutorial.yaml",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/code/image.py",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/code/image_preview.py",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/code/load_tiff_image.py",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/code/review_labels.py",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/code/segment_cells.py",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/data/cells.tif",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/panels/review_labels/panel.mjs",
+      "src/scistudio/tutorials/core/what-is-a-type/tutorial.yaml",
+      "src/scistudio/tutorials/discovery.py",
+      "src/scistudio/tutorials/driver.py",
+      "src/scistudio/tutorials/manifest.py",
+      "src/scistudio/tutorials/progress.py",
+      "src/scistudio/tutorials/projects.py",
+      "src/scistudio/tutorials/schema/tutorial.schema.json",
+      "src/scistudio/tutorials/session.py",
+      "tests/api/test_registry_provisioning_parity.py",
+      "tests/api/test_registry_reload_symmetry.py",
+      "tests/api/test_tutorial_library_write.py",
+      "tests/api/test_tutorial_project_visibility.py",
+      "tests/api/test_tutorial_replay.py",
+      "tests/api/test_tutorial_routes.py",
+      "tests/api/test_user_library_write.py",
+      "tests/tutorials/conftest.py",
+      "tests/tutorials/test_condition_events.py",
+      "tests/tutorials/test_conditions.py",
+      "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "tests/tutorials/test_core_tutorial_what_ai_can_do.py",
+      "tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "tests/tutorials/test_core_tutorials.py",
+      "tests/tutorials/test_discovery_tiers.py",
+      "tests/tutorials/test_driver_parity.py",
+      "tests/tutorials/test_manifest_schema.py",
+      "tests/tutorials/test_progress.py",
+      "tests/tutorials/test_replay.py",
+      "tests/tutorials/test_scoped_library.py",
+      "tests/tutorials/test_session_lifecycle.py",
+      "tests/tutorials/test_start_your_own_project.py",
+      "tests/tutorials/test_summary_reading_tutorial.py",
+      "tests/tutorials/test_tier_asset_rules.py"
+    ],
+    "diff_fingerprint": "sha256:230c32d9e784daf03ba40c59bdbb6c0dad6d692ebece22003e76aad880d1ee98",
+    "head": "HEAD",
+    "head_sha": "85fdffe76",
+    "surfaces": {
+      "docs": 8,
+      "frontend": 36,
+      "governance": 3,
+      "governed_docs": 3,
+      "implementation": 136,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 1,
+      "sentrux": 161,
+      "test": 36,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Orchestrate agents to implement all remaining Learning Center levels (2-6) and their prerequisite work; Chrome-test each level after completion; deliver one final PR; then launch backend + desktop frontend for owner level-by-level acceptance.",
   "persona": "manager",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-08-22T10:11:41.298146Z",
+      "diff_fingerprint": "sha256:230c32d9e784daf03ba40c59bdbb6c0dad6d692ebece22003e76aad880d1ee98",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend"
+      ]
+    },
+    {
+      "at": "2026-08-22T10:13:58.496007Z",
+      "diff_fingerprint": "sha256:230c32d9e784daf03ba40c59bdbb6c0dad6d692ebece22003e76aad880d1ee98",
+      "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "track-learning-center-levels-learning-center-levels",
   "requested_admin_labels": [
     {
@@ -204,10 +818,36 @@
     }
   ],
   "required_obligations": {
-    "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
+    "admin_labels": [
+      "admin-approved:core-change"
+    ],
+    "checks": [
+      "architecture_tests",
+      "deferral_discipline",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
     "tests": []
   },
   "runtime": "claude-code:claude-fable-5",
@@ -230,10 +870,40 @@
       "at": "2026-08-22T09:27:15.183418Z",
       "pattern": "tests/tutorials/test_core_tutorials.py",
       "reason": "Integration decision the level authors correctly refused to take alone: tutorial 3 declares requires.tutorials (#2088), and the startability test learns to tell a progress gate apart from an environment fault."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T09:57:05.663069Z",
+      "pattern": "src/scistudio/tutorials/core/**",
+      "reason": "Act on the no-context audit (PR #2131): fix the P1 it found in my own prerequisite decision, and correct four content claims the code contradicts."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T09:57:05.663086Z",
+      "pattern": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "reason": "Act on the no-context audit (PR #2131): fix the P1 it found in my own prerequisite decision, and correct four content claims the code contradicts."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T10:04:01.266201Z",
+      "pattern": "tests/tutorials/test_manifest_schema.py",
+      "reason": "Act on the with-context audit (PR #2132): five copy fixes naming controls that do not exist, plus two holes it found in the manager's own changes."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T10:25:09.270063Z",
+      "pattern": "src/scistudio/blocks/base/ports.py",
+      "reason": "A core workflow-validation defect the e2e session found: two ports declaring the same project type refuse to connect, which makes tutorials 2 and 3 uncompletable. Fixed in the port check using the product's existing same_registered_type."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T10:25:09.270080Z",
+      "pattern": "tests/blocks/test_port_subclass.py",
+      "reason": "A core workflow-validation defect the e2e session found: two ports declaring the same project type refuse to connect, which makes tutorials 2 and 3 uncompletable. Fixed in the port check using the product's existing same_registered_type."
     }
   ],
   "session_id": "1a80a328-9d3b-4c71-85f4-581225aedf57",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "manager",
   "test_events": [
     {
@@ -241,6 +911,22 @@
       "class": null,
       "kind": "path",
       "path": "tests/tutorials/test_core_tutorials.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T10:04:01.266221Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_manifest_schema.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T10:25:09.270180Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_port_subclass.py",
       "rationale": null,
       "verified_in_diff": null
     }

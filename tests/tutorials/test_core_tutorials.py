@@ -491,6 +491,29 @@ def test_a_prerequisite_is_the_only_thing_that_may_hold_a_core_tutorial_back() -
             f"core tutorial {tutorial.key.tutorial_id!r} requires {missing}, which this tree does not ship — "
             "the reader would have no way to clear it"
         )
+        assert tutorial.key.tutorial_id not in required, (
+            f"core tutorial {tutorial.key.tutorial_id!r} requires itself, so nothing a reader does can ever clear it"
+        )
+
+    # Reachability, which the per-tutorial checks above cannot see: a cycle
+    # gates every level in it forever while each one individually looks
+    # well-formed. Walk the declared order and assert the catalogue can be
+    # completed from a clean install by doing the levels one at a time.
+    remaining = {
+        tutorial.key.tutorial_id: set(tutorial.manifest.requires.tutorials)
+        for tutorial in result.tutorials
+        if tutorial.manifest is not None
+    }
+    completed: set[str] = set()
+    while remaining:
+        clearable = [tid for tid, needs in remaining.items() if needs <= completed]
+        assert clearable, (
+            f"no core tutorial is startable once {sorted(completed)} are done — the remaining "
+            f"{ {tid: sorted(needs) for tid, needs in remaining.items()} } wait on each other"
+        )
+        for tid in clearable:
+            completed.add(tid)
+            del remaining[tid]
 
 
 @pytest.mark.parametrize(

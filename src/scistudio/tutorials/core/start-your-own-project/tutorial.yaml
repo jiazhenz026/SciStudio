@@ -27,11 +27,10 @@ order: 6
 
 requires:
   # Same floor as tutorial 1: to_memory() and the ergonomic table accessors
-  # the shipped block relies on are stable from 0.3.1 (ADR-052 §10). There is
-  # deliberately no requires.tutorials entry: gating the core levels on each
-  # other is a track-integration decision, and a shipped core tutorial must be
-  # startable in the tree that ships it
-  # (test_core_tutorials.py::test_every_shipped_tutorial_is_startable_in_this_tree).
+  # the shipped block relies on are stable from 0.3.1 (ADR-052 §10). No
+  # requires.tutorials entry: this level starts from its own bootstrap and
+  # reads nothing another level leaves behind, so a reader who arrives here
+  # first loses nothing (only tutorial 3 declares a prerequisite, #2088).
   scistudio: ">=0.3.1"
   agent: false
   packages: []
@@ -72,10 +71,11 @@ steps:
     say: >-
       data/ holds four kinds of place. data/raw is yours: files go in here.
       data/processed is yours too: results you decide to keep land here.
-      data/zarr, data/parquet, and data/artifacts are the system's stores —
-      named for how a payload is persisted, filled during runs, not for you.
-      And data/exchange is where files are handed to software outside
-      SciStudio. You will touch each of them in the next steps.
+      data/zarr, data/parquet, and data/artifacts are the system's stores,
+      named for how a payload is persisted rather than for what it means. A
+      run fills data/zarr as blocks hand data along; the other two hold what a
+      Save block is pointed at. None of the three is a folder you tend. And
+      data/exchange is where files are handed to software outside SciStudio.
 
   # The import beat. The trigger is what makes it real rather than narrated:
   # the reader presses the button and files appear in data/raw — the same
@@ -92,8 +92,8 @@ steps:
             destination: data/raw
     say: >-
       Importing data is nothing more than putting files in data/raw. Press the
-      button below and we will copy everything from incoming-example/ into
-      data/raw/ for you. With your own data the move is the same and needs no
+      button below and we will put that folder's files into data/raw/ for
+      you. With your own data the move is the same and needs no
       wizard: drop the files into data/raw with your file manager, and they
       are in the project.
     done_when:
@@ -277,9 +277,13 @@ steps:
         name: plot_rendered
         plot_id: growth_curves
 
-  # No term in the vocabulary can see an export — the file lands wherever the
-  # reader chose, outside the project — so this is an honest continue step:
-  # the say tells the reader we cannot check it, and the move is theirs.
+  # TODO(#2133): no term in the vocabulary can see a figure saved out of the
+  #   product — the file lands wherever the reader chose, outside the project.
+  #   Out of scope per the levels track: adding one needs either a frontend
+  #   signal or a record of the save route, and the decision is the spec's.
+  #   Followup: https://github.com/jiazhenz026/SciStudio/issues/2133
+  #   Until then this is an honest continue step: the say tells the reader we
+  #   cannot check it, and the move is theirs.
   - id: export-or-lose-it
     title: Export the figure
     route_to: plots
@@ -290,9 +294,10 @@ steps:
       That figure is not in your project. Plots live in the preview cache
       under .scistudio/previews/, and the next run overwrites them — they do
       not travel with the project, and version control never sees them.
-      Export is the only way a figure survives: press Export on the plot card
-      and save it somewhere of yours. We cannot check this one for you —
-      continue when your figure is safe.
+      Saving it out is the only way a figure survives: click the plot card to
+      bring the figure up in the Preview pane on the right, pick a format, and
+      press Save. It lands wherever you choose, outside the cache. We cannot
+      check this one for you — continue when your figure is safe.
 
   - id: your-own-project
     title: Done
