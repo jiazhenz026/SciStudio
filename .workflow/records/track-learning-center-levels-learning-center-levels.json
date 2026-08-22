@@ -143,7 +143,14 @@
   "pull_request": null,
   "reconcile_events": [],
   "record_id": "track-learning-center-levels-learning-center-levels",
-  "requested_admin_labels": [],
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
   "required_obligations": {
     "admin_labels": [],
     "checks": [],

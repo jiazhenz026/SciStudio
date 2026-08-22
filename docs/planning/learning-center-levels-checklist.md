@@ -122,9 +122,14 @@ language_source: en
 
 ## 5. Local Gate Hook Bypass Evidence
 
-- Authorized bypass label: `N/A`
-- Owner authorization source: `N/A`
-- Reason: `N/A`
+- Authorized bypass label: `admin-approved:core-change` (narrow, protected-core
+  authorization only)
+- Owner authorization source: owner chat, 2026-08-21 ("A" to the #2117
+  decision question)
+- Reason: PR #2117 (#2086) changes `src/scistudio/core/dropins.py` within its
+  dispatched scope (previewer_scan_dirs one-root swap). Label requested in the
+  manager and P2 gate ledgers; owner applies the real label on PR #2117 and on
+  the final PR; CI verifies actor provenance.
 
 | Hook | Command | Bypass label | Status | Evidence |
 |---|---|---|---|---|
