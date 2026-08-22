@@ -440,17 +440,57 @@ def test_every_shipped_tutorial_is_startable_in_this_tree() -> None:
     needing a newer SciStudio than the one it came in. Nothing in a manifest, a
     schema, or a discovery unit test can see that: it needs the shipped
     manifest and the running version in the same assertion.
+
+    The environment states every core tutorial as completed (#2088). What this
+    test is about is whether the *installation* can run what it ships — a
+    version specifier that excludes its own tree, a package that is not there,
+    an agent that is not configured. A prerequisite tutorial is a different
+    kind of unavailability: it is the catalogue working as designed, it names
+    the tutorial the reader should do first, and it clears itself the moment
+    they do. Judging a track of levels against an empty progress store would
+    make "level 3 asks you to finish level 2" indistinguishable from "level 3
+    cannot run here", and only the second is a defect.
     """
 
     result = discover_tutorials()
     assert result.tutorials, "discovery found no core tutorials"
+    shipped = frozenset(tutorial.key for tutorial in result.tutorials)
+    environment = DiscoveryEnvironment(completed_tutorials=shipped)
     for tutorial in result.tutorials:
         assert tutorial.manifest is not None, f"core tutorial {tutorial.key.tutorial_id!r} listed without a manifest"
-        reason = unmet_requirement(tutorial.manifest, DiscoveryEnvironment())
+        reason = unmet_requirement(tutorial.manifest, environment)
         assert reason is None, (
             f"core tutorial {tutorial.key.tutorial_id!r} ships in a SciStudio it says it cannot run in: {reason}"
         )
-        assert tutorial.is_startable, f"core tutorial {tutorial.key.tutorial_id!r} is discovered but not startable"
+
+
+def test_a_prerequisite_is_the_only_thing_that_may_hold_a_core_tutorial_back() -> None:
+    """On a clean install, every core tutorial is startable or names a sibling.
+
+    The complement of the test above. That one fixes progress so environment
+    faults are the only thing left; this one fixes the environment so progress
+    is. A core tutorial that is unavailable to a first-time reader must be
+    unavailable for exactly one reason — a prerequisite level the catalogue
+    also ships and lists — because that is the one reason the reader can act
+    on from inside the product.
+    """
+
+    result = discover_tutorials()
+    shipped = {tutorial.key.tutorial_id for tutorial in result.tutorials}
+    for tutorial in result.tutorials:
+        assert tutorial.manifest is not None
+        if tutorial.is_startable:
+            continue
+        required = tuple(tutorial.manifest.requires.tutorials)
+        assert required, (
+            f"core tutorial {tutorial.key.tutorial_id!r} is not startable on a clean install and does not "
+            f"declare a prerequisite: {unmet_requirement(tutorial.manifest, DiscoveryEnvironment())}"
+        )
+        missing = [needed for needed in required if needed not in shipped]
+        assert not missing, (
+            f"core tutorial {tutorial.key.tutorial_id!r} requires {missing}, which this tree does not ship — "
+            "the reader would have no way to clear it"
+        )
 
 
 @pytest.mark.parametrize(

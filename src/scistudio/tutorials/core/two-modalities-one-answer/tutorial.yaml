@@ -37,21 +37,18 @@ order: 3
 requires:
   # Same floor as the other levels: to_memory() and the ergonomic accessors
   # the shipped block sources rely on are stable from 0.3.1 (ADR-052 §10).
-  #
-  # This level genuinely depends on tutorial 2 — it consumes the Image type,
-  # the Segment Cells block, and the Image previewer straight out of the
-  # tutorial-scoped library, which is where tutorial 2's last three steps put
-  # them. `requires.tutorials: [what-is-a-type]` (#2088) is exactly the
-  # declaration for that, and it is deliberately NOT made here: a core
-  # tutorial declaring it is judged unavailable by
-  # test_core_tutorials.py::test_every_shipped_tutorial_is_startable_in_this_tree,
-  # which runs real discovery against an empty progress store and requires
-  # every shipped tutorial to be startable. Gating the core levels on each
-  # other is therefore a track-integration decision (see #2082), not one a
-  # level author can take alone; tutorial 2 records the same reasoning.
   scistudio: ">=0.3.1"
   agent: false
   packages: []
+  # This level starts in an empty project and its first judged step waits on a
+  # type it never builds: the Image type, the Segment Cells block, and the
+  # Image previewer all arrive from the tutorial-scoped library, where
+  # tutorial 2's last three steps put them. Declaring the prerequisite (#2088)
+  # is what turns "this level's premise silently never comes true" into a
+  # catalogue entry that names what to do first and clears itself when the
+  # reader does it.
+  tutorials:
+    - what-is-a-type
 
 bootstrap:
   project_name: Two Modalities

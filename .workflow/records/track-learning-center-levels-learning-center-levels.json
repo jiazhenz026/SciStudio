@@ -218,10 +218,31 @@
       "at": "2026-08-22T07:05:57.871059Z",
       "pattern": "src/scistudio/tutorials/driver.py",
       "reason": "Fix a regression the manager's own main merge (d17cb5a68) introduced: git auto-merge took P1's DeclaresTriggerActions block over main's decorated DeclaresConditions, dropping @provisional and breaking the frozen public surface. Found by agent L2."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T09:27:15.183401Z",
+      "pattern": "src/scistudio/tutorials/core/two-modalities-one-answer/tutorial.yaml",
+      "reason": "Integration decision the level authors correctly refused to take alone: tutorial 3 declares requires.tutorials (#2088), and the startability test learns to tell a progress gate apart from an environment fault."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T09:27:15.183418Z",
+      "pattern": "tests/tutorials/test_core_tutorials.py",
+      "reason": "Integration decision the level authors correctly refused to take alone: tutorial 3 declares requires.tutorials (#2088), and the startability test learns to tell a progress gate apart from an environment fault."
     }
   ],
   "session_id": "1a80a328-9d3b-4c71-85f4-581225aedf57",
   "strictness_tier": null,
   "task_kind": "manager",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-08-22T09:27:15.183426Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorials.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
