@@ -105,9 +105,11 @@ describe("#1988 — a block_type that resolved to nothing", () => {
     expect(data.category).toBe("unresolved");
   });
 
-  it("raises a warning so the canvas says what validate_workflow cannot", () => {
-    // validate_workflow's unregistered-type check walks EDGES, and an
-    // unresolved node has no ports, so it has no edges and is never reported.
+  it("raises a warning rather than leaving the node silent", () => {
+    // Before #1988 nothing reported these nodes: validate_workflow's
+    // unregistered-type check walked EDGES, and an unresolved node has no
+    // ports and therefore no edges. The validator now reports them per node
+    // too (Check 4.5); this is the same fact where the user is looking.
     expect(build().problemSeverity).toBe("warning");
   });
 

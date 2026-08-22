@@ -195,10 +195,11 @@ export function inferUnresolvedCategory(blockType: string): {
  * #1988 — an unresolved `block_type` is also a "warning". It outranks the
  * lossy-save check because it is unconditional: a node whose block cannot be
  * loaded has no schema, so no other signal on this node can fire. This is the
- * half of #1988 that colour cannot do — `validate_workflow` stays silent about
- * these nodes (its unregistered-type check walks EDGES, and an unresolved node
- * has no ports, so it has no edges), which left the canvas as the only place
- * the fact could surface at all.
+ * half of #1988 that colour cannot do. Until #1988 nothing reported these nodes
+ * at all — `validate_workflow`'s unregistered-type check walked EDGES, and an
+ * unresolved node has no ports and therefore no edges. The validator now also
+ * reports them per node (Check 4.5); this is the same fact on the canvas, where
+ * the user is actually looking when they place the node.
  */
 export function computeProblemSeverity(opts: {
   status: string;

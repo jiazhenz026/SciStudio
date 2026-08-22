@@ -272,7 +272,81 @@ class TestValidatorTypeCompat:
             edges=[EdgeDef(source="A:out", target="B:in")],
         )
         errors = validate_workflow(wf, registry=reg)
-        assert any("Warning: block type 'unknown_producer' not in registry" in e for e in errors)
+        # #1988 reports this per node (Check 4.5) rather than per edge, so both
+        # ends are now named — the old edge walk stopped at the source.
+        assert any("Warning: node 'A' uses block type 'unknown_producer'" in e for e in errors)
+        assert any("Warning: node 'B' uses block type 'unknown_consumer'" in e for e in errors)
+
+    def test_unregistered_node_reported_without_any_edges(self) -> None:
+        """#1988: an unresolved node is reported even when nothing connects to it.
+
+        This is the hole the issue was filed for. The edge walk (Check 5) was
+        the only thing reporting unregistered block types, and a node whose
+        block does not resolve has no ports, so it attracts no edges and was
+        never reported at all: the workflow validated clean and only failed once
+        the run reached dispatch.
+        """
+        reg = _registry_from_specs()  # empty registry
+
+        wf = WorkflowDefinition(
+            nodes=[NodeDef(id="orphan", block_type="srs_baseline_block")],
+            edges=[],
+        )
+        errors = validate_workflow(wf, registry=reg)
+
+        assert any("Warning: node 'orphan' uses block type 'srs_baseline_block'" in e for e in errors)
+
+    def test_unregistered_node_warning_is_not_a_hard_error(self) -> None:
+        """#1988: reporting the fact must not change whether the workflow runs.
+
+        Callers split diagnostics on the ``Warning:`` prefix
+        (``api/runtime/_workflows.py``), so the new report has to carry it or a
+        workflow that used to save and dispatch would suddenly be refused.
+        """
+        reg = _registry_from_specs()
+        wf = WorkflowDefinition(
+            nodes=[NodeDef(id="orphan", block_type="nope_block")],
+            edges=[],
+        )
+        errors = validate_workflow(wf, registry=reg)
+
+        assert errors, "the unresolved node must produce a diagnostic"
+        assert all(e.startswith("Warning:") for e in errors), errors
+
+    def test_unregistered_node_reported_once_not_once_per_edge(self) -> None:
+        """#1988: Check 4.5 and Check 5 must not both report the same node."""
+        spec = _make_spec(
+            "consumer",
+            input_ports=[InputPort(name="a", accepted_types=[Array]), InputPort(name="b", accepted_types=[Array])],
+        )
+        reg = _registry_from_specs(spec)
+
+        # One unregistered producer feeding two edges: the old edge walk would
+        # have named it twice.
+        wf = WorkflowDefinition(
+            nodes=[
+                NodeDef(id="ghost", block_type="ghost_block"),
+                NodeDef(id="sink", block_type="consumer"),
+            ],
+            edges=[
+                EdgeDef(source="ghost:out", target="sink:a"),
+                EdgeDef(source="ghost:out", target="sink:b"),
+            ],
+        )
+        errors = validate_workflow(wf, registry=reg)
+
+        mentions = [e for e in errors if "ghost_block" in e]
+        assert len(mentions) == 1, mentions
+
+    def test_registered_nodes_produce_no_unregistered_warning(self) -> None:
+        """#1988: the new pass stays quiet for a workflow that resolves."""
+        spec = _make_spec("producer", output_ports=[OutputPort(name="out", accepted_types=[Array])])
+        reg = _registry_from_specs(spec)
+
+        wf = WorkflowDefinition(nodes=[NodeDef(id="A", block_type="producer")], edges=[])
+        errors = validate_workflow(wf, registry=reg)
+
+        assert not any("is not registered in this project" in e for e in errors)
 
     def test_unknown_port_name_warning(self) -> None:
         """Port name not found on the block spec produces a warning."""

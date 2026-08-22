@@ -120,6 +120,11 @@
       "at": "2026-08-22T04:50:13.806745Z",
       "owner_directive": "Implement all three #1988 asks in the frontend: periwinkle no-category macaron with the blocks glyph, IO-only name inference for unresolved block types, and a dashed body plus a naming warning that keeps the unresolved fact visible.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-08-22T06:23:21.771954Z",
+      "owner_directive": "Owner: I will apply the admin-approved:core-change label \u2014 do the rest and open the PR. That takes in the node-level unregistered-block-type check in validate_workflow and the base_category docstring drift in the registry and API schemas.",
+      "reason": "Owner authorised the protected-core scope that was held back"
     }
   ],
   "docs_events": [
@@ -545,7 +550,14 @@
     }
   ],
   "record_id": "1988-guided-1988-node-fallback-visual",
-  "requested_admin_labels": [],
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
   "required_obligations": {
     "admin_labels": [],
     "checks": [
@@ -606,6 +618,30 @@
       "at": "2026-08-22T04:50:13.806768Z",
       "pattern": "CHANGELOG.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T06:23:21.771994Z",
+      "pattern": "src/scistudio/workflow/validator.py",
+      "reason": "Owner authorised the protected-core scope that was held back"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T06:23:21.772008Z",
+      "pattern": "src/scistudio/blocks/registry/__init__.py",
+      "reason": "Owner authorised the protected-core scope that was held back"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T06:23:21.772011Z",
+      "pattern": "src/scistudio/api/schemas.py",
+      "reason": "Owner authorised the protected-core scope that was held back"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T06:23:21.772016Z",
+      "pattern": "tests/workflow/**",
+      "reason": "Owner authorised the protected-core scope that was held back"
     }
   ],
   "session_id": "9b8b8cad-dcb4-42e8-a8d9-08cd318d571c",

@@ -160,7 +160,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   That warning matters more than the colour did. Nothing was reporting these
   nodes: the workflow validator finds unregistered block types by walking edges,
   and a node with no ports has no edges, so a workflow full of them validated
-  clean and only failed at run time. The canvas is where that fact now surfaces.
+  clean and only failed at run time. Both surfaces report it now. The canvas
+  draws the node, and validation gained a per-node pass that names every
+  unresolved block type once — as a warning, not an error, so a workflow that
+  used to save and run still saves and runs. The silence is what changed, not
+  the rules.
   One case gets a further nudge. Package-owned loaders are folded into the core
   Load block on purpose and aren't offered separately, so an AI agent wiring one
   by name produces a node that can't resolve. When an unresolved block type

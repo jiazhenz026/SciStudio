@@ -200,6 +200,12 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
     3. **Edge node references** -- source / target nodes exist.
     4. **Cycle detection** -- delegates to :func:`~scistudio.engine.dag.build_dag`
        and :func:`~scistudio.engine.dag.topological_sort`.
+    4.5. **Unregistered block types, per node** (#1988) -- every node whose
+       ``block_type`` is absent from *registry* is reported once, as a
+       ``Warning:``. Check 5 notices the same thing but walks edges, and a node
+       that does not resolve has no ports and therefore no edges, so such nodes
+       used to produce no diagnostic at all (only a run-time failure). Only
+       when *registry* is provided.
     5. **Type compatibility** -- port type matching via
        :func:`~scistudio.blocks.base.ports.validate_connection` (only when
        *registry* is provided).
@@ -322,6 +328,40 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
 
     node_map = {node.id: node for node in workflow.nodes}
 
+    # ------------------------------------------------------------------
+    # Check 4.5 (#1988): unregistered block types, reported per NODE
+    # ------------------------------------------------------------------
+    # Check 5 below also notices an unregistered block type, but it walks
+    # EDGES. A node whose ``block_type`` does not resolve has no ports, so it
+    # attracts no edges, so it was reported nowhere at all: a workflow of such
+    # nodes validated clean and only failed once the run reached dispatch. The
+    # canvas has the same gap (ADR-050 §2.1) and now draws these nodes as
+    # `unresolved`; this is the diagnostics half of that fact.
+    #
+    # Emitted with the ``Warning:`` prefix, which callers treat as
+    # non-blocking (see ``api/runtime/_workflows.py``). Reporting it does not
+    # change whether the workflow saves or dispatches — it only stops the
+    # silence.
+    #
+    # ``subworkflow_broken`` is excluded: it is a synthetic flattener marker
+    # rather than a real block type, and Check 1.5 already reports it (as a
+    # hard error in strict mode). Warning about it here would double-report
+    # the same node.
+    # Imported locally for the same reason Check 1.5 does: `workflow.flatten`
+    # imports back into this package.
+    from scistudio.workflow.flatten import SUBWORKFLOW_BROKEN_TYPE as _BROKEN_TYPE
+
+    unregistered_node_ids: set[str] = set()
+    for node in workflow.nodes:
+        if node.block_type == _BROKEN_TYPE:
+            continue
+        if registry.get_spec(node.block_type) is None:
+            unregistered_node_ids.add(node.id)
+            errors.append(
+                f"Warning: node '{node.id}' uses block type '{node.block_type}', "
+                "which is not registered in this project"
+            )
+
     # ADR-028 Addendum 1 D6: cache effective ports per node so we only
     # instantiate each block once across both Check 5 and Check 6.
     effective_ports_cache: dict[str, tuple[list[Any], list[Any]]] = {}
@@ -351,20 +391,26 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
         if src_node is None or tgt_node is None:
             continue  # already reported in Check 3
 
+        # #1988: Check 4.5 already named every unregistered node once. Repeating
+        # it here per incident edge would report the same node several times, so
+        # the edge walk now only says what is specific to it — that this edge's
+        # type check is being skipped — and stays silent when 4.5 has spoken.
         src_spec = registry.get_spec(src_node.block_type)
         if src_spec is None:
-            errors.append(
-                f"Warning: block type '{src_node.block_type}' not in registry, "
-                f"skipping type check for node '{src_node_id}'"
-            )
+            if src_node_id not in unregistered_node_ids:
+                errors.append(
+                    f"Warning: block type '{src_node.block_type}' not in registry, "
+                    f"skipping type check for node '{src_node_id}'"
+                )
             continue
 
         tgt_spec = registry.get_spec(tgt_node.block_type)
         if tgt_spec is None:
-            errors.append(
-                f"Warning: block type '{tgt_node.block_type}' not in registry, "
-                f"skipping type check for node '{tgt_node_id}'"
-            )
+            if tgt_node_id not in unregistered_node_ids:
+                errors.append(
+                    f"Warning: block type '{tgt_node.block_type}' not in registry, "
+                    f"skipping type check for node '{tgt_node_id}'"
+                )
             continue
 
         # ADR-028 Addendum 1 D6: use effective ports from a per-node block
