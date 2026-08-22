@@ -1,0 +1,14 @@
+-- scripted replay - pre-recorded session - nothing here spends your tokens --
+
+> What is SciStudio?
+
+* get_project_info()
+    project "What AI Can Do" - 1 workflow (workflows/main.yaml, empty) - git on main - 9 blocks in the palette
+
+SciStudio is a workflow runtime for scientific data. You build an analysis as a
+graph of typed blocks on the canvas; every run is recorded, every output is typed
+and traceable, and everything the graph produces lands as files in this project.
+
+I can see this project the way you see it: its workflows, its data files, its
+blocks, its runs and their logs. Ask me to look something up, or to build
+something, and you will see every move I make in this terminal.

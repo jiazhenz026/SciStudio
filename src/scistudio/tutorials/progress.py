@@ -67,16 +67,16 @@ CONFIG_FILENAME = "learning-center.json"
 #: it selects rather than for this module, because it is a product setting.
 WORK_IMPORT_MILESTONE_ENV_VAR = "SCISTUDIO_WORK_IMPORT_MILESTONE"
 
-# TODO(#2057): the work-import milestone ships unset until the Learning Center
-#   scenarios spec names the AI tutorial that carries it.
-#   Out of scope per ADR-053 Learning Center spec assumption A-005, which
-#   assigns that choice to the scenarios spec and requires FR-079's trigger to
-#   be configuration precisely so the scenarios spec can make it and revise
-#   it.
-#   Followup: https://github.com/jiazhenz026/SciStudio/issues/2057
-#: Milestone shipped with the product; see the note above and
+#: Milestone shipped with the product: core tutorial 4, the scripted AI
+#: session (#2083). The scenarios doc's 关卡 4 结尾 places the one-time
+#: work-import offer immediately after the AI level — "AI can do all this;
+#: want it to bring your whole codebase across?" — which resolves the
+#: TODO(#2057) that shipped this unset while the level did not exist.
+#: Still configuration, not a constant (FR-079, assumption A-005): the env
+#: var and the settings file both override it, and a future scenarios
+#: revision can move it without touching the unlock's logic. See
 #: :func:`work_import_milestone`.
-DEFAULT_WORK_IMPORT_MILESTONE: str | None = None
+DEFAULT_WORK_IMPORT_MILESTONE: str | None = "what-ai-can-do"
 
 _SCHEMA_VERSION = 1
 

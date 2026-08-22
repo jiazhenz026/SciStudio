@@ -1,0 +1,17 @@
+[1m[36m> What blocks do you have to work with?[0m
+
+[32m* list_blocks()[0m
+[2m    load_data              Load               read a file into a typed data object[0m
+[2m    save_data              Save               write a typed data object to a file[0m
+[2m    ai.agent               AI Agent           hand a task to an agent CLI in a terminal tab[0m
+[2m    code_block             Code Block         run your own script as a step[0m
+[2m    app_block              App Block          launch an external application on the data[0m
+[2m    subworkflow_block      Sub-Workflow       nest one workflow inside another[0m
+[2m    datarouter_block       Data Router        route collection items interactively[0m
+[2m    mergecollection_block  Merge Collection   merge several inputs into one collection[0m
+[2m    paireditor_block       Pair Editor        pair up items across two collections[0m
+
+Nine, in this project: the core palette. Everything you can drag out of the left
+panel, I can also place, wire, and configure - and when your project defines new
+blocks of its own, those show up in this list too. That matters in a moment,
+because the block your data needs does not exist yet.
