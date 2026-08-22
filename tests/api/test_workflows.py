@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from scistudio.api.runtime import ApiRuntime
@@ -417,8 +418,28 @@ def test_execute_after_completion_is_allowed(client: TestClient, runtime: ApiRun
     wait_for_workflow_completion(runtime, "rerun-after-done")
 
 
+def test_completed_run_without_lineage_unsubscribes_host_safety_listener(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """Scheduler teardown must not depend on lineage recorder construction."""
+    runtime.lineage_store = None
+    payload = build_linear_workflow(opened_project, workflow_id="no-lineage-cleanup")
+    assert client.post("/api/workflows/", json=payload).status_code == 200
+
+    assert client.post("/api/workflows/no-lineage-cleanup/execute").status_code == 200
+    run = wait_for_workflow_completion(runtime, "no-lineage-cleanup")
+    listener = run.scheduler._resource_release_listener
+
+    wait_for_condition(lambda: listener not in runtime.resource_manager._release_listeners)
+
+
 def test_execute_with_hard_validation_error_returns_422(
-    client: TestClient, runtime: ApiRuntime, opened_project: Path, monkeypatch
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """#1789: a hard validation failure must surface as 422, not an uncaught 500.
 
@@ -430,7 +451,7 @@ def test_execute_with_hard_validation_error_returns_422(
     payload = build_linear_workflow(opened_project, workflow_id="invalid-flow")
     assert client.post("/api/workflows/", json=payload).status_code == 200
 
-    def _raise_validation(*args, **kwargs):
+    def _raise_validation(*_args: object, **_kwargs: object) -> None:
         raise ValueError(
             "Cannot start workflow; validation failed: Node 'ai.agent-1': "
             "required input port 'port_1' has no incoming connection"

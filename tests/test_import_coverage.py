@@ -63,24 +63,22 @@ class TestImportEngineModules:
         assert ev.event_type == "block_state_changed"
         assert ev.block_id == "b1"
 
-    def test_instantiate_resource_request(self) -> None:
-        from scistudio.engine.resources import ResourceRequest
+    def test_instantiate_admission_decision(self) -> None:
+        from scistudio.engine.resources import AdmissionDecision, AdmissionWaitReason
 
-        # ADR-022: estimated_memory_gb removed. Only GPU/CPU fields remain.
-        req = ResourceRequest(cpu_cores=2)
-        assert req.cpu_cores == 2
-        assert req.requires_gpu is False
+        decision = AdmissionDecision(wait_reason=AdmissionWaitReason.CONCURRENCY_LIMIT)
+        assert decision.admitted is False
+        assert decision.wait_reason == "concurrency_limit"
 
     def test_instantiate_resource_snapshot(self) -> None:
         from scistudio.engine.resources import ResourceSnapshot
 
-        # ADR-022: available_memory_gb replaced with system_memory_percent.
         snap = ResourceSnapshot(
-            available_gpu_slots=1,
-            available_cpu_workers=4,
+            active_blocks=1,
+            max_concurrent_blocks=4,
             system_memory_percent=0.45,
         )
-        assert snap.available_cpu_workers == 4
+        assert snap.available_concurrency_permits == 3
         assert snap.system_memory_percent == 0.45
 
 

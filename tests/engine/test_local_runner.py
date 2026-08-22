@@ -54,7 +54,6 @@ class TestLocalRunnerCheckStatus:
             block_id=block_id,
             pid=12345,
             start_time=datetime.now(),
-            resource_request=MagicMock(),
             workflow_id="wf",
         )
         handle._platform_ops = mock_ops
@@ -102,7 +101,6 @@ class TestLocalRunnerCancel:
             block_id=block_id,
             pid=12345,
             start_time=datetime.now(),
-            resource_request=MagicMock(),
             workflow_id="wf",
         )
         handle._platform_ops = mock_ops

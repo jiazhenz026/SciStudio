@@ -45,7 +45,6 @@ class ProcessHandle:
         block_id: Which block owns this process.
         pid: OS process ID.
         start_time: When the process was spawned.
-        resource_request: What resources were allocated.
         was_killed_by_framework: Set to True when terminate/kill is called.
     """
 
@@ -54,7 +53,6 @@ class ProcessHandle:
         block_id: str,
         pid: int,
         start_time: datetime,
-        resource_request: Any,
         workflow_id: str = "",
     ) -> None:
         self.block_id = block_id
@@ -64,7 +62,6 @@ class ProcessHandle:
         self.workflow_id = workflow_id
         self.pid = pid
         self.start_time = start_time
-        self.resource_request = resource_request
         self.was_killed_by_framework = False
         self._platform_ops: PlatformOps = get_platform_ops()
         self._popen: subprocess.Popen[bytes] | None = None
@@ -244,7 +241,6 @@ def register_async_process(
     block_id: str,
     registry: ProcessRegistry,
     event_bus: Any | None = None,
-    resource_request: Any | None = None,
     workflow_id: str = "",
 ) -> ProcessHandle:
     """Create and register a ProcessHandle for an already-launched async subprocess.
@@ -253,14 +249,11 @@ def register_async_process(
     ``asyncio.create_subprocess_exec`` instead of ``subprocess.Popen`` (#483).
     """
     from scistudio.engine.events import PROCESS_SPAWNED, EngineEvent
-    from scistudio.engine.resources import ResourceRequest as ResReq
 
-    rr = resource_request if resource_request is not None else ResReq()
     handle = ProcessHandle(
         block_id=block_id,
         pid=pid if pid is not None else -1,
         start_time=datetime.now(),
-        resource_request=rr,
         workflow_id=workflow_id,
     )
 
@@ -288,7 +281,6 @@ def spawn_block_process(
     event_bus: Any,
     registry: ProcessRegistry,
     block_id: str | None = None,
-    resource_request: Any | None = None,
     output_dir: str | None = None,
     job_handle: Any | None = None,
     block_file_path: str | None = None,
@@ -308,7 +300,6 @@ def spawn_block_process(
     The subprocess runs ``scistudio.engine.runners.worker`` as entry point.
     """
     from scistudio.engine.events import PROCESS_SPAWNED, EngineEvent
-    from scistudio.engine.resources import ResourceRequest as ResReq
 
     platform_ops = get_platform_ops()
 
@@ -352,12 +343,10 @@ def spawn_block_process(
         platform_ops.assign_to_job(job_handle, proc.pid)
 
     # Build the ProcessHandle
-    rr = resource_request if resource_request is not None else ResReq()
     handle = ProcessHandle(
         block_id=block_id or block_class_path,
         pid=proc.pid,
         start_time=datetime.now(),
-        resource_request=rr,
         workflow_id=workflow_id,
     )
     handle._popen = proc

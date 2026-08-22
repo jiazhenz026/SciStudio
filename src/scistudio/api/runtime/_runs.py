@@ -539,6 +539,17 @@ def start_workflow(
 
     task = asyncio.create_task(_run())
     task.add_done_callback(lambda finished: asyncio.create_task(self._log_workflow_task_failure(workflow_id, finished)))
+
+    def _dispose_scheduler(_finished: asyncio.Task[None]) -> None:
+        try:
+            scheduler.dispose()
+        except Exception:
+            logger.debug("#1595: scheduler dispose failed", exc_info=True)
+
+    # Host-safety release listeners and EventBus subscriptions are owned by
+    # every scheduler, even when lineage recording is disabled or failed to
+    # initialize. Teardown therefore cannot depend on a lineage callback.
+    task.add_done_callback(_dispose_scheduler)
     if lineage_recorder is not None:
         recorder_for_callback = lineage_recorder
 

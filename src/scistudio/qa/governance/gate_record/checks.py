@@ -194,7 +194,12 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
 _RUFF_TARGET_SUFFIXES = (".py", ".pyi")
 
 
-def _changed_python_files(changed_files: Sequence[str], *, under: str | None = None) -> list[str]:
+def _changed_python_files(
+    repo_root: Path,
+    changed_files: Sequence[str],
+    *,
+    under: str | None = None,
+) -> list[str]:
     """Return existing changed Python paths, optionally limited to a subtree."""
 
     selected = []
@@ -203,6 +208,8 @@ def _changed_python_files(changed_files: Sequence[str], *, under: str | None = N
         if not path.endswith(_RUFF_TARGET_SUFFIXES):
             continue
         if under is not None and not path.startswith(under):
+            continue
+        if not (repo_root / path).is_file():
             continue
         selected.append(path)
     return sorted(set(selected))
@@ -254,6 +261,11 @@ def select_test_targets(repo_root: Path, changed_files: Sequence[str]) -> tuple[
                 # read it.
                 return None
             saw_python = True
+            if not (repo_root / path).is_file():
+                # Deleted tests cannot be valid pytest targets. Ignore them and
+                # let the final empty-target guard widen to the full suite when
+                # no other changed path has a provable target.
+                continue
             if Path(path).name == "conftest.py":
                 targets.add(str(Path(path).parent).replace("\\", "/"))
             else:
@@ -299,14 +311,14 @@ def diff_scoped_command(
     if spec.local_scope == "none":
         return None
     if spec.local_scope == "ruff_files":
-        files = _changed_python_files(changed_files)
+        files = _changed_python_files(repo_root, changed_files)
         return (*spec.command[:-1], *files) if files else None
     if spec.local_scope == "ruff_format_fix":
-        files = _changed_python_files(changed_files)
+        files = _changed_python_files(repo_root, changed_files)
         # Drop ``--check`` and the ``.`` target: format the changed files.
         return ("ruff", "format", *files) if files else None
     if spec.local_scope == "mypy_files":
-        files = _changed_python_files(changed_files, under="src/scistudio/")
+        files = _changed_python_files(repo_root, changed_files, under="src/scistudio/")
         return ("mypy", *files, "--ignore-missing-imports") if files else None
     if spec.local_scope == "pytest_select":
         targets = select_test_targets(repo_root, changed_files)

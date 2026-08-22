@@ -108,6 +108,22 @@ When you need shared setup across the whole batch (loading a model once, opening
 a resource), override `setup()` and return state; it is passed to every
 `process_item` call as `state`.
 
+## Own your execution resources
+
+A block decides how its invocation uses CPU threads, worker processes, GPUs,
+accelerators, batching, streaming, and lazy loading. Do not add
+`ResourceRequest`, `requires_gpu`, `cpu_cores`, `gpu_memory_gb`, or
+`max_internal_workers` metadata: the local scheduler neither reads nor enforces
+those predictions.
+
+SciStudio's local runtime only bounds the number of simultaneously active block
+executions and delays new work under high host-memory pressure. That guard does
+not assign a GPU, reserve VRAM or CPU cores, prevent OOM, or isolate performance
+between blocks. Configure libraries and devices inside the block, and make
+cleanup safe when its subprocess is cancelled or terminated. A future remote or
+container runner may define its own enforceable resource profile; it is not a
+local block-authoring contract.
+
 ## Blocks are not an author-facing import surface
 
 By default a package's block classes are exposed to **core** for registration

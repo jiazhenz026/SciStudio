@@ -228,7 +228,15 @@ def validate(workflow: str = typer.Argument(..., help="Path to workflow YAML")) 
 
 
 @app.command()
-def run(workflow: str = typer.Argument(..., help="Path to workflow YAML")) -> None:
+def run(
+    workflow: str = typer.Argument(..., help="Path to workflow YAML"),
+    max_concurrent_blocks: int = typer.Option(
+        255,
+        "--max-concurrent-blocks",
+        min=1,
+        help="Runtime-global limit for simultaneous block executions.",
+    ),
+) -> None:
     """Run a workflow headless."""
     import os
 
@@ -271,7 +279,7 @@ def run(workflow: str = typer.Argument(..., help="Path to workflow YAML")) -> No
         from scistudio.engine.scheduler import DAGScheduler
 
         event_bus = EventBus()
-        resource_mgr = ResourceManager()
+        resource_mgr = ResourceManager(max_concurrent_blocks=max_concurrent_blocks)
         runner = LocalRunner(event_bus=event_bus)
         scheduler = DAGScheduler(
             workflow=definition,

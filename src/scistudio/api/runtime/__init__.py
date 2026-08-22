@@ -310,7 +310,13 @@ class ApiRuntime:
     pre-split implementation.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, max_concurrent_blocks: int | None = None) -> None:
+        if max_concurrent_blocks is None:
+            raw_limit = os.environ.get("SCISTUDIO_MAX_CONCURRENT_BLOCKS", "255")
+            try:
+                max_concurrent_blocks = int(raw_limit)
+            except ValueError as exc:
+                raise ValueError("SCISTUDIO_MAX_CONCURRENT_BLOCKS must be a positive integer") from exc
         self.registry_dir = Path.home() / ".scistudio"
         self.registry_dir.mkdir(parents=True, exist_ok=True)
         self.known_projects_path = self.registry_dir / "projects.json"
@@ -361,7 +367,7 @@ class ApiRuntime:
         # the back-reference dynamically rather than adding a typed attribute,
         # which would require a core-change label.
         self.event_bus.runtime = self  # type: ignore[attr-defined]
-        self.resource_manager = ResourceManager(event_bus=self.event_bus)
+        self.resource_manager = ResourceManager(max_concurrent_blocks=max_concurrent_blocks)
         self.process_registry = ProcessRegistry()
         self.runner = LocalRunner(event_bus=self.event_bus, registry=self.process_registry)
         self.block_registry = BlockRegistry()

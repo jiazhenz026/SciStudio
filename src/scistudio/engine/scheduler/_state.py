@@ -43,6 +43,7 @@ async def _propagate_skip(self: DAGScheduler, failed_id: str, reason: str) -> No
 
         if not all_satisfied:
             self._block_states[node_id] = BlockState.SKIPPED
+            self._release_resource_permit(node_id)
             self.skip_reasons[node_id] = f"upstream {failed_id} {reason}"
             await self._event_bus.emit(
                 EngineEvent(

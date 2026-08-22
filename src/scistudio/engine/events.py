@@ -69,8 +69,6 @@ class EngineEvent:
 # -------------------|------------------------------------------------------
 # DAGScheduler       | BLOCK_READY, BLOCK_DONE, BLOCK_ERROR, BLOCK_CANCELLED,
 #                    | BLOCK_SKIPPED, CANCEL_BLOCK_REQUEST, CANCEL_WORKFLOW_REQUEST
-# ResourceManager    | BLOCK_DONE, BLOCK_ERROR, BLOCK_CANCELLED,
-#                    | PROCESS_SPAWNED
 # ProcessRegistry    | PROCESS_SPAWNED
 # WebSocket handler  | all BLOCK_* events, WORKFLOW_COMPLETED
 # LineageRecorder    | BLOCK_DONE, BLOCK_ERROR, BLOCK_CANCELLED, BLOCK_SKIPPED
