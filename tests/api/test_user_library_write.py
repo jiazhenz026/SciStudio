@@ -29,6 +29,7 @@ from fastapi.testclient import TestClient
 
 from scistudio.api.runtime import ApiRuntime
 from scistudio.core.dropins import user_blocks_dir, user_types_dir
+from tests.helpers import link_to_directory
 
 PROBE_BLOCK = '''\
 from typing import Any, ClassVar
@@ -188,32 +189,6 @@ def test_a_symlink_escaping_the_library_is_refused(client: TestClient, tmp_path:
     assert victim.read_text(encoding="utf-8") == "original\n"
 
 
-def _link_to_directory(link: Path, target: Path) -> None:
-    """Point *link* at directory *target*, or skip if the OS refuses.
-
-    Creating a symlink on Windows needs a privilege CI agents and developer
-    machines usually lack, but a **directory junction** does not and
-    ``os.path.realpath`` follows it identically. Falling back to one keeps the
-    escape case covered on the platform this repository is developed on rather
-    than deferring it to Linux CI.
-    """
-    try:
-        link.symlink_to(target, target_is_directory=True)
-        return
-    except (OSError, NotImplementedError):
-        if sys.platform != "win32":
-            pytest.skip("symlink creation is not permitted in this environment")
-    import subprocess
-
-    result = subprocess.run(
-        ["cmd", "/c", "mklink", "/J", str(link), str(target)],
-        capture_output=True,
-        check=False,
-    )
-    if result.returncode != 0 or not link.exists():
-        pytest.skip("neither a symlink nor a directory junction can be created here")
-
-
 def test_a_linked_subdirectory_cannot_smuggle_a_nested_write(client: TestClient, tmp_path: Path) -> None:
     """FR-007: the file must land *directly* in the target root.
 
@@ -225,7 +200,7 @@ def test_a_linked_subdirectory_cannot_smuggle_a_nested_write(client: TestClient,
     outside.mkdir()
     root = user_blocks_dir()
     root.mkdir(parents=True, exist_ok=True)
-    _link_to_directory(root / "linked.py", outside)
+    link_to_directory(root / "linked.py", outside)
     assert _put(client, target="blocks", filename="linked.py", overwrite=True).status_code == 403
     assert not (outside / "linked.py").exists()
 
@@ -254,7 +229,7 @@ def test_a_link_to_a_deeper_directory_inside_the_root_is_refused(client: TestCli
     root = user_blocks_dir()
     inner = root / "inner" / "sub"
     inner.mkdir(parents=True, exist_ok=True)
-    _link_to_directory(root / "deep.py", inner)
+    link_to_directory(root / "deep.py", inner)
 
     response = _put(client, target="blocks", filename="deep.py", overwrite=True)
     assert response.status_code == 403, response.text

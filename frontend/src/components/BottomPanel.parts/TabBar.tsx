@@ -1,5 +1,6 @@
 import {
   GitBranch,
+  History,
   LineChart,
   MessageSquare,
   Pin,
@@ -7,7 +8,6 @@ import {
   ScrollText,
   SlidersHorizontal,
   Terminal,
-  Waypoints,
 } from "lucide-react";
 import { type ReactNode } from "react";
 
@@ -36,7 +36,11 @@ const TAB_LABELS: Record<BottomTab, ReactNode> = {
   // the prior Jobs placeholder which is removed entirely.
   // #1713 follow-up — display label only is "History" (the BottomTab key and
   // all code stay "lineage"); owner-requested UI rename.
-  lineage: tabLabel(Waypoints, "History"),
+  // #2090 — the icon changed from Waypoints to History (the same glyph newer
+  // lucide releases call rotate-ccw-clock; this lucide version still names it
+  // History): Waypoints now belongs to the activity bar's Workflows section,
+  // and duplicated glyphs across the two rails read as the same destination.
+  lineage: tabLabel(History, "History"),
   // ADR-039 §3.5 (#972) — Git versioning surface moved out of the top
   // Toolbar into a dedicated bottom-panel tab so the commit history /
   // branch graph / merge flows are reachable without overflowing the

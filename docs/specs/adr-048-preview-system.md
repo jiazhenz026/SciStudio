@@ -319,6 +319,31 @@ Acceptance Scenarios:
   ambiguity.
 - FR-030: Previewer discovery must support monorepo package development in the
   same spirit as existing block and type registry monorepo fallbacks.
+- FR-031 (#2095): The registered previewer set must be enumerable over the API,
+  reporting for each spec its id, owner tier and name, target type, collection
+  support, priority, capabilities, provider name, and frontend manifest. The
+  listing must be ordered by the FR-003 routing precedence, so a reader sees the
+  specs in the order the router considers them, and must accept an exact
+  `target_type` filter — exact, not the FR-003 specificity walk: a caller asking
+  what claims a type wants the previewers written for that type, not every
+  ancestor previewer that would also render one. What would actually be selected
+  for a concrete target stays answerable only by opening a session and reading
+  the returned `previewer_id`.
+- FR-032 (#2095): The same response must carry the registry's discovery
+  diagnostics — a duplicate previewer id (FR-006), a drop-in refused by the
+  name-collision guard, an entry point that failed to import. These are already
+  recorded on the registry; without a surface they are only logged, which leaves
+  a refused drop-in indistinguishable from one that was never written.
+- FR-033 (#2095): The previewer surface must be able to trigger a registry
+  rebuild through an endpoint of its own. The rebuild is not previewer-specific
+  and must not be reimplemented: it is the same whole-registry refresh the block
+  and type reload endpoints already perform, which has covered previewers since
+  #2021. What the requirement adds is that a previewer view need not call the
+  *block* endpoints to do its own job — the argument ADR-053 FR-027 makes for
+  the Data types tab, applied one tier over. The broadcast stays
+  `blocks.reloaded`, because that event already means "the registries were
+  rebuilt" to every client and a previewer-specific sibling would be a second
+  event for one fact.
 
 ### Key Entities
 
@@ -382,9 +407,11 @@ code.
 
 ### API Shape
 
-The preview API is session-oriented. The one-shot
+The preview API is session-oriented for rendering. The one-shot
 `GET /api/data/{data_ref}/preview` route was removed (#1604, no-compat); only
-the session routes remain:
+the session routes remain. Two discovery routes sit beside them (#2095) — they
+answer *which previewers exist*, which a session cannot, since a session
+resolves exactly one:
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -393,6 +420,8 @@ the session routes remain:
 | `PATCH` | `/api/previews/sessions/{session_id}` | Update query state such as slice, page, sort, slot, or item. |
 | `GET` | `/api/previews/sessions/{session_id}/resources/{resource_id}` | Fetch bounded provider resource data. |
 | `GET` | `/api/previews/assets/{asset_id}` | Serve validated same-origin frontend assets. |
+| `GET` | `/api/previews/previewers` | List registered previewers with their tier, plus registry diagnostics (FR-031, FR-032). Optional exact `target_type` filter. |
+| `POST` | `/api/previews/reload` | Rebuild the registries from the previewer surface and broadcast `blocks.reloaded` (FR-033). |
 
 Session resource descriptors may include provider-defined `params`. Clients
 must copy those params into the resource request as a URL-encoded JSON object in
