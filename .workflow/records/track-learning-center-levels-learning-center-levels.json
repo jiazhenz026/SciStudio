@@ -52,6 +52,14 @@
       "path": "docs/ai-developer/e2e/2026-08-21-lc-level-6-own-project.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T05:39:52.500184Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/e2e/2026-08-21-lc-level-1-regression.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": true,

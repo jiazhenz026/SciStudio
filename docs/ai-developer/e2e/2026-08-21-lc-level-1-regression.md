@@ -8,7 +8,7 @@ trigger:
   ref: "track/learning-center-levels after PR feat/2061-tutorial-step-vocabulary merges"
 related_adrs:
   - 53
-status: "draft"
+status: "passed"
 language_source: en
 ---
 
@@ -113,8 +113,57 @@ language_source: en
 - **Native dialogs**: alert/confirm never fires
 - **Process health**: backend stays up; Vite stays responsive
 
-## 7. Results (skill fills in)
+## 7. Results
 
 ### 7.1 Verdict
 
-<!-- filled after the run -->
+**PASS** (product behaviour) — 2026-08-22, track/learning-center-levels @ 7ec90e8ec
+(post P1/P2/L4/L5/L6 integration).
+
+### 7.2 What ran
+
+Playwright (chromium, real browser) drove the full 16-step walkthrough against
+a live `scistudio serve` backend on an isolated short-path USERPROFILE and a
+Vite dev server: LC auto-open on fresh profile → Start → welcome → palette add
+Load → select → config path+CSV via typed input (product-equivalent to Browse;
+done_when judges config state) → New custom block with the step-prefilled name
+into this project → back to the workflow tab → palette add the new block →
+click-connect Load→Normalize (backend-verified) → add Save, connect
+(backend-verified) → Save config data/processed (filename prefilled) → real
+engine run → node-select previewer (real DataFrame preview) → New plot
+(prefilled name, bound to normalized output) → Create → plot card Run → real
+figure rendered (bar chart observed) → scripted break → run fails as designed
+→ History → earlier completed run → Restore (advisory checks observed, confirm
+after they finish) → block re-registered → final run → finish.
+
+Backend truth after the run: `GET /api/tutorials/catalogue` → core group
+**completed: 1 of 4**; `GET /api/tutorials/unlock` →
+`{"work_import_offer_pending": false}` (correct — the milestone is tutorial 4).
+Completion UI verified visually: LC reopens, Welcome shows Complete, ring 1/4.
+
+Evidence: step screenshots under the session scratchpad `pw-artifacts/`
+(00-learning-center … 14-restored, completion frame); driver spec
+`frontend/e2e-live/tutorial1.live.ts` (untracked harness in the manager
+worktree).
+
+### 7.3 Product observations recorded for audit
+
+1. Transient unhandled rejection `Unknown block type: my_block` between the
+   New-custom-block template write and the tutorial's overwrite (page error,
+   self-heals). To file.
+2. React duplicate-key warning for canvas edges when an edge is created twice
+   (`source:port->target:port` used as key). To file.
+3. A rapid scripted edit sequence can lose a just-drawn edge to the
+   autosave/version race (#1891 class); the harness works around it by
+   verifying edges against the backend. To file with repro notes.
+4. Preview-cache paths exceed Windows MAX_PATH under deep homes — filed as
+   #2116 during this session.
+5. Harness-level: after session completion (and in left-session states), the
+   automation protocol channel can wedge (expect/page.request hang) while the
+   page itself stays healthy; product UI verified fine visually. Automation
+   artifact — final verification moved outside the browser.
+
+### 7.4 Sentinels
+
+No 5xx after the #2116 path fix; the only page error is observation 1;
+backend and Vite stayed up throughout.
