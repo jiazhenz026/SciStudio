@@ -1,0 +1,91 @@
+{
+  "branch": "test/2081-level-e2e-sessions",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-22T10:03:47.595231Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/e2e/2026-08-22-lc-level-2-what-is-a-type.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T10:03:47.595237Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/e2e/2026-08-22-lc-level-3-two-modalities.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-22T10:03:47.595240Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/e2e/2026-08-22-lc-level-4-what-ai-can-do.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2081,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Run real browser end-to-end sessions of the shipped Learning Center core tutorials (1,2,4,5,6) against a live backend and record the verdicts in docs/ai-developer/e2e/ scenario files. Owner requirement: every level gets a Chrome e2e pass before the final PR.",
+  "persona": "test_engineer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2081-test-2081-level-e2e-sessions",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-22T10:03:47.595195Z",
+      "pattern": "docs/ai-developer/e2e/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-22T10:03:47.595220Z",
+      "pattern": "docs/planning/learning-center-levels-checklist.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "38fc954e-c93b-4695-acd4-2f12cc1a4a43",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-08-22T10:03:47.595252Z",
+      "class": "unit",
+      "kind": "na",
+      "path": null,
+      "rationale": "e2e evidence only \u2014 this session adds no code and no automated test; the evidence is live browser sessions recorded in the scenario files",
+      "verified_in_diff": null
+    }
+  ]
+}

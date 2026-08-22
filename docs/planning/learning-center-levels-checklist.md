@@ -245,11 +245,20 @@ Sequencing constraints (manager-enforced):
 
 ### 9.3 Implementation
 
-- [ ] L2 merged -> PR; manager Chrome e2e -> scenario file verdict
-- [ ] L3 merged -> PR; manager Chrome e2e -> scenario file verdict
-- [ ] L4 merged -> PR; manager Chrome e2e -> scenario file verdict
-- [ ] L5 merged -> PR; manager Chrome e2e -> scenario file verdict
-- [ ] L6 merged -> PR; manager Chrome e2e -> scenario file verdict
+- [x] L2 merged -> PR; Chrome e2e -> **FAIL (P1)**, `docs/ai-developer/e2e/2026-08-22-lc-level-2-what-is-a-type.md`
+      (stops at step 14 of 22: the workflow API refuses the Segment Cells ->
+      Review Labels edge, HTTP 422 `produces ['Image'] but ... accepts ['Image']`)
+- [x] L3 merged -> PR; Chrome e2e -> **gate PASS / bridge PASS / level FAIL**,
+      `docs/ai-developer/e2e/2026-08-22-lc-level-3-two-modalities.md`
+      (unreachable by a reader: its prerequisite is L2. Bridge verified on a
+      seeded profile — the library's Image previewer renders real pixels)
+- [x] L4 merged -> PR; Chrome e2e -> **PASS with 2 defects**, `docs/ai-developer/e2e/2026-08-22-lc-level-4-what-ai-can-do.md`
+      (14/14 steps, milestone fires; replay tab lands in the Terminal surface,
+      provider intro is covered by the Learning Center)
+- [x] L5 merged -> PR; Chrome e2e -> **PASS**, `docs/ai-developer/e2e/2026-08-21-lc-level-5-summary.md`
+      (8/8 cards, 34/34 pages)
+- [x] L6 merged -> PR; Chrome e2e -> **PASS**, `docs/ai-developer/e2e/2026-08-21-lc-level-6-own-project.md`
+      (16/16 steps)
 
 ## 10. Track A — Audits
 
@@ -264,7 +273,7 @@ Sequencing constraints (manager-enforced):
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
 | Gate ledger check (local) | `python -m scistudio.qa.governance.gate_record check --mode local --base origin/main --head HEAD` | `[ ]` | `` |
-| Per-level Chrome e2e | Playwright-driven Chrome against live backend + Vite, scenario files under `docs/ai-developer/e2e/` | `[ ]` | `` |
+| Per-level Chrome e2e | Playwright-driven Chrome against live backend + Vite, scenario files under `docs/ai-developer/e2e/` | `[x]` | All six levels driven in a real browser at tip `c00bb197c` on branch `test/2081-level-e2e-sessions`. **L1 PASS** (re-confirmed, 16/16) · **L2 FAIL P1** (stops at step 14/22) · **L3 gate PASS, bridge PASS, level FAIL** (blocked by L2) · **L4 PASS + 2 defects** (14/14, milestone fires) · **L5 PASS** (34/34 pages) · **L6 PASS** (16/16). Scenario files: `2026-08-21-lc-level-1-regression.md`, `2026-08-22-lc-level-2-what-is-a-type.md`, `2026-08-22-lc-level-3-two-modalities.md`, `2026-08-22-lc-level-4-what-ai-can-do.md`, `2026-08-21-lc-level-5-summary.md`, `2026-08-21-lc-level-6-own-project.md` |
 | Full-path e2e (levels 1-6 in order) | same harness, one continuous session | `[ ]` | `` |
 | Targeted tests | per-track test commands recorded in gate ledger | `[ ]` | `` |
 | Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[ ]` | `` |
