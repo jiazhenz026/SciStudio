@@ -206,10 +206,28 @@ Evidence: `t3-01-welcome.png`, `t3-02-library-types.png`, `t3-03-load-config.png
    level does persist `Image` (zarr) outputs. Consistent with a ~3.5%
    per-publish race rather than absence.
 
-6. **Separately, one flaky test** —
-   `tests/api/test_workflows.py::test_cancel_block_and_cancel_workflow_propagate_terminal_states`
-   failed inside the full suite and **passes in isolation**. Unrelated to the
-   Learning Center; recorded so the next reader of a red suite does not chase it.
+6. **Separately, the suite carries one rotating flake.** Across three full runs
+   a single extra test failed each time and **passed in isolation** every time —
+   a different one each run
+   (`tests/api/test_workflows.py::test_cancel_block_and_cancel_workflow_propagate_terminal_states`,
+   then `tests/ai/test_providers_registry.py::test_kimi_mcp_read_retries_while_the_file_is_busy`).
+   Both are timing-sensitive. Recorded so the next reader of a red suite does not
+   chase it.
+
+   A clean full run on this branch, with no live e2e backend competing for the
+   machine, measures:
+
+   ```
+   2 failed, 7194 passed, 81 skipped, 8 xfailed in 137s
+     FAILED tests/tutorials/test_core_tutorial_two_modalities.py::test_the_whole_tutorial_walks_through_the_real_runtime   <- real, inherited
+     FAILED tests/ai/test_providers_registry.py::test_kimi_mcp_read_retries_while_the_file_is_busy                        <- passes in isolation
+   ```
+
+   **One deterministic failure**, and it is the level-3 test above. Note that an
+   earlier run made while this session's own backend and Vite were still up
+   reported twelve failures; eleven of those were contention, and all eleven
+   passed once the e2e processes were stopped. Anyone re-measuring should stop
+   the live harness first.
 
 ### 7.5 Sentinels
 
