@@ -117,7 +117,7 @@ verdict.
 
 ## 5. Recommendation
 
-**Pass**, subject to pre-PR reconciliation and green GitHub CI. The
-implemented boundary matches the accepted addendum: SciStudio limits automatic
-fan-out and new work under host-memory pressure without promising CPU or GPU
-allocation.
+**Pass**, subject to green GitHub CI. Pre-PR reconciliation and finalization
+passed. The implemented boundary matches the accepted addendum: SciStudio
+limits automatic fan-out and new work under host-memory pressure without
+promising CPU or GPU allocation.

@@ -132,8 +132,8 @@ language_source: en
 | Incremental-gate regression tests | `[x]` | 42 passed; deleted-only and mixed diffs covered for pytest, Ruff, format, and Mypy |
 | `gate_record check --mode local` | `[!]` | Tier-1 non-Python checks passed; full Python runs hit #2047 Windows Zarr races and #2103 loaded-host xdist failures; final Linux CI required |
 | `gate_record check --mode pre-pr` | `[x]` | Reconciliation passed; 487 architecture tests passed with 1 skip; diff-scoped Python runner passed both phases (1,692 passed/13 skipped and 112 passed); Ruff, Mypy, full audit, imports, and deferral scan passed |
-| Pre-PR finalize | `[ ]` | pending |
-| PR wrapper preflight | `[ ]` | pending |
+| Pre-PR finalize | `[x]` | Manager ledger reported `ledger is PR-ready` |
+| PR wrapper preflight | `[x]` | Gate-aware wrapper dry-run passed |
 | Public PR and post-PR finalize | `[ ]` | pending |
 | GitHub CI | `[ ]` | pending |
 
