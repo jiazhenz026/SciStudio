@@ -18,6 +18,13 @@ interface ProjectTreeProps {
    */
   onLoadWorkflow: (filePath: string, displayName: string) => void;
   onReloadBlocks: () => void;
+  /**
+   * #2090 — root the tree at a project subdirectory (the Data section passes
+   * "data") instead of the project root. Paths below stay project-relative.
+   */
+  rootPath?: string;
+  /** Panel title; defaults to "Project". The Data section passes "Data". */
+  title?: string;
 }
 
 function fileIcon(entry: TreeEntry): string {
@@ -117,10 +124,12 @@ export function ProjectTree({
   projectPath,
   onLoadWorkflow,
   onReloadBlocks,
+  rootPath = "",
+  title = "Project",
 }: ProjectTreeProps) {
-  const { rootNodes, loading, refresh, handleToggle } = useTreeNodes(projectId);
+  const { rootNodes, loading, refresh, handleToggle } = useTreeNodes(projectId, rootPath);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  // Blink the tree once a Refresh actually lands (same feedback as the palette).
+  // Blink the tree once a Reload actually lands (same feedback as the palette).
   const { ref: treeRef, trigger: triggerFlash } = useReloadFlash<HTMLDivElement, TreeNodeData[]>(
     rootNodes,
   );
@@ -174,9 +183,11 @@ export function ProjectTree({
   return (
     <aside className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="font-display text-xl text-ink">Project</p>
+        <p className="font-display text-xl text-ink">{title}</p>
         <button className="toolbar-button" disabled={loading} onClick={handleRefresh} type="button">
-          {loading ? "..." : "Refresh"}
+          {/* #2090 — "Reload" wording shared with the Blocks palette and the
+              Workflows section; one verb for every left-panel reload. */}
+          {loading ? "..." : "Reload"}
         </button>
       </div>
 
