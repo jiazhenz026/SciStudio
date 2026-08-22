@@ -195,9 +195,9 @@
     }
   ],
   "commit": {
-    "sha": "95b8db4e8",
+    "sha": "daf557384",
     "shas": [
-      "95b8db4e8"
+      "daf557384"
     ],
     "trailers": []
   },
@@ -720,6 +720,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:51:58.775859Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:51:58.792568Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:51:58.809234Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:51:58.827446Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:51:58.844024Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:51:58.859667Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:51:58.875154Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:51:58.891733Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:51:58.908434Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:51:58.924543Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-22T03:51:58.949851Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -732,7 +820,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "37f7e71cb5b80ec531653e1f5d7cacd13547d212",
     "base_sha": "37f7e71cb",
     "changed_files": [
       ".workflow/records/2049-previewer-choice.json",
@@ -768,9 +856,9 @@
       "tests/api/test_previewer_choice_routes.py",
       "tests/previewers/test_previewer_choice.py"
     ],
-    "diff_fingerprint": "sha256:b6ca8852d0ae4eea14611b7ced46d30955e0b28dadd6fb6df855ce20c5c8a233",
+    "diff_fingerprint": "sha256:9f46757b145302f3e0b8d7d0cb199a9ba640a5782c688486003bb8032e5e48fb",
     "head": "HEAD",
-    "head_sha": "95b8db4e8",
+    "head_sha": "daf557384",
     "surfaces": {
       "docs": 2,
       "frontend": 19,
@@ -792,8 +880,8 @@
     "closes": [
       2113
     ],
-    "number": null,
-    "url": null
+    "number": 2119,
+    "url": "https://github.com/jiazhenz026/SciStudio/pull/2119"
   },
   "reconcile_events": [
     {
@@ -840,6 +928,17 @@
     {
       "at": "2026-08-22T03:44:31.497946Z",
       "diff_fingerprint": "sha256:b6ca8852d0ae4eea14611b7ced46d30955e0b28dadd6fb6df855ce20c5c8a233",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests",
+        "checks.semantic_dup"
+      ]
+    },
+    {
+      "at": "2026-08-22T03:51:58.949884Z",
+      "diff_fingerprint": "sha256:9f46757b145302f3e0b8d7d0cb199a9ba640a5782c688486003bb8032e5e48fb",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 2,

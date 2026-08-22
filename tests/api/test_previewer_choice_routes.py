@@ -12,7 +12,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
+
+from scistudio.api.runtime import ApiRuntime
 
 PROJECT_PREVIEWER = """\
 from scistudio.previewers.models import OwnerKind, PreviewerSpec
@@ -139,6 +142,33 @@ def test_an_unknown_scope_is_refused_and_names_the_known_ones(client: TestClient
 
 def test_clearing_a_type_that_was_never_chosen_succeeds(client: TestClient, opened_project: Path) -> None:
     assert client.delete("/api/previews/choices/NeverChosen", params={"scope": "user"}).status_code == 200
+
+
+def test_choice_writes_refresh_every_registry(
+    client: TestClient,
+    opened_project: Path,
+    runtime: ApiRuntime,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Choice writes are invalidation events, so both routes use the unified refresh."""
+    _install_previewers(opened_project, client)
+    refreshes = 0
+    refresh_all = runtime.refresh_all_registries
+
+    def tracked_refresh() -> None:
+        nonlocal refreshes
+        refreshes += 1
+        refresh_all()
+
+    monkeypatch.setattr(runtime, "refresh_all_registries", tracked_refresh)
+
+    response = client.put(
+        "/api/previews/choices/DataFrame",
+        json={"previewer_id": "choice.alternate", "scope": "user"},
+    )
+    assert response.status_code == 200
+    assert client.delete("/api/previews/choices/DataFrame", params={"scope": "user"}).status_code == 200
+    assert refreshes == 2
 
 
 # -- persistence -------------------------------------------------------------
