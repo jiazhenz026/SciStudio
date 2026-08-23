@@ -16,13 +16,13 @@ breaks if either half moves.
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
-from scistudio.api.runtime import ApiRuntime
+from scistudio.api.runtime import ApiRuntime, _rmtree_force
 from scistudio.core import dropins
 from scistudio.tutorials import projects as tutorial_projects
 from scistudio.tutorials.projects import TutorialKey
@@ -30,7 +30,9 @@ from scistudio.tutorials.projects import TutorialKey
 WELCOME = TutorialKey.core("welcome-to-scistudio")
 
 
-def _start_tutorial_project(runtime: ApiRuntime, key: TutorialKey = WELCOME, title: str = "Welcome To SciStudio"):
+def _start_tutorial_project(
+    runtime: ApiRuntime, key: TutorialKey = WELCOME, title: str = "Welcome To SciStudio"
+) -> tuple[Any, Any]:
     """Create one tutorial project the way the Learning Center will.
 
     The plan comes from the tutorial layer and the creation from the runtime,
@@ -60,7 +62,7 @@ def user_project(client: TestClient, project_parent: Path) -> dict:
         json={"name": "My Analysis", "description": "real work", "path": str(project_parent)},
     )
     assert response.status_code == 200
-    return response.json()
+    return dict(response.json())
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +282,7 @@ def test_a_project_removed_outside_the_product_reads_as_gone(client: TestClient,
     _, project = _start_tutorial_project(runtime)
     assert tutorial_projects.tutorial_project_exists(project.path) is True
 
-    shutil.rmtree(project.path)
+    _rmtree_force(project.path)
 
     assert tutorial_projects.tutorial_project_exists(project.path) is False
     assert tutorial_projects.restart_preview(runtime.known_projects.values(), WELCOME) is None
@@ -360,4 +362,4 @@ def test_the_work_import_entry_exists_with_no_tutorials_completed(client: TestCl
     surface exists. The route is registered on a fresh install with no recorded
     progress at all.
     """
-    assert "/api/work-import/sessions" in _collect_route_paths(client.app.routes)
+    assert "/api/work-import/sessions" in _collect_route_paths(getattr(client.app, "routes", ()))

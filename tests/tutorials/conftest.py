@@ -50,7 +50,9 @@ def write_tutorial(
     for relative, content in (files or {}).items():
         target = directory / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
+        # Bytes, not text mode: replay assets are delivered verbatim, and
+        # text-mode writes translate "\n" to CRLF on Windows (#2140).
+        target.write_bytes(content.encode("utf-8"))
     return directory
 
 

@@ -527,7 +527,12 @@ def test_symlinked_asset_escape_is_rejected_when_the_directory_is_read(tmp_path:
     data["steps"][0]["do"] = [{"write": {"source": "assets/link/evil.py", "destination": "notes.py"}}]
     directory = write_tutorial(tmp_path / "linky", data)
     (directory / "assets").mkdir(exist_ok=True)
-    (directory / "assets" / "link").symlink_to(outside, target_is_directory=True)
+    try:
+        (directory / "assets" / "link").symlink_to(outside, target_is_directory=True)
+    except OSError:
+        # Windows without Developer Mode / admin cannot create symlinks
+        # (WinError 1314); the rejection logic is exercised on CI (#2140).
+        pytest.skip("symlink creation requires a privilege this environment lacks")
     with pytest.raises(ManifestValidationError) as excinfo:
         load_manifest(directory, source_kind=TutorialSourceKind.CORE)
     assert "symbolic link" in str(excinfo.value)
