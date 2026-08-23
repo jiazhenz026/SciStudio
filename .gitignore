@@ -116,6 +116,14 @@ frontend/e2e/artifacts/
 .workflow/records/*-scratch.json
 .workflow/full-audit-*.json
 
+# Linked git worktrees created inside the checkout for parallel agent work.
+# Untracked and unignored, they were visible to the repository-scoped check
+# commands: the `ruff check .` fallback linted another agent's worktree and
+# failed a commit on files that commit never touched (#2143). Ruff respects
+# .gitignore, so ignoring the directory is what keeps a repo-scoped check
+# inside this checkout.
+.worktrees/
+
 # Scratch audit output (CI writes .audit/full-audit.json; never committed)
 .audit/
 

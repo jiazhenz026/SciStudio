@@ -22,6 +22,9 @@ def _add_field_flags(parser: argparse.ArgumentParser) -> None:
     """Add the common additive field flags shared by plan/amend/check/finalize."""
 
     parser.add_argument("--owner-directive", action="append", default=[])
+    # Records the branch's diff base in the ledger. Distinct from ``check
+    # --base``, which overrides one invocation and is not recorded.
+    parser.add_argument("--base-ref", default=None)
     parser.add_argument("--include", action="append", default=[])
     parser.add_argument("--exclude", action="append", default=[])
     parser.add_argument("--issue", action="append", default=[])
@@ -50,6 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--runtime", required=True)
     init.add_argument("--branch", required=True)
     init.add_argument("--owner-directive", action="append", required=True, default=[])
+    init.add_argument("--base-ref", default=None)
     init.add_argument("--slug")
     init.add_argument("--session-id")
     init.add_argument("--issue", action="append", default=[])
@@ -148,6 +152,7 @@ def _add_alias(sub: argparse._SubParsersAction, name: str, target: str, template
     alias.add_argument("--runtime", required=True)
     alias.add_argument("--branch", required=True)
     alias.add_argument("--owner-directive", action="append", required=True, default=[])
+    alias.add_argument("--base-ref", default=None)
     alias.add_argument("--slug")
     alias.add_argument("--session-id")
     alias.add_argument("--issue", action="append", default=[])

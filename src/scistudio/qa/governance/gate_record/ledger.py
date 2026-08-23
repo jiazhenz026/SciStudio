@@ -323,6 +323,15 @@ class GateLedger(BaseModel):
     strictness_tier: StrictnessTier | None = None
     persona: Persona
     branch: str
+    # The ref this branch's delta is measured against when no one-shot
+    # ``--base`` and no ``SCISTUDIO_GATE_BASE`` are supplied. A branch stacked
+    # on another feature or track branch is the case that needs it: measured
+    # against ``origin/main`` its parent's commits are attributed to this
+    # branch, producing false out-of-scope findings, a wrong tier, and guard
+    # hits on files it never touched (#2143). Recorded here rather than left
+    # to an environment variable so the base a run used is auditable evidence
+    # like every other gate fact.
+    base_ref: str | None = None
     owner_directive: str
     governance_touch: bool = False
     declared_scope: DeclaredScope = Field(default_factory=DeclaredScope)

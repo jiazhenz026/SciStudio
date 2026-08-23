@@ -1141,7 +1141,12 @@ def test_failed_check_excerpt_surfaces_log_tail(tmp_path: Path) -> None:
     out = evaluator._failed_check_excerpt(tmp_path, event)
     assert "ERROR: thing A" in out
     assert "FAILED test_b" in out
-    assert out.lstrip().startswith("|")  # indented excerpt lines
+    # The block leads with a header naming the log and how much of it is shown,
+    # so nothing is dropped without saying so (#2143); the excerpt lines under
+    # it stay indented and prefixed.
+    assert out.lstrip().startswith("--- full_audit output (")
+    assert ".workflow/local/logs/full_audit.log" in out
+    assert any(line.lstrip().startswith("|") for line in out.splitlines())
     assert "�" not in out
     out.encode("ascii")  # printable on any console; raises if not ASCII-clean
 
