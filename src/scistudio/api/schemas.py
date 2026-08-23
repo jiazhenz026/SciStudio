@@ -167,8 +167,11 @@ class BlockSummary(BaseModel):
 
     name: str
     type_name: str
-    # #588: base_category is always one of 6 base types (io, process, code,
-    # app, ai, subworkflow).  subcategory is the optional palette grouping label.
+    # #588: base_category is one of the 6 base types (io, process, code, app,
+    # ai, subworkflow). #1988: it is also "unknown" for a block that extends
+    # Block directly, which _infer_category resolves by issubclass and cannot
+    # place — a valid block, drawn with its own node colour rather than as an
+    # error. subcategory is the optional palette grouping label.
     base_category: str = ""
     subcategory: str = ""
     # #1839: optional block-declared canvas-node display hints. ``ui_color`` is

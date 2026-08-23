@@ -209,6 +209,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#1988] **A block that isn't one of the six kinds no longer looks broken.**
+  Every canvas node that wasn't IO, Process, Code, App, AI or Subworkflow fell
+  back to one grey body with a puzzle-piece glyph — and that single grey was
+  answering two completely different questions. A block whose class extends
+  `Block` directly works perfectly well; it just has no base category to report.
+  A block whose type can't be loaded here at all is broken. Both looked the
+  same, so the working one looked broken and the broken one looked ordinary.
+  They are now two visuals. A block with no category gets a body colour of its
+  own alongside the other six, and a glyph that doesn't imply something is
+  missing. A block that didn't resolve is drawn as a dashed outline rather than
+  a solid body — an empty slot in the graph, not a seventh kind of block — and
+  it now carries a warning that names the block type it was looking for and says
+  the node has no ports and will fail on run.
+  That warning matters more than the colour did. Nothing was reporting these
+  nodes: the workflow validator finds unregistered block types by walking edges,
+  and a node with no ports has no edges, so a workflow full of them validated
+  clean and only failed at run time. Both surfaces report it now. The canvas
+  draws the node, and validation gained a per-node pass that names every
+  unresolved block type once — as a warning, not an error, so a workflow that
+  used to save and run still saves and runs. The silence is what changed, not
+  the rules.
+  Keeping that promise took two more fixes. A validation warning was only
+  advisory to the app: `scistudio run` on the command line stopped on any
+  diagnostic at all, and the tool the AI assistant uses to check a workflow
+  called it invalid on the same basis. Both now do what the app already did —
+  show the warning, and stop only for a real error.
+  One case gets a further nudge. Package-owned loaders are folded into the core
+  Load block on purpose and aren't offered separately, so an AI agent wiring one
+  by name produces a node that can't resolve. When an unresolved block type
+  reads as a loader or a saver, the node borrows the IO palette and the matching
+  load/save glyph, so it still reads as what it was meant to be. The guess is
+  about appearance only — it is limited to IO, and it never removes the dashed
+  body or the warning.
 - [#2093] **`npm run dev` in `desktop/` starts again on Windows.** The desktop
   dev launcher spawns npm twice — once for Vite, once for Electron — and on
   Windows the `npm` it reaches is `npm.cmd`, a batch shim. Node hardened
