@@ -1,8 +1,83 @@
 {
   "branch": "guided/2097-shell-ota-bootstrap-loader",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-08-23T08:48:39.996602Z",
+      "command": "ruff format scripts/ota_publish.py tests/scripts/test_ota_publish.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:13260c83b46092867147544849c693b5ac288417aab4a1a5fcf5777183087823",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-23T08:48:51.926229Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:698ad3c03ca23ea8d1cb2041aa02527442d6aa53997554961073f27f173f1f50",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-23T08:48:51.950364Z",
+      "command": "ruff check scripts/ota_publish.py tests/scripts/test_ota_publish.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:85c4350335835abd52cbf1a3ee25ee558686277e8b48c20db16748f85f4336ca",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-23T08:55:46.088472Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:860f8ee6c96e5fbf94990135ffb9ca49f15b36fede481abccd4c8a5dda006017",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "1d8a080d26a862424d7431915e1a9932b04ce408",
+    "shas": [
+      "1d8a080d26a862424d7431915e1a9932b04ce408"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -43,7 +118,7 @@
       "verified_in_diff": null
     }
   ],
-  "governance_touch": false,
+  "governance_touch": true,
   "guard_events": [
     {
       "at": "2026-08-23T08:44:56.825619Z",
@@ -132,6 +207,401 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:55:46.133975Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:55:46.152757Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:55:46.167314Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:55:46.181446Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:55:46.194842Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:55:46.209013Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:55:46.228061Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:55:46.245343Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:55:46.261145Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:55:46.276053Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:55:46.294071Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:23.869472Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:23.885629Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:23.906506Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:23.923395Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:23.939393Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:23.954472Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:23.969471Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:23.985851Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:24.002001Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:24.017607Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:24.036858Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:38.852490Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:38.867618Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:38.881906Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:38.897792Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:38.913964Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:38.928849Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/desktop-macos-dmg.yml",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": ".github/workflows/desktop-macos-dmg.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-08-23T08:56:38.948234Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:38.965115Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:38.983132Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:38.998329Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:56:39.036192Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:57:09.669103Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:57:09.684825Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:57:09.699926Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:57:09.715281Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:57:09.731838Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:57:09.748555Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:57:09.764663Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:57:09.779944Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:57:09.819721Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:57:09.835871Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:57:09.855025Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -144,42 +614,46 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
-    "base_sha": "ab8bc5ab3",
+    "base": "6f16d04d2ea13625691f9ca9de80d92ef7552aab",
+    "base_sha": "6f16d04d2",
     "changed_files": [
-      ".github/workflows/ci.yml",
-      ".github/workflows/desktop-macos-dmg.yml",
-      ".workflow/records/2096-macos-signing-notarization.json",
+      ".workflow/records/2097-shell-ota-bootstrap-loader.json",
       "CHANGELOG.md",
-      "desktop/assets/entitlements.mac.plist",
+      "desktop/bootstrap.js",
+      "desktop/main.js",
+      "desktop/ota.js",
       "desktop/package.json",
-      "desktop/scripts/build-python-runtime-macos.sh",
-      "desktop/scripts/stage-resources.ps1",
-      "desktop/scripts/stage-resources.sh",
-      "desktop/test/macos-signing.test.js",
-      "docs/specs/desktop-macos-signing-notarization.md",
-      "tests/qa/test_workflow_expressions.py"
+      "desktop/test/bootstrap.test.js",
+      "desktop/test/ota.test.js",
+      "docs/specs/desktop-shell-ota-hot-update.md",
+      "scripts/ota_publish.py",
+      "tests/scripts/test_ota_publish.py"
     ],
-    "diff_fingerprint": "sha256:ff1f3666470f2d6fe4c7fda42ea375269e8d1a1173cc2a620b04ce4aa69042a3",
+    "diff_fingerprint": "sha256:4dae6aa8b881e9f7a283a0393a30e782e21f59c13f3f38bfa2a9ed7683fc7dde",
     "head": "HEAD",
-    "head_sha": "6f16d04d2",
+    "head_sha": "1d8a080d2",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
-      "governance": 2,
+      "governance": 0,
       "governed_docs": 0,
-      "implementation": 2,
+      "implementation": 0,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 4,
-      "test": 2,
-      "workflow_ci": 2
+      "sentrux": 2,
+      "test": 3,
+      "workflow_ci": 0
     }
   },
   "owner_directive": "Implement the Electron shell hot-update for #2097 via a frozen bootstrap loader, with the shell carried inside the existing core OTA snapshot, and open a PR. Stacked on the #2096 branch because that PR adds the Desktop CI job that runs the desktop JS tests.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [],
+    "number": 2139,
+    "url": "https://github.com/jiazhenz026/SciStudio/pull/2139"
+  },
   "reconcile_events": [
     {
       "at": "2026-08-23T08:44:57.001963Z",
@@ -190,6 +664,49 @@
       "unsatisfied": [
         "tests.changed_test_required"
       ]
+    },
+    {
+      "at": "2026-08-23T08:55:46.294104Z",
+      "diff_fingerprint": "sha256:4dae6aa8b881e9f7a283a0393a30e782e21f59c13f3f38bfa2a9ed7683fc7dde",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-23T08:56:24.036892Z",
+      "diff_fingerprint": "sha256:4dae6aa8b881e9f7a283a0393a30e782e21f59c13f3f38bfa2a9ed7683fc7dde",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-23T08:56:39.036231Z",
+      "diff_fingerprint": "sha256:261c6d2045ed2a60c7b0119f9c543ac4750d3c144f99c6aaf32c07c39c5f016b",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.architecture_tests",
+        "checks.deferral_discipline",
+        "checks.format_check",
+        "checks.full_audit",
+        "checks.import_contracts",
+        "checks.lint_format",
+        "checks.python_tests",
+        "checks.type_check",
+        "guard.mod_guard",
+        "scope.out-of-scope"
+      ]
+    },
+    {
+      "at": "2026-08-23T08:57:09.855062Z",
+      "diff_fingerprint": "sha256:4dae6aa8b881e9f7a283a0393a30e782e21f59c13f3f38bfa2a9ed7683fc7dde",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
     }
   ],
   "record_id": "2097-shell-ota-bootstrap-loader",
@@ -197,18 +714,12 @@
   "required_obligations": {
     "admin_labels": [],
     "checks": [
-      "architecture_tests",
-      "deferral_discipline",
       "format_check",
       "full_audit",
-      "import_contracts",
       "lint_format",
-      "python_tests",
-      "type_check"
+      "python_tests"
     ],
-    "docs": [
-      "docs_required_or_na"
-    ],
+    "docs": [],
     "guards": [
       "architecture_doc_guard",
       "core_change_guard",
@@ -222,9 +733,7 @@
       "test_engineer_scope_guard",
       "weakened_ci_check"
     ],
-    "tests": [
-      "changed_test_required"
-    ]
+    "tests": []
   },
   "runtime": "claude",
   "schema_version": 2,
@@ -234,10 +743,46 @@
       "at": "2026-08-23T08:48:14.974892Z",
       "pattern": "desktop/ota.js",
       "reason": "desktop/ota.js was missing from the initial scope. The two new decisions this change needs -- resolveShellSource and shellBootRefused -- belong there rather than in bootstrap.js, because that module is the repository's home for pure OTA logic with no Electron and no filesystem dependency, which is what makes it unit-testable directly. None of the eight existing functions changed."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T08:59:16.598020Z",
+      "pattern": ".github/workflows/ci.yml",
+      "reason": "Declaring the paths this branch INHERITS from its parent, not paths it authors. guided/2097 is built on guided/2096-macos-signing-notarization, which is still open as PR #2128, and PR #2139 targets main so that CI runs at all (ci.yml only triggers for pull_request into main or track/**) and so that GitHub honours the Closes link. The consequence is that the diff against main carries every file #2128 changed. All six are authored, declared, tested and reviewed on #2128; issue #2097 changes none of them. The scope actually authored here is visible with git diff guided/2096-macos-signing-notarization...HEAD: desktop/, scripts/ota_publish.py, tests/scripts/ and docs/specs/desktop-shell-ota-hot-update.md. These declarations disappear from the diff the moment #2128 merges."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T08:59:16.598036Z",
+      "pattern": ".github/workflows/desktop-macos-dmg.yml",
+      "reason": "Declaring the paths this branch INHERITS from its parent, not paths it authors. guided/2097 is built on guided/2096-macos-signing-notarization, which is still open as PR #2128, and PR #2139 targets main so that CI runs at all (ci.yml only triggers for pull_request into main or track/**) and so that GitHub honours the Closes link. The consequence is that the diff against main carries every file #2128 changed. All six are authored, declared, tested and reviewed on #2128; issue #2097 changes none of them. The scope actually authored here is visible with git diff guided/2096-macos-signing-notarization...HEAD: desktop/, scripts/ota_publish.py, tests/scripts/ and docs/specs/desktop-shell-ota-hot-update.md. These declarations disappear from the diff the moment #2128 merges."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T08:59:16.598038Z",
+      "pattern": "desktop/assets/entitlements.mac.plist",
+      "reason": "Declaring the paths this branch INHERITS from its parent, not paths it authors. guided/2097 is built on guided/2096-macos-signing-notarization, which is still open as PR #2128, and PR #2139 targets main so that CI runs at all (ci.yml only triggers for pull_request into main or track/**) and so that GitHub honours the Closes link. The consequence is that the diff against main carries every file #2128 changed. All six are authored, declared, tested and reviewed on #2128; issue #2097 changes none of them. The scope actually authored here is visible with git diff guided/2096-macos-signing-notarization...HEAD: desktop/, scripts/ota_publish.py, tests/scripts/ and docs/specs/desktop-shell-ota-hot-update.md. These declarations disappear from the diff the moment #2128 merges."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T08:59:16.598040Z",
+      "pattern": "desktop/scripts/build-python-runtime-macos.sh",
+      "reason": "Declaring the paths this branch INHERITS from its parent, not paths it authors. guided/2097 is built on guided/2096-macos-signing-notarization, which is still open as PR #2128, and PR #2139 targets main so that CI runs at all (ci.yml only triggers for pull_request into main or track/**) and so that GitHub honours the Closes link. The consequence is that the diff against main carries every file #2128 changed. All six are authored, declared, tested and reviewed on #2128; issue #2097 changes none of them. The scope actually authored here is visible with git diff guided/2096-macos-signing-notarization...HEAD: desktop/, scripts/ota_publish.py, tests/scripts/ and docs/specs/desktop-shell-ota-hot-update.md. These declarations disappear from the diff the moment #2128 merges."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T08:59:16.598041Z",
+      "pattern": "docs/specs/desktop-macos-signing-notarization.md",
+      "reason": "Declaring the paths this branch INHERITS from its parent, not paths it authors. guided/2097 is built on guided/2096-macos-signing-notarization, which is still open as PR #2128, and PR #2139 targets main so that CI runs at all (ci.yml only triggers for pull_request into main or track/**) and so that GitHub honours the Closes link. The consequence is that the diff against main carries every file #2128 changed. All six are authored, declared, tested and reviewed on #2128; issue #2097 changes none of them. The scope actually authored here is visible with git diff guided/2096-macos-signing-notarization...HEAD: desktop/, scripts/ota_publish.py, tests/scripts/ and docs/specs/desktop-shell-ota-hot-update.md. These declarations disappear from the diff the moment #2128 merges."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T08:59:16.598043Z",
+      "pattern": "tests/qa/test_workflow_expressions.py",
+      "reason": "Declaring the paths this branch INHERITS from its parent, not paths it authors. guided/2097 is built on guided/2096-macos-signing-notarization, which is still open as PR #2128, and PR #2139 targets main so that CI runs at all (ci.yml only triggers for pull_request into main or track/**) and so that GitHub honours the Closes link. The consequence is that the diff against main carries every file #2128 changed. All six are authored, declared, tested and reviewed on #2128; issue #2097 changes none of them. The scope actually authored here is visible with git diff guided/2096-macos-signing-notarization...HEAD: desktop/, scripts/ota_publish.py, tests/scripts/ and docs/specs/desktop-shell-ota-hot-update.md. These declarations disappear from the diff the moment #2128 merges."
     }
   ],
   "session_id": "2f564bfb-4f25-489f-bf48-64c1556cdfb5",
-  "strictness_tier": 1,
+  "strictness_tier": 2,
   "task_kind": "guided",
   "test_events": [
     {
