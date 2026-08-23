@@ -145,6 +145,36 @@
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-23T04:58:17.517966Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:f4af0c78ffd823b6d5ab88091ac1e71519ef93baee0297aa525eabc0a119b4ce",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-23T05:08:17.545697Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": null,
+      "input_fingerprint": "sha256:cd276870f4f358f74860e643fecfaf431e1faa84a7f39639bf1d4ffa29564e64",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -172,6 +202,16 @@
       "at": "2026-08-23T04:26:37.275399Z",
       "owner_directive": "\u5185\u7f6e AI \u52a9\u624b\u7edf\u4e00\u547d\u540d Mio\uff1a\u5728\u6253\u5305 SKILL.md \u4e0e\u9879\u76ee CLAUDE.md \u6a21\u677f\u4e2d\u58f0\u660e Mio \u8eab\u4efd",
       "reason": "plan"
+    },
+    {
+      "at": "2026-08-23T04:47:41.429207Z",
+      "owner_directive": "1) AGENTS.md \u4f5c\u4e3a\u7edf\u4e00\u5165\u53e3\uff0cCLAUDE.md \u53ea\u6709\u4e00\u53e5\u6307\u5411 AGENTS.md \u7684\u8def\u7531\uff1b2) \u5185\u90e8 AI prompt \u4e2d\u53bb\u6389 '\u5982\u679c\u4f60\u662f codex/claudecode' \u8fd9\u7c7b provider \u7279\u5b9a\u8868\u8ff0\uff0c\u6240\u6709 provider \u4e00\u89c6\u540c\u4ec1",
+      "reason": "owner \u65b0\u589e\u6307\u4ee4\uff1a\u9879\u76ee\u5185 CLAUDE.md/AGENTS.md \u5206\u5f00\u7ba1\u7406\u5728\u591a provider \u4e0b\u53d8\u590d\u6742\uff0c\u7edf\u4e00\u4e3a AGENTS.md \u5355\u5165\u53e3\uff0cCLAUDE.md \u53ea\u7559\u4e00\u884c\u6307\u5411 AGENTS.md\uff1b\u5185\u90e8 AI prompt \u53bb\u6389\u6309 provider \u79f0\u547c\u7684\u5206\u652f\u8868\u8ff0\uff0c\u5bf9\u6240\u6709 provider \u4e00\u89c6\u540c\u4ec1"
+    },
+    {
+      "at": "2026-08-23T04:55:59.656649Z",
+      "owner_directive": "Mio \u547d\u540d + AGENTS.md \u5355\u5165\u53e3/CLAUDE.md \u8def\u7531 + prompt \u53bb provider \u7279\u5b9a\u8868\u8ff0",
+      "reason": "plan"
     }
   ],
   "docs_events": [
@@ -181,6 +221,22 @@
       "kind": "na",
       "path": null,
       "rationale": "\u52a9\u624b\u8eab\u4efd\u4e3a agent \u5185\u90e8 prompt \u884c\u4e3a\uff0c\u7528\u6237\u6587\u6863\u65e0 assistant/embedded agent \u6761\u76ee\uff0c\u65e0\u9762\u5411\u7528\u6237\u7684\u5951\u7ea6\u53d8\u5316",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T04:55:59.656757Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/agent-provisioning.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T05:12:11.900994Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/agent-provisioning.md",
+      "rationale": null,
       "verified_in_diff": null
     }
   ],
@@ -581,6 +637,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-23T05:08:17.594624Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T05:08:17.610462Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T05:08:17.625207Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T05:08:17.639841Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T05:08:17.654362Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T05:08:17.668616Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T05:08:17.682355Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T05:08:17.695901Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T05:08:17.709563Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T05:08:17.724562Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T05:08:17.741724Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -601,9 +745,9 @@
       "src/scistudio/agent_provisioning/templates/claude_agents_md.md",
       "tests/ai/test_system_prompt.py"
     ],
-    "diff_fingerprint": "sha256:7db79b9a5daffeb7eec00862882733187acbcae1ce924bcd3393b70467ca5292",
+    "diff_fingerprint": "sha256:fd57c92c8f4729d2c6dbf36543db2b523eacd7551135127e7ff536cde41459f7",
     "head": "HEAD",
-    "head_sha": "03c622183",
+    "head_sha": "0286b05cc",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -681,6 +825,16 @@
         "checks.python_tests",
         "checks.semantic_dup"
       ]
+    },
+    {
+      "at": "2026-08-23T05:08:17.741759Z",
+      "diff_fingerprint": "sha256:fd57c92c8f4729d2c6dbf36543db2b523eacd7551135127e7ff536cde41459f7",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
     }
   ],
   "record_id": "2137-guided-mio-assistant-name",
@@ -722,6 +876,42 @@
       "at": "2026-08-23T04:26:28.478583Z",
       "pattern": "src/scistudio/agent_provisioning/templates/claude_agents_md.md",
       "reason": "CLAUDE.md \u9879\u76ee\u6a21\u677f\u662f\u7b2c\u4e8c\u4e2a\u8de8 provider \u8eab\u4efd\u9762\uff08ambient \u6e20\u9053\uff09\uff0c\u9700\u540c\u6b65\u6539\u540d"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T04:47:41.429223Z",
+      "pattern": "src/scistudio/agent_provisioning/**",
+      "reason": "owner \u65b0\u589e\u6307\u4ee4\uff1a\u9879\u76ee\u5185 CLAUDE.md/AGENTS.md \u5206\u5f00\u7ba1\u7406\u5728\u591a provider \u4e0b\u53d8\u590d\u6742\uff0c\u7edf\u4e00\u4e3a AGENTS.md \u5355\u5165\u53e3\uff0cCLAUDE.md \u53ea\u7559\u4e00\u884c\u6307\u5411 AGENTS.md\uff1b\u5185\u90e8 AI prompt \u53bb\u6389\u6309 provider \u79f0\u547c\u7684\u5206\u652f\u8868\u8ff0\uff0c\u5bf9\u6240\u6709 provider \u4e00\u89c6\u540c\u4ec1"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T04:47:41.429228Z",
+      "pattern": "src/scistudio/_skills/scistudio/**",
+      "reason": "owner \u65b0\u589e\u6307\u4ee4\uff1a\u9879\u76ee\u5185 CLAUDE.md/AGENTS.md \u5206\u5f00\u7ba1\u7406\u5728\u591a provider \u4e0b\u53d8\u590d\u6742\uff0c\u7edf\u4e00\u4e3a AGENTS.md \u5355\u5165\u53e3\uff0cCLAUDE.md \u53ea\u7559\u4e00\u884c\u6307\u5411 AGENTS.md\uff1b\u5185\u90e8 AI prompt \u53bb\u6389\u6309 provider \u79f0\u547c\u7684\u5206\u652f\u8868\u8ff0\uff0c\u5bf9\u6240\u6709 provider \u4e00\u89c6\u540c\u4ec1"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T04:55:59.656664Z",
+      "pattern": "src/scistudio/_skills/scistudio/SKILL.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T04:55:59.656669Z",
+      "pattern": "src/scistudio/agent_provisioning/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T05:12:11.900971Z",
+      "pattern": "tests/agent_provisioning/test_claude_agents_md.py",
+      "reason": "AGENTS.md \u5355\u5165\u53e3\u6539\u52a8\u9700\u540c\u6b65\u91cd\u5199 provisioning \u6d4b\u8bd5\u65ad\u8a00\u4e0e\u8fd0\u7ef4\u6587\u6863"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T05:12:11.900988Z",
+      "pattern": "docs/agent-provisioning.md",
+      "reason": "AGENTS.md \u5355\u5165\u53e3\u6539\u52a8\u9700\u540c\u6b65\u91cd\u5199 provisioning \u6d4b\u8bd5\u65ad\u8a00\u4e0e\u8fd0\u7ef4\u6587\u6863"
     }
   ],
   "session_id": "276e72b3-542f-4a2d-b073-c318f06c0605",
@@ -733,6 +923,30 @@
       "class": null,
       "kind": "path",
       "path": "tests/ai/test_system_prompt.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T04:55:59.656763Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_system_prompt.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T04:55:59.656767Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_claude_agents_md.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T05:12:11.900999Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_claude_agents_md.py",
       "rationale": null,
       "verified_in_diff": null
     }

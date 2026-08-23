@@ -11,8 +11,8 @@ the first time it is created or opened:
 
 ```
 <project>/
-  CLAUDE.md                                # Claude Code agent guide (ADR-040 §3.5)
-  AGENTS.md                                # Codex agent guide (byte-identical to CLAUDE.md)
+  AGENTS.md                                # canonical agent guide (ADR-040 §3.5, #2137)
+  CLAUDE.md                                # one-line router pointing at AGENTS.md (#2137)
   .claude/
     settings.json                          # Claude Code PreToolUse + PostToolUse hook config
     .scistudio-provision-version             # Version marker (current: 0.1.0)
@@ -115,7 +115,10 @@ file-system-driven:
   matcher entry. The idempotent default preserves your edit.
 - **Skills**: edit or delete individual `SKILL.md` files; on next open
   they are restored only if missing.
-- **CLAUDE.md / AGENTS.md content**: edit freely; preserved on next open.
+- **AGENTS.md content**: edit freely; preserved on next open. AGENTS.md is
+  the single canonical agent-instruction entry point (#2137); CLAUDE.md is
+  a one-line router pointing at it, so the guide text is maintained in
+  exactly one place regardless of how many provider CLIs are supported.
 
 To temporarily disable provisioning entirely for debugging, monkeypatch
 `scistudio.agent_provisioning.install_project_agent_assets` to a no-op.

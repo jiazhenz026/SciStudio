@@ -7,10 +7,9 @@ second backend.
 
 ## Hook safety net
 
-The rules below are backed by project-scoped hooks on **both** providers —
-Claude Code (via `<project>/.claude/settings.json`) and Codex (via
-`<project>/.codex/config.toml`). Every rule that can be enforced has a
-corresponding hook on both.
+The rules below are backed by project-scoped hooks provisioned for every
+supported assistant CLI. Every rule that can be enforced has a corresponding
+hook.
 
 Violating a hooked rule triggers a PreToolUse / PostToolUse hook with stderr
 feedback and (in some cases) an exit-code-2 hard block — you see the failure
@@ -22,19 +21,19 @@ rules: they keep the live GUI, the registry, and lineage consistent.
 - NEVER modify the user's data. Do NOT Edit/Write/move/delete anything under
   `data/` — it holds the user's raw inputs and run outputs. Produce new data only
   by running blocks/workflows through the MCP tools, which write to the managed
-  store. (A hook intercepts direct writes to `data/` on both providers.)
+  store. (A hook intercepts direct writes to `data/`.)
 - Your only interface to SciStudio is the `mcp__scistudio__*` tool surface —
   blocks, workflows, runs, and data all go through these tools. There is no
   command-line tool; do not try to drive SciStudio from Bash.
 - Do NOT directly Edit/Write `workflows/*.yaml`. Use
   `mcp__scistudio__write_workflow` / `update_block_config` so the
   runtime sees changes through the validated path. (Hooks block direct
-  edits on both providers.)
+  edits.)
 - BEFORE writing a new block, list existing blocks via
   `mcp__scistudio__list_blocks` and reuse one if its I/O contract
   matches. Build new only when nothing fits. (A PostToolUse hook
   blocks `blocks/*.py` writes if `list_blocks` was not called earlier in
-  the session, on both providers.)
+  the session.)
 - When a workflow node reads or writes data, DEFAULT to the core
   `load_data` / `save_data` block configured with a `core_type`. Its
   `core_type` enum is computed live from the type registry, so it already
@@ -50,7 +49,7 @@ rules: they keep the live GUI, the registry, and lineage consistent.
   `load_data` / `save_data` IOBlocks, and certain `AppBlock`
   patterns. (A PostToolUse hook AST-scans the written
   file and stderr-warns when a port declares `accepted_types=[DataObject]`
-  or omits `accepted_types`, on both providers.)
+  or omits `accepted_types`.)
 - When authoring block/plot code, import ONLY from the canonical public
   roots (`scistudio.blocks.base`, `scistudio.blocks.process` / `.io` /
   `.app` / `.code`, `scistudio.core.types`, …) — never a deep module path
@@ -80,9 +79,9 @@ agent-driven changes:
 
 - Subject prefix: `[agent] <imperative summary>` (e.g.
   `[agent] add SimpleThreshold block`).
-- Include a `Co-Authored-By: <provider> <noreply@anthropic.com>`
-  trailer — `Co-Authored-By: Claude Code <noreply@anthropic.com>` on
-  Claude tabs, `Co-Authored-By: Codex <noreply@openai.com>` on Codex.
+- Include a `Co-Authored-By: Mio <noreply@scistudio.invalid>` trailer —
+  the same trailer on every assistant tab, so the user can spot
+  agent-driven commits regardless of which provider produced them.
 - Group related files into one commit when scope is small. Do NOT
   bundle unrelated changes; one commit per logical change keeps the
   history reviewable.
@@ -102,9 +101,10 @@ not as a citation of internal policy.
 
 ## Skills available
 
-Invoke the relevant skill before deep work in that area. Skills under
-`.claude/skills/` (Claude Code) and `.agents/skills/` (Codex) are
-mirrored — both providers see the same teaching surface. Each skill
+Invoke the relevant skill before deep work in that area. The skills are
+provisioned identically into every skills tree the assistant CLIs
+discover (`.agents/skills/`, `.claude/skills/`), so every provider sees
+the same teaching surface. Each skill
 lives at `<root>/<name>/SKILL.md` (the `scistudio` base skill is at
 `<root>/scistudio/`; the six task skills sit beside it).
 
