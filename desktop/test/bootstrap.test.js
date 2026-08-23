@@ -94,7 +94,7 @@ test("the loader records the boot attempt before requiring the shell", () => {
   // Compare call sites inside boot(), not the earlier function definitions.
   const bootstrap = read("bootstrap.js");
   const body = bootstrap.slice(bootstrap.indexOf("function boot() {"));
-  const recordAt = body.indexOf("recordBootAttempt(shell.build)");
+  const recordAt = body.indexOf("recordBootAttempt(candidate.build)");
   const startAt = body.indexOf("startShell(shell);");
   assert.ok(recordAt > 0, "boot() must record the attempt");
   assert.ok(startAt > 0, "boot() must start the shell");
@@ -112,4 +112,24 @@ test("the shell clears the boot marker only once the runtime is up", () => {
     /function recordKnownGood/,
     "the marker must be cleared from recordKnownGood, which runs after HTTP readiness"
   );
+});
+
+test("the loader never clears the marker on the refusal or load-failure paths", () => {
+  // A quarantine must survive both a refusal and a failed require, because
+  // active.json still points at the broken build. Clearing it on either path is
+  // what produced the alternating crash loop Codex found on PR #2139.
+  const body = read("bootstrap.js");
+  const boot = body.slice(body.indexOf("function boot() {"));
+  const keepBranch = boot.slice(boot.indexOf('if (action === "keep")'), boot.indexOf('} else if (action === "record")'));
+  assert.doesNotMatch(keepBranch, /clearBootAttempt\(\)/, "the keep branch must not clear the marker");
+
+  const failurePath = boot.slice(boot.indexOf('if (shell.source === "patch") {', boot.indexOf("catch")));
+  assert.doesNotMatch(failurePath, /clearBootAttempt\(\)/, "the load-failure fallback must not clear the marker");
+});
+
+test("the host's clearBootAttempt is guarded by mayClearShellMarker", () => {
+  // The shell calls this from recordKnownGood whenever the runtime comes up,
+  // including when the baseline is up *because* a patch was quarantined.
+  const body = read("bootstrap.js");
+  assert.match(body, /clearBootAttempt:\s*\(\)\s*=>\s*\{[\s\S]*?ota\.mayClearShellMarker\(shell\)/);
 });

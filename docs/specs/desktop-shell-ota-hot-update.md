@@ -82,8 +82,8 @@ The accepted cost: shipping a shell-only fix republishes the backend snapshot
 too.
 
 Nothing in the manifest schema, the channel model, the build numbering, or the
-eight pure decision functions in `desktop/ota.js` changes. Two new pure
-functions are added (section 5).
+eight pure decision functions in `desktop/ota.js` changes. Four new pure
+functions are added (sections 3 and 5).
 
 ## 3. The loader is the frozen part
 
@@ -164,11 +164,31 @@ in favour of the baseline.
 Only a patch is ever refused. The baseline is the fallback itself; refusing it
 would turn one bad patch into an unstartable app.
 
-Two new pure functions in `desktop/ota.js` carry these decisions, matching the
+**The refusal is sticky, and that is the whole point.** `active.json` still
+points at the broken build after the fallback, so a loader that deleted the
+marker on its way to the baseline would re-select the same shell on the next
+launch: the app would alternate between crashing and working forever instead of
+settling. The marker therefore survives both the refusal and a failed `require`,
+and it is cleared only when
+
+- the patch the marker names reaches readiness (it was fine after all), or
+- a **different** build becomes the candidate — a newer patch overwrites the
+  marker, and a baseline that supersedes the patch (#1787) clears it outright,
+  so a reinstall is a fresh start and the quarantine never becomes a permanent
+  refusal of all future updates.
+
+The second door matters as much as the first: the baseline reaches readiness too
+and calls `recordKnownGood()`, so the host's `clearBootAttempt` is guarded by
+`mayClearShellMarker` and does nothing unless the shell that came up *is* the
+patch the marker names.
+
+Four new pure functions in `desktop/ota.js` carry these decisions, matching the
 module's existing "no Electron, no filesystem, unit tested directly" contract:
 
 - `resolveShellSource({isPackaged, pointer, baselineBuild, patchShellExists})`
 - `shellBootRefused(marker, candidate)`
+- `shellMarkerAction(marker, candidate)` — record / keep / clear
+- `mayClearShellMarker(shell)`
 
 ## 6. Snapshot layout and publishing
 

@@ -334,6 +334,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   build never booted, and it is refused in favour of the baseline. Only a patch
   is ever refused — refusing the baseline would turn one bad patch into an
   unstartable app.
+  That refusal is **sticky**, which is the part that actually escapes the loop:
+  the active pointer still names the broken build, so clearing the marker on the
+  way to the baseline would re-select the same shell next launch and the app
+  would alternate between crashing and working forever. It survives a failed
+  load too, and is cleared only when the build it names genuinely comes up, or
+  when a different build supersedes it — so a newer patch is still tried and a
+  reinstall is a fresh start.
   Snapshots published before this change carry no `shell/` at all. Such a patch
   keeps serving the backend while the baseline shell runs, which is a supported
   state rather than an error.

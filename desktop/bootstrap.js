@@ -138,7 +138,14 @@ function hostFacts(shell) {
     appRoot: __dirname,
     activeShellBuild: shell.build,
     shellSource: shell.source,
-    clearBootAttempt
+    // Guarded: a baseline running *because* a patch was refused also reaches
+    // readiness, and letting it clear the marker would un-quarantine the broken
+    // build. Only the patch the marker names may clear it.
+    clearBootAttempt: () => {
+      if (ota.mayClearShellMarker(shell)) {
+        clearBootAttempt();
+      }
+    }
   };
 }
 
@@ -157,19 +164,21 @@ function baselineShell() {
 }
 
 function boot() {
-  let shell = resolveShell();
+  const candidate = resolveShell();
+  const action = ota.shellMarkerAction(readJsonSafe(bootAttemptPath()), candidate);
+  let shell = candidate;
 
-  if (ota.shellBootRefused(readJsonSafe(bootAttemptPath()), shell)) {
-    log(`build ${shell.build} did not reach readiness last launch; falling back to the baseline`);
+  if (action === "keep") {
+    // The marker stays: active.json still points at this build, so deleting it
+    // here would let the next launch select the same broken shell again and the
+    // app would alternate between crashing and working instead of settling.
+    log(`build ${candidate.build} did not reach readiness; staying on the baseline shell`);
     shell = baselineShell();
-  }
-  if (shell.source === "patch") {
+  } else if (action === "record") {
     // Written BEFORE the require: a shell that kills the main process leaves no
     // opportunity to record anything afterwards.
-    recordBootAttempt(shell.build);
+    recordBootAttempt(candidate.build);
   } else {
-    // The baseline is the fallback itself, so a marker left by a failed patch
-    // must not survive to refuse it on the next launch too.
     clearBootAttempt();
   }
 
@@ -181,7 +190,8 @@ function boot() {
   }
 
   if (shell.source === "patch") {
-    clearBootAttempt();
+    // Deliberately NOT clearing the marker: this patch just failed to load, so
+    // it must stay quarantined for the next launch too.
     try {
       startShell(baselineShell());
       return;

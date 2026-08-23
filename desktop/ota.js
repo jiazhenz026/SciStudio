@@ -187,6 +187,36 @@ function resolveShellSource({ isPackaged, pointer, baselineBuild, patchShellExis
 //
 // Only a patch can be refused: the baseline is the fallback itself, and
 // refusing it would leave nothing to run.
+// #2097: what the loader must do with the boot marker BEFORE it loads a shell.
+//
+//   "record" - about to try a patch: write a marker naming it.
+//   "keep"   - this patch is already quarantined: leave the marker alone and run
+//              the baseline instead.
+//   "clear"  - running the baseline for some other reason, so a marker naming a
+//              build we are not trying is meaningless.
+//
+// "keep" is the case that actually escapes a crash loop. Deleting the marker
+// while falling back would leave active.json still pointing at the broken build,
+// so the next launch would select it again and the app would alternate between
+// crashing and working forever instead of settling on the baseline.
+function shellMarkerAction(marker, candidate) {
+  if (shellBootRefused(marker, candidate)) {
+    return "keep";
+  }
+  if (candidate && candidate.source === "patch") {
+    return "record";
+  }
+  return "clear";
+}
+
+// #2097: may the shell that just reached readiness clear the marker? Only if it
+// is the patch the marker names. A baseline running *because* a patch was
+// refused reaches readiness too, and letting it clear the marker would un-
+// quarantine the broken build and restart the alternating crash loop.
+function mayClearShellMarker(shell) {
+  return Boolean(shell) && shell.source === "patch";
+}
+
 function shellBootRefused(marker, candidate) {
   if (!candidate || candidate.source !== "patch") {
     return false;
@@ -204,6 +234,8 @@ module.exports = {
   resolveActivePatch,
   resolveShellSource,
   shellBootRefused,
+  shellMarkerAction,
+  mayClearShellMarker,
   pythonPathFor,
   shouldClearCache,
   displayBuildVersion
