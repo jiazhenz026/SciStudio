@@ -43,8 +43,97 @@
       "verified_in_diff": null
     }
   ],
-  "governance_touch": true,
-  "guard_events": [],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-08-23T08:44:56.825619Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:44:56.841772Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:44:56.857644Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:44:56.876089Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:44:56.893451Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:44:56.910800Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:44:56.929242Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:44:56.948460Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:44:56.969710Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:44:56.986390Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T08:44:57.001919Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -54,25 +143,101 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "ab8bc5ab3",
+    "changed_files": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/desktop-macos-dmg.yml",
+      ".workflow/records/2096-macos-signing-notarization.json",
+      "CHANGELOG.md",
+      "desktop/assets/entitlements.mac.plist",
+      "desktop/package.json",
+      "desktop/scripts/build-python-runtime-macos.sh",
+      "desktop/scripts/stage-resources.ps1",
+      "desktop/scripts/stage-resources.sh",
+      "desktop/test/macos-signing.test.js",
+      "docs/specs/desktop-macos-signing-notarization.md",
+      "tests/qa/test_workflow_expressions.py"
+    ],
+    "diff_fingerprint": "sha256:ff1f3666470f2d6fe4c7fda42ea375269e8d1a1173cc2a620b04ce4aa69042a3",
+    "head": "HEAD",
+    "head_sha": "6f16d04d2",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 0,
+      "governance": 2,
+      "governed_docs": 0,
+      "implementation": 2,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 4,
+      "test": 2,
+      "workflow_ci": 2
+    }
+  },
   "owner_directive": "Implement the Electron shell hot-update for #2097 via a frozen bootstrap loader, with the shell carried inside the existing core OTA snapshot, and open a PR. Stacked on the #2096 branch because that PR adds the Desktop CI job that runs the desktop JS tests.",
   "persona": "live_implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-08-23T08:44:57.001963Z",
+      "diff_fingerprint": "sha256:ff1f3666470f2d6fe4c7fda42ea375269e8d1a1173cc2a620b04ce4aa69042a3",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "tests.changed_test_required"
+      ]
+    }
+  ],
   "record_id": "2097-shell-ota-bootstrap-loader",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "architecture_tests",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-23T08:48:14.974892Z",
+      "pattern": "desktop/ota.js",
+      "reason": "desktop/ota.js was missing from the initial scope. The two new decisions this change needs -- resolveShellSource and shellBootRefused -- belong there rather than in bootstrap.js, because that module is the repository's home for pure OTA logic with no Electron and no filesystem dependency, which is what makes it unit-testable directly. None of the eight existing functions changed."
+    }
+  ],
   "session_id": "2f564bfb-4f25-489f-bf48-64c1556cdfb5",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "guided",
   "test_events": [
     {
