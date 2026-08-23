@@ -40,6 +40,7 @@ governs:
   excludes: []
 tests:
   - desktop/test/macos-signing.test.js
+  - tests/qa/test_workflow_expressions.py
 acceptance_source: issue
 language_source: en
 ---
@@ -197,6 +198,22 @@ and removes it in an `if: always()` step.
 With no certificate configured — a fork, or a contributor running the workflow —
 identity discovery stays off and the job produces the same unsigned dev artifact
 it produced before this change.
+
+**Secret presence is tested through job-level `env` flags, never in an `if:`
+directly.** GitHub does not expose the `secrets` context to any `if:` condition,
+and the failure is not a skipped step: it rejects the whole workflow file with
+`Unrecognized named-value: 'secrets'`, so the run never starts and the dmg build
+that previously worked stops working. `secrets` *is* available in
+`jobs.<id>.env`, and `env` *is* available in `steps.<id>.if`, so the job defines
+`HAS_MACOS_SIGNING` and `HAS_NOTARY_KEY` and the conditional steps compare those
+against the string `'true'`. Note the mirror-image trap when tempted to hoist
+such a condition: `env` is **not** available in a *job-level* `if:`.
+
+`tests/qa/test_workflow_expressions.py` guards both directions across every
+workflow file. It exists because nothing else here validates workflows — there
+is no actionlint hook, no CI job parses them, and a `workflow_dispatch`-only
+workflow is never exercised by a pull request, so this class of defect passes a
+fully green PR.
 
 ### 6.3 Notarization fails soft, so the build asserts the outcome
 

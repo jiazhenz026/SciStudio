@@ -440,6 +440,11 @@
       "at": "2026-08-22T07:56:45.093466Z",
       "owner_directive": "Owner authorized opening the PR with SCISTUDIO_SKIP_PREFLIGHT=1 after confirming origin/main does not yet fix the local test-isolation issues: 'pull the latest origin main, maybe it is already fixed; if not, skip preflight directly.' Re-fetched origin/main at fd3ab718a and confirmed #2074, #2103, #2047 and #2107 are all still OPEN.",
       "reason": "python_tests cannot pass on this machine for reasons outside this task's scope. Four consecutive full-suite runs produced four DISJOINT failure sets (8 / 3 / 1 / 9 failures), every member matching a tracked open flakiness issue. Root cause is concurrent test runs from other agent worktrees on this Windows box colliding on the shared user-level SciStudio registry (#2074) plus load-induced xdist worker crashes (#2103); two other gate_record check processes and two pytest runs were confirmed live via Win32_Process at the time of the last run, one of them executing tests/api/test_system_vertical.py, which was among the failures. Lowering PYTEST_XDIST_AUTO_NUM_WORKERS from auto to 6 to 4 did not converge, consistent with cross-process rather than intra-run contention. Every individually suspected test passes in isolation. This diff contains NO Python whatsoever, so the branch's Python tree is byte-identical to origin/main and cannot causally affect these tests. CI is Ubuntu and single-run and is the real gate."
+    },
+    {
+      "at": "2026-08-23T03:32:20.605986Z",
+      "owner_directive": "Move secret checks into the job environment: secrets is unavailable in a step-level if, GitHub rejects the workflow outright, so the signing workflow would never start. Map the secret to a job-level environment variable and condition both steps on env instead.",
+      "reason": "Defect fix in this PR's own change. Two step-level conditionals used the secrets context, which GitHub does not make available in if expressions; the workflow would have failed to parse on every dispatch, breaking the existing dmg build rather than only failing to sign. Nothing caught it: desktop-macos-dmg.yml is workflow_dispatch-only so no PR check runs it, and the repository has no workflow linting at all. Adding tests/qa/test_workflow_expressions.py so the class is guarded in the authoritative Python test job."
     }
   ],
   "docs_events": [
@@ -1520,6 +1525,12 @@
       "at": "2026-08-21T22:48:10.962748Z",
       "pattern": ".github/workflows/desktop-macos-dmg.yml",
       "reason": "Owner chose CI-side signing over local-only signing, and chose to add a hard post-build verification step because electron-builder's notarizeIfProvided() only warns and skips when credentials cannot be generated, which would otherwise ship an unnotarized dmg silently."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T03:32:20.606002Z",
+      "pattern": "tests/qa/test_workflow_expressions.py",
+      "reason": "Defect fix in this PR's own change. Two step-level conditionals used the secrets context, which GitHub does not make available in if expressions; the workflow would have failed to parse on every dispatch, breaking the existing dmg build rather than only failing to sign. Nothing caught it: desktop-macos-dmg.yml is workflow_dispatch-only so no PR check runs it, and the repository has no workflow linting at all. Adding tests/qa/test_workflow_expressions.py so the class is guarded in the authoritative Python test job."
     }
   ],
   "session_id": "c588eeee-ecb9-4c1f-8bf2-9da546f1ddb6",
@@ -1531,6 +1542,14 @@
       "class": null,
       "kind": "path",
       "path": "desktop/test/macos-signing.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T03:32:20.606010Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_workflow_expressions.py",
       "rationale": null,
       "verified_in_diff": null
     }

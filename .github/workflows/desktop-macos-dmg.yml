@@ -37,6 +37,15 @@ jobs:
       # it produced before, so a contributor without release credentials is
       # unaffected. With the certificate present, electron-builder signs with it
       # and (given the APPLE_API_* secrets below) notarizes and staples.
+      #
+      # The `secrets` context is NOT available in a step-level `if:` -- GitHub
+      # rejects the whole workflow with "Unrecognized named-value: 'secrets'"
+      # and the run never starts. It IS available in `jobs.<id>.env`, and the
+      # `env` context IS available in `steps.<id>.if`, so secret *presence* is
+      # mapped to these two flags here and the conditional steps test those.
+      # Both are the strings "true"/"false", so compare against 'true'.
+      HAS_MACOS_SIGNING: ${{ secrets.MACOS_CSC_LINK != '' }}
+      HAS_NOTARY_KEY: ${{ secrets.APPLE_API_KEY_P8 != '' }}
       CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MACOS_CSC_LINK != '' }}
       CSC_LINK: ${{ secrets.MACOS_CSC_LINK }}
       CSC_KEY_PASSWORD: ${{ secrets.MACOS_CSC_KEY_PASSWORD }}
@@ -85,7 +94,7 @@ jobs:
       # cleanup step below, and passed through env rather than interpolated into
       # the script so the key never appears in a command line.
       - name: Write App Store Connect API key
-        if: ${{ secrets.APPLE_API_KEY_P8 != '' }}
+        if: env.HAS_NOTARY_KEY == 'true'
         env:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
         run: |
@@ -95,7 +104,7 @@ jobs:
 
       - name: Build DMG
         env:
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_P8 != '' && format('{0}/private_keys/AuthKey.p8', runner.temp) || '' }}
+          APPLE_API_KEY: ${{ env.HAS_NOTARY_KEY == 'true' && format('{0}/private_keys/AuthKey.p8', runner.temp) || '' }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: npm --prefix desktop run dist:dmg
@@ -110,7 +119,7 @@ jobs:
       # produces a green build and a dmg that still shows the Gatekeeper prompt.
       # Assert the outcome directly instead of trusting the build log.
       - name: Verify signature, hardened runtime and notarization
-        if: ${{ secrets.MACOS_CSC_LINK != '' }}
+        if: env.HAS_MACOS_SIGNING == 'true'
         run: |
           set -euo pipefail
           APP=$(find desktop/dist -maxdepth 2 -name '*.app' -print -quit)
