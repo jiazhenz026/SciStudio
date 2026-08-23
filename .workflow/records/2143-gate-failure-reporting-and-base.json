@@ -187,10 +187,33 @@
       "tool_versions": {
         "mypy": "2.1.0"
       }
+    },
+    {
+      "at": "2026-08-23T10:29:45.710629Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:80c7e75ef059d953681a157649be2bbe8058f3292423b755ac8eca2eea60bf73",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "46bd5bf4d26ba6bd40e17a446bfe3ad156878644",
+    "shas": [
+      "46bd5bf4d26ba6bd40e17a446bfe3ad156878644",
+      "6024a3174d4b49c275bd004a8b4c2f4f818710d1"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -405,6 +428,182 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:29:45.755341Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:29:45.769147Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:29:45.782851Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:29:45.796486Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:29:45.810402Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:29:45.824369Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:29:45.839257Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:29:45.853659Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:29:45.868083Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:29:45.883553Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:29:45.900282Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:30:03.843272Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:30:03.859055Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:30:03.875126Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:30:03.892502Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:30:03.911305Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:30:03.926223Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:30:03.942080Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:30:03.957063Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:30:03.972889Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:30:03.988383Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-23T10:30:04.006939Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -422,6 +621,7 @@
     "changed_files": [
       ".gitignore",
       ".workflow/records/2143-gate-failure-reporting-and-base.json",
+      "CHANGELOG.md",
       "docs/ai-developer/gate-cli-command-set.md",
       "docs/ai-developer/rules.md",
       "docs/ai-developer/specific_rules/gated-workflow.md",
@@ -435,9 +635,9 @@
       "tests/qa/test_gate_record.py",
       "tests/qa/test_gate_record_bugfixes.py"
     ],
-    "diff_fingerprint": "sha256:4ddaa5f63292112053008ec5dc2fe9e36d14f3192dcbd5c86274e6d35c44cafb",
+    "diff_fingerprint": "sha256:8ab0073aee0963f24447fd123ddf4b9f0adfa57d020a3d4f95a6548eb2af01ea",
     "head": "HEAD",
-    "head_sha": "6024a3174",
+    "head_sha": "46bd5bf4d",
     "surfaces": {
       "docs": 4,
       "frontend": 0,
@@ -454,7 +654,14 @@
   },
   "owner_directive": "Fix the four gate feedback/base defects in #2143 in one issue and one PR; do not lighten pre-commit. Base resolution becomes an explicit ledger field (base_ref) with precedence --base > SCISTUDIO_GATE_BASE > ledger.base_ref > origin/main.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2143
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-23T10:26:21.090347Z",
@@ -470,6 +677,22 @@
       "at": "2026-08-23T10:28:25.157837Z",
       "diff_fingerprint": "sha256:4ddaa5f63292112053008ec5dc2fe9e36d14f3192dcbd5c86274e6d35c44cafb",
       "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-23T10:29:45.900322Z",
+      "diff_fingerprint": "sha256:8ab0073aee0963f24447fd123ddf4b9f0adfa57d020a3d4f95a6548eb2af01ea",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-23T10:30:04.007012Z",
+      "diff_fingerprint": "sha256:8ab0073aee0963f24447fd123ddf4b9f0adfa57d020a3d4f95a6548eb2af01ea",
+      "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
