@@ -588,6 +588,16 @@
       "at": "2026-08-23T09:49:47.603272Z",
       "owner_directive": "\u672c\u5730\u4ee5\u540e\u53ea\u8dd1\u53d7\u5f71\u54cd\u7684\u5730\u65b9\uff0c\u4e0d\u8dd1\u5168\u91cf pytest\uff0c\u5168\u91cf\u6d4b\u8bd5\u53ea\u8fdb CI\uff08\u5df2\u7531 #2111 \u5b9e\u73b0\uff0c\u672c\u5206\u652f\u9700\u66f4\u65b0 base\uff09",
       "reason": "worktree \u4ece stale \u672c\u5730 main \u5207\u51fa\uff0c\u7f3a #2111 diff-scoped gate \u4e0e #2124 semantic_dup \u79fb\u9664\uff0c\u5bfc\u81f4\u672c\u5730\u8dd1\u5168\u91cf pytest\uff1bmerge origin/main \u4fee\u6b63 base"
+    },
+    {
+      "at": "2026-08-23T10:41:23.527166Z",
+      "owner_directive": "\u5904\u7406 review P1\uff1amigrate existing ambient-provider installations",
+      "reason": "PR #2144 review P1\uff1a\u8001\u9879\u76ee reopen \u65f6 provisioning force=False \u8df3\u8fc7\u5df2\u6709\u6587\u4ef6\uff0cambient provider \u6c38\u8fdc\u62ff\u4e0d\u5230\u65b0\u8eab\u4efd\u3002\u5b9e\u73b0\u54c8\u5e0c\u611f\u77e5\u8fc1\u79fb\uff1a\u672a\u6539\u52a8\u8fc7\u7684 managed \u6587\u4ef6\u5237\u65b0\u4e3a\u65b0\u6a21\u677f\uff0c\u7528\u6237\u6539\u8fc7\u7684\u4fdd\u7559"
+    },
+    {
+      "at": "2026-08-23T10:53:30.022174Z",
+      "owner_directive": "Mio \u547d\u540d + AGENTS.md \u5355\u5165\u53e3 + #1860 \u5185\u5bb9\u611f\u77e5\u5237\u65b0\uff08PR #2144 review P1\uff09",
+      "reason": "plan"
     }
   ],
   "docs_events": [
@@ -617,6 +627,14 @@
     },
     {
       "at": "2026-08-23T09:23:47.468382Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/agent-provisioning.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T10:53:30.022238Z",
       "class": null,
       "kind": "path",
       "path": "docs/agent-provisioning.md",
@@ -2502,6 +2520,18 @@
       "at": "2026-08-23T09:16:20.971642Z",
       "pattern": "src/scistudio/api/**",
       "reason": "gate python_tests \u88ab 8 \u4e2a main \u4e0a\u65e2\u6709\u7684 Windows \u73af\u5883\u6d4b\u8bd5\u5931\u8d25\u963b\u585e\uff0cowner \u6307\u793a\u987a\u624b\u4fee\u6389\uff1asymlink \u6743\u9650\u8df3\u8fc7\u3001\u53ea\u8bfb .git objects \u5220\u9664\u3001CRLF \u884c\u5c3e\u6bd4\u8f83"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T10:41:23.527183Z",
+      "pattern": "src/scistudio/agent_provisioning/**",
+      "reason": "PR #2144 review P1\uff1a\u8001\u9879\u76ee reopen \u65f6 provisioning force=False \u8df3\u8fc7\u5df2\u6709\u6587\u4ef6\uff0cambient provider \u6c38\u8fdc\u62ff\u4e0d\u5230\u65b0\u8eab\u4efd\u3002\u5b9e\u73b0\u54c8\u5e0c\u611f\u77e5\u8fc1\u79fb\uff1a\u672a\u6539\u52a8\u8fc7\u7684 managed \u6587\u4ef6\u5237\u65b0\u4e3a\u65b0\u6a21\u677f\uff0c\u7528\u6237\u6539\u8fc7\u7684\u4fdd\u7559"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T10:41:23.527188Z",
+      "pattern": "tests/agent_provisioning/**",
+      "reason": "PR #2144 review P1\uff1a\u8001\u9879\u76ee reopen \u65f6 provisioning force=False \u8df3\u8fc7\u5df2\u6709\u6587\u4ef6\uff0cambient provider \u6c38\u8fdc\u62ff\u4e0d\u5230\u65b0\u8eab\u4efd\u3002\u5b9e\u73b0\u54c8\u5e0c\u611f\u77e5\u8fc1\u79fb\uff1a\u672a\u6539\u52a8\u8fc7\u7684 managed \u6587\u4ef6\u5237\u65b0\u4e3a\u65b0\u6a21\u677f\uff0c\u7528\u6237\u6539\u8fc7\u7684\u4fdd\u7559"
     }
   ],
   "session_id": "276e72b3-542f-4a2d-b073-c318f06c0605",
@@ -2593,6 +2623,30 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_tutorial_project_visibility.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T10:53:30.022244Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_system_prompt.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T10:53:30.022246Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_claude_agents_md.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T10:53:30.022248Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_refresh.py",
       "rationale": null,
       "verified_in_diff": null
     }

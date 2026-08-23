@@ -13,6 +13,8 @@ from __future__ import annotations
 import importlib.resources
 from pathlib import Path
 
+from scistudio.agent_provisioning._refresh import write_managed_file
+
 _TARGETS = ("AGENTS.md", "CLAUDE.md")
 _TEMPLATE_RESOURCE = "claude_agents_md.md"
 
@@ -51,26 +53,30 @@ def write_claude_agents_md(
     project_dir: Path,
     *,
     force: bool = False,
+    manifest: dict[str, str] | None = None,
 ) -> list[str]:
     """Write ``<project>/AGENTS.md`` and the ``<project>/CLAUDE.md`` router.
 
     AGENTS.md receives the full guide template; CLAUDE.md receives only a
-    pointer to AGENTS.md (#2137).
+    pointer to AGENTS.md (#2137). Existing files are refreshed when they are
+    unchanged since SciStudio last wrote them and preserved when the user
+    edited them (#1860, content-aware refresh).
 
     Inputs:
       project_dir : Path to project root.
       force       : True to overwrite existing files; False to preserve.
+      manifest    : managed-content hash manifest (see ``_refresh``);
+                    a fresh dict is used when omitted.
 
     Returns:
       List of project-relative paths actually written.
     """
     project_dir.mkdir(parents=True, exist_ok=True)
     bodies = {"AGENTS.md": _load_template(), "CLAUDE.md": _CLAUDE_MD_ROUTER}
+    if manifest is None:
+        manifest = {}
     written: list[str] = []
     for name in _TARGETS:
-        dest = project_dir / name
-        if dest.exists() and not force:
-            continue
-        dest.write_text(bodies[name], encoding="utf-8")
-        written.append(name)
+        if write_managed_file(project_dir, name, bodies[name], manifest, force=force):
+            written.append(name)
     return written
