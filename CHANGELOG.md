@@ -164,6 +164,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   test covers all four groups, so a fifth cannot be added divergently without
   failing.
 
+### Changed
+
+- [#2096] **The macOS build is signed with a Developer ID certificate, hardened,
+  notarized and stapled**, so a machine that has never had SciStudio installed
+  launches the dmg by double-clicking it instead of being stopped by Gatekeeper
+  and sent to right-click-Open or System Settings. All four steps are required;
+  signing alone leaves the prompt in place, and without a stapled ticket the
+  first launch still needs to reach Apple over the network.
+  The entitlements are pinned in-repo at `desktop/assets/entitlements.mac.plist`
+  rather than inherited from electron-builder's fallback template, and the same
+  file is used for `entitlements` **and** `entitlementsInherit`. That second part
+  is load-bearing rather than tidiness: the bundled interpreter runs as its own
+  process and receives the *inherit* entitlements, and it is that process which
+  `dlopen`s the compiled extensions of packages installed through package OTA
+  (#1784) long after this bundle was signed. Without
+  `com.apple.security.cs.disable-library-validation` on it, the hardened runtime
+  refuses those loads — a failure that appears as a Python `ImportError`, passes
+  the build, and passes notarization. A test asserts the two settings cannot
+  drift apart.
+  Files that `codesign` cannot sign are pruned before staging — `__pycache__`
+  throughout, and the stdlib `test` package from the bundled interpreter.
+  `@electron/osx-sign` decides what to sign with a null-byte heuristic rather
+  than by parsing Mach-O headers, so compiled bytecode and CPython's own binary
+  test fixtures were being handed to `codesign`, where a single failure fails the
+  whole build.
+  `build.electronFuses` stays unset, and a test now asserts it: fuses are
+  entirely opt-in in electron-builder, so signing does not enable them, and
+  enabling `onlyLoadAppFromAsar` would silently block the shell hot-update loader
+  planned in #2097.
+  Signing happens in the release workflow rather than by hand, driven by whether
+  the Developer ID certificate is configured as a repository secret — a fork or a
+  contributor without credentials still gets the same unsigned dev artifact as
+  before. Because electron-builder's notarization **fails soft** (it logs
+  `skipped macOS notarization` and returns when credentials cannot be generated,
+  so a mistyped secret yields a green build and a dmg that still prompts), the
+  workflow now asserts the result: `codesign --verify`, the `runtime` flag in the
+  signature, Gatekeeper's own `spctl` verdict, and `stapler validate`. A `Desktop`
+  job also runs the desktop tests in CI for the first time, so these guards
+  actually execute.
+  Windows signing is unaffected and still absent — the Apple Developer Program
+  does not cover it. Design record:
+  `docs/specs/desktop-macos-signing-notarization.md` (status `Draft`: the
+  configuration and its platform-independent tests have landed, but the
+  acceptance run — clean mac, no prompt, `spctl` accepted, `stapler validate`
+  — is owner-executed on macOS and has not been performed).
+  Tests: `desktop/test/macos-signing.test.js`.
+  (@claude, 2026-08-21, branch: guided/2096-macos-signing-notarization)
+
 ### Removed
 
 - [#2120 #2099] **Remove the semantic-duplication check and its CI workflow.** The
@@ -244,6 +292,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   linted other agents' checkouts and failed commits on files they never
   touched. It is gitignored now, which is what keeps ruff inside the checkout.
 
+- [#1988] **A block that isn't one of the six kinds no longer looks broken.**
+  Every canvas node that wasn't IO, Process, Code, App, AI or Subworkflow fell
+  back to one grey body with a puzzle-piece glyph — and that single grey was
+  answering two completely different questions. A block whose class extends
+  `Block` directly works perfectly well; it just has no base category to report.
+  A block whose type can't be loaded here at all is broken. Both looked the
+  same, so the working one looked broken and the broken one looked ordinary.
+  They are now two visuals. A block with no category gets a body colour of its
+  own alongside the other six, and a glyph that doesn't imply something is
+  missing. A block that didn't resolve is drawn as a dashed outline rather than
+  a solid body — an empty slot in the graph, not a seventh kind of block — and
+  it now carries a warning that names the block type it was looking for and says
+  the node has no ports and will fail on run.
+  That warning matters more than the colour did. Nothing was reporting these
+  nodes: the workflow validator finds unregistered block types by walking edges,
+  and a node with no ports has no edges, so a workflow full of them validated
+  clean and only failed at run time. Both surfaces report it now. The canvas
+  draws the node, and validation gained a per-node pass that names every
+  unresolved block type once — as a warning, not an error, so a workflow that
+  used to save and run still saves and runs. The silence is what changed, not
+  the rules.
+  Keeping that promise took two more fixes. A validation warning was only
+  advisory to the app: `scistudio run` on the command line stopped on any
+  diagnostic at all, and the tool the AI assistant uses to check a workflow
+  called it invalid on the same basis. Both now do what the app already did —
+  show the warning, and stop only for a real error.
+  One case gets a further nudge. Package-owned loaders are folded into the core
+  Load block on purpose and aren't offered separately, so an AI agent wiring one
+  by name produces a node that can't resolve. When an unresolved block type
+  reads as a loader or a saver, the node borrows the IO palette and the matching
+  load/save glyph, so it still reads as what it was meant to be. The guess is
+  about appearance only — it is limited to IO, and it never removes the dashed
+  body or the warning.
 - [#2093] **`npm run dev` in `desktop/` starts again on Windows.** The desktop
   dev launcher spawns npm twice — once for Vite, once for Electron — and on
   Windows the `npm` it reaches is `npm.cmd`, a batch shim. Node hardened

@@ -244,8 +244,14 @@ async def validate_workflow(
     # the validator falls back to the backend process's working directory and
     # falsely rejects a valid project-relative CodeBlock ``script_path`` that run
     # start accepts.
-    errors = _validate(definition, registry=ctx.block_registry, project_dir=ctx.project_dir)
-    return ValidateWorkflowResult(valid=not errors, errors=list(errors))
+    diagnostics = _validate(definition, registry=ctx.block_registry, project_dir=ctx.project_dir)
+    # #1988: a leading ``Warning:`` marks an advisory diagnostic, the convention
+    # the API layer already applies (``api/runtime/_workflows.py``). ``valid``
+    # must reflect hard errors only, or an advisory would tell the agent a
+    # workflow is invalid when run start would dispatch it happily. Every
+    # diagnostic is still returned, so nothing is hidden from the agent.
+    valid = not any(not d.startswith("Warning:") for d in diagnostics)
+    return ValidateWorkflowResult(valid=valid, errors=list(diagnostics))
 
 
 # ---------------------------------------------------------------------------

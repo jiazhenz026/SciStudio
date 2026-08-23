@@ -141,6 +141,13 @@ export interface NodeStatusSurfaceProps {
   /** Concise error detail surfaced in the tooltip (never inline). */
   errorSummary?: string;
   errorMessage?: string;
+  /**
+   * #1988 — concise warning detail for the tooltip, mirroring `errorSummary`.
+   * The default wording points at BottomPanel Config, which is right for the
+   * lossy-save warning but wrong for an unresolved block type (Config cannot
+   * fix a block that will not load). Callers that know better say so here.
+   */
+  warningSummary?: string;
   /** FR-012 — error activation: select node + open Logs. */
   onErrorClick?: () => void;
   /** FR-013 — warning activation: select node + open BottomPanel Config. */
@@ -172,6 +179,7 @@ export function NodeStatusSurface({
   problemSeverity = "none",
   errorSummary,
   errorMessage,
+  warningSummary,
   onErrorClick,
   onWarningClick,
 }: NodeStatusSurfaceProps) {
@@ -193,7 +201,7 @@ export function NodeStatusSurface({
     kind === "error"
       ? (errorSummary ?? errorMessage ?? "Error — open Logs for details")
       : kind === "warning"
-        ? "Warning — open Config for details"
+        ? (warningSummary ?? "Warning — open Config for details")
         : style.label;
 
   // Elapsed pill — absolute, pointer-events-none, sits just left of the badge.

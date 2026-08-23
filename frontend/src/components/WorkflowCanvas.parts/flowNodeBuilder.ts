@@ -142,6 +142,48 @@ export interface BlockNodeCallbacks {
 }
 
 /**
+ * #1988 — what a node's `block_type` string alone can tell us, once the block
+ * itself has failed to resolve.
+ *
+ * `block_type` is an IDENTIFIER, not a category: the real `base_category` is
+ * derived on the backend from the class hierarchy (`issubclass(cls, IOBlock)`
+ * and friends), which needs a class that can actually be imported. An
+ * unresolved block is precisely the case where there is no class to ask, so
+ * the name is all that is left.
+ *
+ * Scope is deliberately IO-only (owner directive). The case this exists for is
+ * an agent wiring a package-owned load block instead of the core one — package
+ * loaders are folded into the core Load block by design and are not offered
+ * separately, so an agent naming one produces a node that cannot resolve here.
+ * Owner feedback on #1988: "even when the agent picked the wrong block, a
+ * loader should still read as a loader". It stays a guess about APPEARANCE
+ * only — `unresolved` is tracked separately and still drives the dashed body
+ * and the warning badge, so a prettier colour never hides the defect.
+ *
+ * Anything that is not recognisably IO returns `unresolved` rather than a
+ * broader guess; there is no general name→category heuristic here.
+ */
+export function inferUnresolvedCategory(blockType: string): {
+  category: string;
+  iconHint?: string;
+} {
+  // Match on snake_case word boundaries so `payload_block` never reads as a
+  // "load" and `download_block` never reads as a save.
+  const words = blockType
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  const has = (...candidates: string[]) => candidates.some((c) => words.includes(c));
+  if (has("save", "write", "export", "dump")) {
+    return { category: "io", iconHint: "folder-output" };
+  }
+  if (has("load", "read", "import", "open")) {
+    return { category: "io", iconHint: "folder-input" };
+  }
+  return { category: "unresolved" };
+}
+
+/**
  * ADR-050 §2.5 — compute the highest-priority problem signal for a node.
  *
  * Priority: an `error` runtime status is always "error". Otherwise, for a
@@ -149,6 +191,15 @@ export interface BlockNodeCallbacks {
  * single) capability whose `metadata_fidelity` would drop any of those fields,
  * the severity is "warning" (the lossy-save signal — verbose detail lives in
  * BottomPanel Config, FR-014). Everything else is "none".
+ *
+ * #1988 — an unresolved `block_type` is also a "warning". It outranks the
+ * lossy-save check because it is unconditional: a node whose block cannot be
+ * loaded has no schema, so no other signal on this node can fire. This is the
+ * half of #1988 that colour cannot do. Until #1988 nothing reported these nodes
+ * at all — `validate_workflow`'s unregistered-type check walked EDGES, and an
+ * unresolved node has no ports and therefore no edges. The validator now also
+ * reports them per node (Check 4.5); this is the same fact on the canvas, where
+ * the user is actually looking when they place the node.
  */
 export function computeProblemSeverity(opts: {
   status: string;
@@ -156,9 +207,12 @@ export function computeProblemSeverity(opts: {
   schema?: BlockSchemaResponse;
   config: Record<string, unknown>;
   upstreamOmeFields: string[] | undefined;
+  /** #1988 — true when neither a summary nor a schema resolved for this node. */
+  unresolved?: boolean;
 }): BlockNodeData["problemSeverity"] {
-  const { status, category, schema, config, upstreamOmeFields } = opts;
+  const { status, category, schema, config, upstreamOmeFields, unresolved } = opts;
   if (status === "error") return "error";
+  if (unresolved) return "warning";
 
   const isSaveIo =
     category === "io" && (schema?.direction === "output" || schema?.direction === "save");
@@ -211,16 +265,25 @@ export function buildBlockNode(opts: BlockOpts): Node {
     selectedNodeId,
     highlighted,
   } = opts;
-  const category = summary?.base_category ?? schema?.base_category ?? "custom";
+  // #1988 — an EMPTY base_category still counts as resolved: the block was
+  // found, the backend simply reports "unknown" for a direct `Block` subclass.
+  // Only the absence of BOTH a summary and a schema means the `block_type`
+  // resolved to nothing here, and that is the state that must stay visible.
+  const resolvedCategory = summary?.base_category || schema?.base_category;
+  const unresolved = !summary && !schema;
+  const inferred = unresolved ? inferUnresolvedCategory(node.block_type) : undefined;
+  const category = resolvedCategory || inferred?.category || "unknown";
   // ADR-050 §2.5 — highest-priority problem signal, surfaced by the node's
   // unified NodeStatusSurface (error from runtime status, warning from the
-  // lossy-save check). Verbose detail stays in Logs / BottomPanel.
+  // lossy-save check or an unresolved block type). Verbose detail stays in
+  // Logs / BottomPanel.
   const problemSeverity = computeProblemSeverity({
     status,
     category,
     schema,
     config: params,
     upstreamOmeFields,
+    unresolved,
   });
   return {
     id: node.id,
@@ -234,6 +297,10 @@ export function buildBlockNode(opts: BlockOpts): Node {
       label,
       blockType: node.block_type,
       category,
+      // #1988 — carried so the node can draw the dashed body and so the
+      // warning badge can say WHY, instead of the generic Config wording.
+      unresolved,
+      uiIconHint: inferred?.iconHint,
       summary,
       schema,
       config: params,

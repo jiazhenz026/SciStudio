@@ -218,7 +218,12 @@ class BlockSpec:
     """Broad block family.
 
     One of ``"io"``, ``"process"``, ``"code"``, ``"app"``, ``"ai"``, or
-    ``"subworkflow"``.
+    ``"subworkflow"`` -- or ``"unknown"`` for a class that extends
+    :class:`~scistudio.blocks.base.block.Block` directly rather than one of the
+    six bases, which :func:`~scistudio.blocks.registry._spec._infer_category`
+    resolves by ``issubclass`` and cannot place. ``"unknown"`` describes a
+    perfectly valid block; the canvas gives it its own node colour (#1988) and
+    does not treat it as an error.
     """
     subcategory: str = ""
     """Optional finer grouping within :attr:`base_category`, for palette organisation."""

@@ -96,8 +96,27 @@ def _validate_workflow(
         return []
 
 
-def _report_validation_errors(errors: list[str]) -> None:
-    """Print validation errors and exit if the list is non-empty."""
+def _report_validation_errors(diagnostics: list[str]) -> None:
+    """Print validation diagnostics and exit only when one is a hard error.
+
+    ``validate_workflow`` returns a single list in which a leading ``Warning:``
+    marks an advisory diagnostic. The API layer has always split on that prefix
+    (``api/runtime/_workflows.py``), but this CLI treated the list as
+    all-or-nothing, so an advisory made ``scistudio run`` refuse to dispatch.
+
+    That was latent until #1988: the validator's unregistered-block-type report
+    used to reach only nodes that had edges, and a node whose block does not
+    resolve has no ports and therefore no edges — so the warning that now fires
+    for those nodes had no way to fire before. Widening the report exposed the
+    prefix being ignored here. Warnings are printed either way; only hard errors
+    stop the command.
+    """
+    warnings = [d for d in diagnostics if d.startswith("Warning:")]
+    errors = [d for d in diagnostics if not d.startswith("Warning:")]
+    if warnings:
+        typer.echo("Validation warnings:")
+        for warning in warnings:
+            typer.echo(f"  - {warning}")
     if errors:
         typer.echo("Validation errors:")
         for err in errors:

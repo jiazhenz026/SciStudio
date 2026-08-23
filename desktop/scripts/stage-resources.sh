@@ -49,6 +49,15 @@ cp -R "$REPO_ROOT/src"/. "$SRC_TARGET"/
 # PYTHONPATH) and only leaks paths into the bundle and OTA snapshot.
 rm -rf "$SRC_TARGET/scistudio.egg-info"
 
+# #2096: Drop compiled bytecode before the tree is signed. @electron/osx-sign
+# walks everything under Contents/ (extraResources land there) and hands each
+# file its isBinaryFile heuristic flags to codesign. A .pyc trips that heuristic
+# without being Mach-O, so codesign fails on it and takes the notarized build
+# down with it. The files are pure cache and CPython runs without them.
+# scripts/ota_publish.py already excludes them from the OTA snapshot; this makes
+# the installer consistent with it. Mirrors stage-resources.ps1.
+find "$SRC_TARGET" -name "__pycache__" -type d -prune -exec rm -rf {} +
+
 # Refresh the packaged SPA (scistudio/api/static) from the frontend build we
 # just produced. This is the ONLY frontend a bundled desktop app serves
 # (scistudio.api.app._resolve_spa_static_dir, SCISTUDIO_BUNDLED=1). The repo

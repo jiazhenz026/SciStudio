@@ -6,7 +6,7 @@ import { resolveTypeColor, type DeclaredTypeColors } from "../config/typeColorMa
 import { useAppStore } from "../store";
 import { useDeclaredTypeColors } from "../store/useTypeCatalog";
 import type { BlockSchemaResponse, BlockSummary, WorkflowEdge, WorkflowNode } from "../types/api";
-import { computeEffectivePorts } from "../utils/computeEffectivePorts";
+import { computeEffectivePorts, resolveDrivingConfigValue } from "../utils/computeEffectivePorts";
 import { arePortTypesCompatible } from "../utils/portCompat";
 import { AnnotationNode } from "./nodes/AnnotationNode";
 import { BlockNode } from "./nodes/BlockNode";
@@ -135,6 +135,10 @@ function useFlowEdges(
       // to the static schema spec while BlockNode rendered the real
       // per-instance type — that was the visible "edge color mismatches
       // port color" symptom.
+      // #2141: the driving value comes from the shared
+      // ``resolveDrivingConfigValue`` (params value, then schema default) —
+      // the same helper BlockNode uses, so an edge and the port it leaves
+      // cannot disagree when the driving param was never explicitly set.
       const sourceParams = (sourceNode?.config.params as Record<string, unknown> | undefined) ?? {};
       const targetParams = (targetNode?.config.params as Record<string, unknown> | undefined) ?? {};
       const variadicSourcePorts =
@@ -147,9 +151,11 @@ function useFlowEdges(
             )
           : (sourceSchema?.output_ports ?? []);
       const sourceDynamicPorts = sourceSchema?.dynamic_ports ?? null;
-      const sourceConfigKey = sourceDynamicPorts?.source_config_key;
-      const sourceDrivingConfigValue =
-        sourceConfigKey != null ? (sourceParams[sourceConfigKey] as string | undefined) : undefined;
+      const sourceDrivingConfigValue = resolveDrivingConfigValue(
+        sourceParams,
+        sourceSchema,
+        sourceDynamicPorts?.source_config_key,
+      );
       const effectiveSourcePorts = computeEffectivePorts(
         sourceDynamicPorts,
         sourceDrivingConfigValue,
@@ -175,9 +181,11 @@ function useFlowEdges(
             )
           : (targetSchema?.input_ports ?? []);
       const targetDynamicPorts = targetSchema?.dynamic_ports ?? null;
-      const targetConfigKey = targetDynamicPorts?.source_config_key;
-      const targetDrivingConfigValue =
-        targetConfigKey != null ? (targetParams[targetConfigKey] as string | undefined) : undefined;
+      const targetDrivingConfigValue = resolveDrivingConfigValue(
+        targetParams,
+        targetSchema,
+        targetDynamicPorts?.source_config_key,
+      );
       const effectiveTargetPorts = computeEffectivePorts(
         targetDynamicPorts,
         targetDrivingConfigValue,

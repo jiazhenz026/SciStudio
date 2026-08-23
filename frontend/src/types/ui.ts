@@ -24,6 +24,21 @@ export interface BlockNodeData extends Record<string, unknown> {
   label: string;
   blockType: string;
   category: string;
+  /**
+   * #1988 — true when `blockType` resolved to NOTHING in this environment
+   * (neither a `BlockSummary` nor a `BlockSchemaResponse` came back): the
+   * package is not installed, the drop-in file is gone, or an agent named a
+   * block that does not exist. Distinct from a block that resolved fine but
+   * reports `base_category: "unknown"` because it inherits `Block` directly —
+   * that one works and is drawn as an ordinary node.
+   */
+  unresolved?: boolean;
+  /**
+   * #1988 — a Lucide icon name guessed from `blockType` for an unresolved node
+   * (IO only), so a loader still reads as a loader. Weaker than the block's own
+   * `summary.ui_icon`, which is authoritative whenever the block resolved.
+   */
+  uiIconHint?: string;
   summary?: BlockSummary;
   schema?: BlockSchemaResponse;
   config?: Record<string, unknown>;

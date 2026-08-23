@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- V8 needs writable-executable memory. Required by Electron under the
+         hardened runtime; without these the app crashes on launch. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+
+    <!-- LOAD-BEARING for package OTA (#1784), see
+         docs/specs/desktop-macos-signing-notarization.md.
+
+         Under the hardened runtime, library validation refuses to load any
+         dylib not signed by this Team ID. The bundled interpreter is spawned
+         as a separate process and dlopen()s compiled extensions from packages
+         the user installs into userData after this bundle was signed — those
+         .so files will never carry our signature.
+
+         This file is used for BOTH `mac.entitlements` (the app) and
+         `mac.entitlementsInherit` (every nested binary, including the bundled
+         python3 that actually performs the dlopen). Dropping this key does not
+         fail the build or the notarization; it breaks package OTA at runtime,
+         and it surfaces as a Python ImportError rather than as a code-signing
+         error. Do not remove it without removing package OTA. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+  </dict>
+</plist>

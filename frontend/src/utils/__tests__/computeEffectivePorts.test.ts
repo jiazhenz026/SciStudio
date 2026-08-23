@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { BlockPortResponse, DynamicPortsConfig } from "../../types/api";
-import { computeEffectivePorts } from "../computeEffectivePorts";
+import type { BlockPortResponse, BlockSchemaResponse, DynamicPortsConfig } from "../../types/api";
+import { computeEffectivePorts, resolveDrivingConfigValue } from "../computeEffectivePorts";
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -214,5 +214,61 @@ describe("computeEffectivePorts — graceful fallback", () => {
     // unnecessary clone).
     expect(result[1]).toBe(ports[1]);
     expect(result[1].accepted_types).toEqual(["Text"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveDrivingConfigValue (#2141) — the single resolution shared by the
+// port surface (BlockNode) and the edge surface (WorkflowCanvas) so an edge
+// and the port it leaves can never disagree.
+// ---------------------------------------------------------------------------
+
+/** Minimal schema carrying only what resolveDrivingConfigValue reads. */
+function schemaWithDefault(defaultValue: unknown): BlockSchemaResponse {
+  return {
+    config_schema: {
+      type: "object",
+      properties: { core_type: { type: "string", default: defaultValue } },
+    },
+  } as unknown as BlockSchemaResponse;
+}
+
+describe("resolveDrivingConfigValue (#2141)", () => {
+  it("returns undefined when sourceConfigKey is undefined", () => {
+    expect(
+      resolveDrivingConfigValue({ core_type: "Array" }, schemaWithDefault("DataFrame"), undefined),
+    ).toBeUndefined();
+  });
+
+  it("prefers the configured params value over the schema default", () => {
+    expect(
+      resolveDrivingConfigValue(
+        { core_type: "Array" },
+        schemaWithDefault("DataFrame"),
+        "core_type",
+      ),
+    ).toBe("Array");
+  });
+
+  it("falls back to the schema default when the param was never set", () => {
+    // The #2141 case: a freshly dropped Load block has no ``core_type`` in
+    // ``config.params``; the schema default ("DataFrame") must still drive the
+    // effective port types so port and edge colours agree.
+    expect(resolveDrivingConfigValue({}, schemaWithDefault("DataFrame"), "core_type")).toBe(
+      "DataFrame",
+    );
+  });
+
+  it("falls back to the schema default when the param is an empty string", () => {
+    expect(
+      resolveDrivingConfigValue({ core_type: "" }, schemaWithDefault("DataFrame"), "core_type"),
+    ).toBe("DataFrame");
+  });
+
+  it("returns undefined when neither params nor the schema provide a value", () => {
+    expect(
+      resolveDrivingConfigValue({}, schemaWithDefault(undefined), "core_type"),
+    ).toBeUndefined();
+    expect(resolveDrivingConfigValue(undefined, undefined, "core_type")).toBeUndefined();
   });
 });
