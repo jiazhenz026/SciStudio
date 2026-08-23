@@ -116,6 +116,14 @@
       "path": "CHANGELOG.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T10:20:21.081735Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/e2e/2026-08-23-shell-ota-hot-update-lifecycle.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": true,
@@ -779,6 +787,12 @@
       "at": "2026-08-23T08:59:16.598043Z",
       "pattern": "tests/qa/test_workflow_expressions.py",
       "reason": "Declaring the paths this branch INHERITS from its parent, not paths it authors. guided/2097 is built on guided/2096-macos-signing-notarization, which is still open as PR #2128, and PR #2139 targets main so that CI runs at all (ci.yml only triggers for pull_request into main or track/**) and so that GitHub honours the Closes link. The consequence is that the diff against main carries every file #2128 changed. All six are authored, declared, tested and reviewed on #2128; issue #2097 changes none of them. The scope actually authored here is visible with git diff guided/2096-macos-signing-notarization...HEAD: desktop/, scripts/ota_publish.py, tests/scripts/ and docs/specs/desktop-shell-ota-hot-update.md. These declarations disappear from the diff the moment #2128 merges."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T10:20:21.081716Z",
+      "pattern": "docs/ai-developer/e2e/2026-08-23-shell-ota-hot-update-lifecycle.md",
+      "reason": "Owner asked for the hot-update test plan to be recorded as a repeatable e2e scenario rather than re-derived from chat each release. The file lives under docs/ai-developer/e2e/, a governance surface, so it lands under the governance_touch already declared on this ledger. It is scenario data for the scistudio-e2e-test skill, not policy: it adds no rule and changes no persona guide, specific rule, dispatch template or skill. Scope is #2097 because the scenario exercises exactly what this PR builds -- the shell payload, the loader fallback, and the sticky quarantine."
     }
   ],
   "session_id": "2f564bfb-4f25-489f-bf48-64c1556cdfb5",
