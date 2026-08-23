@@ -257,7 +257,13 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
               : undefined
           }
           onErrorClick={data.onErrorClick}
-          onWarningClick={data.onWarningClick}
+          // #1988 — withhold the warning action for an unresolved node. The
+          // shared handler selects the node and opens BottomPanel Config
+          // (FR-013), which is the dead end the tooltip above disclaims: a
+          // block that never loaded has no config to edit. Passing undefined
+          // leaves the badge as a non-interactive marker carrying the
+          // explanation, rather than a control that goes nowhere useful.
+          onWarningClick={data.unresolved ? undefined : data.onWarningClick}
         />
 
         {/* Port handles + variadic +/- controls on the left/right rails.

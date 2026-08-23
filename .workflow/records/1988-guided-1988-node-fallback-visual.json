@@ -317,6 +317,11 @@
       "at": "2026-08-22T07:34:26.956804Z",
       "owner_directive": "Owner: \u53ef\u4ee5 \u2014 authorised opening the PR with SCISTUDIO_SKIP_PREFLIGHT=1. Five local runs produced four different failing node ids, always PermissionError WinError 5 at utils/atomic_io.py:308 on a zarr directory rename under an xdist worker (issue #2047). Nothing in this diff touches zarr, atomic_io or the IO blocks. CI is Ubuntu-only and runs the full suite as the authoritative gate.",
       "reason": "python_tests is blocked by issue #2047, a Windows zarr directory-rename race that is unrelated to this diff; owner authorised opening the PR with the preflight skip and letting CI be the gate"
+    },
+    {
+      "at": "2026-08-23T03:33:53.784468Z",
+      "owner_directive": "Owner: fix Codex's one P1 and two P2s on PR #2127; ignore the gate-ledger one. (1) the schema cache is never evicted so a deleted block still reports resolved; (2) the unresolved warning badge still routes clicks to BottomPanel Config, the dead end its own tooltip disclaims; (3) the new Warning: diagnostic DOES change dispatch for scistudio run and the MCP validate_workflow tool, both of which treat any diagnostic as an error \u2014 my claim that it does not was verified only against the API path.",
+      "reason": "Codex review on PR #2127 found three real defects; owner directed fixing the P1 and both P2s"
     }
   ],
   "docs_events": [
@@ -342,6 +347,22 @@
       "kind": "na",
       "path": null,
       "rationale": "ADR-050 spec describes node geometry and status surface, not the category fallback vocabulary; the fallback contract lives in the ADR section that was updated.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T03:43:01.372783Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-050.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T03:43:01.372801Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
       "verified_in_diff": null
     }
   ],
@@ -1551,6 +1572,42 @@
       "at": "2026-08-22T06:23:21.772016Z",
       "pattern": "tests/workflow/**",
       "reason": "Owner authorised the protected-core scope that was held back"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T03:33:53.784489Z",
+      "pattern": "src/scistudio/cli/main.py",
+      "reason": "Codex review on PR #2127 found three real defects; owner directed fixing the P1 and both P2s"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T03:33:53.784495Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_workflow/read.py",
+      "reason": "Codex review on PR #2127 found three real defects; owner directed fixing the P1 and both P2s"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T03:33:53.784499Z",
+      "pattern": "frontend/src/store/paletteSlice.ts",
+      "reason": "Codex review on PR #2127 found three real defects; owner directed fixing the P1 and both P2s"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T03:33:53.784502Z",
+      "pattern": "tests/cli/**",
+      "reason": "Codex review on PR #2127 found three real defects; owner directed fixing the P1 and both P2s"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T03:52:57.099605Z",
+      "pattern": "tests/ai/agent/mcp/**",
+      "reason": "the review fixes need tests next to the code they cover: the MCP validate_workflow verdict and the frontend block-schema cache"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-23T03:52:57.099624Z",
+      "pattern": "frontend/src/store/__tests__/**",
+      "reason": "the review fixes need tests next to the code they cover: the MCP validate_workflow verdict and the frontend block-schema cache"
     }
   ],
   "session_id": "9b8b8cad-dcb4-42e8-a8d9-08cd318d571c",
@@ -1570,6 +1627,30 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/nodes/__tests__/BlockNode/unresolvedNode.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T03:43:01.372804Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/cli/test_validation_warning_prefix.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T03:43:01.372807Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/agent/mcp/test_validate_workflow_warning_prefix.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-23T03:43:01.372809Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/blockSchemaEviction.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }

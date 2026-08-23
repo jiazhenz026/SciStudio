@@ -77,6 +77,27 @@ describe("#1988 unresolved node rendering", () => {
     expect(title).not.toContain("open Config");
   });
 
+  it("offers no click-through on the unresolved warning", () => {
+    // The shared warning handler opens BottomPanel Config, which cannot help a
+    // block that never loaded — the tooltip says so, so the badge must not
+    // still act as a control that goes there.
+    renderNode({
+      category: "unresolved",
+      unresolved: true,
+      problemSeverity: "warning",
+      onWarningClick: () => {
+        throw new Error("unresolved node must not route to Config");
+      },
+    });
+    expect(screen.queryByTestId("node-status-surface-button")).toBeNull();
+    expect(screen.getByTestId("node-status-surface")).toBeTruthy();
+  });
+
+  it("keeps the click-through for an ordinary warning", () => {
+    renderNode({ category: "io", problemSeverity: "warning", onWarningClick: () => {} });
+    expect(screen.getByTestId("node-status-surface-button")).toBeTruthy();
+  });
+
   it("keeps the generic Config wording for the lossy-save warning", () => {
     // The unresolved copy is opt-in, so the pre-existing warning is unchanged.
     renderNode({ category: "io", problemSeverity: "warning" });

@@ -338,10 +338,17 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
     # canvas has the same gap (ADR-050 §2.1) and now draws these nodes as
     # `unresolved`; this is the diagnostics half of that fact.
     #
-    # Emitted with the ``Warning:`` prefix, which callers treat as
-    # non-blocking (see ``api/runtime/_workflows.py``). Reporting it does not
-    # change whether the workflow saves or dispatches — it only stops the
-    # silence.
+    # Emitted with the ``Warning:`` prefix so that reporting the fact does not
+    # change whether a workflow saves or dispatches — it only stops the silence.
+    #
+    # That property is a contract across CALLERS, not something this function
+    # can guarantee alone, and it did not hold when this check was written. The
+    # API layer split on the prefix (``api/runtime/_workflows.py``), but
+    # ``cli/main.py::_report_validation_errors`` exited on any non-empty list
+    # and the MCP ``validate_workflow`` tool computed ``valid=not errors``, so
+    # both would have refused a workflow over an advisory. Nothing exposed it
+    # because the pre-#1988 report only reached nodes with edges. Both were
+    # fixed alongside this check; a new consumer must split on the prefix too.
     #
     # ``subworkflow_broken`` is excluded: it is a synthetic flattener marker
     # rather than a real block type, and Check 1.5 already reports it (as a

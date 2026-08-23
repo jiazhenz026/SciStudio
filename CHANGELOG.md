@@ -165,6 +165,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   unresolved block type once — as a warning, not an error, so a workflow that
   used to save and run still saves and runs. The silence is what changed, not
   the rules.
+  Keeping that promise took two more fixes. A validation warning was only
+  advisory to the app: `scistudio run` on the command line stopped on any
+  diagnostic at all, and the tool the AI assistant uses to check a workflow
+  called it invalid on the same basis. Both now do what the app already did —
+  show the warning, and stop only for a real error.
   One case gets a further nudge. Package-owned loaders are folded into the core
   Load block on purpose and aren't offered separately, so an AI agent wiring one
   by name produces a node that can't resolve. When an unresolved block type
