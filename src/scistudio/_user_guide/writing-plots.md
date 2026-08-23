@@ -27,6 +27,13 @@ def render(collection):
 Bind the plot to a block's output port and it draws every time you look. That is
 the whole contract.
 
+## Edit or delete a plot
+
+Every card in the **Plots** tab has two actions in its top-right corner. **Edit**
+opens that plot's render script in a code-editor tab. **Delete** asks for
+confirmation, then removes the plot's manifest and render script from the
+project. Deleting a plot cannot be undone.
+
 ## What `collection` gives you
 
 The `collection` is the batch of items on the port you chose. You read it with a

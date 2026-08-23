@@ -22,6 +22,10 @@ import type {
   PreviewResourceSaveRequest,
   PreviewResourceSaveResponse,
   PreviewTarget,
+  PreviewerChoiceListResponse,
+  PreviewerChoiceScope,
+  PreviewerListResponse,
+  PreviewerReloadResponse,
 } from "../../types/api";
 import { JSON_HEADERS, apiFetch } from "./core";
 
@@ -106,6 +110,48 @@ export const dataApi = {
       )}`,
     ),
 
+  // -- #2095: previewer discovery + reload; #2049: per-type choice -----------
+
+  /** List registered previewers with the tier each was discovered from,
+   *  ordered in FR-003 routing precedence (`GET /api/previews/previewers`).
+   *  `targetType` is an exact-match filter, not the router's specificity
+   *  walk. */
+  listPreviewers: (targetType?: string) =>
+    apiFetch<PreviewerListResponse>(
+      `/api/previews/previewers${targetType ? `?target_type=${encodeURIComponent(targetType)}` : ""}`,
+    ),
+
+  /** Re-scan the drop-in previewer directories and rebuild the registries
+   *  (`POST /api/previews/reload`). */
+  reloadPreviewers: () =>
+    apiFetch<PreviewerReloadResponse>("/api/previews/reload", { method: "POST" }),
+
+  /** List the effective per-type previewer choices, each with the layer it
+   *  came from and whether its previewer is still registered
+   *  (`GET /api/previews/choices`). */
+  listPreviewerChoices: () => apiFetch<PreviewerChoiceListResponse>("/api/previews/choices"),
+
+  /** Record `targetType -> previewerId` at `scope` — `project` (this project
+   *  only) or `user` (every project). Returns the resulting effective choices
+   *  (`PUT /api/previews/choices/{target_type}`). */
+  setPreviewerChoice: (targetType: string, previewerId: string, scope: PreviewerChoiceScope) =>
+    apiFetch<PreviewerChoiceListResponse>(
+      `/api/previews/choices/${encodeURIComponent(targetType)}`,
+      {
+        method: "PUT",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ previewer_id: previewerId, scope }),
+      },
+    ),
+
+  /** Clear the choice for `targetType` at `scope`; clearing a type that was
+   *  never chosen succeeds (`DELETE /api/previews/choices/{target_type}`). */
+  clearPreviewerChoice: (targetType: string, scope: PreviewerChoiceScope) =>
+    apiFetch<PreviewerChoiceListResponse>(
+      `/api/previews/choices/${encodeURIComponent(targetType)}?scope=${encodeURIComponent(scope)}`,
+      { method: "DELETE" },
+    ),
+
   /** Save a bounded provider resource to a user-selected absolute file path
    *  (`POST /api/previews/sessions/{id}/resources/{resource_id}/save`). */
   savePreviewResource: (
@@ -150,6 +196,12 @@ export const dataApi = {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify(request),
+    }),
+
+  /** Delete a plot's manifest and render script directory. */
+  deletePlot: (plotId: string) =>
+    apiFetch<void>(`/api/plots/${encodeURIComponent(plotId)}`, {
+      method: "DELETE",
     }),
 
   /** Re-point an existing plot at a new workflow output target (bug#7).

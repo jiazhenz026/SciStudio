@@ -54,9 +54,10 @@ class RecordingDelivery:
     def deliver(self, segment: ReplaySegment, payload: bytes) -> None:
         landed: tuple[str, ...] = ()
         if self.project_dir is not None:
-            # as_posix(): the ordering assertions compare against forward-slash
-            # relative paths; str() yields backslashes on Windows (#2140).
             landed = tuple(
+                # #2075: as_posix() so the recorded path is separator-independent.
+                # This value never reaches product code -- it exists for the
+                # assertions below, which are written with "/".
                 sorted(p.relative_to(self.project_dir).as_posix() for p in self.project_dir.rglob("*") if p.is_file())
             )
         self.log.append((segment.id, payload.decode("utf-8"), landed))
@@ -69,10 +70,11 @@ class RecordingDelivery:
 def replay_context(tmp_path: Path) -> ActionContext:
     tutorial = tmp_path / "tutorial"
     (tutorial / "assets" / "replay").mkdir(parents=True)
-    # Bytes, not text mode: the replay delivers asset bytes verbatim, and
-    # text-mode writes translate "\n" to CRLF on Windows (#2140).
-    (tutorial / "assets" / "replay" / "one.txt").write_bytes(b"I will write the block.\n")
-    (tutorial / "assets" / "replay" / "two.txt").write_bytes(b"I have written the block.\n")
+    # #2075: newline="" keeps these exactly as written. Text mode would turn the
+    # trailing newline into CRLF on Windows, and the delivery assertions below
+    # compare the decoded payload literally.
+    (tutorial / "assets" / "replay" / "one.txt").write_text("I will write the block.\n", encoding="utf-8", newline="")
+    (tutorial / "assets" / "replay" / "two.txt").write_text("I have written the block.\n", encoding="utf-8", newline="")
     (tutorial / "assets" / "code").mkdir(parents=True)
     (tutorial / "assets" / "code" / "cluster.py").write_text("def run():\n    return 1\n", encoding="utf-8")
     project = tmp_path / "project"

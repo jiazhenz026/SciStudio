@@ -21,8 +21,9 @@
  *
  *   - `history` → the `BottomTab` key `lineage`. The tab was renamed to
  *     "History" in the UI by owner request (#1713 follow-up) while the key and
- *     all the code behind it stayed `lineage`. `TabBar.tsx` still reads
- *     `lineage: tabLabel(Waypoints, "History")`.
+ *     all the code behind it stayed `lineage`. `TabBar.tsx` now reads
+ *     `lineage: tabLabel(History, "History")` (#2090 moved `Waypoints`
+ *     to the activity bar's Workflows section).
  *   - `ai_chat` → the `BottomTab` key `ai`.
  *
  * The other five bottom-panel names match their keys exactly. Do not "fix"

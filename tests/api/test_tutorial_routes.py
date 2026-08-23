@@ -27,7 +27,13 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from scistudio.api.runtime import ApiRuntime, _rmtree_force
+from scistudio.api.runtime import ApiRuntime
+
+# #2075: the tests below simulate an out-of-product delete. Plain
+# ``shutil.rmtree`` cannot do that on Windows -- auto-init leaves
+# ``.git/objects`` read-only and Windows refuses to unlink a read-only file --
+# so use the helper the product already uses for exactly this case.
+from scistudio.api.runtime._helpers import _rmtree_force
 from scistudio.tutorials import discovery
 from scistudio.tutorials.manifest import TUTORIAL_MANIFEST_FILENAME
 
@@ -728,7 +734,7 @@ def test_a_tutorial_project_deleted_from_outside_invalidates_its_session(client:
     mount(core_tier, "fragile", manifest_for("fragile", [{"id": "one", "say": "One."}], **BOOTSTRAP))
     started = start(client, "fragile").json()
 
-    _rmtree_force(started["project_path"])
+    _rmtree_force(Path(started["project_path"]))
 
     assert client.get("/api/tutorials/sessions/active").json() is None
     entry = client.get("/api/tutorials/catalogue").json()["groups"][0]["tutorials"][0]

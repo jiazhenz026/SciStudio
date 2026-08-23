@@ -50,9 +50,12 @@ def write_tutorial(
     for relative, content in (files or {}).items():
         target = directory / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        # Bytes, not text mode: replay assets are delivered verbatim, and
-        # text-mode writes translate "\n" to CRLF on Windows (#2140).
-        target.write_bytes(content.encode("utf-8"))
+        # #2075: newline="" writes the content byte-for-byte. Without it, text
+        # mode translates a newline to CRLF on Windows, and a replay asset is
+        # delivered to the frontend as raw bytes -- so a test asserting the
+        # bytes it wrote saw two extra carriage returns on Windows only. These
+        # are fixture bytes, not platform-native text.
+        target.write_text(content, encoding="utf-8", newline="")
     return directory
 
 

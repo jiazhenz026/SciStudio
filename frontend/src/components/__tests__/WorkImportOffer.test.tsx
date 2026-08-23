@@ -12,7 +12,7 @@
  * contract rather than the shipped default.
  */
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as LearningCenterModule from "../../lib/api/learningCenter";
@@ -218,18 +218,34 @@ describe("the offer is triggered by a tutorial completing", () => {
     });
     const { useLearningCenter } = await import("../../App.parts/useLearningCenter");
 
+    const openProject = vi.fn();
+
     function Harness() {
       useLearningCenter({
         closeProject: vi.fn(),
         wsConnected: true,
         setLeftTab: vi.fn(),
-        openProject: vi.fn(),
+        openProject,
       });
       return <WorkImportOffer />;
     }
 
-    useAppStore.setState({ learningCenterSession: completedSession("welcome") });
     render(<Harness />);
+    // Let the mount-time session refetch settle first: its answer (no active
+    // session here) must land before the test drives the store, or it would
+    // clobber the session the test is about to adopt.
+    await act(async () => {});
+    // A completion the app run never witnessed is history, not news (#2079):
+    // the session is seen running before it completes, as in a real finish.
+    // The wait is on the project-opening effect rather than on store state
+    // alone, so the hook's effects have actually flushed for the active
+    // session before the completion lands — store writes are synchronous,
+    // effects are not.
+    useAppStore.setState({
+      learningCenterSession: { ...completedSession("welcome"), status: "active" },
+    });
+    await waitFor(() => expect(openProject).toHaveBeenCalledWith("p1"));
+    useAppStore.setState({ learningCenterSession: completedSession("welcome") });
 
     expect(await screen.findByTestId("work-import-offer")).toBeInTheDocument();
     expect(learningCenterApi.getTutorialUnlock).toHaveBeenCalledTimes(1);

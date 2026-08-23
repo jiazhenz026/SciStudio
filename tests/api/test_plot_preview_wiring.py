@@ -326,6 +326,40 @@ def test_plot_create_route_scaffolds_manifest_and_render_script(
     assert "context" not in script_text
 
 
+def test_plot_delete_route_removes_manifest_and_render_script(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    """DELETE removes the confined plot directory and the plot disappears from the list."""
+    _write_workflow_and_plot(client, opened_project)
+    plot_dir = opened_project / "plots" / "p1"
+    assert (plot_dir / "plot.yaml").is_file()
+    assert (plot_dir / "render.py").is_file()
+
+    deleted = client.delete("/api/plots/p1")
+
+    assert deleted.status_code == 204, deleted.text
+    assert not plot_dir.exists()
+    listed = client.get("/api/plots", params={"workflow_id": "main"})
+    assert listed.status_code == 200, listed.text
+    assert listed.json()["plots"] == []
+
+
+def test_plot_delete_route_rejects_invalid_or_unknown_ids(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    """Invalid ids cannot escape plots/, and unknown valid ids return 404."""
+    _write_workflow_and_plot(client, opened_project)
+
+    invalid = client.delete("/api/plots/bad!id")
+    unknown = client.delete("/api/plots/does-not-exist")
+
+    assert invalid.status_code == 400, invalid.text
+    assert unknown.status_code == 404, unknown.text
+    assert (opened_project / "plots" / "p1" / "render.py").is_file()
+
+
 def test_plot_relink_route_rebinds_manifest_target(
     client: TestClient,
     runtime: ApiRuntime,

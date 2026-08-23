@@ -114,7 +114,7 @@ def _required_removal_tokens() -> list[tuple[str, str]]:
 
     Each CI catalog command contributes one SPECIFIC distinguishing token (e.g.
     ``ruff``, ``mypy``, ``pytest``, ``lint-imports``, the ``full_audit`` module
-    path, ``build``, ``semantic_dup_scan.py``) that must not be removed from
+    path, ``build``, ``deferral_scan.py``) that must not be removed from
     governed configuration. The token is derived past the generic interpreter
     prefix so a ``python -m ...`` command yields its module/subcommand, never the
     generic ``python -m`` head that collides with the gate-record fold.

@@ -23,8 +23,8 @@ scope:
     - A hover detail popover anchored to the right of a tile showing icon, name, full description, and typed port signature; interactive in the palette so it can hold an action row (ADR-053 §9.3).
     - A shared section/filter/tile/chip/popover helper set the Data types tab reuses (ADR-053 §10.1).
     - The category sub-grouping layer, the always-on description line, and the "X in / Y out" text line are removed from the tile.
-    - A one-shot opacity blink confirming a completed Reload, via a shared `useReloadFlash` hook also wired to the project tree Refresh.
-    - A tip overlay pinned to the bottom of the shared left panel, rotating one curated tip at a time across all three tabs (§12, #1997).
+    - A one-shot opacity blink confirming a completed Reload, via a shared `useReloadFlash` hook also wired to the project tree Reload.
+    - A tip overlay pinned to the bottom of the shared left panel, rotating one curated tip at a time across all left-panel sections (§12, #1997; the panel gained the §13 activity-bar form in #2090).
   out:
     - Backend or schema changes (none — base_category, subcategory, ports, direction already exist on BlockSummary).
     - Per-block custom icons (still tracked as the categoryVisuals follow-up; palette keeps the category-icon fallback).
@@ -46,6 +46,8 @@ governs:
     - frontend/src/hooks/useReloadFlash.ts
     - frontend/src/components/ProjectTree.tsx
     - frontend/src/App.parts/ProjectWorkspace.tsx
+    - frontend/src/components/ActivityBar.tsx
+    - frontend/src/components/WorkflowPanel.tsx
   excludes:
     - frontend/src/components/nodes/BlockNode.parts/categoryVisuals.ts
 tests:
@@ -57,6 +59,8 @@ tests:
   - frontend/src/components/palette/tips/__tests__/tipPool.test.ts
   - frontend/src/components/palette/tips/__tests__/useTipRotation.test.ts
   - frontend/src/components/palette/tips/__tests__/PaletteTipCard.test.tsx
+  - frontend/src/components/ActivityBar.test.tsx
+  - frontend/src/components/WorkflowPanel.test.tsx
 acceptance_source: issue
 language_source: en
 ---
@@ -341,7 +345,7 @@ background catalog syncs, or on a failed reload. It uses the Web Animations API
 so the subtree is not remounted (section-collapse state is preserved), guarded
 for environments without `Element.animate`.
 
-The same hook is wired to the project tree Refresh control (watching the tree
+The same hook is wired to the project tree Reload control (watching the tree
 nodes), so both side panels share one consistent reload feedback.
 
 The hook is covered by `frontend/src/hooks/__tests__/useReloadFlash.test.ts`;
@@ -390,6 +394,9 @@ The left panel gains a third tab, **Data types**, between Blocks and Project
 abstract standing alone next to `Blocks`; the internal `leftTab` key stays
 `types`. `frontend/src/components/TypePalette.tsx` is the pane, with its
 `TypePalette.parts/` model, row, and popover siblings.
+
+(#2090 later replaced the tab strip itself with the §13 activity bar; the
+`types` section, its label, and everything else in §11 still stand.)
 
 ### 11.1 It Mirrors The Blocks Tab, Reusing Its Machinery
 
@@ -541,20 +548,23 @@ hints are built on that assumption.
 
 ### 12.1 It Belongs To The Panel, Not To A Tab
 
-The overlay is mounted in `App.parts/ProjectWorkspace.tsx` on the pane body that
-holds all three left tabs (`Blocks`, `Data types`, `Project`), as a sibling of
-the active tab's content rather than inside any one of them.
+The overlay is mounted in `App.parts/ProjectWorkspace.tsx` on the pane body
+that holds the left-panel sections, as a sibling of the active section's
+content rather than inside any one of them. (The panel held three text tabs —
+`Blocks`, `Data types`, `Project` — when this section was written; #2090
+replaced the tab strip with the §13 activity bar and added a fourth section,
+`Workflows`.)
 
-That placement is what makes one card and one clock serve three tabs. Switching
-tabs neither remounts the card nor restarts the rotation, so a user moving
-between Blocks and Data types sees one continuous schedule instead of a card
-that flickers on every switch. It also keeps all three panes unmodified: the
-overlay is positioned against the pane body, so the block grid, the type list,
-and the project tree each keep their full height.
+That placement is what makes one card and one clock serve every section.
+Switching sections neither remounts the card nor restarts the rotation, so a
+user moving between Blocks and Data types sees one continuous schedule instead
+of a card that flickers on every switch. It also keeps all panes unmodified:
+the overlay is positioned against the pane body, so the block grid, the type
+list, the workflow list, and the project tree each keep their full height.
 
 The card is anchored to the **bottom** of the pane body, above the pane's own
-content and below the tab strip. The tab strip stays reachable while a tip is
-up.
+content. (Before #2090 it sat below the tab strip; with the strip gone there
+is nothing above the pane content to collide with.)
 
 ### 12.2 Rotation, And The Two-Step Way Out
 
@@ -669,3 +679,155 @@ the hidden state carrying both `opacity-0` and `pointer-events-none`, dismissal
 and return after the snooze, the card disappearing entirely after the second
 dismissal, the expand control appearing only when something overflows, and a
 long title wrapping to two lines and being released along with the body.
+
+## 13. Activity Bar And Workflows Panel (#2090)
+
+The left panel's text tab strip (`Blocks` / `Data types` / `Project` along the
+panel's top edge) is replaced by a VS Code-style **activity bar**: a 48px
+vertical icon rail at the far left of the workspace,
+`frontend/src/components/ActivityBar.tsx`. The rail sits *outside* the
+`ResizablePanelGroup`, so it never resizes and stays visible while the panel is
+collapsed — which is what makes the collapsed state discoverable.
+
+### 13.1 Sections, Not Tabs
+
+`leftTab` widens from `"blocks" | "types" | "project"` to include
+`"workflows"` and `"data"`. The rail's icon order is Blocks, Data types,
+Workflows, Data, Project; hovering an
+icon shows the section name in a tooltip (the shared `ui/tooltip`). The active
+section carries an ember-filled highlight plus a short accent bar on the
+rail's left edge; a collapsed panel shows no active marker at all, same as
+VS Code.
+
+Clicking an icon opens that section. Clicking the *active* section's icon
+collapses the whole panel; clicking it again (or pressing Ctrl+B) reopens it.
+This wires up the store's `paletteCollapsed` state, which the Ctrl+B shortcut
+and ADR-053 FR-020's library reveal had been writing since the live hotfix
+batch without anything reading it: `ProjectWorkspace` now drives the left
+`ResizablePanel`'s imperative handle from it. Programmatic section switches —
+the FR-020 library reveal and Learning Center step routing — always expand the
+panel, because a section switch that lands behind a collapsed panel is
+invisible. Dragging the separator below `minSize` collapses the panel from
+the resizable side, so the panel's `onResize` mirrors that back into
+`paletteCollapsed` — the activity bar's click decision never reads a stale
+value (Codex P2 on #2106).
+
+### 13.2 The Workflows Section
+
+`frontend/src/components/WorkflowPanel.tsx` lists every workflow in the open
+project with the `description` from its YAML, single-click to open it on the
+canvas. It reads the existing endpoints — `GET /api/workflows/list` for the
+ids, then one `GET /api/workflows/{id}` per workflow for the description — so
+the section needed no backend change. A workflow whose detail fetch fails
+(e.g. a mid-write YAML) still appears, without a description. The workflow
+currently on the canvas is highlighted (`aria-current`), and a Reload button
+matches the Blocks palette's affordance. The list refetches when the
+filesystem-watcher's structural-change counter bumps (the same one the
+project tree subscribes to), and in-flight refreshes carry a sequence token
+so a response from a previous project can never overwrite the current list
+(Codex P2s on #2106).
+
+### 13.3 The Data Section
+
+The Data section is the project tree rooted at `data/` rather than the project
+root: `ProjectTree` grew optional `rootPath` / `title` props, and
+`useTreeNodes(projectId, basePath)` loads its root listing from the
+subdirectory while every path below stays project-relative (so the context
+menu, reload flash, and watcher auto-refresh behave exactly as they do on the
+Project section). All of `data/` shows — `raw`, `processed`, `zarr`,
+`parquet`, `artifacts`, `exchange` — per the owner's call in the live session.
+Single-click file preview in the right-hand DataPreview panel was discussed
+and explicitly deferred — tracked as issue #2112 (TODO in
+`ProjectWorkspace.tsx`).
+
+### 13.4 Test Plan
+
+`frontend/src/components/ActivityBar.test.tsx` covers the rail: one icon per
+section, click reporting, the active marker appearing only while the panel is
+open, and the hover tooltip. `frontend/src/components/WorkflowPanel.test.tsx`
+covers the workflow list: ids plus descriptions, click-to-open, the active
+highlight, the failed-detail fallback, the empty state, and Reload.
+`frontend/src/components/__tests__/ProjectTree.test.tsx` covers the Reload
+wording on the project tree and the Data section's `rootPath="data"` rooting.
+
+## 14. Previewers Tab (#2113)
+
+The left panel gains a fourth catalogue section, **Previewers**
+(`frontend/src/components/PreviewerPalette.tsx`), sitting between Data and
+Project in the activity bar — the owner-reviewed order is Blocks, Workflows,
+Data types, Data, Previewers, Project. Where the Blocks and Data types sections
+answer "what can I build with", this one answers "what renders my data, and
+which one did I pick". It is the frontend surface for three backend contracts
+that shipped deliberately headless: the #2095 listing and reload routes
+(`GET /api/previews/previewers`, `POST /api/previews/reload`) and the #2049
+per-type choice routes (`GET/PUT/DELETE /api/previews/choices`).
+
+### 14.1 Cards, Grouped By Tier
+
+One card per registered previewer, grouped by discovery tier over the shared
+`buildSections` skeleton (ADR-053 §10.1) with the callbacks supplied by
+`PreviewerPalette.parts/previewerModel.ts` — the same arrangement as the Data
+types tab, so all three catalogues read identically: This Project and My
+Library lead (both render their teaching empty-hint when empty), Core is a
+declared slot, and package previewers close the list as the A→Z remainder
+titled by `owner_name`. A package previewer whose distribution has no name
+collects under `Packages` rather than vanishing. A card shows the previewer
+id, the exact `target_type` it renders, collection support, its tier, and
+whether it carries a dynamic frontend bundle.
+
+### 14.2 The Choice Control Lives On The Card
+
+Each card carries the #2049 choice affordance for its `target_type` as a
+three-way segmented selector — **Auto / This project / All projects** (owner
+call in the #2119 live review). Auto is the default and means "no recorded
+preference, the FR-003 ladder decides"; the active segment is highlighted, so
+the card that holds the effective choice shows its scope lit and every other
+card for that type reads Auto. The selector's state is per card, not per type:
+clicking Auto on an unchosen card is a no-op, because clearing from there would
+silently delete a preference that points at a *different* previewer; on the
+chosen card, Auto clears both layers so the type deterministically returns to
+the ladder rather than revealing a user-layer choice underneath. Competing
+cards still name the current choice in a one-line note, so an existing
+preference is never invisible from the cards it suppresses. Choices whose
+previewer is no longer registered (`available: false`) have no card; they
+render in an *unavailable choices* strip under the header, each with its own
+Clear, because otherwise a stale preference would be both invisible and
+un-clearable from the surface that owns choices.
+
+### 14.3 Reload And Invalidation
+
+The Reload button calls `POST /api/previews/reload` — the previewer surface's
+own rebuild, not the block endpoint (FR-033) — and then re-reads the listing
+and the choices. The catalogue lives in the store
+(`store/previewerCatalogSlice.ts`) with a demand-driven loader
+(`store/usePreviewerCatalog.ts`) shaped exactly like `useTypeCatalog`: first
+ask fetches, later asks share one in-flight request, and the
+`blocks.reloaded` websocket event invalidates it — every emitter of that event
+reaches `refresh_all_registries()`, which has rebuilt the previewer registry
+alongside types and blocks since #2021, so a previewer edited on disk shows up
+without a manual reload.
+
+### 14.4 Choosing Re-Routes The Open Preview
+
+A choice that only affected the *next* preview would feel broken, so a write
+does three things (`usePreviewerCatalog.applyChoiceAnswer`): it applies the
+effective-choices list the write route returns, it drops the session-envelope
+cache (its keys predate the choice), and it bumps `previewerChoiceVersion` —
+a routing epoch `DataPreview` feeds `PreviewHost` as a session-creation
+dependency, so the open preview re-creates its session and the backend routes
+it through the new choice. The backend keeps the invariant that makes this
+safe: a choice is a preference, never a constraint (#2049, FR-036), so
+re-routing can change what renders but can never stop a preview from
+rendering.
+
+### 14.5 Test Plan
+
+`PreviewerPalette.parts/previewerModel.test.ts` covers the pure model: tier
+grouping and order, package-remainder naming including the unnamed fallback,
+empty-hint behaviour under search, search facets, and the exact-match choice
+lookup. `components/__tests__/PreviewerPalette.test.tsx` covers the tab:
+section order, cards, the segmented control's per-card state (including the
+unchosen-card Auto no-op and the chosen-card two-layer clear), the
+stale-choice strip, reload ordering, and the diagnostics banner. `store/__tests__/previewerCatalogInvalidation.test.ts`
+covers the loader: cache-then-invalidate on `blocks.reloaded`, reload ordering
+(scan before list), and the choice mutations bumping the routing epoch.

@@ -31,6 +31,7 @@ nav:
   - scistudio.blocks.code: scistudio.blocks.code.md
   - scistudio.previewers.models: scistudio.previewers.models.md
   - scistudio.previewers.data_access: scistudio.previewers.data_access.md
+  - scistudio.tutorials: scistudio.tutorials.md
 
 plugins:
   - search

@@ -8,7 +8,7 @@ table (ADR-052 §7).
 
 What this script does:
 
-1. Imports the **nine canonical public roots** (ADR-052 §3/§4; the SciStudio
+1. Imports the **ten canonical public roots** (ADR-052 §3/§4; the SciStudio
    freeze contract) and, for each, reads its declared ``__all__`` — the public
    surface. Symbols outside ``__all__`` (and ``internal``-tier class members) are
    excluded even if they have docstrings.
@@ -47,7 +47,9 @@ import re
 import subprocess
 import sys
 import types
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any, cast
 
 #: Convert in-docstring Sphinx cross-reference roles (``:meth:`run```,
 #: ``:class:`pandas.DataFrame```) into plain inline code for the self-contained
@@ -66,7 +68,7 @@ if str(SRC) not in sys.path:
 
 from scistudio.stability import get_stability  # noqa: E402
 
-#: The nine canonical public roots. Public surface = each root's ``__all__``
+#: The ten canonical public roots. Public surface = each root's ``__all__``
 #: (ADR-052 §3/§4; identical to the SciStudio freeze contract).
 CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.core.types",
@@ -78,6 +80,7 @@ CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.blocks.code",
     "scistudio.previewers.models",
     "scistudio.previewers.data_access",
+    "scistudio.tutorials",
 )
 
 REFERENCE_DIR = REPO_ROOT / "docs" / "user" / "reference"
@@ -260,7 +263,11 @@ def _sc_badge(obj: object) -> str:
 def _sc_signature(obj: object) -> str | None:
     """Best-effort signature string; ``None`` when uninspectable."""
     try:
-        return str(inspect.signature(obj))
+        # The public surface includes constants and type aliases, which are not
+        # callable at all. ``inspect.signature`` raises TypeError for those and
+        # the caller renders the symbol without a signature, so the cast states
+        # what the ``except`` already handles.
+        return str(inspect.signature(cast("Callable[..., Any]", obj)))
     except (TypeError, ValueError):
         return None
 
