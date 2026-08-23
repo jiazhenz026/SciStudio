@@ -16,9 +16,42 @@
  * Per ``docs/specs/phase11-implementation-standards.md`` T-TRK-009.
  */
 
-import type { BlockPortResponse, DynamicPortsConfig } from "../types/api";
+import type { BlockPortResponse, BlockSchemaResponse, DynamicPortsConfig } from "../types/api";
 
 export type { DynamicPortsConfig };
+
+/**
+ * Read the dynamic-port driving config value (e.g. LoadData ``core_type``)
+ * from the node's params envelope, falling back to the schema default.
+ *
+ * #2141: this resolution MUST be shared by every surface that colours ports
+ * or edges. ``BlockNode`` previously fell back to the schema default while
+ * ``WorkflowCanvas`` did not, so a freshly dropped Load block (whose
+ * ``core_type`` is never materialized into ``config.params``) rendered an
+ * amber DataFrame port with a gray DataObject edge. One helper, one answer.
+ *
+ * The user edits the driving field in BottomPanel Config; the canvas only
+ * reads it to colour ports and edges.
+ *
+ * @param config - the node's params envelope (``node.config.params``; the
+ *   ``BlockNodeData.config`` field already carries exactly this envelope)
+ * @param schema - the block schema, consulted for the config-schema default
+ * @param sourceConfigKey - ``schema.dynamic_ports.source_config_key``
+ * @returns the configured string value, else the schema default, else
+ *   ``undefined``
+ */
+export function resolveDrivingConfigValue(
+  config: Record<string, unknown> | undefined,
+  schema: BlockSchemaResponse | undefined,
+  sourceConfigKey: string | undefined,
+): string | undefined {
+  if (sourceConfigKey == null) return undefined;
+  const configured = config?.[sourceConfigKey];
+  if (typeof configured === "string" && configured) return configured;
+  const properties = schema?.config_schema?.properties;
+  const schemaDefault = properties?.[sourceConfigKey]?.default;
+  return typeof schemaDefault === "string" && schemaDefault ? schemaDefault : undefined;
+}
 
 /**
  * Compute the effective port list for a block instance.
