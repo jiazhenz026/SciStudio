@@ -23,7 +23,10 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type { BlockNodeData } from "../../types/ui";
-import { computeEffectivePorts } from "../../utils/computeEffectivePorts";
+import {
+  computeEffectivePorts,
+  resolveDrivingConfigValue,
+} from "../../utils/computeEffectivePorts";
 
 import { BlockDetailPopover, type PopoverAnchor } from "../BlockDetailPopover";
 import { PromoteToLibraryAction } from "../promotion/PromoteToLibraryAction";
@@ -62,7 +65,7 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   // user picked there still drives the port type shown on the canvas.
   const dynamicPorts = data.schema?.dynamic_ports ?? null;
   const sourceConfigKey = dynamicPorts?.source_config_key;
-  const drivingConfigValue = resolveDrivingConfigValue(data, sourceConfigKey);
+  const drivingConfigValue = resolveDrivingConfigValue(data.config, data.schema, sourceConfigKey);
   const effectiveInputPorts = computeEffectivePorts(
     dynamicPorts,
     drivingConfigValue,
@@ -298,23 +301,4 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
       </span>
     </div>
   );
-}
-
-/**
- * Read the dynamic-port driving config value (e.g. LoadData `core_type`) from
- * the node config, falling back to the schema default. The user edits this in
- * BottomPanel Config; the node body only reads it to colour ports.
- */
-function resolveDrivingConfigValue(
-  data: BlockNodeData,
-  sourceConfigKey: string | undefined,
-): string | undefined {
-  if (sourceConfigKey == null) return undefined;
-  const configured = data.config?.[sourceConfigKey];
-  if (typeof configured === "string" && configured) return configured;
-  const properties = data.schema?.config_schema?.properties as
-    | Record<string, Record<string, unknown>>
-    | undefined;
-  const schemaDefault = properties?.[sourceConfigKey]?.default;
-  return typeof schemaDefault === "string" && schemaDefault ? schemaDefault : undefined;
 }
