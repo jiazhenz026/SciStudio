@@ -22,17 +22,43 @@
 
 const { app } = require("electron");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 
 const ota = require("./ota");
 
 const BASELINE_FALLBACK = { base: "0.0.0", channel: "stable", build: 0 };
 
-function log(message) {
+// #1741: a packaged app is a GUI-subsystem process whose stdout is detached, so
+// stdout-only diagnostics vanish in exactly the case they exist for — a shell
+// that failed to load. main.js persists its own log for that reason; the loader
+// runs before main.js exists, so it mirrors into the same file itself.
+function logDir() {
   try {
-    process.stdout.write(`[scistudio][bootstrap] ${message}\n`);
+    return app.getPath("logs");
+  } catch {
+    // "logs" is not resolvable before the app is ready on every platform.
+    try {
+      return path.join(app.getPath("userData"), "logs");
+    } catch {
+      return os.tmpdir();
+    }
+  }
+}
+
+function log(message) {
+  const line = `[scistudio][bootstrap] ${message}\n`;
+  try {
+    process.stdout.write(line);
   } catch {
     // stdout may be a closed pipe in a packaged app; never fail on logging.
+  }
+  try {
+    const dir = logDir();
+    fs.mkdirSync(dir, { recursive: true });
+    fs.appendFileSync(path.join(dir, "scistudio-desktop.log"), line);
+  } catch {
+    // Logging must never be the reason the app fails to start.
   }
 }
 

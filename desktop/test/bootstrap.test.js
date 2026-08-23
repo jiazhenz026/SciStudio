@@ -85,7 +85,7 @@ test("the loader takes its update logic from the asar, not from a shell", () => 
   // acceptable here.
   const bootstrap = read("bootstrap.js");
   const requires = [...bootstrap.matchAll(/require\((["'])([^"']+)\1\)/g)].map((m) => m[2]);
-  assert.deepEqual(requires.sort(), ["./ota", "./package.json", "electron", "fs", "path"].sort());
+  assert.deepEqual(requires.sort(), ["./ota", "./package.json", "electron", "fs", "os", "path"].sort());
 });
 
 test("the loader records the boot attempt before requiring the shell", () => {
@@ -132,4 +132,18 @@ test("the host's clearBootAttempt is guarded by mayClearShellMarker", () => {
   // including when the baseline is up *because* a patch was quarantined.
   const body = read("bootstrap.js");
   assert.match(body, /clearBootAttempt:\s*\(\)\s*=>\s*\{[\s\S]*?ota\.mayClearShellMarker\(shell\)/);
+});
+
+test("the loader persists its diagnostics instead of only writing stdout", () => {
+  // A packaged app is a GUI-subsystem process with detached stdout, so a
+  // stdout-only log vanishes exactly when a shell fails to load. main.js
+  // persists its own log for this reason (#1741); the loader runs before
+  // main.js exists and must do the same for itself. Verified by observation:
+  // a packaged Windows build produced no loader output at all on the console.
+  const bootstrap = read("bootstrap.js");
+  assert.match(bootstrap, /appendFileSync\(\s*path\.join\(dir, "scistudio-desktop\.log"\)/);
+  assert.match(bootstrap, /require\("os"\)/);
+  // The write must be non-fatal: logging is never a reason not to start.
+  const logFn = bootstrap.slice(bootstrap.indexOf("function log(message)"), bootstrap.indexOf("// The installed baseline"));
+  assert.equal((logFn.match(/catch/g) || []).length, 2, "both the stdout and file writes must be guarded");
 });

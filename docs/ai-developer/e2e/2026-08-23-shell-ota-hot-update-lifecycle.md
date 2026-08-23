@@ -13,10 +13,12 @@ language_source: en
 
 # E2E Session — Shell OTA Hot-Update Lifecycle
 
-> Run this on **macOS** against an **installed** build. Most of it cannot be
-> exercised from a source checkout: the loader treats an unpackaged run as
-> "never patched" (#1801), so `npm run dev` deliberately bypasses everything
-> under test here.
+> Run this against a **packaged** build on any of the three platforms. OTA is
+> cross-platform; only signing (#2096) is macOS-only. It cannot be exercised
+> from a source checkout: the loader treats an unpackaged run as "never
+> patched" (#1801), so `npm run dev` deliberately bypasses everything under
+> test here. `electron-builder --dir` is enough — a full installer is not
+> required, because `app.isPackaged` is already true for an unpacked build.
 
 ## 1. Goal And Out-Of-Scope
 
@@ -32,51 +34,82 @@ language_source: en
 ## 2. Preconditions
 
 - **Repo state**: PR #2139 head, with PR #2128 merged or merged-in.
-- **Working tree**: clean apart from the two identity lines in Section 2.1,
-  which must **never be committed**.
+- **Working tree**: clean. Isolation needs no file edits — see Section 2.1.
 - **Backend port**: whatever the packaged client picks; do not pin.
 - **Frontend mode**: prebuilt SPA inside the snapshot. Not Vite.
-- **Required tooling**: `gh` authenticated with write access to the repo,
-  Xcode command line tools, Node, a macOS machine.
+- **Required tooling**: Node, and either a local static file server or `gh`
+  with write access. Prefer the local server: `otaHttpGet` selects the `http`
+  module for `http:` URLs, so pointing `SCISTUDIO_OTA_MANIFEST_URL` at
+  `http://127.0.0.1:<port>/manifest.json` keeps the whole session off the public
+  release infrastructure, where no real client can reach it even by accident.
 
-### 2.1 Isolation — read this before building
+### 2.1 Isolation — read this before launching anything
 
-Channel isolation protects *other* users. It does **not** protect your own
-install, and skipping this step is how a test patch reaches your real client.
+Channel isolation protects *other* users. It does **not** protect this machine,
+and getting it wrong is how a test patch reaches the real client.
 
 `evaluateUpdate` filters on `manifest.channel`, but that only governs whether a
 manifest is *fetched and offered*. `getActivePatch()` and the bootstrap loader
 read `userData/patches/active.json` with **no channel check at all** — they
-simply honour whatever pointer is on disk. `userData` is derived from
-`productName`, which both builds share.
+honour whatever pointer is on disk.
 
-So a test build installed beside the real one writes its patches into the very
-directory the real client reads on next launch.
+**Use Electron's `--user-data-dir`.** It is the only lever that actually works,
+and it changes no file:
 
-Before building the test client, edit `desktop/package.json`:
-
-```json
-"appId": "org.scistudio.desktop.test",
-"productName": "SciStudio Test",
+```sh
+"<app>" --user-data-dir="$HOME/scistudio-otatest-userdata"
 ```
 
-`productName` moves `userData` to `~/Library/Application Support/SciStudio Test/`;
-`appId` stops the installer replacing `/Applications/SciStudio.app`. Revert both
-after the session.
+> **Do not try to isolate via `build.productName`.** Verified on 2026-08-23 and
+> it does **not** work: Electron derives `userData` from `app.getName()`, which
+> reads the **top-level** `name`/`productName` of the packaged `package.json`.
+> `build.productName` is electron-builder configuration and only renames the
+> executable and installer. A build with `build.productName` set to something
+> else still shares `%APPDATA%\scistudio-desktop` (and the macOS/Linux
+> equivalents) with the real client **and with every `npm run dev` session in
+> every worktree**.
 
-A separate machine, VM, or macOS user account achieves the same isolation and is
-preferable if available.
+### 2.2 Nothing else may be running
+
+The shell holds a single-instance lock (#1867). If any other SciStudio has it —
+the installed client, or an `npm run dev` session in any worktree — the test
+build calls `app.quit()` immediately and **exits with code 0**, writing nothing.
+That looks exactly like a clean successful run and is the easiest way to spend
+an afternoon testing nothing.
+
+Before each launch:
+
+```sh
+# macOS/Linux
+pgrep -fl "electron|SciStudio" || echo "clear"
+```
+```powershell
+# Windows
+Get-CimInstance Win32_Process -Filter "Name='electron.exe' OR Name LIKE 'SciStudio%'" |
+  Select-Object ProcessId, CommandLine
+```
+
+Note the command line, not just the name: on a machine running several agent
+worktrees the owner of a stray process is not guessable from its PID.
+
+A concurrent `npm run dev` also rewrites the shared `known-good.json` to
+`{"build": 0}`, because an unpackaged run reports baseline build 0 (#1801). That
+is pre-existing behaviour, not a fault of this session, but it will confuse the
+rollback steps if a dev session is live.
 
 ## 3. Launch Plan
 
 - **Build the test client** (once):
   ```sh
   export SCISTUDIO_OTA_CHANNEL=test
-  npm --prefix desktop run build:python:mac
-  npm --prefix desktop run stage:sh
-  npm --prefix desktop run dist:dmg
+  export SCISTUDIO_OTA_MANIFEST_URL=http://127.0.0.1:8899/manifest.json
+  npm --prefix desktop run build:python      # :mac / :linux on those platforms
+  npm --prefix desktop run stage             # stage:sh on macOS/Linux
+  npx electron-builder --dir
   ```
-  Install the resulting dmg. Confirm the app is named **SciStudio Test**.
+  On Windows add `-c.win.signAndEditExecutable=false` (or set it in the config):
+  without it electron-builder tries to unpack its winCodeSign bundle and fails
+  on symlink creation unless the shell is elevated.
 
 - **Publish a patch** (repeated per step). `stage:sh` is mandatory whenever the
   backend or frontend changed: the snapshot takes `src/` from
@@ -84,19 +117,20 @@ preferable if available.
   repository's `desktop/` directory.
   ```sh
   npm --prefix desktop run stage:sh
-  python scripts/ota_publish.py --channel test --notes "<what changed>" --yes
+  python scripts/ota_publish.py --channel test --src src --dry-run --notes "<what changed>"
+  # serve the printed artifact directory on 127.0.0.1:8899, or drop --dry-run to
+  # publish to the ota-test release instead
   ```
 
 - **Reset to the bundled baseline** between steps:
   ```sh
-  rm -rf ~/Library/Application\ Support/SciStudio\ Test/patches
+  rm -rf "$USER_DATA_DIR/patches"
   ```
 
 - **Cleanup** (end of session, even on failure):
   ```sh
-  gh release delete ota-test --yes --cleanup-tag
-  rm -rf ~/Library/Application\ Support/SciStudio\ Test
-  git checkout desktop/package.json
+  gh release delete ota-test --yes --cleanup-tag   # only if a release was used
+  rm -rf "$USER_DATA_DIR"
   ```
 
 ## 4. Affordances Under Test
@@ -153,9 +187,11 @@ preferable if available.
 - **Action**: add `throw new Error("boom");` at the top of `desktop/main.js`.
   Publish (no `stage:sh` needed — the shell is taken from the repo). Apply,
   relaunch.
-- **Expected**: the app still starts, on the **baseline** shell. stdout carries
-  `[scistudio][bootstrap] shell failed to load:`.
-- **Capture**: bootstrap log lines.
+- **Expected**: the app still starts, on the **baseline** shell.
+  `$USER_DATA_DIR/logs/scistudio-desktop.log` carries
+  `[scistudio][bootstrap] shell failed to load:`. Read the log file, not the
+  console: a packaged app is a GUI-subsystem process with detached stdout.
+- **Capture**: the bootstrap lines from the desktop log.
 - **On failure**: halt. Remove the `throw` before continuing.
 
 ### Step 5 — Poisoned shell that loads but never reaches readiness
@@ -180,9 +216,9 @@ third launch is the actual assertion.
   Before the fix, launch 3 loaded the broken shell again and the app alternated
   between crashing and working forever. A second crash at launch 3 is a
   regression, not a flake.
-- **Capture**: bootstrap log for each of the three launches;
-  `userData/SciStudio Test/shell-boot-attempt.json` after launch 2 (it must
-  still exist and still name the broken build).
+- **Capture**: `$USER_DATA_DIR/logs/scistudio-desktop.log` after each of the
+  three launches, and `$USER_DATA_DIR/shell-boot-attempt.json` after launch 2
+  (it must still exist and still name the broken build).
 - **On failure**: halt.
 
 ### Step 6 — A newer patch is still tried after a quarantine
@@ -252,9 +288,10 @@ Run this **last**: it leaves the client blocked at every launch until the
 - **Native dialogs**: no dialog fires except the ones Steps 1 and 7 expect.
 - **Process health**: outside Steps 3–5, the Electron main process never exits
   unexpectedly and the backend reaches readiness on every launch.
-- **Isolation**: `~/Library/Application Support/SciStudio/` (the real client's
-  directory, no "Test") is never created or modified during the session. Check
-  its mtime before and after.
+- **Isolation**: the real client's userData (`%APPDATA%/scistudio-desktop` on
+  Windows, `~/Library/Application Support/scistudio-desktop` on macOS) is never
+  modified. Record the mtimes of `patches/active.json`, `patches/known-good.json`
+  and every `patches/build*/` before the session and diff them after.
 - **Channel**: the `ota-alpha` release is never written to. Any
   `ota_publish.py` invocation without `--channel test` is a session failure.
 
