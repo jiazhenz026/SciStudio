@@ -205,3 +205,31 @@ def test_compose_project_context_meets_100ms_budget(tmp_path: Path) -> None:
     # CI baseline measurement is stable. Out of scope per ADR-040 §3.3
     # / phase: 2a I40a. Followup: https://github.com/zjzcpj/SciStudio/issues/1012.
     assert duration < 0.5, f"compose_system_prompt took {duration:.3f}s, expected <0.5s"
+
+
+# ---------------------------------------------------------------------------
+# #2137 — assistant persona name: Mio.
+# ---------------------------------------------------------------------------
+
+
+def test_compose_names_assistant_mio(tmp_path: Path) -> None:
+    """#2137: the composed system prompt declares the persona name Mio.
+
+    Every provider CLI receives the same composed prompt (FLAG_FILE for
+    Claude Code, AMBIENT skills discovery for Codex/Kimi/Qoder), so the
+    identity line in the packaged SKILL.md is the single cross-provider
+    rename surface.
+    """
+    from scistudio.ai.agent.system_prompt import compose_system_prompt
+
+    prompt = compose_system_prompt(tmp_path)
+    assert "You are Mio" in prompt, "Mio identity missing from composed system prompt"
+
+
+def test_provisioned_claude_md_names_assistant_mio() -> None:
+    """#2137: the CLAUDE.md template provisioned into projects names Mio too."""
+    from importlib.resources import files
+
+    template = files("scistudio").joinpath("agent_provisioning/templates/claude_agents_md.md")
+    content = template.read_text(encoding="utf-8")
+    assert "You are Mio" in content, "Mio identity missing from CLAUDE.md template"
