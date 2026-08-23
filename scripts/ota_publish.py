@@ -44,10 +44,26 @@ import subprocess
 import tarfile
 import tempfile
 from pathlib import Path
+from typing import Any
 
 DEFAULT_REPO = "jiazhenz026/SciStudio"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 STAGED_SRC = REPO_ROOT / "desktop" / "resources" / "backend" / "src"
+DESKTOP_DIR = REPO_ROOT / "desktop"
+
+# #2097: the Electron shell rides inside the same snapshot as the backend tree,
+# under ``shell/``. These are exactly the files the frozen bootstrap loader can
+# hand over to. ``bootstrap.js`` is deliberately absent: it is the loader
+# itself, it ships in the asar, and a patch must never be able to replace it.
+# ``package.json`` is absent too -- the loader supplies the installed baseline,
+# and a manifest inside the patch would be the patch describing itself.
+SHELL_FILES = (
+    "main.js",
+    "ota.js",
+    "runtime-port.js",
+    "preload.js",
+    "splash.html",
+)
 DESKTOP_PACKAGE_JSON = REPO_ROOT / "desktop" / "package.json"
 
 _VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z]+)-build(\d+))?$")
@@ -139,12 +155,32 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def make_snapshot(src_dir: Path, out_path: Path) -> None:
-    """Pack ``src_dir`` into ``out_path`` as a gzip tarball rooted at ``src/``.
+def shell_sources(desktop_dir: Path = DESKTOP_DIR) -> list[Path]:
+    """The Electron shell files a snapshot carries (#2097).
 
-    Extracting the archive yields ``<dest>/src/scistudio/...`` so the client can
-    point ``PYTHONPATH`` at ``<dest>/src``. ``__pycache__`` is skipped to keep
-    the snapshot lean and interpreter-agnostic.
+    Raises if one is missing rather than publishing a shell the loader would
+    refuse: a ``shell/`` directory without ``main.js`` fails ``isShellDir`` on
+    the client and silently falls back to the baseline for every user.
+    """
+    paths = [desktop_dir / name for name in SHELL_FILES]
+    missing = [p.name for p in paths if not p.is_file()]
+    if missing:
+        raise SystemExit(f"Missing desktop shell files in {desktop_dir}: {', '.join(missing)}")
+    return paths
+
+
+def make_snapshot(src_dir: Path, out_path: Path, desktop_dir: Path = DESKTOP_DIR) -> None:
+    """Pack a snapshot of the backend tree and the Electron shell.
+
+    The tarball is rooted at ``src/`` and ``shell/``: extracting it yields
+    ``<dest>/src/scistudio/...`` so the client can point ``PYTHONPATH`` at
+    ``<dest>/src``, and ``<dest>/shell/main.js`` for the bootstrap loader to
+    require. ``__pycache__`` is skipped to keep the snapshot lean and
+    interpreter-agnostic.
+
+    Both halves share one build number on purpose (#2097): shell and backend are
+    released together, so coupling them makes a build mean "all of this app's
+    interpreted code" instead of creating a shell/backend compatibility matrix.
     """
 
     def _filter(info: tarfile.TarInfo) -> tarfile.TarInfo | None:
@@ -157,12 +193,14 @@ def make_snapshot(src_dir: Path, out_path: Path) -> None:
 
     with tarfile.open(out_path, "w:gz") as tar:
         tar.add(src_dir, arcname="src", filter=_filter)
+        for shell_file in shell_sources(desktop_dir):
+            tar.add(shell_file, arcname=f"shell/{shell_file.name}")
 
 
 # --------------------------------------------------------------------------- #
 # gh / IO side
 # --------------------------------------------------------------------------- #
-def _run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
+def _run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, text=True, capture_output=True, **kwargs)
 
 

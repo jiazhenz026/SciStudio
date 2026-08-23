@@ -156,6 +156,44 @@ function shouldClearCache(recorded, build) {
   return recorded.build !== build;
 }
 
+// #2097: which copy of the Electron shell the frozen bootstrap loader should
+// run. The shell rides inside the same OTA snapshot as the backend tree, so it
+// obeys the same rules; this wraps resolveActivePatch with the two conditions
+// that are specific to the shell.
+//
+//   isPackaged        - a source-checkout dev run is never patched (#1801).
+//   patchShellExists  - a snapshot published before shell OTA existed has no
+//                       shell/ directory. Its src/ still serves the backend
+//                       while the baseline shell runs, which is a supported
+//                       mixed state rather than an error.
+//
+// Returns { source: "checkout" | "baseline" | "patch", build }.
+function resolveShellSource({ isPackaged, pointer, baselineBuild, patchShellExists }) {
+  if (!isPackaged) {
+    return { source: "checkout", build: 0 };
+  }
+  const decision = resolveActivePatch(pointer, baselineBuild, patchShellExists);
+  if (decision.kind === "active") {
+    return { source: "patch", build: decision.build };
+  }
+  return { source: "baseline", build: baselineBuild };
+}
+
+// #2097: crash-loop guard verdict. The loader writes a marker naming the shell
+// build it is about to require, and the shell clears it only once the runtime
+// reaches HTTP readiness. A marker still naming the candidate therefore means
+// the previous attempt at that exact build died before readiness, so the
+// candidate must be refused in favour of the baseline.
+//
+// Only a patch can be refused: the baseline is the fallback itself, and
+// refusing it would leave nothing to run.
+function shellBootRefused(marker, candidate) {
+  if (!candidate || candidate.source !== "patch") {
+    return false;
+  }
+  return Boolean(marker) && marker.build === candidate.build;
+}
+
 module.exports = {
   VERSION_RE,
   parseVersion,
@@ -164,6 +202,8 @@ module.exports = {
   isMandatoryUpdate,
   evaluateUpdate,
   resolveActivePatch,
+  resolveShellSource,
+  shellBootRefused,
   pythonPathFor,
   shouldClearCache,
   displayBuildVersion

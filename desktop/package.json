@@ -4,7 +4,7 @@
   "private": true,
   "description": "SciStudio ADR-037 desktop MVP shell",
   "author": "SciStudio",
-  "main": "main.js",
+  "main": "bootstrap.js",
   "type": "commonjs",
   "scripts": {
     "build:frontend": "npm --prefix ../frontend run build",
@@ -34,6 +34,7 @@
       "buildResources": "assets"
     },
     "files": [
+      "bootstrap.js",
       "main.js",
       "ota.js",
       "runtime-port.js",
