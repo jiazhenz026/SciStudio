@@ -185,6 +185,39 @@ def resolve_default_base(repo_root: Path, *, upstream: str | None = None, head: 
     return out or upstream
 
 
+def normalize_base_ref(repo_root: Path, ref: str) -> str | None:
+    """Return a resolvable git ref for *ref*, or ``None`` when it names nothing.
+
+    A bare branch name is what ``gh pr create --base`` takes and what an agent
+    naturally types. It resolves to the REMOTE form first, matching
+    ``scripts/hooks/check-gate-before-pr.sh``: the base a PR is measured against
+    is the branch it will merge into, not a local copy that may sit behind it.
+    A value already carrying a remote or ``refs/`` prefix is taken as written,
+    and a local-only branch still resolves once the remote form fails.
+
+    Returning ``None`` lets the caller refuse an unresolvable base loudly:
+    diffing against a ref git cannot find yields an empty changed-file set, and
+    a gate that observed nothing reports no findings and reads as a pass
+    (#2143).
+    """
+
+    candidate = ref.strip()
+    if not candidate:
+        return None
+    # Only a plain branch name gets the remote prefix. A revision expression
+    # such as ``HEAD~1`` must be taken as written: ``origin/HEAD`` exists (the
+    # remote default-branch symref), so ``origin/HEAD~1`` would resolve and
+    # silently answer a question nobody asked.
+    plain_branch = not candidate.startswith(("origin/", "upstream/", "refs/")) and not any(
+        ch in candidate for ch in "~^@:"
+    )
+    forms = (f"origin/{candidate}", candidate) if plain_branch else (candidate,)
+    for form in forms:
+        if resolve_sha(repo_root, form) is not None:
+            return form
+    return None
+
+
 def resolve_sha(repo_root: Path, ref: str) -> str | None:
     """Resolve ``ref`` to a short SHA, or None when unresolvable."""
 

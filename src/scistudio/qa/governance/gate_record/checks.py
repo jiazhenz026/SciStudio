@@ -18,14 +18,15 @@ and returns sanitized :class:`CheckEvent` payloads.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import scistudio.qa.governance.gate_record.parity as parity
 import scistudio.qa.governance.gate_record.surfaces as surfaces
@@ -59,6 +60,13 @@ class CheckSpec:
     pr_only: bool = False
     # When True, requires PYTHONPATH=src to import scistudio.
     needs_src_import: bool = False
+    # Repo-relative path of an AuditReport JSON this check writes instead of
+    # printing its findings. A check that reports only to a file leaves an empty
+    # transcript, so a tail of its raw log carries nothing and the failure reads
+    # as "failed, no reason given" (#2143). When set, the evaluator renders the
+    # report file into the repair hint. ``None`` means the check prints its own
+    # findings and the transcript is the whole story.
+    report_json: str | None = None
 
 
 # Canonical CI command snapshot (Addendum 6 §7.5 table). The single mapping the
@@ -113,6 +121,9 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
         covered_surface="governance",
         ci_job="ci.yml/Full Audit",
         needs_src_import=True,
+        # ``--output`` above is the only place full_audit reports; stdout stays
+        # empty even on failure.
+        report_json=".audit/full-audit.json",
     ),
     "python_tests": CheckSpec(
         name="python_tests",
@@ -701,3 +712,102 @@ def event_is_valid_for(
     if event.input_fingerprint is None or input_fingerprint is None:
         return False
     return event.input_fingerprint == input_fingerprint
+
+
+# Findings rendered per failing sub-report before the rest are counted off. A
+# repair hint has to stay readable, but the count of what it left out is always
+# printed -- silently dropping findings is the defect this renderer exists to
+# fix (#2143).
+_REPORT_FINDINGS_SHOWN = 10
+_REPORT_MESSAGE_CHARS = 200
+
+
+def _report_fails(report: Mapping[str, Any]) -> bool:
+    """Return True when a report node is itself a failure (not just a parent)."""
+
+    if str(report.get("status", "")).lower() == "fail":
+        return True
+    findings = report.get("findings") or []
+    return any(str(f.get("severity", "")).lower() == "error" for f in findings if isinstance(f, Mapping))
+
+
+def _failing_leaves(report: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """Return the deepest failing nodes, so a parent never masks its children."""
+
+    children = [c for c in (report.get("child_reports") or []) if isinstance(c, Mapping)]
+    leaves: list[Mapping[str, Any]] = []
+    for child in children:
+        leaves.extend(_failing_leaves(child))
+    if leaves:
+        return leaves
+    return [report] if _report_fails(report) else []
+
+
+# Blocking findings come first: only ``error`` fails the check, and a report
+# that leads with advisory findings can push every blocking one past the display
+# cap -- reintroducing, inside the summary, the same hiding this renderer exists
+# to end (#2143).
+_SEVERITY_ORDER: dict[str, int] = {"error": 0, "warning": 1, "info": 2}
+
+
+def _severity_rank(finding: Mapping[str, Any]) -> int:
+    return _SEVERITY_ORDER.get(str(finding.get("severity", "")).lower(), len(_SEVERITY_ORDER))
+
+
+def _finding_line(finding: Mapping[str, Any]) -> str:
+    """Render one finding as ``[severity] file: message`` on a single line."""
+
+    severity = str(finding.get("severity", "") or "?").lower()
+    where = str(finding.get("file") or finding.get("path") or "").strip()
+    message = " ".join(str(finding.get("message", "") or "").split())
+    if len(message) > _REPORT_MESSAGE_CHARS:
+        message = message[: _REPORT_MESSAGE_CHARS - 3] + "..."
+    return f"[{severity}] {where}: {message}" if where else f"[{severity}] {message}"
+
+
+def report_json_summary(repo_root: Path, name: str) -> list[str]:
+    """Render a failed check's JSON report into lines for its repair hint.
+
+    A check whose :attr:`CheckSpec.report_json` is set writes its findings to a
+    file instead of printing them, so its transcript is empty and a tail of the
+    raw log tells the reader nothing: the failure reads as "failed, no reason
+    given" while the reasons sit unread in the report file (#2143). This reads
+    that file and returns the failing sub-reports with their findings.
+
+    Returns ``[]`` when the check writes no report, the file is missing, or it
+    cannot be parsed -- the caller then falls back to the raw transcript.
+    Parsed with ``json`` rather than the pydantic ``AuditReport`` model on
+    purpose: the file is written by a separate process, and a schema mismatch
+    must degrade to "no summary" rather than raise inside failure reporting.
+    """
+
+    spec = CHECK_CATALOG.get(name)
+    if spec is None or not spec.report_json:
+        return []
+    try:
+        raw = (repo_root / spec.report_json).read_text(encoding="utf-8", errors="replace")
+        document = json.loads(raw)
+    except (OSError, ValueError):
+        return []
+    if not isinstance(document, Mapping):
+        return []
+
+    failing = _failing_leaves(document)
+    if not failing:
+        return []
+
+    lines = [f"report: {spec.report_json}"]
+    for report in failing:
+        findings = sorted(
+            (f for f in (report.get("findings") or []) if isinstance(f, Mapping)),
+            key=_severity_rank,
+        )
+        tool = str(report.get("tool", "") or "?")
+        status = str(report.get("status", "") or "?")
+        lines.append(f"{tool}: {status} ({len(findings)} findings)")
+        for finding in findings[:_REPORT_FINDINGS_SHOWN]:
+            lines.append(f"  {_finding_line(finding)}")
+        hidden = len(findings) - _REPORT_FINDINGS_SHOWN
+        if hidden > 0:
+            lines.append(f"  ... {hidden} more findings in {tool} (see {spec.report_json})")
+    return lines

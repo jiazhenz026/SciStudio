@@ -95,6 +95,7 @@ python -m scistudio.qa.governance.gate_record init \
 | `--runtime` | yes | no | AI runtime executing the task (Codex, Claude Code, Gemini, or a local CLI agent) |
 | `--branch` | yes | no | Branch this ledger governs |
 | `--owner-directive` | yes | yes | Initial owner instruction; repeat for additional directives at init time |
+| `--base-ref` | no | no | Record the branch's diff base in the ledger. Used when neither `--base` nor `SCISTUDIO_GATE_BASE` is supplied; a plain branch name resolves to its `origin/` form, a revision expression is taken as written, and a ref git cannot resolve is refused (exit 2) rather than silently observing an empty diff. Set it on a branch stacked on another feature or track branch (#2143) |
 | `--slug` | no | no | Short human-readable slug for the generated record path |
 | `--session-id` | no | no | Local session id under `.git/scistudio/gates/`; generated automatically when omitted |
 | `--issue` | no | yes | GitHub issue number linked to the task |
@@ -133,6 +134,7 @@ python -m scistudio.qa.governance.gate_record plan \
 |---|---:|---:|---|
 | `--record` | no | no | Explicit ledger path; normally auto-discovered from the current branch |
 | `--owner-directive` | no | yes | Owner/manager instruction that changes plan or scope |
+| `--base-ref` | no | no | Record the branch's diff base in the ledger. Used when neither `--base` nor `SCISTUDIO_GATE_BASE` is supplied; a plain branch name resolves to its `origin/` form, a revision expression is taken as written, and a ref git cannot resolve is refused (exit 2) rather than silently observing an empty diff. Set it on a branch stacked on another feature or track branch (#2143) |
 | `--include` / `--exclude` | no | yes | Add declared in-scope / out-of-scope path or glob |
 | `--issue` | no | yes | Add issue link |
 | `--docs-updated` | no | yes | Repo-relative docs/spec/ADR/changelog/checklist path |
@@ -173,6 +175,7 @@ python -m scistudio.qa.governance.gate_record amend \
 |---|---:|---:|---|
 | `--reason` | yes | no | Human-readable reason for the amendment |
 | `--owner-directive` | no | yes | Add or correct owner instruction |
+| `--base-ref` | no | no | Record the branch's diff base in the ledger. Used when neither `--base` nor `SCISTUDIO_GATE_BASE` is supplied; a plain branch name resolves to its `origin/` form, a revision expression is taken as written, and a ref git cannot resolve is refused (exit 2) rather than silently observing an empty diff. Set it on a branch stacked on another feature or track branch (#2143) |
 | `--task-kind` | no | no | Correct task kind when the original classification was wrong |
 | `--persona` | no | no | Correct persona when routing changes |
 | `--branch` | no | no | Correct branch metadata |
@@ -215,7 +218,7 @@ python -m scistudio.qa.governance.gate_record check \
 
 | Argument | Required | Repeatable | Meaning |
 |---|---:|---:|---|
-| `--base` | no | no | Base ref for diff; default `git merge-base <upstream> HEAD` falling back to the raw upstream. When `--base` is omitted, `<upstream>` is the `SCISTUDIO_GATE_BASE` env var if set, else `origin/main`. Set `SCISTUDIO_GATE_BASE=origin/track/<name>` so the commit-msg / pre-commit framework hooks of a **track-stacked sub-PR** diff against their track (not `origin/main`, which would misread the whole track delta as authored here) — the same var the push/PR wrappers already honor (#1627). An explicit `--base` still wins. Deeply-stacked branches may need an explicit `--base` |
+| `--base` | no | no | Base ref for diff; default `git merge-base <upstream> HEAD` falling back to the raw upstream. When `--base` is omitted, `<upstream>` is resolved in this order: the `SCISTUDIO_GATE_BASE` env var, the ledger's recorded `base_ref` (see `--base-ref`), then `origin/main`. Prefer recording `--base-ref` on a **track-stacked sub-PR** so every later command measures the branch against its track rather than misreading the whole track delta as authored here (#1627, #2143); the env var remains a per-shell override and an explicit `--base` still wins over both |
 | `--head` | no | no | Head ref for diff; default `HEAD` |
 | `--mode` | no | no | One of `local` (default), `pre-commit`, `commit-msg`, `pre-push`, `pre-pr`, `ci` |
 | `--pr-body-file` | no | no | Intended PR body file for pre-PR issue-closure checks |

@@ -117,10 +117,18 @@ python -m scistudio.qa.governance.gate_record init \
   --owner-directive "<owner instruction>" \
   [--slug <task-slug>] \
   [--issue <number>] \
+  [--base-ref <ref>] \
   [--include <path-or-glob>] \
   [--exclude <path-or-glob>] \
   [--governance-touch true|false]
 ```
+
+Record `--base-ref` when the branch is stacked on another feature or track
+branch. It is the ledger's own record of what this branch's delta is measured
+against; without it local `check` and `finalize` fall back to `origin/main` and
+attribute the parent branch's commits to this branch (#2143). A plain branch
+name resolves to its `origin/` form; a ref git cannot resolve is refused with
+exit 2 and nothing is written.
 
 `init` creates or updates the ledger, records branch/task identity, prints the
 chosen ledger path, and prints task-specific instructions by default. The
@@ -137,6 +145,7 @@ Compatibility alias: `start` delegates to `init`.
 ```bash
 python -m scistudio.qa.governance.gate_record plan \
   [--owner-directive "<scope or plan update>"] \
+  [--base-ref <ref>] \
   [--include <path-or-glob>] \
   [--exclude <path-or-glob>] \
   [--issue <number>] \
@@ -163,6 +172,7 @@ aliases).
 python -m scistudio.qa.governance.gate_record amend \
   --reason "<why the ledger is being corrected>" \
   [--owner-directive "<new or corrected owner instruction>"] \
+  [--base-ref <ref>] \
   [--task-kind <kind>] \
   [--persona <persona>] \
   [--issue <number>] \
@@ -235,6 +245,14 @@ python -m scistudio.qa.governance.gate_record check \
 7. Records a reconciliation event.
 8. Exits nonzero when required obligations remain unsatisfied and prints an
    "Unsatisfied obligations" section with exact repair hints.
+
+A failed check's repair hint carries its failure detail. When the check reports
+into a file rather than to stdout (`full_audit` writes
+`.audit/full-audit.json`), the hint renders the failing sub-reports and their
+findings, blocking severities first. When it prints, the hint carries a tail of
+the transcript with a header stating how many of the log's lines are shown and
+where the whole log is. Read the hint before re-running: it is meant to state
+the whole failure in one pass, not a slice of it (#2143).
 
 The `--mode` argument dispatches behavior for different callers:
 

@@ -13,6 +13,7 @@ with a "still blocks" assertion proving enforcement is intact.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -20,7 +21,13 @@ from pathlib import Path
 import pytest
 
 from scistudio.qa.governance.gate_record import cli, evaluator, io, workflow
-from scistudio.qa.governance.gate_record.ledger import DeclaredScope, DocsEvent, GateLedger, IssueRef
+from scistudio.qa.governance.gate_record.ledger import (
+    CheckEvent,
+    DeclaredScope,
+    DocsEvent,
+    GateLedger,
+    IssueRef,
+)
 from scistudio.qa.schemas.report import Severity
 
 # ---------------------------------------------------------------------------
@@ -627,3 +634,356 @@ def test_1283_worker_record_still_enforces_scope(git_repo: Path) -> None:
     blocking = [f for f in result.report.findings if f.rule_id == "scope.out-of-scope" and f.severity == Severity.ERROR]
     assert any(f.file == "src/scistudio/b.py" for f in blocking)
     assert "scope.out-of-scope" in result.unsatisfied
+
+
+# ---------------------------------------------------------------------------
+# #2143 — the gate under-reported failed checks and measured local diffs
+# against origin/main, so each round of fixes saw a fraction of the problem
+# and paid the full check cost again.
+#
+# Every assertion below is about the gate telling MORE truth, never about it
+# blocking less: the disclosure tests pair "what is shown" with "what is said
+# to be hidden", and the base tests pair "the parent's commits are excluded"
+# with "the branch's own commits still are not".
+# ---------------------------------------------------------------------------
+
+
+def _fail_event(name: str, *, raw_log_ref: str | None) -> CheckEvent:
+    return CheckEvent(
+        name=name,
+        command="cmd",
+        covered_surface="governance",
+        status="fail",
+        raw_log_ref=raw_log_ref,
+    )
+
+
+def _write_log(root: Path, name: str, body: str) -> str:
+    rel = f".workflow/local/logs/{name}.log"
+    path = root / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"# {name} (exit 1)\n--- stdout ---\n{body}\n--- stderr ---\n", encoding="utf-8")
+    return rel
+
+
+def _write_report(root: Path, rel: str, document: dict[str, object]) -> None:
+    path = root / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+
+def _audit_report(children: list[dict[str, object]]) -> dict[str, object]:
+    return {
+        "tool": "full_audit",
+        "status": "fail",
+        "source_sha": "abc1234",
+        "findings": [],
+        "child_reports": children,
+    }
+
+
+def _child(tool: str, findings: list[dict[str, object]]) -> dict[str, object]:
+    return {
+        "tool": tool,
+        "status": "fail",
+        "source_sha": "abc1234",
+        "findings": findings,
+        "child_reports": [],
+    }
+
+
+def _finding(severity: str, file: str, message: str) -> dict[str, object]:
+    return {"rule_id": f"{severity}.rule", "severity": severity, "file": file, "message": message}
+
+
+def test_2143_long_log_says_how_much_of_it_is_hidden(tmp_path: Path) -> None:
+    """A truncated transcript must name what it left out and where to read it.
+
+    The excerpt was a fixed 50-line tail with no header. On a line-oriented tool
+    that emits a block per violation it showed the last few of many -- measured
+    at 5 of 17 ruff violations -- and said nothing about the rest, so a fix round
+    addressed what was visible and the next round paid for the check again.
+    """
+
+    body = "\n".join(f"violation {i}" for i in range(500))
+    ref = _write_log(tmp_path, "lint_format", body)
+    out = evaluator._failed_check_excerpt(tmp_path, _fail_event("lint_format", raw_log_ref=ref))
+
+    assert "last 200 of 503 lines" in out
+    assert ref in out
+    assert "violation 499" in out
+    # Enforcing the disclosure only matters if truncation actually happened.
+    assert "violation 0" not in out
+
+
+def test_2143_short_log_states_its_full_extent(tmp_path: Path) -> None:
+    """An untruncated transcript says so, instead of leaving the reader guessing."""
+
+    ref = _write_log(tmp_path, "lint_format", "only problem\n")
+    out = evaluator._failed_check_excerpt(tmp_path, _fail_event("lint_format", raw_log_ref=ref))
+
+    assert "only problem" in out
+    assert "last " not in out
+    assert ref in out
+
+
+def test_2143_report_only_check_renders_the_findings_it_wrote_to_json(tmp_path: Path) -> None:
+    """The exact #2143 failure: ``full_audit`` prints nothing and fails.
+
+    It reports solely into ``.audit/full-audit.json``, so its transcript held
+    only the writer's own section markers and the tail excerpt came back empty.
+    A real run produced 58 findings and the console showed the reader none of
+    them.
+    """
+
+    ref = _write_log(tmp_path, "full_audit", "")
+    _write_report(
+        tmp_path,
+        ".audit/full-audit.json",
+        _audit_report(
+            [
+                _child("doc_drift", [_finding("error", "docs/adr/ADR-049.md", "governed glob already resolves")]),
+                _child("closure", [_finding("error", "docs/adr/ADR-052.md", "unclosed governed contract")]),
+            ]
+        ),
+    )
+
+    out = evaluator._failed_check_excerpt(tmp_path, _fail_event("full_audit", raw_log_ref=ref))
+
+    assert "doc_drift: fail (1 findings)" in out
+    assert "closure: fail (1 findings)" in out
+    assert "governed glob already resolves" in out
+    assert "unclosed governed contract" in out
+    assert ".audit/full-audit.json" in out
+    # The transcript carried no tool output, so no empty output block is offered.
+    assert "output (" not in out
+
+
+def test_2143_report_findings_lead_with_the_blocking_ones(tmp_path: Path) -> None:
+    """Advisory findings must not push blocking ones past the display cap.
+
+    A real ``doc_drift`` report opens with a run of ``info`` findings and hides
+    its handful of ``error`` findings further down. Rendering in file order
+    would reproduce, inside the summary, the same hiding this renderer exists to
+    end.
+    """
+
+    ref = _write_log(tmp_path, "full_audit", "")
+    findings = [_finding("info", f"docs/note-{i}.md", f"advisory {i}") for i in range(12)]
+    findings.append(_finding("error", "docs/adr/ADR-049.md", "the blocking one"))
+    _write_report(tmp_path, ".audit/full-audit.json", _audit_report([_child("doc_drift", findings)]))
+
+    out = evaluator._failed_check_excerpt(tmp_path, _fail_event("full_audit", raw_log_ref=ref))
+    lines = out.splitlines()
+    error_index = next(i for i, line in enumerate(lines) if "the blocking one" in line)
+    first_info_index = next(i for i, line in enumerate(lines) if "advisory" in line)
+
+    assert error_index < first_info_index
+    assert "... 3 more findings in doc_drift" in out
+
+
+def test_2143_report_summary_counts_off_what_it_did_not_show(tmp_path: Path) -> None:
+    """Over the cap, the remainder is counted and the report file is named."""
+
+    ref = _write_log(tmp_path, "full_audit", "")
+    findings = [_finding("error", f"docs/f-{i}.md", f"problem {i}") for i in range(25)]
+    _write_report(tmp_path, ".audit/full-audit.json", _audit_report([_child("doc_drift", findings)]))
+
+    out = evaluator._failed_check_excerpt(tmp_path, _fail_event("full_audit", raw_log_ref=ref))
+
+    assert "doc_drift: fail (25 findings)" in out
+    assert "... 15 more findings in doc_drift (see .audit/full-audit.json)" in out
+
+
+def test_2143_unreadable_report_degrades_instead_of_raising(tmp_path: Path) -> None:
+    """Failure reporting must never itself fail on a malformed report file."""
+
+    ref = _write_log(tmp_path, "full_audit", "")
+    (tmp_path / ".audit").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".audit/full-audit.json").write_text("{ not json", encoding="utf-8")
+
+    assert evaluator._failed_check_excerpt(tmp_path, _fail_event("full_audit", raw_log_ref=ref)) == ""
+    # Absent file: same outcome, still no exception.
+    (tmp_path / ".audit/full-audit.json").unlink()
+    assert evaluator._failed_check_excerpt(tmp_path, _fail_event("full_audit", raw_log_ref=ref)) == ""
+
+
+def test_2143_a_report_only_check_still_shows_a_transcript_when_it_has_one(tmp_path: Path) -> None:
+    """Rendering the report does not suppress output the tool did print."""
+
+    ref = _write_log(tmp_path, "full_audit", "Traceback: the audit itself crashed\n")
+    _write_report(
+        tmp_path,
+        ".audit/full-audit.json",
+        _audit_report([_child("doc_drift", [_finding("error", "docs/a.md", "drifted")])]),
+    )
+
+    out = evaluator._failed_check_excerpt(tmp_path, _fail_event("full_audit", raw_log_ref=ref))
+
+    assert "drifted" in out
+    assert "the audit itself crashed" in out
+
+
+# --- the recorded diff base ------------------------------------------------
+
+
+def test_2143_ledger_records_a_base_ref_and_older_records_load_without_one() -> None:
+    """``base_ref`` is optional, so ledgers written before #2143 still load."""
+
+    assert _ledger().base_ref is None
+    assert _ledger(base_ref="origin/track/parent").base_ref == "origin/track/parent"
+
+
+def test_2143_base_ref_normalizes_a_branch_name_to_the_ref_the_pr_merges_into(git_repo: Path) -> None:
+    """A plain branch name means the remote branch; a revision means itself."""
+
+    _git(git_repo, "checkout", "-q", "-b", "track/parent")
+    _git(git_repo, "checkout", "-q", "main")
+    _add_commit(git_repo, "second.txt", message="second")
+
+    assert io.normalize_base_ref(git_repo, "track/parent") == "track/parent"
+    assert io.normalize_base_ref(git_repo, "refs/heads/main") == "refs/heads/main"
+    # `origin/HEAD` would make `origin/HEAD~1` resolve; a revision must not be
+    # quietly rewritten into a different commit.
+    assert io.normalize_base_ref(git_repo, "HEAD~1") == "HEAD~1"
+    assert io.normalize_base_ref(git_repo, "no-such-branch") is None
+    assert io.normalize_base_ref(git_repo, "   ") is None
+
+
+def test_2143_resolve_base_precedence(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--base beats the environment, which beats the ledger, which beats main."""
+
+    monkeypatch.delenv(io.GATE_BASE_ENV_VAR, raising=False)
+    head_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=git_repo, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+    assert workflow._resolve_base(git_repo, "explicit/ref", "HEAD", ledger_base_ref="main") == "explicit/ref"
+    assert workflow._resolve_base(git_repo, None, "HEAD", ledger_base_ref="main") == head_sha
+
+    monkeypatch.setenv(io.GATE_BASE_ENV_VAR, "main")
+    assert workflow._resolve_base(git_repo, None, "HEAD", ledger_base_ref="no-such-ref") == head_sha
+
+    # With no signal at all the default is still origin/main, which this remote-
+    # less fixture cannot reduce to a merge-base, so the raw ref comes back.
+    monkeypatch.delenv(io.GATE_BASE_ENV_VAR, raising=False)
+    assert workflow._resolve_base(git_repo, None, "HEAD", ledger_base_ref=None) == "origin/main"
+
+
+def test_2143_stacked_branch_measures_its_own_commits_not_its_parents(git_repo: Path) -> None:
+    """The payoff: a recorded base keeps the parent branch's work out of the diff.
+
+    Without it the only non-default channel was ``SCISTUDIO_GATE_BASE``, which
+    nothing in the repository ever set, so a branch stacked on a track branch
+    was measured against ``origin/main`` and the parent's commits were read as
+    this branch's work -- false out-of-scope findings, a wrong tier, and guard
+    hits on files it never touched.
+    """
+
+    _git(git_repo, "checkout", "-q", "-b", "track/parent")
+    _add_commit(git_repo, "src/scistudio/parent_only.py", message="parent work")
+    _git(git_repo, "checkout", "-q", "-b", "feat/child")
+    _add_commit(git_repo, "src/scistudio/child_only.py", message="child work")
+
+    measured_against_main = io.changed_files(git_repo, "main", "HEAD")
+    assert "src/scistudio/parent_only.py" in measured_against_main
+    assert "src/scistudio/child_only.py" in measured_against_main
+
+    base = workflow._resolve_base(git_repo, None, "HEAD", ledger_base_ref="track/parent")
+    measured_against_parent = io.changed_files(git_repo, base, "HEAD")
+    assert "src/scistudio/parent_only.py" not in measured_against_parent
+    # The branch's own commit is still observed: this narrows attribution, it
+    # does not narrow enforcement.
+    assert "src/scistudio/child_only.py" in measured_against_parent
+
+
+def test_2143_check_uses_the_recorded_base_end_to_end(git_repo: Path) -> None:
+    """The recorded base reaches the observed diff through the real CLI path."""
+
+    _git(git_repo, "checkout", "-q", "-b", "track/parent")
+    _add_commit(git_repo, "src/scistudio/parent_only.py", message="parent work")
+    _git(git_repo, "checkout", "-q", "-b", "feat/child")
+    _add_commit(git_repo, "src/scistudio/child_only.py", message="child work")
+
+    assert (
+        cli.main(
+            [
+                "--repo-root",
+                str(git_repo),
+                "init",
+                "--task-kind",
+                "bugfix",
+                "--persona",
+                "implementer",
+                "--runtime",
+                "claude-code",
+                "--branch",
+                "feat/child",
+                "--owner-directive",
+                "stacked work",
+                "--base-ref",
+                "track/parent",
+                "--print-instructions",
+                "false",
+            ]
+        )
+        == workflow.EXIT_OK
+    )
+
+    record = next((git_repo / ".workflow/records").glob("*.json"))
+    assert json.loads(record.read_text(encoding="utf-8"))["base_ref"] == "track/parent"
+
+    cli.main(["--repo-root", str(git_repo), "check", "--mode", "local", "--skip-execution"])
+    observed = json.loads(record.read_text(encoding="utf-8"))["observed_diff"]["changed_files"]
+    assert "src/scistudio/child_only.py" in observed
+    assert "src/scistudio/parent_only.py" not in observed
+
+
+def test_2143_unresolvable_base_ref_is_refused_not_silently_accepted(git_repo: Path) -> None:
+    """A base git cannot resolve would observe nothing and read as a pass."""
+
+    assert (
+        cli.main(
+            [
+                "--repo-root",
+                str(git_repo),
+                "init",
+                "--task-kind",
+                "bugfix",
+                "--persona",
+                "implementer",
+                "--runtime",
+                "claude-code",
+                "--branch",
+                "feat/child",
+                "--owner-directive",
+                "stacked work",
+                "--base-ref",
+                "no-such-branch",
+                "--print-instructions",
+                "false",
+            ]
+        )
+        == workflow.EXIT_USAGE
+    )
+    # Validate before persist: a refused base leaves no ledger behind at all,
+    # so a later run cannot inherit a base nobody accepted.
+    assert list((git_repo / ".workflow/records").glob("*.json")) == []
+
+
+def test_2143_worktrees_directory_is_ignored_by_the_repository() -> None:
+    """Repo-scoped checks must not read a sibling agent's linked worktree.
+
+    ``.worktrees/`` holds linked worktrees for parallel agents. Untracked and
+    unignored, it was visible to the ``ruff check .`` fallback, which failed a
+    commit in the main checkout on a file in another agent's worktree.
+    """
+
+    repo_root = Path(__file__).resolve().parents[2]
+    completed = subprocess.run(
+        ["git", "check-ignore", "-q", ".worktrees/some-agent/module.py"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, ".worktrees/ must be gitignored so ruff skips it"

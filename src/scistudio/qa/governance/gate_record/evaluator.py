@@ -513,31 +513,64 @@ def _guard_repair_hint(guard_name: str, report: AuditReport) -> str:
     return "\n".join(lines)
 
 
-def _failed_check_excerpt(repo_root: Path, event: CheckEvent, *, max_lines: int = 50, max_chars: int = 6000) -> str:
-    """Return an indented tail excerpt of a failed check's raw log, or "".
+# Section markers ``checks._write_raw_log`` puts around a captured transcript.
+# Used only to tell "the tool printed nothing" from "the tool printed", so a
+# report-only check is not handed an empty output block.
+_RAW_LOG_MARKERS: frozenset[str] = frozenset({"--- stdout ---", "--- stderr ---"})
 
-    The committed ledger keeps only a one-line ``summary`` + ``raw_log_ref``; this
-    surfaces the actual findings inline in the repair hint so a failing check is
-    actionable without opening the log file (#1628). Tail-biased because most
-    tools (pytest/ruff/mypy) put their error summary last, and full_audit's
-    per-child status table also lands at the tail.
+
+def _failed_check_excerpt(repo_root: Path, event: CheckEvent, *, max_lines: int = 200, max_chars: int = 20000) -> str:
+    """Return the indented failure-detail block for a failed check, or "".
+
+    Two sources feed the block, in order: the structured report a check writes
+    instead of printing (``CheckSpec.report_json``), then a tail of its raw
+    transcript.
+
+    Both were silently lossy before #2143. ``full_audit`` reports only into
+    ``.audit/full-audit.json``, so its transcript is empty and the failure
+    reached the reader with no reason at all while its findings sat unread in
+    that file. And a fixed 50-line tail of a line-oriented tool showed the last
+    few violations of many with nothing saying more existed -- measured at 5 of
+    17 ruff violations -- so each round of fixes revealed only the next few and
+    the check had to be paid for again. The block now renders a report-only
+    check's findings, and the transcript header states how much of the log is
+    shown and where the whole log is.
+
+    Tail-biased because pytest/ruff/mypy put their error summary last.
     """
 
+    blocks: list[str] = []
+
+    summary_lines = checks.report_json_summary(repo_root, event.name)
+    if summary_lines:
+        rendered = "\n".join(f"  | {line}" for line in summary_lines)
+        blocks.append(f"  --- {event.name} findings ---\n{rendered}")
+
     ref = event.raw_log_ref
-    if not ref:
+    log_text = ""
+    if ref:
+        try:
+            log_text = (repo_root / ref).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            log_text = ""
+    lines = log_text.splitlines()
+    # ``lines[0]`` is the ``# <name> (exit N)`` header the writer always emits;
+    # everything after it is the tool's own output.
+    printed_anything = any(line.strip() and line.strip() not in _RAW_LOG_MARKERS for line in lines[1:])
+    if printed_anything:
+        tail = lines[-max_lines:]
+        excerpt = "\n".join(f"  | {line}" for line in tail).rstrip()
+        if len(excerpt) > max_chars:
+            excerpt = "  | ...(truncated)\n" + excerpt[-max_chars:]
+        extent = f"last {len(tail)} of {len(lines)} lines" if len(tail) < len(lines) else f"{len(lines)} lines"
+        blocks.append(f"  --- {event.name} output ({extent}; full log: {ref}) ---\n{excerpt}")
+
+    if not blocks:
         return ""
-    try:
-        text = (repo_root / ref).read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return ""
-    tail = text.splitlines()[-max_lines:]
-    excerpt = "\n".join(f"  | {line}" for line in tail).rstrip()
-    if len(excerpt) > max_chars:
-        excerpt = "  | ...(truncated)\n" + excerpt[-max_chars:]
     # Keep it printable on ANY console: a Windows GBK/cp1252 stdout cannot encode
     # the U+FFFD replacement char that ``errors="replace"`` emits for non-UTF-8
     # log bytes, which would crash ``_print_outcome``'s ``print``. ASCII-clean it.
-    return excerpt.encode("ascii", "replace").decode("ascii")
+    return "\n".join(blocks).encode("ascii", "replace").decode("ascii")
 
 
 def _is_global_check_config_path(path: str) -> bool:
@@ -1026,7 +1059,7 @@ def reconcile(
                 hint = f"- checks.{name}\n  Re-run the check after fixing:\n  {event.command}"
                 excerpt = _failed_check_excerpt(repo_root, event)
                 if excerpt:
-                    hint += f"\n  --- {name} output (tail) ---\n{excerpt}"
+                    hint += f"\n{excerpt}"
                 repair_hints.append(hint)
     elif mode not in ("commit-msg",):
         # Reuse previously recorded passing check evidence instead of executing

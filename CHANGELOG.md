@@ -257,6 +257,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2143] **A failed gate check now tells you everything it found, and a
+  stacked branch is measured against its own base.** Four defects shared one
+  shape — the gate observed more than it reported — and together they meant a
+  fix round addressed a fraction of the problem and then paid the full check
+  cost again on the next attempt.
+  A failed check's excerpt was a fixed 50-line tail of the raw log with no
+  header. Line-oriented tools emit a block per violation, so it showed the last
+  few of many and said nothing about the rest: on a measured run, 5 of 17 ruff
+  violations. The excerpt now leads with a header naming the log file and
+  stating how much of it is shown, at a 200-line cap.
+  `full_audit` was worse than partial — it reported nothing. It writes its
+  findings into `.audit/full-audit.json` and prints nothing at all, so its
+  transcript held only section markers, the tail came back empty, and the
+  failure reached the reader as `checks.full_audit` with no reason while 58
+  findings sat unread in the file. A check can now declare the report file it
+  writes, and that report is rendered into the repair hint: the failing
+  sub-audits, their findings with blocking severities first, and a count of any
+  the display cap left out.
+  The diff base was the third. `SCISTUDIO_GATE_BASE` was the only way to point
+  the gate at anything other than `origin/main`, and nothing in the repository
+  ever set it, so local `check` and `finalize` measured a branch stacked on a
+  track branch against `origin/main` and read its parent's commits as work
+  authored here — false out-of-scope findings, a wrong strictness tier, and
+  guard hits on files the branch never touched. The base is now a recorded
+  ledger fact, `base_ref`, set with `--base-ref` on `init`/`plan`/`amend` and
+  resolved after an explicit `--base` and the environment variable but before
+  `origin/main`. A ref git cannot resolve is refused outright, because diffing
+  against a ref that does not exist observes nothing and a gate that observed
+  nothing reads as a clean one. CI was never affected: it passes the real PR
+  base explicitly.
+  Last, `.worktrees/` — where parallel agents put their linked worktrees — was
+  untracked and unignored, so the repository-scoped `ruff check .` fallback
+  linted other agents' checkouts and failed commits on files they never
+  touched. It is gitignored now, which is what keeps ruff inside the checkout.
+
 - [#1988] **A block that isn't one of the six kinds no longer looks broken.**
   Every canvas node that wasn't IO, Process, Code, App, AI or Subworkflow fell
   back to one grey body with a puzzle-piece glyph — and that single grey was
