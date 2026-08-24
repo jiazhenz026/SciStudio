@@ -11,7 +11,11 @@ A version-marker file at ``<project>/.claude/.scistudio-provision-version``
 records the provisioning version. On every open the top-up writes any
 *missing* canonical assets and additively registers any newly-added canonical
 hook in an existing ``.claude/settings.json`` (ADR-040 Addendum 6, #1858), so
-old projects pick up new hooks/docs without overwriting user edits.
+old projects pick up new hooks/docs without overwriting user edits. Since
+0.3.0 (#1860) the agent guide and skill files additionally get
+*content-aware refresh*: files unchanged since SciStudio last wrote them
+(tracked by the hash manifest in ``_refresh.py``) are updated to the current
+canonical content, while user-edited files are preserved.
 
 Per ADR §7, failures are NOT fatal — they log at WARNING and return a
 ``ProvisionResult`` summarizing what succeeded. Callers continue with
@@ -25,6 +29,11 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from scistudio.agent_provisioning._refresh import (
+    MANIFEST_REL_PATH,
+    load_manifest,
+    save_manifest,
+)
 from scistudio.agent_provisioning.claude_agents_md import write_claude_agents_md
 from scistudio.agent_provisioning.codex_config import write_codex_config
 from scistudio.agent_provisioning.docs import write_docs
@@ -33,16 +42,16 @@ from scistudio.agent_provisioning.skills import write_skills
 
 logger = logging.getLogger(__name__)
 
+# 0.3.0 (#1860, PR #2144 review): content-aware refresh for the agent guide
+# (CLAUDE.md / AGENTS.md) and skill files — files unchanged since SciStudio
+# last wrote them (tracked by the per-project hash manifest, with a frozen
+# legacy-hash table for pre-manifest projects) are refreshed to the current
+# canonical content; user-edited files are preserved.
 # 0.2.0 (ADR-040 Addendum 6, #1858): adds the data/ protection hook and the
 # additive on-open top-up (missing canonical assets + missing settings hook
 # entries are filled in for existing projects). #1850 adds the in-project user
 # guide + agent reference doc trees (``docs.py``) to the same top-up.
-# TODO(#1860): content-aware refresh of canonical files that ALREADY exist
-#   (re-write only files unmodified from a previous canonical version) is still
-#   deferred — it needs per-file canonical hashing to avoid clobbering user
-#   edits. Out of scope per ADR-040 Addendum 6.
-#   Followup: https://github.com/jiazhenz026/SciStudio/issues/1860.
-SCISTUDIO_PROVISION_VERSION = "0.2.0"
+SCISTUDIO_PROVISION_VERSION = "0.3.0"
 
 _MARKER_REL_PATH = ".claude/.scistudio-provision-version"
 
@@ -81,13 +90,14 @@ def install_project_agent_assets(
     """
     project_dir = Path(project_dir)
     result = ProvisionResult()
+    manifest = load_manifest(project_dir)
 
     # Each sub-step: (label, callable, list-of-expected-paths-it-would-write).
     # ``expected`` is used to compute the skipped delta when force=False.
     steps: list[tuple[str, Callable[[], list[str]], list[str]]] = [
         (
             "claude_agents_md",
-            lambda: write_claude_agents_md(project_dir, force=force),
+            lambda: write_claude_agents_md(project_dir, force=force, manifest=manifest),
             ["CLAUDE.md", "AGENTS.md"],
         ),
         (
@@ -110,7 +120,7 @@ def install_project_agent_assets(
         ),
         (
             "skills",
-            lambda: write_skills(project_dir, force=force),
+            lambda: write_skills(project_dir, force=force, manifest=manifest),
             _expected_skill_paths(),
         ),
         (
@@ -143,6 +153,21 @@ def install_project_agent_assets(
         for path in expected:
             if path not in written_set:
                 result.skipped.append(path)
+
+    # Hash-manifest write (#1860) — best-effort, same contract as the version
+    # marker below. A failed save merely means the next run falls back to
+    # preserve-on-mismatch (never clobber).
+    try:
+        save_manifest(project_dir, manifest)
+        if MANIFEST_REL_PATH not in result.written:
+            result.written.append(MANIFEST_REL_PATH)
+    except Exception as exc:
+        logger.warning(
+            "ADR-040: hash manifest write failed at %s (non-fatal): %s",
+            project_dir,
+            exc,
+        )
+        result.failed.append((MANIFEST_REL_PATH, f"{type(exc).__name__}: {exc}"))
 
     # Version marker write — best-effort; if .claude/ does not exist (e.g.
     # hooks sub-step failed entirely), we still try to create the marker

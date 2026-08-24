@@ -58,6 +58,8 @@ from __future__ import annotations
 import importlib.resources
 from pathlib import Path
 
+from scistudio.agent_provisioning._refresh import write_managed_file
+
 _SKILL_NAMES = (
     "scistudio",
     "scistudio-build-workflow",
@@ -149,30 +151,30 @@ def write_skills(
     project_dir: Path,
     *,
     force: bool = False,
+    manifest: dict[str, str] | None = None,
 ) -> list[str]:
     """Cross-install the SciStudio skill bundle to both provider trees.
 
     With 7 skill names (1 base + 6 task skills, including the ADR-048
     ``scistudio-write-plot`` plot skill) cross-installed to both
     ``.claude/skills`` and ``.agents/skills``, a fresh install writes 14
-    files.
+    files. Existing files are refreshed when unchanged since SciStudio last
+    wrote them and preserved when the user edited them (#1860).
 
     Returns:
       List of project-relative paths actually written (max 14 entries).
     """
     project_dir.mkdir(parents=True, exist_ok=True)
     written: list[str] = []
+    if manifest is None:
+        manifest = {}
 
     sources = {name: _read_skill_source(name) for name in _SKILL_NAMES}
 
     for tree in _DEST_TREES:
         for name in _SKILL_NAMES:
             rel_path = f"{tree}/{name}/SKILL.md"
-            dest = project_dir / rel_path
-            if dest.exists() and not force:
-                continue
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_text(sources[name], encoding="utf-8")
-            written.append(rel_path)
+            if write_managed_file(project_dir, rel_path, sources[name], manifest, force=force):
+                written.append(rel_path)
 
     return written

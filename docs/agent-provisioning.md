@@ -11,8 +11,8 @@ the first time it is created or opened:
 
 ```
 <project>/
-  CLAUDE.md                                # Claude Code agent guide (ADR-040 §3.5)
-  AGENTS.md                                # Codex agent guide (byte-identical to CLAUDE.md)
+  AGENTS.md                                # canonical agent guide (ADR-040 §3.5, #2137)
+  CLAUDE.md                                # one-line router pointing at AGENTS.md (#2137)
   .claude/
     settings.json                          # Claude Code PreToolUse + PostToolUse hook config
     .scistudio-provision-version             # Version marker (current: 0.1.0)
@@ -80,11 +80,23 @@ opens.
 
 With `force=False`:
 
-- A file that already exists at the target path is **preserved
-  verbatim**. The user is free to customize CLAUDE.md, hook scripts,
-  skills, `.codex/config.toml`, and the hook `settings.json` — none will
-  be clobbered on subsequent project opens.
-- Missing files are restored from the bundled template.
+- The agent guide (`AGENTS.md`, `CLAUDE.md`) and the skill files under
+  `.claude/skills/` + `.agents/skills/` use **content-aware refresh**
+  (#1860, provision version 0.3.0): a file whose content is unchanged since
+  SciStudio last wrote it — tracked by the hash manifest at
+  `.claude/.scistudio-provision-hashes.json` — is refreshed to the current
+  canonical content on every open, so fixes and rebrands shipped in a new
+  release reach existing projects. A file whose content diverges from the
+  manifest entry is user-edited and preserved verbatim. Projects
+  provisioned before 0.3.0 have no manifest; a frozen table of every
+  historical canonical content
+  (`agent_provisioning/templates/legacy_content_hashes.json`) adopts files
+  that provably still match a shipped version.
+- Everything else (hook scripts, `settings.json` files, `.codex/config.toml`)
+  is still existence-only: a file that already exists is **preserved
+  verbatim**, missing files are restored from the bundled template, and
+  newly-added canonical hook entries are registered additively in an
+  existing `.claude/settings.json`.
 - Installed package reference files under `user-guide/package-reference/`
   and `.scistudio/agent-reference/packages/` are managed generated docs.
   They refresh when the bundled package docs change so package install and
@@ -95,10 +107,10 @@ With `force=True` (currently used only via tests; no UI/CLI surface yet):
 - Every canonical file is overwritten from the template. User edits are
   lost.
 
-A future Phase 3 design (#1011) may introduce hash-based "preserve only
-if user-edited" semantics so canonical defaults can evolve while still
-respecting customization. The current contract is conservative:
-existence-check only.
+The hash-based "preserve only if user-edited" semantics sketched for #1011
+now exist for the agent guide and skill files (see above, #1860). Hook
+scripts and `.codex/config.toml` remain existence-only; extending the
+manifest to them is a small follow-up if ever needed.
 
 ## Disabling provisioning
 
@@ -113,9 +125,13 @@ file-system-driven:
   idempotency check is `Path.exists`).
 - **Individual hooks**: edit `settings.json` to remove the offending
   matcher entry. The idempotent default preserves your edit.
-- **Skills**: edit or delete individual `SKILL.md` files; on next open
-  they are restored only if missing.
-- **CLAUDE.md / AGENTS.md content**: edit freely; preserved on next open.
+- **Skills**: edit or delete individual `SKILL.md` files. Edited files are
+  preserved (hash-manifest mismatch); deleted files are restored; untouched
+  files track the shipped version.
+- **AGENTS.md content**: edit freely; preserved on next open. AGENTS.md is
+  the single canonical agent-instruction entry point (#2137); CLAUDE.md is
+  a one-line router pointing at it, so the guide text is maintained in
+  exactly one place regardless of how many provider CLIs are supported.
 
 To temporarily disable provisioning entirely for debugging, monkeypatch
 `scistudio.agent_provisioning.install_project_agent_assets` to a no-op.
