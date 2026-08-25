@@ -263,6 +263,11 @@ has to say "click Update now", which it already does through `manifest.notes`.
 For this the manifest must satisfy `min_base <= 0.3.3` so the decision is
 `patch` rather than `incompatible`, with `min_build` set to make it mandatory.
 
+`min_base` derives from the build's own base unless overridden, so after a bump
+it is the *new* base and every old client takes the incompatible branch — which
+never downloads, so the notice page is never fetched. `ota_publish.py --min-base`
+(#2169) is what makes this route usable at all.
+
 Because the address is copyable, it does not need to be short: use the real
 0.3.4 release URL rather than an abbreviation.
 

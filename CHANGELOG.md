@@ -537,6 +537,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2169] **The reinstall notice can now reach the clients it exists for.**
+  `--reinstall-notice` was written for one situation — the base version moved,
+  older clients cannot reach the new build over the air, and they must be told
+  to reinstall in a web page because a native dialog renders an address that is
+  neither clickable nor selectable. It could not be used for that situation.
+  `requires.min_base` derived from the version being published, so after a base
+  bump the manifest declared the *new* base and every client on the old one
+  evaluated to `incompatible` rather than `patch` — and the incompatible branch
+  never downloads, so the notice page was built, uploaded, and never fetched.
+  A new `--min-base` overrides it. Verified against the client's own decision
+  module: with the derived value a 0.3.3 client returns
+  `{kind: "incompatible"}`, with the override `{kind: "patch"}`, both mandatory.
+
 - [#2151] **Left-panel sections show what is actually there when you switch to
   them.** Blocks, Data types and Previewers each read their listing once and
   kept it, so a block or type added while another section was open stayed
