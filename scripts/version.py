@@ -34,6 +34,11 @@ if str(_SRC) not in sys.path:
 from scistudio import version as _v  # noqa: E402
 
 
+# #2162: every manifest this rewrites is stored LF. Path.write_text without an
+# explicit newline uses the platform default, so a sync on Windows writes CRLF.
+# Git normalises that away on commit -- CI never sees it -- but not before the
+# frontend's own `prettier --check` has failed against the working tree, which
+# reads as a formatting fault in a file nobody hand-edited.
 def _sync_pyproject(pep440: str) -> list[str]:
     """Rewrite the ``[project]`` and ``[tool.commitizen]`` versions (PEP 440)."""
     path = _REPO_ROOT / "pyproject.toml"
@@ -42,7 +47,7 @@ def _sync_pyproject(pep440: str) -> list[str]:
     # form; commitizen accepts PEP 440. These are the only `version = ` lines.
     new = re.sub(r'(?m)^version = ".*"$', f'version = "{pep440}"', text)
     if new != text:
-        path.write_text(new, encoding="utf-8")
+        path.write_text(new, encoding="utf-8", newline="\n")
         return ["pyproject.toml"]
     return []
 
@@ -55,7 +60,7 @@ def _sync_package_json(rel: str, semver: str) -> list[str]:
     text = path.read_text(encoding="utf-8")
     new = re.sub(r'("version"\s*:\s*)"[^"]*"', rf'\1"{semver}"', text, count=1)
     if new != text:
-        path.write_text(new, encoding="utf-8")
+        path.write_text(new, encoding="utf-8", newline="\n")
         return [rel]
     return []
 
@@ -73,7 +78,7 @@ def _sync_package_lock(rel: str, semver: str) -> list[str]:
     text = path.read_text(encoding="utf-8")
     new = re.sub(r'("version"\s*:\s*)"[^"]*"', rf'\1"{semver}"', text, count=2)
     if new != text:
-        path.write_text(new, encoding="utf-8")
+        path.write_text(new, encoding="utf-8", newline="\n")
         return [rel]
     return []
 
@@ -100,7 +105,7 @@ def cmd_set_channel(args: argparse.Namespace) -> int:
     if new == text and f'CHANNEL = "{channel}"' not in text:
         print(f"error: could not find CHANNEL assignment in {vpath}", file=sys.stderr)
         return 1
-    vpath.write_text(new, encoding="utf-8")
+    vpath.write_text(new, encoding="utf-8", newline="\n")
     # Reset the new channel's build counter to 0 (owner: build resets on channel
     # change). Absent counters already default to 0, but write it explicitly so
     # switching back to a previously-used channel also restarts at 0.

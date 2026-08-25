@@ -461,6 +461,12 @@
       "at": "2026-08-25T07:17:47.655301Z",
       "pattern": ".github/workflows/desktop-windows-installer.yml",
       "reason": "Owner-directed scope expansion, and a governance_touch because the three desktop build workflows are governance-critical files. I flagged that this is a pre-existing main defect better suited to its own issue; the owner chose to fold it in, and it is a hard prerequisite for the 0.3.4 installers -- without it no platform can build at all. All three build scripts query the GitHub releases API unauthenticated, and none of the three workflows passes a token, so they draw on the shared per-IP rate limit that every Actions runner competes for. The macOS run failed 0.24s in with curl 56 / HTTP 403. That earlier builds succeeded is timing, not configuration. The fix sends an Authorization header only when a token is present, so a developer running the script locally without one is unaffected, and the asset download itself is untouched because browser_download_url is public CDN and needs no auth."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T07:23:00.787859Z",
+      "pattern": "scripts/version.py",
+      "reason": "version.py sync writes every manifest with Path.write_text and no explicit newline, so on Windows it emits CRLF. Git normalises that on commit and CI never sees it, but the local gate's frontend check runs prettier against the working tree and fails on frontend/package.json -- reading as a formatting fault in a file nobody hand-edited. Forcing newline LF fixes it at the source. Worth recording how this was diagnosed: I reached the right answer first, then withdrew it after a measurement that used grep -c with an unescaped carriage return, which in Git Bash counts lines containing the letter r rather than CR. Two independent bad measurements later, a byte-level check settled it. The fix is verified by round-tripping a real rewrite and confirming every manifest comes out LF."
     }
   ],
   "session_id": "240bf74d-8c15-4973-b645-2849df412187",
