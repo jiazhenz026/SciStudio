@@ -331,12 +331,12 @@ required now versus recorded as a pre-PR gap.
 
 | Mode | Caller | What it validates |
 |---|---|---|
-| `local` | Manual `gate_record check` (default) | Full local CI-equivalent preflight at the selected tier. PR-state facts (issue, label provenance) are recorded as pre-PR gaps, not hard failures |
-| `pre-commit` | Pre-commit hook | Fast structural reconciliation on the **staged** diff |
-| `commit-msg` | Commit-msg hook | Validate required commit trailers; does not run checks |
+| `local` | Manual `gate_record check` (default) | Full local CI-equivalent preflight at the selected tier, including the `commit_hygiene` check (#2150). PR-state facts (issue, label provenance) are recorded as pre-PR gaps, not hard failures |
+| `pre-commit` | Compatibility mode (no hook installed since #2150) | Fast structural reconciliation on the **staged** diff |
+| `commit-msg` | Compatibility mode (no hook installed since #2150) | Legacy commit-msg reconciliation; does not run checks. The Conventional Commits subject check moved to the final-commit validation in `pre-pr`/`ci` (#2150) |
 | `pre-push` | Manual compatibility mode | Pre-push reconciliation remains available on demand. The installed pre-push hook is a fast allow shim, so WIP pushes are not blocked; PR-readiness obligations belong to `pre-pr` / `ci` |
-| `pre-pr` | PR wrapper and pre-PR hook | Pre-PR readiness with `--pr-body-file`; issue/docs/test obligations are required-now; parity gaps fail closed |
-| `ci` | CI workflow (`workflow-gate.yml` / "Verify Workflow Compliance") | Authoritative governance + guard validation with real PR context and label-actor provenance |
+| `pre-pr` | PR wrapper and pre-PR hook | Pre-PR readiness with `--pr-body-file`; issue/docs/test obligations are required-now; parity gaps fail closed. Also owns the checks the removed commit hooks used to enforce (#2150): `commit_hygiene` and the final commit's Conventional Commits subject |
+| `ci` | CI workflow (`workflow-gate.yml` / "Verify Workflow Compliance") | Authoritative governance + guard validation with real PR context and label-actor provenance (including `commit_hygiene` and the final-commit message check, #2150) |
 
 Important `ci` mode split: `ci` mode validates **governance and guards**
 (scope, issue linkage, docs landing, persona policy, core/mod/merge/human-bypass

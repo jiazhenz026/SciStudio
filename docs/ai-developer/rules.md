@@ -157,8 +157,12 @@ Supported `--persona` values: `manager`, `implementer`, `adr_author`,
 `audit_reviewer`, `test_engineer`, `live_implementer`.
 
 Supported `--mode` values for `check`: `local` (default), `pre-push`,
-`pre-pr`, `ci`. `pre-push` remains available as a manual compatibility mode,
-but the installed pre-push hook is a fast allow shim; `pre-pr` and `ci` are the
+`pre-pr`, `ci`, plus the compatibility-only `pre-commit` and `commit-msg`
+modes. Commit-time git hooks were removed in #2150: `git commit` runs nothing,
+and the checks those hooks used to enforce moved to the PR-gating modes — the
+`commit_hygiene` check runs the manual-stage pre-commit hygiene hook set, and
+the final commit's Conventional Commits subject is validated at `pre-pr`/`ci`.
+The installed pre-push hook is a fast allow shim; `pre-pr` and `ci` are the
 hard governance checkpoints. The `check` command automatically observes the git
 diff, infers the tier-selected CI-equivalent check set, runs required commands,
 records sanitized ledger events, runs guard reconciliation, and exits nonzero

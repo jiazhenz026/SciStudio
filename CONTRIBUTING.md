@@ -32,11 +32,15 @@ npm --prefix frontend install
 npm --prefix desktop run dev
 ```
 
-Install the commit hooks once:
+Commit-time git hooks are not installed (#2150): `git commit` runs nothing.
+Every check the hooks used to enforce runs at the pre-PR stage instead
+(`gate_record check --mode pre-pr` for AI-gated work, and the CI jobs on the
+PR). To run the hygiene hook set (trailing whitespace, YAML/JSON syntax, large
+files, merge-conflict markers, private keys) on demand:
 
 ```bash
 pip install pre-commit
-pre-commit install --hook-type pre-commit --hook-type commit-msg
+pre-commit run --all-files --hook-stage manual
 ```
 
 ## Opening a pull request

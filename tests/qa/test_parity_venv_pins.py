@@ -81,9 +81,9 @@ def test_a_failed_editable_install_does_not_go_on_to_install_pins(monkeypatch: A
 def test_resolved_pins_come_from_the_files_ci_actually_pins() -> None:
     """The pins are only meaningful if they track CI's own declarations.
 
-    ``ci.yml`` and ``.pre-commit-config.yaml`` carry a comment instructing that
-    they be bumped together; this asserts the resolver reads that pair rather
-    than the unbounded ``[dev]`` floor.
+    Since #2150 ``ci.yml`` is the single ruff pin source (the pre-commit hook
+    revs are gone with the commit-time hooks); this asserts the resolver reads
+    that pin rather than the unbounded ``[dev]`` floor.
     """
     repo_root = Path(__file__).resolve().parents[2]
     resolved = parity.resolve_ci_tool_versions(repo_root)

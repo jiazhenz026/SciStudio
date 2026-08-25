@@ -1,0 +1,175 @@
+{
+  "branch": "guided/2150-commit-hooks-to-pre-pr",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      ".pre-commit-config.yaml",
+      "src/scistudio/qa/governance/**",
+      "tests/qa/**",
+      "tests/scripts/**",
+      "docs/**",
+      "CONTRIBUTING.md",
+      ".workflow/hooks/**",
+      "scripts/hooks/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-25T02:06:00.142723Z",
+      "owner_directive": "ci.yml \u6ce8\u91ca\u540c\u6b65:ruff pin \u552f\u4e00\u6765\u6e90\u6539\u4e3a ci.yml \u81ea\u8eab",
+      "reason": "ci.yml ruff pin comment referenced the removed .pre-commit-config.yaml revs; updated the comment and added .github/workflows/ to scope"
+    },
+    {
+      "at": "2026-08-25T02:23:42.882967Z",
+      "owner_directive": "\u5b9e\u73b0\u5b8c\u6210:commit hooks \u5168\u90e8\u79fb\u9664,hygiene/\u6700\u7ec8 commit \u6d88\u606f\u68c0\u67e5\u79fb\u5230 pre-pr;ruff pin \u6e90\u6539 ci.yml;\u5220\u9664\u9057\u7559 hook \u6587\u4ef6;\u6d4b\u8bd5\u4e0e\u6cbb\u7406\u6587\u6863\u5df2\u66f4\u65b0",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-25T02:23:42.882998Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-042-addendum6.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T02:23:42.883004Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-042-gate-ledger-runtime.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T02:23:42.883007Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/rules.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T02:23:42.883009Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/specific_rules/gated-workflow.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T02:23:42.883011Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/gate-cli-command-set.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T02:23:42.883012Z",
+      "class": null,
+      "kind": "path",
+      "path": "CONTRIBUTING.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T02:23:42.883014Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2150,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "\u53d6\u6d88\u6240\u6709 commit \u65f6 git hook\uff08\u5141\u8bb8\u81ea\u7531 commit\uff09\uff0c\u628a\u73b0\u6709 commit hook \u7684\u5168\u90e8\u68c0\u67e5\u9879\u79fb\u5230 gate_record check --mode pre-pr \u5f3a\u5236\u6267\u884c\uff1bcommit \u6d88\u606f\u7c7b\u68c0\u67e5\u53ea\u6821\u9a8c\u6700\u7ec8 commit\uff08owner \u5df2\u786e\u8ba4\uff09",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2150-guided-2150-commit-hooks-to-pre-pr",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "kimi-cli",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-25T02:06:00.142744Z",
+      "pattern": ".github/workflows/**",
+      "reason": "ci.yml ruff pin comment referenced the removed .pre-commit-config.yaml revs; updated the comment and added .github/workflows/ to scope"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T02:23:42.882986Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "f19d6220-6836-462a-9c0b-24bcb0ed0aac",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-08-25T02:23:42.883018Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_commit_checks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T02:23:42.883022Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_record_hooks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T02:23:42.883024Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_commit_msg_hook_wiring.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T02:23:42.883025Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_evaluator.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T02:23:42.883027Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_parity_venv_pins.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 CI is the single source of truth for which tool versions run checks and the
 environment they run in. This module resolves the CI-pinned tool versions from
-the same source CI uses (``.pre-commit-config.yaml`` revs, ``pyproject`` bounds)
+the same source CI uses (the ``ci.yml`` ruff pin, ``pyproject`` bounds)
 and provisions an ISOLATED per-worktree virtual environment that installs the
 same CI-equivalent dependencies (``-e ".[dev]"``) so local checks run the same
 commands CI runs, in an equivalent environment, without polluting the shared
@@ -35,10 +35,13 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# Tools whose CI-resolved versions we attempt to reproduce locally. Names map to
-# the ``ruff``/``mypy`` pre-commit rev pins (§6.2) and pyproject bounds.
-_PRECOMMIT_RUFF_RE = re.compile(r"astral-sh/ruff-pre-commit\s*\n\s*rev:\s*v?(?P<version>[\w.]+)", re.MULTILINE)
-_PRECOMMIT_MYPY_RE = re.compile(r"mirrors-mypy\s*\n\s*rev:\s*v?(?P<version>[\w.]+)", re.MULTILINE)
+# Tools whose CI-resolved versions we attempt to reproduce locally. The ruff pin
+# comes from ``ci.yml`` (the Lint & Format job installs an exact version);
+# mypy is intentionally unpinned — CI resolves it from ``.[dev]`` and local
+# resolves the same latest at run time (an accepted small drift window, §7.10).
+# (#2150: the pins used to come from the ruff/mypy pre-commit hook revs; the
+# commit-time hooks were removed and ci.yml is now the single pin source.)
+_CI_RUFF_RE = re.compile(r"ruff==(?P<version>[\w.]+)")
 
 # Per-worktree isolated environment lives under the gitignored local logs root
 # (``.workflow/local/**``), so it is never committed or pushed (§7.2, §8).
@@ -75,18 +78,18 @@ def resolve_ci_tool_versions(repo_root: Path) -> dict[str, str]:
     Returns a best-effort mapping. Tools CI resolves at ``latest`` (unpinned)
     are intentionally absent; per §7.10 local resolves the same latest at run
     time, which is an accepted small drift window.
+
+    The ruff pin lives in ``ci.yml`` (``uv pip install --system ruff==X``);
+    mypy resolves from ``.[dev]`` in CI and is therefore unpinned here.
     """
 
     versions: dict[str, str] = {}
-    precommit = repo_root / ".pre-commit-config.yaml"
-    if precommit.exists():
-        text = precommit.read_text(encoding="utf-8", errors="replace")
-        ruff_match = _PRECOMMIT_RUFF_RE.search(text)
+    ci_yml = repo_root / ".github" / "workflows" / "ci.yml"
+    if ci_yml.exists():
+        text = ci_yml.read_text(encoding="utf-8", errors="replace")
+        ruff_match = _CI_RUFF_RE.search(text)
         if ruff_match:
             versions["ruff"] = ruff_match.group("version")
-        mypy_match = _PRECOMMIT_MYPY_RE.search(text)
-        if mypy_match:
-            versions["mypy"] = mypy_match.group("version")
     return versions
 
 
@@ -326,14 +329,15 @@ def _install_deps(repo_root: Path, venv: Path) -> tuple[bool, str]:
     The CI-resolved tool pins are then installed **explicitly, as a second
     step**. This is load-bearing rather than belt-and-braces. ``[dev]`` declares
     ``ruff>=0.11`` with no upper bound, so the resolver takes whatever is newest
-    at provisioning time, while CI pins an exact version in ``ci.yml`` and
-    ``.pre-commit-config.yaml``. Without this step the environment that exists
-    to be CI-equivalent drifts away from CI the moment a new release lands, and
-    it drifts *silently*: :func:`provisioning_marker` already hashes the resolved
-    pins, so a venv carrying the wrong version still matches its own marker and
-    is reused as warm rather than rebuilt. That is how this env came to run ruff
-    0.16.1 against CI's pinned 0.15.15, reporting format failures on files CI
-    formats cleanly.
+    at provisioning time, while CI pins an exact version in ``ci.yml`` (since
+    #2150 the single pin source; the pre-commit hook revs that used to carry it
+    are gone with the commit-time hooks). Without this step the environment
+    that exists to be CI-equivalent drifts away from CI the moment a new
+    release lands, and it drifts *silently*: :func:`provisioning_marker`
+    already hashes the resolved pins, so a venv carrying the wrong version
+    still matches its own marker and is reused as warm rather than rebuilt.
+    That is how this env came to run ruff 0.16.1 against CI's pinned 0.15.15,
+    reporting format failures on files CI formats cleanly.
     """
 
     py = venv_python(venv)

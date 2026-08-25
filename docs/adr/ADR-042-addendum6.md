@@ -139,6 +139,20 @@ AI-authored work boundary and records the evidence reviewers and CI need. The
 branch, PR, reviewer, and remote CI requirements still apply after the commit
 exists.
 
+**Revision (#2150): commit-time git hooks removed.** `git commit` runs nothing.
+The checks the pre-commit framework hooks used to enforce moved to the PR-gating
+evaluator modes: the hygiene hook set (trailing-whitespace, end-of-file-fixer,
+check-yaml/json, check-added-large-files, check-merge-conflict,
+detect-private-key) runs as the `commit_hygiene` check in the
+`local`/`pre-pr`/`ci` modes via `pre-commit run --all-files --hook-stage
+manual`; the commitizen Conventional Commits subject check became the
+evaluator's final-commit message validation in `pre-pr`/`ci` (only the final
+commit is validated, per owner decision); ruff/ruff-format/mypy were already
+covered by the evaluator's `lint_format`/`format_check`/`type_check` checks and
+the standalone `ci.yml` jobs. `.pre-commit-config.yaml` keeps only the hygiene
+hooks, all bound to the `manual` stage. The `pre-commit` and `commit-msg`
+evaluator modes remain as compatibility aliases with no hook callers.
+
 The AI gate has six required lifecycle concerns:
 
 | Concern | Required record | Blocking rule |
