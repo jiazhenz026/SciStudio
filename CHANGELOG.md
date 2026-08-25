@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2090] **The left sidebar is a VS Code-style icon rail, and it gained two
+  sections.** The Blocks / Data types / Project text tabs are replaced by a 48px
+  vertical rail of icons that sits outside the resizable area, so it stays put
+  when the panel is dragged and stays visible when the panel is closed. Clicking
+  the active icon collapses the panel and clicking again reopens it, which is
+  also what `Ctrl+B` has always meant — the shortcut wrote a `paletteCollapsed`
+  flag nothing read, so the panel never moved.
+  **Workflows** lists every workflow in the open project with the description
+  from its YAML, opens one on the canvas in a single click, and marks the one
+  already there. **Data** shows the project tree rooted at `data/` — `raw`,
+  `processed`, `zarr`, `parquet`, `artifacts`, `exchange` — so the files a
+  workflow reads and writes are reachable without leaving the app. A section
+  entered programmatically, by the library reveal or by a Learning Center step,
+  always expands the panel first.
+
+- [#1719] **Plot cards gained Edit and Delete.** A plot could be created and
+  looked at, and that was all: changing how it rendered meant finding the render
+  script by hand, and a plot you no longer wanted stayed. Edit opens that script
+  in a Monaco editor tab; Delete removes the project-local plot directory after
+  a confirmation and refreshes both the plot list and the project tree.
+
 - [#2157] **The Learning Center's Reading tab is now a reader for the shipped
   user documentation.** SciStudio already writes a complete user guide and
   generates a self-contained API reference from its own code; both ship in the
@@ -316,6 +337,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [#2137] **The built-in AI assistant is named Mio.** It had no name, which made
+  it hard to write about and hard to speak to — every tutorial line had to say
+  "the assistant". Mio is also the guide in the Learning Center dialogue, so the
+  same character is what a reader meets in the tutorials and what answers them
+  in the chat panel. The provisioned agent guide is unified on `AGENTS.md` in
+  the same change, so a project carries one file describing how agents work here
+  rather than one per runtime.
+
+- [#2135] **A tutorial step is a character's dialogue rather than a paragraph.**
+  A step carried one `say` string and the card printed it beside whatever it
+  pointed at: accurate and inert, reading like the reference manual for a
+  scientific tool, which is what it was. It gave a first-time reader no reason
+  to continue. A step is now delivered as dialogue, and core levels 1 and 2 are
+  rewritten in it.
+
 - [#2097] **The Electron shell updates over the air like the rest of the app.**
   Changing `main.js`, `preload.js`, `ota.js`, `runtime-port.js` or `splash.html`
   used to require a full installer download — the CHANGELOG entry for #1805
@@ -500,6 +536,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   breaking regardless, because a route leaves the API surface.
 
 ### Fixed
+
+- [#2151] **Left-panel sections show what is actually there when you switch to
+  them.** Blocks, Data types and Previewers each read their listing once and
+  kept it, so a block or type added while another section was open stayed
+  invisible until a manual Reload. Each section now re-reads on entry.
+  Dropping a block from the palette also lands it centred on the cursor rather
+  than offset from it — React Flow positions a node by its top-left corner, and
+  the drop was passing the cursor point straight through.
+
+- [#2141] **An edge takes its colour from the port type before the driving
+  parameter is set.** Edges leaving a Load block rendered in the grey-black
+  `DataObject` fallback instead of the colour of the block's own output port,
+  because a dynamic port has no resolved type until its driving parameter is
+  filled in. The edge now matches the port it leaves from either way, so the
+  canvas does not briefly claim every new connection is untyped.
 
 - [#2160] **The documentation reader can no longer be talked out of the
   documentation.** `GET /api/user-docs/pages/{path}` split the request path on
