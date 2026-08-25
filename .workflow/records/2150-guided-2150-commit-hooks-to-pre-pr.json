@@ -350,7 +350,13 @@
       "rationale": "passes standalone (ratchets within limits) but the parity venv interpreter takes 12m54s vs 1m26s ambient, exceeding the gate's 600s timeout; env parity perf issue tracked in #2154; ci.yml remains the authoritative gate"
     }
   ],
-  "commit": null,
+  "commit": {
+    "sha": "6427975402ee3bd9ef4dbbae136b704e7c694562",
+    "shas": [
+      "6427975402ee3bd9ef4dbbae136b704e7c694562"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -844,6 +850,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-25T05:07:48.087175Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T05:07:48.101988Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T05:07:48.117470Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T05:07:48.132958Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T05:07:48.149703Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T05:07:48.165730Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T05:07:48.182819Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T05:07:48.198611Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T05:07:48.215690Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T05:07:48.233497Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T05:07:48.253486Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -862,8 +956,8 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "4105e165451215ec842d731f8fb6691b45d1d0ea",
-    "base_sha": "4105e1654",
+    "base": "origin/main",
+    "base_sha": "61797f6d6",
     "changed_files": [
       ".claude/skills/speckit-implement/SKILL.md",
       ".claude/skills/speckit-specify/SKILL.md",
@@ -930,9 +1024,9 @@
       "tests/qa/test_parity_venv_pins.py",
       "tests/scripts/test_run_python_module.py"
     ],
-    "diff_fingerprint": "sha256:9edecfe47d3cf32b030bdd05170789dd842b12c9d513fe929e002e0ac12b5d86",
+    "diff_fingerprint": "sha256:33b12a09e9b37ae6c99d8719d327fb8eb4faa576d15024df08204b1c0f1af2c8",
     "head": "HEAD",
-    "head_sha": "6227f4905",
+    "head_sha": "642797540",
     "surfaces": {
       "docs": 26,
       "frontend": 0,
@@ -949,7 +1043,14 @@
   },
   "owner_directive": "\u53d6\u6d88\u6240\u6709 commit \u65f6 git hook(\u5141\u8bb8\u81ea\u7531 commit),\u628a\u73b0\u6709 commit hook \u7684\u5168\u90e8\u68c0\u67e5\u9879\u79fb\u5230 gate_record check --mode pre-pr \u5f3a\u5236\u6267\u884c;commit \u6d88\u606f\u7c7b\u68c0\u67e5\u53ea\u6821\u9a8c\u6700\u7ec8 commit(owner \u5df2\u786e\u8ba4)",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2150
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-25T02:43:40.136734Z",
@@ -993,6 +1094,17 @@
       "tier": 1,
       "unsatisfied": [
         "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-25T05:07:48.253510Z",
+      "diff_fingerprint": "sha256:33b12a09e9b37ae6c99d8719d327fb8eb4faa576d15024df08204b1c0f1af2c8",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
+        "checks.semantic_dup"
       ]
     }
   ],
