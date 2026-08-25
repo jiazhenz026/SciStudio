@@ -138,6 +138,11 @@
       "at": "2026-08-25T06:31:14.150487Z",
       "owner_directive": "desktop application menu: File (projects home, new, save/save-as, bring in my work), Packages (package manager), Help (learning center, check updates)",
       "reason": "plan"
+    },
+    {
+      "at": "2026-08-25T08:26:36.832693Z",
+      "owner_directive": "\u6388\u6743 push \u5e76\u7528 SCISTUDIO_SKIP_PREFLIGHT=1 \u5f00 PR",
+      "reason": "owner authorized preflight bypass for PR creation per #2150/#2120 precedent (semantic_dup local evidence unobtainable, #2154)"
     }
   ],
   "docs_events": [
