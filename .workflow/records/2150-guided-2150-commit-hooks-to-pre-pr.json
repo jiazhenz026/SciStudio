@@ -308,12 +308,46 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T03:10:31.931574Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:e2630e888286362928f51960a82b1bd528d6b7763df98b09581e708a0bbbcca7",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T03:20:31.947893Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": null,
+      "input_fingerprint": "sha256:d09f55821112b406c5b120cfbb21f21067e4822bd08a5d3f1757aebc01f0f454",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
     }
   ],
   "check_na": [
     {
       "name": "python_tests",
       "rationale": "Windows local full-suite failures (20) reproduce identically on a clean main checkout (tests/api workflows/system_vertical, tutorials, utils/test_log_setup DeprecationWarning); unrelated to this diff; per #2096/#2073 precedent, classification recorded, ci.yml remains the authoritative gate"
+    },
+    {
+      "name": "semantic_dup",
+      "rationale": "passes standalone (ratchets within limits) but the parity venv interpreter takes 12m54s vs 1m26s ambient, exceeding the gate's 600s timeout; env parity perf issue tracked in #2154; ci.yml remains the authoritative gate"
     }
   ],
   "commit": null,
@@ -333,12 +367,12 @@
   "directive_events": [
     {
       "at": "2026-08-25T02:06:00.142723Z",
-      "owner_directive": "ci.yml \u6ce8\u91ca\u540c\u6b65:ruff pin \u552f\u4e00\u6765\u6e90\u6539\u4e3a ci.yml \u81ea\u8eab",
+      "owner_directive": "ci.yml 注释同步:ruff pin 唯一来源改为 ci.yml 自身",
       "reason": "ci.yml ruff pin comment referenced the removed .pre-commit-config.yaml revs; updated the comment and added .github/workflows/ to scope"
     },
     {
       "at": "2026-08-25T02:23:42.882967Z",
-      "owner_directive": "\u5b9e\u73b0\u5b8c\u6210:commit hooks \u5168\u90e8\u79fb\u9664,hygiene/\u6700\u7ec8 commit \u6d88\u606f\u68c0\u67e5\u79fb\u5230 pre-pr;ruff pin \u6e90\u6539 ci.yml;\u5220\u9664\u9057\u7559 hook \u6587\u4ef6;\u6d4b\u8bd5\u4e0e\u6cbb\u7406\u6587\u6863\u5df2\u66f4\u65b0",
+      "owner_directive": "实现完成:commit hooks 全部移除,hygiene/最终 commit 消息检查移到 pre-pr;ruff pin 源改 ci.yml;删除遗留 hook 文件;测试与治理文档已更新",
       "reason": "plan"
     }
   ],
@@ -717,6 +751,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:20:32.021346Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:20:32.036010Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:20:32.050853Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:20:32.065648Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:20:32.080560Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:20:32.095277Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:20:32.110391Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:20:32.125726Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:20:32.140735Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:20:32.154865Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:20:32.171271Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -724,6 +846,12 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 2150,
+      "url": null
+    },
+    {
+      "close_in_pr": false,
+      "followup_rationale": "semantic_dup parity-venv performance issue found during this task's pre-pr runs; tracked separately, not fixed by this PR",
+      "number": 2154,
       "url": null
     }
   ],
@@ -797,9 +925,9 @@
       "tests/qa/test_parity_venv_pins.py",
       "tests/scripts/test_run_python_module.py"
     ],
-    "diff_fingerprint": "sha256:b76956d1aa6bfc24a54aaf7ac53c444efea386c7e5621d2de70a8b05e49a9375",
+    "diff_fingerprint": "sha256:9edecfe47d3cf32b030bdd05170789dd842b12c9d513fe929e002e0ac12b5d86",
     "head": "HEAD",
-    "head_sha": "fe113d7b7",
+    "head_sha": "6227f4905",
     "surfaces": {
       "docs": 26,
       "frontend": 0,
@@ -814,7 +942,7 @@
       "workflow_ci": 5
     }
   },
-  "owner_directive": "\u53d6\u6d88\u6240\u6709 commit \u65f6 git hook(\u5141\u8bb8\u81ea\u7531 commit),\u628a\u73b0\u6709 commit hook \u7684\u5168\u90e8\u68c0\u67e5\u9879\u79fb\u5230 gate_record check --mode pre-pr \u5f3a\u5236\u6267\u884c;commit \u6d88\u606f\u7c7b\u68c0\u67e5\u53ea\u6821\u9a8c\u6700\u7ec8 commit(owner \u5df2\u786e\u8ba4)",
+  "owner_directive": "取消所有 commit 时 git hook(允许自由 commit),把现有 commit hook 的全部检查项移到 gate_record check --mode pre-pr 强制执行;commit 消息类检查只校验最终 commit(owner 已确认)",
   "persona": "live_implementer",
   "pull_request": null,
   "reconcile_events": [
@@ -850,6 +978,16 @@
       "tier": 1,
       "unsatisfied": [
         "scope.out-of-scope"
+      ]
+    },
+    {
+      "at": "2026-08-25T03:20:32.171295Z",
+      "diff_fingerprint": "sha256:9edecfe47d3cf32b030bdd05170789dd842b12c9d513fe929e002e0ac12b5d86",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
       ]
     }
   ],
