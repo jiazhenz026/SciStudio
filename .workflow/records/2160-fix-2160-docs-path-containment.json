@@ -122,7 +122,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "3c9ed312067cf94526483de2147715d17b4e1244",
+    "shas": [
+      "3c9ed312067cf94526483de2147715d17b4e1244"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -249,6 +255,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:44:03.050443Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:44:03.065214Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:44:03.108239Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:44:03.123785Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:44:03.143518Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:44:03.159380Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:44:03.173854Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:44:03.188771Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:44:03.233684Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:44:03.248248Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:44:03.264637Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -271,9 +365,9 @@
       "src/scistudio/api/routes/user_docs.py",
       "tests/api/test_user_docs.py"
     ],
-    "diff_fingerprint": "sha256:1070257747aafaf601a7db53f6e97675516f438ce7e5323ea3b1daf1159fb5c0",
+    "diff_fingerprint": "sha256:c5e3879ed733f0a7ec05e672f4250a88b41b5294d16fc803836c7caa5ffefc30",
     "head": "HEAD",
-    "head_sha": "9ee3025a0",
+    "head_sha": "3c9ed3120",
     "surfaces": {
       "docs": 0,
       "frontend": 2,
@@ -290,11 +384,26 @@
   },
   "owner_directive": "Reject Windows separators before resolving doc paths: an encoded backslash stays inside one segment, passes the '..' check, and escapes _user_guide, so /api/user-docs/pages/%2e%2e%5cversion.py served scistudio/version.py and repeated climbs reached the repository root. Reject both platform separators in every segment, or verify the resolved filesystem path remains beneath the documentation root. PR #2158 is merged; land this as a new PR.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2160
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-25T06:43:55.109088Z",
       "diff_fingerprint": "sha256:1070257747aafaf601a7db53f6e97675516f438ce7e5323ea3b1daf1159fb5c0",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-25T06:44:03.264671Z",
+      "diff_fingerprint": "sha256:c5e3879ed733f0a7ec05e672f4250a88b41b5294d16fc803836c7caa5ffefc30",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
