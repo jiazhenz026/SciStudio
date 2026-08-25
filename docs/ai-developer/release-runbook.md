@@ -101,7 +101,29 @@ and a dmg that still prompts. The workflow's `Verify signature, hardened runtime
 and notarization` step exists to turn that into a red build. If it is skipped,
 the artifact is not signed no matter what the rest of the log says.
 
-### 3.2 macOS Intel (x64) is not built by CI
+### 3.2 Notarization can stall, and says nothing while it does
+
+The macOS build has two long silent phases inside one step. Signing walks every
+Mach-O in the bundle — several hundred `.so` files in the interpreter, one
+`codesign` process each — and takes 10 to 30 minutes. Then `notarytool` uploads
+to Apple and waits, with **no upper bound**, because the queue is not ours.
+
+A 0.3.4 build sat there for 118 minutes and was cancelled. The only evidence of
+where it had been came from the runner's own cleanup line,
+`Terminate orphan process (notarytool)` — enough to rule out signing, and
+nothing more. `notarytool` itself printed nothing for two hours.
+
+So: **a static log is not evidence of a hang**, and until #2174 lands there is
+no way to tell "still queued" from "stuck" while it is happening. If a build
+passes an hour in `Build DMG`, cancel it and re-run rather than waiting it out;
+if the second run stalls the same way, the problem is not the queue and the
+credentials or the submission itself need looking at from an account that can
+run `notarytool history`.
+
+The first submission from a newly issued Developer ID is a known slow case.
+
+
+### 3.3 macOS Intel (x64) is not built by CI
 
 `dist:dmg` is hardcoded to `--arm64`, and the workflow's own comment rules out
 running it on an Intel runner: `build:python:mac` keys off `uname -m`, so an
