@@ -289,7 +289,12 @@
       "tool_versions": {}
     }
   ],
-  "check_na": [],
+  "check_na": [
+    {
+      "name": "python_tests",
+      "rationale": "Blocked by #2103, the tracked Windows local-mirror flake class. The single local failure was tests/api/test_tutorial_project_visibility.py::test_a_tutorial_project_is_operable_through_every_other_route - the exact test that issue names as one of its observed victims - out of 7188 passing. Three independent lines of evidence: this diff touches no tutorial or api file at all; the whole file passes in isolation, 15 of 15; and unlike earlier rounds there were no concurrent test processes on the machine, so this is #2103's own -n auto worker crash rather than cross-worktree contention. CI is the authoritative gate and is green on this head: all 16 checks pass, Test (Python 3.11) in 5m57s and Test (Python 3.13) in 8m44s."
+    }
+  ],
   "commit": {
     "sha": "1d8a080d26a862424d7431915e1a9932b04ce408",
     "shas": [
