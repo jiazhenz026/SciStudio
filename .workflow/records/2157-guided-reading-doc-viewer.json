@@ -207,6 +207,38 @@
       "tool_versions": {
         "mypy": "2.1.0"
       }
+    },
+    {
+      "at": "2026-08-25T06:08:15.594000Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:fd4831fa609d2120a767b50bbea7cc61e47e9c9fd0c7339bd10465b9b0fd6ff4",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T06:11:32.538180Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/api tests/api/routes tests/api/test_user_docs.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9727855eca64c772cdaef130fa8643d694af8f787c5f78714b9c77fcca21fe1a",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -483,6 +515,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:11:32.594780Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:11:32.608850Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:11:32.623311Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:11:32.637444Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:11:32.652272Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:11:32.666600Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:11:32.683250Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:11:32.699167Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:11:32.714408Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:11:32.730326Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:11:32.755517Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -517,9 +637,9 @@
       "src/scistudio/api/routes/user_docs.py",
       "tests/api/test_user_docs.py"
     ],
-    "diff_fingerprint": "sha256:c37c1384e3b0971ac5f18b2d6886839fd9d3c09f1e1800b0f2b09c310706a57b",
+    "diff_fingerprint": "sha256:6c72bc944f5c87b035ecad35e28b52dbad634bd2818ba3818b0162707f8f8698",
     "head": "HEAD",
-    "head_sha": "0c200bffb",
+    "head_sha": "60d2afebb",
     "surfaces": {
       "docs": 1,
       "frontend": 12,
@@ -566,6 +686,16 @@
       "unsatisfied": [
         "checks.frontend",
         "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-08-25T06:11:32.755547Z",
+      "diff_fingerprint": "sha256:6c72bc944f5c87b035ecad35e28b52dbad634bd2818ba3818b0162707f8f8698",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.frontend"
       ]
     }
   ],

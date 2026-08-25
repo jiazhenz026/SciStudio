@@ -206,6 +206,21 @@ describe("DocsBrowser — reading", () => {
     );
   });
 
+  /*
+   * Found by the frontend CI mirror, not by design: with no catalogue the
+   * Reading tab is the *only* tab, so it is what the Learning Center opens on
+   * — and a tree that arrived without its `items` threw inside a render, which
+   * is not a caught error but a blank application. `App.test.tsx` went down
+   * whole.
+   */
+  it("survives a tree that arrives without its rows", async () => {
+    navMock.mockResolvedValueOnce({ title: "User guide", root: "" } as DocsNavResponse);
+    render(<DocsBrowser />);
+
+    expect(await screen.findByTestId("docs-browser")).toBeInTheDocument();
+    expect(screen.queryByTestId("docs-nav-page-README.md")).toBeNull();
+  });
+
   it("reports a tree that will not load rather than an empty menu", async () => {
     navMock.mockRejectedValueOnce(new Error("documentation unavailable"));
     render(<DocsBrowser />);

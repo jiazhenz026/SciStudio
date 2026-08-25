@@ -39,12 +39,26 @@ export function headingSlug(text: string): string {
     .replace(/[-\s]+/g, "-");
 }
 
+/**
+ * The rows of a tree, or none.
+ *
+ * The tree is remote data and these derivations run inside a render. A body
+ * that arrives without its `items` array — or a row without its `children` —
+ * is treated as empty rather than allowed to throw, which in this surface is
+ * not a caught error but a blank application: with no catalogue the Reading tab
+ * is the *only* tab, so it is what the Learning Center opens on. This follows
+ * `catalogueGroups` in `learningCenterSlice`, which guards for the same reason.
+ */
+export function docsNavItems(items: DocsNavItem[] | undefined | null): DocsNavItem[] {
+  return Array.isArray(items) ? items : [];
+}
+
 /** Every page row of the tree, in display order. */
 export function docsPages(items: DocsNavItem[]): DocsNavItem[] {
   const pages: DocsNavItem[] = [];
-  for (const item of items) {
+  for (const item of docsNavItems(items)) {
     if (item.kind === "page" && item.path) pages.push(item);
-    if (Array.isArray(item.children)) pages.push(...docsPages(item.children));
+    pages.push(...docsPages(item.children));
   }
   return pages;
 }

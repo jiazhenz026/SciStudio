@@ -12,7 +12,14 @@
 import { describe, expect, it } from "vitest";
 
 import type { DocsNavItem } from "../../../lib/api/userDocs";
-import { docsNavPathOf, docsPages, docsTitleOf, headingSlug, resolveDocsLink } from "../docsNav";
+import {
+  docsNavItems,
+  docsNavPathOf,
+  docsPages,
+  docsTitleOf,
+  headingSlug,
+  resolveDocsLink,
+} from "../docsNav";
 
 function page(title: string, path: string): DocsNavItem {
   return { kind: "page", title, path, children: [] };
@@ -50,6 +57,19 @@ describe("docsPages", () => {
 
   it("does not treat a section as a page", () => {
     expect(docsPages(TREE).some((row) => row.title === "Api reference")).toBe(false);
+  });
+
+  it("treats a row without children as a leaf rather than throwing", () => {
+    const malformed = [{ kind: "section", title: "Api reference", path: null }] as DocsNavItem[];
+    expect(docsPages(malformed)).toEqual([]);
+  });
+});
+
+describe("docsNavItems", () => {
+  it("treats a body without its rows as empty, not as a crash", () => {
+    expect(docsNavItems(undefined)).toEqual([]);
+    expect(docsNavItems(null)).toEqual([]);
+    expect(docsNavItems({} as unknown as DocsNavItem[])).toEqual([]);
   });
 });
 

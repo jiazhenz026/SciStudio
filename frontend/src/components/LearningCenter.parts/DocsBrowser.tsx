@@ -34,7 +34,7 @@ import {
 } from "../../lib/api/userDocs";
 
 import { DocMarkdown } from "./DocMarkdown";
-import { docsNavPathOf, docsPages } from "./docsNav";
+import { docsNavItems, docsNavPathOf, docsPages } from "./docsNav";
 
 /** Where the reader is: a path, and a heading on it to land on. */
 interface DocsLocation {
@@ -58,7 +58,7 @@ interface DocsNavListProps {
 function DocsNavList({ items, depth, current, onOpen }: DocsNavListProps) {
   return (
     <ul className="flex flex-col gap-0.5">
-      {items.map((item) => {
+      {docsNavItems(items).map((item) => {
         if (item.kind === "section") {
           /*
            * A section has no path of its own, so it is keyed by the first page
@@ -127,7 +127,16 @@ export function DocsBrowser() {
         const tree = await fetchUserDocsNav();
         if (stale) return;
         setNav(tree);
-        setLocation((current) => current ?? { path: tree.root, anchor: null });
+        /*
+         * The entry page is the tree's own answer; a body that arrives without
+         * one falls back to its first page rather than to a pane that loads
+         * forever.
+         */
+        const root =
+          typeof tree.root === "string" && tree.root.length > 0
+            ? tree.root
+            : (docsPages(tree.items)[0]?.path ?? null);
+        if (root !== null) setLocation((current) => current ?? { path: root, anchor: null });
       } catch (error) {
         if (stale) return;
         setNavError(error instanceof Error ? error.message : String(error));
@@ -264,7 +273,7 @@ export function DocsBrowser() {
               <Loader2 aria-hidden="true" className="size-4 animate-spin" />
               Loading…
             </p>
-          ) : page.kind === "markdown" ? (
+          ) : page.kind === "markdown" && typeof page.text === "string" ? (
             <DocMarkdown
               onAnchor={onAnchor}
               onExternal={onExternal}
