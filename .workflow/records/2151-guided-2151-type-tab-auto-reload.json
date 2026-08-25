@@ -85,13 +85,45 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T04:34:49.431370Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ded4407dc9ff7eca9f03ec062ddac1dabbb4ea6021f21254b3e36b124a34a4dc",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T04:35:01.981207Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:eaba6509d8df37b7b7e5ef237e3520f52eafefaead54040a5689f97ad2342842",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
   "commit": {
-    "sha": "b66555984",
+    "sha": "HEAD",
     "shas": [
-      "b66555984"
+      "HEAD"
     ],
     "trailers": []
   },
@@ -121,6 +153,14 @@
   "docs_events": [
     {
       "at": "2026-08-25T02:23:28.173708Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/frontend-block-palette.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T04:32:59.702023Z",
       "class": null,
       "kind": "path",
       "path": "docs/specs/frontend-block-palette.md",
@@ -547,6 +587,270 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:02.022696Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:02.036328Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:02.050620Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:02.064591Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:02.078302Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:02.092246Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:02.106558Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:02.120469Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:02.133980Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:02.147497Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:02.166601Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:35.015366Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:35.058204Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:35.073291Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:35.089552Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:35.104786Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:35.119596Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:35.134951Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:35.150419Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:35.165538Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:35.181196Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:35.230090Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:51.001859Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:51.017051Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:51.031703Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:51.046867Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:51.062372Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:51.076659Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:51.092460Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:51.135378Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:51.149410Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:51.163062Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:35:51.182286Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -562,6 +866,7 @@
     "base": "61797f6d64f656f95dc30b7e021f820c4144f437",
     "base_sha": "61797f6d6",
     "changed_files": [
+      ".workflow/records/2151-guided-2151-review-fixes.json",
       ".workflow/records/2151-guided-2151-type-tab-auto-reload.json",
       "docs/specs/frontend-block-palette.md",
       "frontend/src/components/BlockPalette.test.tsx",
@@ -572,23 +877,24 @@
       "frontend/src/components/WorkflowCanvas.parts/useCanvasHandlers.ts",
       "frontend/src/components/__tests__/PreviewerPalette.test.tsx",
       "frontend/src/components/__tests__/TypePalette.test.tsx",
+      "frontend/src/store/__tests__/previewerCatalogInvalidation.test.ts",
       "frontend/src/store/usePreviewerCatalog.ts",
       "frontend/src/store/useTypeCatalog.ts"
     ],
-    "diff_fingerprint": "sha256:67015559310576b98d0701e43f407e7347c57ba7a56f4d5e93e96e045c41ba32",
+    "diff_fingerprint": "sha256:0831384ff7550279f29403de4c046d169f2de35fb9c9e910d8045cf4b808676d",
     "head": "HEAD",
-    "head_sha": "b66555984",
+    "head_sha": "1dafd23b8",
     "surfaces": {
       "docs": 1,
-      "frontend": 10,
+      "frontend": 11,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 10,
+      "implementation": 11,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 11,
-      "test": 4,
+      "sentrux": 12,
+      "test": 5,
       "workflow_ci": 0
     }
   },
@@ -638,6 +944,32 @@
     {
       "at": "2026-08-25T02:34:00.352357Z",
       "diff_fingerprint": "sha256:67015559310576b98d0701e43f407e7347c57ba7a56f4d5e93e96e045c41ba32",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-25T04:35:02.166633Z",
+      "diff_fingerprint": "sha256:0831384ff7550279f29403de4c046d169f2de35fb9c9e910d8045cf4b808676d",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "scope.out-of-scope"
+      ]
+    },
+    {
+      "at": "2026-08-25T04:35:35.230122Z",
+      "diff_fingerprint": "sha256:0831384ff7550279f29403de4c046d169f2de35fb9c9e910d8045cf4b808676d",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-25T04:35:51.182315Z",
+      "diff_fingerprint": "sha256:0831384ff7550279f29403de4c046d169f2de35fb9c9e910d8045cf4b808676d",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
@@ -724,6 +1056,60 @@
       "at": "2026-08-25T02:23:28.173698Z",
       "pattern": "docs/specs/frontend-block-palette.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T04:32:49.413392Z",
+      "pattern": "frontend/src/components/BlockPalette.tsx",
+      "reason": "consolidate the review-fix round back into the single per-branch ledger: CI discovery requires exactly one ledger per branch and failed on two"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T04:32:49.413412Z",
+      "pattern": "frontend/src/components/PreviewerPalette.tsx",
+      "reason": "consolidate the review-fix round back into the single per-branch ledger: CI discovery requires exactly one ledger per branch and failed on two"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T04:32:49.413415Z",
+      "pattern": "frontend/src/store/usePreviewerCatalog.ts",
+      "reason": "consolidate the review-fix round back into the single per-branch ledger: CI discovery requires exactly one ledger per branch and failed on two"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T04:32:49.413417Z",
+      "pattern": "frontend/src/components/BlockPalette.test.tsx",
+      "reason": "consolidate the review-fix round back into the single per-branch ledger: CI discovery requires exactly one ledger per branch and failed on two"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T04:32:49.413418Z",
+      "pattern": "frontend/src/components/__tests__/PreviewerPalette.test.tsx",
+      "reason": "consolidate the review-fix round back into the single per-branch ledger: CI discovery requires exactly one ledger per branch and failed on two"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T04:32:49.413420Z",
+      "pattern": "frontend/src/store/__tests__/previewerCatalogInvalidation.test.ts",
+      "reason": "consolidate the review-fix round back into the single per-branch ledger: CI discovery requires exactly one ledger per branch and failed on two"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T04:35:34.252631Z",
+      "pattern": "frontend/src/components/TypePalette.tsx",
+      "reason": "round-2 init overwrote the ledger's declared_scope (init replaces scope on an existing ledger); restore the type-catalog paths that were in scope for the original directive"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T04:35:34.252649Z",
+      "pattern": "frontend/src/components/__tests__/TypePalette.test.tsx",
+      "reason": "round-2 init overwrote the ledger's declared_scope (init replaces scope on an existing ledger); restore the type-catalog paths that were in scope for the original directive"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T04:35:34.252651Z",
+      "pattern": "frontend/src/store/useTypeCatalog.ts",
+      "reason": "round-2 init overwrote the ledger's declared_scope (init replaces scope on an existing ledger); restore the type-catalog paths that were in scope for the original directive"
     }
   ],
   "session_id": "97043ba6-8e81-4a4d-9ff1-2d99020c7c9d",
@@ -759,6 +1145,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/WorkflowCanvas.parts/__tests__/dropPosition.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T04:32:59.702041Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/previewerCatalogInvalidation.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }
