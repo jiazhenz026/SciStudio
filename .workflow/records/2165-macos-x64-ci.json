@@ -253,9 +253,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "ad00a94fe112d0a063381eb40f9ba4b725c0c533",
+    "sha": "c496bf1e1180ec7e3cc1e834d73822f321509d70",
     "shas": [
-      "ad00a94fe112d0a063381eb40f9ba4b725c0c533"
+      "c496bf1e1180ec7e3cc1e834d73822f321509d70"
     ],
     "trailers": []
   },
@@ -631,6 +631,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:58.176380Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:58.186092Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:58.195707Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:58.205047Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:58.214754Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:58.224469Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:58.233847Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:58.243277Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:58.252897Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:58.262467Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:58.273251Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -653,9 +741,9 @@
       "docs/specs/desktop-macos-signing-notarization.md",
       "tests/packaging/test_desktop_mvp_resources.py"
     ],
-    "diff_fingerprint": "sha256:5f2671fddde8c67e66be2df55d1b02985266154477dc17ea2f47efbe8c67e2c0",
+    "diff_fingerprint": "sha256:93acf1e719719e3ced77daba8d349de88cc95887e4b712575ca5c53b90102c1b",
     "head": "HEAD",
-    "head_sha": "31abd14a",
+    "head_sha": "c496bf1e",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -714,6 +802,14 @@
     {
       "at": "2026-08-25T21:08:44.028815Z",
       "diff_fingerprint": "sha256:5f2671fddde8c67e66be2df55d1b02985266154477dc17ea2f47efbe8c67e2c0",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-25T21:08:58.273296Z",
+      "diff_fingerprint": "sha256:93acf1e719719e3ced77daba8d349de88cc95887e4b712575ca5c53b90102c1b",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
