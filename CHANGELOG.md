@@ -437,6 +437,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Removed
 
+- [#2150] **Commit-time git hooks are removed; `git commit` runs nothing.** The
+  pre-commit framework hooks (the `gate_record` pre-commit/commit-msg thin
+  callers, the ruff/ruff-format/mypy hooks, the commitizen message hook, and the
+  hygiene hooks) no longer fire on commit — iterative commits are free. Every
+  check they enforced moved to the pre-PR stage, which remains a hard governance
+  checkpoint alongside CI: the hygiene set (trailing-whitespace,
+  end-of-file-fixer, check-yaml/json, check-added-large-files,
+  check-merge-conflict, detect-private-key) runs as the evaluator's new
+  `commit_hygiene` check in the `local`/`pre-pr`/`ci` modes via `pre-commit run
+  --all-files --hook-stage manual`; the commitizen Conventional Commits subject
+  check became the evaluator's final-commit message validation at `pre-pr`/`ci`
+  (only the final commit is validated); ruff and mypy were already covered by
+  the evaluator's `lint_format`/`format_check`/`type_check` checks and the
+  standalone `ci.yml` jobs. `.pre-commit-config.yaml` keeps only the hygiene
+  hooks, all bound to the `manual` stage, so running them on demand stays one
+  command. The legacy `.workflow/hooks/pre-commit` wrapper and the
+  `scripts/hooks/run_python_module.py` launcher are deleted with the hooks, and
+  the ruff version pin source of truth is now `ci.yml` (the pre-commit rev pins
+  are gone). One honesty note: the removed commit-msg hook never actually
+  validated AI trailer *content* (only ledger presence), and neither did CI —
+  so no trailer enforcement was lost; #2152 tracks adding it.
 - [#2120 #2099] **Remove the semantic-duplication check and its CI workflow.** The
   ratchet took **27m31s** on PR #2111 and, run locally, hit the gate's 600s
   subprocess timeout and recorded `status=unknown`. Standalone on a warm parity

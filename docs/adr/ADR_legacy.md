@@ -9,7 +9,7 @@
 
 ## ADR-001: Six base data types with inheritance
 
-**Status**: accepted  
+**Status**: accepted
 **Date**: 2026-04-02
 
 ### Context
@@ -45,7 +45,7 @@ Users extend via standard Python inheritance. Port type matching uses `isinstanc
 
 ## ADR-002: Named axes on Array types
 
-**Status**: accepted  
+**Status**: accepted
 **Date**: 2026-04-02
 
 ### Context
@@ -81,7 +81,7 @@ Named axes are pure metadata — they do not affect storage, ViewProxy, or chunk
 
 ## ADR-003: Broadcast as explicit utility, not implicit type-system behaviour
 
-**Status**: accepted  
+**Status**: accepted
 **Date**: 2026-04-02
 
 ### Context
@@ -107,7 +107,7 @@ Provide `broadcast_apply()` in `scistudio.utils.broadcast` as an explicit, opt-i
 
 ## ADR-004: Five block categories plus SubWorkflowBlock
 
-**Status**: accepted  
+**Status**: accepted
 **Date**: 2026-04-02
 
 ### Context
@@ -142,7 +142,7 @@ Five categories covering distinct execution patterns, plus one meta-category:
 
 ## ADR-005: CodeBlock supports inline and script execution modes
 
-**Status**: accepted  
+**Status**: accepted
 **Date**: 2026-04-02
 
 ### Context
@@ -175,7 +175,7 @@ The framework introspects script files to auto-generate port declarations and co
 
 ## ADR-006: External software integration via file-exchange bridge
 
-**Status**: accepted  
+**Status**: accepted
 **Date**: 2026-04-02
 
 ### Context
@@ -209,7 +209,7 @@ Many scientific workflows depend on standalone GUI applications (ElMAVEN for LC-
 
 ## ADR-007: Lazy loading by default via ViewProxy
 
-**Status**: accepted  
+**Status**: accepted
 **Date**: 2026-04-02
 
 ### Context
@@ -243,7 +243,7 @@ Some datasets (MSI, spatial transcriptomics) exceed 100 GB. Loading full dataset
 
 ## ADR-008: Two-tier block and type distribution
 
-**Status**: accepted  
+**Status**: accepted
 **Date**: 2026-04-02
 
 ### Context
@@ -276,7 +276,7 @@ Same two-tier model applies to custom data types.
 
 ## ADR-009: Registry stores specs, not class references
 
-**Status**: accepted  
+**Status**: accepted
 **Date**: 2026-04-02
 
 ### Context
@@ -342,7 +342,7 @@ A `ResourceManager` throttles parallel dispatch based on GPU slots, CPU workers,
 
 ## ADR-011: Workflow definition as declarative YAML, decoupled from frontend
 
-**Status**: accepted  
+**Status**: accepted
 **Date**: 2026-04-02
 
 ### Context
@@ -370,7 +370,7 @@ Workflows are serialised as YAML files defining nodes (block type + config) and 
 
 ## ADR-012: Checkpoint-based pause and resume
 
-**Status**: accepted  
+**Status**: accepted
 **Date**: 2026-04-02
 
 ### Context
@@ -412,7 +412,7 @@ Consequences for "Run from here":
 
 ## ADR-013: AI as a four-tier service layer, not embedded in the core
 
-**Status**: accepted  
+**Status**: accepted
 **Date**: 2026-04-02
 
 ### Context
@@ -446,7 +446,7 @@ All AI features are optional. The framework is fully functional without them. AI
 
 ## ADR-014: ReactFlow + FastAPI as the frontend-backend stack
 
-**Status**: accepted  
+**Status**: accepted
 **Date**: 2026-04-02
 
 ### Context
@@ -479,7 +479,7 @@ Per ADR-039, the project state model on disk now includes a `.git/` repository a
 
 ## ADR-015: Inclusive strategy — wrap existing tools, never replace
 
-**Status**: accepted  
+**Status**: accepted
 **Date**: 2026-04-02
 
 ### Context
@@ -512,8 +512,8 @@ The framework never reimplements functionality that existing tools do well. Inst
 
 ## ADR-016: Per-port InputDelivery for CodeBlock data handoff
 
-**Status**: partially superseded by ADR-020  
-**Date**: 2026-04-02  
+**Status**: partially superseded by ADR-020
+**Date**: 2026-04-02
 **Supersession note**: ADR-020 introduces Collection-based transport with auto-unpack/repack for CodeBlock (ADR-020-Add4). MEMORY is now the only delivery mode; PROXY and CHUNKED are removed. Users who need lazy access should write a ProcessBlock instead. The `InputDelivery` enum has been deleted.
 
 ### Context
@@ -8643,4 +8643,3 @@ This ADR was motivated by the independent data storage and transport audit docum
 The audit's summary:
 
 > SciStudio's transport layer is mostly reference-based now, but its load, processing, and export layers still contain widespread eager materialization, payload-loss edge cases, and multiple mismatches with the stated design philosophy.
-

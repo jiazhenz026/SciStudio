@@ -103,7 +103,7 @@
 - [x] Tracking branch created: `track/adr-039/git-versioning` off main, pushed to origin (commit 6549c5f seed)
 - [x] Umbrella issue opened: `ADR-038: Unified Run Lineage Database — implementation track` → https://github.com/zjzcpj/SciStudio/issues/910
 - [x] Umbrella issue opened: `ADR-039: Git-backed source version control — implementation track` → https://github.com/zjzcpj/SciStudio/issues/911
-- [x] Sub-issues opened (created lazily per dispatch — one per sub-agent as dispatched): #920 #925 #929 #933 #934 #939 #941 
+- [x] Sub-issues opened (created lazily per dispatch — one per sub-agent as dispatched): #920 #925 #929 #933 #934 #939 #941
 - [x] Umbrella PR `[DO NOT MERGE]` opened from `track/adr-038/lineage-db` to main with checklist link → https://github.com/zjzcpj/SciStudio/pull/912
 - [x] Umbrella PR `[DO NOT MERGE]` opened from `track/adr-039/git-versioning` to main with checklist link → https://github.com/zjzcpj/SciStudio/pull/913
 - [x] CI baseline checked (main commit 0cc8a8f workflows queued; #909 tracks pre-existing Python 3.11 flake; no other regressions)

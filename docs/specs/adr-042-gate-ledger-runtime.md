@@ -235,12 +235,12 @@ mode only changes which facts are required-now versus recorded as a pre-PR gap.
 
 | `--mode` | Caller | Diff source | Behaviour |
 |---|---|---|---|
-| `local` | manual `gate_record check` | `base...head` | Full local CI-equivalent preflight at the selected tier; PR-state facts (labels, provenance) recorded as pre-PR gaps, not failures. |
-| `pre-commit` | `.pre-commit-config.yaml` hook | staged diff | Fast structural reconciliation (scope, governance-touch, protected-path, weakened-CI on staged governance files); not the full check matrix. |
-| `commit-msg` | `.pre-commit-config.yaml` commit-msg hook | n/a | Validate required commit trailers (`Gate-Record:`, `Assisted-by:`) via the evaluator's trailer rules. |
+| `local` | manual `gate_record check` | `base...head` | Full local CI-equivalent preflight at the selected tier; PR-state facts (labels, provenance) recorded as pre-PR gaps, not failures. Also runs `commit_hygiene` (#2150). |
+| `pre-commit` | compatibility only — no hook installed since #2150 | staged diff | Fast structural reconciliation (scope, governance-touch, protected-path, weakened-CI on staged governance files); not the full check matrix. Commit-time git hooks were removed in #2150; nothing invokes this mode automatically anymore. |
+| `commit-msg` | compatibility only — no hook installed since #2150 | n/a | Legacy commit-msg reconciliation. The commitizen hook's Conventional Commits subject check moved to the final-commit validation in the `pre-pr`/`ci` modes (#2150). |
 | `pre-push` | `scripts/hooks/check-gate-before-push.sh` | `origin/main...HEAD` | Pre-push reconciliation: replaces the legacy two-step local validation path. |
-| `pre-pr` | `scripts/hooks/check-gate-before-pr.sh` + PR wrapper | `origin/main...HEAD` | Pre-PR readiness with `--pr-body-file`; PR-state-impossible findings (core/merge/bypass label provenance) are internally classified as pre-PR gaps, not caller-filtered. |
-| `ci` | `.github/workflows/workflow-gate.yml` | PR base...head | Authoritative mode with `pr_context`; verifies label provenance, runs every guard, enforces all obligations. The merge-blocking surface. |
+| `pre-pr` | `scripts/hooks/check-gate-before-pr.sh` + PR wrapper | `origin/main...HEAD` | Pre-PR readiness with `--pr-body-file`; PR-state-impossible findings (core/merge/bypass label provenance) are internally classified as pre-PR gaps, not caller-filtered. Also owns the checks the removed commit hooks used to enforce (#2150): the `commit_hygiene` hook set (manual-stage pre-commit hooks) and the final commit's Conventional Commits subject. |
+| `ci` | `.github/workflows/workflow-gate.yml` | PR base...head | Authoritative mode with `pr_context`; verifies label provenance, runs every guard, enforces all obligations (including `commit_hygiene` and the final-commit message check, #2150). The merge-blocking surface. |
 
 Local modes must agree with CI mode at the strictness level the task kind
 selects. The only difference is that CI mode has real PR metadata and verifies

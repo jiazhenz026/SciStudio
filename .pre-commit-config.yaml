@@ -1,70 +1,41 @@
+# ADR-042 Addendum 6 §6 (revised by #2150): commit-time git hooks are REMOVED.
+# `git commit` runs nothing. Every check that used to run at commit time now
+# runs at the pre-PR stage through the single shared evaluator
+# (`gate_record check --mode pre-pr`), which remains the hard local governance
+# checkpoint alongside CI:
+#
+# - ruff / ruff-format and mypy run there as the evaluator's lint_format /
+#   format_check / type_check checks (and in the standalone ci.yml jobs);
+# - the hygiene hooks below run there as the evaluator's `commit_hygiene` check
+#   (`pre-commit run --all-files --hook-stage manual`);
+# - the final commit's Conventional Commits subject (previously the commitizen
+#   commit-msg hook) is validated by the evaluator at pre-pr/ci;
+# - the gate_record pre-commit/commit-msg reconciliation runs at pre-pr via the
+#   same evaluator the hooks used to call;
+# - the pytest suites (python_tests / architecture_tests) are untouched: they
+#   run at pre-pr and in the ci.yml jobs exactly as before.
+#
+# All hooks in this file are bound to the `manual` stage, so even with the
+# pre-commit framework shims installed nothing fires on `git commit`. Run them
+# on demand with:
+#
+#   pre-commit run --all-files --hook-stage manual
 repos:
-  - repo: local
-    hooks:
-      # ADR-042 Addendum 6 §6: every governance pre-commit hook is a thin caller
-      # of the single shared evaluator (gate_record check --mode pre-commit). No
-      # hook keeps its own protected-path list or bypass vocabulary; the
-      # evaluator's mod_guard / weakened_ci_check calculators own those.
-      - id: scistudio-gate-record-pre-commit
-        name: SciStudio ADR-042 gate record pre-commit
-        # --no-record: gate the commit without persisting the ledger. The gate
-        # records check evidence into the ledger (a tracked file); under the
-        # pre-commit framework a hook that modifies a tracked file fails the
-        # commit ("files were modified"), and the always-append evidence never
-        # converges (issue #1609). The hook still runs every check/guard and
-        # blocks a failing commit; evidence is recorded by explicit `gate_record
-        # check` runs and by CI.
-        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record check --mode pre-commit --no-record
-        language: system
-        pass_filenames: false
-        files: ^(src/|packages/|frontend/|web/|tests/|\.workflow/records/|\.github/workflows/|\.pre-commit-config\.yaml|pyproject\.toml|AGENTS\.md|docs/adr/ADR-042\.md|docs/specs/adr-042-.*\.md|scripts/hooks/)
-      - id: scistudio-gate-record-commit-msg
-        name: SciStudio ADR-042 gate record commit message
-        # On the commit-msg stage pre-commit appends the commit-message file
-        # path. The `check` subparser has no positional for it, so `check --mode
-        # commit-msg <FILE>` exits 2 (`unrecognized arguments`) and fails every
-        # commit (issue #1609 Defect 4). The `commit-msg <message-file>` alias
-        # subcommand is purpose-built to receive that path -> call it instead.
-        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record commit-msg --no-record
-        language: system
-        stages: [commit-msg]
-
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+        stages: [manual]
       - id: end-of-file-fixer
+        stages: [manual]
       - id: check-yaml
+        stages: [manual]
       - id: check-json
+        stages: [manual]
       - id: check-added-large-files
         args: ["--maxkb=1000"]
+        stages: [manual]
       - id: check-merge-conflict
+        stages: [manual]
       - id: detect-private-key
-
-  # ADR-042 Addendum 6 §6.2/§7.10: pin ruff/mypy to the CI-resolved versions so
-  # local pre-commit matches CI. ci.yml pins the same ruff version explicitly —
-  # bump both together. mypy comes from `.[dev]`, which resolves 2.1.0.
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.15
-    hooks:
-      - id: ruff
-        args: ["--fix"]
-      - id: ruff-format
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.1.0
-    hooks:
-      - id: mypy
-        # CI runs mypy with the project's `.[dev]` env installed, so pydantic
-        # (and pytest in tests) types resolve. The mirrors-mypy isolated env must
-        # mirror that, or every pydantic return type resolves to ``Any`` and
-        # trips ``no-any-return`` on any pydantic-importing file -- a false fail
-        # that has nothing to do with the staged change (issue #1609).
-        additional_dependencies: ["types-PyYAML>=6.0", "pydantic>=2.0", "pytest>=8.0", "xxhash>=3.0"]
-        args: ["--ignore-missing-imports"]
-
-  - repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.4.1
-    hooks:
-      - id: commitizen
-        stages: [commit-msg]
+        stages: [manual]

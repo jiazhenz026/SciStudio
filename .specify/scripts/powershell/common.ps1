@@ -69,7 +69,7 @@ function Get-CurrentBranch {
 
     # For non-git repos, try to find the latest feature directory
     $specsDir = Join-Path $repoRoot "specs"
-    
+
     if (Test-Path $specsDir) {
         $latestFeature = ""
         $highest = 0
@@ -99,7 +99,7 @@ function Get-CurrentBranch {
             return $latestFeature
         }
     }
-    
+
     # Final fallback
     return "main"
 }
@@ -132,13 +132,13 @@ function Test-FeatureBranch {
         [string]$Branch,
         [bool]$HasGit = $true
     )
-    
+
     # For non-git repos, we can't enforce branch naming but still provide output
     if (-not $HasGit) {
         Write-Warning "[specify] Warning: Git repository not detected; skipped branch validation"
         return $true
     }
-    
+
     # Accept sequential prefix (3+ digits) but exclude malformed timestamps
     # Malformed: 7-or-8 digit date + 6-digit time with no trailing slug (e.g. "2026031-143022" or "20260319-143022")
     $hasMalformedTimestamp = ($Branch -match '^[0-9]{7}-[0-9]{6}-') -or ($Branch -match '^(?:\d{7}|\d{8})-\d{6}$')
@@ -161,7 +161,7 @@ function Get-FeaturePathsEnv {
     $currentBranch = Get-CurrentBranch
     $hasGit = Test-HasGit
     $featureDir = Get-FeatureDir -RepoRoot $repoRoot -Branch $currentBranch
-    
+
     [PSCustomObject]@{
         REPO_ROOT     = $repoRoot
         CURRENT_BRANCH = $currentBranch
@@ -265,4 +265,3 @@ function Resolve-Template {
 
     return $null
 }
-

@@ -14,6 +14,8 @@ sanitize committed events.
 from __future__ import annotations
 
 import hashlib
+import re
+import subprocess
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -80,6 +82,99 @@ _CI_OWNED_QUALITY_CHECKS: frozenset[str] = frozenset(
 # in pre-pr / CI, and the governance guards + fast checks still run at commit
 # time (#1628).
 _PRE_COMMIT_SKIP_CHECKS: frozenset[str] = frozenset({"python_tests"})
+
+# #2150: commit-time git hooks are removed; `git commit` runs nothing. The
+# checks those hooks used to enforce move to the PR-gating modes: the pre-commit
+# framework hygiene set runs as the `commit_hygiene` check (ruff/mypy were
+# already covered by lint_format / format_check / type_check), and the final
+# commit's Conventional Commits subject (previously the commitizen commit-msg
+# hook) is validated natively by :func:`commit_message_problems`. Per the owner
+# decision on #2150 only the FINAL commit's message is validated, not every
+# commit in the branch range.
+_PR_GATING_COMMIT_CHECK_MODES: frozenset[str] = frozenset({"local", "pre-pr", "ci"})
+_COMMIT_MESSAGE_CHECK_MODES: frozenset[str] = frozenset({"pre-pr", "ci"})
+
+# Conventional Commits subjects accepted for the final commit. The set mirrors
+# cz_conventional_commits (the removed commitizen hook's rule set) plus `merge`,
+# which the repository's history uses for integration commits.
+_CONVENTIONAL_TYPES: frozenset[str] = frozenset(
+    {"feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert", "merge"}
+)
+_CONVENTIONAL_SUBJECT_RE = re.compile(r"^(?P<type>[a-z]+)(\([^\n()]*\))?!?:\s*\S")
+
+
+def commit_message_problems(message: str) -> list[str]:
+    """Validate one commit message's Conventional Commits subject line.
+
+    Returns a list of problems (empty when the message passes). This replaces
+    the removed commitizen commit-msg hook (#2150); the check runs at the
+    PR-gating modes against the final commit instead of blocking every commit.
+    """
+
+    lines = message.splitlines()
+    subject = lines[0] if lines else ""
+    match = _CONVENTIONAL_SUBJECT_RE.match(subject)
+    if match is None or match.group("type") not in _CONVENTIONAL_TYPES:
+        return [
+            "subject is not a Conventional Commit of the form 'type(scope): summary' "
+            f"(type one of {', '.join(sorted(_CONVENTIONAL_TYPES))}): {subject!r}"
+        ]
+    return []
+
+
+def _final_commit_message_problems(repo_root: Path, *, head: str) -> list[str]:
+    """Validate the newest non-merge commit at ``head`` (empty when N/A)."""
+
+    try:
+        lines = io.git_lines(repo_root, ["log", "-1", "--no-merges", "--format=%B", head])
+    except (subprocess.SubprocessError, OSError):
+        return []
+    if not lines:
+        return []
+    return commit_message_problems("\n".join(lines))
+
+
+def _add_commit_hygiene_check(selection: checks.CheckSelection, mode: str) -> None:
+    """#2150: require the relocated commit-time hygiene hooks in PR-gating modes.
+
+    The commit-time hygiene hooks (trailing-whitespace, end-of-file, yaml/json
+    parse, large-file, merge-conflict, private-key) moved here: they run as
+    ``commit_hygiene`` in the modes that replace the removed commit hooks —
+    never in the (now hookless) commit modes.
+    """
+
+    if mode in _PR_GATING_COMMIT_CHECK_MODES and "commit_hygiene" not in selection.required:
+        selection.required = sorted({*selection.required, "commit_hygiene"})
+
+
+def _enforce_final_commit_message(
+    repo_root: Path,
+    *,
+    head: str,
+    mode: str,
+    unsatisfied: list[str],
+    repair_hints: list[str],
+) -> None:
+    """#2150: validate the FINAL commit's Conventional Commits subject.
+
+    The commitizen commit-msg hook is removed; PR-gating modes validate the
+    final commit instead (owner decision: only the final commit, not the whole
+    branch range).
+    """
+
+    if mode not in _COMMIT_MESSAGE_CHECK_MODES:
+        return
+    problems = _final_commit_message_problems(repo_root, head=head)
+    if not problems:
+        return
+    unsatisfied.append("commit_message.final")
+    repair_hints.append(
+        "- commit_message.final\n  The final commit's message fails the pre-PR commit-message check:\n"
+        + "\n".join(f"    - {problem}" for problem in problems)
+        + "\n  Amend the final commit with a Conventional Commits subject"
+        " (`git commit --amend`), e.g. 'fix(#123): short summary'."
+    )
+
 
 _CHECK_EVIDENCE_IGNORED_PREFIXES: tuple[str, ...] = (".workflow/records/",)
 _CHECK_FINGERPRINT_VERSION = "gate-check-input-v2"
@@ -942,6 +1037,8 @@ def reconcile(
 
     selection.required = required_for_mode(selection.required, mode=mode)
 
+    _add_commit_hygiene_check(selection, mode)
+
     # 5. Infer obligations.
     obligations = _infer_obligations(
         task_kind=ledger.task_kind,
@@ -1117,6 +1214,8 @@ def reconcile(
     if pr_readiness_mode and not ledger.issues:
         unsatisfied.append("issue.required")
         repair_hints.append("- issue.required\n  Link an issue:\n  gate_record amend --reason '<why>' --issue <n>")
+
+    _enforce_final_commit_message(repo_root, head=head, mode=mode, unsatisfied=unsatisfied, repair_hints=repair_hints)
 
     # 9. Run guard calculators (each exactly once, §3.3.9). Build the evaluator-
     #    supplied inputs the calculators expect (the integration wiring §4 needs):

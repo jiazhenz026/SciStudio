@@ -94,4 +94,3 @@ Example:
     (10, 2)
     >>> a.x, a.y  # original unchanged
     (1, 2)
-

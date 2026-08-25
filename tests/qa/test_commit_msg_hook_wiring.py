@@ -1,11 +1,13 @@
-"""Regression test for issue #1609 Defect 4 (commit-msg hook wiring).
+"""Post-#2150 contract for the removed commit-msg git hook.
 
-On the ``commit-msg`` stage, pre-commit appends the commit-message file path to
-the hook entry. The ``check`` subparser has no positional for it, so
-``gate_record check --mode commit-msg <FILE>`` exits 2 (``unrecognized
-arguments``) and fails every ``git commit``. The purpose-built ``commit-msg
-<message-file>`` alias accepts that path. This test pins both halves: the config
-must call the alias, and the CLI contract that makes the alias necessary.
+The commitizen / gate_record commit-msg hooks are gone: `git commit` runs
+nothing, and the final commit's Conventional Commits subject is validated by
+the evaluator at the pre-pr/ci modes instead (see
+``tests/qa/test_gate_commit_checks.py``). What remains here is the CLI
+compatibility contract that made the ``commit-msg`` alias necessary (issue
+#1609 Defect 4): the alias still accepts the message-file positional, and the
+``check`` subcommand still rejects it — the alias stays for manual/legacy
+callers even though no hook invokes it anymore.
 """
 
 from __future__ import annotations
@@ -21,28 +23,16 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _PRECOMMIT_CONFIG = _REPO_ROOT / ".pre-commit-config.yaml"
 
 
-def _commit_msg_hook_entry() -> str:
-    config = yaml.safe_load(_PRECOMMIT_CONFIG.read_text(encoding="utf-8"))
-    for repo in config["repos"]:
-        for hook in repo.get("hooks", []):
-            if hook.get("id") == "scistudio-gate-record-commit-msg":
-                return str(hook["entry"])
-    raise AssertionError("scistudio-gate-record-commit-msg hook not found in .pre-commit-config.yaml")
-
-
 class TestConfigWiring:
-    def test_commit_msg_hook_calls_the_commit_msg_alias(self) -> None:
-        entry = _commit_msg_hook_entry()
-        # Must invoke the ``commit-msg`` subcommand, which accepts the appended
-        # message-file path (trailing flags such as --no-record are allowed)...
-        assert "scistudio.qa.governance.gate_record commit-msg" in entry
-        # ...and must NOT use ``check --mode commit-msg`` (the form that rejects
-        # the appended file with exit 2).
-        assert "check --mode commit-msg" not in entry
+    def test_no_commit_msg_stage_hook_remains(self) -> None:
+        config = yaml.safe_load(_PRECOMMIT_CONFIG.read_text(encoding="utf-8"))
+        for repo in config["repos"]:
+            for hook in repo.get("hooks", []):
+                assert "commit-msg" not in hook.get("stages", []), hook
 
 
 class TestCliContract:
-    """Why the alias is required: ``check`` rejects the positional; the alias accepts it."""
+    """Why the alias exists: ``check`` rejects the positional; the alias accepts it."""
 
     def test_commit_msg_alias_accepts_message_file(self) -> None:
         parser = cli.build_parser()

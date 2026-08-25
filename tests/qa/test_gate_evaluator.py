@@ -18,6 +18,7 @@ from scistudio.qa.governance.gate_record.io import SanitizationError
 from scistudio.qa.governance.gate_record.ledger import (
     AdminLabel,
     CheckEvent,
+    CheckNa,
     DeclaredScope,
     DocsEvent,
     GateLedger,
@@ -486,14 +487,25 @@ def _ci_ready_repo(repo: Path) -> None:
     (repo / "tests/qa").mkdir(parents=True, exist_ok=True)
     (repo / "tests/qa/test_foo.py").write_text("def test_foo():\n    assert True\n", encoding="utf-8")
     _git(repo, "add", "src/scistudio/qa/governance/foo.py", "docs/specs/x.md", "tests/qa/test_foo.py")
-    _git(repo, "commit", "-q", "-m", "gov change + docs + tests")
+    _git(repo, "commit", "-q", "-m", "chore(#1509): gov change + docs + tests")
+
+
+# #2150: the PR-gating modes require commit_hygiene (the manual-stage pre-commit
+# hygiene set); the synthetic tmp repos have no .pre-commit-config.yaml, so the
+# check is waived with an explicit N/A in tests that assert a clean check slate.
+_COMMIT_HYGIENE_NA = [CheckNa(name="commit_hygiene", rationale="synthetic tmp repo has no pre-commit config")]
 
 
 def test_ci_mode_passes_without_quality_check_events(git_repo: Path) -> None:
     # (d) ci mode must NOT fail solely because the ci.yml quality matrix has no
     # ledger check_events: those run as separate authoritative ci.yml jobs.
     _ci_ready_repo(git_repo)
-    ledger = _ledger(task_kind="feature", issues=[IssueRef(number=1509)], governance_touch=True)
+    ledger = _ledger(
+        task_kind="feature",
+        issues=[IssueRef(number=1509)],
+        governance_touch=True,
+        check_na=list(_COMMIT_HYGIENE_NA),
+    )
     result = evaluator.reconcile(
         ledger=ledger,
         repo_root=git_repo,
@@ -767,6 +779,7 @@ def test_pre_pr_skip_execution_accepts_current_check_evidence(git_repo: Path) ->
         issues=[IssueRef(number=1509, url="https://github.com/o/r/issues/1509")],
         docs_events=[DocsEvent(kind="path", path="docs/notes.md")],
         test_events=[TestEvent(kind="na", test_class="implementation", rationale="docs only")],
+        check_na=list(_COMMIT_HYGIENE_NA),
         check_events=[
             CheckEvent(
                 name="full_audit",
@@ -840,6 +853,7 @@ def test_default_check_execution_reuses_current_evidence(git_repo: Path, monkeyp
         issues=[IssueRef(number=1509, url="https://github.com/o/r/issues/1509")],
         docs_events=[DocsEvent(kind="path", path="docs/notes.md")],
         test_events=[TestEvent(kind="na", test_class="implementation", rationale="docs only")],
+        check_na=list(_COMMIT_HYGIENE_NA),
         check_events=[
             CheckEvent(
                 name="full_audit",
@@ -884,6 +898,7 @@ def test_force_checks_reruns_current_evidence(git_repo: Path, monkeypatch: pytes
         issues=[IssueRef(number=1509, url="https://github.com/o/r/issues/1509")],
         docs_events=[DocsEvent(kind="path", path="docs/notes.md")],
         test_events=[TestEvent(kind="na", test_class="implementation", rationale="docs only")],
+        check_na=list(_COMMIT_HYGIENE_NA),
         check_events=[
             CheckEvent(
                 name="full_audit",

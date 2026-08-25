@@ -258,12 +258,12 @@ The `--mode` argument dispatches behavior for different callers:
 
 | Mode | Caller | Behavior |
 |---|---|---|
-| `local` | Manual `gate_record check` | Incremental local CI-equivalent preflight at the selected tier; PR-state facts recorded as pre-PR gaps, not failures |
-| `pre-commit` | Pre-commit hook | Fast structural reconciliation on staged diff |
-| `commit-msg` | Commit-msg hook | Validate required commit trailers |
+| `local` | Manual `gate_record check` | Incremental local CI-equivalent preflight at the selected tier; PR-state facts recorded as pre-PR gaps, not failures. Also runs the `commit_hygiene` check (#2150) |
+| `pre-commit` | Compatibility mode (no hook installed since #2150) | Fast structural reconciliation on staged diff |
+| `commit-msg` | Compatibility mode (no hook installed since #2150) | Legacy commit-msg reconciliation; the Conventional Commits subject check moved to the final-commit validation in `pre-pr`/`ci` (#2150) |
 | `pre-push` | Manual compatibility mode | Pre-push reconciliation remains available on demand; the installed pre-push hook is a fast allow shim |
-| `pre-pr` | Manual pre-PR check and PR wrapper | Pre-PR readiness with `--pr-body-file`; PR wrapper uses `--skip-execution` to reuse current evidence; pre-PR-impossible findings handled internally |
-| `ci` | CI workflow | Authoritative mode with full PR context; verifies label provenance |
+| `pre-pr` | Manual pre-PR check and PR wrapper | Pre-PR readiness with `--pr-body-file`; owns the checks the removed commit hooks used to enforce (#2150): `commit_hygiene` and the final commit's Conventional Commits subject. PR wrapper uses `--skip-execution` to reuse current evidence; pre-PR-impossible findings handled internally |
+| `ci` | CI workflow | Authoritative mode with full PR context (also enforces `commit_hygiene` and the final-commit message check); verifies label provenance |
 
 Local and CI modes use the same evaluator and select the same checks. They differ
 in two ways: CI mode has real PR metadata and verifies label-actor provenance
@@ -804,7 +804,11 @@ Local hooks or CI must fail AI-authored work when:
 - Sentrux applies but evidence is missing or failing;
 - the gate ledger claims Pro-only Sentrux diagnostics;
 - the PR body does not close every issue listed in the gate ledger;
-- required commit trailers are missing;
+- the final commit's message is not a Conventional Commit (#2150: the commit-msg
+  hook was removed; the subject check runs at pre-pr/ci);
+- required commit trailers are missing from AI-authored commits (a documented
+  convention — see §3.7; note that trailer *content* was never machine-enforced
+  by the removed commit-msg hook and remains review-enforced);
 - protected core paths are changed without valid administrator authorization;
 - human or administrator bypass labels have invalid provenance;
 - an AI agent attempts to merge without valid administrator authorization;

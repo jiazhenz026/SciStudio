@@ -34,11 +34,12 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      # Pinned to the version .pre-commit-config.yaml pins so CI and local
-      # pre-commit agree on formatting. An unpinned install adopts every new
-      # upstream formatter release: ruff 0.16.0 reflowed trailing comments
+      # This pin is the single ruff version source of truth (since #2150 the
+      # pre-commit hook revs are gone with the commit-time hooks): the gate
+      # parity env reads it via ``parity.resolve_ci_tool_versions`` so local
+      # pre-PR checks run the same formatter. An unpinned install adopts every
+      # new upstream formatter release: ruff 0.16.0 reflowed trailing comments
       # repo-wide, which failed this job on main and on every open PR.
-      # Bump both pins together.
       - run: uv pip install --system ruff==0.15.15
       - run: ruff check .
       - run: ruff format --check .

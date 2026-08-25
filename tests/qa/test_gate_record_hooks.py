@@ -1,12 +1,15 @@
 """Structural wiring tests for ADR-042 Addendum 6 hooks / CI / wrapper (spec §6).
 
-Every enforcement surface collapses to one evaluator call: hooks, pre-commit,
-and CI invoke ``gate_record check --mode <m>`` and forward the exit code. No hook
+Every enforcement surface collapses to one evaluator call: the PR wrapper and
+CI invoke ``gate_record check --mode <m>`` and forward the exit code. No hook
 keeps a bypass vocabulary, a protected-path list, an issue-closing regex, or a
-receipt-validate step. These tests assert the wiring shape (not behaviour, which
-lives in the evaluator/guard tests): the new command names are used, the legacy
-entry points are gone, the migrated label vocabulary is in place, the minimal
-worktree-guard surface is wired, and ``.audit/`` is gitignored.
+receipt-validate step. Since #2150 there are NO commit-time git hooks: the
+pre-commit config keeps only the manual-stage hygiene set (run by the
+evaluator's ``commit_hygiene`` check at the PR-gating modes). These tests assert
+the wiring shape (not behaviour, which lives in the evaluator/guard tests): the
+command names are used, the legacy entry points are gone, the migrated label
+vocabulary is in place, the minimal worktree-guard surface is wired, and
+``.audit/`` is gitignored.
 """
 
 from __future__ import annotations
@@ -51,36 +54,47 @@ def test_pr_hook_calls_evaluator_pre_pr_mode_with_body_file() -> None:
     assert "gate_receipt" not in hook
 
 
-def test_pre_commit_config_exposes_thin_evaluator_hooks() -> None:
+def test_pre_commit_config_has_no_commit_stage_hooks() -> None:
+    """#2150: commit-time git hooks are removed; `git commit` runs nothing.
+
+    Every former commit-time check moved to ``gate_record check --mode pre-pr``:
+    ruff/mypy are the evaluator's lint_format / format_check / type_check
+    checks, and the hygiene hook set runs as its ``commit_hygiene`` check. The
+    config keeps ONLY the hygiene hooks, all bound to the manual stage, so even
+    an installed pre-commit shim never fires on commit.
+    """
+
     config = yaml.safe_load(_text(".pre-commit-config.yaml"))
-    local_repo = next(repo for repo in config["repos"] if repo["repo"] == "local")
-    hooks = {hook["id"]: hook for hook in local_repo["hooks"]}
+    repos = {repo["repo"]: repo for repo in config["repos"]}
+    # The gate_record thin-caller hooks are gone (the evaluator runs at pre-pr).
+    assert "local" not in repos
+    hooks = {hook["id"]: hook for repo in config["repos"] for hook in repo.get("hooks", [])}
+    # ruff / ruff-format / mypy / commitizen are gone (covered by the evaluator's
+    # CHECK_CATALOG + the native final-commit-message check at pre-pr).
+    assert "ruff" not in hooks
+    assert "ruff-format" not in hooks
+    assert "mypy" not in hooks
+    assert "commitizen" not in hooks
+    # The hygiene set survives, bound to the manual stage only.
+    hygiene = {
+        "trailing-whitespace",
+        "end-of-file-fixer",
+        "check-yaml",
+        "check-json",
+        "check-added-large-files",
+        "check-merge-conflict",
+        "detect-private-key",
+    }
+    assert hygiene <= set(hooks)
+    for hook in hooks.values():
+        assert hook.get("stages") == ["manual"], hook
 
-    assert hooks["scistudio-gate-record-pre-commit"]["entry"] == (
-        "python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record check "
-        "--mode pre-commit --no-record"
-    )
-    # The commit-msg hook must call the `commit-msg <message-file>` alias, not
-    # `check --mode commit-msg`: on the commit-msg stage pre-commit appends the
-    # message-file path, which the `check` subparser rejects with exit 2 (issue
-    # #1609 Defect 4 -- it failed every `git commit`).
-    assert hooks["scistudio-gate-record-commit-msg"]["entry"] == (
-        "python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record commit-msg --no-record"
-    )
-    assert hooks["scistudio-gate-record-commit-msg"]["stages"] == ["commit-msg"]
 
+def test_removed_hook_files_are_gone() -> None:
+    """#2150: the legacy git-hook entry points are deleted with the hooks."""
 
-def test_pre_commit_local_hooks_use_src_layout_launcher() -> None:
-    config = yaml.safe_load(_text(".pre-commit-config.yaml"))
-    local_repo = next(repo for repo in config["repos"] if repo["repo"] == "local")
-    for hook in local_repo["hooks"]:
-        assert hook["entry"].startswith("python scripts/hooks/run_python_module.py ")
-
-
-def test_git_pre_commit_wrapper_routes_through_gate_record() -> None:
-    hook = _text(".workflow/hooks/pre-commit")
-    assert 'scripts" / "hooks" / "run_python_module.py' in hook
-    assert "scistudio.qa.governance.gate_record" in hook
+    assert not (REPO_ROOT / ".workflow" / "hooks" / "pre-commit").exists()
+    assert not (REPO_ROOT / "scripts" / "hooks" / "run_python_module.py").exists()
 
 
 def test_workflow_gate_ci_is_single_evaluator_ci_invocation() -> None:
@@ -172,7 +186,6 @@ def test_no_hook_references_legacy_gate_py_or_active_state() -> None:
     for path in (
         "scripts/hooks/check-gate-before-push.sh",
         "scripts/hooks/check-gate-before-pr.sh",
-        ".workflow/hooks/pre-commit",
         ".pre-commit-config.yaml",
         ".github/workflows/workflow-gate.yml",
     ):

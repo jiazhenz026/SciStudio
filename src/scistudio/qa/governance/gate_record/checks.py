@@ -184,6 +184,17 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
         covered_surface="python_deferrals",
         ci_job="deferral-scan.yml/Deferral discipline ratchet",
     ),
+    # #2150: commit-time git hooks are removed; their hygiene checks moved here.
+    # The pre-commit framework hooks in .pre-commit-config.yaml are all bound to
+    # the `manual` stage (nothing fires on `git commit`); this check runs that
+    # hygiene set over the tree at the PR-gating modes. Ruff/mypy are NOT part of
+    # it — lint_format / format_check / type_check above already own them.
+    "commit_hygiene": CheckSpec(
+        name="commit_hygiene",
+        command=("pre-commit", "run", "--all-files", "--hook-stage", "manual"),
+        covered_surface="hygiene",
+        ci_job="workflow-gate.yml/Verify Workflow Compliance",
+    ),
 }
 
 

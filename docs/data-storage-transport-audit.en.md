@@ -1,7 +1,7 @@
 # SciStudio Data Storage and Transport Audit Report (English)
 
-Audit date: 2026-04-11  
-Scope: `docs/architecture/ARCHITECTURE.md`, `docs/adr/ADR.md`, `src/scistudio/**`, `packages/scistudio-blocks-*/**`  
+Audit date: 2026-04-11
+Scope: `docs/architecture/ARCHITECTURE.md`, `docs/adr/ADR.md`, `src/scistudio/**`, `packages/scistudio-blocks-*/**`
 Method: read-only audit, no business-code changes
 
 ## Executive Summary
@@ -19,7 +19,7 @@ The main conclusions are:
 
 The architecture principles say:
 
-- `Lazy by default`: data objects should hold references, not payloads.  
+- `Lazy by default`: data objects should hold references, not payloads.
   `docs/architecture/ARCHITECTURE.md:28-35`
 
 This is clearly aimed at keeping very large datasets on disk until a block explicitly requests access.
@@ -38,9 +38,9 @@ Those sections say blocks receive `ViewProxy`, and the worker reconstructs `View
 
 Newer ADR addenda describe a different runtime:
 
-- worker reconstructs typed `DataObject`, not `ViewProxy`:  
+- worker reconstructs typed `DataObject`, not `ViewProxy`:
   `docs/adr/ADR.md:4659-4705`, `4722-4726`
-- `ViewProxy` is retained only as an opt-in helper via `item.view()`:  
+- `ViewProxy` is retained only as an opt-in helper via `item.view()`:
   `docs/adr/ADR.md:5108-5113`
 
 So the documentation set currently mixes two generations of architecture. The code matches the newer model.
@@ -49,7 +49,7 @@ So the documentation set currently mixes two generations of architecture. The co
 
 ### 1. Loading stage
 
-`IOBlock.run()` wraps input-direction results into `Collection` and forwards output-direction blocks to `save()`:  
+`IOBlock.run()` wraps input-direction results into `Collection` and forwards output-direction blocks to `save()`:
 `src/scistudio/blocks/io/io_block.py:105-145`
 
 #### Core `LoadData`
@@ -76,23 +76,23 @@ Evidence:
 
 Representative cases:
 
-- Imaging `LoadImage` loads both TIFF and Zarr eagerly through `tf.asarray()` or `np.asarray(arr_node[...])`:  
+- Imaging `LoadImage` loads both TIFF and Zarr eagerly through `tf.asarray()` or `np.asarray(arr_node[...])`:
   `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py:76-141`
-- LCMS `LoadMzMLFiles` returns `MSRawFile(file_path=path, meta=...)`, which looks like a handle-only design:  
+- LCMS `LoadMzMLFiles` returns `MSRawFile(file_path=path, meta=...)`, which looks like a handle-only design:
   `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/io/load_mzml_files.py:100-113`
-- LCMS `LoadPeakTable` stores a pandas frame copy in `table.user["pandas_df"]`:  
+- LCMS `LoadPeakTable` stores a pandas frame copy in `table.user["pandas_df"]`:
   `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/io/load_peak_table.py:123-134`
 
 ### 2. How data moves between blocks
 
-The scheduler stores runner results directly in `_block_outputs`:  
+The scheduler stores runner results directly in `_block_outputs`:
 `src/scistudio/engine/scheduler.py:292-301`
 
-Downstream inputs are gathered by simply forwarding the stored output entry by port name:  
+Downstream inputs are gathered by simply forwarding the stored output entry by port name:
 `src/scistudio/engine/scheduler.py:322-346`
 
-`LocalRunner` sends worker input as pure JSON:  
-`src/scistudio/engine/runners/local.py:97-108`  
+`LocalRunner` sends worker input as pure JSON:
+`src/scistudio/engine/runners/local.py:97-108`
 `src/scistudio/engine/runners/process_handle.py:145-170`
 
 So the real path is:
@@ -106,7 +106,7 @@ This means the engine mostly stores lightweight wire payloads, not live typed ob
 
 ### 3. How data is processed inside blocks
 
-`ProcessBlock.run()` is per-item at the framework loop level and auto-flushes each result:  
+`ProcessBlock.run()` is per-item at the framework loop level and auto-flushes each result:
 `src/scistudio/blocks/process/process_block.py:123-174`
 
 But many APIs still materialize eagerly:
@@ -132,13 +132,13 @@ Important nuance: `LazyList` is item-lazy, not chunk-lazy. Accessing an item sti
 
 ### 4. Saving, auto-flush, and checkpoints
 
-Intermediate persistence relies on `_auto_flush()`:  
+Intermediate persistence relies on `_auto_flush()`:
 `src/scistudio/blocks/base/block.py:350-403`
 
-The worker calls `_auto_flush()` before serializing outputs:  
+The worker calls `_auto_flush()` before serializing outputs:
 `src/scistudio/engine/runners/worker.py:94-177`
 
-The default intermediate output directory comes from `LocalRunner._derive_output_dir()`:  
+The default intermediate output directory comes from `LocalRunner._derive_output_dir()`:
 `src/scistudio/engine/runners/local.py:23-39`
 
 Default path:
@@ -147,11 +147,11 @@ Default path:
 
 But that directory can contain `.zarr`, `.parquet`, text files, binary artifacts, or composite directories. The name is misleading.
 
-Checkpoints also persist mostly wire-format references rather than live objects:  
+Checkpoints also persist mostly wire-format references rather than live objects:
 `src/scistudio/engine/checkpoint.py:26-83`
 
-On restore, the scheduler does not use the deprecated `ViewProxy` deserialization path. It injects wire-format dicts back into `_block_outputs` and lets the worker reconstruct typed objects later:  
-`src/scistudio/engine/checkpoint.py:86-122`  
+On restore, the scheduler does not use the deprecated `ViewProxy` deserialization path. It injects wire-format dicts back into `_block_outputs` and lets the worker reconstruct typed objects later:
+`src/scistudio/engine/checkpoint.py:86-122`
 `src/scistudio/engine/scheduler.py:934-971`
 
 ## Direct Answer: Is data fully loaded into memory?
@@ -175,33 +175,33 @@ Most obviously eager paths include:
 
 ### High priority
 
-1. **Core architecture docs still describe injected `ViewProxy`, but the runtime now uses typed `DataObject`.**  
+1. **Core architecture docs still describe injected `ViewProxy`, but the runtime now uses typed `DataObject`.**
    Old docs: `docs/architecture/ARCHITECTURE.md:331-362`, `618`. Newer ADR + code: `docs/adr/ADR.md:4659-4705`, `4722-4726`, `5108-5113`, and `src/scistudio/engine/runners/worker.py:43-91`.
 
-2. **“Lazy by default” is not consistently realized.**  
+2. **“Lazy by default” is not consistently realized.**
    Counterexamples include eager `LoadData` paths for `.npy/.npz/.csv/.parquet/.json`, eager imaging TIFF/Zarr loading, and `Array.sel()` materializing full arrays before slicing. Evidence: `src/scistudio/blocks/io/loaders/load_data.py:233-427`, `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py:76-141`, `src/scistudio/core/types/array.py:165-223`.
 
-3. **`SaveData` cannot reliably export storage-backed core objects.**  
+3. **`SaveData` cannot reliably export storage-backed core objects.**
    It depends on `get_in_memory_data()` or `_arrow_table`, while downstream workers often only reconstruct storage-backed typed objects. Evidence: `src/scistudio/blocks/io/savers/save_data.py:271-425`, `597-625`; `src/scistudio/core/types/base.py:350-381`.
 
-4. **`LoadData(core_type='Series')` loses payload.**  
+4. **`LoadData(core_type='Series')` loses payload.**
    `_load_series()` reads the table indirectly, then returns a new `Series(...)` without `_data`, `_arrow_table`, or `storage_ref`. Evidence: `src/scistudio/blocks/io/loaders/load_data.py:456-468`.
 
-5. **Mutable `user` metadata bypasses validation, and `LoadPeakTable` already stores a non-JSON object there.**  
+5. **Mutable `user` metadata bypasses validation, and `LoadPeakTable` already stores a non-JSON object there.**
    JSON requirement: `src/scistudio/core/types/base.py:193-206`; mutable dict exposure: `230-237`; plugin example: `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/io/load_peak_table.py:123-134`; serialization assumes JSON-clean `user`: `src/scistudio/core/types/serialization.py:281-305`.
 
-6. **Raw-file / artifact handle semantics are broken at block boundaries.**  
+6. **Raw-file / artifact handle semantics are broken at block boundaries.**
    `MSRawFile` is intended as path + header metadata only: `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/types.py:24-35`. But `_auto_flush()` plus `Artifact.get_in_memory_data()` ends up reading bytes from the original file and copying them into managed intermediate storage. Evidence: `src/scistudio/blocks/base/block.py:374-403`, `src/scistudio/core/types/artifact.py:44-48`.
 
 ### Medium priority
 
-1. **Imaging Zarr loading clearly violates the large-data lazy-loading goal.**  
+1. **Imaging Zarr loading clearly violates the large-data lazy-loading goal.**
    Evidence: `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py:97-140`.
 
-2. **CodeBlock is asymmetric across languages.**  
+2. **CodeBlock is asymmetric across languages.**
    Python sees real Python objects, but R/Julia runners reserialize with `default=str`, so complex objects can degrade into strings. Evidence: `src/scistudio/blocks/code/runners/python_runner.py:32-84`, `r_runner.py:36-38,91-92`, `julia_runner.py:35-36,92-93`.
 
-3. **Persistence atomicity is inconsistent.**  
+3. **Persistence atomicity is inconsistent.**
    `FilesystemBackend` and `ZarrBackend` use temp-then-rename: `src/scistudio/core/storage/filesystem.py:31-68`, `src/scistudio/core/storage/zarr_backend.py:25-60`. `ArrowBackend` does not provide the same level of atomic write, and `CompositeStore` explicitly documents non-atomic multi-slot writes: `src/scistudio/core/storage/arrow_backend.py:21-45`, `src/scistudio/core/storage/composite_store.py:58-76`.
 
 ## Overall Judgment
