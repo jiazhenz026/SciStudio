@@ -1,0 +1,51 @@
+{
+  "base_ref": null,
+  "branch": "docs/2163-release-runbook",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/ai-developer/release-runbook.md",
+      ".agents/rules/rules.md",
+      ".codex/rules/rules.md",
+      ".claude/rules/rules.md",
+      "AGENTS.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2163,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Write the release procedure where Codex and Kimi can find it too, so they know how to publish an update.",
+  "persona": "adr_author",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2163-release-runbook",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "e052edff-5767-4811-a341-ed890a12d6a5",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": []
+}
