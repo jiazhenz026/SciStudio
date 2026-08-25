@@ -345,6 +345,11 @@
       "at": "2026-08-25T20:35:06.824758Z",
       "owner_directive": "owner: \u6211\u7761\u89c9\u4e86\uff0c\u4f60\u81ea\u5df1\u505a\u5230\u5e95 (finish autonomously)",
       "reason": "documenting local-only python_tests failures before pushing the CI fix"
+    },
+    {
+      "at": "2026-08-25T23:53:12.863273Z",
+      "owner_directive": "\u4fee PR 2171 codex review \u7ed3\u8bba\uff08OTA \u76f8\u5173\u9664\u5916\uff0c\u90a3\u8fb9\u53e6\u884c\u5904\u7406\uff09",
+      "reason": "codex review follow-up: P1 sandboxed preload relative require, P2 native Save As bypasses file-tab restriction; OTA finding already fixed in 168fd9fe1"
     }
   ],
   "docs_events": [

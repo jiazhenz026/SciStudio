@@ -14,6 +14,8 @@
 // dispatches them in App.parts/useDesktopMenuActions.ts. Keep the action ids
 // below in sync with ScistudioDesktopMenuAction in frontend/src/types/desktop.d.ts.
 
+// Also declared as a literal in desktop/preload.js — the sandboxed preload
+// cannot require this file, so keep the two in sync.
 const MENU_ACTION_CHANNEL = "scistudio:menu-action";
 
 const MENU_ACTIONS = Object.freeze([

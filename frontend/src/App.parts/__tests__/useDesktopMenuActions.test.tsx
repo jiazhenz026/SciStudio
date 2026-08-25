@@ -73,6 +73,38 @@ describe("useDesktopMenuActions", () => {
     expect(handlers.saveAs).toHaveBeenCalledTimes(1);
   });
 
+  it("suppresses save-as while a file tab is active (ADR-036 §3.7)", () => {
+    const bridge = installBridge();
+    const handlers = renderMenuActions();
+
+    act(() => {
+      useAppStore.setState({
+        tabs: [
+          {
+            kind: "file",
+            id: "file-1",
+            filePath: "C:\\Project\\notes.md",
+            displayName: "notes.md",
+            language: "markdown",
+            content: "",
+            contentLoadedAt: 0,
+            dirty: false,
+            readOnly: false,
+          },
+        ],
+        activeTabId: "file-1",
+      });
+    });
+    bridge.fire("save-as");
+    expect(handlers.saveAs).not.toHaveBeenCalled();
+
+    act(() => {
+      useAppStore.setState({ tabs: [], activeTabId: null });
+    });
+    bridge.fire("save-as");
+    expect(handlers.saveAs).toHaveBeenCalledTimes(1);
+  });
+
   it("projects-home closes the active project; new-project opens the dialog", () => {
     const bridge = installBridge();
     renderMenuActions();

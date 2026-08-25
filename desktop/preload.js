@@ -1,6 +1,10 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
-const { MENU_ACTION_CHANNEL } = require("./menu");
+// Sandboxed preloads (desktop/main.js sets `sandbox: true`) may only require
+// Electron's restricted built-in set, so this channel cannot be imported from
+// ./menu — a relative require would abort the preload before the bridge is
+// exposed. Keep the literal in sync with MENU_ACTION_CHANNEL in desktop/menu.js.
+const MENU_ACTION_CHANNEL = "scistudio:menu-action";
 
 contextBridge.exposeInMainWorld("scistudioDesktop", {
   platform: process.platform,

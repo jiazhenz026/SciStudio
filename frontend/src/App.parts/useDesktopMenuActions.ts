@@ -14,7 +14,7 @@ import { closeCurrentProject } from "./closeProject";
 export interface DesktopMenuHandlers {
   /** File > Save — tab-aware save, same as the toolbar Save button. */
   save: () => void;
-  /** File > Save As… */
+  /** File > Save As… — workflow-only; suppressed while a file tab is active. */
   saveAs: () => void;
 }
 
@@ -40,9 +40,16 @@ export function useDesktopMenuActions(handlers: DesktopMenuHandlers): void {
         case "save":
           handlersRef.current.save();
           break;
-        case "save-as":
-          handlersRef.current.saveAs();
+        case "save-as": {
+          // Mirror the Ctrl/Cmd+Shift+S guard in useAppKeyboardShortcuts and
+          // the toolbar's hidden button: file tabs save only to their fixed
+          // path (ADR-036 §3.7), so Save As is a workflow-only action. The
+          // native accelerator bypasses the in-page listener, so the guard
+          // has to live here at dispatch time.
+          const activeTab = store.tabs.find((tab) => tab.id === store.activeTabId);
+          if (activeTab?.kind !== "file") handlersRef.current.saveAs();
           break;
+        }
         case "bring-in-my-work":
           // Mirrors the toolbar button's disabled state (ADR-053 spec 2
           // FR-002): the import dialog writes into the open project, so it
