@@ -1,7 +1,156 @@
 {
   "base_ref": "origin/main",
   "branch": "ci/2165-macos-x64-ci",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-08-25T21:01:15.266595Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bc03d335fca2a2598d39905bf24228340f738be205db900ffc919979ecf8f65c",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T21:01:18.496270Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ae246d963eafd7c5d6d090dbedea698008f7b6d362191d3e2348ac44113df449",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T21:01:19.434708Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:99d08f51990ae0bb1577a0b964d1dc8cfae32e1c5bb60dabeddb446e59c6091f",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T21:01:19.798518Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cbddbede04710c4fbad2a5e40ddd0fc60637715707f190d692c6e5de4c1bfd17",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-25T21:01:23.875110Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8ddf8d37a0ad32b04f653709ab22bdc67ef26af327d80c80538994fcc053f89d",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T21:01:24.347882Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0e7df173a248e27efe5dc25805bc03a55a990538e91f80f66378f98ba203132e",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T21:01:24.397581Z",
+      "command": "ruff check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:aa81dbf9d1344ad086181adac5daa7003bcb7dd1c8994313a0a26066d5f2f7eb",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-25T21:03:29.143535Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:1737471b2e05fe83369b4a00d6150c799af79dc9adbc4c7aa43e3160acd2d256",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T21:03:36.531633Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c8375460ceb504a2ed2077f0490fb8447b34267921870b0a21664070ceeb498b",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -24,7 +173,96 @@
     }
   ],
   "governance_touch": true,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-08-25T21:03:36.572324Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:03:36.583782Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:03:36.639480Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:03:36.653602Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:03:36.664868Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:03:36.676082Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:03:36.687031Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:03:36.697126Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:03:36.707489Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:03:36.717767Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:03:36.727887Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -34,19 +272,82 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "da6184f8",
+    "changed_files": [
+      ".github/workflows/desktop-macos-dmg.yml",
+      ".workflow/records/2165-macos-x64-ci.json",
+      "desktop/package.json",
+      "desktop/test/macos-signing.test.js",
+      "docs/specs/desktop-macos-signing-notarization.md"
+    ],
+    "diff_fingerprint": "sha256:bf76ff9dbb8a1dd900834a7ac0827a58fc9655bfc2df95021cb9ca264567bab9",
+    "head": "HEAD",
+    "head_sha": "d77cd9b7",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 0,
+      "governance": 1,
+      "governed_docs": 0,
+      "implementation": 1,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 2,
+      "test": 1,
+      "workflow_ci": 1
+    }
+  },
   "owner_directive": "Build the macOS Intel (x64) 0.3.4 dmg as a signed+notarized release artifact and add x64 to the CI dmg workflow (owner request 2026-08-25).",
   "persona": "implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-08-25T21:03:36.727922Z",
+      "diff_fingerprint": "sha256:bf76ff9dbb8a1dd900834a7ac0827a58fc9655bfc2df95021cb9ca264567bab9",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    }
+  ],
   "record_id": "2165-macos-x64-ci",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude",
   "schema_version": 2,
@@ -56,10 +357,16 @@
       "at": "2026-08-25T21:00:34.781778Z",
       "pattern": "desktop/test/macos-signing.test.js",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T21:04:29.904159Z",
+      "pattern": "tests/packaging/test_desktop_mvp_resources.py",
+      "reason": "Update the desktop dmg-builder invariant test: it encoded the arm64-only assumption (#1747) this change supersedes with the arch matrix (#2165)."
     }
   ],
   "session_id": "f053321b-7bf7-402e-b384-3a5b90247ff4",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "maintenance",
   "test_events": [
     {
@@ -75,6 +382,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/qa/test_workflow_expressions.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T21:04:29.904287Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packaging/test_desktop_mvp_resources.py",
       "rationale": null,
       "verified_in_diff": null
     }
