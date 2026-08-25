@@ -38,16 +38,39 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import hashlib
+import io
 import json
 import re
 import subprocess
 import tarfile
 import tempfile
 from pathlib import Path
+from typing import Any
 
 DEFAULT_REPO = "jiazhenz026/SciStudio"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 STAGED_SRC = REPO_ROOT / "desktop" / "resources" / "backend" / "src"
+DESKTOP_DIR = REPO_ROOT / "desktop"
+REINSTALL_NOTICE_TEMPLATE = REPO_ROOT / "scripts" / "templates" / "reinstall-notice.html"
+
+# #2097: the Electron shell rides inside the same snapshot as the backend tree,
+# under ``shell/``. These are exactly the files the frozen bootstrap loader can
+# hand over to. ``bootstrap.js`` is deliberately absent: it is the loader
+# itself, it ships in the asar, and a patch must never be able to replace it.
+# ``package.json`` is absent too -- the loader supplies the installed baseline,
+# and a manifest inside the patch would be the patch describing itself.
+SHELL_FILES = (
+    "main.js",
+    "ota.js",
+    "runtime-port.js",
+    "preload.js",
+    "splash.html",
+    # splash.html references this with a RELATIVE src, so it has to travel with
+    # the shell. Without it a patched splash resolves the logo against the patch
+    # directory, finds nothing, and renders the loading screen with a broken
+    # image -- observed on the first real patched launch.
+    "assets/icon.png",
+)
 DESKTOP_PACKAGE_JSON = REPO_ROOT / "desktop" / "package.json"
 
 _VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z]+)-build(\d+))?$")
@@ -139,12 +162,61 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def make_snapshot(src_dir: Path, out_path: Path) -> None:
-    """Pack ``src_dir`` into ``out_path`` as a gzip tarball rooted at ``src/``.
+SPA_INDEX_ARCNAME = "src/scistudio/api/static/index.html"
 
-    Extracting the archive yields ``<dest>/src/scistudio/...`` so the client can
-    point ``PYTHONPATH`` at ``<dest>/src``. ``__pycache__`` is skipped to keep
-    the snapshot lean and interpreter-agnostic.
+
+def render_reinstall_notice(download_url: str, version_line: str) -> str:
+    """Render the reinstall notice page (#2097, spec section 8.1).
+
+    A client that cannot be hot-updated any further has to be told to reinstall.
+    Doing that through the mandatory *incompatible* dialog puts the address in a
+    native ``dialog.showMessageBox``, which renders plain text: not clickable and
+    not selectable, so the user must retype it — and that dialog cannot be
+    changed, because it is drawn by the one part a patch cannot replace.
+
+    Publishing it as a mandatory *patch* instead delivers an ordinary web page,
+    where the address selects and a button copies it. The manifest must keep
+    ``min_base`` at or below the target clients' base so the decision is
+    ``patch`` rather than ``incompatible``, with ``min_build`` set to make it
+    mandatory.
+    """
+    if not REINSTALL_NOTICE_TEMPLATE.is_file():
+        raise SystemExit(f"Missing template: {REINSTALL_NOTICE_TEMPLATE}")
+    html = REINSTALL_NOTICE_TEMPLATE.read_text(encoding="utf-8")
+    return html.replace("__DOWNLOAD_URL__", download_url).replace("__VERSION_LINE__", version_line)
+
+
+def shell_sources(desktop_dir: Path = DESKTOP_DIR) -> list[Path]:
+    """The Electron shell files a snapshot carries (#2097).
+
+    Raises if one is missing rather than publishing a shell the loader would
+    refuse: a ``shell/`` directory without ``main.js`` fails ``isShellDir`` on
+    the client and silently falls back to the baseline for every user.
+    """
+    paths = [desktop_dir / name for name in SHELL_FILES]
+    missing = [p.name for p in paths if not p.is_file()]
+    if missing:
+        raise SystemExit(f"Missing desktop shell files in {desktop_dir}: {', '.join(missing)}")
+    return paths
+
+
+def make_snapshot(
+    src_dir: Path,
+    out_path: Path,
+    desktop_dir: Path = DESKTOP_DIR,
+    reinstall_notice: str | None = None,
+) -> None:
+    """Pack a snapshot of the backend tree and the Electron shell.
+
+    The tarball is rooted at ``src/`` and ``shell/``: extracting it yields
+    ``<dest>/src/scistudio/...`` so the client can point ``PYTHONPATH`` at
+    ``<dest>/src``, and ``<dest>/shell/main.js`` for the bootstrap loader to
+    require. ``__pycache__`` is skipped to keep the snapshot lean and
+    interpreter-agnostic.
+
+    Both halves share one build number on purpose (#2097): shell and backend are
+    released together, so coupling them makes a build mean "all of this app's
+    interpreted code" instead of creating a shell/backend compatibility matrix.
     """
 
     def _filter(info: tarfile.TarInfo) -> tarfile.TarInfo | None:
@@ -153,16 +225,29 @@ def make_snapshot(src_dir: Path, out_path: Path) -> None:
             return None
         if "scistudio.egg-info" in parts:
             return None
+        # The notice replaces the SPA entry point in the ARCHIVE only; the
+        # staged tree on disk is never touched, so a checkout cannot be left
+        # quietly shipping the notice as its real frontend.
+        if reinstall_notice is not None and info.name.replace("\\", "/") == SPA_INDEX_ARCNAME:
+            return None
         return info
 
     with tarfile.open(out_path, "w:gz") as tar:
         tar.add(src_dir, arcname="src", filter=_filter)
+        if reinstall_notice is not None:
+            payload = reinstall_notice.encode("utf-8")
+            info = tarfile.TarInfo(SPA_INDEX_ARCNAME)
+            info.size = len(payload)
+            tar.addfile(info, io.BytesIO(payload))
+        for shell_file in shell_sources(desktop_dir):
+            arcname = f"shell/{shell_file.relative_to(desktop_dir).as_posix()}"
+            tar.add(shell_file, arcname=arcname)
 
 
 # --------------------------------------------------------------------------- #
 # gh / IO side
 # --------------------------------------------------------------------------- #
-def _run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
+def _run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, text=True, capture_output=True, **kwargs)
 
 
@@ -259,6 +344,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Build the snapshot and manifest locally without creating/uploading a release.",
     )
+    parser.add_argument(
+        "--reinstall-notice",
+        metavar="URL",
+        default=None,
+        help=(
+            "#2097: replace the snapshot's SPA with the reinstall notice pointing at URL. "
+            "Use for the migration patch that tells clients to download a build they cannot "
+            "reach by OTA. Publish it as a mandatory PATCH (min_base at or below their base, "
+            "min_build set), not as incompatible -- a native dialog cannot be copied from."
+        ),
+    )
     parser.add_argument("--yes", action="store_true", help="Skip the confirmation prompt before uploading.")
     args = parser.parse_args(argv)
 
@@ -280,8 +376,13 @@ def main(argv: list[str] | None = None) -> int:
 
     workdir = Path(tempfile.mkdtemp(prefix="scistudio-ota-"))
     tarball = workdir / name
+    notice = None
+    if args.reinstall_notice:
+        notice = render_reinstall_notice(args.reinstall_notice, f"Installed {baseline['base']} · update {build}")
+        print(f"Snapshot SPA replaced with the reinstall notice -> {args.reinstall_notice}")
+
     print(f"Packing snapshot of {src_dir} -> {tarball.name} ...")
-    make_snapshot(src_dir, tarball)
+    make_snapshot(src_dir, tarball, reinstall_notice=notice)
 
     digest = sha256_file(tarball)
     size = tarball.stat().st_size

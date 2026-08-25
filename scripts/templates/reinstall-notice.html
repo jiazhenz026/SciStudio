@@ -1,0 +1,115 @@
+<!doctype html>
+<!--
+  Reinstall notice delivered as an OTA patch (#2097, spec section 8.1).
+
+  This replaces the SPA inside a snapshot so that a client which cannot be
+  hot-updated any further is told to reinstall *in a web page* rather than in a
+  native dialog. The native `dialog.showMessageBox` renders plain text on every
+  platform: an address shown there is neither clickable nor selectable, so the
+  user has to retype it. Here the address selects, and the button copies it.
+
+  Built by `scripts/ota_publish.py --reinstall-notice <url>`, which substitutes
+  the two placeholders below. Edit the wording freely — this is a template, not
+  shipped product code, and the page a user sees is whatever was published.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SciStudio needs to be reinstalled</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f1115;
+        --fg: #e7e9ee;
+        --muted: #a8adb9;
+        --line: #2b3040;
+        --field: #171a21;
+        --accent: #4c6ef5;
+        --accent-hover: #3b5bdb;
+        --ok: #51cf66;
+        --faint: #6b7280;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 1.5rem;
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px/1.6 -apple-system, "Segoe UI", system-ui, sans-serif;
+      }
+      .card { max-width: 34rem; text-align: center; }
+      h1 { font-size: 1.5rem; margin: 0 0 0.75rem; }
+      p { color: var(--muted); margin: 0 0 1.75rem; }
+      .row { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+      input {
+        flex: 1 1 20rem;
+        max-width: 24rem;
+        padding: 0.7rem 0.9rem;
+        font: inherit;
+        text-align: center;
+        color: var(--fg);
+        background: var(--field);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+      button {
+        padding: 0.7rem 1.1rem;
+        font: inherit;
+        color: #fff;
+        background: var(--accent);
+        border: 0;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      button:hover { background: var(--accent-hover); }
+      .status { height: 1.5rem; margin-top: 0.75rem; font-size: 0.9rem; color: var(--ok); }
+      .version { margin-top: 2rem; font-size: 0.8rem; color: var(--faint); }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Please download the latest SciStudio</h1>
+      <p>
+        This release changes parts of the app that cannot be delivered as an
+        update, so it needs to be installed once. Updates after this one apply
+        automatically.
+      </p>
+      <div class="row">
+        <input id="url" value="__DOWNLOAD_URL__" readonly aria-label="Download address" />
+        <button id="copy" type="button">Copy</button>
+      </div>
+      <div class="status" id="status" role="status"></div>
+      <div class="version">__VERSION_LINE__</div>
+    </div>
+    <script>
+      (function () {
+        var field = document.getElementById("url");
+        var status = document.getElementById("status");
+        document.getElementById("copy").addEventListener("click", function () {
+          function done() {
+            status.textContent = "Copied to clipboard";
+            setTimeout(function () { status.textContent = ""; }, 2500);
+          }
+          // The Clipboard API needs a secure context. The runtime is served over
+          // plain http on 127.0.0.1, which browsers treat as secure, but fall
+          // back to the legacy path rather than leaving the button dead.
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(field.value).then(done, select);
+          } else {
+            select();
+          }
+          function select() {
+            field.removeAttribute("readonly");
+            field.select();
+            try { document.execCommand("copy"); done(); } catch (e) { /* leave it selected */ }
+            field.setAttribute("readonly", "");
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

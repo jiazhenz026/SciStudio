@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, nativeTheme, session } = require("electron");
+const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, session } = require("electron");
 const { spawn, spawnSync } = require("child_process");
 const crypto = require("crypto");
 const fs = require("fs");
@@ -33,6 +33,11 @@ const READY_TIMEOUT_MS = 120000;
 const HTTP_READY_TIMEOUT_MS = 30000;
 const DEFAULT_DEV_FRONTEND_URL = "http://127.0.0.1:5173";
 
+// #2097: mirrored verbatim from the repository LICENSE and pyproject.toml,
+// with a test pinning the three together so they cannot drift apart.
+const LICENSE_NAME = "Apache License 2.0";
+const COPYRIGHT = "Copyright 2026 Jiazhen Zhang";
+
 // #1775: OTA hot-update (backend + embedded frontend).
 const OTA_MANIFEST_TIMEOUT_MS = 8000;
 const OTA_DOWNLOAD_TIMEOUT_MS = 120000;
@@ -43,6 +48,21 @@ let splashWindow = null;
 let runtimeProcess = null;
 let isQuitting = false;
 let cachedMacLoginShellEnv = null;
+
+// #2097: facts injected by the frozen bootstrap loader (desktop/bootstrap.js).
+// Once this file runs from an OTA patch directory, `__dirname` no longer points
+// into the app bundle and `./package.json` is the patch's own manifest, so the
+// installed baseline, the resources path and the bundle root can only come from
+// the loader. Reading them locally is what would break the #1787 staleness
+// check, by comparing a patch against itself.
+let hostFacts = null;
+
+function host() {
+  if (!hostFacts) {
+    throw new Error("desktop/main.js was loaded without bootstrap.js calling start()");
+  }
+  return hostFacts;
+}
 
 // #1867: single-instance lock. A second launch must focus the existing window
 // instead of spawning a second backend (which would then orphan on quit). The
@@ -155,18 +175,17 @@ function safeError(message) {
 }
 
 function resourcesDir() {
-  if (app.isPackaged) {
-    return process.resourcesPath;
-  }
-  return path.join(__dirname, "resources");
+  return host().resourcesPath;
 }
 
 function repoRoot() {
-  return path.resolve(__dirname, "..");
+  return host().repoRoot;
 }
 
 function appIconPath() {
-  return path.join(__dirname, "assets", "icon.png");
+  // #2097: assets/ stays in the asar and does not travel with a shell patch, so
+  // this resolves against the bundle root rather than this file's directory.
+  return path.join(host().appRoot, "assets", "icon.png");
 }
 
 // --------------------------------------------------------------------------- //
@@ -178,17 +197,9 @@ function appIconPath() {
 // live patch; a known-good marker enables rollback if a patch fails to boot.
 // --------------------------------------------------------------------------- //
 function baselineVersion() {
-  try {
-    return (
-      ota.parseVersion(require("./package.json").version) || {
-        base: "0.0.0",
-        channel: "stable",
-        build: 0
-      }
-    );
-  } catch {
-    return { base: "0.0.0", channel: "stable", build: 0 };
-  }
+  // #2097: supplied by the loader from the asar's package.json. Reading
+  // `./package.json` here would resolve to the running patch's own manifest.
+  return host().baselineVersion;
 }
 
 function loadOtaConfig() {
@@ -282,6 +293,15 @@ function effectiveBuild() {
 }
 
 function recordKnownGood(build) {
+  // #2097: the runtime answered, so the shell that got us here booted cleanly.
+  // Clearing the loader's crash-loop marker here (rather than merely on
+  // startup) is what makes "this shell build never reached readiness" mean
+  // exactly that.
+  try {
+    host().clearBootAttempt();
+  } catch (error) {
+    safeError(`[scistudio] failed to clear the shell boot marker: ${error.message}`);
+  }
   try {
     writeJsonAtomic(knownGoodPath(), { build });
   } catch (error) {
@@ -1310,6 +1330,80 @@ function closeSplash() {
   splash.close();
 }
 
+// #2097: the About dialog and the menu that reaches it.
+//
+// There was no menu code at all, so Electron's default menu applied. That menu
+// shows `app.getVersion()` on macOS -- the version baked into the packaged
+// package.json, i.e. the INSTALLER BASELINE -- and offers no About item at all
+// on Windows or Linux. Reporting the baseline is wrong here by construction:
+// once a patch is applied the app is running a different build than the one
+// that was installed, which is the entire point of OTA.
+//
+// So About reports the effective build, and names the installed baseline
+// separately whenever the two differ -- the pair a support conversation needs.
+function aboutText() {
+  const baseline = baselineVersion();
+  const effective = effectiveBuild();
+  const lines = [`Version ${ota.displayBuildVersion(baseline.base, effective)}`];
+  if (effective !== baseline.build) {
+    lines.push(
+      `Installed ${ota.displayBuildVersion(baseline.base, baseline.build)}, updated without reinstalling`
+    );
+  }
+  lines.push("");
+  lines.push(
+    `Electron ${process.versions.electron} · Chromium ${process.versions.chrome} · Node ${process.versions.node}`
+  );
+  lines.push("");
+  lines.push(LICENSE_NAME);
+  lines.push(COPYRIGHT);
+  return lines.join("\n");
+}
+
+async function showAbout() {
+  await dialog.showMessageBox({
+    type: "info",
+    title: "About SciStudio",
+    message: "SciStudio",
+    detail: aboutText(),
+    buttons: ["OK"],
+    defaultId: 0,
+    cancelId: 0
+  });
+}
+
+function buildAppMenu() {
+  const isMac = process.platform === "darwin";
+  const about = { label: "About SciStudio", click: () => void showAbout() };
+  // Replacing the default menu wholesale means the standard roles have to be
+  // restored explicitly; without them copy/paste and the developer tools lose
+  // their accelerators.
+  const macAppMenu = {
+    label: app.name,
+    submenu: [
+      about,
+      { type: "separator" },
+      { role: "services" },
+      { type: "separator" },
+      { role: "hide" },
+      { role: "hideOthers" },
+      { role: "unhide" },
+      { type: "separator" },
+      { role: "quit" }
+    ]
+  };
+  return Menu.buildFromTemplate([
+    ...(isMac ? [macAppMenu] : []),
+    {
+      label: "File",
+      submenu: isMac ? [{ role: "close" }] : [about, { type: "separator" }, { role: "quit" }]
+    },
+    { role: "editMenu" },
+    { role: "viewMenu" },
+    { role: "windowMenu" }
+  ]);
+}
+
 function createWindow(url) {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -1369,86 +1463,98 @@ function stopRuntime() {
   }, 5000).unref();
 }
 
-app.whenReady().then(async () => {
-  // #1867: a second instance never acquired the lock; it has already requested
-  // quit and must not start a runtime or window.
-  if (!gotSingleInstanceLock) {
-    return;
-  }
-  try {
-    safeLog("[scistudio] electron ready");
-    splashWindow = createSplashWindow();
-    // #1868: enforce a mandatory OTA update before starting the runtime/window.
-    // Fail-open: returns true (continue) unless a fetched manifest marks the
-    // update mandatory and the user declines or it cannot be applied.
-    splashStatus("Checking for updates…");
-    const proceed = await maybeEnforceMandatoryUpdate();
-    if (!proceed) {
-      closeSplash();
+// #2097: entry point called by the frozen bootstrap loader once it has chosen a
+// shell. Everything above runs at require time and needs no host facts; every
+// lifecycle registration below does, so it waits for this call. The
+// single-instance lock above has already run, and the whenReady handler still
+// checks it.
+function start(injectedHost) {
+  hostFacts = injectedHost;
+
+  app.whenReady().then(async () => {
+    // #1867: a second instance never acquired the lock; it has already requested
+    // quit and must not start a runtime or window.
+    if (!gotSingleInstanceLock) {
       return;
     }
-    splashStatus("Starting the SciStudio runtime…");
-    const { ready } = await startRuntimeWithRollback();
-    safeLog(`[scistudio] waiting for HTTP readiness at ${ready.url}`);
-    splashStatus("Loading blocks and data types…");
-    await waitForHttpReady(ready.url);
-    // #1986: the runtime answered on this port, so it is worth reusing next
-    // launch to keep the renderer origin (and its persisted UI state) stable.
-    rememberRuntimePort(runtimePortModule.boundPortFromReady(ready));
-    // #1775: the runtime reached ready, so whatever patch is active booted
-    // cleanly; remember it as the rollback target for future launches.
-    recordKnownGood(effectiveBuild());
-    await clearCacheOnBuildChange();
-    const url = launchUrl(ready.url);
-    safeLog(`[scistudio] creating window for ${url}`);
-    splashStatus("Loading the interface…");
-    createWindow(url);
-    // #1775: check for an OTA update after the window is up so startup is never
-    // blocked on the network. Fire-and-forget; failures are logged, not fatal.
-    maybeCheckForUpdate().catch((error) => {
-      safeError(`[scistudio] update check error: ${error.message}`);
-    });
-  } catch (error) {
-    safeError(`[scistudio] startup failed: ${error instanceof Error ? error.stack : String(error)}`);
-    closeSplash();
-    await dialog.showMessageBox({
-      type: "error",
-      title: "SciStudio failed to start",
-      message: "SciStudio runtime did not start.",
-      detail: error instanceof Error ? error.message : String(error)
-    });
+    try {
+      safeLog("[scistudio] electron ready");
+      splashWindow = createSplashWindow();
+      // #1868: enforce a mandatory OTA update before starting the runtime/window.
+      // Fail-open: returns true (continue) unless a fetched manifest marks the
+      // update mandatory and the user declines or it cannot be applied.
+      splashStatus("Checking for updates…");
+      const proceed = await maybeEnforceMandatoryUpdate();
+      if (!proceed) {
+        closeSplash();
+        return;
+      }
+      splashStatus("Starting the SciStudio runtime…");
+      const { ready } = await startRuntimeWithRollback();
+      safeLog(`[scistudio] waiting for HTTP readiness at ${ready.url}`);
+      splashStatus("Loading blocks and data types…");
+      await waitForHttpReady(ready.url);
+      // #1986: the runtime answered on this port, so it is worth reusing next
+      // launch to keep the renderer origin (and its persisted UI state) stable.
+      rememberRuntimePort(runtimePortModule.boundPortFromReady(ready));
+      // #1775: the runtime reached ready, so whatever patch is active booted
+      // cleanly; remember it as the rollback target for future launches.
+      recordKnownGood(effectiveBuild());
+      await clearCacheOnBuildChange();
+      Menu.setApplicationMenu(buildAppMenu());
+      const url = launchUrl(ready.url);
+      safeLog(`[scistudio] creating window for ${url}`);
+      splashStatus("Loading the interface…");
+      createWindow(url);
+      // #1775: check for an OTA update after the window is up so startup is never
+      // blocked on the network. Fire-and-forget; failures are logged, not fatal.
+      maybeCheckForUpdate().catch((error) => {
+        safeError(`[scistudio] update check error: ${error.message}`);
+      });
+    } catch (error) {
+      safeError(`[scistudio] startup failed: ${error instanceof Error ? error.stack : String(error)}`);
+      closeSplash();
+      await dialog.showMessageBox({
+        type: "error",
+        title: "SciStudio failed to start",
+        message: "SciStudio runtime did not start.",
+        detail: error instanceof Error ? error.message : String(error)
+      });
+      app.quit();
+    }
+  });
+
+  app.on("before-quit", () => {
+    isQuitting = true;
+    stopRuntime();
+  });
+
+  app.on("window-all-closed", () => {
     app.quit();
-  }
-});
+  });
 
-app.on("before-quit", () => {
-  isQuitting = true;
-  stopRuntime();
-});
+  app.on("activate", () => {
+    if (mainWindow) {
+      mainWindow.show();
+    }
+  });
 
-app.on("window-all-closed", () => {
-  app.quit();
-});
+  // #1741: persist crashes that would otherwise vanish in a packaged app.
+  process.on("uncaughtException", (error) => {
+    safeError(`[scistudio] uncaughtException: ${error instanceof Error ? error.stack : String(error)}`);
+  });
 
-app.on("activate", () => {
-  if (mainWindow) {
-    mainWindow.show();
-  }
-});
+  process.on("unhandledRejection", (reason) => {
+    safeError(`[scistudio] unhandledRejection: ${reason instanceof Error ? reason.stack : String(reason)}`);
+  });
 
-// #1741: persist crashes that would otherwise vanish in a packaged app.
-process.on("uncaughtException", (error) => {
-  safeError(`[scistudio] uncaughtException: ${error instanceof Error ? error.stack : String(error)}`);
-});
+  app.on("render-process-gone", (_event, _webContents, details) => {
+    safeError(`[scistudio] render-process-gone: reason=${details.reason} exitCode=${details.exitCode}`);
+  });
 
-process.on("unhandledRejection", (reason) => {
-  safeError(`[scistudio] unhandledRejection: ${reason instanceof Error ? reason.stack : String(reason)}`);
-});
+  app.on("child-process-gone", (_event, details) => {
+    safeError(`[scistudio] child-process-gone: type=${details.type} reason=${details.reason}`);
+  });
+}
 
-app.on("render-process-gone", (_event, _webContents, details) => {
-  safeError(`[scistudio] render-process-gone: reason=${details.reason} exitCode=${details.exitCode}`);
-});
-
-app.on("child-process-gone", (_event, details) => {
-  safeError(`[scistudio] child-process-gone: type=${details.type} reason=${details.reason}`);
-});
+module.exports = { start };

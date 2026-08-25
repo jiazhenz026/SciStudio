@@ -208,3 +208,179 @@ test("shouldClearCache: a missing or unusable record clears", () => {
   assert.equal(ota.shouldClearCache({}, 22), true);
   assert.equal(ota.shouldClearCache({ build: "22" }, 22), true);
 });
+
+// --------------------------------------------------------------------------- //
+// #2097: which shell copy the frozen bootstrap loader runs.
+// --------------------------------------------------------------------------- //
+
+test("resolveShellSource: a dev source-checkout run is never patched", () => {
+  // #1801 applies to the shell exactly as it does to the backend tree: an edit
+  // to the worktree must always take effect, even with a patch pointer left
+  // behind by a packaged build.
+  assert.deepEqual(
+    ota.resolveShellSource({
+      isPackaged: false,
+      pointer: { build: 42 },
+      baselineBuild: 0,
+      patchShellExists: true
+    }),
+    { source: "checkout", build: 0 }
+  );
+});
+
+test("resolveShellSource: no pointer serves the baseline shell", () => {
+  assert.deepEqual(
+    ota.resolveShellSource({
+      isPackaged: true,
+      pointer: null,
+      baselineBuild: 25,
+      patchShellExists: false
+    }),
+    { source: "baseline", build: 25 }
+  );
+});
+
+test("resolveShellSource: a newer patch carrying a shell wins", () => {
+  assert.deepEqual(
+    ota.resolveShellSource({
+      isPackaged: true,
+      pointer: { build: 42 },
+      baselineBuild: 25,
+      patchShellExists: true
+    }),
+    { source: "patch", build: 42 }
+  );
+});
+
+test("resolveShellSource: a pre-shell-OTA patch falls back to the baseline shell", () => {
+  // A snapshot published before #2097 has src/ but no shell/. Its backend still
+  // serves from the patch; only the shell falls back. Supported mixed state.
+  assert.deepEqual(
+    ota.resolveShellSource({
+      isPackaged: true,
+      pointer: { build: 42 },
+      baselineBuild: 25,
+      patchShellExists: false
+    }),
+    { source: "baseline", build: 25 }
+  );
+});
+
+test("resolveShellSource: a patch at or below the baseline is stale, not active", () => {
+  // #1787 for the shell: installing a build over an older applied patch must not
+  // leave that patch's shell shadowing the freshly installed one. This is the
+  // case the 0.3.4 release depends on, which is why the installer version must
+  // carry a build number at least as high as the newest published build.
+  for (const patchBuild of [25, 24]) {
+    assert.deepEqual(
+      ota.resolveShellSource({
+        isPackaged: true,
+        pointer: { build: patchBuild },
+        baselineBuild: 25,
+        patchShellExists: true
+      }),
+      { source: "baseline", build: 25 },
+      `patch build ${patchBuild} against baseline 25 must not win`
+    );
+  }
+});
+
+test("shellBootRefused: a marker naming this patch build refuses it", () => {
+  assert.equal(ota.shellBootRefused({ build: 42 }, { source: "patch", build: 42 }), true);
+});
+
+test("shellBootRefused: a marker from a different build does not refuse", () => {
+  assert.equal(ota.shellBootRefused({ build: 41 }, { source: "patch", build: 42 }), false);
+});
+
+test("shellBootRefused: no marker never refuses", () => {
+  assert.equal(ota.shellBootRefused(null, { source: "patch", build: 42 }), false);
+});
+
+test("shellBootRefused: the baseline is the fallback and can never be refused", () => {
+  // Refusing the baseline would leave nothing to run, turning one bad patch into
+  // an unstartable app.
+  assert.equal(ota.shellBootRefused({ build: 25 }, { source: "baseline", build: 25 }), false);
+  assert.equal(ota.shellBootRefused({ build: 0 }, { source: "checkout", build: 0 }), false);
+});
+
+test("shellMarkerAction: a fresh patch is recorded, a quarantined one is kept", () => {
+  assert.equal(ota.shellMarkerAction(null, { source: "patch", build: 42 }), "record");
+  assert.equal(ota.shellMarkerAction({ build: 41 }, { source: "patch", build: 42 }), "record");
+  assert.equal(ota.shellMarkerAction({ build: 42 }, { source: "patch", build: 42 }), "keep");
+  assert.equal(ota.shellMarkerAction({ build: 42 }, { source: "baseline", build: 25 }), "clear");
+  assert.equal(ota.shellMarkerAction(null, { source: "checkout", build: 0 }), "clear");
+});
+
+test("mayClearShellMarker: only the patch the marker names may clear it", () => {
+  assert.equal(ota.mayClearShellMarker({ source: "patch", build: 42 }), true);
+  assert.equal(ota.mayClearShellMarker({ source: "baseline", build: 25 }), false);
+  assert.equal(ota.mayClearShellMarker({ source: "checkout", build: 0 }), false);
+});
+
+test("a shell that never reaches readiness is refused for good, not every other launch", () => {
+  // Regression for the alternating crash loop: active.json keeps pointing at the
+  // broken build, so clearing the marker on fallback would re-select it next
+  // launch and the app would flip between crashing and working forever.
+  //
+  // Simulated launch loop. `reachesReadiness` models a patch shell that always
+  // dies before HTTP readiness; the baseline always comes up.
+  let marker = null;
+  const pointer = { build: 42 };
+  const baselineBuild = 25;
+  const ran = [];
+
+  for (let launch = 0; launch < 5; launch += 1) {
+    const candidate = ota.resolveShellSource({
+      isPackaged: true,
+      pointer,
+      baselineBuild,
+      patchShellExists: true
+    });
+    const action = ota.shellMarkerAction(marker, candidate);
+    let shell = candidate;
+    if (action === "keep") {
+      shell = { source: "baseline", build: baselineBuild };
+    } else if (action === "record") {
+      marker = { build: candidate.build };
+    } else {
+      marker = null;
+    }
+
+    ran.push(shell.source);
+    const reachesReadiness = shell.source !== "patch";
+    if (reachesReadiness && ota.mayClearShellMarker(shell)) {
+      marker = null;
+    }
+  }
+
+  // One attempt, then the baseline forever — never a second crash.
+  assert.deepEqual(ran, ["patch", "baseline", "baseline", "baseline", "baseline"]);
+  assert.deepEqual(marker, { build: 42 }, "the quarantine must survive a healthy baseline launch");
+});
+
+test("a newer patch is still tried after an older one was quarantined", () => {
+  // The quarantine must not become a permanent refusal of all future updates.
+  const marker = { build: 42 };
+  const candidate = ota.resolveShellSource({
+    isPackaged: true,
+    pointer: { build: 43 },
+    baselineBuild: 25,
+    patchShellExists: true
+  });
+  assert.deepEqual(candidate, { source: "patch", build: 43 });
+  assert.equal(ota.shellMarkerAction(marker, candidate), "record");
+});
+
+test("reinstalling over a quarantined patch clears the marker", () => {
+  // A baseline that supersedes the patch (#1787) is a fresh start, so the stale
+  // quarantine must not outlive it.
+  const candidate = ota.resolveShellSource({
+    isPackaged: true,
+    pointer: { build: 42 },
+    baselineBuild: 42,
+    patchShellExists: true
+  });
+  assert.deepEqual(candidate, { source: "baseline", build: 42 });
+  assert.equal(ota.shellMarkerAction({ build: 42 }, candidate), "clear");
+});

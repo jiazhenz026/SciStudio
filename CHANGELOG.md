@@ -300,6 +300,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [#2097] **The Electron shell updates over the air like the rest of the app.**
+  Changing `main.js`, `preload.js`, `ota.js`, `runtime-port.js` or `splash.html`
+  used to require a full installer download — the CHANGELOG entry for #1805
+  records the cost of that plainly. The shell is ordinary JavaScript run by the
+  Electron binary, so it is now carried in the **same OTA snapshot** as the
+  backend tree, under `shell/` beside `src/`, sharing one manifest and one build
+  number. "Requires a reinstall" shrinks from *any JS change* to *Electron,
+  interpreter, native dependency, or bootstrap-loader changes only*.
+  One snapshot rather than a second manifest is deliberate: separate build
+  numbers would create a shell-42-plus-backend-39 compatibility matrix to reason
+  about at every launch, where one number means, atomically, all of this app's
+  interpreted code. The cost is that a shell-only fix republishes the backend
+  snapshot too.
+  The asar entry point is now a **frozen bootstrap loader** whose only job is to
+  choose a shell, hand it the facts it can no longer determine for itself, and
+  survive one that fails to boot. The baseline shell is the copy already inside
+  the asar — signed, read-only, and impossible for a patch to corrupt — so
+  nothing extra is staged and the staging scripts are untouched. The loader
+  reads its update logic from the asar rather than from the shell it is about to
+  load, because it is deciding which shell to trust.
+  Four resolvers in the shell moved onto loader-supplied facts, because
+  `__dirname` stops meaning "the app bundle" once the shell runs from userData.
+  One of them mattered far more than the others: had `baselineVersion()` kept
+  reading `./package.json`, a patch would have been compared against *itself*,
+  the #1787 staleness check would have silently stopped working, and a leftover
+  patch would shadow a freshly installed build forever. A test asserts that
+  `require` never comes back.
+  A bad shell patch kills the main process outright, so unlike the backend's
+  rollback there is nothing left running to recover. A marker naming the shell
+  build is therefore written to disk **before** it is loaded and cleared only
+  once the runtime reaches HTTP readiness; a marker that survives means that
+  build never booted, and it is refused in favour of the baseline. Only a patch
+  is ever refused — refusing the baseline would turn one bad patch into an
+  unstartable app.
+  That refusal is **sticky**, which is the part that actually escapes the loop:
+  the active pointer still names the broken build, so clearing the marker on the
+  way to the baseline would re-select the same shell next launch and the app
+  would alternate between crashing and working forever. It survives a failed
+  load too, and is cleared only when the build it names genuinely comes up, or
+  when a different build supersedes it — so a newer patch is still tried and a
+  reinstall is a fresh start.
+  Snapshots published before this change carry no `shell/` at all. Such a patch
+  keeps serving the backend while the baseline shell runs, which is a supported
+  state rather than an error.
+  **About now reports the build that is running.** There was no menu code at
+  all, so Electron's default menu applied: it shows `app.getVersion()` — the
+  installer baseline — and offers no About item whatsoever on Windows or Linux.
+  Reporting the baseline is wrong by construction here, because a patched app is
+  running a different build than the one that was installed. About now shows the
+  effective build and names the installed baseline separately when the two
+  differ, alongside the Electron/Chromium/Node versions and the Apache-2.0
+  licence and copyright. The standard menu roles are restored explicitly, since
+  replacing the default menu otherwise costs copy/paste and the developer tools
+  their accelerators.
+  **The reinstall notice is a repository template rather than a description.**
+  A client that cannot be hot-updated any further has to be told to reinstall,
+  and doing that through the mandatory *incompatible* dialog puts the address in
+  a native message box, where it is neither clickable nor selectable — the user
+  has to retype it, and that dialog cannot be changed because it is drawn by the
+  one part a patch cannot replace. Publishing it as a mandatory *patch* delivers
+  an ordinary web page instead, where the address selects and a button copies
+  it. `scripts/ota_publish.py --reinstall-notice <url>` builds that snapshot from
+  `scripts/templates/reinstall-notice.html`, injecting the page into the
+  **archive** rather than the staged tree so a checkout can never be left
+  quietly shipping the notice as its real frontend.
+  Design record: `docs/specs/desktop-shell-ota-hot-update.md` (status `Draft`:
+  the code and its platform-independent tests have landed, but applying a real
+  shell patch end to end, and rolling a deliberately broken one back, are
+  owner-executed on an installed build and have not been performed).
+  Tests: `desktop/test/bootstrap.test.js`, `desktop/test/ota.test.js`,
+  `tests/scripts/test_ota_publish.py`.
+  (@claude, 2026-08-23, branch: guided/2097-shell-ota-bootstrap-loader)
+
 - [#2096] **The macOS build is signed with a Developer ID certificate, hardened,
   notarized and stapled**, so a machine that has never had SciStudio installed
   launches the dmg by double-clicking it instead of being stopped by Gatekeeper
