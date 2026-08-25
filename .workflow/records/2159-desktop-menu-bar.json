@@ -1858,6 +1858,12 @@
       "at": "2026-08-25T09:09:29.836250Z",
       "pattern": "scripts/ota_publish.py",
       "reason": "CI Test (Python 3.11) caught shell-file drift: menu.js added to asar files but not to the OTA publisher SHELL_FILES"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T09:12:28.520597Z",
+      "pattern": "tests/scripts/test_ota_publish.py",
+      "reason": "fake-desktop test fixture must carry menu.js after SHELL_FILES gained it"
     }
   ],
   "session_id": "0fd47990-aab8-4b63-8dbc-bec76357366b",
@@ -1885,6 +1891,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/__tests__/BringInMyWorkToolbarEntry.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T09:12:28.520623Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/scripts/test_ota_publish.py",
       "rationale": null,
       "verified_in_diff": null
     }
