@@ -175,6 +175,7 @@ def _enforce_final_commit_message(
         " (`git commit --amend`), e.g. 'fix(#123): short summary'."
     )
 
+
 _CHECK_EVIDENCE_IGNORED_PREFIXES: tuple[str, ...] = (".workflow/records/",)
 _CHECK_FINGERPRINT_VERSION = "gate-check-input-v2"
 
