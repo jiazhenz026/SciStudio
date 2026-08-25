@@ -250,11 +250,30 @@ export APPLE_API_KEY_ID=... APPLE_API_ISSUER=...
 export SCISTUDIO_OTA_CHANNEL=alpha
 npm --prefix desktop run build:python:mac
 npm --prefix desktop run stage:sh
-npm --prefix desktop run dist:dmg
+npm --prefix desktop run dist:dmg:arm64   # or dist:dmg:x64 for an Intel build
 ```
 
 The Developer ID Application certificate must be in the local keychain;
-electron-builder selects it automatically.
+electron-builder selects it automatically. `dist:dmg:<arch>` produces the
+runtime and shell for the arch of the machine it runs on, so an Intel dmg is
+built on an Intel Mac (or under Rosetta) and an arm64 dmg on Apple Silicon.
+`dist:dmg` remains an alias for `dist:dmg:arm64`.
+
+### 6.5 Both architectures are built by CI (#2165)
+
+The dmg job is a matrix over architecture, one leg per runner whose native arch
+matches the artifact — arm64 on `macos-15`, x64 on `macos-13`, the last
+Intel-native GitHub runner. `build:python:mac` keys off `uname -m`, so each
+runner bundles the matching CPython automatically and no Rosetta cross-build is
+involved. `dist:dmg:${{ matrix.arch }}` passes the electron-builder arch flag,
+and `build.dmg.artifactName` (`${productName}-${version}-${arch}.dmg`) gives the
+two dmgs distinct, arch-suffixed names so both can be attached to one release
+without colliding.
+
+Before this, only arm64 had a CI path and the Intel dmg was built by hand
+(#2165). The signing, notarization and verification steps above are shared by
+both legs, so the Intel dmg is signed, notarized and stapled on exactly the same
+terms as the Apple Silicon one.
 
 `dist:dmg` signs but does not notarize (section 6.5), so a local dmg still
 meets Gatekeeper until the two remaining phases are run by hand:

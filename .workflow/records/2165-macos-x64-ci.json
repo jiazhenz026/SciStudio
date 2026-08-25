@@ -1,0 +1,82 @@
+{
+  "base_ref": "origin/main",
+  "branch": "ci/2165-macos-x64-ci",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      ".github/workflows/desktop-macos-dmg.yml",
+      "desktop/package.json",
+      "docs/specs/desktop-macos-signing-notarization.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-25T21:00:34.781942Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/desktop-macos-signing-notarization.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2165,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Build the macOS Intel (x64) 0.3.4 dmg as a signed+notarized release artifact and add x64 to the CI dmg workflow (owner request 2026-08-25).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2165-macos-x64-ci",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-25T21:00:34.781778Z",
+      "pattern": "desktop/test/macos-signing.test.js",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "f053321b-7bf7-402e-b384-3a5b90247ff4",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-08-25T21:00:34.781947Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/macos-signing.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T21:00:34.781949Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_workflow_expressions.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

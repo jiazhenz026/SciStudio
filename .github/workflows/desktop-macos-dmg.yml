@@ -25,11 +25,30 @@ concurrency:
 
 jobs:
   build-dmg:
-    name: Build macOS DMG
-    # arm64 (Apple Silicon) runner so the whole chain is arm64-consistent:
-    # build:python:mac keys off `uname -m` and dist:dmg now targets --arm64
-    # (#1747). An Intel runner here would bundle x64 Python in an arm64 shell.
-    runs-on: macos-15
+    name: Build macOS DMG (${{ matrix.arch }})
+    # #2165: one leg per architecture, each on a runner whose native arch
+    # matches the artifact. build:python:mac keys off `uname -m` and
+    # dist:dmg:<arch> passes the matching electron-builder flag, so the whole
+    # chain stays arch-consistent without Rosetta.
+    #
+    # The Intel leg was written against macos-13. GitHub has since retired that
+    # image -- it supports only the latest two macOS versions -- so a leg pinned
+    # to it fails on an unknown label instead of building anything.
+    # macos-15-intel is the current x64 image and pairs with the arm64 leg's
+    # macOS 15. Note it is a larger runner, which is billed even for public
+    # repositories, unlike the arm64 leg.
+    #
+    # Both legs belong to this run's concurrency group, so they do not cancel
+    # each other; cancel-in-progress only supersedes an earlier run.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
     # #2172: signing every Mach-O in the bundle and then waiting on Apple's
     # notarization queue both run silently for a long time, so a hang is
     # indistinguishable from slowness. Without a timeout GitHub's default of six
@@ -121,7 +140,7 @@ jobs:
         # package.json. The build log still prints "skipped macOS notarization"
         # from macPackager; that is the setting working, not a failure.
         # Notarization is the next step, and it does not wait.
-        run: npm --prefix desktop run dist:dmg
+        run: npm --prefix desktop run dist:dmg:${{ matrix.arch }}
 
       # #2176: submit and stop. Apple held a 0.3.4 submission for over an hour
       # without a verdict (61 consecutive `In Progress` polls), which is not a
@@ -203,7 +222,7 @@ jobs:
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v7
         with:
-          name: scistudio-macos-dmg
+          name: scistudio-macos-dmg-${{ matrix.arch }}
           path: desktop/dist/*.dmg
           if-no-files-found: error
 
