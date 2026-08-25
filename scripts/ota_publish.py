@@ -378,9 +378,7 @@ def main(argv: list[str] | None = None) -> int:
     tarball = workdir / name
     notice = None
     if args.reinstall_notice:
-        notice = render_reinstall_notice(
-            args.reinstall_notice, f"Installed {baseline['base']} · update {build}"
-        )
+        notice = render_reinstall_notice(args.reinstall_notice, f"Installed {baseline['base']} · update {build}")
         print(f"Snapshot SPA replaced with the reinstall notice -> {args.reinstall_notice}")
 
     print(f"Packing snapshot of {src_dir} -> {tarball.name} ...")

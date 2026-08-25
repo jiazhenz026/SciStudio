@@ -256,6 +256,7 @@ def test_shell_sources_refuses_an_incomplete_shell(mod: ModuleType, tmp_path: Pa
         mod.shell_sources(desktop)
     assert "main.js" in str(excinfo.value)
 
+
 # --------------------------------------------------------------------------- #
 # #2097 spec 8.1: the reinstall notice delivered as a patch.
 # --------------------------------------------------------------------------- #
