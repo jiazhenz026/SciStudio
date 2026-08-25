@@ -480,6 +480,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2160] **The documentation reader can no longer be talked out of the
+  documentation.** `GET /api/user-docs/pages/{path}` split the request path on
+  `/` alone, so a backslash stayed inside a single segment: it passed the `..`
+  refusal, and then Windows read it as a separator the moment the path was
+  joined. `%2e%2e%5cversion.py` returned `scistudio/version.py`, and repeated
+  climbs reached the repository root — served with the file's full text, off a
+  server that binds `0.0.0.0` by default. The route now follows the rule the
+  repository already had for exactly this
+  (`tutorials.actions.validate_relative_path`): a backslash is refused outright
+  because it is a separator on Windows and a filename character elsewhere,
+  absolute and drive-lettered forms go with it, and a realpath containment check
+  against the tree root sits behind that. Reachable only by requesting the route
+  directly — the reader itself only ever asks for paths the backend listed.
+
 - [#2148] **Re-running a block that writes an array no longer fails on Windows
   while the machine is busy.** Re-running such a block raised
   `[WinError 5] Access is denied` from `auto_flush`, and only ever on a loaded

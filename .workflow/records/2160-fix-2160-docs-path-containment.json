@@ -1,0 +1,93 @@
+{
+  "base_ref": null,
+  "branch": "fix/2160-docs-path-containment",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/routes/user_docs.py",
+      "tests/api/test_user_docs.py",
+      "frontend/src/components/LearningCenter.parts/docsNav.ts",
+      "frontend/src/components/LearningCenter.parts/__tests__/docsNav.test.ts",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-25T06:41:11.087470Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T06:41:11.087491Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "no contract change; FR-084b already requires the documentation be served from the packaged tree, and containment is an implementation property of that route rather than a new requirement",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T06:41:11.087497Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "a defect fix in one route, no architectural decision",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2160,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Reject Windows separators before resolving doc paths: an encoded backslash stays inside one segment, passes the '..' check, and escapes _user_guide, so /api/user-docs/pages/%2e%2e%5cversion.py served scistudio/version.py and repeated climbs reached the repository root. Reject both platform separators in every segment, or verify the resolved filesystem path remains beneath the documentation root. PR #2158 is merged; land this as a new PR.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2160-fix-2160-docs-path-containment",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "b5d02b8b-63de-4487-bb99-4dcd9770f530",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-08-25T06:41:11.087501Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_user_docs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T06:41:11.087505Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/LearningCenter.parts/__tests__/docsNav.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
