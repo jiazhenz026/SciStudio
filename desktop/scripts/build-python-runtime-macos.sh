@@ -27,9 +27,25 @@ esac
 
 mkdir -p "$CACHE_ROOT" "$RESOURCES_ROOT"
 
+# #2162: this API query is rate limited per egress IP when unauthenticated, and
+# every GitHub Actions runner shares that pool -- a macOS build died 0.24s in
+# with `curl: (56) ... 403` while earlier ones had succeeded, so the difference
+# was timing rather than configuration. A token raises the budget from 60
+# requests an hour per IP to 1000 per repository.
+#
+# Only the QUERY is authenticated. The download below uses browser_download_url,
+# which is public CDN and must not carry an Authorization header. The header is
+# omitted entirely when no token is set, so running this script locally works.
+GH_API_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
 if [ ! -f "$ASSET_JSON" ]; then
-  curl -fsSL "https://api.github.com/repos/astral-sh/python-build-standalone/releases/latest" \
-    -o "$ASSET_JSON"
+  if [ -n "$GH_API_TOKEN" ]; then
+    curl -fsSL -H "Authorization: Bearer $GH_API_TOKEN" \
+      "https://api.github.com/repos/astral-sh/python-build-standalone/releases/latest" \
+      -o "$ASSET_JSON"
+  else
+    curl -fsSL "https://api.github.com/repos/astral-sh/python-build-standalone/releases/latest" \
+      -o "$ASSET_JSON"
+  fi
 fi
 
 ASSET_URL="$(
