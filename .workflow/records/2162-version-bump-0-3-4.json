@@ -472,5 +472,22 @@
   "session_id": "240bf74d-8c15-4973-b645-2849df412187",
   "strictness_tier": 1,
   "task_kind": "guided",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-08-25T07:24:39.608986Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packaging/test_desktop_runtime_build_auth.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T07:24:39.609007Z",
+      "class": "version-bump",
+      "kind": "na",
+      "path": null,
+      "rationale": "The bump itself is covered by tests/packaging/test_version_alignment.py, which reads the SSOT and is therefore version-agnostic by construction; it passes unmodified and editing it for each bump would be churn without signal. The API-authentication fix folded into this PR does get a new test.",
+      "verified_in_diff": null
+    }
+  ]
 }
