@@ -4,10 +4,11 @@ ADR-053 Learning Center spec, FR-045 … FR-055
 (``docs/specs/adr-053-learning-center.md``).
 
 The vocabulary is **core-owned** (FR-045). Tutorials reference terms; they do
-not define them. It is the sixteen terms FR-047 requires, plus ``config_matches``
-(see :func:`_eval_config_matches` for the gap it closes — FR-047 sets a floor
-rather than a ceiling, and §4.5 records that core extends the vocabulary as
-tutorials find it short), plus the ``all`` and ``any`` combinators of FR-048.
+not define them. It is the sixteen terms FR-047 originally required, plus the
+core-added ``config_matches``, ``run_failed``, and ``plot_rendered`` (FR-047
+sets a floor rather than a ceiling, and §4.5 records that core extends the
+vocabulary as tutorials find it short), plus the ``all`` and ``any``
+combinators of FR-048.
 
 **Negation is deliberately absent.** FR-048's reason, kept here because the
 next reader will otherwise assume it was an oversight: a step that advances
@@ -74,6 +75,7 @@ __all__ = [
     "READING_TERMS",
     "TERM_SPECS",
     "UI_EVENT_NAMES",
+    "UI_EVENT_SPECS",
     "UNSATISFIABLE_LIBRARY_KINDS",
     "VOCABULARY",
     "Condition",
@@ -82,11 +84,13 @@ __all__ = [
     "ProductState",
     "RunSummary",
     "TermSpec",
+    "UiEventSpec",
     "build_event_term_map",
     "evaluate",
     "event_types_for_condition",
     "parse_condition",
     "terms_for_event",
+    "ui_event_target_arg",
 ]
 
 
@@ -146,18 +150,20 @@ _SPECS: tuple[TermSpec, ...] = (
     ),
     TermSpec(
         name="run_succeeded",
-        judges="a run of the workflow, or of a given node, completed successfully",
-        optional=("workflow_id", "node_id"),
+        judges="a run of the workflow, of a given node, or of any node of a given block type, completed successfully",
+        optional=("workflow_id", "node_id", "block_type", "since_step_entry"),
     ),
     TermSpec(
         name="run_failed",
         judges="the most recent run ended without succeeding",
-        optional=("workflow_id",),
+        optional=("workflow_id", "since_step_entry"),
     ),
     TermSpec(
         name="port_has_output",
-        judges="a given output port holds data",
-        required=("node_id", "port"),
+        judges="a given output port holds data, on a named node or on any node of a given block type",
+        required=("port",),
+        optional=("node_id", "block_type"),
+        one_of=(("node_id", "block_type"),),
     ),
     TermSpec(
         name="block_registered",
@@ -176,8 +182,13 @@ _SPECS: tuple[TermSpec, ...] = (
     ),
     TermSpec(
         name="plot_exists",
-        judges="a plot exists, optionally bound to a given block's output",
-        optional=("plot_id", "node_id", "port"),
+        judges="a plot exists, optionally bound to a given block's output by node id or block type",
+        optional=("plot_id", "node_id", "block_type", "port"),
+    ),
+    TermSpec(
+        name="plot_rendered",
+        judges="a rendered figure exists for a plot, addressed like plot_exists",
+        optional=("plot_id", "node_id", "block_type", "port"),
     ),
     TermSpec(
         name="file_exists",
@@ -201,8 +212,9 @@ _SPECS: tuple[TermSpec, ...] = (
     ),
     TermSpec(
         name="interaction_completed",
-        judges="an interactive block's panel was submitted",
-        required=("node_id",),
+        judges="an interactive block's panel was submitted, on a named node or on any node of a given block type",
+        optional=("node_id", "block_type"),
+        one_of=(("node_id", "block_type"),),
     ),
     TermSpec(
         name="page_reached",
@@ -211,14 +223,18 @@ _SPECS: tuple[TermSpec, ...] = (
     ),
     TermSpec(
         name="ui_event",
-        judges="a named frontend event was reported",
+        judges="a named frontend event was reported, optionally for a named target",
         required=("name",),
+        # The union of every event's target argument. Which one a given event
+        # actually takes is `UI_EVENT_SPECS`, checked separately by
+        # `_check_ui_event_target`: this list only says the word is spellable.
+        optional=("block_type", "plot_id", "status"),
     ),
 )
 
 TERM_SPECS: Mapping[str, TermSpec] = MappingProxyType({spec.name: spec for spec in _SPECS})
-"""Every term, each with the arguments it accepts: FR-047's sixteen plus
-``config_matches``."""
+"""Every term, each with the arguments it accepts: FR-047's sixteen plus the
+core-added ``config_matches``, ``run_failed``, and ``plot_rendered``."""
 
 VOCABULARY: frozenset[str] = frozenset(TERM_SPECS)
 """FR-045: the core-owned term set. This is the single declaration of it.
@@ -231,13 +247,66 @@ which :mod:`scistudio.tutorials.manifest` calls during validation (FR-049).
 COMBINATORS: frozenset[str] = frozenset({"all", "any"})
 """FR-048. Negation is not here and is not an omission; see the module docstring."""
 
-UI_EVENT_NAMES: frozenset[str] = frozenset(
-    {"preview_expanded", "block_source_viewed", "node_selected", "plot_rendered"}
+
+@dataclass(frozen=True)
+class UiEventSpec:
+    """One reportable frontend event, and the target argument it may carry.
+
+    ``target_arg`` follows the FR-089b precedent for highlight entities: an
+    event acting on one element among many of its kind declares the argument
+    that says which one — ``block_type`` for a block acted on, ``plot_id`` for
+    a plot — and an event whose surface is a singleton declares none. The
+    argument is optional on both sides: a bare report satisfies a bare-name
+    condition, and a condition naming a target waits for a report carrying it.
+    """
+
+    name: str
+    target_arg: str | None = None
+
+
+UI_EVENT_SPECS: tuple[UiEventSpec, ...] = (
+    UiEventSpec(name="preview_expanded"),
+    UiEventSpec(name="block_source_viewed", target_arg="block_type"),
+    UiEventSpec(name="node_selected", target_arg="block_type"),
+    UiEventSpec(name="plot_rendered", target_arg="plot_id"),
+    # Bare, unlike ``plot_rendered``: the export runs from the preview surface,
+    # whose target is the rendered artifact (``kind="plot_artifact"``) and does
+    # not carry the plot's id. A step that wants to know the reader saved the
+    # figure is asking about the act, and one plot is open at a time.
+    UiEventSpec(name="plot_exported"),
+    # Also bare: a step asks the reader to open one of the items a collection
+    # preview lists, and which one is not the point — the point is that they
+    # looked at the data before being told something about it.
+    UiEventSpec(name="preview_item_opened"),
+    UiEventSpec(name="run_selected", target_arg="status"),
 )
+"""Each reportable event with the target argument it may carry (FR-052, #2063)."""
+
+_UI_EVENT_SPECS_BY_NAME: Mapping[str, UiEventSpec] = MappingProxyType({spec.name: spec for spec in UI_EVENT_SPECS})
+
+
+def ui_event_target_arg(name: str) -> str | None:
+    """The target argument *name* may carry, or ``None`` for a bare-only event.
+
+    Exposed for the API layer, which validates a reported event's target the
+    same way manifest validation validates a condition's — one table, read from
+    both sides, rather than a second copy in the route.
+    """
+    spec = _UI_EVENT_SPECS_BY_NAME.get(name)
+    return None if spec is None else spec.target_arg
+
+
+UI_EVENT_NAMES: frozenset[str] = frozenset(spec.name for spec in UI_EVENT_SPECS)
 """The closed set of frontend events a ``ui_event`` condition may name (FR-052).
 
 Every member is FR-052's own motivating case: real product actions that leave
 no backend state behind, which is the entire reason that requirement exists.
+``run_selected`` is the newest (#2135) and the clearest of the four after
+``node_selected``: History knows which runs exist, and the backend is never
+told which of them the reader is looking at. Its target is the selected run's
+*status* rather than its id, because run ids are minted at run time and a
+manifest cannot name one — while what a step actually wants to wait for is
+"they picked a run that succeeded", which the status says exactly.
 Selecting a node is the clearest of the three — the backend is told which
 *workflow* is being edited and never which node is selected, so "the reader
 clicked the block" is knowable nowhere else. Everything else a tutorial waits on
@@ -271,34 +340,26 @@ waiting on a run to succeed, because the claim is the conditions themselves.
 """
 
 LIBRARY_KINDS: frozenset[str] = frozenset({"block", "type", "previewer"})
-"""The three kinds ``library_contains`` is specified to judge (FR-047).
+"""The three kinds ``library_contains`` judges (FR-047), all satisfiable.
 
-``previewer`` is **specified but not yet satisfiable**, and is kept here on
-purpose. Deleting it would leave the next reader to "add" it back without
-knowing it was ever considered; see :data:`UNSATISFIABLE_LIBRARY_KINDS` for
-what happens to it at validation and why.
+``previewer`` spent its first months **specified but not satisfiable**: the
+scoped library created ``blocks/`` and ``types/`` only, and the previewer
+registry did not scan it, so the kind sat in
+:data:`UNSATISFIABLE_LIBRARY_KINDS` with its reason. #2086 gave the scoped
+library a ``previewers/`` tier riding the user-tier slot the previewer
+registry gained with #2017, so the kind is judgeable like the other two.
 """
 
-UNSATISFIABLE_LIBRARY_KINDS: Mapping[str, str] = MappingProxyType(
-    {
-        "previewer": (
-            "the tutorial-scoped library has no previewer tier yet — "
-            "scoped_library_dirs() creates blocks/ and types/ only, and the previewer "
-            "registry does not scan the library at all, so the condition can never "
-            "become true. The user previewer tier is out of scope per spec assumption "
-            "A-006 and is tracked at #2017; this term will accept the kind once it exists"
-        ),
-    }
-)
+UNSATISFIABLE_LIBRARY_KINDS: Mapping[str, str] = MappingProxyType({})
 """Library kinds the vocabulary declares but the product cannot yet satisfy.
 
-FR-047 names "block, type, or previewer", so accepting the kind in the
-vocabulary is not a mistake — it is written against a product that does not
-exist yet. But a tutorial declaring it today would leave the reader on a step
-that can never complete and never says why, which is the failure FR-049 exists
-to prevent by rejecting at validation rather than at step nine. So the kind is
-declared, and rejected with its reason and its tracking issue, rather than
-silently accepted or silently removed.
+Empty today: ``previewer``, the one entry this mapping was built for, left it
+when the tutorial-scoped library grew a ``previewers/`` tier (#2086). The
+mechanism stays, and deliberately: FR-047's shape — a spec written against a
+product that does not fully exist yet — can recur, and when it does the kind
+belongs here with its reason and tracking issue rather than being silently
+accepted (stranding the reader on a step that can never complete, the failure
+FR-049 exists to prevent) or silently removed from the vocabulary.
 """
 
 _CLOSED_ARG_VALUES: Mapping[tuple[str, str], frozenset[str]] = MappingProxyType(
@@ -406,6 +467,33 @@ def _check_args(spec: TermSpec, args: Mapping[str, Any], *, field_name: str) -> 
         pattern = args.get("pattern")
         if not isinstance(pattern, str) or not pattern.strip():
             raise ConditionValidationError(f"{field_name}: config_matches pattern must be a non-empty string")
+    if spec.name == "ui_event":
+        _check_ui_event_target(args, field_name=field_name)
+    if "since_step_entry" in args and not isinstance(args["since_step_entry"], bool):
+        raise ConditionValidationError(
+            f"{field_name}: since_step_entry must be true or false, got {args['since_step_entry']!r}"
+        )
+
+
+def _check_ui_event_target(args: Mapping[str, Any], *, field_name: str) -> None:
+    """Reject a ``ui_event`` target argument the named event does not carry.
+
+    The generic argument check has already confirmed membership in the term's
+    argument set and ``_CLOSED_ARG_VALUES`` has confirmed the name, so what is
+    left is the per-name pairing (FR-052, #2063): ``block_type`` belongs to the
+    block-shaped events and ``plot_id`` to the plot-shaped one, and a condition
+    pairing them wrongly would wait forever on a report no emitter sends —
+    which is FR-049's step-nine failure, caught at validation instead.
+    """
+    spec = _UI_EVENT_SPECS_BY_NAME.get(str(args.get("name")))
+    if spec is None:  # pragma: no cover - _CLOSED_ARG_VALUES rejects the name first
+        return
+    extras = sorted(set(args) - {"name"})
+    allowed = () if spec.target_arg is None else (spec.target_arg,)
+    unexpected = [key for key in extras if key not in allowed]
+    if unexpected:
+        takes = f"takes only {spec.target_arg}" if spec.target_arg else "takes no target argument"
+        raise ConditionValidationError(f"{field_name}.ui_event: {spec.name!r} {takes}; got {', '.join(unexpected)}")
 
 
 @provisional(since="0.3.4")
@@ -467,6 +555,12 @@ class RunSummary:
     workflow_id: str
     succeeded: bool
     succeeded_node_ids: frozenset[str] = frozenset()
+    started_at: str | None = None
+    """ISO-8601 start time, for ``since_step_entry`` scoping (#2066).
+
+    ``None`` when the projecting layer has no timestamp for the run; such a
+    record is outside every since-scoped question, because a step asking for a
+    *new* run must not advance on one whose time nobody knows."""
 
 
 @provisional(since="0.3.4")
@@ -500,6 +594,18 @@ class ProductState(Protocol):
         """``(plot_id, node_id, output_port)`` for every plot that exists."""
         ...
 
+    def rendered_plots(self) -> tuple[tuple[str, str, str, str], ...]:
+        """``(workflow_id, node_id, output_port, plot_id)`` for every plot with a rendered figure.
+
+        Product truth for the backend ``plot_rendered`` term (#2066): a figure
+        exists as display artifacts in the preview cache, whoever caused the
+        render and whether or not anyone was watching. The ``ui_event`` of the
+        same name deliberately coexists with it and answers a different
+        question — the *reader saw* it render on their screen — which is why
+        neither replaces the other.
+        """
+        ...
+
     def run_records(self) -> tuple[RunSummary, ...]:
         """The recent runs, **most recent first**.
 
@@ -525,6 +631,10 @@ class ProductState(Protocol):
     def pages_reached(self) -> frozenset[str]: ...
 
     def ui_events(self) -> frozenset[str]: ...
+
+    def ui_events_with_targets(self) -> frozenset[tuple[str, str]]:
+        """``(name, target)`` for every reported event that carried a target."""
+        ...
 
 
 # ---------------------------------------------------------------------------
@@ -631,7 +741,7 @@ def _eval_config_equals(args: Mapping[str, Any], state: ProductState) -> bool:
 
 
 def _as_posix(value: str) -> str:
-    """Normalise separators so one manifest judges the same on every platform."""
+    """Normalize separators so one manifest judges the same on every platform."""
     return value.replace("\\", "/")
 
 
@@ -645,7 +755,7 @@ def _eval_config_matches(args: Mapping[str, Any], state: ProductState) -> bool:
     step does not advance, and nothing tells them why — worse than a stuck step,
     because it looks like they did something wrong.
 
-    The retired frontend predicate handled this by normalising separators and
+    The retired frontend predicate handled this by normalizing separators and
     accepting a trailing-suffix match, and that capability was lost when judging
     moved to the backend (FR-046). This term restores it as a first-class part
     of the vocabulary rather than as a special case hidden inside
@@ -659,30 +769,69 @@ def _eval_config_matches(args: Mapping[str, Any], state: ProductState) -> bool:
       ``/Users/someone/SciStudio Tutorials/proj/data/raw/cells.csv``. An
       absolute pattern anchors at the root instead, for the rare manifest that
       wants that.
-    * separators are normalised on both sides first, so a manifest written with
+    * separators are normalized on both sides first, so a manifest written with
       ``/`` judges a Windows configuration value containing ``\\`` correctly.
 
     Plain relative patterns already match at any depth, so ``**`` is not needed
     and is not recommended: ``PurePath.match`` treats it as a single ``*``.
+
+    **A multi-file field holds a list, and each entry is judged on its own**
+    (#2135). ``path`` on an IO block is declared ``["string", "array"]`` and the
+    native file dialog writes a list the moment the reader selects more than one
+    file, so a term that only looked at strings was blind to exactly the case a
+    batch-processing step is about — it saw a list, skipped it, and the step
+    never advanced however carefully the reader followed it. One entry matching
+    is enough, which is what lets a step name each expected file in its own
+    ``config_matches`` under an ``all`` and so require *both*.
     """
     pattern = _as_posix(str(args["pattern"]))
     for value in _addressed_config_values(args, state):
-        if not isinstance(value, str) or not value:
-            continue
-        try:
-            if PurePosixPath(_as_posix(value)).match(pattern):
-                return True
-        except ValueError:
-            # An unusable pattern is a false condition, never a crashed session.
-            continue
+        for candidate in value if isinstance(value, list) else [value]:
+            if not isinstance(candidate, str) or not candidate:
+                continue
+            try:
+                if PurePosixPath(_as_posix(candidate)).match(pattern):
+                    return True
+            except ValueError:
+                # An unusable pattern is a false condition, never a crashed session.
+                continue
     return False
 
 
-def _eval_run_succeeded(args: Mapping[str, Any], state: ProductState) -> bool:
+def _addressed_node_ids(args: Mapping[str, Any], state: ProductState) -> frozenset[str] | None:
+    """The node ids a term's ``node_id``/``block_type`` selector addresses.
+
+    ``None`` means the term declared no node selector at all, which the run
+    terms read as "the whole workflow". The two arguments filter conjunctively,
+    exactly as :func:`_node_matches` treats them for ``node_exists`` and the
+    config terms: ``block_type`` alone reads "any node of that type" (#2062),
+    ``node_id`` alone names one node without touching the workflow, and both
+    together name one node that must also be of that type. A ``block_type``
+    naming no node in the open workflow addresses the empty set, which makes
+    the condition false rather than an error.
+    """
     node_id = args.get("node_id")
-    for record in _runs_for(args, state):
-        if node_id is not None:
-            if node_id in record.succeeded_node_ids:
+    block_type = args.get("block_type")
+    if node_id is None and block_type is None:
+        return None
+    if block_type is None:
+        return frozenset({str(node_id)})
+    workflow = state.workflow()
+    typed = (
+        frozenset()
+        if workflow is None
+        else frozenset(str(node.id) for node in workflow.nodes if node.block_type == block_type)
+    )
+    if node_id is None:
+        return typed
+    return typed & frozenset({str(node_id)})
+
+
+def _eval_run_succeeded(args: Mapping[str, Any], state: ProductState, entered_at: str | None = None) -> bool:
+    addressed = _addressed_node_ids(args, state)
+    for record in _runs_for(args, state, entered_at):
+        if addressed is not None:
+            if addressed & record.succeeded_node_ids:
                 return True
             continue
         if record.succeeded:
@@ -690,19 +839,63 @@ def _eval_run_succeeded(args: Mapping[str, Any], state: ProductState) -> bool:
     return False
 
 
-def _runs_for(args: Mapping[str, Any], state: ProductState) -> Iterator[RunSummary]:
+def _runs_for(args: Mapping[str, Any], state: ProductState, entered_at: str | None) -> Iterator[RunSummary]:
     """The run records this condition is about, newest first.
 
-    Shared by the two run terms so the workflow filter is written once: they ask
-    different questions of the same list, and only the questions differ.
+    Shared by the two run terms so the workflow and entry-time filters are
+    written once: they ask different questions of the same list, and only the
+    questions differ.
+
+    With ``since_step_entry: true`` (#2066), records that started before the
+    session-supplied step-entry time fall out, which is what lets a step whose
+    text says "press Run" wait for the run the reader performs *here* rather
+    than being satisfied by the one they performed three steps ago. FR-054 is
+    untouched: at entry no run has started since entry, so the scoped condition
+    is simply false. A session with no recorded entry time — one persisted
+    before the field existed — applies no time filter, which fails towards
+    FR-054's own lean (an early-satisfied step) rather than towards a step that
+    can never finish.
     """
     workflow_id = args.get("workflow_id")
+    since = bool(args.get("since_step_entry")) and entered_at is not None
     for record in state.run_records():
-        if workflow_id is None or record.workflow_id == workflow_id:
-            yield record
+        if workflow_id is not None and record.workflow_id != workflow_id:
+            continue
+        if since and not _started_at_or_after(record.started_at, entered_at):
+            continue
+        yield record
 
 
-def _eval_run_failed(args: Mapping[str, Any], state: ProductState) -> bool:
+def _started_at_or_after(started_at: str | None, entered_at: str | None) -> bool:
+    """Whether a run's start time is at or after the step's entry time.
+
+    Compared as parsed datetimes rather than as strings, because the two sides
+    come from different writers — the lineage store's timezone-aware run rows
+    and the session's own entry stamp — and a lexical comparison would quietly
+    mis-order the moment one of them changed format. A record or entry whose
+    time cannot be read answers False: a step asking for a new run must not
+    advance on one whose time nobody knows.
+    """
+    if started_at is None or entered_at is None:
+        return False
+    from datetime import UTC, datetime
+
+    try:
+        started = datetime.fromisoformat(started_at)
+        entered = datetime.fromisoformat(entered_at)
+    except ValueError:
+        return False
+    # A zoneless stamp is read as UTC so the two sides stay comparable; the
+    # writers this reads are UTC already, and guessing a local zone here would
+    # make the answer depend on the machine asking.
+    if started.tzinfo is None:
+        started = started.replace(tzinfo=UTC)
+    if entered.tzinfo is None:
+        entered = entered.replace(tzinfo=UTC)
+    return started >= entered
+
+
+def _eval_run_failed(args: Mapping[str, Any], state: ProductState, entered_at: str | None = None) -> bool:
     """Did the most recent run end without succeeding?
 
     Not the negation of ``run_succeeded``, which FR-048 rules out and which
@@ -712,24 +905,67 @@ def _eval_run_failed(args: Mapping[str, Any], state: ProductState) -> bool:
     step which breaks something and says "press Run and see what happens" is
     waiting for, and it goes false again once the reader fixes it and re-runs.
     """
-    for record in _runs_for(args, state):
+    for record in _runs_for(args, state, entered_at):
         return not record.succeeded
     return False
 
 
 def _eval_plot_exists(args: Mapping[str, Any], state: ProductState) -> bool:
     plot_id = args.get("plot_id")
-    node_id = args.get("node_id")
     port = args.get("port")
+    addressed = _addressed_node_ids(args, state)
     for bound_plot_id, bound_node_id, bound_port in state.plot_bindings():
         if plot_id is not None and bound_plot_id != plot_id:
             continue
-        if node_id is not None and bound_node_id != node_id:
+        if addressed is not None and bound_node_id not in addressed:
             continue
         if port is not None and bound_port != port:
             continue
         return True
     return False
+
+
+def _eval_plot_rendered(args: Mapping[str, Any], state: ProductState) -> bool:
+    """Does a rendered figure exist, for the plot the selectors address?
+
+    Filters :meth:`ProductState.rendered_plots` the way ``plot_exists`` filters
+    the plot bindings, so the two terms address a plot in the same words. Bare,
+    it asks whether any figure has been rendered at all.
+    """
+    plot_id = args.get("plot_id")
+    port = args.get("port")
+    addressed = _addressed_node_ids(args, state)
+    for _workflow_id, node_id, output_port, rendered_plot_id in state.rendered_plots():
+        if plot_id is not None and rendered_plot_id != plot_id:
+            continue
+        if addressed is not None and node_id not in addressed:
+            continue
+        if port is not None and output_port != port:
+            continue
+        return True
+    return False
+
+
+def _eval_port_has_output(args: Mapping[str, Any], state: ProductState) -> bool:
+    """Does the named port hold data, on any node the selector addresses?
+
+    With a bare ``node_id`` the addressed set is that id and the workflow is
+    never read, which is the behavior the term had before ``block_type``
+    joined it (#2062). The selector cannot be absent: the term's ``one_of``
+    requires one of ``node_id``/``block_type`` at validation.
+    """
+    port = str(args["port"])
+    addressed = _addressed_node_ids(args, state)
+    if addressed is None:  # pragma: no cover - one_of validation rejects this first
+        return False
+    return any(state.port_has_output(node_id, port) for node_id in sorted(addressed))
+
+
+def _eval_interaction_completed(args: Mapping[str, Any], state: ProductState) -> bool:
+    addressed = _addressed_node_ids(args, state)
+    if addressed is None:  # pragma: no cover - one_of validation rejects this first
+        return False
+    return bool(addressed & state.interactions_completed())
 
 
 def _eval_file_exists(args: Mapping[str, Any], state: ProductState) -> bool:
@@ -756,6 +992,22 @@ def _eval_file_exists(args: Mapping[str, Any], state: ProductState) -> bool:
         return False
 
 
+def _eval_ui_event(args: Mapping[str, Any], state: ProductState) -> bool:
+    """Was the named event reported — and, when the condition says so, for the named target?
+
+    A bare-name condition is satisfied by any report of that name, targeted or
+    not, because the recorder keeps the name either way. A targeted condition
+    is satisfied only by a report carrying that target: the reader looked at
+    *that* block's source, not at some block's.
+    """
+    name = str(args["name"])
+    target_arg = ui_event_target_arg(name)
+    wanted = args.get(target_arg) if target_arg is not None else None
+    if wanted is None:
+        return name in state.ui_events()
+    return (name, str(wanted)) in state.ui_events_with_targets()
+
+
 _SIMPLE_EVALUATORS: Mapping[str, Any] = MappingProxyType(
     {
         "node_exists": _eval_node_exists,
@@ -764,37 +1016,51 @@ _SIMPLE_EVALUATORS: Mapping[str, Any] = MappingProxyType(
         "config_matches": _eval_config_matches,
         "run_succeeded": _eval_run_succeeded,
         "run_failed": _eval_run_failed,
-        "port_has_output": lambda args, state: state.port_has_output(str(args["node_id"]), str(args["port"])),
+        "port_has_output": _eval_port_has_output,
         "block_registered": lambda args, state: str(args["block_type"]) in state.block_type_names(),
         "type_registered": lambda args, state: str(args["type_name"]) in state.data_type_names(),
         "previewer_registered": lambda args, state: str(args["type_name"]) in state.previewer_type_ids(),
         "plot_exists": _eval_plot_exists,
+        "plot_rendered": _eval_plot_rendered,
         "file_exists": _eval_file_exists,
         "git_branch_exists": lambda args, state: str(args["branch"]) in state.git_branches(),
         "git_current_branch": lambda args, state: state.git_current_branch() == str(args["branch"]),
         "library_contains": lambda args, state: (str(args["kind"]), str(args["name"])) in state.library_entries(),
-        "interaction_completed": lambda args, state: str(args["node_id"]) in state.interactions_completed(),
+        "interaction_completed": _eval_interaction_completed,
         "page_reached": lambda args, state: str(args["page"]) in state.pages_reached(),
-        "ui_event": lambda args, state: str(args["name"]) in state.ui_events(),
+        "ui_event": _eval_ui_event,
     }
 )
 
 
+#: The terms whose answer may be scoped to the current step's entry time (#2066).
+_TIME_SCOPED_TERMS: frozenset[str] = frozenset({"run_succeeded", "run_failed"})
+
+
 @provisional(since="0.3.4")
-def evaluate(condition: Condition, state: ProductState) -> bool:
+def evaluate(condition: Condition, state: ProductState, *, entered_at: str | None = None) -> bool:
     """Judge ``condition`` against ``state``.
 
     Side-effect free (FR-055): no file is created, no registry is mutated, no
     run is triggered. Called on step entry (FR-054), on a mapped event
     (FR-050), and on an explicit request (FR-053) — never on a timer (FR-051).
+
+    ``entered_at`` is FR-046's session-supplied evaluation context (#2066): the
+    ISO-8601 time the current step was entered, which the two run terms read
+    when a condition declares ``since_step_entry: true``. It is context rather
+    than product state because product state describes the world and this
+    describes the reader's position in the tutorial — only the session knows
+    it, and the session hands it in per evaluation.
     """
     if condition.term == "all":
-        return all(evaluate(operand, state) for operand in condition.operands)
+        return all(evaluate(operand, state, entered_at=entered_at) for operand in condition.operands)
     if condition.term == "any":
-        return any(evaluate(operand, state) for operand in condition.operands)
+        return any(evaluate(operand, state, entered_at=entered_at) for operand in condition.operands)
     evaluator = _SIMPLE_EVALUATORS.get(condition.term)
     if evaluator is None:  # pragma: no cover - parse_condition rejects this first
         raise ConditionValidationError(f"unknown completion condition {condition.term!r}")
+    if condition.term in _TIME_SCOPED_TERMS:
+        return bool(evaluator(condition.args, state, entered_at))
     return bool(evaluator(condition.args, state))
 
 
@@ -830,11 +1096,16 @@ through :class:`ExternalEventNames`. See :func:`_eval_file_exists` for why this
 mapping does not cover every case FR-053 has to.
 """
 
+# ``plot_rendered`` rides the run events rather than ``file.changed``: the
+# figure lands as an image under ``.scistudio/previews/``, and image formats
+# are outside the watcher's ADR-036 extension allowlist, so no file event will
+# ever reach it. A render caused by the plot card is covered by the frontend's
+# own ``ui_event`` report and by FR-053's explicit re-check (#2066).
 EVENT_TERM_MAP: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         WORKFLOW_CHANGED: frozenset({"node_exists", "edge_exists", "config_equals", "config_matches"}),
-        WORKFLOW_COMPLETED: frozenset({"run_succeeded", "run_failed", "port_has_output"}),
-        BLOCK_DONE: frozenset({"run_succeeded", "run_failed", "port_has_output"}),
+        WORKFLOW_COMPLETED: frozenset({"run_succeeded", "run_failed", "port_has_output", "plot_rendered"}),
+        BLOCK_DONE: frozenset({"run_succeeded", "run_failed", "port_has_output", "plot_rendered"}),
         BLOCK_ERROR: frozenset({"run_succeeded", "run_failed", "port_has_output"}),
         GIT_HEAD_CHANGED: frozenset({"git_branch_exists", "git_current_branch"}),
         INTERACTIVE_COMPLETE: frozenset({"interaction_completed"}),

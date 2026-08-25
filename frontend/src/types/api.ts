@@ -321,9 +321,12 @@ export interface TypeSourceResponse {
  * ADR-053 FR-006 — which user library directory a write or read addresses.
  *
  * Named by the caller and never inferred from file content: `blocks` is
- * `~/.scistudio/blocks/` and `types` is `~/.scistudio/types/`.
+ * `~/.scistudio/blocks/`, `types` is `~/.scistudio/types/`, and `previewers`
+ * is `~/.scistudio/previewers/` (Learning Center #2086). Inside a tutorial
+ * project the backend swaps the library root for the tutorial-scoped one; the
+ * target names the tier, never the root.
  */
-export type UserLibraryTarget = "blocks" | "types";
+export type UserLibraryTarget = "blocks" | "types" | "previewers";
 
 /** Response body of `GET /api/user-library/file` (ADR-053 FR-031). */
 export interface UserLibraryFileResponse {

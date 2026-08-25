@@ -95,9 +95,30 @@ export function loadPreviewerCatalog(options?: { force?: boolean }): Promise<voi
  * is invalidated there (ADR-053 FR-062): without it the Previewers tab would
  * sit on the first listing it ever fetched until someone pressed Reload by
  * hand, which is runtime truth living in frontend state.
+ *
+ * Re-reading the listing is not enough on its own. A preview that is already
+ * open renders through the routing that was in force when its session was
+ * created, and `PreviewHost` re-creates that session only when its target or
+ * the routing epoch changes. A newly registered previewer changes neither, so
+ * the panel went on showing the old rendering — a project's own Image would
+ * stay in the core Array number table until the person clicked away to empty
+ * canvas and back, which is what makes `target` change. Bumping the epoch here
+ * is what a manual previewer choice already does (`applyChoiceAnswer`); the
+ * two ways routing can change now behave the same.
+ *
+ * Unconditional rather than diffed against the previous listing: an edit to a
+ * previewer that is already registered changes what it draws without changing
+ * any id, so a set comparison would miss exactly the case a person hits while
+ * writing one. The cost is re-creating open preview sessions on any registry
+ * reload, which is one request against a preview whose block may well have
+ * changed too.
  */
 export function invalidatePreviewerCatalog(): void {
-  void loadPreviewerCatalog({ force: true });
+  void loadPreviewerCatalog({ force: true }).then(() => {
+    const store = useAppStore.getState();
+    store.clearPreviewEnvelopeCache();
+    store.bumpPreviewerChoiceVersion();
+  });
 }
 
 /** Test seam — drop any in-flight request so each test starts clean. */

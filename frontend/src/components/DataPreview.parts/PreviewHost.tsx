@@ -290,6 +290,24 @@ export function PreviewHost({
           resource.params,
           defaultResourceFilename(active, resource.params),
         );
+        /*
+         * ADR-053 FR-052 — `plot_exported`, in the closed `UI_EVENT_NAMES`
+         * set. Reported only after the save resolved, so a step that asks the
+         * reader to keep the figure waits for the file rather than for the
+         * dialog. A step cannot judge that on the file itself: the reader
+         * names it in a native dialog, and image extensions are outside the
+         * watcher's allowlist, so nothing would re-evaluate the condition even
+         * once the file existed. Scoped to a plot's own artifact — other
+         * previewers export too, and this event is about the figure.
+         */
+        if (active.target.kind === "plot_artifact") {
+          // Imported here rather than at the top of the file: the store pulls
+          // in every slice, and this module is mounted by tests that mock a
+          // narrow slice of the API surface. The report is a side effect of a
+          // rare action, so paying for the module then costs nothing.
+          const { useAppStore } = await import("../../store");
+          void useAppStore.getState().reportTutorialUiEvent("plot_exported");
+        }
       } catch (err) {
         setHostDiagnostics((d) => [
           ...d,

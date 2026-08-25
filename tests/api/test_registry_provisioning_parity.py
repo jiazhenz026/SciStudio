@@ -652,6 +652,7 @@ def test_a_tutorial_project_swaps_its_user_tier_at_every_registration_point(
     library = dropins.tutorial_library_dir()
     expected_blocks = [tutorial_project / "blocks", library / "blocks"]
     expected_types = [tutorial_project / "types", library / "types"]
+    expected_previewers = [tutorial_project / "previewers", library / "previewers"]
 
     assert list(dropins.block_scan_dirs(tutorial_project)) == expected_blocks
     assert _api_block_dirs(tutorial_project) == expected_blocks
@@ -663,3 +664,39 @@ def test_a_tutorial_project_swaps_its_user_tier_at_every_registration_point(
     assert _agent_type_dirs(tutorial_project) == expected_types
     assert _worker_type_dirs(tutorial_project, monkeypatch) == expected_types
     assert _dispatch_type_dirs(tutorial_project, monkeypatch) == expected_types
+
+    # The previewer tier joined the swap with #2086. Its one registration
+    # point is ``build_preview_service``, and both of that function's inputs —
+    # the session manager's owning-root tuple and the user-tier load below —
+    # read this same tier definition.
+    assert list(dropins.previewer_scan_dirs(tutorial_project)) == expected_previewers
+
+
+def test_the_previewer_user_tier_load_follows_the_scan_dirs(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """FR-070/FR-071 for the previewer loader (#2086).
+
+    ``load_user_previewers`` must scan exactly the directory
+    ``previewer_scan_dirs`` names as the user tier — recomputing
+    ``~/.scistudio/previewers`` there is how the write path and the scan
+    drifted apart for blocks once, and this pins the previewer half to the
+    shared definition instead.
+    """
+    from scistudio.previewers import project as previewer_project
+
+    recorded: list[tuple[Path, object]] = []
+    monkeypatch.setattr(
+        previewer_project,
+        "_scan_previewer_dropins",
+        lambda registry, directory, *, expected_owner: recorded.append((directory, expected_owner)),
+    )
+    tutorial_project = dropins.tutorial_parent_dir() / "welcome"
+
+    previewer_project.load_user_previewers(object(), tutorial_project)  # type: ignore[arg-type]
+    previewer_project.load_user_previewers(object(), None)  # type: ignore[arg-type]
+
+    assert recorded[0][0] == dropins.tutorial_library_dir() / dropins.PREVIEWERS_DIR_NAME
+    assert recorded[1][0] == home / ".scistudio" / dropins.PREVIEWERS_DIR_NAME
+    assert [directory for directory, _ in recorded] == [
+        dropins.previewer_scan_dirs(tutorial_project)[-1],
+        dropins.previewer_scan_dirs(None)[-1],
+    ]

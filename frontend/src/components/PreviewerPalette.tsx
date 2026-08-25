@@ -161,6 +161,10 @@ export function PreviewerPalette() {
 
       <div
         className="flex min-h-0 flex-1 flex-col"
+        // ADR-053 FR-089 — the list as a whole, not one card: the step that
+        // points here is about where previewers live, and which one renders a
+        // given kind of data is the product's choice rather than the reader's.
+        data-tutorial-target="previewer_palette"
         data-testid="previewer-palette-content"
         ref={contentRef}
       >

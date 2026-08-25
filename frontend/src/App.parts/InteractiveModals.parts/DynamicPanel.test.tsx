@@ -68,4 +68,43 @@ describe("<DynamicPanel>", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onConfirm).not.toHaveBeenCalled();
   });
+
+  it("unmounts a panel that finished loading after the effect was torn down", async () => {
+    // StrictMode mounts, unmounts, and mounts again. `mountDynamicPanel` is
+    // async, so the teardown lands while the module is still loading: the
+    // cleanup finds no instance to unmount, and `mount()` then puts the panel's
+    // DOM in the container anyway. Left there, the second pass mounts a second
+    // copy on top and the reader sees the panel twice.
+    let release: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const unmount = vi.fn();
+    const mount = vi.fn((container: HTMLElement) => {
+      container.appendChild(document.createTextNode("PANEL UI"));
+      return { unmount };
+    });
+    const importer = vi.fn(async () => {
+      await held;
+      return { default: { apiVersion: "1", mount } };
+    });
+
+    const { unmount: unmountTree } = render(
+      <DynamicPanel
+        manifest={MANIFEST}
+        blockId="block-1"
+        panelPayload={{}}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+        importer={importer}
+      />,
+    );
+
+    // Tear down first, then let the import resolve — the ordering the race has.
+    unmountTree();
+    release?.();
+
+    await waitFor(() => expect(mount).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(unmount).toHaveBeenCalledTimes(1));
+  });
 });

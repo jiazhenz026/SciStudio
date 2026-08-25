@@ -103,6 +103,11 @@ _TERMS: dict[str, tuple[dict[str, Any], Callable[[StubProductState], None]]] = {
         {"port_has_output": {"node_id": "load-1", "port": "table"}},
         lambda state: setattr(state, "ports_with_output", frozenset({("load-1", "table")})),
     ),
+    # A figure exists as product truth (#2066); the run events announce it.
+    "plot_rendered": (
+        {"plot_rendered": {"plot_id": "p1"}},
+        lambda state: setattr(state, "rendered", (("wf", "n1", "out", "p1"),)),
+    ),
     "block_registered": (
         {"block_registered": {"block_type": "Threshold"}},
         lambda state: setattr(state, "block_types", frozenset({"Threshold"})),
@@ -342,7 +347,7 @@ def test_explicit_evaluation_satisfies_a_file_condition_no_event_reaches(
     A ``file_exists`` condition on a TIFF or a Zarr store is therefore never
     event-driven, which is why the explicit request exists as a requirement
     rather than as a convenience. The condition is judged against the
-    filesystem either way; what differs is what causes the judgement.
+    filesystem either way; what differs is what causes the judgment.
     """
     _judged_by(core_dir, {"file_exists": {"path": "data/raw/cells.tiff"}})
     runtime.start(TutorialKey.core("judged"))
@@ -370,9 +375,11 @@ def test_a_reported_user_interface_event_satisfies_a_ui_event_condition(
     """
     reported: list[str] = []
 
-    def _record(name: str) -> None:
+    def _record(name: str, target: str | None = None) -> None:
         reported.append(name)
         product.events = frozenset({*product.events, name})
+        if target:
+            product.targeted_events = frozenset({*product.targeted_events, (name, target)})
 
     runtime = TutorialRuntime(
         product_state=lambda: product,
@@ -408,7 +415,7 @@ def test_a_reported_event_belongs_to_the_step_that_asked_for_it(
     Continue was live before they had done anything.
     """
 
-    def _record(name: str) -> None:
+    def _record(name: str, target: str | None = None) -> None:
         product.events = frozenset({*product.events, name})
 
     def _forget() -> None:
@@ -449,7 +456,8 @@ def test_a_reported_event_belongs_to_the_step_that_asked_for_it(
 
     assert second.step is not None and second.step.id == "click-again"
     assert second.step.satisfied is False, "the earlier click must not satisfy this step"
-    assert runtime.report_ui_event("node_selected").step.satisfied is True
+    reclicked = runtime.report_ui_event("node_selected")
+    assert reclicked.step is not None and reclicked.step.satisfied is True
 
 
 # ---------------------------------------------------------------------------
@@ -477,7 +485,7 @@ def test_a_whole_session_creates_no_thread(runtime: TutorialRuntime, core_dir: P
 def test_no_module_schedules_its_own_wakeup(module: Path) -> None:
     """FR-051 structurally: no scheduling machinery is imported anywhere here.
 
-    Asserted against the import graph rather than against observed behaviour,
+    Asserted against the import graph rather than against observed behavior,
     because a poll that fires once a minute would pass a runtime assertion and
     still be the thing FR-051 forbids. Re-evaluation has three causes — a
     mapped event, an explicit request, and step entry — and none of them needs

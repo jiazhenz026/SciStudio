@@ -80,6 +80,20 @@ describe("the previewer catalogue is invalidated, not cached forever", () => {
     await vi.waitFor(() => expect(listPreviewerChoices).toHaveBeenCalledTimes(2));
   });
 
+  it("re-routes previews that are already open when the registries change", async () => {
+    // A previewer registered while a preview is on screen has to reach that
+    // preview. `PreviewHost` re-creates its session on target or routing-epoch
+    // change and on nothing else, so without the bump the panel kept rendering
+    // through the old routing — a project's own Image stayed in the core Array
+    // number table until the person clicked to empty canvas and back.
+    await loadPreviewerCatalog();
+    const before = useAppStore.getState().previewerChoiceVersion;
+
+    dispatchWorkflowEvent(event("blocks.reloaded"), DEPS);
+
+    await vi.waitFor(() => expect(useAppStore.getState().previewerChoiceVersion).toBe(before + 1));
+  });
+
   it("leaves unrelated websocket events alone", async () => {
     await loadPreviewerCatalog();
     dispatchWorkflowEvent(event("git.head_changed"), DEPS);

@@ -53,7 +53,13 @@ describe("mountDynamicPanel", () => {
     if (result.ok) {
       expect(typeof result.instance.unmount).toBe("function");
     }
-    expect(importer).toHaveBeenCalledWith(GOOD_URL);
+    // The manifest's URL, plus a per-mount cache buster: `import()` caches by
+    // URL for the life of the page, and a panel is drop-in code that changes
+    // under a fixed URL — a tutorial step rewrites it on every run.
+    expect(importer).toHaveBeenCalledTimes(1);
+    const [[requested]] = importer.mock.calls as unknown as [[string]];
+    expect(requested.startsWith(`${GOOD_URL}?`)).toBe(true);
+    expect(requested).toMatch(/[?&]mounted=\d+$/);
     expect(mount).toHaveBeenCalledWith(container, host);
     expect(confirm).toHaveBeenCalledWith(decision);
     expect(container.textContent).toBe("MOUNTED PACKAGE PANEL");

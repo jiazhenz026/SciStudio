@@ -60,8 +60,16 @@ export function useBottomPanelControls(deps: BottomPanelControlsDeps): BottomPan
          * picker move the selection: this callback is the user clicking a node
          * on the canvas, which is what a step saying "click the block" waits
          * for. A no-op when no tutorial is running.
+         *
+         * The selected node's block type rides along as the event's target
+         * (#2063), so a step can wait for the reader to click *the Load
+         * block* rather than any block. A node the store cannot resolve —
+         * a race with a just-deleted node — reports the bare name, which
+         * still satisfies an untargeted condition.
          */
-        void useAppStore.getState().reportTutorialUiEvent("node_selected");
+        const state = useAppStore.getState();
+        const blockType = state.workflowNodes.find((node) => node.id === nodeId)?.block_type;
+        void state.reportTutorialUiEvent("node_selected", blockType);
       }
     },
     [expandBottomPanel, setSelectedNodeId, setActiveBottomTab],

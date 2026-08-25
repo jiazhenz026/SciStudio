@@ -55,9 +55,23 @@ export const ROUTE_TARGETS = [
   "git",
   "canvas",
   "block_palette",
+  "data_types",
+  "workflows",
+  "previewers",
 ] as const;
 
 export type RouteTarget = (typeof ROUTE_TARGETS)[number];
+
+/**
+ * The main editing area, marked so the dialogue can be laid out inside it.
+ *
+ * Carried on the same attribute as a highlight target and deliberately absent
+ * from `HIGHLIGHT_TARGETS`, so no manifest can name it: it is not something a
+ * step points *at*, it is the box the character stands in. The canvas is inside
+ * it, which is why the scene stays put when the canvas is what is showing, and
+ * why she moves onto a code editor when that is what is showing instead.
+ */
+export const TUTORIAL_STAGE_TARGET = "workspace_stage";
 
 /** `highlight`'s closed set, driven by what the core tutorials actually need. */
 export const HIGHLIGHT_TARGETS = [
@@ -66,12 +80,21 @@ export const HIGHLIGHT_TARGETS = [
   "run_button",
   "new_menu_button",
   "plots_new_button",
+  "plot_export_button",
+  "preview_item",
+  "view_source_button",
   "history_restore_button",
+  "history_runs_list",
+  "bring_in_my_work_button",
   "data_preview",
   "config_panel",
+  "workflow_list",
+  "previewer_palette",
+  "type_palette",
   "palette_block",
   "node",
   "plot_card",
+  "bottom_tab",
 ] as const;
 
 export type HighlightTarget = (typeof HIGHLIGHT_TARGETS)[number];
@@ -95,6 +118,11 @@ export const HIGHLIGHT_TARGET_KEYS: Partial<Record<HighlightTarget, string>> = {
   palette_block: "block_type",
   node: "block_type",
   plot_card: "plot_id",
+  preview_item: "index",
+  // Spelled the manifest's way, not `BottomTab`'s -- see the module comment on
+  // `history`/`lineage` and `ai_chat`/`ai`. `BOTTOM_TAB_TUTORIAL_NAMES` below is
+  // what the tab strip annotates itself with, so the two never drift.
+  bottom_tab: "tab",
 };
 
 /** The attribute carrying an entity target's selector value. */
@@ -118,6 +146,9 @@ export const ROUTE_TARGET_BOTTOM_TABS: Record<RouteTarget, BottomTab | null> = {
   git: "git",
   canvas: null,
   block_palette: null,
+  data_types: null,
+  workflows: null,
+  previewers: null,
 };
 
 /**
@@ -129,7 +160,34 @@ export const ROUTE_TARGET_BOTTOM_TABS: Record<RouteTarget, BottomTab | null> = {
  */
 export const ROUTE_TARGET_LEFT_TABS: Partial<Record<RouteTarget, LeftTab>> = {
   block_palette: "blocks",
+  // The Data types tab between Blocks and Project — the manifest name is the
+  // user-facing label ("Data types"), the internal key stays `types`, on the
+  // same rule as `history`/`lineage` above.
+  data_types: "types",
+  // The Workflows section of the left panel (#2090). Core tutorial 1 opens by
+  // showing the reader where this project's workflows are kept, which only
+  // works if the panel is showing them.
+  workflows: "workflows",
+  // The Previewers section (#2113): the cards that say which previewer renders
+  // which kind of data. A step pointing at them has to have the panel showing
+  // them first.
+  previewers: "previewers",
 };
+
+/**
+ * Bottom-panel tab key -> the name a manifest addresses it by.
+ *
+ * The inverse of the routing map above rather than a second table: a step that
+ * says `route_to: history` and rings `bottom_tab: {tab: history}` is naming one
+ * destination once, and two hand-written maps would eventually disagree about
+ * which word that is. Every `BottomTab` appears in the routing map, so the
+ * inversion is total; a parity test holds that true.
+ */
+export const BOTTOM_TAB_TUTORIAL_NAMES = Object.fromEntries(
+  (Object.entries(ROUTE_TARGET_BOTTOM_TABS) as [RouteTarget, BottomTab | null][])
+    .filter((entry): entry is [RouteTarget, BottomTab] => entry[1] !== null)
+    .map(([route, tab]) => [tab, route]),
+) as Record<BottomTab, RouteTarget>;
 
 export function isRouteTarget(value: string): value is RouteTarget {
   return (ROUTE_TARGETS as readonly string[]).includes(value);
@@ -167,6 +225,17 @@ export interface StepRouteHandlers {
    */
   openBottomTab: (tab: BottomTab) => void;
   setLeftTab: (tab: LeftTab) => void;
+  /**
+   * Bring the workflow canvas back to the front of the main area.
+   *
+   * The main area is a tab strip, and a code editor opened over it hides the
+   * canvas completely. A step saying "drag it onto the canvas" while a `.py`
+   * file is on screen is an instruction the reader cannot follow and cannot see
+   * is impossible — and the tutorial has just been the thing that opened that
+   * editor. A no-op when no workflow tab is open, which is the case a reading
+   * tutorial with no project is in.
+   */
+  showCanvas: () => void;
 }
 
 /**
@@ -177,11 +246,15 @@ export interface StepRouteHandlers {
  *
  *   - `block_palette` switches the left panel to its Blocks tab. That is a real
  *     surface switch with the same shape as a bottom-tab one.
- *   - `canvas` switches nothing. The canvas is the main surface and is already
- *     on screen whenever a workflow tab is active; there is no panel to open
- *     and forcing anything else — collapsing the bottom panel, say — would be
- *     the product fighting a layout the user chose. It scrolls into view and
- *     leaves the highlight to say the rest.
+ *   - `canvas` brings the workflow tab to the front of the main area, and does
+ *     nothing else. It used to switch nothing at all, on the reasoning that the
+ *     canvas is the main surface and is already on screen — true until the
+ *     tutorial itself opens a code editor over it, which core tutorial 1 does
+ *     when the reader creates a block. The next step then said "drag it onto
+ *     the canvas" with a `.py` file filling the screen. Restoring the tab is
+ *     not fighting a layout the user chose: it is undoing one the tutorial
+ *     chose. Everything else about the layout — the bottom panel's height, its
+ *     open tab — is still left exactly as found.
  *
  * Both then scroll their element into view, which is also all a target does
  * when its surface is already the visible one.
@@ -194,6 +267,14 @@ export function applyStepRoute(route: string, handlers: StepRouteHandlers): void
 
   const leftTab = ROUTE_TARGET_LEFT_TABS[route];
   if (leftTab) handlers.setLeftTab(leftTab);
+
+  /*
+   * `block_palette` brings the canvas with it. The palette exists to be dragged
+   * *from*, onto the canvas — a step routed there while a code editor covers
+   * the canvas is asking for a drag with nowhere to drop, and core tutorial 1
+   * opens exactly that editor one step earlier.
+   */
+  if (route === "canvas" || route === "block_palette") handlers.showCanvas();
 
   /*
    * After the surface switch, not before: the element a tab was just opened to

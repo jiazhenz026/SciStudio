@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from scistudio.utils import atomic_io
 from scistudio.utils.atomic_io import (
     atomic_path,
     atomic_replace_dir,
@@ -214,6 +215,105 @@ class TestAtomicReplaceDir:
         # Only the destination dir remains; no temp/backup siblings.
         siblings = [p.name for p in tmp_path.iterdir() if p.name != "store"]
         assert siblings == []
+
+    def test_original_survives_a_failing_swap_in(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """#2148: the old tree is moved aside, so a failed swap can roll back.
+
+        A commit that deleted the destination first would have nothing left to
+        restore at this point.
+        """
+        dest = tmp_path / "store"
+        dest.mkdir()
+        (dest / "keep.txt").write_text("keep", encoding="utf-8")
+
+        real_swap = atomic_io._replace_with_retry
+
+        def fail_swap_in(src: Path, dst: Path) -> None:
+            # Staging and backup are both named ".<dest>.*.tmp"; only the
+            # backup carries the ".bak." marker. Fail the staging -> dest
+            # rename and let the rollback rename through.
+            if ".bak." not in src.name:
+                raise OSError(13, "injected swap failure")
+            real_swap(src, dst)
+
+        monkeypatch.setattr(atomic_io, "_replace_with_retry", fail_swap_in)
+
+        with pytest.raises(OSError, match="injected swap failure"), atomic_replace_dir(dest) as tmp_dir:
+            (tmp_dir / "new.txt").write_text("new", encoding="utf-8")
+
+        assert (dest / "keep.txt").read_text(encoding="utf-8") == "keep"
+        assert not (dest / "new.txt").exists()
+
+
+class TestReplaceWithRetry:
+    """#2148: Windows denies a directory rename while its subtree is busy."""
+
+    @staticmethod
+    def _denial(winerror: int) -> OSError:
+        exc = OSError(13, "Access is denied")
+        exc.winerror = winerror  # type: ignore[attr-defined]
+        return exc
+
+    def test_retries_until_the_holder_releases(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        src, dst = tmp_path / "a", tmp_path / "b"
+        src.mkdir()
+        real_replace = os.replace
+        attempts: list[int] = []
+
+        def flaky(s: object, d: object) -> None:
+            attempts.append(1)
+            if len(attempts) < 3:
+                raise self._denial(5)
+            real_replace(str(s), str(d))
+
+        monkeypatch.setattr(atomic_io.os, "replace", flaky)
+        monkeypatch.setattr(atomic_io.time, "sleep", lambda _seconds: None)
+
+        atomic_io._replace_with_retry(src, dst)
+
+        assert len(attempts) == 3
+        assert dst.is_dir()
+
+    @pytest.mark.parametrize("winerror", [5, 32])
+    def test_gives_up_and_reraises_the_original_denial(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, winerror: int
+    ) -> None:
+        """A holder that never lets go still surfaces the real error."""
+        attempts: list[int] = []
+
+        def always_denied(s: object, d: object) -> None:
+            attempts.append(1)
+            raise self._denial(winerror)
+
+        monkeypatch.setattr(atomic_io.os, "replace", always_denied)
+        monkeypatch.setattr(atomic_io.time, "sleep", lambda _seconds: None)
+
+        with pytest.raises(OSError) as exc_info:
+            atomic_io._replace_with_retry(tmp_path / "a", tmp_path / "b")
+
+        assert exc_info.value.winerror == winerror  # type: ignore[attr-defined]
+        assert len(attempts) == atomic_io._SWAP_RETRY_ATTEMPTS
+
+    def test_does_not_retry_unrelated_errors(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Only the Windows busy-tree codes are transient.
+
+        Everything else — a cross-device rename, a missing source, a POSIX
+        permission error that carries no ``winerror`` at all — is a real
+        failure and must surface on the first try instead of spending the
+        whole retry budget.
+        """
+        attempts: list[int] = []
+
+        def not_transient(s: object, d: object) -> None:
+            attempts.append(1)
+            raise OSError(18, "Invalid cross-device link")
+
+        monkeypatch.setattr(atomic_io.os, "replace", not_transient)
+
+        with pytest.raises(OSError, match="cross-device"):
+            atomic_io._replace_with_retry(tmp_path / "a", tmp_path / "b")
+
+        assert len(attempts) == 1
 
 
 def test_module_does_not_fsync_dir_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

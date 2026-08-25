@@ -2,9 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://scistudio.org/schema/tutorial.schema.json",
   "title": "SciStudio tutorial manifest (tutorial.yaml)",
-  "description": "The published format package authors, users, and agents write a tutorial against. ADR-053 Learning Center spec FR-005 to FR-015. A tutorial is a directory containing this manifest; the manifest is the only file required for the tutorial to be listed. Assets live under assets/ with the reserved subdirectories data/, code/, panels/, replay/ and pages/. Two things this document deliberately does NOT restate, because each is declared exactly once in core and a second copy would be a second thing to keep in step: the completion-condition vocabulary (scistudio.tutorials.conditions.VOCABULARY, FR-045/FR-049) and the closed replay surface set (scistudio.tutorials.actions.REPLAY_SURFACES, FR-061a). Both are enforced during the same validation pass that applies this schema.",
+  "description": "The published format package authors, users, and agents write a tutorial against. ADR-053 Learning Center spec FR-005 to FR-015. A tutorial is a directory containing this manifest; the manifest is the only file required for the tutorial to be listed. Assets live under assets/ with the reserved subdirectories data/, code/, panels/, replay/, workflows/ and pages/. Two things this document deliberately does NOT restate, because each is declared exactly once in core and a second copy would be a second thing to keep in step: the completion-condition vocabulary (scistudio.tutorials.conditions.VOCABULARY, FR-045/FR-049) and the closed replay surface set (scistudio.tutorials.actions.REPLAY_SURFACES, FR-061a). Both are enforced during the same validation pass that applies this schema.",
   "type": "object",
-  "required": ["manifest_version", "id", "title", "summary"],
+  "required": [
+    "manifest_version",
+    "id",
+    "title",
+    "summary"
+  ],
   "additionalProperties": false,
   "properties": {
     "manifest_version": {
@@ -18,8 +23,14 @@
       "pattern": "^[a-z0-9][a-z0-9._-]*$",
       "description": "Unique within its source. Identity is the pair (source, id), so two packages may ship the same id (FR-019)."
     },
-    "title": { "type": "string", "minLength": 1 },
-    "summary": { "type": "string", "minLength": 1 },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
     "cover": {
       "type": "string",
       "minLength": 1,
@@ -29,12 +40,18 @@
       "type": "integer",
       "description": "Position within the tutorial's group."
     },
-    "requires": { "$ref": "#/$defs/requires" },
-    "bootstrap": { "$ref": "#/$defs/bootstrap" },
+    "requires": {
+      "$ref": "#/$defs/requires"
+    },
+    "bootstrap": {
+      "$ref": "#/$defs/bootstrap"
+    },
     "steps": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/step" },
+      "items": {
+        "$ref": "#/$defs/step"
+      },
       "description": "Exactly one of steps or driver must be declared (FR-010)."
     },
     "driver": {
@@ -54,10 +71,23 @@
           "minLength": 1,
           "description": "A version specifier, e.g. '>=0.3.0'."
         },
-        "agent": { "type": "boolean" },
+        "agent": {
+          "type": "boolean"
+        },
         "packages": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "tutorials": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Same-source tutorial ids that must be completed before this tutorial can be started. An unmet entry lists this tutorial as unavailable naming the tutorial it waits on (FR-024); it never hides it. Ids, not titles, and only siblings: progress is keyed by (source, id), and a manifest cannot address another source."
         }
       }
     },
@@ -66,46 +96,67 @@
       "additionalProperties": false,
       "description": "FR-009. The PRESENCE of this block is what decides whether the tutorial gets a project: a tutorial declaring it receives a freshly created tutorial project, and a tutorial omitting it runs without one. There is no tutorial-kind field, because the step actions already declare what each step does and a second classification would be able to contradict them.",
       "properties": {
-        "project_name": { "type": "string", "minLength": 1 },
+        "project_name": {
+          "type": "string",
+          "minLength": 1
+        },
         "do": {
           "type": "array",
-          "items": { "$ref": "#/$defs/action" }
+          "items": {
+            "$ref": "#/$defs/action"
+          }
         }
       }
     },
     "step": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id"],
+      "required": [
+        "id"
+      ],
       "description": "FR-011. A step omitting done_when advances on an explicit user continue (FR-012); reading steps are the common case and requiring a synthetic condition for them would be ceremony.",
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
         "title": {
           "type": "string",
           "minLength": 1,
           "description": "A short heading for this step, shown on the step card. Optional: a step without one is headed by the tutorial's own title, which is what every manifest written before this field got."
         },
-        "say": { "type": "string" },
+        "say": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "minLength": 1,
+          "minItems": 1,
+          "maxItems": 6,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "What the step says: one line written bare, or the ordered beats it is delivered in written as a list - typically a line or two introducing the material, then the line that hands the task over. Where the breaks fall is the author's. At most 6 beats: a step with more to say than that is a reading step, and belongs in pages (FR-011d). A beat may name the expression it is delivered with, as a prefix on the line itself - \"explain: A block is a unit of work.\" - one of idle, explain, curious, focus, success, error. Only those six names count, so a line beginning \"Note:\" is prose and needs no escaping; a beat naming none is delivered resting (FR-011f)."
+        },
         "highlight": {
-          "description": "What this step points at. Either a target name on its own ('run_button') for the targets whose name is already an address, or a single-key mapping naming the target and the argument that says which one ('palette_block: {block_type: load_data}'), which is the same shape done_when uses. The target set and each target's required arguments are closed, core-owned, and declared in exactly one place: scistudio.tutorials.manifest.HIGHLIGHT_SPECS. They are not enumerated here so there is only one thing to keep in step. A target outside the set, or one missing the argument that picks the element, is rejected at validation, because a highlight the frontend cannot resolve is guidance that silently disappears.",
-          "oneOf": [
-            {
-              "type": "string",
-              "minLength": 1
-            },
-            {
-              "type": "object",
-              "minProperties": 1,
-              "maxProperties": 1,
-              "additionalProperties": {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "string",
-                  "minLength": 1
-                }
-              }
-            }
-          ]
+          "type": [
+            "string",
+            "object",
+            "array"
+          ],
+          "minLength": 1,
+          "maxProperties": 1,
+          "items": {
+            "type": [
+              "string",
+              "object",
+              "null"
+            ],
+            "minLength": 1,
+            "maxProperties": 1
+          },
+          "description": "What this step points at. Either a target name on its own ('run_button') for the targets whose name is already an address, or a single-key mapping naming the target and the argument that says which one ('palette_block: {block_type: load_data}'), which is the same shape done_when uses. The target set and each target's required arguments are closed, core-owned, and declared in exactly one place: scistudio.tutorials.manifest.HIGHLIGHT_SPECS. They are not enumerated here so there is only one thing to keep in step. A target outside the set, or one missing the argument that picks the element, is rejected at validation, because a highlight the frontend cannot resolve is guidance that silently disappears. A list is read beside say, one entry per beat, with null for a beat that points at nothing; its length must match the beats (FR-089e)."
         },
         "route_to": {
           "type": "string",
@@ -114,22 +165,76 @@
         },
         "prefill": {
           "type": "array",
-          "items": { "$ref": "#/$defs/prefill" },
+          "items": {
+            "$ref": "#/$defs/prefill"
+          },
           "description": "What a dialog the reader is about to open should already be holding when it opens, so a step naming a value does not then ask the reader to retype it. A prefill is a default and stays editable; the step's done_when still judges the world rather than the dialog. The target set and each target's required values are closed, core-owned, and declared in exactly one place: scistudio.tutorials.manifest.PREFILL_SPECS. They are not enumerated here so there is only one thing to keep in step."
         },
         "do": {
           "type": "array",
-          "items": { "$ref": "#/$defs/action" },
+          "items": {
+            "$ref": "#/$defs/action"
+          },
           "description": "Ordered. Runs on entry, before the step's text is displayed (FR-056, FR-059)."
         },
-        "done_when": { "$ref": "#/$defs/condition" }
+        "done_when": {
+          "$ref": "#/$defs/condition"
+        },
+        "trigger": {
+          "$ref": "#/$defs/trigger"
+        },
+        "pages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Reading pages this step presents, named as files under assets/pages/ the way a page_reached condition names them - with or without the extension, 'intro' for assets/pages/intro.md. Each must exist when the tutorial is loaded, so a missing page fails the author at listing rather than the reader on the page turn (FR-011, FR-014)."
+        },
+        "auto_advance": {
+          "type": "boolean",
+          "description": "Move on by itself once done_when holds, instead of waiting for the reader to continue (FR-054c). For a step whose whole content is one mechanical action - click this, drag that - where confirming a click already made is a second click for nothing. Leave it off where the reader configures something, creates something, or is meant to look at the result: there the moment the condition flips is the moment they have started reading, and taking the page away then is the failure FR-054a was written against. Defaults to false."
+        },
+        "compact": {
+          "type": [
+            "boolean",
+            "array"
+          ],
+          "items": {
+            "type": "boolean"
+          },
+          "description": "Deliver a beat as a chat line - an avatar and the sentence, floating beside the lit target - rather than as a scene with the character standing in the main area. One boolean is the whole step's form; a list is read beside say, one entry per beat, because a lead-in and the instruction after it often want different forms. An authoring decision, like where the beats break: it depends on what the step asks the reader to look at (FR-011e)."
+        }
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "do"
+      ],
+      "description": "The step's user-triggered action (#2061): a button label, and the ordered actions pressing it performs. Distinct from the step's own 'do' in exactly one respect - when it runs: entry actions run because the reader arrived, a trigger runs because the reader pressed the button. Execution reuses the entry machinery, so the trigger's writes land and the registries settle before it reports done (FR-056, FR-059, FR-059a), and a failure is surfaced on the step and retryable rather than ending the session (FR-060).",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "do": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        }
       }
     },
     "condition": {
       "type": "object",
       "minProperties": 1,
       "maxProperties": 1,
-      "description": "A single-key mapping: {term: {args}} for one of the sixteen vocabulary terms of FR-047, or {all: [...]} / {any: [...]} for a combinator (FR-048). Negation is deliberately absent: a step that advances when something is absent advances by the user doing nothing. The term names and each term's arguments are owned by scistudio.tutorials.conditions and enforced there during this same validation pass, so an unknown term fails the author rather than the user (FR-049). The ui_event term's 'name' argument is itself a closed set, declared at scistudio.tutorials.conditions.UI_EVENT_NAMES."
+      "description": "A single-key mapping: {term: {args}} for one of the core-owned vocabulary terms (FR-047 plus the core-added ones), or {all: [...]} / {any: [...]} for a combinator (FR-048). Negation is deliberately absent: a step that advances when something is absent advances by the user doing nothing. The term names and each term's arguments are owned by scistudio.tutorials.conditions and enforced there during this same validation pass, so an unknown term fails the author rather than the user (FR-049). The ui_event term's 'name' argument is itself a closed set, declared at scistudio.tutorials.conditions.UI_EVENT_NAMES."
     },
     "prefill": {
       "type": "object",
@@ -137,7 +242,10 @@
       "maxProperties": 1,
       "additionalProperties": {
         "type": "object",
-        "additionalProperties": { "type": "string", "minLength": 1 }
+        "additionalProperties": {
+          "type": "string",
+          "minLength": 1
+        }
       },
       "description": "A single-key mapping naming one prefill target and the values that seed it, the same shape an action uses. A target outside PREFILL_SPECS, or one missing a value it requires, is rejected at validation: a prefill the frontend cannot resolve is a manifest line that silently does nothing."
     },
@@ -148,9 +256,15 @@
       "additionalProperties": false,
       "description": "A single-key mapping naming one action. FR-057.",
       "properties": {
-        "write": { "$ref": "#/$defs/write" },
-        "copy": { "$ref": "#/$defs/copy" },
-        "replay": { "$ref": "#/$defs/replay" }
+        "write": {
+          "$ref": "#/$defs/write"
+        },
+        "copy": {
+          "$ref": "#/$defs/copy"
+        },
+        "replay": {
+          "$ref": "#/$defs/replay"
+        }
       }
     },
     "file_action": {
@@ -160,14 +274,21 @@
       "additionalProperties": false,
       "description": "The subset of actions a replay segment may bind: the ones that put files on disk.",
       "properties": {
-        "write": { "$ref": "#/$defs/write" },
-        "copy": { "$ref": "#/$defs/copy" }
+        "write": {
+          "$ref": "#/$defs/write"
+        },
+        "copy": {
+          "$ref": "#/$defs/copy"
+        }
       }
     },
     "write": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "destination"],
+      "required": [
+        "source",
+        "destination"
+      ],
       "description": "Write one asset file into the tutorial project. Available at any step, not only at bootstrap (FR-058). A destination the user has edited is overwritten: tutorial projects are disposable and the designed scenarios depend on the tutorial controlling their contents.",
       "properties": {
         "source": {
@@ -185,17 +306,29 @@
     "copy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "destination"],
+      "required": [
+        "source",
+        "destination"
+      ],
       "description": "Copy one asset directory into the tutorial project. Same containment rules as write.",
       "properties": {
-        "source": { "type": "string", "minLength": 1 },
-        "destination": { "type": "string", "minLength": 1 }
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "destination": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "replay": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["surface", "segments"],
+      "required": [
+        "surface",
+        "segments"
+      ],
       "description": "Replay scripted material into one named surface (FR-061). A replay never accepts user input back into the scripted session.",
       "properties": {
         "surface": {
@@ -206,17 +339,29 @@
         "segments": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/replay_segment" }
+          "items": {
+            "$ref": "#/$defs/replay_segment"
+          }
+        },
+        "continue_tab": {
+          "type": "boolean",
+          "description": "Append this replay's segments to the surface's open replay tab instead of closing it and opening a new one (#2089). The conversation-pacing form: combined with a step trigger, the reader's press asks the scripted session on screen to continue. An error when no replay tab is open. FR-061b's ordering holds per appended segment - a segment's bound writes land before its bytes are delivered."
         }
       }
     },
     "replay_segment": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "source"],
+      "required": [
+        "id",
+        "source"
+      ],
       "description": "FR-061b. A segment's bound actions complete before its bytes are delivered, and therefore before the next segment's: a scripted agent that claims to have written a block has to be matched by the block existing at the moment the claim is readable.",
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
         "source": {
           "type": "string",
           "minLength": 1,
@@ -224,7 +369,9 @@
         },
         "do": {
           "type": "array",
-          "items": { "$ref": "#/$defs/file_action" }
+          "items": {
+            "$ref": "#/$defs/file_action"
+          }
         }
       }
     }

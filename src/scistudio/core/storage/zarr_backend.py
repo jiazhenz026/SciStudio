@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
-import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -13,6 +11,7 @@ import zarr
 
 from scistudio.core.storage.errors import StorageMissingError, StorageReferenceInvalidError
 from scistudio.core.storage.ref import StorageReference
+from scistudio.utils.atomic_io import atomic_replace_dir
 
 _ZARR_MISSING_ERRORS: tuple[type[BaseException], ...] = (
     FileNotFoundError,
@@ -75,8 +74,20 @@ class ZarrBackend:
     def write(self, data: Any, ref: StorageReference) -> StorageReference:
         """Write *data* as a Zarr array to *ref*.
 
-        Writes to a scratch directory and renames into place, so either the
-        old data remains intact or the new data is fully committed.
+        Writes to a scratch directory and swaps it into place through
+        :func:`~scistudio.utils.atomic_io.atomic_replace_dir`, so either the
+        old store stays intact or the new one is fully committed.
+
+        The swap deliberately does not delete the old store first. Deleting
+        and then renaming onto the freed name reads as equivalent, but it
+        destroys the previous good data before the replacement is committed,
+        so any failure in the rename leaves the block with no store at all.
+        On Windows that failure is routine rather than hypothetical: a
+        directory rename is denied while any handle is open anywhere in its
+        subtree, and antimalware opens the staged chunks the moment they are
+        written (issue #2148). The shared helper renames the old tree aside,
+        retries the swap while Windows reports the tree busy, and rolls the
+        old tree back when the swap still cannot complete.
 
         Args:
             data: Array-like data (converted via :func:`numpy.asarray`).
@@ -89,22 +100,11 @@ class ZarrBackend:
         """
         arr = np.asarray(data)
 
-        target = Path(ref.path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        tmp_dir = tempfile.mkdtemp(dir=target.parent, prefix=".zarr_tmp_")
-        try:
-            z = zarr.open_array(tmp_dir, mode="w", shape=arr.shape, dtype=arr.dtype)
+        with atomic_replace_dir(Path(ref.path)) as staging:
+            z = zarr.open_array(str(staging), mode="w", shape=arr.shape, dtype=arr.dtype)
             z[:] = arr
             if ref.metadata and "axes" in ref.metadata:
                 z.attrs["axes"] = ref.metadata["axes"]
-
-            # Atomic swap: remove old target (if exists), rename temp to target.
-            if target.exists():
-                shutil.rmtree(target)
-            Path(tmp_dir).rename(target)
-        except BaseException:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-            raise
 
         metadata = dict(ref.metadata) if ref.metadata else {}
         metadata.update({"shape": list(arr.shape), "dtype": str(arr.dtype)})

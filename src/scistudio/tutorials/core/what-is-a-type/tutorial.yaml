@@ -1,0 +1,809 @@
+# Core tutorial 2 — "What is a type" (scenarios doc, 关卡 2).
+#
+# The type-system level. An image-analysis task arrives and the reader builds
+# the missing pieces one real gap at a time: a project-tier Image type, a TIFF
+# loader met at the real "no load capability" error, an Image previewer met at
+# the real number-table fallback,
+# a threshold segmentation whose imperfection is genuine science, and an
+# interactive block to fix by hand what no method fixes. The ending is the bridge: Image, the segmentation block, and the
+# previewer go to My Library, which is how tutorial 3's fresh project will
+# already have them.
+#
+# The three plot twists are real product behavior, never staged: the
+# capability error is the real dispatch error, the number table is the real
+# previewer fallback walking the type chain, and the segmentation being
+# imperfect is what segmentation is like. The reader writes no code and wires
+# nothing: tutorial 1 taught both, and this level spends its attention on the
+# type system instead.
+manifest_version: 1
+id: what-is-a-type
+title: What is a type
+# 这里措辞需要大改：SciStudio使用自己约定的数据类型来应对多模态数据。这个教程将介绍SciStudio如何管理各种数据类型和数据格式，如何让自定义类型和加载器，以及如何在工作流中使用这些类型。这一章同时也会介绍个人工具库的概念，以及如何使用SciStudio进行交互式的数据分析。
+summary: >-
+  SciStudio uses data types of its own to handle multimodal data. This tutorial
+  introduces how SciStudio manages data types and data formats, how to make
+  your own type and your own loader, and how to use them in a workflow. It also
+  introduces the personal tool library, and how to do interactive data analysis
+  in SciStudio.
+
+order: 2
+
+requires:
+  # Same floor as tutorials 1 and 4: to_memory() and the ergonomic accessors
+  # the shipped block sources rely on are stable from 0.3.1 (ADR-052 §10).
+  # No requires.tutorials entry, and here that is a statement rather than a
+  # concession: this level builds everything it uses. Tutorial 3 declares one
+  # (#2088) because it consumes what this level's last three steps put in the
+  # library.
+  scistudio: ">=0.3.1"
+  agent: false
+  packages: []
+
+bootstrap:
+  project_name: What Is A Type
+  do:
+    # Lands as data/raw/cells_01.tif and data/raw/cells_02.tif — two
+    # 200x200 uint8 TIFF micrographs, six cells on the first and five on the
+    # second, plus one speck of debris on the first and the uneven
+    # illumination every scope delivers. Two files rather than one so the
+    # level can teach batch processing with a real multi-select; every count
+    # the steps quote is recomputed from them by the tutorial's tests.
+    #
+    # Everything under assets/data lands in the reader's project, so the
+    # micrographs' own sources are NOT kept here: they sit in the tutorial's
+    # ``sources/`` directory, outside assets, where the recipe in the tests
+    # reads them and the bootstrap never sees them.
+    - copy:
+        source: assets/data
+        destination: data/raw
+
+steps:
+  # 关卡 2 的节奏和关卡 1 一样：一句引导 + 一句指导，一步一件事，短句。
+  #
+  # **Scene by default, chat line by exception.** The character stands in the
+  # workspace unless the step is pointing at one small control she would
+  # otherwise be standing in front of — a palette entry, a node, Run, the New
+  # menu, a tab. A ring around a whole surface (the Data types list, the preview
+  # panel, the config panel) keeps the scene, because there the surface is the
+  # subject and she belongs in it.
+  #
+  # **Every step with a `done_when` also declares `auto_advance`.** The reader
+  # has just done the thing the step asked for, and a click to confirm a click
+  # is a click for nothing. Manual continue is left to the reading steps, which
+  # is the one pace only the reader can set. One step deliberately breaks that:
+  # `make-it-image`, whose condition is already true when it opens and whose
+  # real request no term can judge. The reading steps are not exceptions to it:
+  # they carry no condition at all, so there is nothing for them to advance on.
+  #
+  # **With `auto_advance`, the last beat must be the instruction.** A payoff
+  # written after it is never read: the step leaves the moment the reader
+  # arrives on that beat with the condition already met. So every payoff opens
+  # the *following* step instead.
+  #
+  # A beat may name the expression it is delivered with as a prefix on the line
+  # — `explain: ...` — and may set the operative phrase in bold with
+  # `**like this**`: the control to press, the value to pick. Not whole
+  # sentences, and not in a beat that is only explaining.
+
+  # 第1句话：很高兴你回来了！我们今天的教程将介绍SciStudio如何管理各种模态的数据类型和数据格式。
+  # 第2句话：Your lab just handed you a cell image and wants to know the size of each cell.
+  # 第3句话：Before we touch the canvas, look at the Data types tab. These are the kinds of data SciStudio can hold.
+  # 第4句话：Now, nothing here knows what a microscopic image is. Our first task is to fix that.
+  - id: a-task-arrives
+    title: An image walks in
+    route_to: data_types
+    highlight:
+      - ~
+      - ~
+      - type_palette
+      - type_palette
+    say:
+      - "success: Glad you are back! Today's tutorial introduces how SciStudio manages the data types and the data formats of every modality."
+      - "Your lab just handed you a cell image and wants to know the size of each cell."
+      - "explain: Before we touch the canvas, look at the Data types tab. These are the kinds of data SciStudio can hold."
+      - "explain: Now, nothing here knows what a microscopic image is. Our first task is to fix that."
+
+  # 第一句话：Type是各种真实数据模态的一个抽象。让我们来创建一个吧。
+  # 第二句：点击New，选择New data type，保持默认的文件名，并保存到这个项目中。
+  - id: create-the-image-type
+    title: New type, your project
+    auto_advance: true
+    route_to: canvas
+    compact: [false, true]
+    highlight:
+      - ~
+      - new_menu_button
+    prefill:
+      - new_data_type:
+          filename: image
+    say:
+      - "explain: A type is an abstraction of a real data modality. Let's create one."
+      - Press **New**, choose **New data type**, keep the default filename, and save it to this project.
+    done_when:
+      file_exists:
+        path: types/image.py
+
+  # 把这一步和下一步合起来，别让用户自己改色，太复杂了。
+  # 这里像第一关写block一样，用"让我帮你写好Image这个数据类型"
+  # 第二句：看下编辑器 - 作为矩阵类数据的一种，我把Image类型创建为Array的子类型。
+  # 第三句：你的类型现在已经可用了！看左侧的Data types tab — Image类型已经在项目中注册了。
+  #
+  # The entry action rewrites the dialog's template into the real Image type
+  # before this step's text is readable (FR-059), and the registry settles on
+  # the write (FR-059a) — so `type_registered` is typically already true here.
+  # That is why this step does NOT auto-advance: it would leave before the
+  # reader had read a word.
+  - id: make-it-image
+    title: Meet your type
+    route_to: data_types
+    highlight:
+      - ~
+      - ~
+      - type_palette
+    do:
+      - write:
+          source: assets/code/image.py
+          destination: types/image.py
+    say:
+      - "focus: Let me write the Image data type for you."
+      - "explain: Look at the editor — as a kind of matrix data, I made the Image type a subtype of Array."
+      - "success: Your type is ready to use! Look at the Data types tab on the left — the Image type is registered in this project."
+    done_when:
+      type_registered:
+        type_name: Image
+
+  # 第一句话：现在有了Image这个类型，让我们把细胞的图像读进来。
+  # 第二句话：拖入一个Load block到画布上 — 和第一关的Load是一样的。
+  # 这里不要提只有一个Load block，太抽象了，用户不一定理解。
+  - id: add-load
+    title: Load, as always
+    auto_advance: true
+    route_to: block_palette
+    compact: [false, true]
+    highlight:
+      - ~
+      - palette_block:
+          block_type: load_data
+    say:
+      - "explain: Now that we have the Image type, let's read the cell images in."
+      - "**Drag a Load block** onto the canvas — the same Load as in tutorial 1."
+    done_when:
+      node_exists:
+        block_type: load_data
+
+  - id: select-the-load-block
+    title: Open its config
+    auto_advance: true
+    compact: true
+    route_to: canvas
+    highlight:
+      node:
+        block_type: load_data
+    say:
+      - "**Click the block** to open its config."
+    done_when:
+      ui_event:
+        name: node_selected
+        block_type: load_data
+
+  # 这里像第一关一样，直接文案里面写路径data/raw/xxx。第一句不要，只要第二句指示。
+  # 这里搞2个图像，文案告诉用户：SciStudio可以一次性读入多个数据进行批处理，
+  # 只需要在文件选择器里多选就行了。然后文案里给出两个图像的路径。
+  - id: browse-to-the-image
+    title: Point it at the images
+    auto_advance: true
+    route_to: config
+    highlight: config_panel
+    say:
+      - "explain: SciStudio can read several files at once and process them as a batch — just multi-select them in the file picker."
+      - Press **Browse** and load **data/raw/cells_01.tif** and **data/raw/cells_02.tif**.
+    done_when:
+      # One `config_matches` per file, because a multi-file field holds a list
+      # and each entry is judged on its own: two terms under `all` is how the
+      # step requires both files rather than either.
+      all:
+        - config_matches:
+            block_type: load_data
+            key: path
+            pattern: data/raw/cells_01.tif
+        - config_matches:
+            block_type: load_data
+            key: path
+            pattern: data/raw/cells_02.tif
+
+  # 合成一句话
+  - id: say-it-is-an-image
+    title: Say what it is
+    auto_advance: true
+    route_to: config
+    highlight: config_panel
+    say:
+      - Open the **Type** list and select your own **Image**.
+    done_when:
+      config_equals:
+        block_type: load_data
+        key: core_type
+        value: Image
+
+  # 这句话这么说：下面让我们试试把这个image读进来。按Run来运行workflow。（别告诉用户会失败）
+  #
+  # The first plot twist, met head-on. `run_failed` is scoped to this step so
+  # only the run the reader performs here satisfies it.
+  - id: run-into-the-wall
+    title: Try loading image
+    auto_advance: true
+    route_to: canvas
+    # One beat now, so one compact value and one highlight. Compact because the
+    # line points at Run, and Run is a small control.
+    compact: true
+    highlight: run_button
+    say:
+      - "explain: Now let's try reading these images in. **Press Run** to run the workflow."
+    done_when:
+      run_failed:
+        since_step_entry: true
+
+  # 第一句：怎么失败了？？让我看看log，用疑问表情，直接切到log页面
+  # 第二句："Load: no load capability is registered for type ''Image''."
+  # 第三句：A type is a name and a shape. Reading 一个特别的扩展名比如tiff into it is
+  # a separate skill — the product calls it a capability. + You declared the noun.
+  # The verb is missing. 两句合成一句。
+  #
+  # The error is the product's real dispatch error, quoted verbatim; a test
+  # holds the quote against the source it comes from.
+  - id: read-the-capability-error
+    title: Read the error
+    route_to: logs
+    compact: [true, false, false]
+    highlight:
+      - bottom_tab:
+          tab: logs
+      - ~
+      - ~
+    say:
+      - "curious: Why did it fail?? Let me look at the log."
+      - '"Load: no load capability is registered for type ''Image''."'
+      - "explain: A type is a name and a shape. Reading a particular file extension like .tif into it is a separate skill — the product calls it a capability. You declared the noun; the verb is missing."
+
+  # 第一句：SciStudio使用IOBlock来管理各种文件格式的读写能力。IOBlock也是Block的一种。
+  # 第二句：你可以像第一个教程里那样创建一个新的IOBlock。使用New菜单，选择New IO block，保持默认的文件名，并保存到这个项目中。
+  # 第三句和第一关一样，"我帮你写好了"，用专注表情。
+  - id: teach-it-to-load
+    title: Teach it to load
+    auto_advance: true
+    route_to: canvas
+    trigger:
+      label: Write the TIFF loader for me
+      do:
+        - write:
+            source: assets/code/load_tiff_image.py
+            destination: blocks/load_tiff_image.py
+    say:
+      - "explain: SciStudio uses IO blocks to manage the ability to read and write each file format. An IO block is a kind of block too."
+      - "focus: You can create a new IO block the way you did in the first tutorial. Let me write it for you this time."
+    done_when:
+      file_exists:
+        path: blocks/load_tiff_image.py
+
+  # 第一句让用户点load，然后设置tiff作为capability。
+  # 两步而不是一步，因为 route_to 属于步骤：设置在 config 面板，运行在画布。
+  - id: set-the-capability
+    title: Say which reader
+    auto_advance: true
+    route_to: config
+    highlight: config_panel
+    say:
+      - "success: Written! Now click the Load block and set its format to **tiff**."
+    done_when:
+      # Matched as a glob, not compared as a string, and the reason is that the
+      # id is not knowable when the manifest is written. `SimpleLoader` mints
+      # `{module}.{ClassName}.{direction}.{format_id}`, and for a drop-in block
+      # the module is the synthetic name the scanner invents —
+      # `_scistudio_dropin_load_tiff_image_<mtime>` — so the id carries the
+      # file's modification time and differs on every machine and after every
+      # rewrite. What is stable is the tail: this reader's class, loading, as
+      # TIFF. Measured, not assumed: a scan of the shipped asset produced
+      # `_scistudio_dropin_load_tiff_image_1787593641.loadtiffimage.load.tiff`.
+      config_matches:
+        block_type: load_data
+        key: capability_id
+        pattern: "*.loadtiffimage.load.tiff"
+
+  # 第二句：按Run来运行workflow。
+  - id: run-it-again
+    title: Run it again
+    auto_advance: true
+    route_to: canvas
+    compact: true
+    highlight: run_button
+    say:
+      - "**Press Run** to run the workflow."
+    done_when:
+      run_succeeded:
+        since_step_entry: true
+
+  # 第1句：点击previewer中的任何一个文件来查看。
+  # 第2句：Your cell image came out as a table of numbers. That is not a bug.
+  # 因为SciStudio的核心模块只提供了一个Array的浏览器，并不知道该如何渲染图像。
+  # 第3句：好消息是，我们可以自己定制一个Image的预览器。让我帮你创建一个！
+  # （以后你可以让SciStudio的AI agent来帮你按照自己的想法创建Previewer，我们将在后续的教程中介绍）
+  # 然后把这一步和下一步合成一个完整的步骤，直接把那个创建按钮放到上一句的对话框里。
+  #
+  # The second plot twist: the previewer fallback walking the type chain. Real
+  # behavior, worth meeting before fixing.
+  # 2026-08-24 改：第一句"点开文件看看"拆成独立一步，做完成检查；剩下三句是
+  # 解释性的，全部立绘。
+  #
+  # The instruction and the verdict on what it shows are two steps, for the
+  # reason every other pair in this level is: "your image came out as a table
+  # of numbers" is about something the reader has to have opened. Ringing one
+  # card and going compact belongs to the instruction; the three beats that
+  # explain what they are looking at point at nothing and are delivered
+  # standing.
+  - id: look-at-the-numbers
+    title: Open a file
+    compact: true
+    auto_advance: true
+    route_to: canvas
+    highlight:
+      preview_item:
+        index: 0
+    say:
+      - "success: Green! Click any of the files in the previewer to look at it."
+    done_when:
+      ui_event:
+        name: preview_item_opened
+
+  - id: why-numbers
+    title: Numbers, not pictures
+    auto_advance: true
+    route_to: canvas
+    trigger:
+      label: Write the Image previewer for me
+      do:
+        - write:
+            source: assets/code/image_preview.py
+            destination: previewers/image_preview.py
+    say:
+      - "curious: Your cell image came out as a table of numbers. That is not a bug — SciStudio's core ships only an Array previewer, and it does not know how to render an image."
+      - "explain: The good news is that we can customize a previewer for Image ourselves. (Later you can ask SciStudio's AI agent to create a previewer however you like — we will cover that in a later tutorial.)"
+      - "focus: Let me create one for you!"
+    done_when:
+      previewer_registered:
+        type_name: Image
+
+  # 就一句话就好了：写好了！**Click the Load block** again.
+  - id: look-again
+    title: Look again
+    auto_advance: true
+    compact: true
+    route_to: canvas
+    highlight:
+      node:
+        block_type: load_data
+    say:
+      - "success: Written! **Click the Load block** again."
+    done_when:
+      ui_event:
+        name: node_selected
+        block_type: load_data
+
+  # 2026-08-24 改："There they are!" 之前也要加一个让用户真正点开 image 1，
+  # 看到图了才继续。
+  - id: open-the-rendered-image
+    title: Open it
+    compact: true
+    auto_advance: true
+    route_to: canvas
+    highlight:
+      preview_item:
+        index: 0
+    say:
+      - Click the first file to open it.
+    done_when:
+      ui_event:
+        name: preview_item_opened
+
+  # 这里There they are! 我们的图像可以正确显示了。Time for the actual science.
+  # 第二句：让我们用算法来把图像中的细胞分割出来。Press the button and I will
+  # write the segmentation block for you.
+  - id: segment-the-cells
+    title: Segment it
+    auto_advance: true
+    route_to: canvas
+    highlight:
+      - ~
+      - ~
+    trigger:
+      label: Write the segmentation block for me
+      do:
+        - write:
+            source: assets/code/segment_cells.py
+            destination: blocks/segment_cells.py
+    say:
+      - "success: There they are! Our images display properly now. Time for the actual science."
+      - "focus: Let's use an algorithm to segment the cells out of the images. Press the button and I will write the segmentation block for you."
+    done_when:
+      file_exists:
+        path: blocks/segment_cells.py
+
+  # 这里不要让用户再自己动手连了，第一关已经教过怎么动手连了。直接说 Success：
+  # Written！我也顺手帮你连好了整个workflow，然后把focus重新聚焦到workflow上。
+  # 后面几个连workflow的步骤都省了。看label这个也不要，直接改成让我们跑一下
+  # workflow试试，引导用户去点run。
+  - id: wired-for-you
+    title: Run it
+    auto_advance: true
+    route_to: canvas
+    compact: [false, true]
+    highlight:
+      - ~
+      - run_button
+    do:
+      - write:
+          source: assets/workflows/load-and-segment.yaml
+          destination: workflows/main.yaml
+    say:
+      - "success: Written! I wired the whole workflow up for you too."
+      - Let's run the workflow and see. **Press Run**.
+    done_when:
+      run_succeeded:
+        since_step_entry: true
+
+  # 这里只需要一句话：Segmentation看起来没有很好。多认出了一个不是细胞的东西。
+  # 要不试试别的方法？（和下一步合二为一）
+  # 第二句：点开segmentation的config面板，试一下用adaptive method来分割。
+  # 第三句：让我们再run一次workflow试试。
+  #
+  # 2026-08-24 改：这一步之前加一个让用户点 segmentation block 然后看一下结果。
+  # "Open Segment Cells' config panel and try the adaptive method" 这句需要做
+  # 完成检查，改成 2 个步骤：点 segmentation block，改 config 成 adaptive。
+  # "Then let's run the workflow again" 用 compact 模式，highlight 到 run 上。
+  #
+  # The third plot twist: the segmentation genuinely is imperfect. Eleven cells
+  # across the two slides, twelve objects — a speck of debris on the first slide
+  # crossed the threshold too. Every count here is recomputed from the shipped
+  # micrographs by this level's tests.
+  #
+  # A reader has to have seen the labels before Mio can say they are wrong, so
+  # the look comes first and the verdict opens the step after it. The same
+  # click is asked for twice, once to look and once to reach the settings; a
+  # ui_event belongs to the step that asked for it (the recorder is cleared on
+  # every step entry), so the second ask is not satisfied by the first click.
+  - id: look-at-the-labels
+    title: See what it found
+    compact: true
+    auto_advance: true
+    route_to: canvas
+    highlight:
+      node:
+        block_type: segment_cells
+    say:
+      - Click the **Segment Cells** block and look at what it found.
+    done_when:
+      ui_event:
+        name: node_selected
+        block_type: segment_cells
+
+  # 2026-08-24 改：说"结果不好"之前，先引导用户点开 previewer 里的数据卡片，
+  # 把数据调出来，再说结果。
+  #
+  # Selecting the block lists the batch; it does not open either slide. The
+  # verdict in the next step is about something the reader has to have *seen*,
+  # and two cards named after the micrographs are not the picture — so the step
+  # asks for the click that draws one.
+  - id: open-the-first-slide
+    title: Look at it
+    compact: true
+    auto_advance: true
+    route_to: canvas
+    highlight:
+      preview_item:
+        index: 0
+    say:
+      - In the preview, click the first card to open that slide.
+    done_when:
+      ui_event:
+        name: preview_item_opened
+
+  - id: try-another-method
+    title: Try the other method
+    compact: [false, true]
+    auto_advance: true
+    route_to: canvas
+    highlight:
+      - ~
+      - node:
+          block_type: segment_cells
+    say:
+      - "curious: The segmentation does not look great. It picked out something that is not a cell. Shall we try another method?"
+      - Click the **Segment Cells** block again to open its config panel.
+    done_when:
+      ui_event:
+        name: node_selected
+        block_type: segment_cells
+
+  - id: switch-to-adaptive
+    title: The adaptive method
+    auto_advance: true
+    route_to: config
+    highlight: config_panel
+    say:
+      - Set **method** to **adaptive**.
+    done_when:
+      config_equals:
+        block_type: segment_cells
+        key: method
+        value: adaptive
+
+  - id: run-the-adaptive-method
+    title: Run it again
+    compact: true
+    auto_advance: true
+    route_to: canvas
+    highlight: run_button
+    say:
+      - Then let's run the workflow again. **Press Run**.
+    done_when:
+      run_succeeded:
+        since_step_entry: true
+
+  # 2026-08-24 改：说"还不如以前"之前，也要先切到 previewer 让用户点开看结果。
+  #
+  # Same rule as before the first verdict: a judgement about a picture the
+  # reader has not seen is one they cannot check.
+  - id: open-the-adaptive-result
+    title: See what changed
+    compact: true
+    auto_advance: true
+    route_to: canvas
+    highlight:
+      preview_item:
+        index: 0
+    say:
+      - Open the first file again and look at what the adaptive method found.
+    done_when:
+      ui_event:
+        name: preview_item_opened
+
+  # 第一句：结果还不如以前呢！还是换回去吧。Switch **method** back to **threshold**
+  - id: back-to-threshold
+    title: Back to threshold
+    auto_advance: true
+    route_to: config
+    highlight: config_panel
+    say:
+      - "error: That turned out worse than before! Let's switch it back. Switch **method** back to **threshold**."
+    done_when:
+      config_equals:
+        block_type: segment_cells
+        key: method
+        value: threshold
+
+  # 要是能手动删掉那个小点就好了...
+  # 第二句：其实SciStudio允许Block是交互式的！！我们完全可以加一个手动修改的block在后面！！
+  # 第三句：让我给你写一个Review label block让你手动标记一下~
+  - id: blocks-can-be-interactive
+    title: The human in the loop
+    auto_advance: true
+    route_to: canvas
+    trigger:
+      label: Write the review block for me
+      do:
+        - write:
+            source: assets/code/review_labels.py
+            destination: blocks/review_labels.py
+        - copy:
+            source: assets/panels/review_labels
+            destination: blocks/review_labels_panel
+    say:
+      - "curious: If only we could delete that little dot by hand..."
+      - "success: Actually, SciStudio lets a block be interactive!! We can absolutely add a block for editing by hand after it!!"
+      - "focus: Let me write you a Review Labels block so you can mark them by hand~"
+    done_when:
+      file_exists:
+        path: blocks/review_labels.py
+
+  # 第四句：写好了！我帮你把workflow也连好了！这一次workflow跑到Review label block
+  # 的时候，会弹出一个交互窗口，让你手动移除错误的label。
+  # 第五句：让我们再跑一次workflow试试！（run做自动判定）
+  #
+  # 2026-08-24 改：原来的第六句（"交互窗口出来了！你可以手动删除那个不是 cell 的点…"）
+  # 删掉。The panel says it itself, and the line could not be read where it
+  # stood: the step is judged on `interaction_completed`, so the moment the
+  # reader finished the panel the step advanced — a payoff written after the
+  # instruction that satisfies the step is a line nobody sees. The step now
+  # ends on "Press Run", which is what an auto-advancing step's last beat has
+  # to be.
+  - id: run-with-review
+    title: Delete the speck
+    auto_advance: true
+    route_to: canvas
+    compact: [false, true]
+    highlight:
+      - ~
+      - run_button
+    do:
+      - write:
+          source: assets/workflows/with-review.yaml
+          destination: workflows/main.yaml
+    say:
+      - "success: Written! I wired it into the workflow for you too! This time, when the workflow reaches the Review Labels block, an interactive window will pop up and let you remove the wrong labels by hand."
+      - Let's run the workflow again! **Press Run**.
+    done_when:
+      interaction_completed:
+        block_type: review_labels
+
+  # 第一句：点击xxx block，查看他的结果。
+  - id: look-at-the-areas
+    title: Read the result
+    auto_advance: true
+    compact: true
+    route_to: canvas
+    highlight:
+      node:
+        block_type: review_labels
+    say:
+      - Click the **Review Labels** block and look at its result.
+    done_when:
+      ui_event:
+        name: node_selected
+        block_type: review_labels
+
+  # 后面这个也一样：先把表格调出来，再说表格里是什么。
+  - id: open-the-first-table
+    title: Open the table
+    compact: true
+    auto_advance: true
+    route_to: canvas
+    highlight:
+      preview_item:
+        index: 0
+    say:
+      - One table per slide. Click the first card to open it.
+    done_when:
+      ui_event:
+        name: preview_item_opened
+
+  # 第二句：我们发现图像数据被统计成了一个dataframe！每个细胞的大小已经被成功计算出来了！
+  - id: a-dataframe-of-areas
+    title: A table of cells
+    route_to: canvas
+    highlight: data_preview
+    say:
+      - "success: We find the image data counted up into a DataFrame! The size of every cell has been computed."
+
+  # 第一句：我们今天创建的Image数据类型live in this project，只有当前project可用。
+  # 我们可以把Image加入到你的个人工具库，available in every project you open.
+  # 第二句：In the Data types tab, hover the **Image** tile and choose **Move to My Library**.
+  #
+  # The ending: the bridge to tutorial 3. Each promotion is judged against the
+  # library that tutorial projects actually scan (FR-070).
+  - id: save-the-type
+    title: Move Image to My Library
+    auto_advance: true
+    route_to: data_types
+    highlight:
+      - ~
+      - type_palette
+    say:
+      - "explain: The Image data type we made today lives in this project, and only this project can use it. We can add Image to your personal library, available in every project you open."
+      - In the Data types tab, hover the **Image** tile and choose **Move to My Library**.
+    done_when:
+      library_contains:
+        kind: type
+        name: Image
+
+  - id: save-the-block
+    title: Move the block too
+    auto_advance: true
+    route_to: block_palette
+    highlight:
+      - ~
+      - block_palette
+    say:
+      - "explain: Same move for the segmentation block."
+      - Find **Segment Cells** in the palette, hover it, and choose **Move to My Library**.
+    done_when:
+      library_contains:
+        kind: block
+        name: segment_cells
+
+  # 这里废话太多了，直接：The last one: your previewer can also be moved to your
+  # personal library. 这里让用户直接去previewer选all projects
+  #
+  # TODO(#2135): this step is not judged. The Previewers tab's card offers
+  #   Auto / This project / All projects, which records which previewer renders
+  #   an Image and at what scope — it does not move the file into the library,
+  #   and `library_contains` can only be satisfied by the editor toolbar's
+  #   "Move to My Library". Left unjudged rather than judged on something the
+  #   step does not ask for; raised with the owner 2026-08-23.
+  #   Followup: https://github.com/jiazhenz026/SciStudio/issues/2135
+  - id: save-the-previewer
+    title: And the previewer
+    route_to: previewers
+    highlight:
+      - ~
+      - previewer_palette
+    say:
+      - "The last one: your previewer can also be moved to your personal library."
+      - In the Previewers tab, find **Image** and choose **All projects**.
+
+  # 最后统计表格出来以后，再加一个 histogram 步骤，交给 labmate 看。四句话：
+  # 1. 我们最后出一个细胞size的histogram交给labmate去看。这里我们需要用到上一个
+  #    教程提到的plot card。
+  # 2. 让我帮你写好这个histogram（一个帮我写的按钮）
+  # 3. 写好了！切换到plot card tab然后run
+  # 4. histogram画出来了。我们可以在previewer里面导出plot，存到processed里面
+  #
+  # Three steps rather than one, for the usual reason: "Written!" is the payoff
+  # of the trigger above it and has to open the step after it, or a reader whose
+  # condition is already met never sees the line.
+  - id: a-histogram-for-your-labmate
+    title: One picture to hand over
+    auto_advance: true
+    trigger:
+      label: Write the histogram for me
+      do:
+        - copy:
+            source: assets/code/cell_size_histogram
+            destination: plots/cell_size_histogram
+    say:
+      - "explain: Last of all, let's make a histogram of cell size to hand to your labmate. For that we need the plot card from the previous tutorial."
+      - "focus: Let me write this histogram for you."
+    done_when:
+      plot_exists:
+        plot_id: cell_size_histogram
+
+  - id: run-the-histogram
+    title: Draw it
+    compact: true
+    auto_advance: true
+    route_to: plots
+    highlight:
+      plot_card:
+        plot_id: cell_size_histogram
+    say:
+      - "success: Written! Switch to the plot card tab and press **Run**."
+    done_when:
+      ui_event:
+        name: plot_rendered
+        plot_id: cell_size_histogram
+
+  # 这一步需要检查是否真的保存了，并且 highlight previewer 里的 save 按钮。
+  #
+  # Judged on `plot_exported` rather than on the file. The reader names the file
+  # in a native save dialog, so no path can be predicted, and image extensions
+  # sit outside the watcher's allowlist, so even a correct `file_exists` would
+  # never be re-evaluated. The event reports the act, which is what the step
+  # asks for.
+  - id: export-the-histogram
+    title: Take it with you
+    auto_advance: true
+    route_to: plots
+    compact: [false, true]
+    highlight:
+      - ~
+      - plot_export_button
+    say:
+      - "success: The histogram is drawn!"
+      - Press **Save** in the previewer and keep the plot in **data/processed**.
+    done_when:
+      ui_event:
+        name: plot_exported
+
+  # 第一句：congratulations! That is the end of today's tutorial. 你今天学到了
+  # SciStudio type的概念，以及SciStudio如何读写不同format的文件的。另外，今天也
+  # 学到了一些小tips：
+  # 第二句：tip 1：block可以是交互式的
+  # 第三句：tip 2：SciStudio的工作流可以进行batch processing，只需要一次多选你的文件load。
+  # 第四句：tip 3：你可以用自己喜欢的方式customize 你的previewer
+  # 第五句：You can keep exploring in this project, or start your next one.
+  - id: what-a-type-is
+    title: A language, not a label
+    say:
+      - "success: Congratulations! That is the end of today's tutorial. Today you learned the concept of a SciStudio type, and how SciStudio reads and writes files of different formats. You also picked up a few small tips:"
+      - "explain: Tip 1 — a block can be interactive."
+      - "explain: Tip 2 — a SciStudio workflow can do batch processing; just multi-select your files when you load."
+      - "explain: Tip 3 — you can customize your previewer any way you like."
+      - You can keep exploring in this project, or start your next one.

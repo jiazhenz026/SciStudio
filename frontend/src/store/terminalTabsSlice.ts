@@ -232,6 +232,38 @@ export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTab
       };
     }),
 
+  // ADR-053 FR-061a (#2083) — tutorial replay tab adoption.
+  //
+  // The backend registered the scripted byte source under `tabId` before the
+  // session response named it, so this skips `setup` exactly as the AI-Block
+  // and work-import paths do, and the WS join branch attaches to the replay
+  // rather than spawning anything. `user-terminal` is used as the provider
+  // because the WS query validates against the registry whitelist and the
+  // join happens before any spawn decision; the tab carries its own
+  // `"tutorial-replay"` source so nothing renders block affordances on it and
+  // the Learning Center can find it to tear it down with the session.
+  adoptTutorialReplayTab: ({ tabId, title }) =>
+    set((state) => {
+      const tab: TerminalTab = {
+        id: tabId,
+        title,
+        provider: USER_TERMINAL_PROVIDER,
+        permissionMode: "safe",
+        state: "running",
+        source: "tutorial-replay",
+      };
+      const existing = state.terminalTabs.findIndex((t) => t.id === tabId);
+      if (existing >= 0) {
+        const next = state.terminalTabs.slice();
+        next[existing] = { ...next[existing], ...tab };
+        return { terminalTabs: next, activeTerminalTabId: tabId };
+      }
+      return {
+        terminalTabs: [...state.terminalTabs, tab],
+        activeTerminalTabId: tabId,
+      };
+    }),
+
   updateAiBlockStatus: (id: string, status: AiBlockStatus) =>
     set((state) => {
       const idx = state.terminalTabs.findIndex((t) => t.id === id);
@@ -256,6 +288,15 @@ export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTab
  */
 export function rehydrateTerminalTabs(tabs: TerminalTab[]): TerminalTab[] {
   return tabs
+    .filter(
+      // ADR-053 FR-061c (#2083): a tutorial replay tab cannot outlive the
+      // page. Its scripted byte source was killed when the WebSocket went
+      // away, and the tab id is only meaningful while the backend session
+      // names it — the Learning Center re-adopts from the live session
+      // response when there is anything to attach. A persisted copy would be
+      // a dead tab, or worse: joining a stale id would spawn a real shell.
+      (t) => t.source !== "tutorial-replay",
+    )
     .filter(
       (t) =>
         !(

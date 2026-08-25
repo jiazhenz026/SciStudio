@@ -1,4 +1,4 @@
-"""A project-level block that normalises fluorescence against two controls.
+"""A project-level block that normalizes fluorescence against two controls.
 
 The Learning Center writes this file into the tutorial project so the reader
 never has to type it. It is ordinary SciStudio block code: a project block is a

@@ -19,6 +19,7 @@ from pathlib import Path
 
 from scistudio.blocks.io.savers._helpers import _dataframe_to_arrow_table
 from scistudio.core.types.base import DataObject
+from scistudio.utils.atomic_io import atomic_replace_dir
 
 
 def _zarr_store_copy(src_path: str, dst_path: str) -> None:
@@ -27,11 +28,17 @@ def _zarr_store_copy(src_path: str, dst_path: str) -> None:
     Uses ``shutil.copytree`` for a file-level copy of the zarr directory
     store. This copies the compressed chunks directly, avoiding any
     decompression/recompression round-trip.
+
+    The copy is staged in a sibling directory and swapped in, rather than
+    deleting an existing *dst_path* and copying over the freed name. Both
+    reach the same end state when everything works, but deleting first
+    throws away a saved export before its replacement exists, so a copy that
+    fails partway leaves the user with neither. That is the same defect
+    fixed in ``ZarrBackend.write`` for issue #2148, and the shared helper
+    also carries the Windows directory-rename retry.
     """
-    dst = Path(dst_path)
-    if dst.exists():
-        shutil.rmtree(dst)
-    shutil.copytree(src_path, dst_path)
+    with atomic_replace_dir(Path(dst_path)) as staging:
+        shutil.copytree(src_path, staging, dirs_exist_ok=True)
 
 
 def _streaming_save_dataframe_csv(obj: DataObject, path: Path, delimiter: str = ",") -> None:

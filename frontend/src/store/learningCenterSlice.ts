@@ -38,7 +38,7 @@ import {
 
 import type { AppStore, LearningCenterSlice } from "./types";
 
-/** FR-084 — core is the group listed first and the only one driving behaviour. */
+/** FR-084 — core is the group listed first and the only one driving behavior. */
 export const CORE_TUTORIAL_SOURCE_KIND = "core";
 
 /**
@@ -239,6 +239,9 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
     set({
       learningCenterSession: session,
       learningCenterError: session?.status === "error" ? (session.error ?? null) : null,
+      // #2061 — an adopted response supersedes any trigger failure: the retry
+      // worked, the step advanced, or the session went away.
+      learningCenterTriggerError: null,
     });
   }
 
@@ -266,6 +269,11 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
     learningCenterFirstRunDismissed: false,
     learningCenterStartConflict: null,
     learningCenterWorkImportOffer: false,
+    learningCenterTriggerError: null,
+    learningCenterStayOnFinish: false,
+
+    setLearningCenterStayOnFinish: (learningCenterStayOnFinish) =>
+      set({ learningCenterStayOnFinish }),
 
     openLearningCenter: () => set({ learningCenterOpen: true }),
 
@@ -382,6 +390,8 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
         learningCenterLoading: true,
         learningCenterError: null,
         learningCenterStartConflict: null,
+        // A new tutorial has not been finished either way yet (#2135).
+        learningCenterStayOnFinish: false,
       });
       try {
         adoptSession(await learningCenterApi.startTutorialSession(request));
@@ -423,10 +433,39 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
       }
     },
 
+    /**
+     * #2061 — the step's own button. The backend runs the trigger's actions,
+     * settles the registries, and answers with the re-judged session; a
+     * failure is surfaced beside the button and the press can be retried.
+     */
+    triggerActiveTutorialStep: async () => {
+      set({ learningCenterTriggerError: null });
+      try {
+        adoptSession(await learningCenterApi.triggerActiveTutorialStep());
+      } catch (error) {
+        set({ learningCenterTriggerError: describe(error) });
+      }
+    },
+
     /** FR-012 — the reading step's continue button, the only such button. */
     continueActiveTutorialStep: async () => {
       try {
         adoptSession(await learningCenterApi.continueActiveTutorialStep());
+      } catch (error) {
+        set({ learningCenterError: describe(error) });
+      }
+    },
+
+    /**
+     * #2138 — the back control.
+     *
+     * The mirror of continue, and deliberately as thin: the backend owns where
+     * the trail goes and whether there is anywhere to go, so this posts and
+     * adopts whatever comes back, exactly as continue does.
+     */
+    backActiveTutorialStep: async () => {
+      try {
+        adoptSession(await learningCenterApi.backActiveTutorialStep());
       } catch (error) {
         set({ learningCenterError: describe(error) });
       }
@@ -439,10 +478,10 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
      * no tutorial is running, so a call site can report unconditionally without
      * having to know whether anyone is listening.
      */
-    reportTutorialUiEvent: async (name: string) => {
+    reportTutorialUiEvent: async (name: string, target?: string) => {
       if (!get().learningCenterSession) return;
       try {
-        adoptSession(await learningCenterApi.reportTutorialUiEvent(name));
+        adoptSession(await learningCenterApi.reportTutorialUiEvent(name, target));
       } catch (error) {
         set({ learningCenterError: describe(error) });
       }

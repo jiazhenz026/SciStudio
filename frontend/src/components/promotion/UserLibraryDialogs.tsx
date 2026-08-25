@@ -72,7 +72,12 @@ function ConfirmDialog({
 }) {
   const [includeDependencies, setIncludeDependencies] = useState(true);
   const dependencies = plan.cascade.dependencies;
-  const noun = plan.item.kind === "block" ? "block" : "data type";
+  const noun =
+    plan.item.kind === "block"
+      ? "block"
+      : plan.item.kind === "previewer"
+        ? "previewer"
+        : "data type";
 
   return (
     <div className={OVERLAY}>

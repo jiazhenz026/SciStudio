@@ -7,6 +7,28 @@ vi.mock("react-plotly.js", () => ({
   default: () => null,
 }));
 
+/*
+ * jsdom has no reader and no motion, so every media query about motion
+ * answers "reduce" here. The tutorial dialogue types its lines out a
+ * character at a time in a real browser (ADR-053, `useTypewriter`); under the
+ * runner it must put the whole line up at once, or every assertion about
+ * what a step says would be racing an interval.
+ *
+ * Assigned unconditionally: jsdom does provide a `matchMedia` that reports
+ * `matches: false` for everything, which is the wrong answer rather than a
+ * missing one. The two xterm suites install their own afterwards.
+ */
+window.matchMedia = ((query: string) => ({
+  matches: /prefers-reduced-motion/.test(query),
+  media: query,
+  onchange: null,
+  addListener: () => {},
+  removeListener: () => {},
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  dispatchEvent: () => false,
+})) as unknown as typeof window.matchMedia;
+
 if (!window.URL.createObjectURL) {
   window.URL.createObjectURL = vi.fn(() => "blob:mock");
 }

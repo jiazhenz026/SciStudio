@@ -259,6 +259,20 @@ export function RunsList(): ReactElement {
   const selectedRunId = useAppStore((s) => s.selectedRunId);
   const selectRun = useAppStore((s) => s.selectRun);
 
+  /*
+   * ADR-053 FR-052 (#2135) — selecting a run is a real product action that
+   * leaves no backend state, so a tutorial step waiting on it can only be told
+   * from here. The run's *status* rides along as the event's target: run ids
+   * are minted at run time and a manifest cannot name one, while what core
+   * tutorial 1 waits for is that the reader picked a run that succeeded — the
+   * failed one is right there above it, and restoring from that would put back
+   * the break the step exists to undo. A no-op when no tutorial is running.
+   */
+  const chooseRun = (run: LineageRunSummary) => {
+    selectRun(run.run_id);
+    void useAppStore.getState().reportTutorialUiEvent("run_selected", run.status);
+  };
+
   // Live tick once per second while any row is running. Skip otherwise.
   const hasRunning = runs.some((r) => r.status === "running");
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -287,6 +301,11 @@ export function RunsList(): ReactElement {
 
   return (
     <ul
+      // ADR-053 FR-089 -- the list, not a row: which run is the last successful
+      // one is what the reader is being asked to find, and a ring drawn on the
+      // answer would be doing the finding for them. Run ids are minted at run
+      // time, so a manifest could not name a row anyway.
+      data-tutorial-target="history_runs_list"
       className="flex h-full flex-col overflow-y-auto"
       role="listbox"
       aria-label="Run history"
@@ -305,18 +324,18 @@ export function RunsList(): ReactElement {
             aria-selected={selected}
             data-testid={`runs-list-row-${run.run_id}`}
             className={rowClass}
-            onClick={() => selectRun(run.run_id)}
+            onClick={() => chooseRun(run)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                selectRun(run.run_id);
+                chooseRun(run);
               }
             }}
             tabIndex={0}
           >
             {/*
               Hotfix #998: status pill becomes the row's primary visual
-              content. Timestamp moves to the right as a small grey
+              content. Timestamp moves to the right as a small gray
               label. The pill carries the status text directly so
               screen readers read e.g. "completed" without the icon
               fallback.

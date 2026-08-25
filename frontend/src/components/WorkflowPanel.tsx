@@ -79,6 +79,10 @@ export function WorkflowPanel({ projectId, activeWorkflowId, onOpenWorkflow }: W
   return (
     <aside
       className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-4"
+      // ADR-053 FR-089 — the panel as a whole, not one workflow's row: the
+      // tutorial step that points here is about where workflows are kept, and
+      // a project one step into its first tutorial has exactly one to show.
+      data-tutorial-target="workflow_list"
       data-testid="workflow-panel"
     >
       <div className="flex items-center justify-between gap-2">

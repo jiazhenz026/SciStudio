@@ -66,7 +66,9 @@ class ParityDriver:
         self.condition = parse_condition(_DONE_WHEN)
         self.evaluated = 0
 
-    def step_view(self, context: DriverContext) -> dict[str, Any]:
+    # ``Any`` rather than ``dict``: the driver protocol accepts any of the
+    # StepView shapes, and LeakyDriver narrows the return to a subclass.
+    def step_view(self, context: DriverContext) -> Any:
         index = self._index(context.step_id)
         step = _STEPS[index]
         return {
@@ -90,6 +92,14 @@ class ParityDriver:
 
     def entry_actions(self, context: DriverContext) -> tuple[Any, ...]:
         return ()
+
+    def steps_outline(self, context: DriverContext) -> tuple[dict[str, Any], ...]:
+        # The optional outline capability: a package driver that answers it
+        # produces the same session-level outline the manifest driver does,
+        # which is what keeps FR-040's parity available to it.
+        return tuple(
+            {"index": index, "id": step["id"], "say": step.get("say"), "pages": ()} for index, step in enumerate(_STEPS)
+        )
 
     def advance(self, context: DriverContext) -> str | None:
         if context.step_id is None:
@@ -285,9 +295,14 @@ def test_a_driver_cannot_return_fields_outside_the_step_view(runtime: TutorialRu
         "total",
         "title",
         "say",
-        "highlight",
+        "say_moods",
+        "highlights",
         "route_to",
         "prefill",
+        "pages",
+        "trigger",
+        "compacts",
+        "auto_advance",
         "awaiting_continue",
         # Not a driver's field: the runtime attaches it after reducing the
         # driver's view (FR-054a), which is why it survives this reduction
@@ -314,7 +329,36 @@ def test_a_driver_returning_an_unusable_step_view_is_rejected() -> None:
     with pytest.raises(DriverContractError):
         StepView.of({"id": "one", "index": "first", "total": 1})
     with pytest.raises(DriverContractError):
-        StepView.of({"id": "one", "index": 0, "total": 1, "say": ["not", "text"]})
+        StepView.of({"id": "one", "index": 0, "total": 1, "say": [1, 2]})
+    with pytest.raises(DriverContractError):
+        StepView.of({"id": "one", "index": 0, "total": 1, "say": ["a beat", "   "]})
+
+
+def test_a_driver_may_pick_the_compact_form_but_nothing_beyond_it() -> None:
+    """FR-011e crosses the FR-041 boundary as a shape, never as content.
+
+    A driver setting it chooses between two presentations core already ships,
+    which is the whole of what the field can express — it cannot describe one.
+    """
+    common = {"id": "one", "index": 0, "total": 1}
+    assert StepView.of(common).compacts == (False,)
+    assert StepView.of({**common, "compact": True}).compacts == (True,)
+    assert StepView.of({**common, "compact": "a bespoke layout"}).compacts == (True,)
+
+
+def test_a_driver_may_return_say_as_one_line_or_as_beats() -> None:
+    """The boundary widens a bare line to one beat, and takes a list as written.
+
+    Accepting the bare form is what lets a driver written before beats existed
+    keep working untouched (FR-040): it goes on returning a string and the
+    runtime sees the step it always described. Only the plural shape leaves, so
+    nothing downstream has two shapes to render.
+    """
+    common = {"id": "one", "index": 0, "total": 1}
+    assert StepView.of({**common, "say": "One line."}).say == ("One line.",)
+    assert StepView.of({**common, "say": ["Setup.", "Now do it."]}).say == ("Setup.", "Now do it.")
+    assert StepView.of({**common, "say": ()}).say == ()
+    assert StepView.of(common).say == ()
 
 
 def test_a_driver_cannot_introduce_an_action_kind(core_dir: Path) -> None:
@@ -411,3 +455,189 @@ def test_the_manifest_driver_is_used_for_every_non_driver_tutorial(core_dir: Pat
     manifest = load_manifest(core_dir / "by-manifest", source_kind=TutorialSourceKind.CORE)
 
     assert isinstance(load_driver(manifest, TutorialKey.core("by-manifest")).inner, ManifestDriver)
+
+
+# ---------------------------------------------------------------------------
+# The pages field crosses the FR-041 boundary as names, and only as names
+# ---------------------------------------------------------------------------
+
+
+def test_step_view_carries_pages_and_the_boundary_normalises_them() -> None:
+    from scistudio.tutorials.driver import STEP_VIEW_FIELDS, DriverContractError, StepView
+
+    assert "pages" in STEP_VIEW_FIELDS
+
+    view = StepView.of({"id": "read", "index": 0, "total": 1, "pages": ["intro", "closing"]})
+    assert view.pages == ("intro", "closing")
+
+    # A driver returning something that is not a list of names is refused at
+    # the boundary rather than rendered as a broken reading step.
+    import pytest
+
+    with pytest.raises(DriverContractError, match="pages"):
+        StepView.of({"id": "read", "index": 0, "total": 1, "pages": "intro"})
+    with pytest.raises(DriverContractError, match="pages"):
+        StepView.of({"id": "read", "index": 0, "total": 1, "pages": [1]})
+
+
+# ---------------------------------------------------------------------------
+# The trigger crosses the FR-041 boundary as a label, and only as a label
+# ---------------------------------------------------------------------------
+
+
+def test_step_view_carries_the_trigger_label_and_nothing_behind_it() -> None:
+    from scistudio.tutorials.driver import STEP_VIEW_FIELDS, DriverContractError, StepView
+
+    assert "trigger" in STEP_VIEW_FIELDS
+
+    view = StepView.of({"id": "s", "index": 0, "total": 1, "trigger": {"label": "Play", "do": ["smuggled"]}})
+    assert view.trigger == {"label": "Play"}
+
+    bare = StepView.of({"id": "s", "index": 0, "total": 1, "trigger": "Play"})
+    assert bare.trigger == {"label": "Play"}
+
+    import pytest
+
+    with pytest.raises(DriverContractError, match="label"):
+        StepView.of({"id": "s", "index": 0, "total": 1, "trigger": {"do": []}})
+
+
+def test_a_driver_without_the_capability_answers_no_trigger_actions() -> None:
+    from scistudio.tutorials.driver import GuardedDriver
+
+    class _Bare:
+        def step_view(self, context: object) -> dict[str, object]:
+            return {"id": "s", "index": 0, "total": 1}
+
+        def is_satisfied(self, context: object, product: object) -> bool:
+            return False
+
+        def entry_actions(self, context: object) -> tuple[()]:
+            return ()
+
+        def advance(self, context: object) -> None:
+            return None
+
+    assert GuardedDriver(_Bare()).trigger_actions(None) == ()  # type: ignore[arg-type]
+
+
+def test_trigger_actions_are_normalised_like_entry_actions() -> None:
+    """FR-041 cannot hold at one action door and not the other."""
+    import pytest
+
+    from scistudio.tutorials.driver import DriverContractError, GuardedDriver
+
+    class _Leaky:
+        def step_view(self, context: object) -> dict[str, object]:
+            return {"id": "s", "index": 0, "total": 1}
+
+        def is_satisfied(self, context: object, product: object) -> bool:
+            return False
+
+        def entry_actions(self, context: object) -> tuple[()]:
+            return ()
+
+        def advance(self, context: object) -> None:
+            return None
+
+        def trigger_actions(self, context: object) -> list[object]:
+            return [{"write": {"source": "a", "destination": "b"}}]
+
+    with pytest.raises(DriverContractError, match="core action objects"):
+        GuardedDriver(_Leaky()).trigger_actions(None)  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# The per-beat declarations cross the FR-041 boundary in either spelling
+# ---------------------------------------------------------------------------
+
+#: A two-beat step view, as the shortest thing a driver can hand the boundary
+#: that has more than one beat to answer for.
+_TWO_BEATS: dict[str, Any] = {
+    "id": "drag-load",
+    "index": 0,
+    "total": 2,
+    "say": ["The palette holds every block.", "Drag Load onto the canvas."],
+}
+
+
+def test_a_driver_may_choose_the_form_beat_by_beat() -> None:
+    """FR-011e is the author's choice, and a package tutorial has authors too.
+
+    A driver able to pick only one form for a whole step delivers material a
+    manifest tutorial could deliver better, which is the difference FR-040 says
+    a reader must never be able to see between the two kinds of tutorial.
+    """
+    view = StepView.of({**_TWO_BEATS, "compacts": [False, True]})
+
+    assert view.compacts == (False, True)
+
+
+def test_a_driver_that_never_mentioned_the_form_is_not_read_as_a_miscount() -> None:
+    """Silence arrives at the boundary as an empty tuple, because that is the field's default.
+
+    A driver constructing a :class:`StepView` and leaving these fields alone
+    hands over ``()``. Counted as a length that disagrees with the beats, that
+    is an error every driver in existence trips on the first step it returns;
+    counted as silence, the singular the driver did write is honored.
+    """
+    compact = StepView.of({**_TWO_BEATS, "compacts": (), "compact": True})
+    highlight = StepView.of({**_TWO_BEATS, "highlights": (), "highlight": "block_palette"})
+
+    assert compact.compacts == (True, True)
+    assert highlight.highlights == ({"target": "block_palette", "args": {}},) * 2
+
+
+def test_a_driver_written_before_beats_points_every_beat_at_the_one_thing_it_named() -> None:
+    """The singular ``highlight`` meant the whole step, and it goes on meaning it (FR-040).
+
+    Read as the first beat only, a driver untouched since before highlights were
+    per beat would light its target for one line and drop it for the rest of the
+    step — a regression in a tutorial nobody edited, invisible to anyone reading
+    the driver.
+    """
+    view = StepView.of({**_TWO_BEATS, "highlight": "block_palette"})
+
+    assert view.highlights == ({"target": "block_palette", "args": {}},) * 2
+
+
+def test_a_driver_may_point_each_beat_at_a_different_thing_or_at_nothing() -> None:
+    """A lead-in that rings a control is an instruction the reader has not been given yet.
+
+    The empty entry is as much of the declaration as the filled one: without it
+    a driver wanting to point at something on its second beat has to point at it
+    on the first as well, and the reader leaves before the sentence explaining
+    what they are looking at.
+    """
+    view = StepView.of({**_TWO_BEATS, "highlights": [None, "block_palette"]})
+
+    assert view.highlights == (None, {"target": "block_palette", "args": {}})
+
+
+def test_a_driver_miscounting_its_highlights_is_refused_rather_than_rendered() -> None:
+    """Targets that no longer line up with beats ring the wrong control, on every beat after the gap.
+
+    There is no safe recovery at this boundary: dropping the extra entry and
+    padding the short one both move a ring off the beat the driver meant and on
+    to one it did not, so the view is refused while the driver can still be
+    named as the cause.
+    """
+    with pytest.raises(DriverContractError, match="one per beat"):
+        StepView.of({**_TWO_BEATS, "highlights": ["block_palette"]})
+    with pytest.raises(DriverContractError, match="sequence"):
+        StepView.of({**_TWO_BEATS, "highlights": {"target": "block_palette"}})
+
+
+def test_a_driver_may_declare_a_step_that_moves_on_by_itself() -> None:
+    """FR-054c crosses FR-041 as a shape, the way the compact form does, and defaults to waiting.
+
+    It picks between two ways of leaving a step that the runtime already
+    supports, and says nothing a driver could not already say by declaring no
+    condition at all — so closing it would cost FR-040 parity without closing
+    any escape. Defaulting it on would be the FR-054a failure, granted to every
+    package driver at once.
+    """
+    common = {"id": "drag-load", "index": 0, "total": 1}
+
+    assert StepView.of(common).auto_advance is False
+    assert StepView.of({**common, "auto_advance": True}).auto_advance is True

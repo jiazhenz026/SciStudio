@@ -19,7 +19,7 @@
  * user always knows whether the displayed data is bounded.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Plot from "react-plotly.js";
 
 import type { EnvelopeKind, PreviewEnvelope, PreviewResource } from "../../types/api";
@@ -429,7 +429,23 @@ function Array1DChart({ values }: { values: number[] }) {
   );
 }
 
-/** PyCharm-style numeric heatmap: actual values + per-cell heatmap background. */
+/** Height the scroll box is capped at by ``max-h-80``, in pixels. */
+const HEATMAP_VIEWPORT = 320;
+/** Rows kept above and below the viewport so a fast scroll does not show gaps. */
+const HEATMAP_OVERSCAN = 8;
+/** Row height before one has been measured. Corrected on the first layout. */
+const HEATMAP_ROW_FALLBACK = 19;
+
+/** PyCharm-style numeric heatmap: actual values + per-cell heatmap background.
+ *
+ * Only the rows in view are in the DOM. A plane arrives downsampled to at most
+ * 256 a side (``DEFAULT_MAX_DIM``), and rendering that whole grid meant 65,536
+ * cells, each with an inline style object, a ``title`` and a ``data-testid`` —
+ * a subtree big enough that compositing it dominated every frame, so scrolling
+ * anywhere on the page stuttered while this panel was open. The rows outside
+ * the viewport are replaced by two spacer rows that reserve exactly their
+ * height, so the scrollbar and the row numbers still describe the whole plane.
+ */
 export function ArrayHeatmapTable({
   matrix,
   vmin,
@@ -443,9 +459,37 @@ export function ArrayHeatmapTable({
 }) {
   const rows = matrix.length;
   const cols = matrix[0]?.length ?? 0;
+
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLTableSectionElement | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewport, setViewport] = useState(HEATMAP_VIEWPORT);
+  const [rowHeight, setRowHeight] = useState(HEATMAP_ROW_FALLBACK);
+
+  // Measure rather than assume: the row height follows the text size and the
+  // cell padding, and a wrong estimate shows up as a scrollbar that does not
+  // match the content. jsdom reports zero for both, which leaves the estimates
+  // in place and the whole (small) matrix rendered.
+  useLayoutEffect(() => {
+    const box = scrollRef.current;
+    if (box && box.clientHeight > 0) setViewport(box.clientHeight);
+    const firstRow = bodyRef.current?.querySelector("tr[data-row]");
+    const measured = firstRow instanceof HTMLElement ? firstRow.offsetHeight : 0;
+    if (measured > 0) setRowHeight(measured);
+  }, [rows, cols]);
+
+  const first = Math.max(0, Math.floor(scrollTop / rowHeight) - HEATMAP_OVERSCAN);
+  const visible = Math.ceil(viewport / rowHeight) + 2 * HEATMAP_OVERSCAN;
+  const last = Math.min(rows, first + visible);
+  const window = matrix.slice(first, last);
+
   return (
     <div data-testid="array-2d-heatmap" className="space-y-1">
-      <div className="max-h-80 overflow-auto rounded-[0.8rem] border border-ink/10 bg-white">
+      <div
+        ref={scrollRef}
+        onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+        className="max-h-80 overflow-auto rounded-[0.8rem] border border-ink/10 bg-white"
+      >
         <table className="border-collapse text-[10px] tabular-nums">
           <thead>
             <tr>
@@ -457,28 +501,33 @@ export function ArrayHeatmapTable({
               ))}
             </tr>
           </thead>
-          <tbody>
-            {matrix.map((row, r) => (
-              <tr key={r}>
-                <th className="sticky left-0 z-10 bg-ink/10 px-1 py-0.5 font-normal text-ink/45">
-                  {r}
-                </th>
-                {row.map((value, c) => (
-                  <td
-                    key={c}
-                    data-testid={`array-cell-${r}-${c}`}
-                    title={value === null ? "non-finite" : String(value)}
-                    className="whitespace-nowrap px-1 py-0.5 text-right"
-                    style={{
-                      backgroundColor: heatmapColor(value, vmin, vmax),
-                      color: cellTextColor(value, vmin, vmax),
-                    }}
-                  >
-                    {formatCell(value)}
-                  </td>
-                ))}
-              </tr>
-            ))}
+          <tbody ref={bodyRef}>
+            {first > 0 && <tr style={{ height: first * rowHeight }} aria-hidden />}
+            {window.map((row, index) => {
+              const r = first + index;
+              return (
+                <tr key={r} data-row={r}>
+                  <th className="sticky left-0 z-10 bg-ink/10 px-1 py-0.5 font-normal text-ink/45">
+                    {r}
+                  </th>
+                  {row.map((value, c) => (
+                    <td
+                      key={c}
+                      data-testid={`array-cell-${r}-${c}`}
+                      title={value === null ? "non-finite" : String(value)}
+                      className="whitespace-nowrap px-1 py-0.5 text-right"
+                      style={{
+                        backgroundColor: heatmapColor(value, vmin, vmax),
+                        color: cellTextColor(value, vmin, vmax),
+                      }}
+                    >
+                      {formatCell(value)}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+            {last < rows && <tr style={{ height: (rows - last) * rowHeight }} aria-hidden />}
           </tbody>
         </table>
       </div>
@@ -723,7 +772,27 @@ export function CollectionViewer({
               key={idx}
               type="button"
               data-testid={`collection-item-${idx}`}
-              onClick={() => (resource && onOpenResource ? onOpenResource(resource) : undefined)}
+              // ADR-053 (#2057) — tutorial highlight target, keyed by position
+              // in the batch so a step can ring the first card rather than the
+              // whole panel.
+              data-tutorial-target="preview_item"
+              data-tutorial-target-key={String(idx)}
+              onClick={() => {
+                if (!resource || !onOpenResource) return;
+                onOpenResource(resource);
+                /*
+                 * ADR-053 FR-052 — `preview_item_opened`, in the closed
+                 * `UI_EVENT_NAMES` set. Opening one item of a batch leaves no
+                 * backend state behind, so a step that asks the reader to look
+                 * at their data before being told something about it has no
+                 * other way to finish. Imported here rather than at the top of
+                 * the file: the store pulls in every slice, and this module is
+                 * rendered by tests that mock a narrow API surface.
+                 */
+                void import("../../store").then(({ useAppStore }) =>
+                  useAppStore.getState().reportTutorialUiEvent("preview_item_opened"),
+                );
+              }}
               className="rounded-2xl border border-ink/10 bg-white px-3 py-2 text-left text-xs hover:bg-ink/5"
             >
               <span className="block truncate text-ink" title={ref}>

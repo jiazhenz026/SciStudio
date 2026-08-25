@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { type ReactNode } from "react";
 
+import { BOTTOM_TAB_TUTORIAL_NAMES } from "../LearningCenter.parts/targets";
 import type { BottomTab } from "../../types/ui";
 
 // Tab labels: a Lucide line icon + text for every tab so the glyphs read
@@ -99,6 +100,12 @@ export function TabBar({
               key={tab}
               onClick={() => onTabChange(tab)}
               type="button"
+              // ADR-053 FR-089 -- every tab is addressable, because what a
+              // tutorial points at here is whichever tab that step is about.
+              // The key is the manifest's spelling of the tab, so a step rings
+              // the same word it routed to.
+              data-tutorial-target="bottom_tab"
+              data-tutorial-target-key={BOTTOM_TAB_TUTORIAL_NAMES[tab]}
             >
               {TAB_LABELS[tab]}
               {badge > 0 ? (

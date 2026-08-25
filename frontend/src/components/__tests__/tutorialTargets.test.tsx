@@ -21,8 +21,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BlockPalette } from "../BlockPalette";
 import { BottomPanel } from "../BottomPanel";
 import { PlotsTab } from "../BottomPanel.parts/PlotsTab";
+import { CollectionViewer } from "../DataPreview.parts/coreViewers";
+import { PlotViewer } from "../DataPreview.parts/PlotViewer";
 import { DataPreview } from "../DataPreview";
+import { PreviewerPalette } from "../PreviewerPalette";
+import { TypePalette } from "../TypePalette";
+import { WorkflowPanel } from "../WorkflowPanel";
 import {
+  BOTTOM_TAB_TUTORIAL_NAMES,
   HIGHLIGHT_TARGETS,
   HIGHLIGHT_TARGET_KEYS,
   ROUTE_TARGETS,
@@ -34,6 +40,7 @@ import {
 } from "../LearningCenter.parts/targets";
 import { TargetHighlight } from "../LearningCenter.parts/TargetHighlight";
 import { RestoreRunButton } from "../Lineage/RunDetail.parts/restore";
+import { RunsList } from "../Lineage/RunsList";
 import { renderNode } from "../nodes/__tests__/BlockNode/test-utils";
 import { Toolbar } from "../Toolbar";
 import { WorkflowCanvas } from "../WorkflowCanvas";
@@ -108,6 +115,22 @@ const LOAD_BLOCK = {
   input_ports: [],
   output_ports: [{ name: "data", direction: "output", accepted_types: ["DataFrame"] }],
 } as unknown as Parameters<typeof BlockPalette>[0]["blocks"][number];
+
+/** One finished run, which is what History holds by the time a step points at it. */
+const COMPLETED_RUN = {
+  run_id: "r1",
+  workflow_id: "main",
+  workflow_git_commit: "abc1234",
+  workflow_dirty: false,
+  started_at: "2026-05-15T14:30:00Z",
+  finished_at: "2026-05-15T14:30:12Z",
+  status: "completed" as const,
+  triggered_by: "user" as const,
+  parent_run_id: null,
+  execute_from_block_id: null,
+  block_count: 3,
+  duration_ms: 12_000,
+};
 
 /** Mount the Plots tab with a list the API would have returned. */
 async function renderPlotsTabWith(plots: unknown[]): Promise<void> {
@@ -205,6 +228,22 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
     },
   },
 
+  workflow_list: {
+    args: {},
+    render: () => {
+      /*
+       * The panel as a whole. Core tutorial 1's opening points here to say
+       * where a project keeps its workflows, so the ring goes round the list
+       * rather than round one row — and an empty list is still that list.
+       */
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(() => Promise.resolve({ ok: true, status: 200, json: async () => [] })),
+      );
+      render(<WorkflowPanel activeWorkflowId={null} onOpenWorkflow={vi.fn()} projectId="p1" />);
+    },
+  },
+
   run_button: {
     args: {},
     render: () => {
@@ -221,6 +260,61 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
     },
   },
 
+  type_palette: {
+    args: {},
+    render: () => {
+      /*
+       * Empty or not, for the same reason as the Previewers list below: the
+       * step pointing here is about where types live, and tutorial 2's first
+       * step points at it precisely to show that the reader's type is *not*
+       * there yet.
+       */
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(() =>
+          Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ types: [], diagnostics: [] }),
+          }),
+        ),
+      );
+      render(<TypePalette />);
+    },
+  },
+
+  previewer_palette: {
+    args: {},
+    render: () => {
+      /*
+       * The list, empty or not: the step that points here is about where
+       * previewers live, and a project with none installed still has the place
+       * they would live. The catalogue fetch is stubbed away because what is
+       * being proved is that the element carrying the target exists at all.
+       */
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(() =>
+          Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ previewers: [], diagnostics: [], choices: [] }),
+          }),
+        ),
+      );
+      render(<PreviewerPalette />);
+    },
+  },
+
+  view_source_button: {
+    args: {},
+    render: () => {
+      // Shown only with a workflow open, which is the only state a step that
+      // points at it can be reached in.
+      render(<Toolbar {...toolbarProps()} onViewSource={vi.fn()} />);
+    },
+  },
+
   plots_new_button: {
     args: {},
     render: () => {
@@ -228,6 +322,71 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
       // still an element the highlight can be drawn around.
       useAppStore.setState({ workflowId: "main" });
       render(<PlotsTab />);
+    },
+  },
+
+  preview_item: {
+    args: { index: "0" },
+    render: () => {
+      // One card per item of a collection preview, keyed by position.
+      render(
+        <CollectionViewer
+          envelope={
+            {
+              previewer_id: "core.collection",
+              target: { kind: "block_output", ref: "out://x" },
+              kind: "collection",
+              payload: {
+                count: 2,
+                item_type: "Image",
+                items: [
+                  { data_ref: "a", display_name: "cells_01.tif", type_name: "Image" },
+                  { data_ref: "b", display_name: "cells_02.tif", type_name: "Image" },
+                ],
+              },
+              metadata: {},
+              resources: [
+                { resource_id: "item:0", params: {} },
+                { resource_id: "item:1", params: {} },
+              ],
+            } as never
+          }
+          onOpenResource={vi.fn()}
+        />,
+      );
+    },
+  },
+
+  plot_export_button: {
+    args: {},
+    render: () => {
+      // The Save button lives in the plot previewer, so the target only exists
+      // once a figure is on screen — which is the only state a step pointing at
+      // it can be reached in.
+      render(
+        <PlotViewer
+          envelope={
+            {
+              previewer_id: "core.plot",
+              target: { kind: "plot_artifact", ref: "plot://x" },
+              kind: "plot",
+              payload: { src: "data:image/png;base64,AA==", path: "figure.png" },
+              metadata: {},
+              resources: [{ resource_id: "export", params: { format: "png" } }],
+            } as never
+          }
+          onExport={vi.fn()}
+        />,
+      );
+    },
+  },
+
+  bring_in_my_work_button: {
+    args: {},
+    render: () => {
+      // The permanent toolbar entry (#2061): the work-import level ends by
+      // pointing at the control the reader will use with their own data.
+      render(<Toolbar {...toolbarProps()} />);
     },
   },
 
@@ -252,6 +411,38 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
     args: {},
     render: () => {
       render(<DataPreview blockOutputs={{}} selectedNodeId={null} selectedNodeLabel="" />);
+    },
+  },
+
+  history_runs_list: {
+    args: {},
+    render: () => {
+      // One run in the store, because the list renders an empty-state
+      // paragraph instead of itself when there are none — and the step that
+      // points here follows a run the reader has just made.
+      useAppStore.setState({ runs: [COMPLETED_RUN], runsLoading: false });
+      render(<RunsList />);
+    },
+  },
+
+  bottom_tab: {
+    // The manifest's spelling of the tab, not the `BottomTab` key: this is the
+    // whole point of `BOTTOM_TAB_TUTORIAL_NAMES`, so the case addresses it the
+    // way a tutorial does.
+    args: { tab: "history" },
+    render: () => {
+      render(
+        <BottomPanel
+          activeTab="lineage"
+          blockOutputs={{}}
+          edges={[]}
+          logEntries={[]}
+          onTabChange={vi.fn()}
+          onUpdateConfig={vi.fn()}
+          selectedNode={null}
+          selectedSchema={undefined}
+        />,
+      );
     },
   },
 
@@ -316,6 +507,8 @@ describe("tutorial highlight targets resolve to rendered elements", () => {
       palette_block: "block_type",
       node: "block_type",
       plot_card: "plot_id",
+      preview_item: "index",
+      bottom_tab: "tab",
     });
   });
 
@@ -331,7 +524,14 @@ describe("tutorial highlight targets resolve to rendered elements", () => {
       await RENDERERS[target].render();
 
       const wrong = document.querySelector(
-        tutorialTargetSelector(target, { block_type: "nope", plot_id: "nope" }),
+        tutorialTargetSelector(target, {
+          block_type: "nope",
+          plot_id: "nope",
+          tab: "nope",
+          // A position, so "nope" is not a value it could ever carry — an index
+          // past the end of the batch is.
+          index: "99",
+        }),
       );
 
       expect(wrong).toBeNull();
@@ -345,6 +545,28 @@ describe("route targets map onto this UI (FR-089 companion)", () => {
       expect(ROUTE_TARGET_BOTTOM_TABS).toHaveProperty(target);
     }
     expect(Object.keys(ROUTE_TARGET_BOTTOM_TABS).sort()).toEqual([...ROUTE_TARGETS].sort());
+  });
+
+  it("names every tab back, so a step rings the tab it routed to", () => {
+    /*
+     * `BOTTOM_TAB_TUTORIAL_NAMES` is the tab strip's annotation, derived by
+     * inverting the routing map. A `BottomTab` missing from it annotates its
+     * button with `undefined` and a `bottom_tab` highlight naming that tab
+     * silently finds nothing.
+     */
+    for (const [route, tab] of Object.entries(ROUTE_TARGET_BOTTOM_TABS)) {
+      if (tab === null) continue;
+      expect(BOTTOM_TAB_TUTORIAL_NAMES[tab]).toBe(route);
+    }
+    expect(Object.keys(BOTTOM_TAB_TUTORIAL_NAMES).sort()).toEqual([
+      "ai",
+      "config",
+      "git",
+      "lineage",
+      "logs",
+      "plots",
+      "terminal",
+    ]);
   });
 
   it("maps the two renamed names onto their internal keys", () => {
@@ -363,8 +585,9 @@ describe("route targets map onto this UI (FR-089 companion)", () => {
   it("opens the bottom tab rather than only selecting it", () => {
     const openBottomTab = vi.fn();
     const setLeftTab = vi.fn();
+    const showCanvas = vi.fn();
 
-    applyStepRoute("history", { openBottomTab, setLeftTab });
+    applyStepRoute("history", { openBottomTab, setLeftTab, showCanvas });
 
     // `openBottomTab` expands a collapsed panel; `setActiveBottomTab` would
     // change the tab behind a shut panel and look like nothing happened.
@@ -375,8 +598,9 @@ describe("route targets map onto this UI (FR-089 companion)", () => {
   it("routes block_palette to the left panel's Blocks tab, not a bottom tab", () => {
     const openBottomTab = vi.fn();
     const setLeftTab = vi.fn();
+    const showCanvas = vi.fn();
 
-    applyStepRoute("block_palette", { openBottomTab, setLeftTab });
+    applyStepRoute("block_palette", { openBottomTab, setLeftTab, showCanvas });
 
     expect(setLeftTab).toHaveBeenCalledWith("blocks");
     expect(openBottomTab).not.toHaveBeenCalled();
@@ -388,7 +612,7 @@ describe("route targets map onto this UI (FR-089 companion)", () => {
     // uncatchable by any caller. jsdom omits the method, which makes this the
     // real check it looks like rather than a hypothetical one.
     await RENDERERS.canvas.render();
-    applyStepRoute("canvas", { openBottomTab: vi.fn(), setLeftTab: vi.fn() });
+    applyStepRoute("canvas", { openBottomTab: vi.fn(), setLeftTab: vi.fn(), showCanvas: vi.fn() });
 
     await new Promise((resolve) => setTimeout(resolve, 20));
     // Reaching here at all is the assertion: an unhandled rejection in the
@@ -399,8 +623,9 @@ describe("route targets map onto this UI (FR-089 companion)", () => {
   it("switches no surface for canvas — it is already the main one", () => {
     const openBottomTab = vi.fn();
     const setLeftTab = vi.fn();
+    const showCanvas = vi.fn();
 
-    applyStepRoute("canvas", { openBottomTab, setLeftTab });
+    applyStepRoute("canvas", { openBottomTab, setLeftTab, showCanvas });
 
     expect(openBottomTab).not.toHaveBeenCalled();
     expect(setLeftTab).not.toHaveBeenCalled();
@@ -409,8 +634,9 @@ describe("route targets map onto this UI (FR-089 companion)", () => {
   it("ignores a name outside the vocabulary instead of throwing", () => {
     const openBottomTab = vi.fn();
     const setLeftTab = vi.fn();
+    const showCanvas = vi.fn();
 
-    applyStepRoute("not_a_target", { openBottomTab, setLeftTab });
+    applyStepRoute("not_a_target", { openBottomTab, setLeftTab, showCanvas });
 
     expect(openBottomTab).not.toHaveBeenCalled();
     expect(setLeftTab).not.toHaveBeenCalled();
@@ -447,5 +673,18 @@ describe("the highlight guides without confining", () => {
     render(<TargetHighlight rect={null} />);
 
     expect(screen.queryByTestId("tutorial-highlight")).not.toBeInTheDocument();
+  });
+});
+
+describe("the data_types route target (#2061)", () => {
+  it("routes to the left panel's Data types tab, not a bottom tab", () => {
+    const openBottomTab = vi.fn();
+    const setLeftTab = vi.fn();
+    const showCanvas = vi.fn();
+
+    applyStepRoute("data_types", { openBottomTab, setLeftTab, showCanvas });
+
+    expect(openBottomTab).not.toHaveBeenCalled();
+    expect(setLeftTab).toHaveBeenCalledWith("types");
   });
 });

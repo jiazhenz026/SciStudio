@@ -238,6 +238,26 @@ function useFlowEdges(
 
 export function WorkflowCanvas(props: WorkflowCanvasProps) {
   const reactFlow = useReactFlow();
+  /*
+   * Frame the graph when something other than the person rewrote it.
+   *
+   * `fitView` as a prop only runs on mount. A tutorial step that writes a
+   * workflow file leaves the canvas holding whatever pan and zoom the reader
+   * had put it in, so the nodes it just added can land off screen — and the
+   * step's next line asks them to press Run on a graph that is not in front of
+   * them. The counter is raised only for a write that named its author
+   * (`changed_by: "tutorial"`), never for the reader's own edits: yanking the
+   * viewport mid-drag would be worse than the problem.
+   */
+  const canvasFitRequest = useAppStore((s) => s.canvasFitRequestCounter);
+  useEffect(() => {
+    if (canvasFitRequest === 0) return;
+    // After the nodes this request is about have been laid out.
+    const frame = requestAnimationFrame(() => {
+      reactFlow.fitView({ padding: 0.2, duration: 320 });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [canvasFitRequest, reactFlow]);
   // #1799 — the plot target picker sets this transient highlight (hover/select
   // a target row). Read directly from the store to avoid threading a prop down
   // through ProjectWorkspace. The canvas rings the node (via useFlowNodes) and
