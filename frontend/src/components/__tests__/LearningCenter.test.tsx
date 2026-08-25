@@ -49,6 +49,25 @@ vi.mock("../../lib/api/learningCenter", async (importOriginal) => {
   };
 });
 
+/*
+ * #2157 — the Reading tab reads the shipped documentation. This suite is about
+ * the Learning Center's own seams, so the reader is given a one-page tree; the
+ * reader itself is covered in `DocsBrowser.test.tsx`.
+ */
+vi.mock("../../lib/api/userDocs", () => ({
+  fetchUserDocsNav: vi.fn(async () => ({
+    title: "User guide",
+    root: "README.md",
+    items: [{ kind: "page", title: "SciStudio user guide", path: "README.md", children: [] }],
+  })),
+  fetchUserDocPage: vi.fn(async () => ({
+    path: "README.md",
+    title: "SciStudio user guide",
+    kind: "markdown",
+    text: "# SciStudio user guide\n\nWelcome.\n",
+  })),
+}));
+
 function entry(overrides: Partial<TutorialCatalogueEntry> = {}): TutorialCatalogueEntry {
   return {
     source_kind: "core",
@@ -266,6 +285,13 @@ describe("Learning Center — one tab per source (FR-084, FR-076)", () => {
   });
 });
 
+/**
+ * #2157 — the Reading tab is the shipped documentation, not a source.
+ *
+ * The reader itself is covered in `DocsBrowser.test.tsx`; what matters here is
+ * the seam: the tab shows the reader instead of the three tutorial columns, and
+ * a reading tutorial is listed by its own source rather than lifted out of it.
+ */
 describe("Learning Center — the Reading tab", () => {
   function withReading(): TutorialCatalogueResponse {
     const base = catalogue();
@@ -278,43 +304,51 @@ describe("Learning Center — the Reading tab", () => {
     return base;
   }
 
-  it("is offered even with no reading tutorials, and says what belongs there", async () => {
+  it("opens the documentation reader rather than a tutorial list", async () => {
     await renderOpenPanel();
 
     fireEvent.click(await screen.findByTestId("tutorial-tab-reading"));
 
-    expect(await screen.findByTestId("tutorial-list-empty")).toHaveTextContent(
-      /Reading tutorials will appear here/,
-    );
+    expect(await screen.findByTestId("docs-browser")).toBeInTheDocument();
+    expect(screen.queryByTestId("tutorial-list-empty")).not.toBeInTheDocument();
   });
 
-  it("collects reading tutorials out of their source's tab", async () => {
+  it("leaves reading tutorials in their own source's tab", async () => {
     await renderOpenPanel(withReading());
 
-    // Not in the core tab, which is what is selected on open.
-    expect(await screen.findByTestId("tutorial-entry-core--first-workflow")).toBeInTheDocument();
-    expect(screen.queryByTestId("tutorial-entry-core--what-there-is")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("tutorial-tab-reading"));
-
+    // The core tab is what is selected on open, and it lists all five.
     expect(await screen.findByTestId("tutorial-entry-core--what-there-is")).toBeInTheDocument();
+    expect(screen.getByTestId("tutorial-entry-core--first-workflow")).toBeInTheDocument();
   });
 
-  it("carries no count of its own, because its tutorials span sources (FR-076)", async () => {
+  it("carries no count, because it carries no tutorials (FR-076)", async () => {
     await renderOpenPanel(withReading());
 
     const reading = await screen.findByTestId("tutorial-tab-reading");
     expect(reading.textContent).toBe("Reading");
   });
 
-  it("rings the selected tutorial's own source rather than a total", async () => {
+  it("keeps the tutorial selected in the tab the reader came from", async () => {
     await renderOpenPanel(withReading());
 
-    fireEvent.click(await screen.findByTestId("tutorial-tab-reading"));
-    await select("tutorial-entry-core--what-there-is");
+    await select("tutorial-entry-core--history");
+    fireEvent.click(screen.getByTestId("tutorial-tab-reading"));
+    await screen.findByTestId("docs-browser");
+    fireEvent.click(screen.getByTestId("tutorial-tab-core:"));
 
-    // The core group's own count — 1 of 5 once the reading tutorial widens it.
-    expect(await screen.findByTestId("learning-center-progress-ring")).toHaveTextContent("1/5");
+    expect(await screen.findByTestId("tutorial-detail")).toHaveTextContent(
+      "Recover work from History",
+    );
+  });
+
+  it("hides the tutorial-data footer, which is about tutorial directories", async () => {
+    await renderOpenPanel();
+
+    expect(await screen.findByText(/Tutorial projects are temporary/)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("tutorial-tab-reading"));
+    await screen.findByTestId("docs-browser");
+
+    expect(screen.queryByText(/Tutorial projects are temporary/)).not.toBeInTheDocument();
   });
 });
 

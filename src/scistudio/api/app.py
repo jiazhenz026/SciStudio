@@ -27,6 +27,7 @@ from scistudio.api.routes import (
     runs,
     tutorials,
     types,
+    user_docs,
     user_library,
     work_import,
     workflows,
@@ -307,6 +308,8 @@ def create_app() -> FastAPI:
     app.include_router(diagnostics.router)
     # ADR-053 §4 — Bring In My Work session spawn (POST /api/work-import/sessions).
     app.include_router(work_import.router)
+    # #2157: the shipped user documentation, read in the Learning Center.
+    app.include_router(user_docs.router)
 
     @app.get("/api/logs/stream")
     async def logs_stream(request: Request) -> object:

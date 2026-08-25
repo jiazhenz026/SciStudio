@@ -1366,22 +1366,50 @@ tutorial's detail, and that source's progress occupy separate regions, so
 selecting a tutorial and starting it are distinct gestures. Selecting MUST NOT
 start a tutorial, because starting one can create or delete a project on disk.
 
-**FR-084a.** Tutorials that only ever ask the reader to read on MUST be listed
-in a Reading tab of their own rather than in their source's tab, and that tab
-MUST be present regardless of whether any such tutorial is installed. Which tutorials
-those are MUST be derived from their declared steps, not from a manifest field:
-the manifest already declares what each step waits on, and a second
-classification could contradict it. A tutorial is a reading one when every step
-either waits on an explicit continue or waits on a term that judges only the
-reader's own progress through the material. The Reading tab MUST NOT carry a
-count of its own, because its tutorials may come from several sources at once
-and FR-076 forbids reporting a count across them.
+**FR-084a (revised by FR-084b).** Tutorials that only ever ask the reader to
+read on were originally listed in a Reading tab of their own rather than in
+their source's tab. FR-084b gave that tab to the shipped documentation, so a
+reading tutorial is now listed in its source's tab alongside every other
+tutorial. What survives of this requirement is the classification and the
+surface: which tutorials are reading ones MUST be derived from their declared
+steps, not from a manifest field, because the manifest already declares what
+each step waits on and a second classification could contradict it. A tutorial
+is a reading one when every step either waits on an explicit continue or waits
+on a term that judges only the reader's own progress through the material.
 
 The reading surface itself is core-owned, like every step surface (FR-041): a
 reading step is rendered as a card presenting its declared `pages` in order,
 with each page's content served by the existing pages route — the same route
 whose serving records `page_reached` — so what a manifest contributes is names
 and prose, never markup or a rendering primitive of its own.
+
+**FR-084b (#2157).** The Reading tab MUST present the shipped user
+documentation — the packaged `scistudio/_user_guide/` tree, which is the guide
+pages together with the generated API reference — and MUST NOT list tutorials.
+SciStudio publishes that tree as its documentation site and provisions it into
+every project; a reader had no way to open it without leaving the product.
+
+The tab MUST open on the user guide's front page, MUST present the
+documentation's navigation beside it, and MUST follow a link inside a page to
+the page it names rather than out of the product.
+
+The navigation MUST be derived from the packaged tree by the rules that
+generate the published site's navigation, rather than declared separately.
+Ordering, titles, and which directories become sections all follow from those
+rules, so the menu in the product and the menu on the site cannot drift as the
+documentation changes — including where the rules produce an unflattering
+result. A second, hand-maintained listing would be a second source of truth for
+something that already has one.
+
+The documentation MUST be served from the packaged tree rather than from a
+project's provisioned copy, so that it opens with no project on screen and
+cannot disagree with the code it was generated from.
+
+The package development guide is out of scope: it is a developer document that
+lives in the repository, not in the shipped tree.
+
+The Reading tab MUST NOT carry a count of its own: it lists no tutorials, so
+there is no source whose count it could report (FR-076).
 
 **FR-085.** Each entry MUST show its title, summary, cover if declared, and
 state: not started, in progress, complete, or unavailable with the reason. An
@@ -1710,6 +1738,7 @@ an evaluation (FR-053).
 | `src/scistudio/tutorials/progress.py` | Progress storage, grouping, unlock (FR-074..FR-081) |
 | `src/scistudio/tutorials/schema/tutorial.schema.json` | Published manifest schema (FR-013) |
 | `src/scistudio/core/entry_points.py` | Shared enumeration, error containment, diagnostics, and import-root preparation for every `scistudio.*` group (FR-025..FR-030) |
+| `src/scistudio/api/routes/user_docs.py` | `/api/user-docs`: the packaged documentation's navigation and its pages (FR-084b) |
 
 The shared helper lives under `core/`. Three things decide the location. It is
 imported by the block, type, and previewer registries, so it has to sit where all
@@ -1776,8 +1805,12 @@ a file the change happens to touch.
 | `src/components/LearningCenter.parts/TutorialProblemBanner.tsx` | A stopped session, said unconditionally (FR-044) |
 | `src/components/LearningCenter.parts/mio.ts` | The character's sprites, avatars, authored expressions, and measured insets (FR-011f, FR-089d) |
 | `src/components/LearningCenter.parts/StepProgressRing.tsx` | The step's position, drawn rather than counted |
+| `src/components/LearningCenter.parts/DocsBrowser.tsx` | The Reading tab: the shipped documentation, its menu, and the page (FR-084b) |
+| `src/components/LearningCenter.parts/DocMarkdown.tsx` | Rendering the guide's markdown, and dispatching the links inside it (FR-084b) |
+| `src/components/LearningCenter.parts/docsNav.ts` | Resolving a link against the open page, and the heading slug (FR-084b) |
 | `src/store/learningCenterSlice.ts` | Session view state and the tab split; no judging, no content |
 | `src/lib/api/learningCenter.ts` | API client |
+| `src/lib/api/userDocs.ts` | Client for `/api/user-docs` (FR-084b) |
 
 **Modified — frontend**
 
@@ -1848,7 +1881,11 @@ vocabulary term and every action type is part of this spec's test material.
 | Library | `tests/tutorials/test_scoped_library.py` | A tutorial project sees the scoped library; a real project does not (FR-071); clearing removes it (FR-073) |
 | Progress | `tests/tutorials/test_progress.py` | Grouped counts; a growing total is not compensated (FR-077); package uninstall removes its group (FR-078); only the core group drives the unlock (FR-080) |
 | Routes | `tests/api/test_tutorial_routes.py` | Catalogue, start, resume, evaluate, user-interface event, leave, clear; the removed route returns 404 (FR-003) |
-| Frontend | `frontend/src/components/__tests__/LearningCenter.test.tsx` | Per-source tabs and their own counts; the Reading tab and its lack of one (FR-084a); entry states; selecting does not start; the dot appears and clears per FR-086; the clear confirmation names directories (FR-088) |
+| Frontend | `frontend/src/components/__tests__/LearningCenter.test.tsx` | Per-source tabs and their own counts; the Reading tab opening the documentation rather than a tutorial list (FR-084b); entry states; selecting does not start; the dot appears and clears per FR-086; the clear confirmation names directories (FR-088) |
+| Frontend | `frontend/src/components/LearningCenter.parts/__tests__/DocsBrowser.test.tsx` | The documentation reader: opening on the front page, the menu's order and its sections, following a link, a linked source file, the way back, and both failure reports (FR-084b) |
+| Frontend | `frontend/src/components/LearningCenter.parts/__tests__/DocMarkdown.test.tsx` | Tables, fenced blocks, ordered lists, heading anchors, no raw HTML, and every link disposition (FR-084b) |
+| Frontend | `frontend/src/components/LearningCenter.parts/__tests__/docsNav.test.ts` | Link resolution against the open page's directory, refusals, and the heading slug the guide's anchors were written against (FR-084b) |
+| Backend | `tests/api/test_user_docs.py` | `/api/user-docs` — the navigation matching the published sidebar row for row, page and source delivery, directory indexing, and containment (FR-084b) |
 
 Manual verification before the PR: a full pass of a fixture tutorial exercising
 every action type and every vocabulary term, a backend restart mid-tutorial, a

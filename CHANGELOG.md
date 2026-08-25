@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2157] **The Learning Center's Reading tab is now a reader for the shipped
+  user documentation.** SciStudio already writes a complete user guide and
+  generates a self-contained API reference from its own code; both ship in the
+  wheel, both are copied into every project, and both are what the published
+  documentation site serves. The product gave a reader no way to open any of it
+  without leaving for a browser. The Reading tab — which held reading tutorials,
+  of which none existed, so it held nothing — now opens on the user guide's
+  front page with the documentation's menu beside it, and a link inside a page
+  goes to the page it names rather than out of the product. The menu is not a
+  second, hand-kept listing: the backend derives it from the packaged tree by
+  the same rules that generate the site's navigation, so the two cannot drift.
+  The package development guide is not included; it is a developer document
+  that lives in the repository rather than in the shipped tree. Reading
+  tutorials are unaffected in how they run — they are simply listed in their own
+  source's tab now, alongside every other tutorial.
+
 - [#2082] **Core tutorial 3 — *Two modalities, one answer*.** The multimodal
   level, and the git level. A scanner and a sequencer looked at the same three
   tissue sections and neither file can answer alone — the only thing joining
