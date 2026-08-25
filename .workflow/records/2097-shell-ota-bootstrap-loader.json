@@ -838,6 +838,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:24:53.814486Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:24:53.831558Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:24:53.876744Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:24:53.892644Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:24:53.909055Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:24:53.923959Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:24:53.939606Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:24:53.955929Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:24:53.973429Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:24:53.989826Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:24:54.007246Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -860,7 +948,6 @@
       "desktop/ota.js",
       "desktop/package.json",
       "desktop/resources/.gitignore",
-      "desktop/resources/python/.gitkeep",
       "desktop/test/bootstrap.test.js",
       "desktop/test/ota.test.js",
       "docs/ai-developer/e2e/2026-08-23-shell-ota-hot-update-lifecycle.md",
@@ -869,9 +956,9 @@
       "scripts/templates/reinstall-notice.html",
       "tests/scripts/test_ota_publish.py"
     ],
-    "diff_fingerprint": "sha256:73fb4531d99f1a68587b31100d59596945d6a96b09281013eff143d0cbfab356",
+    "diff_fingerprint": "sha256:ca9260956393dde07ce804e60c1ebf34e39dd7ad610d53249d6d0cc76aa0955e",
     "head": "HEAD",
-    "head_sha": "89c5777ae",
+    "head_sha": "6e69c3eb9",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -952,6 +1039,16 @@
       "at": "2026-08-25T06:23:38.671617Z",
       "diff_fingerprint": "sha256:73fb4531d99f1a68587b31100d59596945d6a96b09281013eff143d0cbfab356",
       "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "scope.out-of-scope"
+      ]
+    },
+    {
+      "at": "2026-08-25T06:24:54.007281Z",
+      "diff_fingerprint": "sha256:ca9260956393dde07ce804e60c1ebf34e39dd7ad610d53249d6d0cc76aa0955e",
+      "mode": "local",
       "result": "fail",
       "tier": 1,
       "unsatisfied": [
@@ -1059,6 +1156,18 @@
       "at": "2026-08-25T06:24:26.012631Z",
       "pattern": "desktop/resources/.gitignore",
       "reason": "Restoring an accidental deletion and declaring one intentional edit under desktop/resources/. (1) desktop/resources/python/.gitkeep is tracked on main and was deleted when I wiped desktop/resources/python to rebuild the bundled interpreter during the 2026-08-25 test session; a subsequent git add -A swept the deletion into a commit. It is the placeholder that keeps the directory in the tree against the python/* ignore rule, so it is restored rather than declared. (2) desktop/resources/.gitignore gains an ota-config.json rule: that file is written by the staging scripts at build time and a copy committed from a local test build carries that build's channel, which is how it briefly ended up tracked here."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T06:25:14.222913Z",
+      "pattern": "desktop/resources/python/.gitkeep",
+      "reason": "Declaring two paths this branch TOUCHED during the 2026-08-25 test session, both of which are back to their correct state so the net diff against main contains neither. The evaluator reconciles against everything the branch touched, not the net diff, so they need an explanation rather than a silent absence. (1) desktop/resources/python/.gitkeep is tracked on main and was deleted when desktop/resources/python was wiped to rebuild the bundled interpreter; a later git add -A carried the deletion into a commit, and it has been restored from origin/main. (2) desktop/resources/ota-config.json is generated by the staging scripts and was never tracked on main; a local test build's copy was committed by accident, then untracked and added to desktop/resources/.gitignore so it cannot recur. Neither is a product change."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T06:25:14.222930Z",
+      "pattern": "desktop/resources/ota-config.json",
+      "reason": "Declaring two paths this branch TOUCHED during the 2026-08-25 test session, both of which are back to their correct state so the net diff against main contains neither. The evaluator reconciles against everything the branch touched, not the net diff, so they need an explanation rather than a silent absence. (1) desktop/resources/python/.gitkeep is tracked on main and was deleted when desktop/resources/python was wiped to rebuild the bundled interpreter; a later git add -A carried the deletion into a commit, and it has been restored from origin/main. (2) desktop/resources/ota-config.json is generated by the staging scripts and was never tracked on main; a local test build's copy was committed by accident, then untracked and added to desktop/resources/.gitignore so it cannot recur. Neither is a product change."
     }
   ],
   "session_id": "2f564bfb-4f25-489f-bf48-64c1556cdfb5",
