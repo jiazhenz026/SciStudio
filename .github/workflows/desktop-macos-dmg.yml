@@ -114,6 +114,13 @@ jobs:
           APPLE_API_KEY: ${{ env.HAS_NOTARY_KEY == 'true' && format('{0}/private_keys/AuthKey.p8', runner.temp) || '' }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          # #2174: notarization is the one step that depends on a third party,
+          # has no upper bound, and prints nothing while it waits. A 118-minute
+          # hang left only the runner's own 'Terminate orphan process (notarytool)'
+          # line to go on, which ruled out signing and nothing else. This surfaces
+          # the submission ID and each polling state, so a cancelled build can
+          # still be traced with `notarytool log <id>` afterwards.
+          DEBUG: electron-notarize*,@electron/notarize*
         run: npm --prefix desktop run dist:dmg
 
       - name: Remove App Store Connect API key

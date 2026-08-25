@@ -537,6 +537,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2174] **A stalled notarization now leaves evidence behind.** Notarization is
+  the one release step that depends on a third party, has no upper bound on how
+  long it may take, and prints nothing while it waits — which makes it both the
+  step most in need of observability and the least observable one. A macOS build
+  that hung for 118 minutes produced exactly one usable line, and only from the
+  runner's own cleanup: `Terminate orphan process (notarytool)`. That ruled out
+  the signing phase and nothing else, leaving "never uploaded" and "uploaded and
+  Apple never answered" indistinguishable, though they have different fixes. The
+  build step now surfaces `@electron/notarize`'s output, so the submission ID and
+  each polling state reach the log and a cancelled run can still be traced with
+  `notarytool log <id>` afterwards.
+
 - [#2169] **The reinstall notice can now reach the clients it exists for.**
   `--reinstall-notice` was written for one situation — the base version moved,
   older clients cannot reach the new build over the air, and they must be told
