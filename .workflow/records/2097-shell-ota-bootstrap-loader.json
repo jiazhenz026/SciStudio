@@ -69,6 +69,140 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T06:17:00.593533Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4fbff0aba014225b8411574044d05fb0db315201714bfbe48cf4931a6acb2cf3",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T06:17:01.972246Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1562bb748145e87515d88810af3c77deb2de0daf8cd6362c964f26f788e274d5",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T06:17:02.003221Z",
+      "command": "ruff format scripts/ota_publish.py tests/scripts/test_ota_publish.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b399b51d12a314041cb2515e5f0070ceadee974c2a72fd24e5a5efb585996cd3",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-25T06:17:15.252805Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a0926e3b73034afc6123666b2bb416df90eb3890d57420188facd135b97e498b",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T06:17:15.593221Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:179b1cba851dd153ae0ab07e4f5ff8b2a735cc2c3d6d4494d3c0100847360442",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T06:17:15.618092Z",
+      "command": "ruff check scripts/ota_publish.py tests/scripts/test_ota_publish.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b5f546e5792ecc339b275c4aaceeb681cc5690ba94960c78dda3edfedc352c60",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-25T06:23:35.956916Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0f20b28e582edb40478a3264b14d634bc3bf05add3d913df7f391f46faf489ec",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T06:23:38.349055Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e94394e48009cd8fbd5108426e57662cdd3e4d99e817a3b4494b7e53776b5c37",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "mypy": "2.1.0"
+      }
     }
   ],
   "check_na": [],
@@ -616,6 +750,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:23:38.391699Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:23:38.435106Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:23:38.450843Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:23:38.495935Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:23:38.512840Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:23:38.529222Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:23:38.576062Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:23:38.622497Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:23:38.638042Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:23:38.654581Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:23:38.671577Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -628,8 +850,8 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "6f16d04d2ea13625691f9ca9de80d92ef7552aab",
-    "base_sha": "6f16d04d2",
+    "base": "origin/main",
+    "base_sha": "01d391434",
     "changed_files": [
       ".workflow/records/2097-shell-ota-bootstrap-loader.json",
       "CHANGELOG.md",
@@ -637,20 +859,24 @@
       "desktop/main.js",
       "desktop/ota.js",
       "desktop/package.json",
+      "desktop/resources/.gitignore",
+      "desktop/resources/python/.gitkeep",
       "desktop/test/bootstrap.test.js",
       "desktop/test/ota.test.js",
+      "docs/ai-developer/e2e/2026-08-23-shell-ota-hot-update-lifecycle.md",
       "docs/specs/desktop-shell-ota-hot-update.md",
       "scripts/ota_publish.py",
+      "scripts/templates/reinstall-notice.html",
       "tests/scripts/test_ota_publish.py"
     ],
-    "diff_fingerprint": "sha256:4dae6aa8b881e9f7a283a0393a30e782e21f59c13f3f38bfa2a9ed7683fc7dde",
+    "diff_fingerprint": "sha256:73fb4531d99f1a68587b31100d59596945d6a96b09281013eff143d0cbfab356",
     "head": "HEAD",
-    "head_sha": "1d8a080d2",
+    "head_sha": "89c5777ae",
     "surfaces": {
-      "docs": 1,
+      "docs": 2,
       "frontend": 0,
-      "governance": 0,
-      "governed_docs": 0,
+      "governance": 1,
+      "governed_docs": 1,
       "implementation": 0,
       "packaging": 0,
       "protected_architecture": 0,
@@ -721,6 +947,16 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-08-25T06:23:38.671617Z",
+      "diff_fingerprint": "sha256:73fb4531d99f1a68587b31100d59596945d6a96b09281013eff143d0cbfab356",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "scope.out-of-scope"
+      ]
     }
   ],
   "record_id": "2097-shell-ota-bootstrap-loader",
@@ -728,12 +964,18 @@
   "required_obligations": {
     "admin_labels": [],
     "checks": [
+      "architecture_tests",
+      "deferral_discipline",
       "format_check",
       "full_audit",
+      "import_contracts",
       "lint_format",
-      "python_tests"
+      "python_tests",
+      "type_check"
     ],
-    "docs": [],
+    "docs": [
+      "docs_required_or_na"
+    ],
     "guards": [
       "architecture_doc_guard",
       "core_change_guard",
@@ -811,10 +1053,16 @@
       "at": "2026-08-25T06:04:28.641442Z",
       "pattern": "scripts/templates/reinstall-notice.html",
       "reason": "Two additions. (1) The reinstall notice page is now a repository template plus an ota_publish --reinstall-notice flag, because the decision recorded in spec 8.1 was otherwise only prose: the 0.3.4 migration would have meant hand-rebuilding the page and the tarball from a description. The notice is injected into the ARCHIVE, never into the staged tree, so a checkout cannot be left quietly shipping it as the real SPA. (2) Owner-directed About-dialog work: main.js has no menu code at all today, so Electron's default menu applies, which is exactly why macOS shows app.getVersion (the installer baseline, not the effective post-patch build) and Windows gets no About item. This belongs in #2097 because a version that can differ from the installed one is precisely what shell OTA introduces."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T06:24:26.012631Z",
+      "pattern": "desktop/resources/.gitignore",
+      "reason": "Restoring an accidental deletion and declaring one intentional edit under desktop/resources/. (1) desktop/resources/python/.gitkeep is tracked on main and was deleted when I wiped desktop/resources/python to rebuild the bundled interpreter during the 2026-08-25 test session; a subsequent git add -A swept the deletion into a commit. It is the placeholder that keeps the directory in the tree against the python/* ignore rule, so it is restored rather than declared. (2) desktop/resources/.gitignore gains an ota-config.json rule: that file is written by the staging scripts at build time and a copy committed from a local test build carries that build's channel, which is how it briefly ended up tracked here."
     }
   ],
   "session_id": "2f564bfb-4f25-489f-bf48-64c1556cdfb5",
-  "strictness_tier": 2,
+  "strictness_tier": 1,
   "task_kind": "guided",
   "test_events": [
     {
