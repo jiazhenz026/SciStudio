@@ -72,7 +72,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "979df7102",
+    "shas": [
+      "979df7102"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -275,6 +281,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:17:43.218108Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:17:43.236347Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:17:43.252488Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:17:43.271151Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:17:43.287279Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:17:43.303189Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:17:43.318491Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:17:43.333629Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:17:43.349254Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:17:43.365007Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T04:17:43.385134Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -287,9 +381,10 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "61797f6d64f656f95dc30b7e021f820c4144f437",
     "base_sha": "61797f6d6",
     "changed_files": [
+      ".workflow/records/2151-guided-2151-review-fixes.json",
       ".workflow/records/2151-guided-2151-type-tab-auto-reload.json",
       "docs/specs/frontend-block-palette.md",
       "frontend/src/components/BlockPalette.test.tsx",
@@ -300,29 +395,35 @@
       "frontend/src/components/WorkflowCanvas.parts/useCanvasHandlers.ts",
       "frontend/src/components/__tests__/PreviewerPalette.test.tsx",
       "frontend/src/components/__tests__/TypePalette.test.tsx",
+      "frontend/src/store/__tests__/previewerCatalogInvalidation.test.ts",
       "frontend/src/store/usePreviewerCatalog.ts",
       "frontend/src/store/useTypeCatalog.ts"
     ],
-    "diff_fingerprint": "sha256:e17694bea5861d0d52ceaf3a51bc3646da43c07c9837fa8d25077b841c11ca7b",
+    "diff_fingerprint": "sha256:9591d8ac78bc3bf246c20fed142d5e6437dee688c31537e3db599dd66abe814b",
     "head": "HEAD",
-    "head_sha": "a8acc5556",
+    "head_sha": "979df7102",
     "surfaces": {
       "docs": 1,
-      "frontend": 10,
+      "frontend": 11,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 10,
+      "implementation": 11,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 11,
-      "test": 4,
+      "sentrux": 12,
+      "test": 5,
       "workflow_ci": 0
     }
   },
   "owner_directive": "\u4fee\u4e00\u4e0b\u4e24\u4e2apr\u5185\u7684review\uff0c\u7136\u540e\u63a8\u4e00\u4e2a\u63d0\u4ea4\u4e0a\u53bb: (1) guard the automatic previewer refresh against choice writes; (2) make the mount reload idempotent under StrictMode",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [],
+    "number": 2153,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-25T04:16:37.422902Z",
@@ -341,6 +442,17 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-08-25T04:17:43.385159Z",
+      "diff_fingerprint": "sha256:9591d8ac78bc3bf246c20fed142d5e6437dee688c31537e3db599dd66abe814b",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.frontend",
+        "checks.full_audit"
+      ]
     }
   ],
   "record_id": "2151-guided-2151-review-fixes",
