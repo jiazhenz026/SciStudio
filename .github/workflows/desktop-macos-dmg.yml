@@ -127,6 +127,13 @@ jobs:
           # "skipped macOS notarization" from macPackager -- that is
           # `"notarize": false` in package.json doing its job, not a skip.
           # The hook's own output is prefixed [notarize].
+          #
+          # This bound must stay comfortably below the job's timeout-minutes
+          # (#2172). If the job dies first the hook never gets to say which
+          # submission was left in flight, which is the one thing a timed-out
+          # build needs to report. The headroom covers signing, which precedes
+          # notarization and has been measured anywhere from 2 to 12 minutes.
+          SCISTUDIO_NOTARIZE_TIMEOUT_MIN: "60"
         run: npm --prefix desktop run dist:dmg
 
       # #2176: the hook mirrors its progress to this file because GitHub drops

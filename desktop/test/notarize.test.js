@@ -165,6 +165,22 @@ test("the trace is mirrored to a file, defaulting under the runner temp dir", ()
   assert.ok(notarize.logPath({}).endsWith("notarize.log"));
 });
 
+test("the notarization bound sits below the job's own timeout", () => {
+  // Two equal bounds race, and the job wins: it is killed before the hook can
+  // say which submission was left in flight -- the one thing a timed-out build
+  // needs to report. The headroom also has to cover signing, which precedes
+  // notarization and has been measured at anywhere from 2 to 12 minutes.
+  const wf = fs.readFileSync(
+    path.join(__dirname, "..", "..", ".github", "workflows", "desktop-macos-dmg.yml"),
+    "utf8",
+  );
+  const job = Number(/timeout-minutes:\s*(\d+)/.exec(wf)?.[1]);
+  const hook = Number(/SCISTUDIO_NOTARIZE_TIMEOUT_MIN:\s*"?(\d+)"?/.exec(wf)?.[1]);
+  assert.ok(Number.isFinite(job), "the macOS job has no timeout-minutes");
+  assert.ok(Number.isFinite(hook), "the build step does not bound notarization");
+  assert.ok(hook + 15 <= job, `notarization bound ${hook} leaves no headroom under job timeout ${job}`);
+});
+
 test("the workflow prints the trace however the job ends", () => {
   // A trace written to a file nobody reads is no better than one that was lost.
   const wf = fs.readFileSync(
