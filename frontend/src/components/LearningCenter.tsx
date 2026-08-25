@@ -12,10 +12,9 @@
  * project on disk, so reading what one is before committing to it is worth a
  * column of its own.
  *
- * Reading tutorials sit in their own tab. `learningCenterTabs` builds that
- * split, and the backend decides which tutorials are reading ones by looking
- * at their steps rather than at a declared field — see
- * `TutorialManifest.is_reading_only`.
+ * The Reading tab is not a source: it holds the shipped user documentation,
+ * read in `DocsBrowser` (#2157). Every tutorial, reading ones included, is
+ * listed in its own source's tab.
  *
  * One confirmation in this file names directories rather than describing them,
  * and FR-087's restart confirmation in `TutorialDetail` does the same. That is
@@ -36,6 +35,7 @@ import {
 import { useAppStore } from "../store";
 import { learningCenterTabs, READING_TAB_ID, tutorialEntryKey } from "../store/learningCenterSlice";
 
+import { DocsBrowser } from "./LearningCenter.parts/DocsBrowser";
 import { GroupProgress } from "./LearningCenter.parts/GroupProgress";
 import { findSessionEntry } from "./LearningCenter.parts/readingCards";
 import { ReadingSurface } from "./LearningCenter.parts/ReadingSurface";
@@ -63,11 +63,9 @@ export const LEARNING_CENTER_ENTRY_LABEL = "Learning Center";
  * (#2084, closing the TODO(#2057) that used to sit here): while a reading
  * session is active, this component renders that window in place of the
  * catalogue, and the floating step card stays hidden because the panel is
- * open. This message is only for the Reading tab's empty list.
+ * open. A reading tutorial is started from its own source's tab (#2157).
  */
-const READING_TAB_EMPTY_MESSAGE = "Reading tutorials will appear here.";
-
-const GROUP_TAB_EMPTY_MESSAGE = "This source ships no hands-on tutorials.";
+const GROUP_TAB_EMPTY_MESSAGE = "This source ships no tutorials.";
 
 export function LearningCenter() {
   const open = useAppStore((state) => state.learningCenterOpen);
@@ -128,9 +126,13 @@ export function LearningCenter() {
     );
   }, [open, session]);
 
-  /* A tab with nothing selected shows its first tutorial rather than a blank column. */
+  /*
+   * A tab with nothing selected shows its first tutorial rather than a blank
+   * column. The Reading tab has no tutorials at all — running this against it
+   * would clear the selection the reader made in the tab they came from.
+   */
   useEffect(() => {
-    if (!activeTab) return;
+    if (!activeTab || activeTab.id === READING_TAB_ID) return;
     const keys = activeTab.tutorials.map(tutorialEntryKey);
     setSelectedKey((current) => (current && keys.includes(current) ? current : (keys[0] ?? null)));
   }, [activeTab]);
@@ -145,9 +147,10 @@ export function LearningCenter() {
   }, [selectedKey, tabs]);
 
   /*
-   * The ring counts one source. In a source's own tab that is the tab; in the
-   * Reading tab, whose tutorials may come from several sources at once, it is
-   * the selected tutorial's source — never a sum across them (FR-076).
+   * The ring counts one source, and that is the tab's own (FR-076 forbids a sum
+   * across sources). The fallback to the selected tutorial's source is what the
+   * Reading tab needed while it listed tutorials from several sources; it is
+   * kept because a tab without a group still must not show another's count.
    */
   const ringGroup = useMemo<TutorialCatalogueGroup | null>(() => {
     if (activeTab?.group) return activeTab.group;
@@ -160,6 +163,9 @@ export function LearningCenter() {
       )?.group ?? null
     );
   }, [activeTab, selectedEntry, tabs]);
+
+  /** The documentation, rather than a source's tutorials (#2157). */
+  const readingTab = activeTab?.id === READING_TAB_ID;
 
   const handleStart = useCallback(
     (entry: TutorialCatalogueEntry, restart: boolean) => {
@@ -331,129 +337,136 @@ export function LearningCenter() {
           </div>
         ) : null}
 
-        <div className="flex min-h-0 flex-1">
-          <div className="w-60 shrink-0 overflow-y-auto border-r border-stone-200">
-            {loading && tabs.length === 0 ? (
-              <p className="inline-flex items-center gap-2 px-4 py-6 text-sm text-stone-500">
-                <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-                Loading tutorials…
-              </p>
-            ) : (
-              <TutorialList
-                emptyMessage={
-                  activeTab?.id === READING_TAB_ID
-                    ? READING_TAB_EMPTY_MESSAGE
-                    : GROUP_TAB_EMPTY_MESSAGE
-                }
-                onSelect={(entry) => setSelectedKey(tutorialEntryKey(entry))}
-                selectedKey={selectedKey}
-                tutorials={activeTab?.tutorials ?? []}
-              />
-            )}
-          </div>
-
-          <div className="min-w-0 flex-1 overflow-y-auto">
-            <TutorialDetail entry={selectedEntry} onStart={handleStart} />
-          </div>
-
-          <div className="w-60 shrink-0 overflow-y-auto border-l border-stone-200">
-            <GroupProgress
-              group={ringGroup}
-              onLeave={() => void leaveActiveTutorial()}
-              session={session}
-            />
-          </div>
-        </div>
-
-        <footer className="border-t border-stone-200 px-6 py-3">
-          {/*
-           * Discovery problems are shown rather than swallowed: one malformed
-           * manifest never empties a group, but the user should be able to see
-           * that something in a source did not load.
-           */}
-          {catalogue && catalogue.diagnostics.length > 0 ? (
-            <ul className="mb-3 flex flex-col gap-1" data-testid="learning-center-diagnostics">
-              {catalogue.diagnostics.map((line) => (
-                <li className="text-xs leading-5 text-stone-500" key={line}>
-                  {line}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-
-          {/* FR-088 */}
-          {clearPreview === null && clearedDirectories === null ? (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <button
-                className="shrink-0 rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 transition hover:border-red-400 hover:text-red-600"
-                onClick={() => void handleClearRequested()}
-                type="button"
-              >
-                Clear tutorial data
-              </button>
-              {/* FR-068 */}
-              <p className="min-w-0 flex-1 text-xs leading-5 text-stone-500">
-                {TEMPORARY_PROJECTS_NOTICE}
-              </p>
-            </div>
-          ) : null}
-
-          {clearPreview !== null ? (
-            <div data-testid="learning-center-clear-confirm">
-              <p className="text-sm leading-6 text-ink">
-                Clearing tutorial data resets your tutorial progress and deletes these directories:
-              </p>
-              {clearPreview.length > 0 ? (
-                <ul className="mt-2 flex flex-col gap-1">
-                  {clearPreview.map((directory) => (
-                    <li
-                      className="break-all rounded-lg bg-stone-50 px-2 py-1 font-mono text-xs text-stone-600"
-                      key={directory}
-                    >
-                      {directory}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-2 text-xs text-stone-500">
-                  There is nothing on disk to delete right now.
+        {/*
+         * The Reading tab is the documentation, not a source: its own menu, its
+         * own page, and none of the three tutorial columns (#2157).
+         */}
+        {readingTab ? (
+          <DocsBrowser />
+        ) : (
+          <div className="flex min-h-0 flex-1">
+            <div className="w-60 shrink-0 overflow-y-auto border-r border-stone-200">
+              {loading && tabs.length === 0 ? (
+                <p className="inline-flex items-center gap-2 px-4 py-6 text-sm text-stone-500">
+                  <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+                  Loading tutorials…
                 </p>
+              ) : (
+                <TutorialList
+                  emptyMessage={GROUP_TAB_EMPTY_MESSAGE}
+                  onSelect={(entry) => setSelectedKey(tutorialEntryKey(entry))}
+                  selectedKey={selectedKey}
+                  tutorials={activeTab?.tutorials ?? []}
+                />
               )}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-red-700"
-                  onClick={() => {
-                    void (async () => {
-                      const deleted = await clearTutorialData();
-                      setClearPreview(null);
-                      setClearedDirectories(deleted);
-                    })();
-                  }}
-                  type="button"
-                >
-                  Delete them and clear progress
-                </button>
-                <button
-                  className="rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 transition hover:border-pine hover:text-pine"
-                  onClick={() => setClearPreview(null)}
-                  type="button"
-                >
-                  Cancel
-                </button>
-              </div>
             </div>
-          ) : null}
 
-          {clearedDirectories !== null ? (
-            <p className="text-sm leading-6 text-stone-600" data-testid="learning-center-cleared">
-              {clearedDirectories.length > 0
-                ? `Tutorial progress is cleared and ${clearedDirectories.length} director${
-                    clearedDirectories.length === 1 ? "y was" : "ies were"
-                  } deleted.`
-                : "Tutorial progress is cleared."}
-            </p>
-          ) : null}
-        </footer>
+            <div className="min-w-0 flex-1 overflow-y-auto">
+              <TutorialDetail entry={selectedEntry} onStart={handleStart} />
+            </div>
+
+            <div className="w-60 shrink-0 overflow-y-auto border-l border-stone-200">
+              <GroupProgress
+                group={ringGroup}
+                onLeave={() => void leaveActiveTutorial()}
+                session={session}
+              />
+            </div>
+          </div>
+        )}
+
+        {readingTab ? null : (
+          <footer className="border-t border-stone-200 px-6 py-3">
+            {/*
+             * Discovery problems are shown rather than swallowed: one malformed
+             * manifest never empties a group, but the user should be able to see
+             * that something in a source did not load.
+             */}
+            {catalogue && catalogue.diagnostics.length > 0 ? (
+              <ul className="mb-3 flex flex-col gap-1" data-testid="learning-center-diagnostics">
+                {catalogue.diagnostics.map((line) => (
+                  <li className="text-xs leading-5 text-stone-500" key={line}>
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {/* FR-088 */}
+            {clearPreview === null && clearedDirectories === null ? (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <button
+                  className="shrink-0 rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 transition hover:border-red-400 hover:text-red-600"
+                  onClick={() => void handleClearRequested()}
+                  type="button"
+                >
+                  Clear tutorial data
+                </button>
+                {/* FR-068 */}
+                <p className="min-w-0 flex-1 text-xs leading-5 text-stone-500">
+                  {TEMPORARY_PROJECTS_NOTICE}
+                </p>
+              </div>
+            ) : null}
+
+            {clearPreview !== null ? (
+              <div data-testid="learning-center-clear-confirm">
+                <p className="text-sm leading-6 text-ink">
+                  Clearing tutorial data resets your tutorial progress and deletes these
+                  directories:
+                </p>
+                {clearPreview.length > 0 ? (
+                  <ul className="mt-2 flex flex-col gap-1">
+                    {clearPreview.map((directory) => (
+                      <li
+                        className="break-all rounded-lg bg-stone-50 px-2 py-1 font-mono text-xs text-stone-600"
+                        key={directory}
+                      >
+                        {directory}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-xs text-stone-500">
+                    There is nothing on disk to delete right now.
+                  </p>
+                )}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-red-700"
+                    onClick={() => {
+                      void (async () => {
+                        const deleted = await clearTutorialData();
+                        setClearPreview(null);
+                        setClearedDirectories(deleted);
+                      })();
+                    }}
+                    type="button"
+                  >
+                    Delete them and clear progress
+                  </button>
+                  <button
+                    className="rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 transition hover:border-pine hover:text-pine"
+                    onClick={() => setClearPreview(null)}
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {clearedDirectories !== null ? (
+              <p className="text-sm leading-6 text-stone-600" data-testid="learning-center-cleared">
+                {clearedDirectories.length > 0
+                  ? `Tutorial progress is cleared and ${clearedDirectories.length} director${
+                      clearedDirectories.length === 1 ? "y was" : "ies were"
+                    } deleted.`
+                  : "Tutorial progress is cleared."}
+              </p>
+            ) : null}
+          </footer>
+        )}
       </div>
     </div>
   );

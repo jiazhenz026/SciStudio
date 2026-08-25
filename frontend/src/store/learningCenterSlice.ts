@@ -80,9 +80,8 @@ export const READING_TAB_LABEL = "Reading";
  * One tab of the Learning Center: a source, or the Reading tab.
  *
  * `group` is the source group the tab's ring counts against. The Reading tab
- * has none, because its tutorials can come from several sources at once and
- * FR-076 forbids reporting a count across them — there, the ring follows the
- * selected tutorial's own source instead.
+ * has none: it lists no tutorials at all (#2157), so there is no count to
+ * report and no source to report it for.
  */
 export interface LearningCenterTab {
   id: string;
@@ -103,35 +102,27 @@ export function tutorialEntryKey(entry: {
 /**
  * The tabs, in display order: core first, then the other sources, Reading last.
  *
- * Reading tutorials are lifted out of their source tabs rather than listed
- * twice. A tutorial that only ever asks the reader to read on is a different
- * kind of thing to sit down to than one that asks them to build something, and
- * showing it in both places would make each tab's list a poor answer to "what
- * is there to do here".
+ * Every tutorial is listed in its own source's tab, reading tutorials included.
+ * They used to be lifted out into the Reading tab on the argument that sitting
+ * down to read is a different undertaking to sitting down to build; #2157 gave
+ * the Reading tab to the shipped documentation instead, so a tutorial lifted
+ * there now would be a tutorial nobody could find. A reading tutorial still
+ * runs the way it always did — it is simply listed where its siblings are.
  *
- * The Reading tab is present even when empty. It is the answer to "where did
- * the reading material go", and a tab that appears only once content exists
- * cannot answer that.
+ * The Reading tab carries no tutorials and is always present: it is not a
+ * source, it is the documentation.
  */
 export function learningCenterTabs(
   catalogue: TutorialCatalogueResponse | null,
 ): LearningCenterTab[] {
-  const reading: TutorialCatalogueEntry[] = [];
-  const tabs: LearningCenterTab[] = [];
+  const tabs: LearningCenterTab[] = orderedTutorialGroups(catalogue).map((group) => ({
+    id: `${group.source_kind}:${group.source_id}`,
+    label: group.label,
+    group,
+    tutorials: Array.isArray(group.tutorials) ? group.tutorials : [],
+  }));
 
-  for (const group of orderedTutorialGroups(catalogue)) {
-    const entries = Array.isArray(group.tutorials) ? group.tutorials : [];
-    const hands_on = entries.filter((entry) => !entry.reading);
-    reading.push(...entries.filter((entry) => entry.reading));
-    tabs.push({
-      id: `${group.source_kind}:${group.source_id}`,
-      label: group.label,
-      group,
-      tutorials: hands_on,
-    });
-  }
-
-  tabs.push({ id: READING_TAB_ID, label: READING_TAB_LABEL, group: null, tutorials: reading });
+  tabs.push({ id: READING_TAB_ID, label: READING_TAB_LABEL, group: null, tutorials: [] });
   return tabs;
 }
 
