@@ -30,7 +30,9 @@ const TREE: DocsNavItem[] = [
   section("Api reference", [page("Index", "api-reference/index.md")]),
   section("Examples", [
     page("Examples", "examples/README.md"),
-    section("App fiji", [page("AppBlock example — run a Fiji macro", "examples/app-fiji/README.md")]),
+    section("App fiji", [
+      page("AppBlock example — run a Fiji macro", "examples/app-fiji/README.md"),
+    ]),
   ]),
 ];
 
