@@ -9,12 +9,9 @@
 import { useEffect, useRef } from "react";
 
 import { useAppStore } from "../store";
+import { closeCurrentProject } from "./closeProject";
 
 export interface DesktopMenuHandlers {
-  /** File > Projects Home — close the active project (back to WelcomePane). */
-  goHome: () => void;
-  /** File > New Project… */
-  newProject: () => void;
   /** File > Save — tab-aware save, same as the toolbar Save button. */
   save: () => void;
   /** File > Save As… */
@@ -34,10 +31,11 @@ export function useDesktopMenuActions(handlers: DesktopMenuHandlers): void {
       const store = useAppStore.getState();
       switch (action) {
         case "projects-home":
-          handlersRef.current.goHome();
+          closeCurrentProject();
           break;
         case "new-project":
-          handlersRef.current.newProject();
+          // Same as the toolbar's New Project entry: keep the last-used path.
+          store.openProjectDialog("new", { path: store.projectDialog.path });
           break;
         case "save":
           handlersRef.current.save();

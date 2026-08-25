@@ -31,14 +31,22 @@ function installBridge() {
 
 function renderMenuActions() {
   const handlers = {
-    goHome: vi.fn(),
-    newProject: vi.fn(),
     save: vi.fn(),
     saveAs: vi.fn(),
   };
   renderHook(() => useDesktopMenuActions(handlers));
   return handlers;
 }
+
+const DEMO_PROJECT = {
+  id: "p1",
+  name: "Project",
+  description: "",
+  path: "C:\\Project",
+  workflow_count: 1,
+  workflows: ["main"],
+  current_workflow_id: "main",
+};
 
 describe("useDesktopMenuActions", () => {
   beforeEach(() => {
@@ -54,19 +62,31 @@ describe("useDesktopMenuActions", () => {
     expect(() => renderMenuActions()).not.toThrow();
   });
 
-  it("routes project navigation and save actions to the App handlers", () => {
+  it("routes save actions to the App handlers", () => {
     const bridge = installBridge();
     const handlers = renderMenuActions();
 
-    bridge.fire("projects-home");
-    bridge.fire("new-project");
     bridge.fire("save");
     bridge.fire("save-as");
 
-    expect(handlers.goHome).toHaveBeenCalledTimes(1);
-    expect(handlers.newProject).toHaveBeenCalledTimes(1);
     expect(handlers.save).toHaveBeenCalledTimes(1);
     expect(handlers.saveAs).toHaveBeenCalledTimes(1);
+  });
+
+  it("projects-home closes the active project; new-project opens the dialog", () => {
+    const bridge = installBridge();
+    renderMenuActions();
+
+    act(() => {
+      useAppStore.setState({ currentProject: DEMO_PROJECT });
+    });
+    bridge.fire("projects-home");
+    expect(useAppStore.getState().currentProject).toBeNull();
+
+    bridge.fire("new-project");
+    const { projectDialogOpen, projectDialog } = useAppStore.getState();
+    expect(projectDialogOpen).toBe(true);
+    expect(projectDialog.mode).toBe("new");
   });
 
   it("opens the Package Manager and Learning Center through the store", () => {
@@ -88,17 +108,7 @@ describe("useDesktopMenuActions", () => {
     expect(useAppStore.getState().bringInMyWorkOpen).toBe(false);
 
     act(() => {
-      useAppStore.setState({
-        currentProject: {
-          id: "p1",
-          name: "Project",
-          description: "",
-          path: "C:\\Project",
-          workflow_count: 1,
-          workflows: ["main"],
-          current_workflow_id: "main",
-        },
-      });
+      useAppStore.setState({ currentProject: DEMO_PROJECT });
     });
     bridge.fire("bring-in-my-work");
     expect(useAppStore.getState().bringInMyWorkOpen).toBe(true);
@@ -106,13 +116,7 @@ describe("useDesktopMenuActions", () => {
 
   it("unsubscribes from the bridge on unmount", () => {
     const bridge = installBridge();
-    const handlers = {
-      goHome: vi.fn(),
-      newProject: vi.fn(),
-      save: vi.fn(),
-      saveAs: vi.fn(),
-    };
-    const hook = renderHook(() => useDesktopMenuActions(handlers));
+    const hook = renderHook(() => useDesktopMenuActions({ save: vi.fn(), saveAs: vi.fn() }));
     hook.unmount();
     expect(bridge.unsubscribe).toHaveBeenCalledTimes(1);
   });
