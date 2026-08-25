@@ -154,6 +154,160 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T02:51:54.742261Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c5ecb3410e8e69095ae12581cbfaca0a4ec7f63651884755ca01d35d41c40790",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T02:51:58.617873Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a01753f4a20a109b09b9f0d4d6419d14ee7c055c7a91606dd55cd8685fabd8c0",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T02:52:00.000913Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1700dfe11bd995aa389c3dedbd7db9411108c8f60ecc1408743f6887bd931de5",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T02:52:00.047205Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9752afdab7f97c60abbfaa58c6cc392cfc6c7d6235a6bef39bc5989c4eb0eff9",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-25T02:52:10.410694Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:459a5c822ceb8140fe058370f622797fca9d57521fa0bfbf4d8fe38fcda6a238",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T02:52:10.669755Z",
+      "command": "lint-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0ab997eb98a6a992863b72b9691d585b35c5c80dc21ce653a856bb02f440c413",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T02:52:10.706367Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:24ed884c76d267251b116a526419c0483b87424800879286bcbac27c53f844f4",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-25T02:54:15.890360Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:e2630e888286362928f51960a82b1bd528d6b7763df98b09581e708a0bbbcca7",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T03:04:15.908307Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": null,
+      "input_fingerprint": "sha256:d09f55821112b406c5b120cfbb21f21067e4822bd08a5d3f1757aebc01f0f454",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T03:04:16.569668Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:99880edc43c21b79a55ba2e430d14453cea934dea78df94c524825070add2fc2",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [
@@ -179,12 +333,12 @@
   "directive_events": [
     {
       "at": "2026-08-25T02:06:00.142723Z",
-      "owner_directive": "ci.yml 注释同步:ruff pin 唯一来源改为 ci.yml 自身",
+      "owner_directive": "ci.yml \u6ce8\u91ca\u540c\u6b65:ruff pin \u552f\u4e00\u6765\u6e90\u6539\u4e3a ci.yml \u81ea\u8eab",
       "reason": "ci.yml ruff pin comment referenced the removed .pre-commit-config.yaml revs; updated the comment and added .github/workflows/ to scope"
     },
     {
       "at": "2026-08-25T02:23:42.882967Z",
-      "owner_directive": "实现完成:commit hooks 全部移除,hygiene/最终 commit 消息检查移到 pre-pr;ruff pin 源改 ci.yml;删除遗留 hook 文件;测试与治理文档已更新",
+      "owner_directive": "\u5b9e\u73b0\u5b8c\u6210:commit hooks \u5168\u90e8\u79fb\u9664,hygiene/\u6700\u7ec8 commit \u6d88\u606f\u68c0\u67e5\u79fb\u5230 pre-pr;ruff pin \u6e90\u6539 ci.yml;\u5220\u9664\u9057\u7559 hook \u6587\u4ef6;\u6d4b\u8bd5\u4e0e\u6cbb\u7406\u6587\u6863\u5df2\u66f4\u65b0",
       "reason": "plan"
     }
   ],
@@ -387,6 +541,182 @@
       ],
       "guard": "weakened_ci_check",
       "status": "fail"
+    },
+    {
+      "at": "2026-08-25T03:04:16.637062Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:04:16.651883Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:04:16.667153Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:04:16.681751Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:04:16.696206Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:04:16.709933Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:04:16.724694Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:04:16.742857Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:04:16.758318Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:04:16.773493Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:04:16.791024Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:07:41.491041Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:07:41.504067Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:07:41.516705Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:07:41.529634Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:07:41.542735Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:07:41.556068Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:07:41.570264Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:07:41.585650Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:07:41.601207Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:07:41.616606Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T03:07:41.632876Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -402,18 +732,61 @@
     "base": "4105e165451215ec842d731f8fb6691b45d1d0ea",
     "base_sha": "4105e1654",
     "changed_files": [
+      ".claude/skills/speckit-implement/SKILL.md",
+      ".claude/skills/speckit-specify/SKILL.md",
+      ".claude/skills/speckit-tasks/SKILL.md",
       ".github/workflows/ci.yml",
       ".pre-commit-config.yaml",
+      ".specify/init-options.json",
+      ".specify/memory/constitution.md",
+      ".specify/scripts/powershell/check-prerequisites.ps1",
+      ".specify/scripts/powershell/common.ps1",
+      ".specify/scripts/powershell/setup-plan.ps1",
+      ".specify/scripts/powershell/update-agent-context.ps1",
+      ".specify/templates/checklist-template.md",
+      ".specify/templates/plan-template.md",
+      ".specify/templates/spec-template.md",
+      ".specify/templates/tasks-template.md",
       ".workflow/hooks/pre-commit",
+      ".workflow/records/.gitkeep",
       ".workflow/records/2150-guided-2150-commit-hooks-to-pre-pr.json",
       "CHANGELOG.md",
       "CONTRIBUTING.md",
       "docs/adr/ADR-042-addendum6.md",
+      "docs/adr/ADR_legacy.md",
       "docs/ai-developer/gate-cli-command-set.md",
       "docs/ai-developer/rules.md",
       "docs/ai-developer/specific_rules/gated-workflow.md",
+      "docs/audit/README.md",
+      "docs/data-storage-transport-audit.en.md",
+      "docs/planning/adr-038-039-checklist.md",
+      "docs/planning/adr-042-add6-investigation-digest.md",
+      "docs/planning/dispatch-prompts/adr-043-b1-imaging-propagation-prompt.md",
+      "docs/planning/dispatch-prompts/phase-2.5-audit-implementation.md",
       "docs/specs/adr-042-gate-ledger-runtime.md",
+      "docs/specs/adr-043-package-migration.md",
+      "docs/specs/appblock-variadic-ports.md",
+      "docs/specs/data-preview-3d-viewer.md",
+      "docs/specs/phase10-implementation-standards.md",
+      "docs/specs/phase11-imaging-block-spec.md",
+      "docs/user/reference/scistudio.blocks.app.md",
+      "docs/user/reference/scistudio.blocks.base.md",
+      "docs/user/reference/scistudio.blocks.code.md",
+      "docs/user/reference/scistudio.blocks.io.md",
+      "docs/user/reference/scistudio.blocks.process.md",
+      "docs/user/reference/scistudio.core.meta.md",
+      "docs/user/reference/scistudio.core.types.md",
+      "docs/user/reference/scistudio.previewers.data_access.md",
+      "docs/user/reference/scistudio.previewers.models.md",
+      "scripts/hooks/check-ci-after-pr.sh",
       "scripts/hooks/run_python_module.py",
+      "src/scistudio/_user_guide/api-reference/scistudio.blocks.app.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.blocks.base.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.blocks.io.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.blocks.process.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.core.meta.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.core.types.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.previewers.data_access.md",
       "src/scistudio/qa/governance/gate_record/checks.py",
       "src/scistudio/qa/governance/gate_record/evaluator.py",
       "src/scistudio/qa/governance/gate_record/parity.py",
@@ -424,24 +797,24 @@
       "tests/qa/test_parity_venv_pins.py",
       "tests/scripts/test_run_python_module.py"
     ],
-    "diff_fingerprint": "sha256:fd8b3c8ed7f03656149f95947bbea32488a2f4fdcff36c52907ece219052e432",
+    "diff_fingerprint": "sha256:b76956d1aa6bfc24a54aaf7ac53c444efea386c7e5621d2de70a8b05e49a9375",
     "head": "HEAD",
-    "head_sha": "edd31b9f5",
+    "head_sha": "fe113d7b7",
     "surfaces": {
-      "docs": 5,
+      "docs": 26,
       "frontend": 0,
-      "governance": 10,
+      "governance": 13,
       "governed_docs": 3,
-      "implementation": 7,
+      "implementation": 15,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 15,
+      "sentrux": 29,
       "test": 6,
-      "workflow_ci": 4
+      "workflow_ci": 5
     }
   },
-  "owner_directive": "取消所有 commit 时 git hook(允许自由 commit),把现有 commit hook 的全部检查项移到 gate_record check --mode pre-pr 强制执行;commit 消息类检查只校验最终 commit(owner 已确认)",
+  "owner_directive": "\u53d6\u6d88\u6240\u6709 commit \u65f6 git hook(\u5141\u8bb8\u81ea\u7531 commit),\u628a\u73b0\u6709 commit hook \u7684\u5168\u90e8\u68c0\u67e5\u9879\u79fb\u5230 gate_record check --mode pre-pr \u5f3a\u5236\u6267\u884c;commit \u6d88\u606f\u7c7b\u68c0\u67e5\u53ea\u6821\u9a8c\u6700\u7ec8 commit(owner \u5df2\u786e\u8ba4)",
   "persona": "live_implementer",
   "pull_request": null,
   "reconcile_events": [
@@ -456,6 +829,27 @@
         "checks.python_tests",
         "guard.persona_policy",
         "guard.weakened_ci_check"
+      ]
+    },
+    {
+      "at": "2026-08-25T03:04:16.791088Z",
+      "diff_fingerprint": "sha256:b76956d1aa6bfc24a54aaf7ac53c444efea386c7e5621d2de70a8b05e49a9375",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
+        "scope.out-of-scope"
+      ]
+    },
+    {
+      "at": "2026-08-25T03:07:41.632922Z",
+      "diff_fingerprint": "sha256:b76956d1aa6bfc24a54aaf7ac53c444efea386c7e5621d2de70a8b05e49a9375",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "scope.out-of-scope"
       ]
     }
   ],
@@ -509,6 +903,48 @@
       "at": "2026-08-25T02:23:42.882986Z",
       "pattern": "CHANGELOG.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T03:07:53.152648Z",
+      "pattern": ".claude/**",
+      "reason": "commit_hygiene runs pre-commit --all-files (repo-wide ratchet by design); its trailing-whitespace/end-of-file autofixes swept pre-existing hygiene debt across .claude/.specify/docs/scripts files into the branch. These are machine-applied whitespace-only fixes required for the new check to pass."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T03:07:53.152667Z",
+      "pattern": ".specify/**",
+      "reason": "commit_hygiene runs pre-commit --all-files (repo-wide ratchet by design); its trailing-whitespace/end-of-file autofixes swept pre-existing hygiene debt across .claude/.specify/docs/scripts files into the branch. These are machine-applied whitespace-only fixes required for the new check to pass."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T03:07:53.152670Z",
+      "pattern": "docs/user/**",
+      "reason": "commit_hygiene runs pre-commit --all-files (repo-wide ratchet by design); its trailing-whitespace/end-of-file autofixes swept pre-existing hygiene debt across .claude/.specify/docs/scripts files into the branch. These are machine-applied whitespace-only fixes required for the new check to pass."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T03:07:53.152671Z",
+      "pattern": "docs/audit/**",
+      "reason": "commit_hygiene runs pre-commit --all-files (repo-wide ratchet by design); its trailing-whitespace/end-of-file autofixes swept pre-existing hygiene debt across .claude/.specify/docs/scripts files into the branch. These are machine-applied whitespace-only fixes required for the new check to pass."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T03:07:53.152673Z",
+      "pattern": "docs/planning/**",
+      "reason": "commit_hygiene runs pre-commit --all-files (repo-wide ratchet by design); its trailing-whitespace/end-of-file autofixes swept pre-existing hygiene debt across .claude/.specify/docs/scripts files into the branch. These are machine-applied whitespace-only fixes required for the new check to pass."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T03:07:53.152675Z",
+      "pattern": "src/scistudio/_user_guide/**",
+      "reason": "commit_hygiene runs pre-commit --all-files (repo-wide ratchet by design); its trailing-whitespace/end-of-file autofixes swept pre-existing hygiene debt across .claude/.specify/docs/scripts files into the branch. These are machine-applied whitespace-only fixes required for the new check to pass."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T03:07:53.152676Z",
+      "pattern": "docs/adr/ADR_legacy.md",
+      "reason": "commit_hygiene runs pre-commit --all-files (repo-wide ratchet by design); its trailing-whitespace/end-of-file autofixes swept pre-existing hygiene debt across .claude/.specify/docs/scripts files into the branch. These are machine-applied whitespace-only fixes required for the new check to pass."
     }
   ],
   "session_id": "f19d6220-6836-462a-9c0b-24bcb0ed0aac",
