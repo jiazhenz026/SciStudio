@@ -1,0 +1,76 @@
+{
+  "base_ref": null,
+  "branch": "guided/2162-version-bump-0-3-4",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/_version.py",
+      "pyproject.toml",
+      "desktop/package.json",
+      "desktop/package-lock.json",
+      "frontend/package.json",
+      "frontend/package-lock.json",
+      "tests/packaging/test_version_alignment.py",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-25T06:50:59.492993Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/user/reference/index.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2162,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Bump the version to 0.3.4, then build a fresh release installer for each of the three platforms, then push the update to users from the latest remote main. Owner agreed the installer is stamped build 30.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2162-version-bump-0-3-4",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-25T06:50:59.492963Z",
+      "pattern": "docs/user/reference/**",
+      "reason": "The API reference carries the version in its header and is generated, with a 'Do not hand-edit; regenerate' banner, so the bump requires running scripts/docs/build_reference.py rather than editing the line. That regeneration also swept in pre-existing drift: src/scistudio/_user_guide/api-reference/scistudio.tutorials.md was stale on main and gained step_entered_at, rendered_plots and ui_events_with_targets, which are real API additions from the tutorials work. The docs/user/reference/ copy was already current, so the two generated trees had diverged. Six files, +23/-8 in total. Declaring it rather than hand-trimming the generator output, which the banner forbids."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T06:50:59.492984Z",
+      "pattern": "src/scistudio/_user_guide/api-reference/**",
+      "reason": "The API reference carries the version in its header and is generated, with a 'Do not hand-edit; regenerate' banner, so the bump requires running scripts/docs/build_reference.py rather than editing the line. That regeneration also swept in pre-existing drift: src/scistudio/_user_guide/api-reference/scistudio.tutorials.md was stale on main and gained step_entered_at, rendered_plots and ui_events_with_targets, which are real API additions from the tutorials work. The docs/user/reference/ copy was already current, so the two generated trees had diverged. Six files, +23/-8 in total. Declaring it rather than hand-trimming the generator output, which the banner forbids."
+    }
+  ],
+  "session_id": "240bf74d-8c15-4973-b645-2849df412187",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}

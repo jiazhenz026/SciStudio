@@ -98,7 +98,7 @@ differs, and evaluation is side-effect free (FR-055).
 
 ```python
 class DriverContext
-DriverContext(key: 'TutorialKey', tutorial_dir: 'Path', project_dir: 'Path | None', step_id: 'str | None', satisfied_step_ids: 'tuple[str, ...]' = ()) -> None
+DriverContext(key: 'TutorialKey', tutorial_dir: 'Path', project_dir: 'Path | None', step_id: 'str | None', satisfied_step_ids: 'tuple[str, ...]' = (), step_entered_at: 'str | None' = None) -> None
 ```
 
 Everything a driver is told about the session asking the question.
@@ -134,6 +134,7 @@ Every member is a pure read (FR-055).
 - `data_type_names(self) -> 'frozenset[str]'` — _unmarked — see the module source / ADR-052_
 - `previewer_type_ids(self) -> 'frozenset[str]'` — _unmarked — see the module source / ADR-052_
 - `plot_bindings(self) -> 'tuple[tuple[str, str, str], ...]'` — _unmarked — see the module source / ADR-052_ — ``(plot_id, node_id, output_port)`` for every plot that exists.
+- `rendered_plots(self) -> 'tuple[tuple[str, str, str, str], ...]'` — _unmarked — see the module source / ADR-052_ — ``(workflow_id, node_id, output_port, plot_id)`` for every plot with a rendered figure.
 - `run_records(self) -> 'tuple[RunSummary, ...]'` — _unmarked — see the module source / ADR-052_ — The recent runs, **most recent first**.
 - `port_has_output(self, node_id: 'str', port: 'str') -> 'bool'` — _unmarked — see the module source / ADR-052_
 - `git_branches(self) -> 'frozenset[str]'` — _unmarked — see the module source / ADR-052_
@@ -142,6 +143,7 @@ Every member is a pure read (FR-055).
 - `interactions_completed(self) -> 'frozenset[str]'` — _unmarked — see the module source / ADR-052_
 - `pages_reached(self) -> 'frozenset[str]'` — _unmarked — see the module source / ADR-052_
 - `ui_events(self) -> 'frozenset[str]'` — _unmarked — see the module source / ADR-052_
+- `ui_events_with_targets(self) -> 'frozenset[tuple[str, str]]'` — _unmarked — see the module source / ADR-052_ — ``(name, target)`` for every reported event that carried a target.
 
 ## `ReplayAction` — _class_
 
@@ -149,7 +151,7 @@ Every member is a pure read (FR-055).
 
 ```python
 class ReplayAction
-ReplayAction(surface: 'str', segments: 'tuple[ReplaySegment, ...]') -> None
+ReplayAction(surface: 'str', segments: 'tuple[ReplaySegment, ...]', continue_tab: 'bool' = False) -> None
 ```
 
 Replay scripted material into one named surface (FR-061, FR-061a, FR-061b).
@@ -165,7 +167,7 @@ text claiming a file was written cannot be read before the file exists.
 
 ```python
 class RunSummary
-RunSummary(run_id: 'str', workflow_id: 'str', succeeded: 'bool', succeeded_node_ids: 'frozenset[str]' = frozenset()) -> None
+RunSummary(run_id: 'str', workflow_id: 'str', succeeded: 'bool', succeeded_node_ids: 'frozenset[str]' = frozenset(), started_at: 'str | None' = None) -> None
 ```
 
 The read-only view of one recorded run that ``run_succeeded`` needs.
@@ -182,7 +184,7 @@ which nodes within it succeeded. The layer that satisfies
 
 ```python
 class StepView
-StepView(id: 'str', index: 'int', total: 'int', title: 'str | None' = None, say: 'str | None' = None, highlight: 'Mapping[str, Any] | None' = None, route_to: 'str | None' = None, prefill: 'tuple[Mapping[str, Any], ...]' = (), awaiting_continue: 'bool' = False, satisfied: 'bool' = False) -> None
+StepView(id: 'str', index: 'int', total: 'int', title: 'str | None' = None, say: 'tuple[str, ...]' = (), say_moods: 'tuple[str, ...]' = (), highlights: 'tuple[Mapping[str, Any] | None, ...]' = (), route_to: 'str | None' = None, prefill: 'tuple[Mapping[str, Any], ...]' = (), pages: 'tuple[str, ...]' = (), trigger: 'Mapping[str, Any] | None' = None, compacts: 'tuple[bool, ...]' = (), auto_advance: 'bool' = False, awaiting_continue: 'bool' = False, satisfied: 'bool' = False) -> None
 ```
 
 What one step looks like, for every driver alike (FR-040, FR-041).
@@ -243,7 +245,7 @@ leaves every other tutorial listed and startable (FR-044).
 Three properties are worth knowing before writing one, because each removes
 work rather than adding it:
 
-* **Core owns rendering.** Whatever `step_view` returns is normalised
+* **Core owns rendering.** Whatever `step_view` returns is normalized
   through `StepView.of` at the boundary, so extra attributes and extra
   mapping keys are dropped rather than reaching a response (FR-041). A
   driver cannot introduce a display primitive or ship a frontend asset, and
@@ -349,7 +351,7 @@ destination is overwritten (spec §2 Edge Cases).
 **Stability:** `provisional` · Since `0.3.4`
 
 ```python
-evaluate(condition: 'Condition', state: 'ProductState') -> 'bool'
+evaluate(condition: 'Condition', state: 'ProductState', *, entered_at: 'str | None' = None) -> 'bool'
 ```
 
 Judge ``condition`` against ``state``.
@@ -357,6 +359,13 @@ Judge ``condition`` against ``state``.
 Side-effect free (FR-055): no file is created, no registry is mutated, no
 run is triggered. Called on step entry (FR-054), on a mapped event
 (FR-050), and on an explicit request (FR-053) — never on a timer (FR-051).
+
+``entered_at`` is FR-046's session-supplied evaluation context (#2066): the
+ISO-8601 time the current step was entered, which the two run terms read
+when a condition declares ``since_step_entry: true``. It is context rather
+than product state because product state describes the world and this
+describes the reader's position in the tutorial — only the session knows
+it, and the session hands it in per evaluation.
 
 ## `parse_condition` — _function_
 
@@ -371,3 +380,4 @@ Parse a ``done_when`` mapping, rejecting anything outside the vocabulary.
 The accepted shape is a single-key mapping: ``{term: {args}}`` for a term,
 ``{all: [condition, ...]}`` or ``{any: [...]}`` for a combinator. Called at
 manifest validation (FR-049), never at evaluation.
+

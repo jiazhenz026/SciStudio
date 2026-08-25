@@ -1300,3 +1300,4 @@ Args:
 
 Returns:
     A list of diagnostics; empty when the configuration is valid.
+
