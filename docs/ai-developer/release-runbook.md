@@ -170,13 +170,34 @@ Publish a mandatory **patch** instead:
 
 ```bash
 python scripts/ota_publish.py --channel alpha --min-build N \
+  --min-base <the OLD base, e.g. 0.3.3> \
   --reinstall-notice "https://github.com/jiazhenz026/SciStudio/releases/tag/vX.Y.Z"
 ```
 
 It swaps the snapshot's SPA for an ordinary web page with selectable text and a
-clipboard button. Keep `min_base` **at or below** the target clients' base so the
-decision is `patch`, not `incompatible`. Because the address is copyable it does
-not need to be short — use the real release URL.
+clipboard button. Because the address is copyable it does not need to be
+short — use the real release URL.
+
+**`--min-base` is not optional here (#2169).** Without it the value derives
+from the build's own base, which after a bump is the *new* one — so every
+client on the old base evaluates to `incompatible` instead of `patch`, and
+that branch never downloads anything. The notice page would be built,
+uploaded, and never fetched, leaving the user at the plain native dialog the
+notice exists to avoid.
+
+Check the decision before publishing rather than reasoning about it:
+
+```bash
+cd desktop && node -e "
+const ota = require('./ota.js');
+console.log(JSON.stringify(ota.evaluateUpdate(
+  {enabled:true, channel:'alpha'},
+  require('/path/to/manifest.json'),
+  {base:'0.3.3', channel:'alpha', build:0},   // a client you are migrating
+  25                                          // its effective build
+)));   // must read kind:'patch', mandatory:true
+"
+```
 
 ### 5.2 Making an update mandatory
 
