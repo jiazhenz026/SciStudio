@@ -239,10 +239,32 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T06:15:15.631045Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d228db97c434eb3c049d060e5a3b2563c1af3648db08a7885718e82e9a193257",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "4ea7f69020119320994fd784d63c6c3de50c7996",
+    "shas": [
+      "4ea7f69020119320994fd784d63c6c3de50c7996"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -603,6 +625,182 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:15.690055Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:15.704724Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:15.719631Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:15.734787Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:15.750299Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:15.766400Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:15.782924Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:15.797948Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:15.813348Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:15.857417Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:15.883945Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:26.341166Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:26.357957Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:26.376306Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:26.392215Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:26.407709Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:26.423102Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:26.437394Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:26.468623Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:26.483437Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:26.498748Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:15:26.528508Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -637,9 +835,9 @@
       "src/scistudio/api/routes/user_docs.py",
       "tests/api/test_user_docs.py"
     ],
-    "diff_fingerprint": "sha256:6c72bc944f5c87b035ecad35e28b52dbad634bd2818ba3818b0162707f8f8698",
+    "diff_fingerprint": "sha256:723c54c8d4608df99fe964f2eaf5fbd0d34e31dceb6f93b15dde864bddf9fd8a",
     "head": "HEAD",
-    "head_sha": "60d2afebb",
+    "head_sha": "4ea7f6902",
     "surfaces": {
       "docs": 1,
       "frontend": 12,
@@ -656,7 +854,14 @@
   },
   "owner_directive": "Redesign the Learning Center's Reading page as a viewer for the shipped user documentation: everything on the docs site except the package-development guide, including the API reference. Entry page is the SciStudio user guide; clicking navigates; the left nav matches the web version. The reading tutorial from PR #2087 is scrapped. Open the PR directly; do not start the frontend/backend for live testing.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2157
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-25T06:02:49.185745Z",
@@ -697,6 +902,22 @@
       "unsatisfied": [
         "checks.frontend"
       ]
+    },
+    {
+      "at": "2026-08-25T06:15:15.883980Z",
+      "diff_fingerprint": "sha256:723c54c8d4608df99fe964f2eaf5fbd0d34e31dceb6f93b15dde864bddf9fd8a",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-25T06:15:26.528546Z",
+      "diff_fingerprint": "sha256:723c54c8d4608df99fe964f2eaf5fbd0d34e31dceb6f93b15dde864bddf9fd8a",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
     }
   ],
   "record_id": "2157-guided-reading-doc-viewer",
