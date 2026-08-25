@@ -831,3 +831,49 @@ unchosen-card Auto no-op and the chosen-card two-layer clear), the
 stale-choice strip, reload ordering, and the diagnostics banner. `store/__tests__/previewerCatalogInvalidation.test.ts`
 covers the loader: cache-then-invalidate on `blocks.reloaded`, reload ordering
 (scan before list), and the choice mutations bumping the routing epoch.
+
+## 15. Auto-Reload On Section Switch (#2151)
+
+Every left-panel section re-reads its listing when the user switches TO it,
+so an entry deleted (or added) outside the registry-refresh write paths —
+which emit no `blocks.reloaded` websocket event — never lingers until someone
+presses Reload by hand. Switching sections remounts the pane (§13.1 renders
+exactly one section at a time), so "on switch" is "on mount":
+
+- **Blocks.** `BlockPalette` fires one `onReload` on mount — the same
+  backend re-scan + re-fetch its Reload button drives. The callback goes
+  through a ref because callers pass a fresh arrow each render; depending on
+  the prop would re-fire the reload on every unrelated render instead of
+  once per visit.
+- **Data types.** `TypePalette` runs one `rescanTypes()` when it mounts over
+  an already-loaded catalogue. A first-ever mount skips the rescan because
+  the catalogue hook's own load is already fetching; the store is read
+  imperatively inside the effect so it sees the mount-time snapshot rather
+  than re-firing when `typesLoaded` flips true.
+- **Previewers.** `PreviewerPalette` mirrors the Data types behaviour with
+  `rescanPreviewers()` on an already-loaded mount.
+- **Workflows, Data, Project.** These three keep no store cache: their
+  listings live in component-local state and their mount effects already
+  fetch, so remounting on a section switch is itself a fresh reload. No
+  change was needed.
+
+The auto reload is silent: the `useReloadFlash` blink (§9) stays tied to the
+manual Reload button, so panel switching does not pulse.
+
+Covered by the `#2151` describes in
+`frontend/src/components/__tests__/TypePalette.test.tsx`,
+`frontend/src/components/__tests__/PreviewerPalette.test.tsx`, and
+`frontend/src/components/BlockPalette.test.tsx`.
+
+## 16. Drop Centres The Block On The Cursor (#2151)
+
+A React Flow node position is the node's TOP-LEFT corner, so a palette drop
+at the raw cursor point landed the block down-right of the mouse.
+`useCanvasHandlers.handleDrop` now re-anchors the drop on the fixed square
+body's centre (ADR-050 §2.1, `NODE_SIZE` = 104): the flow position is
+`screenToFlowPosition(cursor) − NODE_SIZE / 2` on both axes. The block label
+below the square is absolutely positioned and contributes nothing to the
+node's flow footprint, so `NODE_SIZE` is the whole offset.
+
+Covered by
+`frontend/src/components/WorkflowCanvas.parts/__tests__/dropPosition.test.ts`.

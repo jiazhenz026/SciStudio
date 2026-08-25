@@ -20,7 +20,7 @@
 // blocks as props: refreshing types must not mean refreshing the palette, and
 // drawing types must not require a blocks request.
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { resolveRingColor, resolveTypeColor } from "../config/typeColorMap";
 import { useReloadFlash } from "../hooks/useReloadFlash";
@@ -160,6 +160,20 @@ function familyChips(
 
 export function TypePalette() {
   const { types, loaded, declared, reload } = useTypeCatalog();
+  // #2151 — ProjectWorkspace mounts this pane only while the tab is active,
+  // so mounting *is* "switching to the Data types tab". A mount that finds the
+  // catalogue already loaded is a revisit holding a possibly stale cache: a
+  // type deleted outside the registry-refresh write paths (no
+  // `blocks.reloaded` event) stayed listed until someone pressed Reload by
+  // hand. Do one automatic rescan — the same path the Reload button drives.
+  // A first-ever mount skips it, because the hook's own load is already
+  // fetching; the store is read imperatively so the effect sees the
+  // mount-time snapshot rather than subscribing to `loaded` flipping true.
+  useEffect(() => {
+    if (useAppStore.getState().typesLoaded) {
+      void reload();
+    }
+  }, [reload]);
   const [search, setSearch] = useState("");
   const [activeFamilies, setActiveFamilies] = useState<string[]>([]);
   // FR-044/FR-046: B3's shared hover state machine, the same one the Blocks

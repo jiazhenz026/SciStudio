@@ -418,3 +418,19 @@ describe("paletteColumns — width → column count (#1857)", () => {
     expect(paletteColumns(1000)).toBe(3); // never exceeds the 3-column cap
   });
 });
+
+describe("BlockPalette — auto-reload on section switch (#2151)", () => {
+  it("fires one onReload when the pane mounts, and none on later re-renders", () => {
+    const onReload = vi.fn();
+    const { rerender } = render(
+      <BlockPalette {...defaultProps} onReload={onReload} blocks={[cellpose]} />,
+    );
+    expect(onReload).toHaveBeenCalledTimes(1);
+
+    // The caller passes a fresh arrow each render; the mount reload must not
+    // turn into a per-render reload.
+    rerender(<BlockPalette {...defaultProps} onReload={onReload} blocks={[{ ...cellpose }]} />);
+    rerender(<BlockPalette {...defaultProps} onReload={onReload} blocks={[{ ...cellpose }]} />);
+    expect(onReload).toHaveBeenCalledTimes(1);
+  });
+});

@@ -1,0 +1,321 @@
+{
+  "base_ref": null,
+  "branch": "guided/2151-type-tab-auto-reload",
+  "check_events": [
+    {
+      "at": "2026-08-25T02:23:40.483636Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-25T02:23:53.054201Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T02:23:53.094930Z",
+      "command": "ruff check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/TypePalette.tsx",
+      "frontend/src/store/useTypeCatalog.ts",
+      "frontend/src/components/__tests__/TypePalette.test.tsx"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-25T02:23:27.538904Z",
+      "owner_directive": "\u4e0d\u53ea\u662ftype\uff0c\u5176\u4ed6\u7684tab\u5305\u62ecblock\u3001workflow\u3001previewer\u3001data\u8fd8\u6709\u9879\u76ee\u6811\u90fd\u8981\u81ea\u52a8\u89e6\u53d1\u4e00\u6b21reload",
+      "reason": "owner expanded live scope beyond the Data types tab"
+    },
+    {
+      "at": "2026-08-25T02:23:27.870042Z",
+      "owner_directive": "\u518d\u52a0\u4e00\u4e2a\u5c0f\u7684fix\uff1a\u628ablock\u62d6\u5165canvas\u4ee5\u540e\uff0c\u73b0\u5728block\u5e76\u6ca1\u6709\u505c\u7559\u5728\u9f20\u6807\u7684\u4f4d\u7f6e\uff0c\u800c\u662f\u6709\u4e2a\u504f\u79fb\u3002\u628ablock\u7684\u4e2d\u5fc3\u76f4\u63a5\u5bf9\u9f50drop\u5230\u9f20\u6807\u7684\u4f4d\u7f6e\u4e0a",
+      "reason": "owner added a second fix to the live session: drag-drop offset"
+    },
+    {
+      "at": "2026-08-25T02:23:28.173682Z",
+      "owner_directive": "auto-reload on left-panel section switch (blocks/types/previewers; workflows/data/project already remount-fetch) + drop centers block on cursor",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-25T02:23:28.173708Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/frontend-block-palette.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-08-25T02:23:53.130373Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T02:23:53.145525Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T02:23:53.161464Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T02:23:53.206025Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T02:23:53.222093Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T02:23:53.240148Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T02:23:53.257043Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T02:23:53.272768Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T02:23:53.289044Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T02:23:53.305539Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T02:23:53.322138Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2151,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "61797f6d6",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "61797f6d6",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "\u5728gui\u7684block/workflow/type\u7684tab\u90a3\u91cc\uff0c\u6709\u65f6\u5019\u5076\u5c14\u4f1a\u51fa\u73b0\u4e00\u4e2atype\u5220\u6389\u4e86\u4f46\u662f\u8fd8\u5728list\u91cc\u9762\uff0c\u9700\u8981\u624b\u52a8reload\u3002\u52a0\u4e00\u4e2a\u5207\u6362\u5230\u8fd9\u4e2atab\u81ea\u52a8\u89e6\u53d1\u4e00\u6b21reload\u3002",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-08-25T02:23:53.322192Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2151-guided-2151-type-tab-auto-reload",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "agents:kimi-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-25T02:23:27.538922Z",
+      "pattern": "frontend/src/components/PreviewerPalette.tsx",
+      "reason": "owner expanded live scope beyond the Data types tab"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T02:23:27.538929Z",
+      "pattern": "frontend/src/store/usePreviewerCatalog.ts",
+      "reason": "owner expanded live scope beyond the Data types tab"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T02:23:27.538931Z",
+      "pattern": "frontend/src/components/__tests__/PreviewerPalette.test.tsx",
+      "reason": "owner expanded live scope beyond the Data types tab"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T02:23:27.538933Z",
+      "pattern": "frontend/src/components/BlockPalette.tsx",
+      "reason": "owner expanded live scope beyond the Data types tab"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T02:23:27.538934Z",
+      "pattern": "frontend/src/components/BlockPalette.test.tsx",
+      "reason": "owner expanded live scope beyond the Data types tab"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T02:23:27.870059Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.parts/useCanvasHandlers.ts",
+      "reason": "owner added a second fix to the live session: drag-drop offset"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T02:23:27.870064Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.parts/__tests__/dropPosition.test.ts",
+      "reason": "owner added a second fix to the live session: drag-drop offset"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T02:23:28.173698Z",
+      "pattern": "docs/specs/frontend-block-palette.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "97043ba6-8e81-4a4d-9ff1-2d99020c7c9d",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-08-25T02:23:28.173716Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/TypePalette.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T02:23:28.173720Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/PreviewerPalette.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T02:23:28.173722Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/BlockPalette.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T02:23:28.173724Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/WorkflowCanvas.parts/__tests__/dropPosition.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

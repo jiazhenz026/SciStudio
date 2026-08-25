@@ -148,6 +148,21 @@ export function BlockPalette({
     blocks,
   );
 
+  // #2151 — the left-panel sections are conditionally rendered, so mounting
+  // this pane *is* switching to the Blocks section; one automatic reload runs
+  // here, the same path the Reload button drives (backend re-scan + re-fetch),
+  // so a block deleted outside the registry-refresh paths does not stay
+  // listed until someone reloads by hand. `onReload` goes through a ref
+  // because callers pass a fresh arrow each render — depending on it would
+  // re-fire the reload on every unrelated render instead of once per visit.
+  const onReloadRef = useRef(onReload);
+  useEffect(() => {
+    onReloadRef.current = onReload;
+  }, [onReload]);
+  useEffect(() => {
+    onReloadRef.current();
+  }, []);
+
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
   // FR-044/FR-046: the shared hover state machine. It delays the open so the
   // card does not flash while the pointer sweeps the grid, and delays the close

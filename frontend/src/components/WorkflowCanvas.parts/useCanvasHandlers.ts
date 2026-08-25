@@ -4,6 +4,7 @@
 import type { Connection, Edge, Node, NodeChange, useReactFlow } from "@xyflow/react";
 import { useCallback } from "react";
 
+import { NODE_SIZE } from "../nodes/BlockNode.parts/nodeGeometry";
 import type { BlockSummary, WorkflowEdge, WorkflowNode } from "../../types/api";
 
 export interface CanvasHandlersOpts {
@@ -147,9 +148,15 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
       if (!payload) return;
       const parsed = JSON.parse(payload) as BlockSummary & { _default_direction?: string };
       const position = reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      // #2151 — a React Flow node position is the node's TOP-LEFT corner, so
+      // a raw drop lands the block down-right of the cursor. Re-anchor on the
+      // fixed square body's centre (ADR-050 §2.1): the block the user was
+      // dragging lands centred under the mouse. The label below the square is
+      // absolutely positioned and adds nothing to the node's flow footprint,
+      // so NODE_SIZE is the whole offset.
       onAddNode(
         parsed,
-        position,
+        { x: position.x - NODE_SIZE / 2, y: position.y - NODE_SIZE / 2 },
         parsed._default_direction ? { direction: parsed._default_direction } : undefined,
       );
     },

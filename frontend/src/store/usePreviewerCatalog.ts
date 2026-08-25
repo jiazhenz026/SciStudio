@@ -179,7 +179,7 @@ export interface PreviewerCatalog {
   loaded: boolean;
   diagnostics: string[];
   choices: PreviewerChoice[];
-  /** Re-scan the drop-in dirs, then re-fetch. Backs the tab's Reload button. */
+  /** Re-scan the drop-in dirs, then re-fetch. Backs the tab's Reload button and its on-switch auto-reload (#2151). */
   reload: () => Promise<void>;
 }
 

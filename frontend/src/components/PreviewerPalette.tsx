@@ -18,9 +18,10 @@
 // previewer catalogue directly from the store, so opening it neither waits
 // for nor re-triggers a blocks fetch.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useReloadFlash } from "../hooks/useReloadFlash";
+import { useAppStore } from "../store";
 import {
   choosePreviewer,
   clearPreviewerChoiceAt,
@@ -132,6 +133,18 @@ function StaleChoicesStrip({ choices }: { choices: PreviewerChoice[] }) {
 
 export function PreviewerPalette() {
   const { previewers, loaded, diagnostics, choices, reload } = usePreviewerCatalog();
+  // #2151 — same auto-reload-on-switch as the Data types tab: mounting this
+  // pane *is* switching to the section (the panes are conditionally rendered),
+  // so a mount that finds the catalogue already loaded is a revisit holding a
+  // possibly stale cache. Do one automatic rescan — the path the Reload
+  // button drives. A first-ever mount skips it (the hook's own load is
+  // already fetching); the store is read imperatively so the effect sees the
+  // mount-time snapshot rather than subscribing to `loaded` flipping true.
+  useEffect(() => {
+    if (useAppStore.getState().previewersLoaded) {
+      void reload();
+    }
+  }, [reload]);
   const [search, setSearch] = useState("");
   // Same one-shot blink the Blocks tab, the Data types tab, and the project
   // tree use, so every side panel confirms a completed reload identically.
