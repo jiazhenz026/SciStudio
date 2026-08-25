@@ -1,4 +1,5 @@
 {
+  "base_ref": null,
   "branch": "guided/desktop-menu-bar",
   "check_events": [
     {
@@ -12,6 +13,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {
@@ -29,6 +31,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -44,6 +47,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {
@@ -61,6 +65,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -76,6 +81,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -91,6 +97,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": null,
+      "scope": "repo",
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
@@ -106,6 +113,7 @@
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": null,
+      "scope": "repo",
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
@@ -143,6 +151,11 @@
       "at": "2026-08-25T08:26:36.832693Z",
       "owner_directive": "\u6388\u6743 push \u5e76\u7528 SCISTUDIO_SKIP_PREFLIGHT=1 \u5f00 PR",
       "reason": "owner authorized preflight bypass for PR creation per #2150/#2120 precedent (semantic_dup local evidence unobtainable, #2154)"
+    },
+    {
+      "at": "2026-08-25T08:35:48.770034Z",
+      "owner_directive": "sem dup \u4e0d\u662f\u4ece CI \u5f7b\u5e95\u53d6\u6d88\u4e86\u561b\uff1f\u4e3a\u5565\u672c\u5730\u8fd8\u5728\u8dd1\uff1f\u628a\u672c\u5730\u7ed9\u5173\u6389",
+      "reason": "owner asked why local still runs semantic_dup; root cause: branch was based on stale local main. Rebased onto origin/main which contains the #2120 removal; check-na and preflight-bypass events above are superseded"
     }
   ],
   "docs_events": [
