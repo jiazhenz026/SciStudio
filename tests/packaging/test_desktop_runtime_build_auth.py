@@ -57,9 +57,7 @@ def test_scripts_still_run_without_a_token(name: str) -> None:
     Making the header unconditional would trade a CI failure for a local one.
     """
     body = (SCRIPTS / name).read_text(encoding="utf-8")
-    assert "GITHUB_TOKEN" in body and "GH_TOKEN" in body, (
-        f"{name} should read both token variables"
-    )
+    assert "GITHUB_TOKEN" in body and "GH_TOKEN" in body, f"{name} should read both token variables"
     # Some form of "only when set" guard has to be present.
     assert re.search(r'if \[ -n "\$GH_API_TOKEN" \]|if \(\$GhToken\)', body), (
         f"{name} must omit the header when no token is set"
@@ -71,9 +69,7 @@ def test_workflows_pass_a_token_to_the_runtime_build(name: str) -> None:
     """The scripts can read a token, but Actions does not supply one by default."""
     body = (WORKFLOWS / name).read_text(encoding="utf-8")
     assert "build:python" in body, f"{name} no longer builds the runtime"
-    assert "GITHUB_TOKEN: ${{ github.token }}" in body, (
-        f"{name} does not pass a token to the runtime build step"
-    )
+    assert "GITHUB_TOKEN: ${{ github.token }}" in body, f"{name} does not pass a token to the runtime build step"
 
 
 @pytest.mark.parametrize("name", (*SHELL_SCRIPTS, "build-python-runtime.ps1"))
