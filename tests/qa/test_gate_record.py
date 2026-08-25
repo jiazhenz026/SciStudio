@@ -1110,23 +1110,19 @@ def test_commit_msg_check_discovers_finalized_ledger(git_repo: Path, capsys: pyt
 # ---------------------------------------------------------------------------
 
 
-def test_pre_commit_mode_skips_python_tests_and_semantic_dup(
-    git_repo: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_pre_commit_mode_skips_the_slowest_check(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _init(git_repo)
-    # A python-src change selects both python_tests (has_python_src) and
-    # semantic_dup (sentrux-applicable).
+    # A python-src change selects python_tests via has_python_src.
     _commit(git_repo, "src/scistudio/x.py", "y = 1\n")
     capsys.readouterr()
     _run(git_repo, "check", "--base", "HEAD~1", "--mode", "pre-commit", "--skip-execution")
     pre_commit = capsys.readouterr().out
     _run(git_repo, "check", "--base", "HEAD~1", "--mode", "pre-pr", "--skip-execution")
     pre_pr = capsys.readouterr().out
-    # pre-commit drops the two slow checks; pre-pr keeps the full selection.
+    # pre-commit drops the slowest check (#1628); pre-pr keeps it, running it
+    # diff-scoped rather than over the whole suite.
     assert "python_tests" not in pre_commit
-    assert "semantic_dup" not in pre_commit
     assert "python_tests" in pre_pr
-    assert "semantic_dup" in pre_pr
 
 
 def test_failed_check_excerpt_surfaces_log_tail(tmp_path: Path) -> None:
@@ -1145,7 +1141,12 @@ def test_failed_check_excerpt_surfaces_log_tail(tmp_path: Path) -> None:
     out = evaluator._failed_check_excerpt(tmp_path, event)
     assert "ERROR: thing A" in out
     assert "FAILED test_b" in out
-    assert out.lstrip().startswith("|")  # indented excerpt lines
+    # The block leads with a header naming the log and how much of it is shown,
+    # so nothing is dropped without saying so (#2143); the excerpt lines under
+    # it stay indented and prefixed.
+    assert out.lstrip().startswith("--- full_audit output (")
+    assert ".workflow/local/logs/full_audit.log" in out
+    assert any(line.lstrip().startswith("|") for line in out.splitlines())
     assert "�" not in out
     out.encode("ascii")  # printable on any console; raises if not ASCII-clean
 

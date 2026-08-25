@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from scistudio.previewers.choices import load_choices
 from scistudio.previewers.data_access import PreviewDataAccess
 
 # Public author symbols (ADR-052 §8.1) re-exported here for convenience; the
@@ -113,15 +114,25 @@ def build_preview_service(
     ``scistudio.previewers`` entry points), then project-local specs/defaults
     for *project_dir*, then user-library specs. The user tier loads
     unconditionally — it does not depend on an open project (#2017, mirroring
-    the user type/block tiers). Project loads before user so a project
-    previewer shadows a user previewer with the same id, matching the
-    project-first registration order the type registry uses.
+    the user type/block tiers) — but *which* library answers as the user tier
+    follows *project_dir*: a tutorial project's user tier is the
+    tutorial-scoped library (Learning Center FR-070/FR-071, #2086). Project
+    loads before user so a project previewer shadows a user previewer with the
+    same id, matching the project-first registration order the type registry
+    uses.
+
+    The person's per-type previewer choices load last (#2049). They are read
+    after discovery because a choice is only usable once the previewer it names
+    is registered; loading them here means every event that rebuilds the
+    registry also re-reads them, so a choice written to disk takes effect on
+    the next reload without a separate refresh path.
     """
     registry = PreviewerRegistry()
     registry.load_core()
     registry.load_packages()
     load_project_previewers(registry, project_dir)
-    load_user_previewers(registry)
+    load_user_previewers(registry, project_dir)
+    registry.set_previewer_choices(load_choices(project_dir))
 
     router = PreviewRouter(registry)
     sessions = PreviewSessionManager(

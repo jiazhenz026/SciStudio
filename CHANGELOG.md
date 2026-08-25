@@ -9,6 +9,235 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2082] **Core tutorial 3 — *Two modalities, one answer*.** The multimodal
+  level, and the git level. A scanner and a sequencer looked at the same three
+  tissue sections and neither file can answer alone — the only thing joining
+  them is the `y`/`x` every measured position carries, so the analysis is
+  genuinely joint rather than two analyses in a row. It is also the first level
+  that mostly *reuses*: the `Image` type, the `Segment Cells` block, and the
+  `Image` previewer all arrive from My Library where tutorial 2 put them, and
+  the only new blocks are the two this experiment actually needs. The reader
+  builds the first forked canvas, meets index pairing as a real hazard — the
+  stack's pages are in the scanner's acquisition order (`S05`, `S09`, `S01`)
+  and the workbook's sheets in section-label order (`S01`, `S05`, `S09`), so
+  every pair is wrong, and the Pair Editor's panel is where that is visible at
+  all — then aggregates expression inside imaged regions and clusters them with
+  hand-written NumPy k-means, deliberately in a block rather than in a plot,
+  because a plot is preview-only and overwritten next run. The second half is
+  git: a second, deeper sequencing run needs a different normalisation from the
+  first (total-count loses batch 2 to two runaway housekeeping genes;
+  median-of-ratios loses batch 1 to shallow, zero-heavy counts — both real
+  statistics, both recomputed by the tests), so the reader keeps a `batch-2`
+  branch alive alongside `main`, switches back, meets the stale figure, and
+  lands the lesson that git stores the recipe and not the results because
+  `data/` and `.scistudio/` are not in version control. Every number the steps
+  quote — nine regions per section, twenty-seven in all, and the 9/9/9, 14/8/5
+  and 7/18/2 cluster splits — is recomputed from the shipped stack and
+  workbooks by `tests/tutorials/test_core_tutorial_two_modalities.py`.
+- [#2081] **Core tutorial 2 — *What is a type*.** The type-system level. An
+  image-analysis task arrives and the reader builds the missing vocabulary one
+  real gap at a time: a project-tier `Image` type created through New → New
+  data type and derived from the core `Array` (the template's commented
+  `ui_color` / `ui_ring_color` lines are the one hand edit — the reader picks
+  their type's colour); the product's real dispatch error `no load capability
+  is registered for type 'Image'`, met by running and fixed by a
+  tutorial-written TIFF `IOBlock` loader that reads the baseline-TIFF contract
+  itself with the standard library (core ships no image decoder — that is why
+  the capability was missing — and a test referees the reader against
+  dev-only tifffile); the real previewer fallback — an
+  Image previews as the parent Array's number table until a project previewer
+  claiming `target_type: Image` lands and registers live; a NumPy-only
+  threshold segmentation whose imperfection is genuine (7 objects on 6 cells;
+  the adaptive method honestly worse at 73), every quoted number recomputed
+  from the shipped 120×120 TIFF by the tests; an interactive Review Labels
+  block whose window is a hand-written, dependency-free ES module carried
+  beside the block (`asset_root` from its own `__file__`, served
+  same-origin), used to hand-delete the nine-pixel debris speck — with the
+  interaction-memory toggle named where it lives; a per-cell area DataFrame
+  exported through Save into `data/processed/`; and the ending bridge: Image,
+  the segmentation block, and the previewer go to My Library
+  (`library_contains` judged for all three), which is how tutorial 3's fresh
+  project starts with them. The previewer derives its tier from its own
+  location, so the same file answers as project tier beside `project.yaml`
+  and as the user tier after the move.
+- [#2085] **Core tutorial 6 — *Start Your Own Project*.** The level the first
+  five leave missing: the reader has never brought in their own data. The
+  tutorial supplies a pretend-"your own" folder inside its project and walks a
+  real import — a do-it-with-me button copies the files into `data/raw`, the
+  reader wires Load through a small pre-written block into a Save aimed at
+  `data/processed`, runs it, and exports a figure. Along the way it answers the
+  project's six geography questions: where data goes in (`data/raw`), where
+  results land (`data/processed`, by the reader's own Save — nothing writes
+  there uninvited), where the project's own tools live (`blocks/`, `types/`,
+  `previewers/`, hot-reloaded on save), how data is handed to external software
+  (`data/exchange`, plain files both ways), how a figure survives (Export —
+  plots live in the preview cache and are overwritten next run), and how data
+  is saved. It also names why `data/` and `.scistudio/` stay out of version
+  control, and closes by sending the reader off to a project of their own.
+- [#2083] **Core tutorial 4 — *What AI can do*.** A declared-fake AI session:
+  the AI Chat terminal plays a pre-recorded agent transcript, and every claim
+  it makes is matched by a real file landing in the tutorial project before
+  the claim is readable. Over fourteen judged steps the scripted agent answers
+  what SciStudio is, lists the palette, writes a QC outlier-filter block,
+  wires load → QC → summary → save, fails a run on a wrong column name — the
+  reader meets the `KeyError` in the Logs tab, then watches the agent read the
+  same logs and fix its own block — inspects the filtered table, argues a
+  3σ→2σ threshold change whose retained-sample count the reader can verify,
+  scaffolds a before/after plot, and hands three undocumented CSVs to a
+  tutorial-only **AI Block**: a real `AIBlock` subclass (its palette category
+  is inferred from the class hierarchy and cannot be faked) whose canned run
+  returns a typed, validated, lineage-tracked metadata table. Completing this
+  tutorial is now the shipped **work-import milestone**: the ending introduces
+  the five real agent providers (Claude Code, Codex, Kimi Code, and Qoder's
+  two channels — greyed when not set up, never hidden) and then offers, once,
+  to bring the reader's existing work across; skipping names the permanent
+  "Bring in my work" toolbar entry. The scripted replay tab is adopted into
+  the real AI Chat tab strip — same terminal, same tabs, only the byte source
+  differs — and torn down with the session.
+- [#2086] **The tutorial-scoped library gained a previewer tier.** The scoped
+  library's `.library/` root now carries a `previewers/` directory beside
+  `blocks/` and `types/`, and a tutorial project's previewer scans resolve
+  through the same one-root swap the other two kinds make: the scoped library
+  answers as the user tier while a tutorial project is open, so precedence
+  stays project > user > package > core and a previewer saved during one
+  tutorial travels to the next tutorial's project — which is how core
+  tutorial 3 reuses tutorial 2's previewer instead of falling back to the
+  numeric table. `library_contains: {kind: previewer}` is judgeable now
+  (matching a previewer's id or its target type) instead of rejected at
+  validation as unsatisfiable, a tutorial step that writes `previewers/*.py`
+  registers it live before the step's text is readable, and "Move to My
+  Library" from the editor toolbar now offers a project previewer, landing it
+  in whichever library — scoped or real — the open project resolves.
+
+- [#2061 #2062 #2063 #2066 #2088 #2089] **The tutorial format can now express
+  the designed Learning Center levels 2–6.** A step may declare a `trigger` — a
+  button labelled by the manifest whose actions run when the reader presses it,
+  with a failure surfaced on the step and retryable rather than ending the
+  session — and a `pages` list naming the reading pages it presents. Replays
+  can continue the open terminal tab instead of replacing it, which with the
+  trigger is how a scripted conversation is paced. Completion conditions grew:
+  the node-addressed terms accept `block_type` ("any node of that type") beside
+  `node_id`; the run terms accept `since_step_entry: true` so "press Run" waits
+  for the run performed on this step; a backend `plot_rendered` term judges
+  that a figure exists as product truth; and `ui_event` reports may carry the
+  target they acted on. A tutorial may require same-source tutorials completed
+  first, listing itself unavailable naming the unmet level until then. The
+  session response now carries a read-only outline of every step for the
+  reading window, `assets/workflows/` is a reserved (and executable-graded)
+  asset directory whose writes reach the open canvas before a step's text is
+  readable, and the guidance vocabularies gained the Data types tab, a
+  New-data-type prefill, and the Bring-in-my-work toolbar highlight.
+- [#2084] **Core tutorial 5 — *SciStudio at a Glance*, and the reading window
+  it runs in.** The fifth core tutorial is the summary level: one window, one
+  top sentence, and eight cards — workflow, block, data type, previewer, plot
+  card, history, my library, others — each opening a short paged read. It
+  introduces nothing new by design: it names and organises what the first four
+  levels already had you do, which is why reading it is completing it (the one
+  exception, `CompositeData`, is presented honestly as the one core type you
+  have not used). No project is created; every claim in the cards is checked
+  against the product's actual behaviour.
+  Reading tutorials now have their own surface: while one runs, the Learning
+  Center shows a **window of cards instead of the floating step card** — the
+  tutorial's summary on top, one card per step in step order, read cards
+  marked and reopenable. Opening a page *is* the progress report (the backend
+  records the page on serve and re-judges the step), and the tutorial
+  completes through the same explicit Continue as every other tutorial. The
+  window is built for any reading tutorial, not this one.
+- [#2080] **A package can now build tutorials against a supported API.** The
+  Learning Center opened two authoring paths to packages — a `tutorial.yaml`
+  manifest, and a driver class for logic a manifest cannot express — but neither
+  was published: `scistudio.tutorials` was not a canonical root, so by the
+  contract's own rule every symbol a driver author needed was internal and free
+  to move without notice.
+  `scistudio.tutorials` is now the tenth canonical public root. Its `__all__` is
+  the authoring surface and nothing else — sixteen symbols covering the driver
+  protocol (`TutorialDriver`, `DriverContext`, `StepView`, `DeclaresConditions`),
+  step actions, the condition vocabulary and its evaluator, and `TutorialKey`.
+  The root previously re-exported eighty-two names spanning the session store,
+  the discovery walk and the progress file; those remain importable by deep path
+  and carry no promise, which is what they were before. Every public symbol
+  carries a stability tier and `Since`, the generated API reference has a
+  `scistudio.tutorials` page, and `docs/package-development/tutorials.md` is the
+  authoring guide for both paths.
+  The surface is `provisional` at `0.3.4`: the vocabulary and the action set are
+  still settling.
+- [#2049] **You can choose which previewer renders a type.** When several
+  previewers can show the same data — a package's tailored plot, a
+  project-local experiment, core's plain table — SciStudio picked for you, by a
+  fixed precedence of project over user over package over core. That ladder
+  answers *which previewer is best* without ever asking the person looking at
+  the data. Now you can say, and what you say wins.
+  A choice is recorded **per type** and applies to every object of it. It has
+  two layers: this project, or every project, with the project layer winning —
+  the same shape blocks, types, and previewers already use for where they live.
+  Choices made inside a tutorial stay in the tutorial's own library rather than
+  following you into real work afterwards.
+  **A choice is a preference, not a constraint.** If the previewer you chose is
+  not there — a package uninstalled, a drop-in deleted — the preview still
+  renders, through the ordinary ladder, and your choice takes effect again the
+  moment that previewer returns. The same is true if the choice cannot serve
+  what is on the port: a viewer that handles one item is not handed a whole
+  collection. Nothing you can record is able to stop a preview from rendering.
+  The FR-005 project-default manifest is untouched and keeps its narrow role as
+  a tie-breaker between equal-priority previewers in one tier. It answers a
+  different question — what a project's *author* declares, rather than what a
+  *person* prefers for their own view — so the two are stored separately and
+  never arbitrate the same decision.
+- [#2095] **Previewers can be listed, and the previewer surface can reload
+  itself.** `GET /api/previews/previewers` returns every registered previewer
+  with the tier it came from, ordered the way the router considers them —
+  project, then user, then package, then core — and takes an optional
+  `target_type` filter. It also returns the registry's discovery diagnostics,
+  which nothing surfaced before: a drop-in refused for a module-name collision,
+  a duplicate previewer id, or an entry point that failed to import were all
+  recorded and then only logged, so from the product they looked like a
+  previewer that simply never appeared. `PreviewerSpecModel` had been declared
+  since the preview system landed and served by no route; this is the route.
+  `POST /api/previews/reload` gives the previewer surface its own way to
+  rebuild the registry. This is a second surface onto one implementation, not a
+  second reload: `refresh_all_registries()` has rebuilt previewers alongside
+  types and blocks since #2021, and the blocks and types endpoints already
+  reached it. What was missing is the argument FR-027 makes on the type side —
+  a previewer view must not have to call the *blocks* endpoint to do its own
+  job, while all three still rebuild the same world.
+- [#2049] **You can choose which previewer renders a type.** When several
+  previewers can show the same data — a package's tailored plot, a
+  project-local experiment, core's plain table — SciStudio picked for you, by a
+  fixed precedence of project over user over package over core. That ladder
+  answers *which previewer is best* without ever asking the person looking at
+  the data. Now you can say, and what you say wins.
+  A choice is recorded **per type** and applies to every object of it. It has
+  two layers: this project, or every project, with the project layer winning —
+  the same shape blocks, types, and previewers already use for where they live.
+  Choices made inside a tutorial stay in the tutorial's own library rather than
+  following you into real work afterwards.
+  **A choice is a preference, not a constraint.** If the previewer you chose is
+  not there — a package uninstalled, a drop-in deleted — the preview still
+  renders, through the ordinary ladder, and your choice takes effect again the
+  moment that previewer returns. The same is true if the choice cannot serve
+  what is on the port: a viewer that handles one item is not handed a whole
+  collection. Nothing you can record is able to stop a preview from rendering.
+  The FR-005 project-default manifest is untouched and keeps its narrow role as
+  a tie-breaker between equal-priority previewers in one tier. It answers a
+  different question — what a project's *author* declares, rather than what a
+  *person* prefers for their own view — so the two are stored separately and
+  never arbitrate the same decision.
+
+- [#2113] **The left panel has a Previewers section.** A new activity-bar entry
+  opens a card list of every registered previewer, grouped by the tier it was
+  discovered from — This Project, My Library, Core, then packages A→Z — over
+  the same shared section machinery the Blocks and Data types sections use.
+  Each card says what the previewer renders and whether it is the one currently
+  chosen for its type, and carries the #2049 choice controls: *prefer this
+  previewer* for this project or for all projects, and *clear* on the card that
+  holds the choice. Choosing re-routes the preview already open, not just the
+  next one. The section's own Reload button re-scans the drop-in directories
+  through `POST /api/previews/reload` (#2095) — the previewer surface no longer
+  borrows the block reload — and the listing's registry diagnostics and any
+  recorded-but-unavailable choices are shown rather than silent, because a
+  drop-in refused at scan time or a choice outliving its package used to be
+  indistinguishable from "never existed".
+
 - [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
   that are real, runnable projects, reached from a permanent toolbar entry and
   shown on first launch. The first core tutorial, *Welcome to SciStudio*, ships
@@ -69,6 +298,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   test covers all four groups, so a fifth cannot be added divergently without
   failing.
 
+### Changed
+
+- [#2096] **The macOS build is signed with a Developer ID certificate, hardened,
+  notarized and stapled**, so a machine that has never had SciStudio installed
+  launches the dmg by double-clicking it instead of being stopped by Gatekeeper
+  and sent to right-click-Open or System Settings. All four steps are required;
+  signing alone leaves the prompt in place, and without a stapled ticket the
+  first launch still needs to reach Apple over the network.
+  The entitlements are pinned in-repo at `desktop/assets/entitlements.mac.plist`
+  rather than inherited from electron-builder's fallback template, and the same
+  file is used for `entitlements` **and** `entitlementsInherit`. That second part
+  is load-bearing rather than tidiness: the bundled interpreter runs as its own
+  process and receives the *inherit* entitlements, and it is that process which
+  `dlopen`s the compiled extensions of packages installed through package OTA
+  (#1784) long after this bundle was signed. Without
+  `com.apple.security.cs.disable-library-validation` on it, the hardened runtime
+  refuses those loads — a failure that appears as a Python `ImportError`, passes
+  the build, and passes notarization. A test asserts the two settings cannot
+  drift apart.
+  Files that `codesign` cannot sign are pruned before staging — `__pycache__`
+  throughout, and the stdlib `test` package from the bundled interpreter.
+  `@electron/osx-sign` decides what to sign with a null-byte heuristic rather
+  than by parsing Mach-O headers, so compiled bytecode and CPython's own binary
+  test fixtures were being handed to `codesign`, where a single failure fails the
+  whole build.
+  `build.electronFuses` stays unset, and a test now asserts it: fuses are
+  entirely opt-in in electron-builder, so signing does not enable them, and
+  enabling `onlyLoadAppFromAsar` would silently block the shell hot-update loader
+  planned in #2097.
+  Signing happens in the release workflow rather than by hand, driven by whether
+  the Developer ID certificate is configured as a repository secret — a fork or a
+  contributor without credentials still gets the same unsigned dev artifact as
+  before. Because electron-builder's notarization **fails soft** (it logs
+  `skipped macOS notarization` and returns when credentials cannot be generated,
+  so a mistyped secret yields a green build and a dmg that still prompts), the
+  workflow now asserts the result: `codesign --verify`, the `runtime` flag in the
+  signature, Gatekeeper's own `spctl` verdict, and `stapler validate`. A `Desktop`
+  job also runs the desktop tests in CI for the first time, so these guards
+  actually execute.
+  Windows signing is unaffected and still absent — the Apple Developer Program
+  does not cover it. Design record:
+  `docs/specs/desktop-macos-signing-notarization.md` (status `Draft`: the
+  configuration and its platform-independent tests have landed, but the
+  acceptance run — clean mac, no prompt, `spctl` accepted, `stapler validate`
+  — is owner-executed on macOS and has not been performed).
+  Tests: `desktop/test/macos-signing.test.js`.
+  (@claude, 2026-08-21, branch: guided/2096-macos-signing-notarization)
+
 ### Removed
 
 - [#2150] **Commit-time git hooks are removed; `git commit` runs nothing.** The
@@ -92,6 +369,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   are gone). One honesty note: the removed commit-msg hook never actually
   validated AI trailer *content* (only ledger presence), and neither did CI —
   so no trailer enforcement was lost; #2152 tracks adding it.
+- [#2120 #2099] **Remove the semantic-duplication check and its CI workflow.** The
+  ratchet took **27m31s** on PR #2111 and, run locally, hit the gate's 600s
+  subprocess timeout and recorded `status=unknown`. Standalone on a warm parity
+  venv it took 135s, which was 65% of a Tier 1 local gate run. Owner grounds,
+  recorded as a directive event in the #2120 gate ledger: 27 minutes is
+  unacceptable, the check's current value is low, and it produces frequent false
+  positives. This is an owner-approved CI-weakening scope per `AGENTS.md` §3.1.
+  Removed: `.github/workflows/semantic-dup-scan.yml`,
+  `scripts/semantic_dup_scan.py`, `src/scistudio/qa/audit/semantic_dup.py` and
+  its opt-in `full_audit` child (`--include-semantic-dup` /
+  `--semantic-dup-model`), `docs/audit/baselines/semantic-dup-baseline.json`, the
+  `fastembed` dev dependency, and every gate-selection reference (check catalog,
+  Tier 1 baseline, Sentrux-driven surface selection, CI-owned and
+  pre-commit-skip sets). Because `semantic_dup` was the only member of the
+  local-deferral set introduced by ADR-042 Addendum 7, that mechanism would have
+  been a permanent no-op and is removed with it; `required_for_mode` now
+  distinguishes only `ci` and `pre-commit`. ADR-042 Addendum 2, which introduced
+  the check, is marked `Superseded`; Addendum 7 §2.5 records the removal and why
+  it superseded that section's own deferral proposal within one review cycle.
+  Duplication pressure and layering remain covered by `import_contracts` and
+  `architecture_tests`, which stay local and cost under 8s combined. #2099
+  (pinning `onnxruntime` to fix the timeout) is closed as moot. Tests:
+  `tests/qa/test_gate_incremental_checks.py` (no check is deferred out of the
+  local gate; `semantic_dup` is absent from every selection surface),
+  `tests/qa/test_guard_calculators.py` (the weakened-CI token set no longer
+  requires the deleted scanner), `tests/qa/test_gate_record.py` (pre-commit drops
+  only the slowest check). (@claude, 2026-08-22, branch: chore/2120-remove-semantic-dup)
 
 - [#2057] **Breaking: `POST /api/tutorials/run-first-workflow/bootstrap` is
   deleted**, with no alias, along with the single-tutorial implementation behind
@@ -107,6 +411,165 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   breaking regardless, because a route leaves the API surface.
 
 ### Fixed
+
+- [#2148] **Re-running a block that writes an array no longer fails on Windows
+  while the machine is busy.** Re-running such a block raised
+  `[WinError 5] Access is denied` from `auto_flush`, and only ever on a loaded
+  machine — an idle box re-ran the same block all day, a box with a test suite
+  running hit it repeatedly.
+  The Zarr backend committed a rewrite by deleting the old store and then
+  renaming the freshly staged one onto the freed name. That order is the whole
+  problem, and not for the reason the arrow in the error suggests. Renaming a
+  directory on Windows is denied while *any* file anywhere in its subtree is
+  open, and antimalware and the search indexer open files the instant they are
+  written — which is exactly the moment the staged store is renamed into place.
+  The rename that failed was blocked by a handle on the new tree, not by the
+  old name still being taken. Load did not create the race; it made the
+  scanner's window overlap the rename.
+  Because the delete ran first, the failure also took the previous good store
+  with it: the exception left the block with no data at all rather than the
+  copy it had a moment earlier. Writes now stage the new store, move the old
+  one aside, swap the new one in, and only then discard the old — so a rewrite
+  that cannot complete rolls back to the previous store instead of losing it.
+  The swap waits out a busy tree rather than failing on first contact, which is
+  what makes the common case succeed. Saving a Zarr-backed array through
+  SaveData took the same treatment: it too deleted an existing export before
+  copying its replacement over the name.
+- [#2143] **A failed gate check now tells you everything it found, and a
+  stacked branch is measured against its own base.** Four defects shared one
+  shape — the gate observed more than it reported — and together they meant a
+  fix round addressed a fraction of the problem and then paid the full check
+  cost again on the next attempt.
+  A failed check's excerpt was a fixed 50-line tail of the raw log with no
+  header. Line-oriented tools emit a block per violation, so it showed the last
+  few of many and said nothing about the rest: on a measured run, 5 of 17 ruff
+  violations. The excerpt now leads with a header naming the log file and
+  stating how much of it is shown, at a 200-line cap.
+  `full_audit` was worse than partial — it reported nothing. It writes its
+  findings into `.audit/full-audit.json` and prints nothing at all, so its
+  transcript held only section markers, the tail came back empty, and the
+  failure reached the reader as `checks.full_audit` with no reason while 58
+  findings sat unread in the file. A check can now declare the report file it
+  writes, and that report is rendered into the repair hint: the failing
+  sub-audits, their findings with blocking severities first, and a count of any
+  the display cap left out.
+  The diff base was the third. `SCISTUDIO_GATE_BASE` was the only way to point
+  the gate at anything other than `origin/main`, and nothing in the repository
+  ever set it, so local `check` and `finalize` measured a branch stacked on a
+  track branch against `origin/main` and read its parent's commits as work
+  authored here — false out-of-scope findings, a wrong strictness tier, and
+  guard hits on files the branch never touched. The base is now a recorded
+  ledger fact, `base_ref`, set with `--base-ref` on `init`/`plan`/`amend` and
+  resolved after an explicit `--base` and the environment variable but before
+  `origin/main`. A ref git cannot resolve is refused outright, because diffing
+  against a ref that does not exist observes nothing and a gate that observed
+  nothing reads as a clean one. CI was never affected: it passes the real PR
+  base explicitly.
+  Last, `.worktrees/` — where parallel agents put their linked worktrees — was
+  untracked and unignored, so the repository-scoped `ruff check .` fallback
+  linted other agents' checkouts and failed commits on files they never
+  touched. It is gitignored now, which is what keeps ruff inside the checkout.
+
+- [#1988] **A block that isn't one of the six kinds no longer looks broken.**
+  Every canvas node that wasn't IO, Process, Code, App, AI or Subworkflow fell
+  back to one grey body with a puzzle-piece glyph — and that single grey was
+  answering two completely different questions. A block whose class extends
+  `Block` directly works perfectly well; it just has no base category to report.
+  A block whose type can't be loaded here at all is broken. Both looked the
+  same, so the working one looked broken and the broken one looked ordinary.
+  They are now two visuals. A block with no category gets a body colour of its
+  own alongside the other six, and a glyph that doesn't imply something is
+  missing. A block that didn't resolve is drawn as a dashed outline rather than
+  a solid body — an empty slot in the graph, not a seventh kind of block — and
+  it now carries a warning that names the block type it was looking for and says
+  the node has no ports and will fail on run.
+  That warning matters more than the colour did. Nothing was reporting these
+  nodes: the workflow validator finds unregistered block types by walking edges,
+  and a node with no ports has no edges, so a workflow full of them validated
+  clean and only failed at run time. Both surfaces report it now. The canvas
+  draws the node, and validation gained a per-node pass that names every
+  unresolved block type once — as a warning, not an error, so a workflow that
+  used to save and run still saves and runs. The silence is what changed, not
+  the rules.
+  Keeping that promise took two more fixes. A validation warning was only
+  advisory to the app: `scistudio run` on the command line stopped on any
+  diagnostic at all, and the tool the AI assistant uses to check a workflow
+  called it invalid on the same basis. Both now do what the app already did —
+  show the warning, and stop only for a real error.
+  One case gets a further nudge. Package-owned loaders are folded into the core
+  Load block on purpose and aren't offered separately, so an AI agent wiring one
+  by name produces a node that can't resolve. When an unresolved block type
+  reads as a loader or a saver, the node borrows the IO palette and the matching
+  load/save glyph, so it still reads as what it was meant to be. The guess is
+  about appearance only — it is limited to IO, and it never removes the dashed
+  body or the warning.
+- [#2093] **`npm run dev` in `desktop/` starts again on Windows.** The desktop
+  dev launcher spawns npm twice — once for Vite, once for Electron — and on
+  Windows the `npm` it reaches is `npm.cmd`, a batch shim. Node hardened
+  `child_process.spawn` against Windows batch-file argument injection
+  (CVE-2024-27980, in 18.20.1 / 20.12.1 / 21.7.2): spawning a `.cmd` without a
+  shell now raises `EINVAL` rather than running it. The launcher asked for no
+  shell, so it died on its very first spawn and never reached either child; the
+  only way to run the desktop app in development was to start Vite and Electron
+  by hand.
+  The platform decision now lives in `desktop/scripts/npm-spawn.js` as a pure,
+  unit-tested function, mirroring `desktop/runtime-port.js`. Windows gets the
+  shell it needs, and because passing an argument *array* alongside `shell: true`
+  is deprecated (DEP0190 — those arguments are concatenated rather than escaped),
+  the shell is handed one finished command line instead. Building that line is
+  only sound while no argument needs quoting, so arguments outside a
+  conservative safe set are refused with an explicit error rather than
+  concatenated: cmd.exe quoting is subtle enough that a half-correct escaper
+  would fail silently, at launch, on someone else's machine. POSIX is unchanged
+  — no shell, argument array passed straight through.
+- [#2095] **A new project gets the directories its drop-in tiers are actually
+  scanned from.** Two commands create a project — the GUI's "New project" and
+  `scistudio init` — and each carried its own hand-written directory list. The
+  lists had drifted: the CLI omitted `data/processed` while a comment above it
+  claimed to be "Symmetric with `api/runtime.py::create_project`", and *neither*
+  created `previewers/` or `tutorials/`, so a user who wanted a project-local
+  previewer had to guess the folder name and create it by hand.
+  Both now read one definition, `scistudio.api.project_layout`, which takes the
+  drop-in folder names from `scistudio.core.dropins` rather than respelling
+  them — the folder a project offers and the folder the registry scans can no
+  longer disagree. `docs/architecture/ARCHITECTURE.md` §11.1 gains the two
+  directories and, while there, says plainly which data directories answer to
+  the user (`data/raw`, `data/processed`) and which are runtime-managed stores
+  named for how a payload is persisted (`data/zarr`, `data/parquet`,
+  `data/artifacts`, `data/exchange`). `data/processed` being empty after a run
+  is expected: nothing writes there automatically, because what deserves
+  keeping is a judgement the runtime cannot make.
+- [#2075] **The local test suite passes on Windows again, so the gate check
+  stops blocking unrelated work.** Eight tests that arrived with the Learning
+  Center (#2057) failed on Windows for reasons in the tests themselves, not in
+  `scistudio`. Because CI is Ubuntu-only and green, nothing caught them
+  upstream; they surfaced only when a developer ran the suite locally, where
+  `python_tests` is a merge-blocking check that CI owns and `--check-na` cannot
+  waive — so every unrelated PR had to be opened with the preflight skipped.
+  Four simulated an out-of-product delete with `shutil.rmtree`, which cannot
+  remove the read-only `.git/objects` that auto-init leaves behind on Windows;
+  they now use `_rmtree_force`, the helper the product already uses for exactly
+  this. Two compared bytes against a fixture written in text mode, where a
+  newline becomes CRLF on Windows; the fixture writes byte-for-byte now. One
+  compared `str(Path.relative_to(...))` against a literal spelled with `/`; it
+  uses `as_posix()`. The eighth needed a symlink, which Windows does not grant
+  by default — rather than skip it, it falls back to a **directory junction**,
+  which `os.path.realpath` follows identically and which is exactly how the
+  loader detects the escape, so an asset-escape rejection is now actually
+  verified on Windows instead of deferred to Linux. The junction fallback moved
+  to `tests/helpers.py` so its two callers share one implementation. `~/.scistudio/projects.json` outlives the runtime that
+- [#2079] **The Learning Center no longer opens itself on every launch.** The
+  backend keeps a finished tutorial as the active session record, so every
+  start-up adopted a session whose status was already `complete` — and the
+  frontend reacted to that record the way it reacts to a live finish: the
+  Learning Center opened, the project you had open was closed, and the
+  work-import unlock was asked, on every single restart. A completion the
+  running app never watched happen is now treated as history rather than news:
+  the finish reaction fires only for a session this app run first saw in a
+  non-complete state, and only a session that is actually running may move the
+  window into its tutorial project. Finishing a tutorial still lands in the
+  Learning Center exactly as before; what changed is that *having finished one
+  yesterday* no longer does.
 
 - [#2073] **A project registry written by a newer build no longer stops an older
   runtime from starting.** `~/.scistudio/projects.json` outlives the runtime that

@@ -19,7 +19,13 @@ class _CodeBlockValidationRegistry(BlockRegistry):
         self._registry[spec.name] = spec
         self._aliases[spec.type_name] = spec.name
 
-    def find_saver_capability(
+    # These two stubs deliberately narrow the registry's signature: the tests
+    # below only need a truthy capability, never a real ``FormatCapability``.
+    # The mismatch is intentional and pre-dates #1988; it is only visible now
+    # because the pre-commit mypy hook type-checks staged files directly while
+    # pyproject's mypy is scoped to ``packages = ["scistudio"]`` and never sees
+    # ``tests/`` at all (issue #2115).
+    def find_saver_capability(  # type: ignore[override]
         self,
         *,
         data_type: type,
@@ -28,7 +34,7 @@ class _CodeBlockValidationRegistry(BlockRegistry):
     ) -> object:
         return object()
 
-    def find_loader_capability(
+    def find_loader_capability(  # type: ignore[override]
         self,
         *,
         data_type: type,
@@ -69,7 +75,7 @@ def _node_config(project_dir: Path, script_path: str, **params: object) -> dict[
             ],
         }
     }
-    config["params"].update(params)  # type: ignore[union-attr]
+    config["params"].update(params)  # type: ignore[union-attr, attr-defined]
     return config
 
 
@@ -164,7 +170,12 @@ def test_validate_workflow_preserves_unknown_block_warning() -> None:
 
     errors = validate_workflow(workflow, registry=BlockRegistry())
 
-    assert any("Warning: block type 'not_registered_source' not in registry" in error for error in errors)
+    # #1988 moved this report from the edge walk (Check 5) to a per-node pass
+    # (Check 4.5), so the diagnostic now names the node rather than the edge it
+    # happened to sit on. What this test guards is unchanged: an unregistered
+    # block type is still reported, and is still not mistaken for a CodeBlock
+    # problem.
+    assert any("Warning: node 'source' uses block type 'not_registered_source'" in error for error in errors)
     assert not any("CodeBlock" in error for error in errors)
 
 

@@ -249,6 +249,9 @@ class LoadData(IOBlock):
             if resolve_type_class(str(type_name)) is None:
                 raise ValueError(f"Unknown core_type: {type_name}")
 
+            # #2146: ``delegate_load`` fans a multi-path list out across a
+            # single-file loader and returns the Collection this block's port
+            # already declared for that config.
             return delegate_load(config=config, output_dir=output_dir, core_type=str(type_name))
 
         # ADR-031: dispatch table. Functions that don't need output_dir

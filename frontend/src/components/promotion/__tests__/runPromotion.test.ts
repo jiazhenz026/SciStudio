@@ -90,4 +90,33 @@ describe("runPromotion — which outcomes the user is told about", () => {
     // notice is what names the dependency files that stayed.
     expect(revealInLibrary).not.toHaveBeenCalled();
   });
+
+  it("reveals a promoted block in its palette section", async () => {
+    const { runPromotion } = await import("../runPromotion");
+    promote.mockResolvedValue(outcome("promoted"));
+
+    await runPromotion(item);
+
+    expect(revealInLibrary).toHaveBeenCalledWith("blocks");
+  });
+
+  it("confirms a promoted previewer without a reveal — it has no palette tab", async () => {
+    // Learning Center #2086: previewers have no left-panel section, and
+    // switching to the Blocks tab would teach the wrong location. The inline
+    // confirmation still runs.
+    const { runPromotion } = await import("../runPromotion");
+    const previewerItem: PromotableItem = {
+      target: "previewers",
+      kind: "previewer",
+      label: "image_viewer",
+      origin: "project",
+      source: { from: "projectFile", path: "previewers/image_viewer.py" },
+    };
+    promote.mockResolvedValue({ ...outcome("promoted"), item: previewerItem });
+
+    await runPromotion(previewerItem);
+
+    expect(revealInLibrary).not.toHaveBeenCalled();
+    expect(showPromotionResult).toHaveBeenCalledTimes(1);
+  });
 });

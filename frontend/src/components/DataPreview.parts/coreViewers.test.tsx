@@ -202,6 +202,32 @@ describe("ArrayViewer — numeric heatmap + per-axis slice selectors", () => {
     expect(screen.getByTestId("array-cell-1-1")).toHaveTextContent("-4");
   });
 
+  it("keeps only the rows in view in the DOM", () => {
+    // A plane arrives downsampled to at most 256 a side, and rendering all of
+    // it put 65,536 cells on the page — a subtree large enough that scrolling
+    // anywhere stuttered while the panel was open. The rows outside the
+    // viewport are spacers that reserve their height, so the scrollbar and the
+    // row numbers still describe the whole plane.
+    const tall = {
+      ...ndPayload,
+      shape: [200, 3],
+      slice_axes: [],
+      matrix: Array.from({ length: 200 }, (_, r) => [r, r + 1, r + 2]),
+      vmin: 0,
+      vmax: 201,
+    };
+    render(<ArrayViewer envelope={arrayEnvelope(tall)} />);
+
+    const rendered = document.querySelectorAll("tr[data-row]");
+    expect(rendered.length).toBeGreaterThan(0);
+    expect(rendered.length).toBeLessThan(60);
+
+    expect(screen.getByTestId("array-cell-0-0")).toBeInTheDocument();
+    expect(screen.queryByTestId("array-cell-199-0")).toBeNull();
+    // The count reported to the reader is the whole plane, not the window.
+    expect(screen.getByTestId("array-grid-info")).toHaveTextContent("displaying 200 × 3");
+  });
+
   it("patches the session query with a per-axis axis_indices map on change", () => {
     const onPatchQuery = vi.fn();
     render(<ArrayViewer envelope={arrayEnvelope(ndPayload)} onPatchQuery={onPatchQuery} />);

@@ -31,23 +31,85 @@ bootstrap:
         source: assets/data
         destination: data/raw
 
+# 一个基本原则：教程尽可能用一步引导语言+一步指导语言的组合。保持互动感，告诉用户我们要做什么，怎么做，完成了。
+#
+# Two more per-step declarations carry the shape of that exchange:
+#
+#   compact: true       delivers the step as an avatar and a chat line floating
+#                       beside the lit target, instead of the character standing
+#                       on the canvas. The rule is what the step points at: a
+#                       ring around one small control gets it, a ring around a
+#                       whole surface does not (FR-011e).
+#   auto_advance: true  moves on by itself once done_when holds. Every step in
+#                       this level that has a condition declares it: the reader
+#                       has just done the thing the step asked for, and a click
+#                       to confirm a click is a click for nothing. What is left
+#                       for them to press is the dialogue itself — stepping
+#                       through what she says is the one thing only they can
+#                       decide the pace of (FR-054c).
+#
+# A beat may name the expression it is delivered with, as a prefix on the line
+# itself — `focus: ...`. A beat naming none is delivered resting (FR-011f).
+#
+# A beat may also set a phrase in bold with `**like this**`, and that is the
+# whole of the markup a beat has. What it marks is the operative part — the
+# control to press, the value to pick, the path to load — so a reader who
+# looked away at the product and back at the panel finds the thing to act on
+# without re-reading the line. Not the whole sentence: emphasis on everything
+# is emphasis on nothing. A beat that is a lead-in plus an instruction may
+# take the whole instruction instead, since the lead-in beside it is the
+# contrast. YAML reads a leading `*` as an alias, so a beat that starts bold
+# has to be quoted.
 steps:
   - id: welcome
     title: Welcome
     route_to: canvas
-    say: >-
-      Welcome to SciStudio. This tutorial walks you through the basic concepts
-      and the basic moves.
+    say:
+      - Oh — you're here! I'm Mio, your research assistant working together with
+        your projects. I'm here to introduce SciStudio for you!
+      - This tutorial walks you through the basic concepts and the basic moves of SciStudio.
 
+  # 这里加上1步：高亮中间的workflow canvas，说：Workflow是scistudio的核心概念，所有对数据的操作都是通过Workflow来组织的。 continue
+  - id: what-is-a-workflow
+    title: Workflows
+    route_to: canvas
+    highlight: canvas
+    say:
+      - "explain: Workflow is SciStudio's core concept. Everything you do to your data is organized through a workflow."
+
+  # 这里GUI高亮左边workflow的卡片：你当前project所有的workflow都住在这里。
+  # 这里再加一句话：今天我们要搭建一个workflow，来分析细胞活性数据。
+  - id: where-workflows-live
+    title: Workflows
+    route_to: workflows
+    highlight: workflow_list
+    say:
+      - All the workflows in your current project live here.
+      - Today we are going to build a workflow, to analyze cell viability data.
+
+  # What a block is, said about the palette as a whole — a scene, because the
+  # ring is round a surface rather than round one control. Its own step and not
+  # this one's first beat: `compact` is declared per step, so a lead-in sharing
+  # the step would have to be delivered in the same form as the instruction.
+  - id: what-a-block-is
+    title: Blocks
+    route_to: block_palette
+    highlight: block_palette
+    say:
+      - "explain: A block is SciStudio's basic unit of data processing."
+
+  # 这里要高亮block的卡片让用户点
+  # continue，然后说Load block is a block that reads data from a file. Drag it onto the canvas.
   - id: drag-load
     title: Blocks
+    compact: true
+    auto_advance: true
     route_to: block_palette
     highlight:
       palette_block:
         block_type: load_data
-    say: >-
-      A block is SciStudio's basic unit of data processing. Drag Load onto the
-      canvas to load your data.
+    say:
+      - The Load block is a block that reads data from a file. **Drag it onto the canvas.**
     done_when:
       node_exists:
         block_type: load_data
@@ -57,37 +119,81 @@ steps:
   # selecting it fills in. One step could only point at one of them.
   - id: select-the-load-block
     title: Config
+    compact: true
+    auto_advance: true
     route_to: canvas
     highlight:
       node:
         block_type: load_data
-    say: >-
-      Click the block to edit its config.
+    say: "**Click the block** to edit its config."
+    # Selecting it is the whole step, so it has a condition of its own rather
+    # than asking the reader to confirm a click they already made.
+    done_when:
+      ui_event:
+        name: node_selected
 
+  # 用一步引导语言+一步指导语言。Use browse to select the file. We will load the data from data/raw/cell_viability_fluorescence.csv.
+  # 然后再另一句话说：Set core_type to DataFrame and format to CSV.
+  # 后来的修订：这句话用户不一定能看懂，要明确的指示性语言 —— 点击 browse，加载
+  # data/raw/cell_viability_fluorescence.csv 这个数据。这一步用手动 continue，
+  # 只有这个路径 fill 了才能 continue。
   - id: point-load-at-the-data
     title: Point Load at your data
+    auto_advance: true
     route_to: config
     highlight: config_panel
-    say: >-
-      Press Browse, open data then raw, pick
-      cell_viability_fluorescence.csv, leave core_type as DataFrame, and set
-      format to CSV.
+    say:
+      - Press **Browse** and load the data at **data/raw/cell_viability_fluorescence.csv**.
     done_when:
       config_matches:
         block_type: load_data
         key: path
         pattern: data/raw/cell_viability_fluorescence.csv
 
+  - id: set-the-load-type
+    title: Say what kind of data it is
+    auto_advance: true
+    route_to: config
+    highlight: config_panel
+    say:
+      - Set core_type to **DataFrame** and format to **CSV**.
+    # Judged on `capability_id`, not on the two names the step says.
+    #
+    # `core_type` and `format` are the config panel's own selectors; what the
+    # workflow records is the capability they resolve to, and this one encodes
+    # both — `core.dataframe.csv.load` *is* "DataFrame, read as CSV". A
+    # condition on `core_type` looks right and can never hold, because that key
+    # is never written to the node.
+    done_when:
+      config_equals:
+        block_type: load_data
+        key: capability_id
+        value: core.dataframe.csv.load
+
+  # 这里之前我们要一句话解释下一步要做什么：下一步我们要自己创建一个分析荧光数据的block，来分析细胞活性数据。
+  #
+  # Its own step rather than this one's first beat: a highlight belongs to a
+  # step, not to a beat, so a lead-in sharing the step would have rung the New
+  # menu while she was still explaining why — pointing at a control before
+  # saying anything about it, which reads as an instruction and misdirects.
+  - id: why-a-block-of-our-own
+    title: Make a block of your own
+    route_to: canvas
+    say:
+      - "explain: Next we are going to create a block of our own to analyze the cell viability data."
+
+  # 这里文案改一下，还是用一步引导语言+一步指导语言：用New菜单创建新的block。选择New custom block，保持默认的名字，保存block到当前project。
   - id: create-the-block
     title: Make a block of your own
+    auto_advance: true
     route_to: canvas
     highlight: new_menu_button
     prefill:
       - new_custom_block:
           filename: normalize_fluorescence
-    say: >-
-      Next you make a block of your own. Press New, choose New custom block,
-      keep the offered name, and save the block to this project.
+    say:
+      - "**Use the New menu to create a new block.** Choose New custom block, keep
+        the default name, and save the block to this project."
     done_when:
       file_exists:
         path: blocks/normalize_fluorescence.py
@@ -98,36 +204,86 @@ steps:
   # put it there first, and the New custom block flow would refuse the name as
   # already taken. Landing here, the block is registered before this step's text
   # is readable, which is what lets the text name it in the palette.
-  - id: wire-the-block
+  #
+  # 这里用一个有互动感的对话：让我帮你写好这个block的代码。continue，表情用专注
+  # 然后说：写好了！你可以随时看到block的源代码。我们把这个block连接到workflow中吧。表情用开心。
+  # 然后说：把Load block的输出连接到Normalize Fluorescence block的输入。
+  # Delivered as a scene, not a chat line, and deliberately routed nowhere:
+  # creating the block left the reader in its code editor, which is where the
+  # code she is talking about appears. With no canvas on screen the group falls
+  # back to the window, so she stands over the editor — which is the point.
+  - id: write-the-block-code
     title: Wire it up
-    route_to: block_palette
-    highlight:
-      palette_block:
-        block_type: normalize_fluorescence
     do:
       - write:
           source: assets/code/normalize_fluorescence.py
           destination: blocks/normalize_fluorescence.py
-    say: >-
-      Click the canvas tab — creating the block left your editor open on it.
-      Then drag Normalize Fluorescence onto the canvas and connect the Load
-      block's data output to its input.
-    done_when:
-      all:
-        - node_exists:
-            block_type: normalize_fluorescence
-        - edge_exists:
-            source_block_type: load_data
-            target_block_type: normalize_fluorescence
+    say:
+      - "focus: Let me write the code of this block for you."
+      - "success: Done! You can see the block's source code any time. Let's connect this block into the workflow."
 
-  - id: add-save
-    title: Save the result
+  # Its own step because `route_to` is the step's, not the beat's, and this one
+  # has to be back on the canvas: the View source button belongs to the workflow
+  # tab, and the step before this left the reader in a code editor. Nothing is
+  # asked of them here — the button is pointed out, not pressed.
+  - id: where-the-source-lives
+    title: See the code
+    compact: true
+    route_to: canvas
+    highlight: view_source_button
+    say:
+      - Whenever you want to read a block's code, select it and press View source up here.
+
+  # Two steps, because they are two things done and each is checked before the
+  # next is asked for. Fetching the block is about one entry in the palette, so
+  # it is a chat line beside that entry; joining two nodes is about the canvas
+  # they are both on, so she stands there and points at neither — a ring round
+  # one of the two would say the wrong one.
+  - id: place-the-block
+    title: Wire it up
+    auto_advance: true
+    compact: true
     route_to: block_palette
     highlight:
       palette_block:
-        block_type: save_data
-    say: >-
-      Drag a Save block onto the canvas and connect the normalized output to it.
+        block_type: normalize_fluorescence
+    say:
+      - Drag **Normalize Fluorescence** onto the canvas.
+    done_when:
+      node_exists:
+        block_type: normalize_fluorescence
+
+  - id: wire-the-block
+    title: Wire it up
+    auto_advance: true
+    route_to: canvas
+    say:
+      - Then connect the **Load** block's output to the **Normalize Fluorescence**
+        block's input.
+    done_when:
+      edge_exists:
+        source_block_type: load_data
+        target_block_type: normalize_fluorescence
+
+  # 这里互动的话：最后让我们保存分析出来的数据。拖一个Save block到canvas上，把Normalize Fluorescence block的输出连接到Save block的输入。
+  - id: add-save
+    title: Save the result
+    auto_advance: true
+    # The lead-in is her saying what comes next, which is a scene; the
+    # instruction is about one entry in the palette, which is a chat line.
+    compact: [false, true]
+    route_to: block_palette
+    # One entry per beat (FR-089e): the lead-in points at nothing, because
+    # ringing the Save entry while she is still saying why would read as an
+    # instruction to drag it before she has asked for it.
+    highlight:
+      - ~
+      - palette_block:
+          block_type: save_data
+    say:
+      - Finally, let's save the data we analyzed.
+      - "**Drag** a Save block onto the canvas and **connect** the Normalize
+        Fluorescence block's output to the Save block's input."
     done_when:
       all:
         - node_exists:
@@ -141,8 +297,11 @@ steps:
   # the canvas, then the settings panel selecting it fills in — and because a
   # single step asking for three things and judging two let a reader continue
   # with an unconfigured Save block that then could not run.
+  #
+  # 这里参考load那里一样改。
   - id: point-save-at-a-file
     title: Choose where it lands
+    auto_advance: true
     route_to: config
     highlight: config_panel
     prefill:
@@ -152,9 +311,8 @@ steps:
           block_type: save_data
           key: filename
           value: result.csv
-    say: >-
-      Select the Save block, then press Browse and choose the data/processed
-      folder.
+    say:
+      - Select the Save block, then press **Browse** and choose the **data/processed** folder.
     done_when:
       # The folder, which is what the reader does here — not the filename, which
       # the step above filled in. Relative patterns match from the right, so this
@@ -164,43 +322,90 @@ steps:
         key: path
         pattern: data/processed
 
+  # 这里一句话：我们成功搭建好了第一个workflow！下一步让我们一起运行一下~ 表情用完成
+  # 话太多：直接说点运行来执行这个数据分析workflow。
   - id: run-the-workflow
     title: Run it
+    compact: true
+    auto_advance: true
     route_to: canvas
     highlight: run_button
-    say: >-
-      Press Run. SciStudio walks the graph in order and records what happened;
-      if a block fails, the canvas marks it and the Logs tab carries the error.
+    # One beat, because the ring on Run already says which button. Naming it
+    # in words as well was the same instruction twice.
+    say:
+      - "success: We built our first workflow! Let's run it together."
     done_when:
-      run_succeeded: {}
+      # Scoped to this step's entry (#2066). Unscoped it asks "has any run ever
+      # succeeded", which stays true for the rest of the tutorial — and with
+      # auto_advance that is a step the reader never sees.
+      run_succeeded:
+        since_step_entry: true
 
+  # 这里一句话：我们成功运行了第一个workflow！下一步让我们一起看看输出结果~ 表情用完成
   - id: look-at-the-numbers
     title: Read the output
+    compact: true
+    auto_advance: true
     route_to: canvas
     highlight:
       node:
         block_type: normalize_fluorescence
-    say: Click the block to view its output in the previewer.
+    say:
+      - "success: We made it! Let's take a look at the output. **Click the block** to view its output in the previewer."
     done_when:
       ui_event:
         name: node_selected
 
+  # previewer 那一步：告诉用户 preview 界面（高亮）用来可视化 data、支持
+  # customization；左边 previewer 卡片（切过去、高亮）存了目前所有可用的 previewer。
+  #
+  # Two steps because `route_to` belongs to the step: the first points at the
+  # preview surface, the second has to switch the left panel to Previewers
+  # before the list it rings is on screen at all.
+  - id: what-a-previewer-is
+    title: Previewers
+    highlight: data_preview
+    say:
+      - "explain: Previewers let you preview the data every intermediate block puts out, and you can customize your own previewer as you need."
+
+  - id: where-previewers-live
+    title: Previewers
+    compact: true
+    route_to: previewers
+    highlight: previewer_palette
+    say:
+      - Every previewer available to you lives here.
+
+  # 这里一句话：画图是数据分析的关键步骤。SciStudio提供画图卡片来进行科学制图。（引导用户到画图界面）
+  # 下一步让我们一起创建一个bar plot来展示细胞活性数据.
+  # 然后接这个
   - id: create-the-plot
     title: Plots
+    auto_advance: true
+    # The lead-in is about plotting as an idea, so she says it standing; the two
+    # instructions are about one control, so they are chat lines beside it.
+    compact: [false, true]
     route_to: plots
-    highlight: plots_new_button
+    # The ring waits for the beat that names the button.
+    highlight:
+      - ~
+      - plots_new_button
     prefill:
       - new_plot:
           name: normalized_activity
-    say: >-
-      Press New and bind the plot to the Normalize Fluorescence block's
-      normalized output.
+    say:
+      - "explain: Plotting is a key step in data analysis. SciStudio provides plot cards for scientific figures. Let's create a bar plot to show the cell viability data."
+      - Press **New** and bind the plot to the Normalize Fluorescence block's
+        normalized output, then press **create**.
     done_when:
       plot_exists:
         plot_id: normalized_activity
 
+  # 这里专注表情：我帮你填好了画图的代码，下一步让我们一起运行一下看看效果吧。
   - id: render-the-plot
     title: Draw it
+    compact: true
+    auto_advance: true
     route_to: plots
     highlight:
       plot_card:
@@ -209,54 +414,137 @@ steps:
       - write:
           source: assets/code/normalized_activity_render.py
           destination: plots/normalized_activity/render.py
-    say: >-
-      We filled in the drawing code at plots/normalized_activity/render.py.
-      Press Run on the plot card.
+    say:
+      - "focus: I filled in the plotting code for you. Let's run it and see how it looks."
     done_when:
       ui_event:
         name: plot_rendered
+
+  # 画图以后再加两句解释：scistudio允许你用你熟悉的python matplotlib或R ggplot2来画图。你可以在创建plot的时候选择你熟悉的语言。
+  - id: plotting-languages
+    title: Draw it your way
+    route_to: plots
+    say:
+      - SciStudio lets you plot with the tools you are familiar with — matplotlib in
+        Python, or ggplot2 in R. You can choose the language you know when you create the plot.
 
   # Two steps, because the reader has to *meet* the break before being told how
   # to recover from it. A single step that announced the damage and the cure in
   # one breath asked them to trust both; running it themselves and watching the
   # node go red is the part that makes Restore mean something.
+  #
+  # 这时候一个sorry表情，呜呜呜对不起，我在写画图代码的时候不小心把你的workflow改坏了，你快再跑一下看能不能用
+  # 然后加一步，引导用户点回workflow，然后run
   - id: something-changed-underneath-you
     title: Something breaks
+    auto_advance: true
+    # She apologizes standing there — it is her doing, not a control to press —
+    # and the ring waits for the beat that asks for the press.
+    compact: [false, true]
     route_to: canvas
-    highlight: run_button
+    highlight:
+      - ~
+      - run_button
     do:
       - write:
           source: assets/code/normalize_fluorescence_renamed.py
           destination: blocks/normalize_fluorescence.py
-    say: >-
-      While writing that plot code we slipped and renamed your block. Click the
-      workflow tab, press Run, and see what happens.
+    say:
+      - "error: Awwww — I'm so sorry! While I was writing the plotting code I accidentally broke your workflow."
+      - Quick, **go back to the workflow and run it again**, see whether it still works.
     done_when:
       # The break has to be met, not announced: without this the step advanced
       # on a Continue the reader could press without ever running anything, and
-      # Restore then fixed something they had not seen go wrong.
-      run_failed: {}
+      # Restore then fixed something they had not seen go wrong. Scoped to this
+      # step's entry so an earlier failure cannot stand in for this one.
+      run_failed:
+        since_step_entry: true
+
+  # 改文案：哎呀，workflow报错了。你可以点logs看看报错信息。
+  - id: read-the-error
+    title: What went wrong
+    route_to: logs
+    say:
+      - "error: Oh no, the workflow failed."
+      - You can click **Logs** to see the error message.
+
+  # 下一步：不过好消息是：SciStudio记录了你之前所有的运行信息，点击History来看之前的运行记录，引导用户去点history
+  # 这里文案改成：选择上一个成功的run，点击Restore按钮，SciStudio会把你之前运行的所有代码、参数都恢复回来。
+  #
+  # Three steps rather than one. Ringing Restore while no run is selected points
+  # at nothing: that button belongs to a run's detail panel, and there is no
+  # detail panel until a run is picked. So picking one is a step of its own, and
+  # the sentence that names the History tab is a beat of its own, so the ring
+  # can sit on the tab while the sentence is naming it.
+  - id: your-runs-are-kept
+    title: History
+    # The good news is hers to deliver standing; a tab is one small control, so
+    # the sentence pointing at it is a chat line beside it.
+    compact: [false, true]
+    route_to: history
+    highlight:
+      - ~
+      - bottom_tab:
+          tab: history
+    say:
+      - The good news is that SciStudio recorded every run you have made.
+      - Your past runs locate in the History tab.
+
+  # The list as a whole, because finding the last successful run is the thing
+  # being asked for — a ring on the row would be the answer rather than the
+  # question.
+  #
+  # Judged on the run's status, not merely on a run being picked: the failed run
+  # sits directly above the one being asked for, and restoring from it would put
+  # back the break the next two steps exist to undo.
+  - id: pick-the-last-good-run
+    title: History
+    auto_advance: true
+    compact: true
+    route_to: history
+    highlight: history_runs_list
+    say:
+      - Select the **last successful run**.
+    done_when:
+      ui_event:
+        name: run_selected
+        status: completed
 
   - id: restore-what-broke
     title: History
+    auto_advance: true
+    compact: true
     route_to: history
     highlight: history_restore_button
-    say: >-
-      That was us: we changed your block wrongly, and your workflow can no
-      longer find it. Open History, select the run you made earlier, and press
-      Restore.
+    say:
+      - Press **Restore**. SciStudio brings back all the code and the parameters
+        that run used.
     done_when:
       block_registered:
         block_type: normalize_fluorescence
 
+  # 下面我们重跑一次！
   - id: run-it-yourself
     title: Run it again
+    compact: true
+    auto_advance: true
     route_to: canvas
     highlight: run_button
-    say: >-
-      Restore put the files back and stopped. Press Run and watch the workflow
-      complete again.
+    say:
+      - Now let's run it again!
+      - Press **Run** and watch the workflow complete again.
+    done_when:
+      # The run *after* Restore, not the one before the break — which is what an
+      # unscoped term would have matched, skipping this step entirely.
+      run_succeeded:
+        since_step_entry: true
 
+  # 最后：你的workflow回来了！数据分析也成功恢复到了之前的状态。
+  # 加个过渡的对话，然后最后说：恭喜你！今天的教程到此结束。你已经学会了SciStudio的基本概念和用法。你可以在这个project里继续探索，或者开始你的下一个项目。
   - id: what-you-learned
     title: Done
-    say: Congratulations — you have finished this tutorial!
+    say:
+      - "success: Your workflow is back, and the analysis is restored to where it was."
+      - Congratulations! That is the end of today's tutorial. You have learned
+        SciStudio's basic concepts and how to use them.
+      - You can keep exploring in this project, or start your next one.

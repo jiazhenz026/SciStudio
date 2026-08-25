@@ -23,7 +23,10 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type { BlockNodeData } from "../../types/ui";
-import { computeEffectivePorts } from "../../utils/computeEffectivePorts";
+import {
+  computeEffectivePorts,
+  resolveDrivingConfigValue,
+} from "../../utils/computeEffectivePorts";
 
 import { BlockDetailPopover, type PopoverAnchor } from "../BlockDetailPopover";
 import { PromoteToLibraryAction } from "../promotion/PromoteToLibraryAction";
@@ -43,7 +46,14 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   // category (lucide line icon), with optional per-block overrides (#1839):
   // a block may declare its own `ui_color` / `ui_icon` on its summary, which
   // take precedence over the category default (unknown icon name falls back).
-  const visual = getCategoryVisual(data.category, data.summary?.ui_color, data.summary?.ui_icon);
+  // #1988 — `uiIconHint` is the name-derived guess for an UNRESOLVED node and
+  // is only consulted when the block declared nothing itself, which an
+  // unresolved block never can (it has no summary at all).
+  const visual = getCategoryVisual(
+    data.category,
+    data.summary?.ui_color,
+    data.summary?.ui_icon ?? data.uiIconHint,
+  );
   const CategoryIcon = visual.Icon;
 
   // ADR-028 Addendum 1 §D4 — compute effective ports from the dynamic-port
@@ -55,7 +65,7 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   // user picked there still drives the port type shown on the canvas.
   const dynamicPorts = data.schema?.dynamic_ports ?? null;
   const sourceConfigKey = dynamicPorts?.source_config_key;
-  const drivingConfigValue = resolveDrivingConfigValue(data, sourceConfigKey);
+  const drivingConfigValue = resolveDrivingConfigValue(data.config, data.schema, sourceConfigKey);
   const effectiveInputPorts = computeEffectivePorts(
     dynamicPorts,
     drivingConfigValue,
@@ -213,6 +223,14 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
           borderRadius: NODE_BORDER_RADIUS,
           backgroundColor: visual.bg,
           borderColor: selected ? undefined : visual.border,
+          // #1988 — a dashed outline marks the unresolved state. It is driven
+          // by the FACT (`data.unresolved`), not by the palette: an unresolved
+          // loader borrows the solid IO colours so it still reads as a loader,
+          // and it must stay dashed anyway or the borrowed palette would be the
+          // prettier styling that hides the defect. Selection still wins (it
+          // repaints the border via `border-ember`), so the dash never fights
+          // the selection affordance.
+          borderStyle: (visual.dashed || data.unresolved) && !selected ? "dashed" : undefined,
         }}
       >
         {/* Block-kind mark — single lucide line icon in the category accent
@@ -232,8 +250,23 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
           problemSeverity={data.problemSeverity}
           errorSummary={data.errorSummary}
           errorMessage={data.errorMessage}
+          // #1988 — name the actual defect. The generic "open Config" wording
+          // would be a dead end here: no Config exists for a block that never
+          // loaded, and the workflow validator never mentions this node either.
+          warningSummary={
+            data.unresolved
+              ? `Block type "${data.blockType}" is not available in this project — ` +
+                "its package or file could not be loaded, so this node has no ports and will fail on run."
+              : undefined
+          }
           onErrorClick={data.onErrorClick}
-          onWarningClick={data.onWarningClick}
+          // #1988 — withhold the warning action for an unresolved node. The
+          // shared handler selects the node and opens BottomPanel Config
+          // (FR-013), which is the dead end the tooltip above disclaims: a
+          // block that never loaded has no config to edit. Passing undefined
+          // leaves the badge as a non-interactive marker carrying the
+          // explanation, rather than a control that goes nowhere useful.
+          onWarningClick={data.unresolved ? undefined : data.onWarningClick}
         />
 
         {/* Port handles + variadic +/- controls on the left/right rails.
@@ -268,23 +301,4 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
       </span>
     </div>
   );
-}
-
-/**
- * Read the dynamic-port driving config value (e.g. LoadData `core_type`) from
- * the node config, falling back to the schema default. The user edits this in
- * BottomPanel Config; the node body only reads it to colour ports.
- */
-function resolveDrivingConfigValue(
-  data: BlockNodeData,
-  sourceConfigKey: string | undefined,
-): string | undefined {
-  if (sourceConfigKey == null) return undefined;
-  const configured = data.config?.[sourceConfigKey];
-  if (typeof configured === "string" && configured) return configured;
-  const properties = data.schema?.config_schema?.properties as
-    | Record<string, Record<string, unknown>>
-    | undefined;
-  const schemaDefault = properties?.[sourceConfigKey]?.default;
-  return typeof schemaDefault === "string" && schemaDefault ? schemaDefault : undefined;
 }

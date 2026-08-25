@@ -167,8 +167,11 @@ class BlockSummary(BaseModel):
 
     name: str
     type_name: str
-    # #588: base_category is always one of 6 base types (io, process, code,
-    # app, ai, subworkflow).  subcategory is the optional palette grouping label.
+    # #588: base_category is one of the 6 base types (io, process, code, app,
+    # ai, subworkflow). #1988: it is also "unknown" for a block that extends
+    # Block directly, which _infer_category resolves by issubclass and cannot
+    # place — a valid block, drawn with its own node colour rather than as an
+    # error. subcategory is the optional palette grouping label.
     base_category: str = ""
     subcategory: str = ""
     # #1839: optional block-declared canvas-node display hints. ``ui_color`` is
@@ -443,6 +446,38 @@ class PreviewEnvelopeModel(BaseModel):
     frontend_manifest: PreviewFrontendManifestModel | None = None
 
 
+class PreviewerChoiceModel(BaseModel):
+    """One recorded per-type previewer choice (#2049)."""
+
+    target_type: str
+    """Type name the choice applies to. Exact: a choice on a type does not
+    govern types that merely descend from it."""
+    previewer_id: str
+    """Previewer the person picked for that type."""
+    scope: str
+    """``user`` or ``project`` -- which layer this effective choice came from.
+    A project-layer choice overrides the user-layer choice for the same type."""
+    available: bool
+    """Whether ``previewer_id`` is registered right now. A choice whose
+    previewer was uninstalled stays recorded and reads ``false``; routing falls
+    back to the ordinary precedence ladder until it returns."""
+
+
+class PreviewerChoiceListResponse(BaseModel):
+    """Response body for ``GET /api/previews/choices`` (#2049)."""
+
+    choices: list[PreviewerChoiceModel] = Field(default_factory=list)
+    """Effective choices after the project layer overrides the user layer."""
+
+
+class PreviewerChoiceRequest(BaseModel):
+    """Request body for ``PUT /api/previews/choices/{target_type}`` (#2049)."""
+
+    previewer_id: str
+    scope: str = "user"
+    """``user`` (default, every project) or ``project`` (this project only)."""
+
+
 class PreviewerSpecModel(BaseModel):
     """Wire shape of a :class:`PreviewerSpec` for capability discovery."""
 
@@ -456,6 +491,32 @@ class PreviewerSpecModel(BaseModel):
     backend_provider: str | None = None
     frontend_manifest: PreviewFrontendManifestModel | None = None
     api_version: str = "1"
+
+
+class PreviewerListResponse(BaseModel):
+    """Response body for ``GET /api/previews/previewers`` (#2095).
+
+    ``PreviewerSpecModel`` was declared when the preview system landed and
+    never served; this is the route that makes previewer provenance answerable
+    the way the Data types tab answers it for types.
+    """
+
+    previewers: list[PreviewerSpecModel] = Field(default_factory=list)
+    """Registered specs, ordered project -> user -> package -> core, then by id."""
+    diagnostics: list[str] = Field(default_factory=list)
+    """Discovery problems recorded during the scan: a duplicate previewer id, a
+    drop-in refused for a module-name collision, an entry point that failed to
+    import. Nothing surfaced these before, so a refused drop-in was silent."""
+
+
+class PreviewerReloadResponse(BaseModel):
+    """Response body for ``POST /api/previews/reload`` (#2095)."""
+
+    reloaded: int
+    """Number of previewer specs registered after the rebuild."""
+    added: list[str] = Field(default_factory=list)
+    removed: list[str] = Field(default_factory=list)
+    diagnostics: list[str] = Field(default_factory=list)
 
 
 class PreviewResourceResponse(BaseModel):
@@ -696,10 +757,13 @@ class ErrorResponse(BaseModel):
 # rather than the only line of defence.
 # ---------------------------------------------------------------------------
 
-#: FR-006: the two user-library targets, chosen by the caller and never
+#: FR-006: the three user-library targets, chosen by the caller and never
 #: inferred. The values are the drop-in child directory names from
-#: :mod:`scistudio.core.dropins`.
-UserLibraryTarget = Literal["blocks", "types"]
+#: :mod:`scistudio.core.dropins`. ``previewers`` joined when the
+#: tutorial-scoped library grew its previewer tier (Learning Center FR-070,
+#: #2086), so promoting a project previewer resolves through the same route —
+#: and the same library-root swap — as blocks and types.
+UserLibraryTarget = Literal["blocks", "types", "previewers"]
 
 
 class MoveSourceRef(BaseModel):

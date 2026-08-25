@@ -387,11 +387,21 @@ The main local CI-equivalent preflight. Arguments: `--base` (default
 `merge-base(origin/main, HEAD)`), `--head` (default `HEAD`), `--mode`
 (`local|pre-commit|commit-msg|pre-push|pre-pr|ci`, default `local`),
 `--pr-body-file`, plus the additive field flags from `plan`, plus `--only`
-(repeatable, recovery) and `--skip-execution`. When `--base` is omitted it
-defaults to `git merge-base origin/main HEAD` so a branch's delta is its own
-commits (correct for normal branches, better for stacked branches), falling back
-to raw `origin/main` when the merge-base cannot be computed; deeply-stacked
-branches may still need an explicit `--base`.
+(repeatable, recovery) and `--skip-execution`. When `--base` is omitted the
+upstream is resolved in order: the `SCISTUDIO_GATE_BASE` environment variable,
+the ledger's `base_ref`, then `origin/main`. The chosen upstream is reduced to
+`git merge-base <upstream> HEAD` so a branch's delta is its own commits, falling
+back to the raw ref when the merge-base cannot be computed.
+
+`base_ref` is the ledger's recorded answer to "what is this branch measured
+against?", set by `--base-ref` on `init`/`plan`/`amend`. It exists because the
+environment variable was the only non-default channel and nothing in the
+repository ever set it, so every local `check` and `finalize` outside the PR
+wrappers diffed a stacked branch against `origin/main` and read its parent
+branch's commits as work authored here (#2143). A plain branch name is resolved
+to its `origin/` form (the ref a PR merges into); a revision expression is taken
+as written; an unresolvable ref is refused with exit 2 rather than producing an
+empty observed diff that would read as a clean gate.
 
 `check` runs the §3.3 pipeline: observe diff -> infer tier-selected check set
 from the CI graph -> run required commands (unless `--only`/`--skip-execution`)
@@ -752,6 +762,7 @@ new events. `schema_version` is bumped to `2`.
   "strictness_tier": 2,
   "persona": "implementer",
   "branch": "hotfix-save-data-extension",
+  "base_ref": null,
   "owner_directive": "Fix SaveData unified IO extension handling for #1505.",
   "governance_touch": false,
   "declared_scope": {

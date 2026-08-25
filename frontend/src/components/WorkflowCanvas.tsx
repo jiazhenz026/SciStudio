@@ -6,7 +6,7 @@ import { resolveTypeColor, type DeclaredTypeColors } from "../config/typeColorMa
 import { useAppStore } from "../store";
 import { useDeclaredTypeColors } from "../store/useTypeCatalog";
 import type { BlockSchemaResponse, BlockSummary, WorkflowEdge, WorkflowNode } from "../types/api";
-import { computeEffectivePorts } from "../utils/computeEffectivePorts";
+import { computeEffectivePorts, resolveDrivingConfigValue } from "../utils/computeEffectivePorts";
 import { arePortTypesCompatible } from "../utils/portCompat";
 import { AnnotationNode } from "./nodes/AnnotationNode";
 import { BlockNode } from "./nodes/BlockNode";
@@ -135,6 +135,10 @@ function useFlowEdges(
       // to the static schema spec while BlockNode rendered the real
       // per-instance type — that was the visible "edge color mismatches
       // port color" symptom.
+      // #2141: the driving value comes from the shared
+      // ``resolveDrivingConfigValue`` (params value, then schema default) —
+      // the same helper BlockNode uses, so an edge and the port it leaves
+      // cannot disagree when the driving param was never explicitly set.
       const sourceParams = (sourceNode?.config.params as Record<string, unknown> | undefined) ?? {};
       const targetParams = (targetNode?.config.params as Record<string, unknown> | undefined) ?? {};
       const variadicSourcePorts =
@@ -147,9 +151,11 @@ function useFlowEdges(
             )
           : (sourceSchema?.output_ports ?? []);
       const sourceDynamicPorts = sourceSchema?.dynamic_ports ?? null;
-      const sourceConfigKey = sourceDynamicPorts?.source_config_key;
-      const sourceDrivingConfigValue =
-        sourceConfigKey != null ? (sourceParams[sourceConfigKey] as string | undefined) : undefined;
+      const sourceDrivingConfigValue = resolveDrivingConfigValue(
+        sourceParams,
+        sourceSchema,
+        sourceDynamicPorts?.source_config_key,
+      );
       const effectiveSourcePorts = computeEffectivePorts(
         sourceDynamicPorts,
         sourceDrivingConfigValue,
@@ -175,9 +181,11 @@ function useFlowEdges(
             )
           : (targetSchema?.input_ports ?? []);
       const targetDynamicPorts = targetSchema?.dynamic_ports ?? null;
-      const targetConfigKey = targetDynamicPorts?.source_config_key;
-      const targetDrivingConfigValue =
-        targetConfigKey != null ? (targetParams[targetConfigKey] as string | undefined) : undefined;
+      const targetDrivingConfigValue = resolveDrivingConfigValue(
+        targetParams,
+        targetSchema,
+        targetDynamicPorts?.source_config_key,
+      );
       const effectiveTargetPorts = computeEffectivePorts(
         targetDynamicPorts,
         targetDrivingConfigValue,
@@ -230,6 +238,26 @@ function useFlowEdges(
 
 export function WorkflowCanvas(props: WorkflowCanvasProps) {
   const reactFlow = useReactFlow();
+  /*
+   * Frame the graph when something other than the person rewrote it.
+   *
+   * `fitView` as a prop only runs on mount. A tutorial step that writes a
+   * workflow file leaves the canvas holding whatever pan and zoom the reader
+   * had put it in, so the nodes it just added can land off screen — and the
+   * step's next line asks them to press Run on a graph that is not in front of
+   * them. The counter is raised only for a write that named its author
+   * (`changed_by: "tutorial"`), never for the reader's own edits: yanking the
+   * viewport mid-drag would be worse than the problem.
+   */
+  const canvasFitRequest = useAppStore((s) => s.canvasFitRequestCounter);
+  useEffect(() => {
+    if (canvasFitRequest === 0) return;
+    // After the nodes this request is about have been laid out.
+    const frame = requestAnimationFrame(() => {
+      reactFlow.fitView({ padding: 0.2, duration: 320 });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [canvasFitRequest, reactFlow]);
   // #1799 — the plot target picker sets this transient highlight (hover/select
   // a target row). Read directly from the store to avoid threading a prop down
   // through ProjectWorkspace. The canvas rings the node (via useFlowNodes) and

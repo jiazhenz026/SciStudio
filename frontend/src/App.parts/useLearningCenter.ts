@@ -8,7 +8,7 @@
  * — and nothing here holds step content.
  */
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { applyStepRoute } from "../components/LearningCenter.parts/targets";
 import { useAppStore } from "../store";
@@ -57,6 +57,19 @@ export function useLearningCenter({
   const refreshActiveTutorialSession = useAppStore((state) => state.refreshActiveTutorialSession);
   const openLearningCenter = useAppStore((state) => state.openLearningCenter);
   const openBottomTab = useAppStore((state) => state.openBottomTab);
+  const switchTab = useAppStore((state) => state.switchTab);
+  /*
+   * Bring the workflow tab back to the front for a step routed to the canvas.
+   *
+   * A no-op when there is no workflow tab, which is a reading tutorial with no
+   * project. The tutorial is the thing that opened the code editor covering the
+   * canvas in the first place — this undoes that, and nothing else about the
+   * layout the user chose.
+   */
+  const showCanvas = useCallback(() => {
+    const workflow = useAppStore.getState().tabs.find((tab) => tab.kind === "workflow");
+    if (workflow) switchTab(workflow.id);
+  }, [switchTab]);
   const learningCenterCatalogue = useAppStore((state) => state.learningCenterCatalogue);
   const learningCenterFirstRunDismissed = useAppStore(
     (state) => state.learningCenterFirstRunDismissed,
@@ -105,7 +118,17 @@ export function useLearningCenter({
    * a project refreshes the project list and the block catalogue and would
    * otherwise re-trigger this effect before `currentProjectId` has caught up.
    */
-  const tutorialProjectId = useAppStore((state) => state.learningCenterSession?.project_id ?? null);
+  /*
+   * Only a live session moves the window. The backend keeps an ended session
+   * as the active record with status `complete` or `error`, so the session
+   * adopted at start-up can be one that finished long ago (#2079) — opening
+   * its project then would resurrect a workspace the lesson is done with.
+   */
+  const tutorialProjectId = useAppStore((state) =>
+    state.learningCenterSession?.status === "active"
+      ? (state.learningCenterSession.project_id ?? null)
+      : null,
+  );
   const currentProjectId = useAppStore((state) => state.currentProject?.id ?? null);
   const openingTutorialProject = useRef<string | null>(null);
 
@@ -171,23 +194,48 @@ export function useLearningCenter({
    * FR-079 — when a tutorial finishes, ask whether the product should now
    * volunteer the work-import offer.
    *
-   * The ref only stops the same completion asking twice; it is not a record of
-   * whether the offer has been shown. That question has one owner, and it is
-   * the backend: `GET /unlock` answers it, and a second copy here would be the
-   * thing that makes a once-only offer appear twice.
+   * A completion is only news when this app run watched the tutorial run.
+   * The backend keeps an ended session as the active record with status
+   * `complete` rather than erasing it (see `tutorials/session.py`), so every
+   * launch adopts the last finished tutorial as a session that is complete
+   * already — through the catalogue fetch or through the active-session fetch,
+   * whichever answers first. Treating that record as a fresh finish is the
+   * #2079 bug: the Learning Center opened — and the open project closed — on
+   * every restart. The reaction below therefore fires only for a session this
+   * app run first saw in a non-complete state. That test is deliberately
+   * indifferent to which start-up request answers first: an earlier version
+   * classified the stale record off the first catalogue load, and a session
+   * adopted by the faster active-session request slipped past the guard before
+   * the catalogue arrived (PR #2092 review). A finish that happened while the
+   * frontend was disconnected still lands here, because the session was seen
+   * running before the disconnect.
+   *
+   * The `lastCompletionAsked` ref only stops the same completion asking twice;
+   * it is not a record of whether the offer has been shown. That question has
+   * one owner, and it is the backend: `GET /unlock` answers it, and a second
+   * copy here would be the thing that makes a once-only offer appear twice.
    */
   const checkWorkImportOffer = useAppStore((state) => state.checkWorkImportOffer);
-  const completedTutorialKey = useAppStore((state) => {
+  const tutorialSessionKey = useAppStore((state) => {
     const active = state.learningCenterSession;
-    if (!active || active.status !== "complete") return null;
+    if (!active) return null;
     return `${active.source_kind}:${active.source_id}:${active.tutorial_id}`;
   });
+  const tutorialSessionComplete = useAppStore(
+    (state) => state.learningCenterSession?.status === "complete",
+  );
+  const seenRunningTutorial = useRef<string | null>(null);
   const lastCompletionAsked = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!completedTutorialKey) return;
-    if (lastCompletionAsked.current === completedTutorialKey) return;
-    lastCompletionAsked.current = completedTutorialKey;
+    if (!tutorialSessionKey) return;
+    if (!tutorialSessionComplete) {
+      seenRunningTutorial.current = tutorialSessionKey;
+      return;
+    }
+    if (lastCompletionAsked.current === tutorialSessionKey) return;
+    if (seenRunningTutorial.current !== tutorialSessionKey) return;
+    lastCompletionAsked.current = tutorialSessionKey;
     void checkWorkImportOffer();
     /*
      * Finishing lands in the Learning Center rather than in a card saying so.
@@ -195,16 +243,30 @@ export function useLearningCenter({
      * "Tutorial complete." in the corner is a dead end: it reports the outcome
      * and leaves the reader looking at a workspace with nothing to do next.
      * The catalogue is where the next tutorial is, so finishing one opens it.
+     *
+     * Unless the reader said otherwise (#2135). The last step now ends in two
+     * buttons, and one of them means "I want to keep poking at the thing I
+     * just built" — for which closing the project is the opposite of what was
+     * asked. Read off the store at the moment the session completes rather
+     * than subscribed to: it is an instruction attached to this finish, not a
+     * condition to re-run this effect for.
      */
+    if (useAppStore.getState().learningCenterStayOnFinish) return;
     openLearningCenter();
     // ...and out of the tutorial's project, before it looks like somewhere to
     // keep working. See `closeProject` above.
     closeProject();
-  }, [completedTutorialKey, checkWorkImportOffer, openLearningCenter, closeProject]);
+  }, [
+    tutorialSessionKey,
+    tutorialSessionComplete,
+    checkWorkImportOffer,
+    openLearningCenter,
+    closeProject,
+  ]);
 
   useEffect(() => {
     if (!tutorialStepKey || !tutorialStepRoute) return;
-    applyStepRoute(tutorialStepRoute, { openBottomTab, setLeftTab });
+    applyStepRoute(tutorialStepRoute, { openBottomTab, setLeftTab, showCanvas });
     // `tutorialStepRoute` is a property of the step `tutorialStepKey` names, so
     // the key alone decides when this runs. Adding the route or the two setters
     // would re-route on identity changes that are not a new step.

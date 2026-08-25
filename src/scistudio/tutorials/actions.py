@@ -44,6 +44,8 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Protocol, TypeVar, cast, runtime_checkable
 
+from scistudio.stability import provisional
+
 __all__ = [
     "AI_CHAT_TERMINAL_SURFACE",
     "EXECUTED_PROJECT_PATHS",
@@ -282,6 +284,7 @@ def resolve_contained_path(base: Path, relative: str, *, field_name: str) -> Pat
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class WriteAction:
     """Write one asset file into the tutorial project.
@@ -298,6 +301,7 @@ class WriteAction:
     kind: str = field(default="write", init=False)
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class CopyAction:
     """Copy one asset directory into the tutorial project.
@@ -325,12 +329,28 @@ class ReplaySegment:
     """Write and copy actions that MUST land before this segment's bytes are delivered."""
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class ReplayAction:
-    """Replay scripted material into one named surface (FR-061, FR-061a, FR-061b)."""
+    """Replay scripted material into one named surface (FR-061, FR-061a, FR-061b).
+
+    How a tutorial shows a conversation that would otherwise need a live model:
+    the material is scripted, and the surface renders it as though it had just
+    arrived. A segment may bind to the file actions that must land first, so
+    text claiming a file was written cannot be read before the file exists.
+    """
 
     surface: str
+    """The surface to replay into; one of :data:`REPLAY_SURFACES`."""
     segments: tuple[ReplaySegment, ...]
+    """The scripted material, delivered in order."""
+    #: FR-061 / #2089 — append to the surface's open replay tab rather than
+    #: close-then-open. The conversation-pacing form: a step (or a trigger, in
+    #: which case the reader's press is what asks for more) continues the
+    #: scripted session already on screen instead of tearing its transcript
+    #: down. It is an error when no tab is open — a continuation of nothing is
+    #: an authoring mistake, not an empty operation.
+    continue_tab: bool = False
 
     kind: str = field(default="replay", init=False)
 
@@ -429,7 +449,12 @@ def _parse_file_action(kind: str, body: Any, *, field_name: str) -> FileAction:
 
 def _parse_replay(body: Any, *, field_name: str) -> ReplayAction:
     field = f"{field_name}.replay"
-    declared = _require_declaration(body, field_name=field, keys=("surface", "segments"))
+    declared = _require_declaration(
+        body, field_name=field, keys=("surface", "segments"), also_accepts=("continue_tab",)
+    )
+    continue_tab = declared.get("continue_tab", False)
+    if not isinstance(continue_tab, bool):
+        raise ActionValidationError(f"{field}.continue_tab: expected true or false, got {continue_tab!r}")
     surface = _require_text(declared, "surface", field_name=field)
     if surface not in REPLAY_SURFACES:
         raise ActionValidationError(
@@ -444,7 +469,7 @@ def _parse_replay(body: Any, *, field_name: str) -> ReplayAction:
         _parse_segment(raw_segment, field_name=f"{field}.segments[{index}]", seen=seen)
         for index, raw_segment in enumerate(raw_segments)
     )
-    return ReplayAction(surface=surface, segments=segments)
+    return ReplayAction(surface=surface, segments=segments, continue_tab=continue_tab)
 
 
 def _parse_segment(raw: Any, *, field_name: str, seen: set[str]) -> ReplaySegment:

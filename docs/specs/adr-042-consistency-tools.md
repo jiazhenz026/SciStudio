@@ -687,8 +687,6 @@ def run(
     include_signature_drift: bool = True,
     include_architecture_drift: bool = True,
     include_vulture: bool = True,
-    include_semantic_dup: bool = False,
-    semantic_dup_model: str = "BAAI/bge-base-en-v1.5",
 ) -> AuditReport: ...
 ```
 

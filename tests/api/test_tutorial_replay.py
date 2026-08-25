@@ -394,3 +394,36 @@ def test_a_replay_handle_satisfies_the_runtimes_port() -> None:
 
     assert isinstance(handle, ReplayHandle)
     assert isinstance(handle, PtyReplayHandle)
+
+
+# ---------------------------------------------------------------------------
+# is_open — what a continue_tab replay checks before appending (#2089)
+# ---------------------------------------------------------------------------
+
+
+def test_a_live_registered_tab_is_open_and_a_closed_one_is_not() -> None:
+    from scistudio.api.routes.ai_pty import _state as _pkg
+    from scistudio.api.routes.ai_pty.replay import open_replay_tab
+
+    handle = open_replay_tab("ai_chat_terminal")
+    try:
+        assert handle.is_open is True
+        handle.close()
+        assert handle.is_open is False
+        assert handle.tab_id not in _pkg._active_ptys
+    finally:
+        handle.close()
+
+
+def test_a_tab_torn_down_by_the_websocket_route_reads_as_closed() -> None:
+    """The WS teardown pops the registry and kills; either half must read closed."""
+    from scistudio.api.routes.ai_pty import _state as _pkg
+    from scistudio.api.routes.ai_pty.replay import open_replay_tab
+
+    handle = open_replay_tab("ai_chat_terminal")
+    try:
+        # The route's teardown order: pop first, then kill.
+        _pkg._active_ptys.pop(handle.tab_id, None)
+        assert handle.is_open is False
+    finally:
+        handle.close()

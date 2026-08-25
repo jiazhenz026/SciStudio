@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BlockPalette, paletteColumns } from "./BlockPalette";
@@ -416,5 +417,31 @@ describe("paletteColumns — width → column count (#1857)", () => {
     expect(paletteColumns(247)).toBe(2); // just under 3 tiles
     expect(paletteColumns(248)).toBe(3); // three tiles + gaps fit
     expect(paletteColumns(1000)).toBe(3); // never exceeds the 3-column cap
+  });
+});
+
+describe("BlockPalette — auto-reload on section switch (#2151)", () => {
+  it("fires one onReload when the pane mounts, and none on later re-renders", () => {
+    const onReload = vi.fn();
+    const { rerender } = render(
+      <BlockPalette {...defaultProps} onReload={onReload} blocks={[cellpose]} />,
+    );
+    expect(onReload).toHaveBeenCalledTimes(1);
+
+    // The caller passes a fresh arrow each render; the mount reload must not
+    // turn into a per-render reload.
+    rerender(<BlockPalette {...defaultProps} onReload={onReload} blocks={[{ ...cellpose }]} />);
+    rerender(<BlockPalette {...defaultProps} onReload={onReload} blocks={[{ ...cellpose }]} />);
+    expect(onReload).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays at one reload under StrictMode's mount-effect replay (#2153 review)", () => {
+    const onReload = vi.fn();
+    render(
+      <StrictMode>
+        <BlockPalette {...defaultProps} onReload={onReload} blocks={[cellpose]} />
+      </StrictMode>,
+    );
+    expect(onReload).toHaveBeenCalledTimes(1);
   });
 });

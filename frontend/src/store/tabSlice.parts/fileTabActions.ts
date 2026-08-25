@@ -155,9 +155,10 @@ export function createOpenBlockSourceTab(
      * sites because every route into a block's source runs through this action,
      * and reported before the already-open early return below, since re-opening
      * the tab is still the user looking at the source. A no-op when no tutorial
-     * is running.
+     * is running. The block type rides along as the event's target (#2063), so
+     * a step can wait for the reader to open *this* block's source.
      */
-    void state.reportTutorialUiEvent("block_source_viewed");
+    void state.reportTutorialUiEvent("block_source_viewed", blockType);
 
     const existing = state.tabs.find((t) => t.id === id);
     const needsRefetch = Boolean(existing && existing.kind === "file" && existing.loading);

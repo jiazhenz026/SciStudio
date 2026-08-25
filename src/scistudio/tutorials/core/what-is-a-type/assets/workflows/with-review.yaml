@@ -1,0 +1,70 @@
+# The same workflow with the interactive block joined on, and a Save at the
+# end, written for the reader when Review Labels is created (core tutorial 2).
+#
+# Load and Segment Cells keep the ids and the configuration the previous
+# workflow gave them, so the reader's threshold experiments survive the rewrite
+# and only the new nodes appear.
+#
+# Save is here because the areas are the answer the level was working towards,
+# and an answer that exists only in a preview is not one the reader can take
+# away. Review Labels emits one table per slide, so Save writes a folder: its
+# path is the directory and `filename` names the members, which the core saver
+# numbers per item (SaveData._collection_item_filename). The .csv suffix is
+# what selects the format.
+workflow:
+  id: main
+  version: 1.0.0
+  description: Segment the cells, let a person correct the labels, and save the measurements.
+  nodes:
+    - id: load-cells
+      block_type: load_data
+      config:
+        params:
+          # No capability_id: a drop-in block's id carries the source file's
+          # mtime (`_scistudio_dropin_<stem>_<mtime>.…`), so a value written
+          # here would name a capability that does not exist on the reader's
+          # machine. Dispatch resolves (Image, .tif) to the one loader that
+          # claims it, which is the same answer the reader picked.
+          core_type: Image
+          path:
+            - data/raw/cells_01.tif
+            - data/raw/cells_02.tif
+      layout:
+        x: 120
+        y: 200
+    - id: segment
+      block_type: segment_cells
+      config:
+        params:
+          method: threshold
+      layout:
+        x: 440
+        y: 200
+    - id: review
+      block_type: review_labels
+      config:
+        params: {}
+      layout:
+        x: 760
+        y: 200
+    - id: save-areas
+      block_type: save_data
+      config:
+        params:
+          core_type: DataFrame
+          path: data/processed
+          filename: cell_areas.csv
+          # The level is run more than once by design — the reader tries the
+          # adaptive method, comes back, and reviews again — so the second run
+          # must land on top of the first rather than refusing it.
+          overwrite: true
+      layout:
+        x: 1080
+        y: 200
+  edges:
+    - source: load-cells:data
+      target: segment:image
+    - source: segment:labels
+      target: review:labels
+    - source: review:areas
+      target: save-areas:data

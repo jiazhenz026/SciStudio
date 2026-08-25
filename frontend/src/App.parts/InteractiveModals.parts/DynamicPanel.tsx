@@ -96,8 +96,24 @@ export function DynamicPanel({
     const container = containerRef.current;
     if (!container) return;
     let disposed = false;
+    const unmountQuietly = (instance: PanelInstance) => {
+      try {
+        instance.unmount();
+      } catch {
+        /* ignore unmount errors */
+      }
+    };
     void mountDynamicPanel(manifest, container, host, importer).then((result) => {
-      if (disposed) return;
+      if (disposed) {
+        // The effect was torn down while the module was still loading, so the
+        // cleanup below found `instanceRef.current` still null and unmounted
+        // nothing — but `mount()` has since put the panel's DOM in the
+        // container. Dropping the instance here would leave it there, and
+        // StrictMode's second pass would mount a second copy on top: the
+        // reader sees the panel twice. Unmount what arrived late.
+        if (result.ok) unmountQuietly(result.instance);
+        return;
+      }
       if (result.ok) {
         instanceRef.current = result.instance;
       } else {
@@ -107,11 +123,7 @@ export function DynamicPanel({
     return () => {
       disposed = true;
       if (instanceRef.current) {
-        try {
-          instanceRef.current.unmount();
-        } catch {
-          /* ignore unmount errors */
-        }
+        unmountQuietly(instanceRef.current);
         instanceRef.current = null;
       }
     };

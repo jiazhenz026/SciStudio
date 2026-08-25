@@ -87,6 +87,21 @@ PYTHON_BIN="$PYTHON_ROOT/bin/python3"
 # source tree if PYTHONPATH ordering ever changes. Remove just scistudio,
 # keeping its dependencies, so the source tree is the single source of truth.
 "$PYTHON_BIN" -m pip uninstall -y scistudio
+
+# #2096: Prune files that break the codesign pass before the interpreter is
+# staged into the app bundle. @electron/osx-sign walks everything under
+# Contents/ and hands each file its isBinaryFile heuristic flags to codesign.
+# That heuristic sniffs for null bytes rather than parsing Mach-O headers, so
+# compiled bytecode and the CPython test suite's binary fixtures are handed to
+# codesign, which fails on them and takes the notarized build down with it.
+#
+# Both removals are safe for an embedded runtime: .pyc files are pure cache, and
+# nothing SciStudio ships imports the stdlib `test` package. The dependency
+# verification below runs after the prune so a mistake fails this build rather
+# than the signing run.
+find "$PYTHON_ROOT" -name "__pycache__" -type d -prune -exec rm -rf {} +
+rm -rf "$PYTHON_ROOT"/lib/python*/test
+
 "$PYTHON_BIN" -c "import fastapi, uvicorn, pty; print('SciStudio macOS runtime deps verified (scistudio loads from source/OTA)')"
 
 : > "$PYTHON_ROOT/.scistudio-python-runtime"

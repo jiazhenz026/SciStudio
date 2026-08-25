@@ -263,6 +263,8 @@ export function PlotViewer({
             variant="outline"
             size="sm"
             data-testid="plot-export-button"
+            // ADR-053 (#2057) — tutorial highlight target.
+            data-tutorial-target="plot_export_button"
             aria-label={`Save plot as ${effectiveSaveFormat || "file"}`}
             disabled={!canSave}
             onClick={handleSave}

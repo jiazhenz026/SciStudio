@@ -49,6 +49,14 @@ export interface PreviewHostProps {
   /** Optional initial query state (slice/page/sort). */
   initialQuery?: Record<string, unknown>;
   /**
+   * #2113 — routing epoch. Bumped by the store whenever a per-type previewer
+   * choice changes (#2049); the session-creation effect re-runs, so an open
+   * preview re-creates its session and the backend routes it through the new
+   * choice instead of sitting on the envelope the old choice produced.
+   * Omitting it keeps the host's pre-#2113 behaviour exactly.
+   */
+  routingEpoch?: number;
+  /**
    * Optional session-keyed cache hooks (FR-021). The host writes rendered
    * envelopes only after the backend has resolved preview identity, so cache
    * keys include target + previewer + session + query + data version.
@@ -128,6 +136,7 @@ function cacheEnvelopeForQuery(
 export function PreviewHost({
   target,
   initialQuery,
+  routingEpoch,
   cacheEnvelope,
   buildCacheKey,
   importer,
@@ -175,9 +184,11 @@ export function PreviewHost({
       cancelled = true;
     };
     // initialQuery is captured intentionally on target change only; later
-    // query updates go through patchQuery below.
+    // query updates go through patchQuery below. routingEpoch (#2113) is a
+    // deliberate dep: a choice change must re-create the session so the new
+    // routing applies to the preview already open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target?.ref, target?.kind, initialQueryKey]);
+  }, [target?.ref, target?.kind, initialQueryKey, routingEpoch]);
 
   // -- patch query (slice/page/sort/slot) ----------------------------------
   const patchQuery = useCallback(
@@ -279,6 +290,24 @@ export function PreviewHost({
           resource.params,
           defaultResourceFilename(active, resource.params),
         );
+        /*
+         * ADR-053 FR-052 — `plot_exported`, in the closed `UI_EVENT_NAMES`
+         * set. Reported only after the save resolved, so a step that asks the
+         * reader to keep the figure waits for the file rather than for the
+         * dialog. A step cannot judge that on the file itself: the reader
+         * names it in a native dialog, and image extensions are outside the
+         * watcher's allowlist, so nothing would re-evaluate the condition even
+         * once the file existed. Scoped to a plot's own artifact — other
+         * previewers export too, and this event is about the figure.
+         */
+        if (active.target.kind === "plot_artifact") {
+          // Imported here rather than at the top of the file: the store pulls
+          // in every slice, and this module is mounted by tests that mock a
+          // narrow slice of the API surface. The report is a side effect of a
+          // rare action, so paying for the module then costs nothing.
+          const { useAppStore } = await import("../../store");
+          void useAppStore.getState().reportTutorialUiEvent("plot_exported");
+        }
       } catch (err) {
         setHostDiagnostics((d) => [
           ...d,

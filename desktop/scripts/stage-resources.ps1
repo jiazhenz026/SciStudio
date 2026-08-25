@@ -64,6 +64,16 @@ if (Test-Path $EggInfo) {
     Remove-Item -LiteralPath $EggInfo -Recurse -Force
 }
 
+# #2096: Drop compiled bytecode before the tree is signed. @electron/osx-sign
+# walks everything under Contents/ (extraResources land there) and hands each
+# file its isBinaryFile heuristic flags to codesign. A .pyc trips that heuristic
+# without being Mach-O, so codesign fails on it and takes the notarized build
+# down with it. The files are pure cache and CPython runs without them.
+# scripts/ota_publish.py already excludes them from the OTA snapshot; this makes
+# the installer consistent with it. Mirrors stage-resources.sh.
+Get-ChildItem -LiteralPath $SrcTarget -Directory -Recurse -Filter "__pycache__" -ErrorAction SilentlyContinue |
+    ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+
 # Refresh the packaged SPA (scistudio/api/static) from the frontend build we just
 # produced. This is the ONLY frontend a bundled desktop app serves
 # (scistudio.api.app._resolve_spa_static_dir, SCISTUDIO_BUNDLED=1). The repo copy

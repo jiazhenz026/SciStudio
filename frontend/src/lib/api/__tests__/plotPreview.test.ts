@@ -176,6 +176,21 @@ describe("dataApi plot list + preview resource save", () => {
     vi.unstubAllGlobals();
   });
 
+  it("DELETEs a plot by its encoded id", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await dataApi.deletePlot("plot one");
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/plots/plot%20one");
+    expect(init.method).toBe("DELETE");
+    vi.unstubAllGlobals();
+  });
+
   it("GETs /api/plots with block filters", async () => {
     const body = {
       plots: [

@@ -6,7 +6,7 @@ ADR-053 Learning Center spec, FR-005 … FR-015, FR-020, FR-020a
 A tutorial is a **directory containing a ``tutorial.yaml``**, and that manifest
 is the only file required for the tutorial to be listed (FR-005). Assets live
 under ``assets/`` with the reserved subdirectories ``data/``, ``code/``,
-``panels/``, ``replay/`` and ``pages/`` (FR-006).
+``panels/``, ``replay/``, ``workflows/`` and ``pages/`` (FR-006).
 
 Two failures that look alike and are not
 ----------------------------------------
@@ -116,12 +116,14 @@ __all__ = [
     "TutorialRequirements",
     "TutorialSourceKind",
     "TutorialStep",
+    "TutorialTrigger",
     "UnsupportedManifestVersionError",
     "load_manifest",
     "load_schema",
     "parse_manifest",
     "validate_against_schema",
     "validate_asset_containment",
+    "validate_step_pages",
     "validate_tier_assets",
     "validate_tier_rules",
 ]
@@ -132,14 +134,20 @@ TUTORIAL_MANIFEST_FILENAME = "tutorial.yaml"
 
 ASSETS_DIR_NAME = "assets"
 
-RESERVED_ASSET_DIRS: tuple[str, ...] = ("data", "code", "panels", "replay", "pages")
+RESERVED_ASSET_DIRS: tuple[str, ...] = ("data", "code", "panels", "replay", "workflows", "pages")
 """FR-006: data files, block/type/previewer/plot sources, built panel bundles,
-scripted replay material, and reading content."""
+scripted replay material, workflow YAML written into the project, and reading
+content."""
 
-EXECUTABLE_ASSET_DIRS: frozenset[str] = frozenset({"code", "panels", "replay"})
+EXECUTABLE_ASSET_DIRS: frozenset[str] = frozenset({"code", "panels", "replay", "workflows"})
 """The reserved asset directories whose contents the product imports, executes,
-or plays back. A user-level or project-level tutorial may not carry any of them
-(FR-020a)."""
+plays back, or reads as configuration for something it executes. A user-level
+or project-level tutorial may not carry any of them (FR-020a).
+
+``workflows`` is here for the reason :data:`~scistudio.tutorials.actions.EXECUTED_PROJECT_PATHS`
+lists the project directory of the same name (#2063): a workflow YAML names a
+code block's ``script_path`` and ``cwd``, so it is configuration the product
+acts on to execute, graded executable-adjacent rather than as data."""
 
 SUPPORTED_MANIFEST_VERSIONS: frozenset[int] = frozenset({1})
 """FR-007a. A manifest declaring a version outside this set is unavailable, not
@@ -147,6 +155,42 @@ malformed."""
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "tutorial.schema.json"
 """FR-013: the published schema package authors write against."""
+
+
+SAY_MOODS: tuple[str, ...] = (
+    "idle",
+    "explain",
+    "curious",
+    "focus",
+    "success",
+    "error",
+    "angry",
+)
+"""FR-011f (#2136) — the expressions a beat may be delivered with.
+
+A closed vocabulary, and closed is what makes the prefix form safe: a line
+beginning ``explain:`` is an expression, and a line beginning ``Note:`` is a
+line that begins "Note:". Nothing has to be escaped, because nothing outside
+this tuple is ever read as anything but prose.
+
+The set is the sprite set. Adding a seventh is adding a seventh drawing, which
+is why this is a tuple of names rather than an open string."""
+
+DEFAULT_SAY_MOOD = "idle"
+"""What a beat that names no expression is delivered with.
+
+Resting, not talking. A beat is far more often a plain line than a gesture, and
+a default that gestured would put emphasis on every sentence in the product."""
+
+MAX_SAY_BEATS = 6
+"""How many beats one step may be delivered in.
+
+Not a layout limit — the surface would render twenty. It is the line past which
+a step has stopped being a step. A step is a beat of *doing*: something is
+introduced, then asked for. Past half a dozen lines the reader is reading, and
+reading is what ``pages`` is for, with its own surface and its own way back to
+the previous page. The ceiling exists so that authoring mistake is caught at
+load, where the author is, rather than in front of a reader."""
 
 
 ROUTE_TARGETS: frozenset[str] = frozenset(
@@ -160,13 +204,19 @@ ROUTE_TARGETS: frozenset[str] = frozenset(
         "git",
         "canvas",
         "block_palette",
+        "data_types",
+        "workflows",
+        "previewers",
     }
 )
 """The closed set of destinations a step's ``route_to`` may name (FR-011).
 
-The first seven mirror the product's real bottom-panel tabs; ``canvas`` and
-``block_palette`` are the two surfaces outside that strip a step can send a
-user to.
+The first seven mirror the product's real bottom-panel tabs; ``canvas``,
+``block_palette``, ``data_types``, and ``workflows`` are the surfaces outside
+that strip a step can send a user to — the last three are the left panel's
+Blocks, Data types and Workflows tabs (``data_types`` joined for the
+type-authoring levels, #2061; ``workflows`` for core tutorial 1's opening,
+which shows the reader where their workflows are kept before building one).
 
 **Manifests name the tab the way the product names it to the user, not the way
 the code spells it.** Two of the seven differ from their internal keys: the
@@ -201,18 +251,31 @@ HIGHLIGHT_SPECS: tuple[HighlightSpec, ...] = (
     HighlightSpec(name="block_palette", points_at="the block palette as a whole"),
     HighlightSpec(name="canvas", points_at="the workflow canvas as a whole"),
     HighlightSpec(name="data_preview", points_at="the data preview surface"),
+    HighlightSpec(name="previewer_palette", points_at="the Previewers list in the left panel"),
+    HighlightSpec(name="type_palette", points_at="the Data types list in the left panel"),
     HighlightSpec(name="config_panel", points_at="the selected block's settings panel"),
+    HighlightSpec(name="workflow_list", points_at="the Workflows list in the left panel"),
     # Singleton controls. Exactly one of each exists on screen, so a name is
     # already an address.
     HighlightSpec(name="run_button", points_at="the toolbar's Run button"),
     HighlightSpec(name="new_menu_button", points_at="the toolbar's New menu"),
     HighlightSpec(name="plots_new_button", points_at="the Plots tab's new-plot button"),
+    HighlightSpec(name="plot_export_button", points_at="the preview's Save button for a rendered plot"),
+    HighlightSpec(name="view_source_button", points_at="the toolbar's View source button"),
+    HighlightSpec(name="bring_in_my_work_button", points_at="the toolbar's Bring in my work entry"),
     HighlightSpec(name="history_restore_button", points_at="the Restore button on a run in History"),
+    HighlightSpec(name="history_runs_list", points_at="the list of runs in History"),
     # Entities. These take an argument because the element they address is one
     # of many of its kind, and which one is the whole content of the guidance.
     HighlightSpec(name="palette_block", points_at="one block's entry in the palette", required=("block_type",)),
     HighlightSpec(name="node", points_at="one node on the canvas", required=("block_type",)),
     HighlightSpec(name="plot_card", points_at="one plot's card in the Plots tab", required=("plot_id",)),
+    HighlightSpec(
+        name="preview_item",
+        points_at="one item's card in a collection preview",
+        required=("index",),
+    ),
+    HighlightSpec(name="bottom_tab", points_at="one tab in the bottom panel", required=("tab",)),
 )
 """The closed set of interface elements a step's ``highlight`` may name (FR-011).
 
@@ -228,6 +291,16 @@ blocks, the Normalize node among four on the canvas. A target that can only
 name the containing panel points at the haystack. The entity targets take the
 argument that picks the needle, and the frontend annotates each candidate
 element with both the target name and that argument's value.
+
+**Why the bottom panel's tabs are one target and not seven.** Every other
+singleton here is a control with a name of its own; the tab strip is seven of
+the same control, and a step pointing at one of them is pointing at the tab it
+just sent the reader to. So it takes an argument, and that argument is spelled
+the way ``route_to`` spells it -- ``history``, ``ai_chat`` -- rather than the
+way ``BottomTab`` spells it, on the rule the ``ROUTE_TARGETS`` docstring
+states: a manifest names the tab the way the product names it to the user. One
+step writing ``route_to: history`` and ``highlight: {bottom_tab: {tab:
+history}}`` says the same word twice on purpose.
 
 The set grows by core change rather than by a manifest author inventing a name.
 A highlight only does anything once the frontend annotates the element it
@@ -250,6 +323,11 @@ PREFILL_SPECS: tuple[PrefillSpec, ...] = (
     PrefillSpec(
         name="new_custom_block",
         seeds="the New custom block dialog",
+        required=("filename",),
+    ),
+    PrefillSpec(
+        name="new_data_type",
+        seeds="the New data type dialog",
         required=("filename",),
     ),
     PrefillSpec(
@@ -422,10 +500,14 @@ class TutorialRequirements:
     scistudio: str | None = None
     agent: bool = False
     packages: tuple[str, ...] = ()
+    #: FR-008 / #2088 — same-source tutorial ids that must be completed first.
+    #: Ids, not keys: a requirement can only name a sibling, because progress
+    #: is keyed by (source, id) and a manifest does not know other sources.
+    tutorials: tuple[str, ...] = ()
 
     @property
     def is_empty(self) -> bool:
-        return self.scistudio is None and not self.agent and not self.packages
+        return self.scistudio is None and not self.agent and not self.packages and not self.tutorials
 
 
 @dataclass(frozen=True)
@@ -434,6 +516,24 @@ class TutorialBootstrap:
 
     project_name: str | None = None
     do: tuple[Action, ...] = ()
+
+
+@dataclass(frozen=True)
+class TutorialTrigger:
+    """A step's user-triggered action: a label, and what pressing it does (#2061).
+
+    Distinct from entry ``do`` in exactly one respect — *when* it runs. Entry
+    actions run because the reader arrived; a trigger runs because the reader
+    pressed the button the label names, which is what lets a step hold its
+    material back until asked for: "press Play to watch the agent work" cannot
+    be an entry action without playing before the sentence is readable.
+    Execution reuses the entry machinery whole (FR-056, FR-059, FR-059a), so a
+    trigger's writes land and the registries settle before the trigger reports
+    done.
+    """
+
+    label: str
+    do: tuple[Action, ...]
 
 
 @dataclass(frozen=True)
@@ -448,12 +548,76 @@ class TutorialStep:
     #: about where they are. Optional: a tutorial that does not title its steps
     #: falls back to its own title, which is what every existing manifest gets.
     title: str | None = None
-    say: str | None = None
-    highlight: Highlight | None = None
+    #: FR-011 — what the step says, as the ordered beats it is delivered in.
+    #:
+    #: Plural because the pacing is the author's. A step is delivered as a short
+    #: exchange — a line or two introducing the material, then the line that
+    #: hands over the task — and where those breaks fall is a writing decision,
+    #: not a layout one. Level 1 has steps that are one instruction and must stay
+    #: one beat ("Press Browse, open data then raw, pick
+    #: cell_viability_fluorescence.csv, ...") sitting beside steps that want
+    #: three, and nothing downstream of the author can tell those apart.
+    #:
+    #: Written as a bare string for a single beat, which is what every manifest
+    #: predating this field says and what most steps go on saying. Empty when the
+    #: step says nothing at all — the ``None`` this field used to carry.
+    say: tuple[str, ...] = ()
+    #: FR-011f (#2136) — the expression each beat is delivered with, one per
+    #: beat, in the same order. Parallel to ``say`` rather than folded into it
+    #: because the wire, the driver contract, and every fixture already carry
+    #: ``say`` as lines of text; the pairing that matters is the author's, and
+    #: they write it as one string (:func:`split_say_mood`).
+    say_moods: tuple[str, ...] = ()
+    #: FR-089e (#2136) — what each beat points at, one entry per beat.
+    #:
+    #: Written as ``highlight`` in the manifest, in either of two forms: one
+    #: highlight, which every beat of the step shares, or a list beside ``say``
+    #: with an entry per beat and ``~`` for the beats that point at nothing.
+    #:
+    #: Per beat rather than per step because a step is usually a lead-in and an
+    #: instruction, and ringing the control the instruction names while the
+    #: lead-in is still on screen points at something she has not mentioned —
+    #: which reads as an instruction and sends the reader off early.
+    highlights: tuple[Highlight | None, ...] = ()
     route_to: str | None = None
     prefill: tuple[Prefill, ...] = ()
     do: tuple[Action, ...] = ()
     done_when: Condition | None = None
+    #: FR-011 — the reading pages this step presents, named as files under
+    #: ``assets/pages/`` the way a ``page_reached`` condition names them: with
+    #: or without the extension, ``intro`` for ``assets/pages/intro.md``.
+    #: Validated to exist at load (:func:`validate_step_pages`), because a
+    #: reading step whose page is missing fails the reader mid-read otherwise —
+    #: the same argument FR-014 makes about asset paths.
+    pages: tuple[str, ...] = ()
+    #: FR-011 / #2061 — the step's user-triggered action, if it declares one.
+    trigger: TutorialTrigger | None = None
+    #: FR-011e (#2136) — deliver this step as a chat line rather than a scene.
+    #:
+    #: An authoring decision, like where the beats break. The surface cannot
+    #: derive it: whether a step wants the character standing over the canvas or
+    #: reduced to an avatar beside one sentence depends on what the step is
+    #: asking the reader to look at, which is the thing the author knows and the
+    #: geometry does not.
+    #: FR-011e (#2136) — which form each beat is delivered in, one per beat.
+    #:
+    #: Written as ``compact`` in the manifest, as one boolean for the whole step
+    #: or a list beside ``say``. Per beat for the reason ``highlights`` is: a
+    #: step is usually a lead-in and an instruction, and those two often want
+    #: different forms — "a block is the basic unit", said about the palette as
+    #: a whole, wants her standing there; "drag Load onto the canvas", said
+    #: about one entry in it, wants a chat line beside that entry.
+    compacts: tuple[bool, ...] = ()
+    #: FR-054c (#2136) — move on by itself once the condition holds.
+    #:
+    #: For the steps whose whole content is one mechanical action: click this,
+    #: drag that. Asking the reader to confirm a click they have already made
+    #: is a second click for nothing. A step where they configure something,
+    #: create something, or are meant to *look* at something leaves this off and
+    #: waits, because there the moment the condition flips is the moment they
+    #: have started reading the result, and taking the page away then is the
+    #: failure FR-054a was written against.
+    auto_advance: bool = False
 
     @property
     def awaiting_continue(self) -> bool:
@@ -619,6 +783,8 @@ def _check_object(value: Mapping[str, Any], node: Mapping[str, Any], field_name:
 def _check_array(value: Sequence[Any], node: Mapping[str, Any], field_name: str, path: Path, root: Any) -> None:
     if "minItems" in node and len(value) < int(node["minItems"]):
         raise _fail(path, field_name, f"expected at least {node['minItems']} item(s)")
+    if "maxItems" in node and len(value) > int(node["maxItems"]):
+        raise _fail(path, field_name, f"expected at most {node['maxItems']} item(s)")
     item_schema = node.get("items")
     if item_schema is None:
         return
@@ -657,6 +823,7 @@ def _parse_requires(raw: Any) -> TutorialRequirements:
         scistudio=None if scistudio is None else str(scistudio),
         agent=bool(raw.get("agent", False)),
         packages=packages,
+        tutorials=tuple(str(item) for item in raw.get("tutorials", ())),
     )
 
 
@@ -696,19 +863,32 @@ def _parse_steps(raw: Any, *, path: Path) -> tuple[TutorialStep, ...]:
             done_when = None if done_when_raw is None else parse_condition(done_when_raw, field_name="done_when")
         except ConditionValidationError as exc:
             raise ManifestValidationError(path=path, field_name=f"{field_name}.done_when", reason=str(exc)) from exc
-        highlight = _parse_highlight(item.get("highlight"), field_name=f"{field_name}.highlight", path=path)
         route_to = _optional_str(item.get("route_to"))
         _check_closed_value(route_to, ROUTE_TARGETS, field_name=f"{field_name}.route_to", path=path)
+        say, say_moods = _parse_say(item.get("say"), field_name=f"{field_name}.say", path=path)
+        highlights = _parse_highlights(
+            item.get("highlight"), beats=len(say), field_name=f"{field_name}.highlight", path=path
+        )
         steps.append(
             TutorialStep(
                 id=step_id,
                 title=_optional_str(item.get("title")),
-                say=_optional_str(item.get("say")),
-                highlight=highlight,
+                say=say,
+                say_moods=say_moods,
+                highlights=highlights,
                 route_to=route_to,
                 prefill=_parse_prefill(item.get("prefill"), field_name=f"{field_name}.prefill", path=path),
                 do=_parse_actions_or_fail(item.get("do"), field_name=f"{field_name}.do", path=path),
                 done_when=done_when,
+                pages=_parse_pages(item.get("pages"), field_name=f"{field_name}.pages", path=path),
+                trigger=_parse_trigger(item.get("trigger"), field_name=f"{field_name}.trigger", path=path),
+                compacts=_parse_compacts(
+                    item.get("compact"),
+                    beats=len(say),
+                    field_name=f"{field_name}.compact",
+                    path=path,
+                ),
+                auto_advance=bool(item.get("auto_advance", False)),
             )
         )
     return tuple(steps)
@@ -782,6 +962,216 @@ def _parse_prefill(raw: Any, *, field_name: str, path: Path) -> tuple[Prefill, .
             )
         prefills.append(Prefill(target=target, args=MappingProxyType(args)))
     return tuple(prefills)
+
+
+def _parse_trigger(raw: Any, *, field_name: str, path: Path) -> TutorialTrigger | None:
+    """Parse a step's ``trigger``: a label plus a non-empty ordered ``do`` list.
+
+    Both halves are required. A trigger with no label is a button the reader
+    cannot be asked to press, and one with no actions is a button that does
+    nothing — each is an authoring mistake worth failing at listing (FR-013).
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=f"a trigger is a mapping with 'label' and 'do', got {type(raw).__name__}",
+        )
+    unknown = set(raw) - {"label", "do"}
+    if unknown:
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=f"unknown field(s): {', '.join(sorted(str(key) for key in unknown))}",
+        )
+    label = raw.get("label")
+    if not isinstance(label, str) or not label.strip():
+        raise ManifestValidationError(
+            path=path,
+            field_name=f"{field_name}.label",
+            reason="a trigger's label is the button the reader presses; it must be a non-empty string",
+        )
+    do = _parse_actions_or_fail(raw.get("do"), field_name=f"{field_name}.do", path=path)
+    if not do:
+        raise ManifestValidationError(
+            path=path,
+            field_name=f"{field_name}.do",
+            reason="a trigger declares at least one action; a button that does nothing is a mistake, not a step",
+        )
+    return TutorialTrigger(label=label, do=do)
+
+
+def split_say_mood(beat: str) -> tuple[str, str]:
+    """Split one beat into the expression it names and the line it is.
+
+    FR-011f (#2136). The expression is written as a prefix on the line itself —
+    ``explain: A block is SciStudio's basic unit.`` — rather than as a second
+    field parallel to ``say``. Two lists that have to stay the same length is a
+    shape an author gets wrong silently; a prefix cannot drift from the line it
+    is attached to because it is part of it.
+
+    Only the names in :data:`SAY_MOODS` count. Anything else before a colon is
+    prose and is left exactly where it was found, so no existing line has to be
+    escaped and no author has to know the rule until they want it.
+    """
+    head, separator, rest = beat.partition(":")
+    if separator and head.strip() in SAY_MOODS:
+        return head.strip(), rest.strip()
+    return DEFAULT_SAY_MOOD, beat
+
+
+def _parse_say(raw: Any, *, field_name: str, path: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Parse a step's ``say``: one beat written bare, or several written as a list.
+
+    Both spellings, because a single beat is the common case and every manifest
+    written before beats existed uses the bare form. This is the same
+    bare-or-listed accommodation ``highlight`` makes, and for the same reason:
+    the short form is not a legacy alias to be migrated away, it is what a step
+    with one thing to say should look like.
+    """
+    if raw is None:
+        return (), ()
+    if isinstance(raw, str):
+        raw = [raw] if raw else []
+    elif not isinstance(raw, Sequence) or isinstance(raw, bytes):
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=f"say is a line, or a list of lines to deliver in order, got {type(raw).__name__}",
+        )
+    beats: list[str] = []
+    moods: list[str] = []
+    for index, item in enumerate(raw):
+        if not isinstance(item, str) or not item.strip():
+            raise ManifestValidationError(
+                path=path,
+                field_name=f"{field_name}[{index}]",
+                reason="each beat is a non-empty line; an empty one is a dialogue box with nothing in it",
+            )
+        mood, line = split_say_mood(item)
+        if not line:
+            raise ManifestValidationError(
+                path=path,
+                field_name=f"{field_name}[{index}]",
+                reason=f"a beat is a line, not only the expression to deliver it with ({mood})",
+            )
+        moods.append(mood)
+        beats.append(line)
+    if len(beats) > MAX_SAY_BEATS:
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=(
+                f"a step is delivered in at most {MAX_SAY_BEATS} beats, got {len(beats)}; "
+                "a step with more to say than that is a reading step, and belongs in pages"
+            ),
+        )
+    return tuple(beats), tuple(moods)
+
+
+def _parse_pages(raw: Any, *, field_name: str, path: Path) -> tuple[str, ...]:
+    """Parse a step's ``pages``: an ordered list of page names.
+
+    Names only here — whether each names a real file under ``assets/pages/``
+    is :func:`validate_step_pages`'s question, asked once the directory is on
+    disk, on the same two-phase arrangement asset containment uses.
+    """
+    if raw is None:
+        return ()
+    if not isinstance(raw, Sequence) or isinstance(raw, str | bytes):
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=f"pages must be a list of page names, got {type(raw).__name__}",
+        )
+    pages: list[str] = []
+    seen: set[str] = set()
+    for index, item in enumerate(raw):
+        if not isinstance(item, str) or not item:
+            raise ManifestValidationError(
+                path=path,
+                field_name=f"{field_name}[{index}]",
+                reason="a page is named by a non-empty string",
+            )
+        if item in seen:
+            raise ManifestValidationError(
+                path=path,
+                field_name=f"{field_name}[{index}]",
+                reason=f"page {item!r} is listed twice in one step",
+            )
+        seen.add(item)
+        pages.append(item)
+    return tuple(pages)
+
+
+def _parse_compacts(raw: Any, *, beats: int, field_name: str, path: Path) -> tuple[bool, ...]:
+    """Parse ``compact`` into one flag per beat (FR-011e).
+
+    One boolean is every beat's form, which is what every manifest written
+    before this said. A list is read beside ``say``, entry for entry, and must
+    be the same length — the same rule ``highlight`` follows, and for the same
+    reason: a list one short would silently change the form of the last beat.
+    """
+    slots = max(1, beats)
+    if raw is None:
+        return (False,) * slots
+    if isinstance(raw, Sequence) and not isinstance(raw, str | bytes | Mapping):
+        entries = list(raw)
+        if len(entries) != slots:
+            raise ManifestValidationError(
+                path=path,
+                field_name=field_name,
+                reason=(f"a compact list has one entry per beat, got {len(entries)} for {slots} beat(s)"),
+            )
+        for index, entry in enumerate(entries):
+            if not isinstance(entry, bool):
+                raise ManifestValidationError(
+                    path=path,
+                    field_name=f"{field_name}[{index}]",
+                    reason=f"each compact entry is true or false, got {type(entry).__name__}",
+                )
+        return tuple(bool(entry) for entry in entries)
+    if not isinstance(raw, bool):
+        raise ManifestValidationError(
+            path=path,
+            field_name=field_name,
+            reason=f"compact must be a boolean, or a list of them beside say, got {type(raw).__name__}",
+        )
+    return (bool(raw),) * slots
+
+
+def _parse_highlights(raw: Any, *, beats: int, field_name: str, path: Path) -> tuple[Highlight | None, ...]:
+    """Parse ``highlight`` into one entry per beat (FR-089e).
+
+    One highlight is every beat's highlight, which is what every manifest
+    written before this said and goes on meaning. A list is read beside ``say``,
+    entry for entry, and must be the same length: a list one short would
+    silently unring the last beat, which is the beat that matters.
+
+    A step that says nothing still gets one slot, so a highlight declared
+    without any ``say`` is not thrown away.
+    """
+    slots = max(1, beats)
+    if raw is None:
+        return (None,) * slots
+    if isinstance(raw, Sequence) and not isinstance(raw, str | bytes | Mapping):
+        entries = list(raw)
+        if len(entries) != slots:
+            raise ManifestValidationError(
+                path=path,
+                field_name=field_name,
+                reason=(
+                    f"a highlight list has one entry per beat, got {len(entries)} "
+                    f"for {slots} beat(s); write ~ for a beat that points at nothing"
+                ),
+            )
+        return tuple(
+            _parse_highlight(entry, field_name=f"{field_name}[{index}]", path=path)
+            for index, entry in enumerate(entries)
+        )
+    return (_parse_highlight(raw, field_name=field_name, path=path),) * slots
 
 
 def _parse_highlight(raw: Any, *, field_name: str, path: Path) -> Highlight | None:
@@ -994,6 +1384,7 @@ def load_manifest(directory: Path, *, source_kind: TutorialSourceKind) -> Tutori
     manifest = parse_manifest(data, directory=directory, source_kind=source_kind, path=path)
     validate_asset_containment(manifest)
     validate_tier_assets(manifest)
+    validate_step_pages(manifest)
     return manifest
 
 
@@ -1003,11 +1394,20 @@ def load_manifest(directory: Path, *, source_kind: TutorialSourceKind) -> Tutori
 
 
 def _all_actions(manifest: TutorialManifest) -> tuple[tuple[str, Action], ...]:
+    """Every action a tutorial can perform, wherever it is declared.
+
+    The containment (FR-014, FR-015) and tier walks (FR-020a) iterate this, so
+    a place actions can be declared that is missing here is a hole in both. A
+    trigger's ``do`` (#2061) is on the list for exactly that reason: pressing
+    the button reaches the project as surely as entering the step does.
+    """
     collected: list[tuple[str, Action]] = []
     if manifest.bootstrap is not None:
         collected.extend(("bootstrap.do", action) for action in manifest.bootstrap.do)
     for index, step in enumerate(manifest.steps):
         collected.extend((f"steps[{index}].do", action) for action in step.do)
+        if step.trigger is not None:
+            collected.extend((f"steps[{index}].trigger.do", action) for action in step.trigger.do)
     return tuple(collected)
 
 
@@ -1112,6 +1512,39 @@ def validate_tier_assets(manifest: TutorialManifest) -> None:
     for field_name, action in _all_actions(manifest):
         if isinstance(action, CopyAction):
             _reject_executed_landing(manifest, action, field_name=field_name)
+
+
+def validate_step_pages(manifest: TutorialManifest) -> None:
+    """Every declared page names a file under ``assets/pages/`` (FR-011, FR-014).
+
+    Checked at load rather than at read, for FR-014's reason: a reading step
+    whose page is missing should fail the tutorial while it is being listed,
+    not fail the reader on the page turn. A name is accepted with or without
+    its extension — the same rule the pages route applies when serving one —
+    and containment is enforced first, so ``../`` cannot reach outside the
+    pages directory whichever spelling is used.
+    """
+    pages_dir = manifest.assets_dir / "pages"
+    for index, step in enumerate(manifest.steps):
+        for page in step.pages:
+            field_name = f"steps[{index}].pages"
+            try:
+                direct = resolve_contained_path(pages_dir, page, field_name=field_name)
+            except ActionValidationError as exc:
+                raise ManifestValidationError(path=manifest.path, field_name=field_name, reason=str(exc)) from exc
+            if direct.is_file():
+                continue
+            stem_matches = (
+                [child for child in pages_dir.iterdir() if child.is_file() and child.stem == page]
+                if pages_dir.is_dir()
+                else []
+            )
+            if not stem_matches:
+                raise ManifestValidationError(
+                    path=manifest.path,
+                    field_name=field_name,
+                    reason=f"page {page!r} is not a file under {ASSETS_DIR_NAME}/pages/",
+                )
 
 
 def _reject_executed_landing(manifest: TutorialManifest, action: CopyAction, *, field_name: str) -> None:

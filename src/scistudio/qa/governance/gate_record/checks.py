@@ -18,13 +18,15 @@ and returns sanitized :class:`CheckEvent` payloads.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Literal
 
 import scistudio.qa.governance.gate_record.parity as parity
 import scistudio.qa.governance.gate_record.surfaces as surfaces
@@ -38,10 +40,19 @@ class CheckSpec:
     """A CI-equivalent local check derived from the CI command snapshot."""
 
     name: str
+    # The CI-mirror command: whole-repository, byte-identical in intent to the
+    # CI job named by ``ci_job``. This is what CI runs and what ``--force-checks``
+    # runs locally.
     command: tuple[str, ...]
     covered_surface: str
     # CI job this mirrors; used for parity-mapping diagnostics.
     ci_job: str
+    # How the local variant narrows this check to the observed diff. ``none``
+    # keeps the repository-scoped command locally, either because the check has
+    # no meaningful file-list form (``full_audit``, ``wheel_release_smoke``) or
+    # because its own runtime already bounds the work. See
+    # ``diff_scoped_command`` for what each strategy builds.
+    local_scope: str = "none"
     # Repo-relative working directory used by CI for this command.
     cwd: str = "."
     # When True the check is PR-only review automation (recorded, never a local
@@ -49,6 +60,13 @@ class CheckSpec:
     pr_only: bool = False
     # When True, requires PYTHONPATH=src to import scistudio.
     needs_src_import: bool = False
+    # Repo-relative path of an AuditReport JSON this check writes instead of
+    # printing its findings. A check that reports only to a file leaves an empty
+    # transcript, so a tail of its raw log carries nothing and the failure reads
+    # as "failed, no reason given" (#2143). When set, the evaluator renders the
+    # report file into the repair hint. ``None`` means the check prints its own
+    # findings and the transcript is the whole story.
+    report_json: str | None = None
 
 
 # Canonical CI command snapshot (Addendum 6 §7.5 table). The single mapping the
@@ -57,20 +75,27 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
     "lint_format": CheckSpec(
         name="lint_format",
         command=("ruff", "check", "."),
-        covered_surface="python",
+        covered_surface="python_lint",
         ci_job="ci.yml/Lint & Format",
+        local_scope="ruff_files",
     ),
     "format_check": CheckSpec(
         name="format_check",
         command=("ruff", "format", "--check", "."),
-        covered_surface="python",
+        covered_surface="python_lint",
         ci_job="ci.yml/Lint & Format",
+        # Locally this REWRITES the changed files instead of failing on them.
+        # Every one of the 98 recorded ``format_check`` failures across the
+        # committed ledgers was resolvable by running the formatter, so failing
+        # the gate on them only ever cost a cycle. CI still runs ``--check``.
+        local_scope="ruff_format_fix",
     ),
     "type_check": CheckSpec(
         name="type_check",
         command=("mypy", "src/scistudio/", "--ignore-missing-imports"),
-        covered_surface="python",
+        covered_surface="python_types",
         ci_job="ci.yml/Type Check",
+        local_scope="mypy_files",
         needs_src_import=True,
     ),
     "architecture_tests": CheckSpec(
@@ -96,6 +121,9 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
         covered_surface="governance",
         ci_job="ci.yml/Full Audit",
         needs_src_import=True,
+        # ``--output`` above is the only place full_audit reports; stdout stays
+        # empty even on failure.
+        report_json=".audit/full-audit.json",
     ),
     "python_tests": CheckSpec(
         name="python_tests",
@@ -112,14 +140,20 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
             "--timeout=60",
             "--timeout-method=thread",
         ),
-        covered_surface="python",
+        covered_surface="python_tests",
         ci_job="ci.yml/Test (Python 3.11, 3.13)",
+        # The local variant appends ``--no-cov`` plus the test paths affected by
+        # the diff. ``--no-cov`` is not optional: the repository-wide
+        # ``--cov-fail-under`` in pyproject.toml makes ANY subset run fail by
+        # construction, so without it no incremental test run is possible at all.
+        # CI keeps the floor and the full suite (spec FR-003, FR-004).
+        local_scope="pytest_select",
         needs_src_import=True,
     ),
     "import_contracts": CheckSpec(
         name="import_contracts",
         command=("lint-imports",),
-        covered_surface="python",
+        covered_surface="python_imports",
         ci_job="ci.yml/Import Contracts",
         needs_src_import=True,
     ),
@@ -137,17 +171,6 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
         ci_job="ci.yml/Wheel Release Smoke",
         needs_src_import=True,
     ),
-    "semantic_dup": CheckSpec(
-        name="semantic_dup",
-        command=(
-            "python",
-            "scripts/semantic_dup_scan.py",
-            "--check",
-            "docs/audit/baselines/semantic-dup-baseline.json",
-        ),
-        covered_surface="python",
-        ci_job="semantic-dup-scan.yml/Semantic duplication ratchet",
-    ),
     "deferral_discipline": CheckSpec(
         name="deferral_discipline",
         command=(
@@ -156,7 +179,9 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
             "--check",
             "docs/audit/baselines/deferral-baseline.json",
         ),
-        covered_surface="python",
+        # ``scripts/deferral_scan.py`` rglobs ``*.py`` and reads nothing else, so
+        # a non-Python change cannot alter its verdict (spec FR-007).
+        covered_surface="python_deferrals",
         ci_job="deferral-scan.yml/Deferral discipline ratchet",
     ),
     # #2150: commit-time git hooks are removed; their hygiene checks moved here.
@@ -171,6 +196,152 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
         ci_job="workflow-gate.yml/Verify Workflow Compliance",
     ),
 }
+
+
+# Repository-scoped checks whose local variant narrows to the observed diff.
+# Each strategy is implemented by ``diff_scoped_command``.
+_RUFF_TARGET_SUFFIXES = (".py", ".pyi")
+
+
+def _changed_python_files(
+    changed_files: Sequence[str],
+    *,
+    repo_root: Path,
+    under: str | None = None,
+) -> list[str]:
+    """Return changed Python paths that still exist, optionally under a subtree.
+
+    Deleted paths are dropped: the observed diff includes them, but handing a
+    removed file to ruff or mypy is an execution error, not a finding. When a
+    diff only deletes Python files the caller gets an empty list and falls back
+    to the repository-scoped command, which is the correct answer for a deletion.
+    """
+
+    selected = []
+    for raw in changed_files:
+        path = surfaces.normalize_path(raw)
+        if not path.endswith(_RUFF_TARGET_SUFFIXES):
+            continue
+        if under is not None and not path.startswith(under):
+            continue
+        if not (repo_root / path).is_file():
+            continue
+        selected.append(path)
+    return sorted(set(selected))
+
+
+def _mirror_test_targets(repo_root: Path, module_path: str) -> str | None:
+    """Map a changed source module to the test path that covers it.
+
+    Returns the longest mirrored ``tests/`` directory that exists, or a mirrored
+    ``test_<stem>.py`` file, or ``None`` when neither resolves. ``None`` means
+    "cannot prove which tests cover this", which the caller turns into a
+    full-suite run. Under-selection is the one failure mode that would let a
+    real break reach CI, so every unresolved case widens (spec FR-003).
+    """
+
+    prefix = "src/scistudio/"
+    if not module_path.startswith(prefix):
+        return None
+    parts = module_path[len(prefix) :].split("/")
+    package_parts, stem = parts[:-1], parts[-1].removesuffix(".py")
+    for depth in range(len(package_parts), 0, -1):
+        candidate = "tests/" + "/".join(package_parts[:depth])
+        if (repo_root / candidate).is_dir():
+            return candidate
+    mirrored_file = "tests/" + "/".join([*package_parts, f"test_{stem}.py"])
+    if (repo_root / mirrored_file).is_file():
+        return mirrored_file
+    return None
+
+
+def select_test_targets(repo_root: Path, changed_files: Sequence[str]) -> tuple[str, ...] | None:
+    """Return the test paths affected by the diff, or ``None`` to run everything.
+
+    ``None`` is the safe answer and is returned whenever the mapping cannot be
+    proven: a changed global input (pytest/coverage config, a CI workflow, a
+    shared ``conftest.py``), a non-Python file under ``tests/`` such as a
+    fixture, or a source module with no mirrored test location.
+    """
+
+    targets: set[str] = set()
+    saw_python = False
+    for raw in changed_files:
+        path = surfaces.normalize_path(raw)
+        if _is_global_test_input(path):
+            return None
+        if path.startswith("tests/"):
+            if not path.endswith(".py"):
+                # A fixture, golden file, or data asset: cannot tell which tests
+                # read it.
+                return None
+            saw_python = True
+            if not (repo_root / path).exists():
+                # Deleted: nothing to select here, but the deletion may have
+                # moved coverage elsewhere, so do not narrow on its account.
+                continue
+            if Path(path).name == "conftest.py":
+                targets.add(str(Path(path).parent).replace("\\", "/"))
+            else:
+                targets.add(path)
+            continue
+        if not path.endswith(_RUFF_TARGET_SUFFIXES):
+            continue
+        saw_python = True
+        if not path.startswith("src/scistudio/"):
+            # ``scripts/**`` and ``packages/**`` have no mirrored test tree.
+            return None
+        if not (repo_root / path).is_file():
+            # A deleted module: its tests were deleted or moved with it, and the
+            # mirror cannot say which. Widen rather than guess.
+            return None
+        mirrored = _mirror_test_targets(repo_root, path)
+        if mirrored is None:
+            return None
+        targets.add(mirrored)
+    if not saw_python or not targets:
+        return None
+    return tuple(sorted(targets))
+
+
+def _is_global_test_input(path: str) -> bool:
+    """Return True for files that can change the outcome of any test."""
+
+    return (
+        path in {"pyproject.toml", "setup.cfg", "tox.ini", "conftest.py", "tests/conftest.py"}
+        or path.startswith(".github/workflows/")
+        or path == ".pre-commit-config.yaml"
+    )
+
+
+def diff_scoped_command(
+    spec: CheckSpec,
+    *,
+    repo_root: Path,
+    changed_files: Sequence[str],
+) -> tuple[str, ...] | None:
+    """Return the local diff-scoped command, or ``None`` to use the CI mirror.
+
+    ``None`` means this invocation runs the repository-scoped command: either the
+    check has no diff-scoped strategy, or the strategy could not narrow safely.
+    """
+
+    if spec.local_scope == "none":
+        return None
+    if spec.local_scope == "ruff_files":
+        files = _changed_python_files(changed_files, repo_root=repo_root)
+        return (*spec.command[:-1], *files) if files else None
+    if spec.local_scope == "ruff_format_fix":
+        files = _changed_python_files(changed_files, repo_root=repo_root)
+        # Drop ``--check`` and the ``.`` target: format the changed files.
+        return ("ruff", "format", *files) if files else None
+    if spec.local_scope == "mypy_files":
+        files = _changed_python_files(changed_files, repo_root=repo_root, under="src/scistudio/")
+        return ("mypy", *files, "--ignore-missing-imports") if files else None
+    if spec.local_scope == "pytest_select":
+        targets = select_test_targets(repo_root, changed_files)
+        return (*spec.command, "--no-cov", *targets) if targets else None
+    return None
 
 
 @dataclass
@@ -192,7 +363,6 @@ _BASELINE_BY_TIER: dict[int, tuple[str, ...]] = {
         "full_audit",
         "python_tests",
         "import_contracts",
-        "semantic_dup",
         "deferral_discipline",
     ),
     2: ("lint_format", "format_check", "full_audit"),
@@ -212,7 +382,6 @@ def _surface_checks(changed_files: Sequence[str]) -> set[str]:
     has_frontend = any(surfaces.is_frontend_path(p) for p in changed_files)
     has_workflow_ci = any(surfaces.is_workflow_ci_path(p) for p in changed_files)
     has_packaging = any(surfaces.is_packaging_path(p) for p in changed_files)
-    has_sentrux = surfaces.sentrux_applies_to_changes(changed_files)
 
     if has_python_src:
         selected.update({"lint_format", "format_check", "type_check", "python_tests", "import_contracts"})
@@ -228,8 +397,6 @@ def _surface_checks(changed_files: Sequence[str]) -> set[str]:
         selected.add("full_audit")
     if has_packaging:
         selected.add("wheel_release_smoke")
-    if has_sentrux:
-        selected.add("semantic_dup")
     return selected
 
 
@@ -247,12 +414,15 @@ def select_checks(
     """
 
     selection = CheckSelection()
+    # Tier breadth lives entirely in ``_BASELINE_BY_TIER``: Tier 1 names the full
+    # merge-blocking set up front, lower tiers name a baseline that the observed
+    # diff then extends. The surface jobs are added identically at every tier —
+    # this used to be an ``if tier == 1 / else`` whose two arms executed the same
+    # statement (spec gate-local-incremental-checks FR-011). How *broadly* each
+    # selected check runs locally is a separate axis, owned by the evaluator's
+    # per-mode scope decision, not by selection.
     chosen: set[str] = set(_BASELINE_BY_TIER.get(int(tier), ()))
-    if tier == 1:
-        # Full mirror regardless of observed diff (still add surface jobs).
-        chosen.update(_surface_checks(changed_files))
-    else:
-        chosen.update(_surface_checks(changed_files))
+    chosen.update(_surface_checks(changed_files))
     for name in extra_checks:
         if name in CHECK_CATALOG:
             chosen.add(name)
@@ -337,8 +507,15 @@ def detect_parity_cause(output: str) -> str | None:
     return None
 
 
-def _resolve_execution(repo_root: Path, spec: CheckSpec) -> tuple[list[str] | None, dict[str, str] | None]:
+def _resolve_execution(
+    repo_root: Path,
+    spec: CheckSpec,
+    command: Sequence[str] | None = None,
+) -> tuple[list[str] | None, dict[str, str] | None]:
     """Map a check spec to a concrete argv + env using the parity venv (§7.10).
+
+    ``command`` overrides ``spec.command`` so the diff-scoped local variant runs
+    through exactly the same tool resolution as the CI-mirror command.
 
     When the isolated per-worktree venv is provisioned, the check's tool resolves
     to the venv's executable (so local == CI tool versions), and a ``needs_src_
@@ -350,10 +527,11 @@ def _resolve_execution(repo_root: Path, spec: CheckSpec) -> tuple[list[str] | No
     Returns ``(None, None)`` when the tool cannot be resolved anywhere (skipped).
     """
 
-    if not spec.command:
+    effective = tuple(command) if command is not None else spec.command
+    if not effective:
         return None, None
-    tool = spec.command[0]
-    rest = list(spec.command[1:])
+    tool = effective[0]
+    rest = list(effective[1:])
     venv = parity.venv_path(repo_root)
     venv_exists = venv.exists()
 
@@ -368,7 +546,7 @@ def _resolve_execution(repo_root: Path, spec: CheckSpec) -> tuple[list[str] | No
         existing = py_env.get("PYTHONPATH", "")
         src = str(repo_root / "src")
         py_env["PYTHONPATH"] = f"{src}{os.pathsep}{existing}" if existing else src
-        return list(spec.command), py_env
+        return list(effective), py_env
 
     # Console-script tools (ruff, mypy, pytest, lint-imports, npm). Prefer the
     # venv shim; the venv interpreter already imports scistudio for the
@@ -407,22 +585,34 @@ def run_check(
     changed_files: Sequence[str],
     diff_fingerprint: str | None,
     input_fingerprint: str | None = None,
+    scope: Literal["repo", "diff"] = "repo",
 ) -> CheckEvent:
     """Run a single check in the parity environment, returning a CheckEvent.
 
     Raw stdout/stderr go ONLY to ``.workflow/local/**`` (gitignored). The
     committed event carries a sanitized one-line summary plus a repo-relative
     ``raw_log_ref`` (§8).
+
+    ``scope="diff"`` asks for the local variant narrowed to ``changed_files``.
+    When the requested check has no diff-scoped strategy, or its strategy cannot
+    narrow safely, this silently falls back to the repository-scoped CI-mirror
+    command and records ``scope="repo"`` — the event always states which command
+    actually ran, never which one was requested.
     """
 
     spec = CHECK_CATALOG[name]
-    versions = {tool: ver for tool, ver in resolve_ci_tool_versions(repo_root).items() if tool in spec.command}
-    command_text = " ".join(spec.command)
+    scoped_command = (
+        diff_scoped_command(spec, repo_root=repo_root, changed_files=changed_files) if scope == "diff" else None
+    )
+    effective_command = scoped_command or spec.command
+    event_scope: Literal["repo", "diff"] = "diff" if scoped_command is not None else "repo"
+    versions = {tool: ver for tool, ver in resolve_ci_tool_versions(repo_root).items() if tool in effective_command}
+    command_text = " ".join(effective_command)
     repo_relative_command = command_text if spec.cwd == "." else f"(cd {spec.cwd} && {command_text})"
     covered_paths = [p for p in changed_files if surfaces.normalize_path(p)]
     input_fp = input_fingerprint or (fingerprint_paths(covered_paths) if covered_paths else diff_fingerprint)
 
-    argv, env = _resolve_execution(repo_root, spec)
+    argv, env = _resolve_execution(repo_root, spec, effective_command)
     env = _with_check_env(name, env)
 
     if argv is None:
@@ -431,6 +621,7 @@ def run_check(
             command=repo_relative_command,
             tool_versions=versions,
             covered_surface=spec.covered_surface,
+            scope=event_scope,
             input_fingerprint=input_fp,
             exit_code=None,
             status="skipped",
@@ -454,6 +645,7 @@ def run_check(
             command=repo_relative_command,
             tool_versions=versions,
             covered_surface=spec.covered_surface,
+            scope=event_scope,
             input_fingerprint=input_fp,
             exit_code=None,
             status="unknown",
@@ -467,6 +659,7 @@ def run_check(
             command=repo_relative_command,
             tool_versions=versions,
             covered_surface=spec.covered_surface,
+            scope=event_scope,
             input_fingerprint=input_fp,
             exit_code=completed.returncode,
             status="pass",
@@ -487,6 +680,7 @@ def run_check(
         command=repo_relative_command,
         tool_versions=versions,
         covered_surface=spec.covered_surface,
+        scope=event_scope,
         input_fingerprint=input_fp,
         exit_code=completed.returncode,
         status="fail",
@@ -506,15 +700,125 @@ def _write_raw_log(repo_root: Path, name: str, completed: subprocess.CompletedPr
     return f"{LOCAL_LOGS_DIR}/{name}.log"
 
 
-def event_is_valid_for(event: CheckEvent, *, input_fingerprint: str | None) -> bool:
+def event_is_valid_for(
+    event: CheckEvent,
+    *,
+    input_fingerprint: str | None,
+    require_repo_scope: bool = False,
+) -> bool:
     """Return True when a prior check event remains valid (§7.2 incremental).
 
     Evidence stays valid only when the covered surface's input fingerprint is
     unchanged. A later edit to that surface invalidates only this event.
+
+    ``require_repo_scope`` rejects diff-scoped evidence. A diff-scoped run proves
+    the changed files, not the whole surface, so it cannot stand in for a
+    CI-mirror obligation (spec gate-local-incremental-checks FR-008).
     """
 
     if event.status != "pass":
         return False
+    if require_repo_scope and event.scope != "repo":
+        return False
     if event.input_fingerprint is None or input_fingerprint is None:
         return False
     return event.input_fingerprint == input_fingerprint
+
+
+# Findings rendered per failing sub-report before the rest are counted off. A
+# repair hint has to stay readable, but the count of what it left out is always
+# printed -- silently dropping findings is the defect this renderer exists to
+# fix (#2143).
+_REPORT_FINDINGS_SHOWN = 10
+_REPORT_MESSAGE_CHARS = 200
+
+
+def _report_fails(report: Mapping[str, Any]) -> bool:
+    """Return True when a report node is itself a failure (not just a parent)."""
+
+    if str(report.get("status", "")).lower() == "fail":
+        return True
+    findings = report.get("findings") or []
+    return any(str(f.get("severity", "")).lower() == "error" for f in findings if isinstance(f, Mapping))
+
+
+def _failing_leaves(report: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """Return the deepest failing nodes, so a parent never masks its children."""
+
+    children = [c for c in (report.get("child_reports") or []) if isinstance(c, Mapping)]
+    leaves: list[Mapping[str, Any]] = []
+    for child in children:
+        leaves.extend(_failing_leaves(child))
+    if leaves:
+        return leaves
+    return [report] if _report_fails(report) else []
+
+
+# Blocking findings come first: only ``error`` fails the check, and a report
+# that leads with advisory findings can push every blocking one past the display
+# cap -- reintroducing, inside the summary, the same hiding this renderer exists
+# to end (#2143).
+_SEVERITY_ORDER: dict[str, int] = {"error": 0, "warning": 1, "info": 2}
+
+
+def _severity_rank(finding: Mapping[str, Any]) -> int:
+    return _SEVERITY_ORDER.get(str(finding.get("severity", "")).lower(), len(_SEVERITY_ORDER))
+
+
+def _finding_line(finding: Mapping[str, Any]) -> str:
+    """Render one finding as ``[severity] file: message`` on a single line."""
+
+    severity = str(finding.get("severity", "") or "?").lower()
+    where = str(finding.get("file") or finding.get("path") or "").strip()
+    message = " ".join(str(finding.get("message", "") or "").split())
+    if len(message) > _REPORT_MESSAGE_CHARS:
+        message = message[: _REPORT_MESSAGE_CHARS - 3] + "..."
+    return f"[{severity}] {where}: {message}" if where else f"[{severity}] {message}"
+
+
+def report_json_summary(repo_root: Path, name: str) -> list[str]:
+    """Render a failed check's JSON report into lines for its repair hint.
+
+    A check whose :attr:`CheckSpec.report_json` is set writes its findings to a
+    file instead of printing them, so its transcript is empty and a tail of the
+    raw log tells the reader nothing: the failure reads as "failed, no reason
+    given" while the reasons sit unread in the report file (#2143). This reads
+    that file and returns the failing sub-reports with their findings.
+
+    Returns ``[]`` when the check writes no report, the file is missing, or it
+    cannot be parsed -- the caller then falls back to the raw transcript.
+    Parsed with ``json`` rather than the pydantic ``AuditReport`` model on
+    purpose: the file is written by a separate process, and a schema mismatch
+    must degrade to "no summary" rather than raise inside failure reporting.
+    """
+
+    spec = CHECK_CATALOG.get(name)
+    if spec is None or not spec.report_json:
+        return []
+    try:
+        raw = (repo_root / spec.report_json).read_text(encoding="utf-8", errors="replace")
+        document = json.loads(raw)
+    except (OSError, ValueError):
+        return []
+    if not isinstance(document, Mapping):
+        return []
+
+    failing = _failing_leaves(document)
+    if not failing:
+        return []
+
+    lines = [f"report: {spec.report_json}"]
+    for report in failing:
+        findings = sorted(
+            (f for f in (report.get("findings") or []) if isinstance(f, Mapping)),
+            key=_severity_rank,
+        )
+        tool = str(report.get("tool", "") or "?")
+        status = str(report.get("status", "") or "?")
+        lines.append(f"{tool}: {status} ({len(findings)} findings)")
+        for finding in findings[:_REPORT_FINDINGS_SHOWN]:
+            lines.append(f"  {_finding_line(finding)}")
+        hidden = len(findings) - _REPORT_FINDINGS_SHOWN
+        if hidden > 0:
+            lines.append(f"  ... {hidden} more findings in {tool} (see {spec.report_json})")
+    return lines

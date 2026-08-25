@@ -59,8 +59,9 @@ function session(stepId: string, say: string, index = 0): TutorialSessionRespons
       index,
       total: 4,
       title: null,
-      say,
-      highlight: null,
+      say: [say],
+      compacts: [false],
+      highlights: [null],
       route_to: null,
       prefill: [],
       awaiting_continue: false,
@@ -86,6 +87,12 @@ const deps = {
 beforeEach(() => {
   vi.clearAllMocks();
   resetAppStore();
+  /*
+   * The tutorial's own project, open. A tutorial bound to a project is dormant
+   * while that project is not open, so a test about anything else has to start
+   * from it being open.
+   */
+  useAppStore.setState({ currentProject: { id: "p1", path: "/tmp/p1" } as never });
   /*
    * `openBlockSourceTab` fetches the source and alerts on failure. Neither is
    * what these tests are about, but an unstubbed fetch would make the tab open
@@ -127,7 +134,12 @@ describe("a step advances when an engine event says something changed", () => {
     expect(await screen.findByText("Now point the Load block at the CSV.")).toBeInTheDocument();
     // No click, no confirmation — the step that was showing is gone.
     expect(screen.queryByText("Drag a Load block onto the canvas.")).not.toBeInTheDocument();
-    expect(screen.getByText("Step 2 of 4")).toBeInTheDocument();
+    /*
+     * There is deliberately no "2 / 4" to assert against any more (#2136): the
+     * dialogue shows no step counter, and progress lives in the catalogue. The
+     * two assertions above are the whole claim this test makes — the new step
+     * arrived, and the old one is gone.
+     */
   });
 
   it("asks nothing at all when no tutorial is running", async () => {
@@ -240,7 +252,11 @@ describe("interface events the backend cannot observe (FR-052)", () => {
 
     await useAppStore.getState().reportTutorialUiEvent("preview_expanded");
 
-    expect(learningCenterApi.reportTutorialUiEvent).toHaveBeenCalledWith("preview_expanded");
+    // #2063 — preview_expanded is a singleton surface and carries no target.
+    expect(learningCenterApi.reportTutorialUiEvent).toHaveBeenCalledWith(
+      "preview_expanded",
+      undefined,
+    );
   });
 
   it("reports block_source_viewed when a block's source is opened", async () => {
@@ -251,8 +267,12 @@ describe("interface events the backend cannot observe (FR-052)", () => {
 
     useAppStore.getState().openBlockSourceTab("load_data");
 
+    // #2063 — the block type rides along as the event's target.
     await waitFor(() =>
-      expect(learningCenterApi.reportTutorialUiEvent).toHaveBeenCalledWith("block_source_viewed"),
+      expect(learningCenterApi.reportTutorialUiEvent).toHaveBeenCalledWith(
+        "block_source_viewed",
+        "load_data",
+      ),
     );
   });
 
@@ -265,6 +285,11 @@ describe("interface events the backend cannot observe (FR-052)", () => {
       session("look", "Click the block."),
     );
 
+    useAppStore.setState({
+      workflowNodes: [
+        { id: "node-1", block_type: "load_data", config: {} },
+      ] as unknown as ReturnType<typeof useAppStore.getState>["workflowNodes"],
+    });
     const { result } = renderHook(() =>
       useBottomPanelControls({
         bottomPanelPinned: false,
@@ -274,8 +299,12 @@ describe("interface events the backend cannot observe (FR-052)", () => {
     );
     result.current.handleNodeSelect("node-1");
 
+    // #2063 — the selected node's block type rides along as the event's target.
     await waitFor(() =>
-      expect(learningCenterApi.reportTutorialUiEvent).toHaveBeenCalledWith("node_selected"),
+      expect(learningCenterApi.reportTutorialUiEvent).toHaveBeenCalledWith(
+        "node_selected",
+        "load_data",
+      ),
     );
   });
 

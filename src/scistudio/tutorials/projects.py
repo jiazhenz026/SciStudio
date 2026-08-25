@@ -8,7 +8,7 @@ library when the user clears tutorial data.
 
 **This module decides; it does not act on the runtime.** Creating a project is
 :meth:`scistudio.api.runtime.ApiRuntime.create_project`'s job — it scaffolds the
-directory tree, writes ``project.yaml``, initialises git, provisions agent
+directory tree, writes ``project.yaml``, initializes git, provisions agent
 assets, and records the known-projects entry that FR-063 requires. What is
 tutorial-specific is *where* the project goes, *what it is called*, *which
 identity it carries*, and *what is deleted when*. Those are here, expressed as
@@ -46,11 +46,13 @@ from typing import Protocol, runtime_checkable
 
 from scistudio.core.dropins import (
     BLOCKS_DIR_NAME,
+    PREVIEWERS_DIR_NAME,
     TYPES_DIR_NAME,
     is_tutorial_location,
     tutorial_library_dir,
     tutorial_parent_dir,
 )
+from scistudio.stability import provisional
 
 __all__ = [
     "SOURCE_KINDS",
@@ -89,6 +91,7 @@ _COMPONENT_SEPARATOR = "."
 RemoveTree = Callable[[Path], None]
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class TutorialKey:
     """A tutorial's identity: its source and its id (FR-019, FR-075).
@@ -285,9 +288,14 @@ def ensure_tutorial_parent() -> Path:
 
 
 def scoped_library_dirs() -> tuple[Path, ...]:
-    """Return the tutorial-scoped library's tier directories (FR-070)."""
+    """Return the tutorial-scoped library's tier directories (FR-070).
+
+    ``previewers/`` sits beside ``blocks/`` and ``types/`` (#2086): the level
+    designs have one tutorial's previewer travel to the next tutorial's project,
+    which needs the same swap the other two kinds already make.
+    """
     root = tutorial_library_dir()
-    return (root / BLOCKS_DIR_NAME, root / TYPES_DIR_NAME)
+    return (root / BLOCKS_DIR_NAME, root / TYPES_DIR_NAME, root / PREVIEWERS_DIR_NAME)
 
 
 def ensure_scoped_library() -> Path:
@@ -296,7 +304,7 @@ def ensure_scoped_library() -> Path:
     Created eagerly at bootstrap rather than on first write, because the
     save-to-library action the scenarios teach has to land somewhere and a
     tutorial step that fails on a missing directory teaches the wrong lesson.
-    Both registries skip missing scan directories, so an empty library costs
+    Every registry skips missing scan directories, so an empty library costs
     nothing until something is saved into it.
     """
     root = tutorial_library_dir()
@@ -345,7 +353,7 @@ def _guarded_remove(target: Path, remove_tree: RemoveTree | None) -> bool:
     """Remove *target* after checking it is inside the tutorial parent.
 
     Every deleting entry point funnels through here. The check is not
-    defence-in-depth against this module's own callers so much as the one place
+    defense-in-depth against this module's own callers so much as the one place
     the FR-073 promise — user projects are untouched — is enforced: nothing
     outside :func:`scistudio.core.dropins.tutorial_parent_dir` can be removed by
     any function in this module, whatever it is handed.

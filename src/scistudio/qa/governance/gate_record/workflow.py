@@ -13,6 +13,7 @@ Exit codes (spec §5.7):
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -123,8 +124,24 @@ def _save(repo_root: Path, path: Path, ledger: GateLedger) -> CommandOutcome | N
 # ---------------------------------------------------------------------------
 
 
-def _apply_fields(ledger: GateLedger, args: Any, *, reason: str | None = None) -> None:
+def _apply_base_ref(ledger: GateLedger, value: str | None, *, repo_root: Path) -> None:
+    """Record the branch's diff base, refusing a ref git cannot resolve."""
+
+    if value is None:
+        return
+    resolved = io.normalize_base_ref(repo_root, value)
+    if resolved is None:
+        raise ValueError(
+            f"--base-ref {value!r} does not resolve to a git ref. Fetch the branch it "
+            "names, or pass a ref that exists locally."
+        )
+    ledger.base_ref = resolved
+
+
+def _apply_fields(ledger: GateLedger, args: Any, *, repo_root: Path, reason: str | None = None) -> None:
     """Append additive field events to the ledger (never overwrite)."""
+
+    _apply_base_ref(ledger, getattr(args, "base_ref", None), repo_root=repo_root)
 
     for directive in getattr(args, "owner_directive", None) or []:
         ledger.directive_events.append(DirectiveEvent(owner_directive=directive, reason=reason))
@@ -219,6 +236,10 @@ def run_init(repo_root: Path, args: Any) -> int:
         ledger.declared_scope = declared
     if args.governance_touch is not None:
         ledger.governance_touch = args.governance_touch
+    try:
+        _apply_base_ref(ledger, getattr(args, "base_ref", None), repo_root=repo_root)
+    except ValueError as exc:
+        return _print_outcome(CommandOutcome(EXIT_USAGE, [str(exc)]))
 
     save_err = _save(repo_root, path, ledger)
     if save_err:
@@ -263,7 +284,7 @@ def run_plan(repo_root: Path, args: Any) -> int:
         return _print_outcome(load_err)
     assert ledger is not None
     try:
-        _apply_fields(ledger, args, reason="plan")
+        _apply_fields(ledger, args, repo_root=repo_root, reason="plan")
     except ValueError as exc:
         return _print_outcome(CommandOutcome(EXIT_USAGE, [str(exc)]))
     save_err = _save(repo_root, path, ledger)
@@ -284,7 +305,7 @@ def run_amend(repo_root: Path, args: Any) -> int:
         return _print_outcome(load_err)
     assert ledger is not None
     try:
-        _apply_fields(ledger, args, reason=args.reason)
+        _apply_fields(ledger, args, repo_root=repo_root, reason=args.reason)
     except ValueError as exc:
         return _print_outcome(CommandOutcome(EXIT_USAGE, [str(exc)]))
     save_err = _save(repo_root, path, ledger)
@@ -339,18 +360,32 @@ def _recovery_banner(mode: str, unrun: list[str]) -> list[str]:
     ]
 
 
-def _resolve_base(repo_root: Path, base: str | None, head: str) -> str:
+def _resolve_base(repo_root: Path, base: str | None, head: str, *, ledger_base_ref: str | None = None) -> str:
     """Resolve the diff base (Fix D / §7.5).
 
-    An explicit ``--base`` is honored verbatim. When omitted, default to
-    ``git merge-base origin/main HEAD`` so a branch's delta is its own commits
-    (correct for normal branches; better for stacked branches). Falls back to
-    raw ``origin/main`` when the merge-base cannot be computed.
+    Precedence, most specific first:
+
+    1. an explicit ``--base``, honored verbatim (one invocation);
+    2. ``SCISTUDIO_GATE_BASE`` in the environment (one shell);
+    3. the ledger's recorded ``base_ref`` (the branch's own fact);
+    4. ``origin/main``.
+
+    The chosen upstream is then reduced to ``git merge-base <upstream> HEAD`` so
+    a branch's delta is its own commits, falling back to the raw ref when the
+    merge-base cannot be computed.
+
+    Level 3 is what makes a stacked branch measurable. Before #2143 the only
+    non-default channel was the environment variable, which nothing in the
+    repository ever set, so every local run outside the PR wrappers diffed
+    against ``origin/main`` and read the parent branch's commits as this
+    branch's work.
     """
 
     if base:
         return base
-    return io.resolve_default_base(repo_root, head=head)
+    env_base = os.environ.get(io.GATE_BASE_ENV_VAR, "").strip()
+    upstream = env_base or (ledger_base_ref or "").strip() or None
+    return io.resolve_default_base(repo_root, upstream=upstream, head=head)
 
 
 def _changed_record_paths(repo_root: Path, *, base: str, head: str, mode: str) -> list[Path]:
@@ -410,8 +445,12 @@ def _read_pr_context(repo_root: Path, pr_context_file: str | None) -> dict[str, 
 def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
     effective_mode = mode or getattr(args, "mode", "local") or "local"
     head = getattr(args, "head", "HEAD") or "HEAD"
-    base = _resolve_base(repo_root, getattr(args, "base", None), head)
-    changed_record_paths = _changed_record_paths(repo_root, base=base, head=head, mode=effective_mode)
+    # Ledger discovery needs a base before the ledger exists to be read, so this
+    # first pass cannot consult the recorded ``base_ref``. It only feeds
+    # finalized-record discovery, which ``pre-commit`` answers from the staged
+    # index anyway; the authoritative base is re-resolved with the ledger below.
+    discovery_base = _resolve_base(repo_root, getattr(args, "base", None), head)
+    changed_record_paths = _changed_record_paths(repo_root, base=discovery_base, head=head, mode=effective_mode)
     path, err = _resolve_ledger_path(
         repo_root,
         args.record,
@@ -432,9 +471,10 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
         return _print_outcome(load_err)
     assert ledger is not None
     try:
-        _apply_fields(ledger, args, reason="check")
+        _apply_fields(ledger, args, repo_root=repo_root, reason="check")
     except ValueError as exc:
         return _print_outcome(CommandOutcome(EXIT_USAGE, [str(exc)]))
+    base = _resolve_base(repo_root, getattr(args, "base", None), head, ledger_base_ref=ledger.base_ref)
 
     pr_body = _read_pr_body(repo_root, getattr(args, "pr_body_file", None))
     pr_context = _read_pr_context(repo_root, getattr(args, "pr_context_file", None))
@@ -464,6 +504,16 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
     lines = [
         f"mode={effective_mode} tier={result.strictness_tier} checks={result.required_obligations.checks}",
     ]
+    # State which checks proved only the observed diff and which proved the whole
+    # repository, so the difference is visible rather than implicit (spec
+    # gate-local-incremental-checks FR-009). ci.yml proves the full surface on
+    # the PR regardless.
+    diff_scoped = sorted({e.name for e in result.check_events if e.scope == "diff"})
+    if diff_scoped:
+        lines.append(
+            f"diff-scoped (CI proves the full surface): {', '.join(diff_scoped)}"
+            "  |  --force-checks runs the repository-wide mirror locally"
+        )
     # Loud non-blocking warnings (e.g. --check-na with no force for ci.yml-owned
     # checks, §7.5/Fix B).
     if result.warnings:
@@ -528,7 +578,7 @@ def run_finalize(repo_root: Path, args: Any) -> int:
         return _print_outcome(CommandOutcome(EXIT_USAGE, ["pre-PR finalize requires --pr-body-file"]))
 
     try:
-        _apply_fields(ledger, args, reason="finalize")
+        _apply_fields(ledger, args, repo_root=repo_root, reason="finalize")
     except ValueError as exc:
         return _print_outcome(CommandOutcome(EXIT_USAGE, [str(exc)]))
 
@@ -555,7 +605,7 @@ def run_finalize(repo_root: Path, args: Any) -> int:
     mode = "ci" if is_post_pr and pr_context is not None else "pre-pr"
     pr_body = _read_pr_body(repo_root, getattr(args, "pr_body_file", None))
     head = getattr(args, "head", "HEAD") or "HEAD"
-    base = _resolve_base(repo_root, getattr(args, "base", None), head)
+    base = _resolve_base(repo_root, getattr(args, "base", None), head, ledger_base_ref=ledger.base_ref)
     force_checks = bool(getattr(args, "force_checks", False))
     result = evaluator.reconcile(
         ledger=ledger,

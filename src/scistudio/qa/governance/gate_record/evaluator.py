@@ -57,7 +57,7 @@ _BASELINE_TIER: dict[str, StrictnessTier] = {
 # §7.5 CI command-source table). The ``workflow-gate.yml`` / "Verify Workflow
 # Compliance" job validates GOVERNANCE + guards, NOT this quality matrix: those
 # jobs are authoritative for lint/format/type/test/audit/architecture/import-
-# contracts/frontend/wheel/semantic-dup and run independently. So in ``ci`` mode
+# contracts/frontend/wheel/deferral and run independently. So in ``ci`` mode
 # the shared evaluator must NOT re-require ledger ``check_events`` for these --
 # doing so both duplicates ``ci.yml`` and blocks on evidence the workflow-gate
 # job was never meant to demand. ``local``/``pre-pr`` modes still run them as the
@@ -74,16 +74,14 @@ _CI_OWNED_QUALITY_CHECKS: frozenset[str] = frozenset(
         "import_contracts",
         "frontend",
         "wheel_release_smoke",
-        "semantic_dup",
         "deferral_discipline",
     }
 )
 
-# The two slowest checks (~3min combined: full pytest + src-wide embeddings).
-# pre-commit is a fast local gate, so it skips these — they still run in
-# pre-pr / CI, and the governance guards + fast checks still run at commit time
-# (#1628).
-_PRE_COMMIT_SKIP_CHECKS: frozenset[str] = frozenset({"python_tests", "semantic_dup"})
+# pre-commit is a fast local gate, so it skips the slowest check — it still runs
+# in pre-pr / CI, and the governance guards + fast checks still run at commit
+# time (#1628).
+_PRE_COMMIT_SKIP_CHECKS: frozenset[str] = frozenset({"python_tests"})
 
 # #2150: commit-time git hooks are removed; `git commit` runs nothing. The
 # checks those hooks used to enforce move to the PR-gating modes: the pre-commit
@@ -176,7 +174,6 @@ def _enforce_final_commit_message(
         + "\n  Amend the final commit with a Conventional Commits subject"
         " (`git commit --amend`), e.g. 'fix(#123): short summary'."
     )
-
 
 _CHECK_EVIDENCE_IGNORED_PREFIXES: tuple[str, ...] = (".workflow/records/",)
 _CHECK_FINGERPRINT_VERSION = "gate-check-input-v2"
@@ -610,31 +607,64 @@ def _guard_repair_hint(guard_name: str, report: AuditReport) -> str:
     return "\n".join(lines)
 
 
-def _failed_check_excerpt(repo_root: Path, event: CheckEvent, *, max_lines: int = 50, max_chars: int = 6000) -> str:
-    """Return an indented tail excerpt of a failed check's raw log, or "".
+# Section markers ``checks._write_raw_log`` puts around a captured transcript.
+# Used only to tell "the tool printed nothing" from "the tool printed", so a
+# report-only check is not handed an empty output block.
+_RAW_LOG_MARKERS: frozenset[str] = frozenset({"--- stdout ---", "--- stderr ---"})
 
-    The committed ledger keeps only a one-line ``summary`` + ``raw_log_ref``; this
-    surfaces the actual findings inline in the repair hint so a failing check is
-    actionable without opening the log file (#1628). Tail-biased because most
-    tools (pytest/ruff/mypy) put their error summary last, and full_audit's
-    per-child status table also lands at the tail.
+
+def _failed_check_excerpt(repo_root: Path, event: CheckEvent, *, max_lines: int = 200, max_chars: int = 20000) -> str:
+    """Return the indented failure-detail block for a failed check, or "".
+
+    Two sources feed the block, in order: the structured report a check writes
+    instead of printing (``CheckSpec.report_json``), then a tail of its raw
+    transcript.
+
+    Both were silently lossy before #2143. ``full_audit`` reports only into
+    ``.audit/full-audit.json``, so its transcript is empty and the failure
+    reached the reader with no reason at all while its findings sat unread in
+    that file. And a fixed 50-line tail of a line-oriented tool showed the last
+    few violations of many with nothing saying more existed -- measured at 5 of
+    17 ruff violations -- so each round of fixes revealed only the next few and
+    the check had to be paid for again. The block now renders a report-only
+    check's findings, and the transcript header states how much of the log is
+    shown and where the whole log is.
+
+    Tail-biased because pytest/ruff/mypy put their error summary last.
     """
 
+    blocks: list[str] = []
+
+    summary_lines = checks.report_json_summary(repo_root, event.name)
+    if summary_lines:
+        rendered = "\n".join(f"  | {line}" for line in summary_lines)
+        blocks.append(f"  --- {event.name} findings ---\n{rendered}")
+
     ref = event.raw_log_ref
-    if not ref:
+    log_text = ""
+    if ref:
+        try:
+            log_text = (repo_root / ref).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            log_text = ""
+    lines = log_text.splitlines()
+    # ``lines[0]`` is the ``# <name> (exit N)`` header the writer always emits;
+    # everything after it is the tool's own output.
+    printed_anything = any(line.strip() and line.strip() not in _RAW_LOG_MARKERS for line in lines[1:])
+    if printed_anything:
+        tail = lines[-max_lines:]
+        excerpt = "\n".join(f"  | {line}" for line in tail).rstrip()
+        if len(excerpt) > max_chars:
+            excerpt = "  | ...(truncated)\n" + excerpt[-max_chars:]
+        extent = f"last {len(tail)} of {len(lines)} lines" if len(tail) < len(lines) else f"{len(lines)} lines"
+        blocks.append(f"  --- {event.name} output ({extent}; full log: {ref}) ---\n{excerpt}")
+
+    if not blocks:
         return ""
-    try:
-        text = (repo_root / ref).read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return ""
-    tail = text.splitlines()[-max_lines:]
-    excerpt = "\n".join(f"  | {line}" for line in tail).rstrip()
-    if len(excerpt) > max_chars:
-        excerpt = "  | ...(truncated)\n" + excerpt[-max_chars:]
     # Keep it printable on ANY console: a Windows GBK/cp1252 stdout cannot encode
     # the U+FFFD replacement char that ``errors="replace"`` emits for non-UTF-8
     # log bytes, which would crash ``_print_outcome``'s ``print``. ASCII-clean it.
-    return excerpt.encode("ascii", "replace").decode("ascii")
+    return "\n".join(blocks).encode("ascii", "replace").decode("ascii")
 
 
 def _is_global_check_config_path(path: str) -> bool:
@@ -692,17 +722,37 @@ def _check_input_paths(name: str, changed_files: Sequence[str]) -> list[str]:
     spec = checks.CHECK_CATALOG.get(name)
     if spec is None:
         return normalized
-    if name in {"full_audit", "deferral_discipline"}:
-        return normalized
-    if name == "semantic_dup":
+    if name == "full_audit":
+        # The audit reads docs, source, and its own config. The frontend and
+        # desktop trees carry no frontmatter, governed symbols, or generated
+        # facts it consumes, so a change confined to them cannot alter its
+        # verdict (spec gate-local-incremental-checks FR-007).
+        return [p for p in normalized if not p.startswith(("frontend/", "desktop/"))]
+    if name == "deferral_discipline":
+        # ``scripts/deferral_scan.py`` rglobs ``*.py`` and reads its baseline;
+        # nothing else can move the ratchet (spec FR-007).
         return [
             p
             for p in normalized
-            if surfaces.sentrux_applies_to_changes([p])
-            or p.startswith("docs/audit/baselines/semantic-dup")
+            if p.endswith(".py") or p.startswith("docs/audit/baselines/deferral") or _is_global_check_config_path(p)
+        ]
+    if spec.covered_surface == "python_types":
+        # mypy reads the package it is pointed at, plus its own config.
+        return [
+            p
+            for p in normalized
+            if (p.startswith("src/") and p.endswith((".py", ".pyi")))
+            or p in {"mypy.ini", "pyrightconfig.json"}
             or _is_global_check_config_path(p)
         ]
-    if spec.covered_surface == "python":
+    if spec.covered_surface == "python_imports":
+        # import-linter reads the source tree and its contract config.
+        return [
+            p
+            for p in normalized
+            if (p.startswith("src/") and p.endswith((".py", ".pyi"))) or _is_global_check_config_path(p)
+        ]
+    if spec.covered_surface.startswith("python"):
         return [p for p in normalized if _is_python_check_input(p)]
     if spec.covered_surface == "frontend":
         return [p for p in normalized if _is_frontend_check_input(p)]
@@ -752,11 +802,20 @@ def _valid_prior_check_event(
     *,
     name: str,
     input_fingerprint: str | None,
+    require_repo_scope: bool = False,
 ) -> CheckEvent | None:
-    """Return the newest passing event for ``name`` that still covers this diff."""
+    """Return the newest passing event for ``name`` that still covers this diff.
+
+    ``require_repo_scope`` rejects diff-scoped evidence, so a fast local run can
+    never stand in for a CI-mirror obligation (spec FR-008).
+    """
 
     for event in reversed(ledger.check_events):
-        if event.name == name and checks.event_is_valid_for(event, input_fingerprint=input_fingerprint):
+        if event.name == name and checks.event_is_valid_for(
+            event,
+            input_fingerprint=input_fingerprint,
+            require_repo_scope=require_repo_scope,
+        ):
             return event
     return None
 
@@ -769,6 +828,7 @@ def _validate_prior_check_events(
     only: Sequence[str] | None,
     pr_readiness_mode: bool,
     input_fingerprints: Mapping[str, str | None],
+    require_repo_scope: bool = False,
 ) -> tuple[list[CheckEvent], list[str], list[str]]:
     """Validate reusable check evidence for the current candidate."""
 
@@ -779,7 +839,12 @@ def _validate_prior_check_events(
     if only is not None:
         to_validate = [name for name in to_validate if name in set(only)]
     for name in to_validate:
-        prior = _valid_prior_check_event(ledger, name=name, input_fingerprint=input_fingerprints.get(name))
+        prior = _valid_prior_check_event(
+            ledger,
+            name=name,
+            input_fingerprint=input_fingerprints.get(name),
+            require_repo_scope=require_repo_scope,
+        )
         if prior is not None:
             validated.append(prior)
             continue
@@ -827,6 +892,30 @@ def _select_checks_to_execute(
         else:
             current.append(prior)
     return to_run, current
+
+
+def required_for_mode(required: Sequence[str], *, mode: EvaluatorMode) -> list[str]:
+    """Narrow the tier-selected check set to what THIS caller must prove.
+
+    ``select_checks`` answers which checks the tier requires. This answers which
+    of those the current caller is responsible for proving, given that separate
+    CI jobs own the quality matrix authoritatively on the same PR.
+
+    - ``ci``: the workflow-gate job validates governance and guards, not the
+      ``ci.yml`` quality matrix (§7.5). Re-requiring ledger events for it would
+      duplicate ``ci.yml`` and block on evidence this job was never meant to
+      demand.
+    - ``pre-commit``: a fast local gate that drops the two slowest checks
+      (#1628), so a commit neither proves nor runs them.
+    Every remaining check either has a diff-scoped variant or costs under 20s, so
+    no local mode defers one outright (ADR-042 Addendum 7 §2.5).
+    """
+
+    if mode == "ci":
+        return [name for name in required if name not in _CI_OWNED_QUALITY_CHECKS]
+    if mode == "pre-commit":
+        return [name for name in required if name not in _PRE_COMMIT_SKIP_CHECKS]
+    return list(required)
 
 
 def reconcile(
@@ -945,21 +1034,7 @@ def reconcile(
     selection = checks.select_checks(tier=tier, changed_files=observed_files)
     parity_gaps.extend(selection.parity_gaps)
 
-    # In ci mode the workflow-gate job does NOT own the ci.yml quality matrix
-    # (§7.5): those checks run as separate authoritative ci.yml jobs on the same
-    # PR. Drop them from the required obligations so the shared evaluator does
-    # not re-require ledger check_events for them (which would duplicate ci.yml
-    # and block on evidence the workflow-gate job was never meant to demand).
-    # local / pre-pr keep the full CI-equivalent preflight selection.
-    if mode == "ci":
-        selection.required = [name for name in selection.required if name not in _CI_OWNED_QUALITY_CHECKS]
-
-    # pre-commit is a fast local gate: drop the two slowest checks (#1628). This
-    # removes them from BOTH the required obligations and the executed set below,
-    # so a commit is neither required to prove nor runs them; pre-pr / CI keep the
-    # full selection. Governance guards and the fast checks still run at commit.
-    if mode == "pre-commit":
-        selection.required = [name for name in selection.required if name not in _PRE_COMMIT_SKIP_CHECKS]
+    selection.required = required_for_mode(selection.required, mode=mode)
 
     _add_commit_hygiene_check(selection, mode)
 
@@ -1025,6 +1100,12 @@ def reconcile(
                 # Non-PR-readiness local modes still surface provisioning failures so
                 # the agent sees them, but do not hard-fail a WIP invocation.
                 parity_gaps.extend(parity_report.gaps)
+        # Local modes run each check narrowed to the observed diff; ``ci`` mode
+        # and an explicit ``--force-checks`` run the repository-scoped CI mirror.
+        # ci.yml remains authoritative for the full surface on the same PR, which
+        # is the role split ``_CI_OWNED_QUALITY_CHECKS`` already encodes for the
+        # ci side (spec gate-local-incremental-checks FR-002).
+        execution_scope: Literal["repo", "diff"] = "repo" if (mode == "ci" or force_checks) else "diff"
         for name in to_run:
             event = checks.run_check(
                 repo_root,
@@ -1032,6 +1113,7 @@ def reconcile(
                 changed_files=observed_files,
                 diff_fingerprint=fingerprint,
                 input_fingerprint=input_fps.get(name),
+                scope=execution_scope,
             )
             check_events.append(event)
             ledger.check_events.append(event)
@@ -1073,7 +1155,7 @@ def reconcile(
                 hint = f"- checks.{name}\n  Re-run the check after fixing:\n  {event.command}"
                 excerpt = _failed_check_excerpt(repo_root, event)
                 if excerpt:
-                    hint += f"\n  --- {name} output (tail) ---\n{excerpt}"
+                    hint += f"\n{excerpt}"
                 repair_hints.append(hint)
     elif mode not in ("commit-msg",):
         # Reuse previously recorded passing check evidence instead of executing
@@ -1099,6 +1181,9 @@ def reconcile(
             only=only,
             pr_readiness_mode=pr_readiness_mode,
             input_fingerprints=input_fps,
+            # Diff-scoped evidence proves the changed files, not the surface, so
+            # it never satisfies a CI-mirror obligation (spec FR-008).
+            require_repo_scope=mode == "ci",
         )
         check_events.extend(validated)
         unsatisfied.extend(evidence_gaps)

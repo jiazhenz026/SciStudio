@@ -224,6 +224,25 @@ def validate_connection(
         ):
             return True, ""
 
+    # #2134: two blocks in one project that both write ``from image import
+    # Image`` do not hold the same class object. Each drop-in import runs in a
+    # window that evicts what it added from ``sys.modules`` on exit
+    # (``core.dropins.transient_dropin_modules``, which exists to stop a stale
+    # bare-stem binding leaking across tiers, #2017), so the second import
+    # re-executes ``types/image.py`` and binds a fresh class: same name, same
+    # file, no subclass relation either way. ``issubclass`` above therefore
+    # says no, and the product refuses an edge whose two ports print the same
+    # type — nothing the user can act on.
+    #
+    # ``same_registered_type`` is the product's existing answer to exactly this
+    # (its docstring names the by-path import that causes it), and the save
+    # path already uses it. The port check is the surface that had not been
+    # taught it.
+    for src_type in source_port.accepted_types:
+        for tgt_type in target_port.accepted_types:
+            if same_registered_type(src_type, tgt_type):
+                return True, ""
+
     src_names = [t.__name__ for t in source_port.accepted_types]
     tgt_names = [t.__name__ for t in target_port.accepted_types]
     return False, (

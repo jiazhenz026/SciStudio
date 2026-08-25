@@ -8,6 +8,8 @@ import type {
   GitStatus,
   LogEntry,
   PreviewTarget,
+  PreviewerChoice,
+  PreviewerSpecSummary,
   ProjectResponse,
   ResolvedSubworkflowPorts,
   TypeSummary,
@@ -97,7 +99,7 @@ export interface ProjectSlice {
 /**
  * ADR-053 Learning Center (#2057) — session view state, and nothing else.
  *
- * Spec §4.1 keeps every judgement on the backend, so this slice holds copies of
+ * Spec §4.1 keeps every judgment on the backend, so this slice holds copies of
  * backend answers plus two facts about the panel itself. It replaced
  * `TutorialSlice`, whose eight hardcoded step ids and per-tutorial instance
  * fields were the frontend-as-judge assumption FR-001 removes.
@@ -131,6 +133,25 @@ export interface LearningCenterSlice {
    * whether the offer is still owed.
    */
   learningCenterWorkImportOffer: boolean;
+  /**
+   * #2061 — why the last trigger press failed, or null.
+   *
+   * Held apart from `learningCenterError` because it belongs on the step card
+   * beside the button that failed, and it clears the moment a session
+   * response is adopted — a retry that worked, an advance, a leave.
+   */
+  learningCenterTriggerError: string | null;
+  /**
+   * #2135 — which of the last step's two endings the reader picked.
+   *
+   * `true` means finish and stay in the project; `false`, the default and
+   * the behavior finishing has always had, means open the Learning Center
+   * and close the project behind it. Held in the store rather than passed to
+   * the continue call because the reaction to a finished session lives in
+   * `useLearningCenter`, which never sees the click.
+   */
+  learningCenterStayOnFinish: boolean;
+  setLearningCenterStayOnFinish: (stay: boolean) => void;
   openLearningCenter: () => void;
   closeLearningCenter: () => void;
   setLearningCenterCatalogue: (catalogue: TutorialCatalogueResponse | null) => void;
@@ -151,7 +172,11 @@ export interface LearningCenterSlice {
   startTutorial: (request: TutorialStartRequest) => Promise<void>;
   evaluateActiveTutorialStep: () => Promise<void>;
   continueActiveTutorialStep: () => Promise<void>;
-  reportTutorialUiEvent: (name: string) => Promise<void>;
+  /** #2138 — go back to the step before this one. */
+  backActiveTutorialStep: () => Promise<void>;
+  /** #2061 — run the current step's user-triggered action. */
+  triggerActiveTutorialStep: () => Promise<void>;
+  reportTutorialUiEvent: (name: string, target?: string) => Promise<void>;
   leaveActiveTutorial: () => Promise<void>;
   /** Resolves to the directories the backend reports it deleted. */
   clearTutorialData: () => Promise<string[]>;
@@ -338,9 +363,11 @@ export interface UISlice {
    * reports a project-tree-relevant change. ``ProjectTree`` subscribes to
    * this counter so external edits (e.g. ``write_workflow`` from the
    * embedded agent) trigger an auto-refresh without the user clicking
-   * the Refresh button.
+   * the Reload button.
    */
   projectTreeRefreshCounter: number;
+  /** Fit-the-view requests raised by something that rewrote the graph. */
+  canvasFitRequestCounter: number;
   /**
    * #9 — bumped on a ``blocks.reloaded`` WS event so the app re-fetches the
    * block catalog (palette summaries + per-block schemas) without a manual
@@ -381,6 +408,14 @@ export interface UISlice {
   setFocusDepth: (depth: number) => void;
   bumpUnreadLogs: () => void;
   bumpProjectTreeRefresh: () => void;
+  /**
+   * Bumped when something other than the person rewrote the graph they are
+   * looking at — a tutorial step writing a workflow file. The canvas keeps its
+   * own pan and zoom, so a reader who dragged the view somewhere is left
+   * staring at empty space while the nodes sit off screen. The canvas fits the
+   * view to the graph when this changes.
+   */
+  bumpCanvasFitRequest: () => void;
   bumpBlockCatalogRefresh: () => void;
   togglePalette: () => void;
   togglePreview: () => void;
@@ -434,8 +469,8 @@ export interface TypesSlice {
   /** True once `GET /api/types/` has landed at least once. */
   typesLoaded: boolean;
   /**
-   * FR-051 step 1 — `name → declared colours`, derived from `types` at set
-   * time. `undefined` until the listing lands (FR-067), which the colour
+   * FR-051 step 1 — `name → declared colors`, derived from `types` at set
+   * time. `undefined` until the listing lands (FR-067), which the color
    * resolvers read as "declares nothing" and answer with the pre-ADR-053
    * fallback.
    */
@@ -444,15 +479,45 @@ export interface TypesSlice {
 }
 
 /**
+ * #2113 — the registered previewer catalogue and the person's per-type
+ * previewer choices, one store-held copy each so the Previewers tab, the
+ * websocket invalidation, and the preview re-route all read the same answer.
+ *
+ * Same independence argument as {@link TypesSlice} (ADR-053 FR-027, applied
+ * one tier over by #2095): the Previewers tab must not have to fetch blocks
+ * to draw previewers. Loading is driven by `store/usePreviewerCatalog.ts`.
+ */
+export interface PreviewerCatalogSlice {
+  previewers: PreviewerSpecSummary[];
+  /** True once `GET /api/previews/previewers` has landed at least once. */
+  previewersLoaded: boolean;
+  /** Registry discovery diagnostics reported alongside the listing (#2095). */
+  previewerDiagnostics: string[];
+  previewerChoices: PreviewerChoice[];
+  /** True once `GET /api/previews/choices` has landed at least once. */
+  previewerChoicesLoaded: boolean;
+  /**
+   * Bumped on every choice mutation. `DataPreview` feeds it to `PreviewHost`
+   * as the routing epoch so an open preview re-creates its session — and thus
+   * re-routes through the new choice — instead of sitting on the envelope the
+   * old choice produced.
+   */
+  previewerChoiceVersion: number;
+  setPreviewers: (previewers: PreviewerSpecSummary[], diagnostics: string[]) => void;
+  setPreviewerChoices: (choices: PreviewerChoice[]) => void;
+  bumpPreviewerChoiceVersion: () => void;
+}
+
+/**
  * ADR-034 Phase 1.3: one PTY-backed terminal tab.
  *
  * State machine:
  *   setup   — user picks provider + permission mode, no subprocess yet
  *   running — subprocess + WebSocket alive
- *   closed  — subprocess exited (real or synthesised after reload)
+ *   closed  — subprocess exited (real or synthesized after reload)
  *
  * On launch: provider + permissionMode are filled in.
- * On exit: state -> closed, exitCode set (-1 means synthesised after reload
+ * On exit: state -> closed, exitCode set (-1 means synthesized after reload
  * because the PTY did not survive page unload).
  */
 /**
@@ -576,11 +641,15 @@ export interface TerminalTab {
   errorMessage?: string;
   /**
    * ADR-035 §3.10 — origin of the tab.
-   *   - "user"     (default) — user clicked the `+` button or Ctrl+T
-   *   - "ai-block" — engine spawned the tab on behalf of an AI Block worker
+   *   - "user"            (default) — user clicked the `+` button or Ctrl+T
+   *   - "ai-block"        — engine spawned the tab on behalf of an AI Block worker
+   *   - "tutorial-replay" — the Learning Center adopted a scripted replay tab
+   *     (ADR-053 FR-061a, #2083). Distinct from "ai-block" so it carries no
+   *     Mark-done or block-cancel affordances, and distinct from "user" so the
+   *     replay lifecycle (torn down with the tutorial session) is recognizable.
    * Optional for backwards-compat with persisted tabs from before ADR-035.
    */
-  source?: "user" | "ai-block";
+  source?: "user" | "ai-block" | "tutorial-replay";
   /**
    * ADR-035 §3.10 — id of the originating AI Block run (matches the
    * worker-side `RunDir.run_id`). Used by the Mark-done button to address
@@ -658,6 +727,21 @@ export interface TerminalTabsSlice {
     provider: TerminalProvider;
     permissionMode: "safe" | "dangerous";
   }) => void;
+  /**
+   * ADR-053 FR-061a (#2083) — adopt a tutorial replay tab.
+   *
+   * The tutorial runtime opened a scripted PTY-shaped byte source and named
+   * its tab id in the session response (`session.replay.tab_id`); mounting
+   * the tab opens `WS /api/ai/pty/{tabId}`, which joins that prespawned
+   * session exactly as a Bring In My Work tab joins its own. The provider is
+   * the `user-terminal` pseudo-provider: it is a valid WebSocket query value,
+   * and the join branch never spawns it because the scripted session is
+   * already registered under the tab id. The replay discards keystrokes on
+   * the backend (FR-061a), so the tab is a real tab that ignores typing.
+   *
+   * Idempotent on `tabId`, matching the other two adopters.
+   */
+  adoptTutorialReplayTab: (args: { tabId: string; title: string }) => void;
   /**
    * ADR-035 §3.9 — update the AI Block status for a tab. No-op if the tab
    * does not exist (engine may emit a `block_pty_closed` for a tab the
@@ -1011,6 +1095,8 @@ export type AppStore = ProjectSlice &
   PaletteSlice &
   // ADR-053 §7 — the registered data type catalogue.
   TypesSlice &
+  // #2113 — the registered previewer catalogue + per-type choices.
+  PreviewerCatalogSlice &
   TabSlice &
   TerminalTabsSlice &
   // ADR-038 §3.8 — Lineage tab client state.

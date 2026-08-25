@@ -1,3 +1,10 @@
+# mypy: ignore-errors
+#
+# Mirrors pyproject's `[tool.mypy] exclude = ['/tutorials/core/']`, which the
+# CI-side run honors but the pre-commit hook (explicit file list) does not
+# (#2115): this file ships as project *data* a reader edits, and its
+# unannotated `def render(collection):` is deliberate — a plot script should
+# look like the Python a reader would write.
 """The plot script the Learning Center writes into the tutorial project.
 
 A plot card runs this file and shows whatever ``render`` returns. It is
@@ -42,7 +49,7 @@ def render(collection):
     ax.set_xticklabels([labels[condition] for condition in present], rotation=15, ha="right")
     ax.set_ylabel("Normalized activity")
     ax.set_title("Normalized cell activity")
-    # The two control levels the normalisation pins: 0 is the negative
+    # The two control levels the normalization pins: 0 is the negative
     # control, 1 is the positive control. Every bar is read against them.
     ax.axhline(0, color="#78716c", linewidth=0.8)
     ax.axhline(1, color="#78716c", linewidth=0.8, linestyle="--")

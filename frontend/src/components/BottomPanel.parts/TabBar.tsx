@@ -1,5 +1,6 @@
 import {
   GitBranch,
+  History,
   LineChart,
   MessageSquare,
   Pin,
@@ -7,10 +8,10 @@ import {
   ScrollText,
   SlidersHorizontal,
   Terminal,
-  Waypoints,
 } from "lucide-react";
 import { type ReactNode } from "react";
 
+import { BOTTOM_TAB_TUTORIAL_NAMES } from "../LearningCenter.parts/targets";
 import type { BottomTab } from "../../types/ui";
 
 // Tab labels: a Lucide line icon + text for every tab so the glyphs read
@@ -36,7 +37,11 @@ const TAB_LABELS: Record<BottomTab, ReactNode> = {
   // the prior Jobs placeholder which is removed entirely.
   // #1713 follow-up — display label only is "History" (the BottomTab key and
   // all code stay "lineage"); owner-requested UI rename.
-  lineage: tabLabel(Waypoints, "History"),
+  // #2090 — the icon changed from Waypoints to History (the same glyph newer
+  // lucide releases call rotate-ccw-clock; this lucide version still names it
+  // History): Waypoints now belongs to the activity bar's Workflows section,
+  // and duplicated glyphs across the two rails read as the same destination.
+  lineage: tabLabel(History, "History"),
   // ADR-039 §3.5 (#972) — Git versioning surface moved out of the top
   // Toolbar into a dedicated bottom-panel tab so the commit history /
   // branch graph / merge flows are reachable without overflowing the
@@ -95,6 +100,12 @@ export function TabBar({
               key={tab}
               onClick={() => onTabChange(tab)}
               type="button"
+              // ADR-053 FR-089 -- every tab is addressable, because what a
+              // tutorial points at here is whichever tab that step is about.
+              // The key is the manifest's spelling of the tab, so a step rings
+              // the same word it routed to.
+              data-tutorial-target="bottom_tab"
+              data-tutorial-target-key={BOTTOM_TAB_TUTORIAL_NAMES[tab]}
             >
               {TAB_LABELS[tab]}
               {badge > 0 ? (

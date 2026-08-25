@@ -20,6 +20,7 @@ from scistudio.core.dropins import (
     register_type_scan_dirs,
 )
 from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
 
 
 def _scan_runtime_registry(
@@ -319,13 +320,41 @@ def _effective_params(config: BlockConfig) -> dict[str, Any]:
     return merged
 
 
+def _reads_one_file_at_a_time(loader_cls: type[Any]) -> bool:
+    """True when *loader_cls* leaves multi-file handling to its caller (#2146).
+
+    :class:`~scistudio.blocks.io.SimpleLoader` is deliberately a single-file
+    base class: an author sets three class attributes and implements
+    ``load_file(path, config)`` for one file, and the inherited ``load`` resolves
+    exactly one ``path``. Handing such a loader a list is a runtime error, so the
+    list is fanned out for it here — the same division of labour the six core
+    types already have, where ``_load_array`` and friends each read one file and
+    ``LoadData`` loops.
+
+    A block that implements ``load`` by hand is the other case. It receives the
+    config as written, list included, because it may well want the whole batch at
+    once — to order a z-stack, or to align across files. Fanning that out would
+    quietly take the batch away from it, so this returns ``False`` for anything
+    that overrides ``load``, including a :class:`SimpleLoader` subclass that
+    chooses to.
+    """
+    from scistudio.blocks.io.simple_io import SimpleLoader
+
+    return getattr(loader_cls, "load", None) is SimpleLoader.load
+
+
 def delegate_load(
     *,
     config: BlockConfig,
     output_dir: str,
     core_type: str,
-) -> DataObject:
-    """Load through the package block selected by a core Load capability."""
+) -> DataObject | Collection:
+    """Load through the package block selected by a core Load capability.
+
+    Returns a :class:`Collection` when ``path`` is a list and the selected loader
+    reads one file at a time (#2146); the core ``Load`` block's output port
+    declares that Collection for the same config.
+    """
     from scistudio.blocks.registry import AmbiguousCapabilityError
 
     data_type = resolve_type_class(core_type)
@@ -340,9 +369,53 @@ def delegate_load(
         raise ValueError(f"Load: selected capability {capability.id!r} did not resolve to a package loader.")
     loader_cls = capability_owner_class(registry, capability)
     params = delegate_params(effective, capability)
+    raw_path = params.get("path")
+    if isinstance(raw_path, list) and _reads_one_file_at_a_time(loader_cls):
+        return _delegate_load_each(
+            raw_path,
+            loader_cls=loader_cls,
+            params=params,
+            output_dir=output_dir,
+            empty_item_cls=capability.data_type,
+        )
     loader = loader_cls(config={"params": params})
     with _activated_package_import_roots():
         return cast(DataObject, loader.load(BlockConfig(params=params), output_dir))
+
+
+def _delegate_load_each(
+    path_list: list[Any],
+    *,
+    loader_cls: type[Any],
+    params: dict[str, Any],
+    output_dir: str,
+    empty_item_cls: type[DataObject],
+) -> Collection:
+    """Read each path with its own single-path config and collect the results.
+
+    The load-side counterpart of
+    :func:`~scistudio.blocks.io.savers.save_data._delegate_save_collection`,
+    which treats a Collection as one file per item on the way out. Import roots
+    are activated once around the whole batch rather than per file.
+
+    The item type is inferred from what the loader returned rather than declared
+    from the registry. A drop-in type imported by path is a distinct class object
+    with the same ``__name__`` as the registry's (#1950), and ``Collection``
+    compares item types by identity — declaring the registry's class here fails
+    with ``item[0] is Image, expected Image``. Only an empty list needs a type
+    stated, and it comes from the capability, whose ``data_type`` is the class
+    the loader itself declared.
+    """
+    items: list[DataObject] = []
+    with _activated_package_import_roots():
+        for single_path in path_list:
+            single = dict(params)
+            single["path"] = str(single_path)
+            loader = loader_cls(config={"params": single})
+            items.append(cast(DataObject, loader.load(BlockConfig(params=single), output_dir)))
+    if not items:
+        return Collection(items=[], item_type=empty_item_cls)
+    return Collection(items=items)
 
 
 def delegate_save(

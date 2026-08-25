@@ -19,7 +19,7 @@
  * move together.
  */
 
-import { apiFetch, JSON_HEADERS } from "./core";
+import { ApiError, apiFetch, JSON_HEADERS } from "./core";
 
 /** §6.1.6 — the four discovery sources a tutorial can come from. */
 export type TutorialSourceKind = "core" | "package" | "user" | "project";
@@ -116,16 +116,77 @@ export interface TutorialPrefillView {
   args: Record<string, string>;
 }
 
+/**
+ * FR-011 / #2061 — the step's user-triggered action, as the reader sees it.
+ *
+ * Only the label crosses the wire. What pressing the button does is the
+ * backend's to perform through the trigger route, so nothing here can address
+ * a surface the manifest format cannot (FR-041).
+ */
+export interface TutorialTriggerView {
+  label: string;
+}
+
 export interface TutorialStepView {
   id: string;
   index: number;
   total: number;
   /** FR-011c — the step's own short heading; null falls back to the tutorial's. */
   title: string | null;
-  say: string | null;
-  highlight: TutorialHighlightView | null;
+  /**
+   * FR-011 — what the step says, as the ordered beats it is delivered in:
+   * typically a line or two introducing the material, then the line that
+   * hands over the task. Empty when the step says nothing.
+   */
+  say: string[];
+  /**
+   * FR-011f (#2136) — the expression each beat is delivered with, one per beat,
+   * in the same order as `say`.
+   *
+   * Optional so a fixture written before expressions existed reads as the
+   * default rather than as a type error.
+   */
+  say_moods?: string[];
+  /**
+   * FR-011e — deliver this step as a chat line rather than as a scene. Declared
+   * by the step's author; the surface does not infer it.
+   */
+  /**
+   * FR-011e — which form each beat is delivered in, in the same order as `say`.
+   *
+   * Per beat because a step's lead-in and its instruction often want different
+   * forms: "a block is the basic unit", said about the palette as a whole,
+   * wants the character standing there; "drag Load onto the canvas", said about
+   * one entry in it, wants a chat line beside that entry.
+   */
+  compacts: boolean[];
+  /**
+   * FR-054c (#2136) — this step moves on by itself once its condition holds.
+   *
+   * Optional so a fixture written before it existed reads as "wait", which is
+   * the behaviour every step had.
+   */
+  auto_advance?: boolean;
+  /**
+   * FR-089e (#2136) — what each beat points at, in the same order as `say`.
+   *
+   * Per beat because a step is usually a lead-in and an instruction: ringing
+   * the control the instruction names while the lead-in is still on screen
+   * points at something she has not mentioned yet, which reads as an
+   * instruction and sends the reader off early.
+   */
+  highlights: (TutorialHighlightView | null)[];
   route_to: string | null;
   prefill: TutorialPrefillView[];
+  /**
+   * FR-011 — the reading pages this step presents, in order. Names the pages
+   * route serves; the reading surface fetches content as the reader turns.
+   * Optional in the type so older fixtures and cached responses stay valid;
+   * the backend always sends it.
+   */
+  pages?: string[];
+  /** FR-011 / #2061 — the step's user-triggered action, when it declares one. */
+  trigger?: TutorialTriggerView | null;
   awaiting_continue: boolean;
   /**
    * FR-054a — whether this step's condition holds right now.
@@ -143,6 +204,20 @@ export interface TutorialReplayView {
   tab_id: string;
 }
 
+/**
+ * One row of the session's read-only step outline: the inert subset of a step
+ * — index, id, title, say, pages — so the reading window can show every card
+ * name up front. For a sequential tutorial, a row is behind the reader exactly
+ * when its index is smaller than the current step's.
+ */
+export interface TutorialStepOutline {
+  index: number;
+  id: string;
+  title: string | null;
+  say: string[];
+  pages: string[];
+}
+
 export interface TutorialSessionResponse {
   source_kind: TutorialSourceKind;
   source_id: string;
@@ -152,9 +227,26 @@ export interface TutorialSessionResponse {
   project_path: string | null;
   step: TutorialStepView | null;
   satisfied_step_ids: string[];
+  /**
+   * #2138 — whether an earlier step is reachable.
+   *
+   * Optional so older fixtures and a backend that predates the trail both read
+   * as "nowhere to go back to" rather than as a type error.
+   */
+  can_go_back?: boolean;
+  /**
+   * #2138 — whether the reader has walked back and is behind their furthest step.
+   *
+   * A revisited step reports `satisfied` whatever its condition now says, so a
+   * surface that reads `satisfied` as "you just did this" needs this to tell
+   * the two apart.
+   */
+  revisiting?: boolean;
   status: "active" | "complete" | "error";
   error: string | null;
   replay: TutorialReplayView | null;
+  /** The whole tutorial's read-only step outline; optional for older fixtures. */
+  steps?: TutorialStepOutline[];
 }
 
 export interface TutorialStartRequest {
@@ -233,17 +325,47 @@ export const learningCenterApi = {
    * The only completion path that originates in the frontend, and it exists
    * because some product actions (enlarging a panel, opening a tab) leave no
    * backend state for a condition to read.
+   *
+   * `target` is what the event acted on, for the events that declare a target
+   * argument (#2063): the block type behind `node_selected` and
+   * `block_source_viewed`, the plot id behind `plot_rendered`. The pairing is
+   * core-owned (`scistudio.tutorials.conditions.UI_EVENT_SPECS`); a bare name
+   * stays a complete report for every event.
    */
-  reportTutorialUiEvent: (name: string) =>
+  reportTutorialUiEvent: (name: string, target?: string) =>
     apiFetch<TutorialSessionResponse>("/api/tutorials/sessions/active/ui-event", {
       method: "POST",
       headers: JSON_HEADERS,
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(target === undefined ? { name } : { name, target }),
+    }),
+
+  /**
+   * #2061 — run the current step's user-triggered action.
+   *
+   * The backend performs the trigger's actions and settles the registries
+   * before answering, so whatever the button claimed to do has happened by
+   * the time the response renders. A failure leaves the session on the same
+   * step and the press can be retried.
+   */
+  triggerActiveTutorialStep: () =>
+    apiFetch<TutorialSessionResponse>("/api/tutorials/sessions/active/trigger", {
+      method: "POST",
     }),
 
   /** FR-012 — advance a reading step the user has finished reading. */
   continueActiveTutorialStep: () =>
     apiFetch<TutorialSessionResponse>("/api/tutorials/sessions/active/continue", {
+      method: "POST",
+    }),
+
+  /**
+   * #2138 — go back to the step before this one.
+   *
+   * A cursor move over steps already entered, so nothing is re-run. A press
+   * with nowhere to go returns the current step unchanged.
+   */
+  backActiveTutorialStep: () =>
+    apiFetch<TutorialSessionResponse>("/api/tutorials/sessions/active/back", {
       method: "POST",
     }),
 
@@ -267,3 +389,51 @@ export const learningCenterApi = {
 
   dismissTutorialUnlock: () => apiFetch<void>("/api/tutorials/unlock/dismiss", { method: "POST" }),
 };
+
+// ---------------------------------------------------------------------------
+// Reading pages (#2084)
+//
+// A reading tutorial's step content lives in markdown pages under the
+// tutorial's `assets/pages/`, served by
+// `GET /api/tutorials/{source_kind}/{source_id}/{tutorial_id}/pages/{name}`.
+// Serving IS progress: the backend records `page_reached` for the served page
+// (see `_page` in `scistudio/api/routes/tutorials.py`), and that record is the
+// only thing that satisfies a reading step's condition. The frontend never
+// reports "the user read this" separately — asking for the page is the report.
+//
+// These live outside `learningCenterApi` deliberately: pages are text, not
+// JSON, so they cannot go through `apiFetch`, and the reading surface passes
+// `fetchTutorialPage` around as a plain function.
+// ---------------------------------------------------------------------------
+
+/** The triple addressing one tutorial's assets (§6.1.6 catalogue entry key). */
+export interface TutorialAssetKey {
+  source_kind: string;
+  /** `""` for core — the URL keeps its empty middle segment, which the
+   * backend routes explicitly (`/{source_kind}//{tutorial_id}/...`). */
+  source_id: string;
+  id: string;
+}
+
+/** The URL of one reading page, named without its extension. */
+export function tutorialPageUrl(key: TutorialAssetKey, page: string): string {
+  const kind = encodeURIComponent(key.source_kind);
+  const source = encodeURIComponent(key.source_id);
+  const tutorial = encodeURIComponent(key.id);
+  return `/api/tutorials/${kind}/${source}/${tutorial}/pages/${encodeURIComponent(page)}`;
+}
+
+/**
+ * Fetch one reading page's markdown.
+ *
+ * Callers that care about progress follow a successful fetch with
+ * `evaluateActiveTutorialStep`, because the backend records the page on serve
+ * but only re-judges the step when asked.
+ */
+export async function fetchTutorialPage(key: TutorialAssetKey, page: string): Promise<string> {
+  const response = await fetch(tutorialPageUrl(key, page));
+  if (!response.ok) {
+    throw new ApiError(`Could not load page "${page}" (HTTP ${response.status})`, response.status);
+  }
+  return await response.text();
+}

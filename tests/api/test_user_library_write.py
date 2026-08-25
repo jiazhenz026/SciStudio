@@ -22,13 +22,15 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from scistudio.api.runtime import ApiRuntime
-from scistudio.core.dropins import user_blocks_dir, user_types_dir
+from scistudio.core.dropins import user_blocks_dir, user_previewers_dir, user_types_dir
+from tests.helpers import link_to_directory
 
 PROBE_BLOCK = '''\
 from typing import Any, ClassVar
@@ -58,6 +60,21 @@ from scistudio.core.types.base import DataObject
 class WrittenProbeType(DataObject):
     """Type written through the user library endpoint."""
 '''
+
+PROBE_PREVIEWER = """\
+from scistudio.previewers.models import OwnerKind, PreviewerSpec
+
+
+def get_previewers():
+    return [
+        PreviewerSpec(
+            previewer_id="test.written.viewer",
+            owner_kind=OwnerKind.USER,
+            owner_name="user-library",
+            target_type="WrittenProbeType",
+        )
+    ]
+"""
 
 
 def _put(
@@ -106,6 +123,16 @@ def test_write_lands_in_the_user_types_directory(client: TestClient) -> None:
     assert response.status_code == 200, response.text
     assert Path(response.json()["path"]) == user_types_dir() / "my_type.py"
     assert not (user_blocks_dir() / "my_type.py").exists()
+
+
+def test_write_lands_in_the_user_previewers_directory(client: TestClient) -> None:
+    """The third target (#2086): a previewer promotes through the same door."""
+    response = _put(client, target="previewers", filename="my_viewer.py", content=PROBE_PREVIEWER)
+    assert response.status_code == 200, response.text
+    assert response.json()["target"] == "previewers"
+    assert Path(response.json()["path"]) == user_previewers_dir() / "my_viewer.py"
+    assert not (user_blocks_dir() / "my_viewer.py").exists()
+    assert not (user_types_dir() / "my_viewer.py").exists()
 
 
 def test_the_target_is_never_inferred_from_content(client: TestClient) -> None:
@@ -188,32 +215,6 @@ def test_a_symlink_escaping_the_library_is_refused(client: TestClient, tmp_path:
     assert victim.read_text(encoding="utf-8") == "original\n"
 
 
-def _link_to_directory(link: Path, target: Path) -> None:
-    """Point *link* at directory *target*, or skip if the OS refuses.
-
-    Creating a symlink on Windows needs a privilege CI agents and developer
-    machines usually lack, but a **directory junction** does not and
-    ``os.path.realpath`` follows it identically. Falling back to one keeps the
-    escape case covered on the platform this repository is developed on rather
-    than deferring it to Linux CI.
-    """
-    try:
-        link.symlink_to(target, target_is_directory=True)
-        return
-    except (OSError, NotImplementedError):
-        if sys.platform != "win32":
-            pytest.skip("symlink creation is not permitted in this environment")
-    import subprocess
-
-    result = subprocess.run(
-        ["cmd", "/c", "mklink", "/J", str(link), str(target)],
-        capture_output=True,
-        check=False,
-    )
-    if result.returncode != 0 or not link.exists():
-        pytest.skip("neither a symlink nor a directory junction can be created here")
-
-
 def test_a_linked_subdirectory_cannot_smuggle_a_nested_write(client: TestClient, tmp_path: Path) -> None:
     """FR-007: the file must land *directly* in the target root.
 
@@ -225,7 +226,7 @@ def test_a_linked_subdirectory_cannot_smuggle_a_nested_write(client: TestClient,
     outside.mkdir()
     root = user_blocks_dir()
     root.mkdir(parents=True, exist_ok=True)
-    _link_to_directory(root / "linked.py", outside)
+    link_to_directory(root / "linked.py", outside)
     assert _put(client, target="blocks", filename="linked.py", overwrite=True).status_code == 403
     assert not (outside / "linked.py").exists()
 
@@ -254,7 +255,7 @@ def test_a_link_to_a_deeper_directory_inside_the_root_is_refused(client: TestCli
     root = user_blocks_dir()
     inner = root / "inner" / "sub"
     inner.mkdir(parents=True, exist_ok=True)
-    _link_to_directory(root / "deep.py", inner)
+    link_to_directory(root / "deep.py", inner)
 
     response = _put(client, target="blocks", filename="deep.py", overwrite=True)
     assert response.status_code == 403, response.text
@@ -544,10 +545,50 @@ def test_a_written_block_is_discoverable_without_a_restart(client: TestClient, r
     assert written["test.written_probe"]["origin"] == "user"
 
 
+def test_a_promotion_tells_open_clients_the_registries_changed(client: TestClient, runtime: ApiRuntime) -> None:
+    """FR-062: refreshing is half of it — the clients have to be told.
+
+    Every other caller that rebuilds the registries emits ``blocks.reloaded``
+    afterwards, and the frontend hangs real behaviour off it: the palette and
+    the type and previewer catalogues re-read themselves, and the Learning
+    Center re-judges the conditions that turn on what the registries hold.
+    Promotion did not send it, so a tutorial step waiting on
+    ``library_contains`` stayed unsatisfied until the reader pressed "Check
+    again" — the product had done the thing and had not said so.
+    """
+    emitted: list[Any] = []
+
+    class _Recorder:
+        async def emit(self, event: Any) -> None:
+            emitted.append(event)
+
+    runtime.event_bus = _Recorder()
+
+    response = _put(client, target="blocks", filename="announced_probe.py", content=PROBE_BLOCK)
+    assert response.status_code == 200, response.text
+
+    reloads = [event for event in emitted if event.event_type == "blocks.reloaded"]
+    assert len(reloads) == 1, "one announcement per write, not none and not one per registry"
+    assert reloads[0].data["reloaded"] == ["announced_probe.py"]
+
+
 def test_a_written_type_is_discoverable_without_a_restart(client: TestClient, runtime: ApiRuntime) -> None:
     assert "WrittenProbeType" not in runtime.type_registry.all_types()
     assert _put(client, target="types", filename="written_probe_type.py", content=PROBE_TYPE).status_code == 200
     assert "WrittenProbeType" in runtime.type_registry.all_types()
+
+
+def test_a_written_previewer_is_discoverable_without_a_restart(client: TestClient, runtime: ApiRuntime) -> None:
+    """FR-010 for the third target (#2086): the refresh reaches the preview service."""
+
+    def _previewer_ids() -> set[str]:
+        return {spec.previewer_id for spec in runtime.get_preview_service().registry.all_specs()}
+
+    assert "test.written.viewer" not in _previewer_ids()
+    response = _put(client, target="previewers", filename="written_viewer.py", content=PROBE_PREVIEWER)
+    assert response.status_code == 200, response.text
+    assert response.json()["registries_refreshed"] is True
+    assert "test.written.viewer" in _previewer_ids()
 
 
 # ---------------------------------------------------------------------------

@@ -95,6 +95,10 @@ export function DataPreview({
   const previewEnvelopeCache = useAppStore((s) => s.previewEnvelopeCache);
   const cachePreviewEnvelope = useAppStore((s) => s.cachePreviewEnvelope);
   const workflowId = useAppStore((s) => s.workflowId);
+  // #2113 — the routing epoch: a per-type previewer choice change bumps it,
+  // and PreviewHost re-creates the open session so the new choice applies to
+  // the preview already on screen rather than only to the next one.
+  const previewerChoiceVersion = useAppStore((s) => s.previewerChoiceVersion);
 
   const target: PreviewTarget | null = activeEntry
     ? {
@@ -209,6 +213,7 @@ export function DataPreview({
     <PreviewHost
       target={activePlot ?? target}
       initialQuery={activePlot ? undefined : activeEntry?.initialQuery}
+      routingEpoch={previewerChoiceVersion}
       getCachedEnvelope={(key) => previewEnvelopeCache[key]}
       cacheEnvelope={cachePreviewEnvelope}
       buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}

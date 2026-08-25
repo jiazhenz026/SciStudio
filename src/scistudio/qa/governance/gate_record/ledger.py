@@ -155,6 +155,14 @@ class CheckEvent(BaseModel):
     command: str
     tool_versions: Mapping[str, str] = Field(default_factory=dict)
     covered_surface: str
+    # Which command variant produced this event. ``repo`` is the CI-mirror
+    # command over the whole repository; ``diff`` is the local variant narrowed
+    # to the observed diff. A ``diff`` event is a fast local signal, not proof of
+    # the full surface, so ``ci`` mode never accepts one in place of a CI-mirror
+    # obligation (spec gate-local-incremental-checks, FR-001 and FR-008).
+    # Defaults to ``repo`` so ledgers written before this field existed keep
+    # their original meaning.
+    scope: Literal["repo", "diff"] = "repo"
     input_fingerprint: str | None = None
     exit_code: int | None = None
     status: Literal["pass", "fail", "skipped", "unknown"] = "unknown"
@@ -315,6 +323,15 @@ class GateLedger(BaseModel):
     strictness_tier: StrictnessTier | None = None
     persona: Persona
     branch: str
+    # The ref this branch's delta is measured against when no one-shot
+    # ``--base`` and no ``SCISTUDIO_GATE_BASE`` are supplied. A branch stacked
+    # on another feature or track branch is the case that needs it: measured
+    # against ``origin/main`` its parent's commits are attributed to this
+    # branch, producing false out-of-scope findings, a wrong tier, and guard
+    # hits on files it never touched (#2143). Recorded here rather than left
+    # to an environment variable so the base a run used is auditable evidence
+    # like every other gate fact.
+    base_ref: str | None = None
     owner_directive: str
     governance_touch: bool = False
     declared_scope: DeclaredScope = Field(default_factory=DeclaredScope)

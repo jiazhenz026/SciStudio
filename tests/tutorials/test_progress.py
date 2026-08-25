@@ -16,6 +16,7 @@ import pytest
 from scistudio.core import dropins
 from scistudio.tutorials.progress import (
     CONFIG_FILENAME,
+    DEFAULT_WORK_IMPORT_MILESTONE,
     PROGRESS_FILENAME,
     WORK_IMPORT_MILESTONE_ENV_VAR,
     CatalogueTotals,
@@ -229,9 +230,10 @@ def test_the_milestone_is_configuration_not_a_constant(store: ProgressStore, mon
 
     The scenarios spec decides which tutorial this is and may change it later,
     so the value comes from configuration: an environment variable first, then
-    the Learning Center settings file.
+    the Learning Center settings file, then the shipped default — which is no
+    longer unset (#2083 names core tutorial 4 as the milestone).
     """
-    assert work_import_milestone() is None
+    assert work_import_milestone() == DEFAULT_WORK_IMPORT_MILESTONE
 
     (store.root).mkdir(parents=True, exist_ok=True)
     (store.root / CONFIG_FILENAME).write_text(json.dumps({"work_import_milestone": "ai-agent"}), encoding="utf-8")
@@ -287,12 +289,46 @@ def test_only_the_core_group_can_drive_the_unlock(store: ProgressStore, monkeypa
     assert store.work_import_offer_pending() is True
 
 
-def test_an_unconfigured_milestone_never_volunteers_the_offer(store: ProgressStore) -> None:
-    """FR-081: an unconfigured milestone withholds a prompt, not a capability."""
+def test_an_unconfigured_milestone_never_volunteers_the_offer(
+    store: ProgressStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FR-081: an unconfigured milestone withholds a prompt, not a capability.
+
+    The shipped default now names a tutorial (#2083), so "unconfigured" is
+    simulated by clearing it — the behavior under test is the ``None`` branch,
+    which remains reachable through configuration.
+    """
+    monkeypatch.setattr("scistudio.tutorials.progress.DEFAULT_WORK_IMPORT_MILESTONE", None)
     store.mark_completed(TutorialKey.core("ai-agent"))
 
     assert work_import_milestone() is None
     assert store.work_import_offer_pending() is False
+
+
+def test_the_shipped_milestone_names_a_tutorial_that_exists(store: ProgressStore) -> None:
+    """A milestone nobody can reach is worse than none at all.
+
+    The offer fires when the named tutorial is completed, so a default naming a
+    tutorial that does not ship is a promise that can never come due — and
+    nothing would say why. #2083 sets this to ``what-ai-can-do`` when core
+    tutorial 4 ships; until then it is unset, and the tests above cover the
+    mechanism with a milestone they configure themselves.
+    """
+    from pathlib import Path as _Path
+
+    if DEFAULT_WORK_IMPORT_MILESTONE is None:
+        assert store.work_import_offer_pending() is False
+        store.mark_completed(TutorialKey.core("welcome-to-scistudio"))
+        assert store.work_import_offer_pending() is False
+        return
+
+    core = _Path(__file__).resolve().parents[2] / "src" / "scistudio" / "tutorials" / "core"
+    assert (core / DEFAULT_WORK_IMPORT_MILESTONE / "tutorial.yaml").is_file(), (
+        f"the shipped milestone names {DEFAULT_WORK_IMPORT_MILESTONE!r}, which is not a shipped tutorial"
+    )
+
+    store.mark_completed(TutorialKey.core(DEFAULT_WORK_IMPORT_MILESTONE))
+    assert store.work_import_offer_pending() is True
 
 
 def test_clearing_removes_progress_and_the_unlock_state(store: ProgressStore, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -26,7 +26,7 @@
  */
 
 import { BookOpen, Loader2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   learningCenterApi,
@@ -37,6 +37,8 @@ import { useAppStore } from "../store";
 import { learningCenterTabs, READING_TAB_ID, tutorialEntryKey } from "../store/learningCenterSlice";
 
 import { GroupProgress } from "./LearningCenter.parts/GroupProgress";
+import { findSessionEntry } from "./LearningCenter.parts/readingCards";
+import { ReadingSurface } from "./LearningCenter.parts/ReadingSurface";
 import { TutorialDetail } from "./LearningCenter.parts/TutorialDetail";
 import { TutorialList } from "./LearningCenter.parts/TutorialList";
 
@@ -57,11 +59,11 @@ export const TEMPORARY_PROJECTS_NOTICE =
 export const LEARNING_CENTER_ENTRY_LABEL = "Learning Center";
 
 /*
- * TODO(#2057): the card-turning surface a reading tutorial is shown in is not
- *   built; a reading tutorial currently runs through the ordinary step view.
- *   Out of scope per the owner's 2026-08-10 decision to add the Reading tab
- *   ahead of the core summary tutorial that will fill it.
- *   Followup: https://github.com/jiazhenz026/SciStudio/issues/2057
+ * The card-turning surface a reading tutorial runs in is `ReadingSurface`
+ * (#2084, closing the TODO(#2057) that used to sit here): while a reading
+ * session is active, this component renders that window in place of the
+ * catalogue, and the floating step card stays hidden because the panel is
+ * open. This message is only for the Reading tab's empty list.
  */
 const READING_TAB_EMPTY_MESSAGE = "Reading tutorials will appear here.";
 
@@ -75,6 +77,7 @@ export function LearningCenter() {
   const error = useAppStore((state) => state.learningCenterError);
   const startConflict = useAppStore((state) => state.learningCenterStartConflict);
   const closeLearningCenter = useAppStore((state) => state.closeLearningCenter);
+  const openLearningCenter = useAppStore((state) => state.openLearningCenter);
   const refresh = useAppStore((state) => state.refreshLearningCenter);
   const startTutorial = useAppStore((state) => state.startTutorial);
   const leaveActiveTutorial = useAppStore((state) => state.leaveActiveTutorial);
@@ -177,7 +180,49 @@ export function LearningCenter() {
     setClearPreview(preview.directories);
   }, []);
 
+  /*
+   * The reading window (#2084). A running reading tutorial renders as a
+   * window of cards rather than the floating step card — `reading` is the
+   * backend's derived answer (`TutorialManifest.is_reading_only`), read off
+   * the session's own catalogue entry.
+   */
+  const readingEntry = useMemo(() => {
+    if (!session || session.status !== "active") return null;
+    const entry = findSessionEntry(catalogue, session);
+    return entry?.reading ? entry : null;
+  }, [catalogue, session]);
+
+  /*
+   * A reading session opens its own window. `startTutorial` closes the panel
+   * for every tutorial — right for hands-on ones, whose first step points at
+   * the canvas the panel would cover — so a reading session reopens it, once
+   * per session, keyed on the session's identity: the reader can still close
+   * the window and not have it snap back, and a session resumed on a later
+   * launch surfaces the same way the floating card does for hands-on work.
+   */
+  const readingAutoOpened = useRef<string | null>(null);
+  useEffect(() => {
+    if (!readingEntry || !session) return;
+    const key = tutorialEntryKey({
+      source_kind: session.source_kind,
+      source_id: session.source_id,
+      id: session.tutorial_id,
+    });
+    if (readingAutoOpened.current === key) return;
+    readingAutoOpened.current = key;
+    if (!open) openLearningCenter();
+  }, [readingEntry, session, open, openLearningCenter]);
+
   if (!open) return null;
+
+  /*
+   * The reading window replaces the catalogue while its tutorial runs; the
+   * catalogue comes back the moment the session completes or is left, which
+   * is where completion lands the reader (`useLearningCenter`).
+   */
+  if (readingEntry && session) {
+    return <ReadingSurface entry={readingEntry} onClose={closeLearningCenter} session={session} />;
+  }
 
   return (
     <div

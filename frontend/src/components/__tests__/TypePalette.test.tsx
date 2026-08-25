@@ -8,6 +8,7 @@
 // "drag me onto the canvas" and a type cannot be dragged anywhere.
 
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resolveTypeColor } from "../../config/typeColorMap";
@@ -20,9 +21,11 @@ import { TypePalette } from "../TypePalette";
 import type { TypeSummary } from "../../types/api";
 
 const listTypes = vi.fn();
+const reloadTypes = vi.fn();
 vi.mock("../../lib/api/code", () => ({
   codeApi: {
     listTypes: () => listTypes(),
+    reloadTypes: () => reloadTypes(),
   },
 }));
 
@@ -102,12 +105,14 @@ beforeEach(() => {
   resetAppStore();
   resetTypeCatalogLoader();
   listTypes.mockResolvedValue({ types: [] });
+  reloadTypes.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
   listTypes.mockReset();
+  reloadTypes.mockReset();
 });
 
 describe("Data types tab — structure (FR-039, FR-040)", () => {
@@ -345,5 +350,45 @@ describe("Data types tab — loading and reload (FR-027, FR-067)", () => {
     });
     expect(listTypes).toHaveBeenCalledTimes(2);
     expect(rows()).toHaveLength(2);
+  });
+});
+
+describe("Data types tab — auto-reload on tab switch (#2151)", () => {
+  it("rescans once when the tab mounts over an already-loaded (possibly stale) catalogue", async () => {
+    // The revisit: the store still holds the last listing, which is exactly
+    // the cache a delete outside the registry-refresh paths leaves stale.
+    act(() => {
+      useAppStore.getState().setTypes([array, series]);
+    });
+    listTypes.mockResolvedValue({ types: [array] });
+    render(<TypePalette />);
+    await act(async () => {});
+    expect(reloadTypes).toHaveBeenCalledTimes(1);
+    expect(listTypes).toHaveBeenCalledTimes(1);
+    // The deleted type disappears without anyone pressing Reload.
+    expect(rows().map((row) => row.textContent)).toEqual(["Array"]);
+  });
+
+  it("does not rescan on the first ever mount — the plain load is already fetching", async () => {
+    listTypes.mockResolvedValue({ types: [array] });
+    render(<TypePalette />);
+    await act(async () => {});
+    expect(reloadTypes).not.toHaveBeenCalled();
+    expect(listTypes).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays at one rescan under StrictMode's mount-effect replay (#2153 review)", async () => {
+    act(() => {
+      useAppStore.getState().setTypes([array]);
+    });
+    listTypes.mockResolvedValue({ types: [array] });
+    render(
+      <StrictMode>
+        <TypePalette />
+      </StrictMode>,
+    );
+    await act(async () => {});
+    expect(reloadTypes).toHaveBeenCalledTimes(1);
+    expect(listTypes).toHaveBeenCalledTimes(1);
   });
 });

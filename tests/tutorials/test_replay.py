@@ -55,7 +55,9 @@ class RecordingDelivery:
         landed: tuple[str, ...] = ()
         if self.project_dir is not None:
             landed = tuple(
-                sorted(str(p.relative_to(self.project_dir)) for p in self.project_dir.rglob("*") if p.is_file())
+                # as_posix(): the ordering assertions name these paths with "/",
+                # and str() would use the OS separator on Windows (#2075).
+                sorted(p.relative_to(self.project_dir).as_posix() for p in self.project_dir.rglob("*") if p.is_file())
             )
         self.log.append((segment.id, payload.decode("utf-8"), landed))
 
@@ -67,8 +69,11 @@ class RecordingDelivery:
 def replay_context(tmp_path: Path) -> ActionContext:
     tutorial = tmp_path / "tutorial"
     (tutorial / "assets" / "replay").mkdir(parents=True)
-    (tutorial / "assets" / "replay" / "one.txt").write_text("I will write the block.\n", encoding="utf-8")
-    (tutorial / "assets" / "replay" / "two.txt").write_text("I have written the block.\n", encoding="utf-8")
+    # Bytes, not text mode: the tests compare the delivered payloads
+    # against these POSIX literals, and text mode would write CRLF on
+    # Windows (#2075).
+    (tutorial / "assets" / "replay" / "one.txt").write_bytes(b"I will write the block.\n")
+    (tutorial / "assets" / "replay" / "two.txt").write_bytes(b"I have written the block.\n")
     (tutorial / "assets" / "code").mkdir(parents=True)
     (tutorial / "assets" / "code" / "cluster.py").write_text("def run():\n    return 1\n", encoding="utf-8")
     project = tmp_path / "project"
@@ -288,3 +293,48 @@ def test_ending_a_replay_can_close_the_scripted_session(replay_context: ActionCo
     assert delivery.closed is False
     delivery.close()
     assert delivery.closed is True
+
+
+# ---------------------------------------------------------------------------
+# continue_tab (#2089, FR-061)
+# ---------------------------------------------------------------------------
+
+
+def test_continue_tab_parses_and_defaults_to_false() -> None:
+    from scistudio.tutorials.actions import ReplayAction, parse_action
+
+    plain = parse_action(
+        {"replay": {"surface": "ai_chat_terminal", "segments": [{"id": "s1", "source": "assets/replay/s1.txt"}]}},
+        field_name="steps[0].do[0]",
+    )
+    assert isinstance(plain, ReplayAction)
+    assert plain.continue_tab is False
+
+    appended = parse_action(
+        {
+            "replay": {
+                "surface": "ai_chat_terminal",
+                "continue_tab": True,
+                "segments": [{"id": "s2", "source": "assets/replay/s2.txt"}],
+            }
+        },
+        field_name="steps[0].do[0]",
+    )
+    assert isinstance(appended, ReplayAction)
+    assert appended.continue_tab is True
+
+
+def test_continue_tab_must_be_a_boolean() -> None:
+    from scistudio.tutorials.actions import ActionValidationError, parse_action
+
+    with pytest.raises(ActionValidationError, match="continue_tab"):
+        parse_action(
+            {
+                "replay": {
+                    "surface": "ai_chat_terminal",
+                    "continue_tab": "yes",
+                    "segments": [{"id": "s1", "source": "assets/replay/s1.txt"}],
+                }
+            },
+            field_name="steps[0].do[0]",
+        )

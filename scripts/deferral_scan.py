@@ -5,7 +5,7 @@ AGENTS.md §3.6 requires every deferral to cite a tracking reference
 phrases like ``for now`` / ``placeholder`` / ``v1`` / ``temporary`` that
 defer work *without* a reference are not trackable and must be caught.
 
-This mirrors ``scripts/semantic_dup_scan.py``: a baseline-ratchet whole-repo
+A baseline-ratchet whole-repo
 gate plus a diff-scoped gate, both wired into CI and the gate-record check.
 
 A hit is **tracked** (allowed) only when its line carries a tracking

@@ -2,7 +2,7 @@
 //
 // Specs:
 //   docs/specs/adr-053-personal-tool-library.md §9.2 (FR-039 – FR-043),
-//     §7.1 FR-051 (colour precedence), §10.1 (shared helpers, FR-047),
+//     §7.1 FR-051 (color precedence), §10.1 (shared helpers, FR-047),
 //     §9.3 (FR-044 – FR-046 interactive popover).
 //   docs/specs/frontend-block-palette.md §11.
 //
@@ -20,7 +20,7 @@
 // blocks as props: refreshing types must not mean refreshing the palette, and
 // drawing types must not require a blocks request.
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { resolveRingColor, resolveTypeColor } from "../config/typeColorMap";
 import { useReloadFlash } from "../hooks/useReloadFlash";
@@ -139,7 +139,7 @@ function SectionView({
  *
  * The chip vocabulary stays surface-owned (§10.1): the Blocks tab supplies its
  * base categories, and a type's analogue is the core base family it descends
- * from. Each chip is tinted with that family's own resolved colour, so the
+ * from. Each chip is tinted with that family's own resolved color, so the
  * chip row is also a legend for the row swatches under it.
  */
 function familyChips(
@@ -160,6 +160,25 @@ function familyChips(
 
 export function TypePalette() {
   const { types, loaded, declared, reload } = useTypeCatalog();
+  // #2151 — ProjectWorkspace mounts this pane only while the tab is active,
+  // so mounting *is* "switching to the Data types tab". A mount that finds the
+  // catalogue already loaded is a revisit holding a possibly stale cache: a
+  // type deleted outside the registry-refresh write paths (no
+  // `blocks.reloaded` event) stayed listed until someone pressed Reload by
+  // hand. Do one automatic rescan — the same path the Reload button drives.
+  // A first-ever mount skips it, because the hook's own load is already
+  // fetching; the store is read imperatively so the effect sees the
+  // mount-time snapshot rather than subscribing to `loaded` flipping true.
+  // The ref latch keeps it to one rescan under StrictMode's dev effect
+  // replay, which re-runs mount effects on the same instance (#2153 review).
+  const didAutoReload = useRef(false);
+  useEffect(() => {
+    if (didAutoReload.current) return;
+    didAutoReload.current = true;
+    if (useAppStore.getState().typesLoaded) {
+      void reload();
+    }
+  }, [reload]);
   const [search, setSearch] = useState("");
   const [activeFamilies, setActiveFamilies] = useState<string[]>([]);
   // FR-044/FR-046: B3's shared hover state machine, the same one the Blocks
@@ -174,7 +193,7 @@ export function TypePalette() {
 
   const hierarchy = useMemo(() => typeHierarchyFrom(types), [types]);
   // FR-041 + FR-051: one resolution, shared with the canvas port handles. The
-  // declared colour (FR-050) wins, then `typeColorMap`, then the hash
+  // declared color (FR-050) wins, then `typeColorMap`, then the hash
   // fallback; `declared` is `undefined` until the listing lands (FR-067).
   const swatchFor = useMemo(() => {
     const forName = (name: string) => ({
@@ -245,6 +264,11 @@ export function TypePalette() {
 
       <div
         className="flex min-h-0 flex-1 flex-col"
+        // ADR-053 FR-089 — the list as a whole. Core tutorial 2 opens on it to
+        // show what the product already knows how to hold, and returns to it to
+        // show the reader's own type sitting among them; both are about the set,
+        // not about one tile.
+        data-tutorial-target="type_palette"
         data-testid="type-palette-content"
         ref={contentRef}
       >

@@ -321,9 +321,12 @@ export interface TypeSourceResponse {
  * ADR-053 FR-006 — which user library directory a write or read addresses.
  *
  * Named by the caller and never inferred from file content: `blocks` is
- * `~/.scistudio/blocks/` and `types` is `~/.scistudio/types/`.
+ * `~/.scistudio/blocks/`, `types` is `~/.scistudio/types/`, and `previewers`
+ * is `~/.scistudio/previewers/` (Learning Center #2086). Inside a tutorial
+ * project the backend swaps the library root for the tutorial-scoped one; the
+ * target names the tier, never the root.
  */
-export type UserLibraryTarget = "blocks" | "types";
+export type UserLibraryTarget = "blocks" | "types" | "previewers";
 
 /** Response body of `GET /api/user-library/file` (ADR-053 FR-031). */
 export interface UserLibraryFileResponse {
@@ -640,6 +643,65 @@ export interface PreviewResourceSaveResponse {
   filename: string;
   size_bytes: number;
   mime_type?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// #2095 / #2049 — previewer discovery, reload, and per-type choice (#2113
+// surfaces all three in the left-panel Previewers tab).
+// ---------------------------------------------------------------------------
+
+/** Where a previewer was discovered from (backend `OwnerKind`; sets the
+ *  FR-003 routing precedence project → user → package → core). */
+export type PreviewerOwnerKind = "project" | "user" | "package" | "core";
+
+/** One registered previewer (backend `PreviewerSpecModel`). */
+export interface PreviewerSpecSummary {
+  previewer_id: string;
+  owner_kind: PreviewerOwnerKind;
+  owner_name: string;
+  target_type: string;
+  supports_collection: boolean;
+  priority: number;
+  capabilities: string[];
+  backend_provider: string | null;
+  frontend_manifest: PreviewerManifest | null;
+  api_version: string;
+}
+
+/** `GET /api/previews/previewers` response (#2095). */
+export interface PreviewerListResponse {
+  previewers: PreviewerSpecSummary[];
+  /** Discovery problems recorded during the scan (duplicate ids, refused
+   *  drop-ins, broken entry points). */
+  diagnostics: string[];
+}
+
+/** `POST /api/previews/reload` response (#2095). */
+export interface PreviewerReloadResponse {
+  reloaded: number;
+  added: string[];
+  removed: string[];
+  diagnostics: string[];
+}
+
+/** Which layer a per-type previewer choice lives at (#2049). */
+export type PreviewerChoiceScope = "user" | "project";
+
+/** One effective per-type previewer choice (backend `PreviewerChoiceModel`). */
+export interface PreviewerChoice {
+  target_type: string;
+  previewer_id: string;
+  /** Which layer this effective choice came from; a project-layer choice
+   *  overrides the user-layer choice for the same type. */
+  scope: PreviewerChoiceScope;
+  /** False when the chosen previewer is not registered right now — the choice
+   *  stays recorded and routing falls back to the FR-003 ladder. */
+  available: boolean;
+}
+
+/** `GET /api/previews/choices` response (#2049). */
+export interface PreviewerChoiceListResponse {
+  choices: PreviewerChoice[];
 }
 
 // ---------------------------------------------------------------------------

@@ -29,6 +29,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   // already viewing Logs. Cleared when the Logs tab is opened.
   unreadLogsCount: 0,
   projectTreeRefreshCounter: 0,
+  canvasFitRequestCounter: 0,
   blockCatalogRefreshCounter: 0,
   setSelectedNodeId: (nodeId) => set({ selectedNodeId: nodeId }),
   // #1799 — picker hover/select highlight. Cleared on picker close.
@@ -94,6 +95,8 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   },
   bumpProjectTreeRefresh: () =>
     set((state) => ({ projectTreeRefreshCounter: state.projectTreeRefreshCounter + 1 })),
+  bumpCanvasFitRequest: () =>
+    set((state) => ({ canvasFitRequestCounter: state.canvasFitRequestCounter + 1 })),
   // #9: bumped on a ``blocks.reloaded`` WS event (e.g. the agent scaffolded +
   // reloaded a custom block) so App re-fetches the block catalog.
   bumpBlockCatalogRefresh: () =>

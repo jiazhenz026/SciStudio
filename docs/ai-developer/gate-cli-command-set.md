@@ -95,6 +95,7 @@ python -m scistudio.qa.governance.gate_record init \
 | `--runtime` | yes | no | AI runtime executing the task (Codex, Claude Code, Gemini, or a local CLI agent) |
 | `--branch` | yes | no | Branch this ledger governs |
 | `--owner-directive` | yes | yes | Initial owner instruction; repeat for additional directives at init time |
+| `--base-ref` | no | no | Record the branch's diff base in the ledger. Used when neither `--base` nor `SCISTUDIO_GATE_BASE` is supplied; a plain branch name resolves to its `origin/` form, a revision expression is taken as written, and a ref git cannot resolve is refused (exit 2) rather than silently observing an empty diff. Set it on a branch stacked on another feature or track branch (#2143) |
 | `--slug` | no | no | Short human-readable slug for the generated record path |
 | `--session-id` | no | no | Local session id under `.git/scistudio/gates/`; generated automatically when omitted |
 | `--issue` | no | yes | GitHub issue number linked to the task |
@@ -133,6 +134,7 @@ python -m scistudio.qa.governance.gate_record plan \
 |---|---:|---:|---|
 | `--record` | no | no | Explicit ledger path; normally auto-discovered from the current branch |
 | `--owner-directive` | no | yes | Owner/manager instruction that changes plan or scope |
+| `--base-ref` | no | no | Record the branch's diff base in the ledger. Used when neither `--base` nor `SCISTUDIO_GATE_BASE` is supplied; a plain branch name resolves to its `origin/` form, a revision expression is taken as written, and a ref git cannot resolve is refused (exit 2) rather than silently observing an empty diff. Set it on a branch stacked on another feature or track branch (#2143) |
 | `--include` / `--exclude` | no | yes | Add declared in-scope / out-of-scope path or glob |
 | `--issue` | no | yes | Add issue link |
 | `--docs-updated` | no | yes | Repo-relative docs/spec/ADR/changelog/checklist path |
@@ -173,6 +175,7 @@ python -m scistudio.qa.governance.gate_record amend \
 |---|---:|---:|---|
 | `--reason` | yes | no | Human-readable reason for the amendment |
 | `--owner-directive` | no | yes | Add or correct owner instruction |
+| `--base-ref` | no | no | Record the branch's diff base in the ledger. Used when neither `--base` nor `SCISTUDIO_GATE_BASE` is supplied; a plain branch name resolves to its `origin/` form, a revision expression is taken as written, and a ref git cannot resolve is refused (exit 2) rather than silently observing an empty diff. Set it on a branch stacked on another feature or track branch (#2143) |
 | `--task-kind` | no | no | Correct task kind when the original classification was wrong |
 | `--persona` | no | no | Correct persona when routing changes |
 | `--branch` | no | no | Correct branch metadata |
@@ -215,7 +218,7 @@ python -m scistudio.qa.governance.gate_record check \
 
 | Argument | Required | Repeatable | Meaning |
 |---|---:|---:|---|
-| `--base` | no | no | Base ref for diff; default `git merge-base <upstream> HEAD` falling back to the raw upstream. When `--base` is omitted, `<upstream>` is the `SCISTUDIO_GATE_BASE` env var if set, else `origin/main`. Set `SCISTUDIO_GATE_BASE=origin/track/<name>` so the commit-msg / pre-commit framework hooks of a **track-stacked sub-PR** diff against their track (not `origin/main`, which would misread the whole track delta as authored here) — the same var the push/PR wrappers already honor (#1627). An explicit `--base` still wins. Deeply-stacked branches may need an explicit `--base` |
+| `--base` | no | no | Base ref for diff; default `git merge-base <upstream> HEAD` falling back to the raw upstream. When `--base` is omitted, `<upstream>` is resolved in this order: the `SCISTUDIO_GATE_BASE` env var, the ledger's recorded `base_ref` (see `--base-ref`), then `origin/main`. Prefer recording `--base-ref` on a **track-stacked sub-PR** so every later command measures the branch against its track rather than misreading the whole track delta as authored here (#1627, #2143); the env var remains a per-shell override and an explicit `--base` still wins over both |
 | `--head` | no | no | Head ref for diff; default `HEAD` |
 | `--mode` | no | no | One of `local` (default), `pre-commit`, `commit-msg`, `pre-push`, `pre-pr`, `ci` |
 | `--pr-body-file` | no | no | Intended PR body file for pre-PR issue-closure checks |
@@ -331,7 +334,7 @@ required now versus recorded as a pre-PR gap.
 
 | Mode | Caller | What it validates |
 |---|---|---|
-| `local` | Manual `gate_record check` (default) | Full local CI-equivalent preflight at the selected tier, including the `commit_hygiene` check (#2150). PR-state facts (issue, label provenance) are recorded as pre-PR gaps, not hard failures |
+| `local` | Manual `gate_record check` (default) | Full preflight at the selected tier, with each check narrowed to the observed diff, plus the `commit_hygiene` check (#2150). PR-state facts (issue, label provenance) are recorded as pre-PR gaps, not hard failures |
 | `pre-commit` | Compatibility mode (no hook installed since #2150) | Fast structural reconciliation on the **staged** diff |
 | `commit-msg` | Compatibility mode (no hook installed since #2150) | Legacy commit-msg reconciliation; does not run checks. The Conventional Commits subject check moved to the final-commit validation in `pre-pr`/`ci` (#2150) |
 | `pre-push` | Manual compatibility mode | Pre-push reconciliation remains available on demand. The installed pre-push hook is a fast allow shim, so WIP pushes are not blocked; PR-readiness obligations belong to `pre-pr` / `ci` |
@@ -343,9 +346,10 @@ Important `ci` mode split: `ci` mode validates **governance and guards**
 guards, weakened-CI, Sentrux, etc.). It does **not** re-require ledger check
 events for the `ci.yml` quality matrix (lint/format, type check, architecture
 tests, full audit, python tests, import contracts, frontend, wheel release
-smoke, semantic-dup). Those run as **separate authoritative `ci.yml` jobs** on
-the same PR. `local` and `pre-pr` modes still run the full CI-equivalent
-preflight selection, so the local pass predicts the `ci.yml` matrix result.
+smoke, deferral ratchet). Those run as **separate authoritative `ci.yml` jobs** on
+the same PR. `local` and `pre-pr` modes still run the full preflight selection,
+narrowed to the observed diff, so a local pass is a fast signal on the changed
+files while `ci.yml` proves the full surface (ADR-042 Addendum 7).
 
 In `ci` mode, documentation that **landed** and tests that **changed** are taken
 directly from the observed git diff, so a docs/test obligation can be satisfied
@@ -376,7 +380,7 @@ Baseline tier by task kind:
 
 | Tier | Baseline task kinds | Meaning |
 |---|---|---|
-| Tier 1 (Strict) | `feature`, `refactor` | Plan before implementation. Scope, issue, expected tests, docs impact, and expected checks declared early. `check` must prove the full local mirror of merge-blocking CI command surfaces; current evidence is reused and missing/stale checks run |
+| Tier 1 (Strict) | `feature`, `refactor` | Plan before implementation. Scope, issue, expected tests, docs impact, and expected checks declared early. `check` must select the full merge-blocking CI check set; current evidence is reused and missing/stale checks run, narrowed locally to the diff |
 | Tier 2 (Standard) | `bugfix`, `hotfix`, `maintenance`, `guided` (default) | May discover details during debugging. `hotfix` / `guided` may delay full gate completion during the live session, but everything must reconcile before PR readiness |
 | Tier 3 (Lightweight) | `docs`, `manager` | May start with a sparse plan. `check` runs only mandatory checks for the observed diff |
 
@@ -402,7 +406,7 @@ Per-concern tier behavior:
 | `init` | Issue (when known), branch, owner directive, persona, task kind, and initial scope | Branch, owner directive, persona, task kind; issue/scope may be completed later | Branch, owner directive, persona, task kind; issue/scope may be completed later |
 | `plan` | Required before implementation; declare expected docs/tests/checks or N/A | Required before final check; may be partial during debugging | Optional unless the evaluator needs early docs/tests/scope guidance |
 | `amend` | Allowed; every scope/obligation correction needs a `--reason` | Normal way to add discovered scope/tests/docs/issues | Normal way to record live directives and late fields |
-| `check` | Full merge-blocking CI mirror evidence; default incremental execution; `--force-checks` reruns all selected checks | Governance/lint/audit baseline plus all changed-surface CI checks | Mandatory checks for the observed diff only; sparse planning does not reduce mandatory checks |
+| `check` | Full merge-blocking CI check set selected; run diff-scoped locally; default incremental execution; `--force-checks` reruns all selected checks at repository scope | Governance/lint/audit baseline plus all changed-surface CI checks | Mandatory checks for the observed diff only; sparse planning does not reduce mandatory checks |
 | `finalize` | Fails if any plan/test/docs/check/issue field is missing | Fails if observed diff lacks issue/test/docs/check reconciliation | Fails if observed diff lacks issue/test/docs/check reconciliation |
 | Admin label | Required for protected core, gate bypass, or merge automation | Same | Same |
 
@@ -413,7 +417,7 @@ The tier-selected check baselines the evaluator actually runs are:
 
 | Tier | Baseline checks (before surface-specific additions) |
 |---|---|
-| Tier 1 | `lint_format`, `format_check`, `type_check`, `architecture_tests`, `full_audit`, `python_tests`, `import_contracts`, `semantic_dup` |
+| Tier 1 | `lint_format`, `format_check`, `type_check`, `architecture_tests`, `full_audit`, `python_tests`, `import_contracts`, `deferral_discipline` |
 | Tier 2 | `lint_format`, `format_check`, `full_audit` |
 | Tier 3 | `full_audit` |
 
@@ -423,7 +427,7 @@ lint/format/python-tests; QA/governance source under `src/scistudio/qa/**` adds
 those plus `full_audit`; ADR/spec/architecture/governed-docs and
 `docs/block-development/**` developer docs add `full_audit`; frontend surfaces
 add `frontend`; workflow/CI files add `full_audit`; packaging surfaces add
-`wheel_release_smoke`; Sentrux-applicable changes add `semantic_dup`. The
+`wheel_release_smoke`. The
 `codex_review` check is PR-only review automation and is never a local `check`
 failure.
 
@@ -702,7 +706,7 @@ PR body must close every gate-listed issue with a GitHub closing keyword
 - **`--check-na` has no force for `ci.yml`-owned checks.** An N/A for a check
   the standalone `ci.yml` job owns (`lint_format`, `format_check`, `type_check`,
   `architecture_tests`, `full_audit`, `python_tests`, `import_contracts`,
-  `frontend`, `wheel_release_smoke`, `semantic_dup`) does **not** waive the
+  `frontend`, `wheel_release_smoke`, `deferral_discipline`) does **not** waive the
   obligation for PR readiness — `ci.yml` runs the check regardless. The tool
   emits a loud non-blocking warning and ignores the N/A for that check. Fix the
   check or rely on CI. `--check-na` does waive task-specific / non-`ci.yml`-owned

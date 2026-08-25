@@ -773,7 +773,6 @@ Current CI command-source snapshot:
 | `ci.yml` / `Frontend` | In `frontend/`: `npm ci`, `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm test`, `npm run build`; then frontend/dist freshness check | Tier 1 baseline; Tier 2 and Tier 3 when frontend source/config/test/dist surfaces are affected |
 | `ci.yml` / `Wheel Release Smoke` | Build frontend, copy `frontend/dist` into package static assets, build wheel, inspect SPA contents, install wheel, smoke-test GUI root | Tier 1 baseline; Tier 2 and Tier 3 when packaging/release/static bundle surfaces are affected |
 | `workflow-gate.yml` / `Verify Workflow Compliance` | Validate gate records, human bypass, labels, issue/docs/scope/guard orchestration, mod/core/merge/weakened-CI checks, Sentrux advisory warnings | Tier 1, Tier 2, and Tier 3 baseline; facts that cannot exist before PR creation are represented as explicit pre-PR mode gaps |
-| `semantic-dup-scan.yml` / `Semantic duplication ratchet` | Path-filtered scan for `src/scistudio/**/*.py`, `scripts/semantic_dup_scan.py`, semantic baseline/addendum/workflow files | Run `python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json --out <local-log> --json-out <local-json>` when the workflow path filters match; Tier 1 may also run it as a full-mirror diagnostic |
 | `ai-review.yml` / `Codex PR Review` | AI review automation on PRs | Not a local readiness command; it is PR-only review automation and does not become a local `gate_record check` obligation |
 
 Tier controls both up-front gate evidence and local check breadth. Observed diff
@@ -795,7 +794,6 @@ Tier 2 and Tier 3 use surface-specific selection from the CI graph:
 | Frontend source/config/tests/dist | CI frontend job commands and dist freshness check |
 | GitHub workflow or hook files | Workflow-gate guard orchestration, weakened-CI check, mod guard, and any workflow syntax checks configured in CI |
 | Packaging/build/release files | Wheel release smoke job or its exact local equivalent |
-| Semantic duplication path filters | Semantic duplication ratchet workflow command |
 | Protected core paths | CI-equivalent Python/runtime tests for the affected surface plus required admin-label validation |
 
 For example, a Tier 3 docs-only change to an ADR or spec should run the docs

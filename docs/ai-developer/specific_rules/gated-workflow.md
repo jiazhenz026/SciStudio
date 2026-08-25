@@ -117,10 +117,18 @@ python -m scistudio.qa.governance.gate_record init \
   --owner-directive "<owner instruction>" \
   [--slug <task-slug>] \
   [--issue <number>] \
+  [--base-ref <ref>] \
   [--include <path-or-glob>] \
   [--exclude <path-or-glob>] \
   [--governance-touch true|false]
 ```
+
+Record `--base-ref` when the branch is stacked on another feature or track
+branch. It is the ledger's own record of what this branch's delta is measured
+against; without it local `check` and `finalize` fall back to `origin/main` and
+attribute the parent branch's commits to this branch (#2143). A plain branch
+name resolves to its `origin/` form; a ref git cannot resolve is refused with
+exit 2 and nothing is written.
 
 `init` creates or updates the ledger, records branch/task identity, prints the
 chosen ledger path, and prints task-specific instructions by default. The
@@ -137,6 +145,7 @@ Compatibility alias: `start` delegates to `init`.
 ```bash
 python -m scistudio.qa.governance.gate_record plan \
   [--owner-directive "<scope or plan update>"] \
+  [--base-ref <ref>] \
   [--include <path-or-glob>] \
   [--exclude <path-or-glob>] \
   [--issue <number>] \
@@ -163,6 +172,7 @@ aliases).
 python -m scistudio.qa.governance.gate_record amend \
   --reason "<why the ledger is being corrected>" \
   [--owner-directive "<new or corrected owner instruction>"] \
+  [--base-ref <ref>] \
   [--task-kind <kind>] \
   [--persona <persona>] \
   [--issue <number>] \
@@ -236,6 +246,14 @@ python -m scistudio.qa.governance.gate_record check \
 8. Exits nonzero when required obligations remain unsatisfied and prints an
    "Unsatisfied obligations" section with exact repair hints.
 
+A failed check's repair hint carries its failure detail. When the check reports
+into a file rather than to stdout (`full_audit` writes
+`.audit/full-audit.json`), the hint renders the failing sub-reports and their
+findings, blocking severities first. When it prints, the hint carries a tail of
+the transcript with a header stating how many of the log's lines are shown and
+where the whole log is. Read the hint before re-running: it is meant to state
+the whole failure in one pass, not a slice of it (#2143).
+
 The `--mode` argument dispatches behavior for different callers:
 
 | Mode | Caller | Behavior |
@@ -247,9 +265,12 @@ The `--mode` argument dispatches behavior for different callers:
 | `pre-pr` | Manual pre-PR check and PR wrapper | Pre-PR readiness with `--pr-body-file`; owns the checks the removed commit hooks used to enforce (#2150): `commit_hygiene` and the final commit's Conventional Commits subject. PR wrapper uses `--skip-execution` to reuse current evidence; pre-PR-impossible findings handled internally |
 | `ci` | CI workflow | Authoritative mode with full PR context (also enforces `commit_hygiene` and the final-commit message check); verifies label provenance |
 
-Local and CI modes use the same evaluator. The only difference is that CI mode
-has real PR metadata and verifies label-actor provenance, while local modes
-record those as known pre-PR gaps.
+Local and CI modes use the same evaluator and select the same checks. They differ
+in two ways: CI mode has real PR metadata and verifies label-actor provenance
+(local modes record those as known pre-PR gaps), and CI mode runs every check
+over the whole repository while local modes narrow each check to the observed
+diff. `ci.yml` proves the full surface on the same PR, so a local pass is a fast
+signal and CI remains the proof (ADR-042 Addendum 7).
 
 `--only` is a recovery aid, not a final readiness mode. A final PR-ready
 `check` must run or validate the complete tier-selected check set. By default,
@@ -260,15 +281,22 @@ selected set.
 passing, current evidence for the observed diff; otherwise it reports stale or
 missing evidence and tells the agent to run the pre-PR check once.
 
-Tier-selected check breadth:
+Tier-selected check breadth. The tier decides **which** checks are required;
+the mode decides **how broadly** each one runs (see above).
 
-- **Tier 1**: requires evidence for the full local mirror of the merge-blocking
-  CI command surface, whether or not the observed diff appears to need every
-  job. Existing current passing evidence is reused; missing or stale checks run.
+- **Tier 1**: requires evidence for the full merge-blocking CI check set,
+  whether or not the observed diff appears to need every job. Existing current
+  passing evidence is reused; missing or stale checks run.
 - **Tier 2**: runs the common governance/lint/audit baseline plus all CI jobs
   relevant to the observed diff.
 - **Tier 3**: runs only mandatory checks for the observed diff and repository
   gate rules.
+
+At every tier, a local run narrows each selected check to the observed diff and
+prints which checks ran diff-scoped. Narrowing widens back to the whole surface
+whenever it cannot prove what an edit affects (a changed pytest or coverage
+config, a shared `conftest.py`, a fixture file, a module with no mirrored test
+location). Use `--force-checks` to run the repository-wide mirror locally.
 
 Compatibility aliases exposed by the current CLI:
 
