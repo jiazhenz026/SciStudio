@@ -1,0 +1,104 @@
+{
+  "base_ref": null,
+  "branch": "ci/2176-notarize-hook",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "desktop",
+      ".github/workflows",
+      "tests"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-25T21:07:14.087450Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/desktop-macos-signing-notarization.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2176,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix it: #2174's DEBUG instrumentation does not surface notarization progress because @electron/notarize passes --output-format json.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2176-ci-2176-notarize-hook",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-25T21:07:14.087415Z",
+      "pattern": "desktop/scripts/notarize.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T21:07:14.087435Z",
+      "pattern": "desktop/test/notarize.test.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T21:07:14.087437Z",
+      "pattern": "desktop/test/macos-signing.test.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T21:07:14.087439Z",
+      "pattern": "desktop/package.json",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T21:07:14.087441Z",
+      "pattern": ".github/workflows/desktop-macos-dmg.yml",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T21:07:14.087442Z",
+      "pattern": "docs/specs/desktop-macos-signing-notarization.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "4cca99ae-af95-438a-8817-bf0d1a607d49",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-08-25T21:07:14.087458Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/notarize.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

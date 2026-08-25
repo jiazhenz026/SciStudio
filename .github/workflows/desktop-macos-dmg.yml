@@ -121,24 +121,25 @@ jobs:
           APPLE_API_KEY: ${{ env.HAS_NOTARY_KEY == 'true' && format('{0}/private_keys/AuthKey.p8', runner.temp) || '' }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          # #2174: notarization is the one step that depends on a third party,
-          # has no upper bound, and prints nothing while it waits. A 118-minute
-          # hang left only the runner's own 'Terminate orphan process (notarytool)'
-          # line to go on, which ruled out signing and nothing else. This surfaces
-          # the submission ID and each polling state, so a cancelled build can
-          # still be traced with `notarytool log <id>` afterwards.
-          DEBUG: electron-notarize*,@electron/notarize*
+          # #2176: these three are read by desktop/scripts/notarize.js, the
+          # `afterSign` hook that now performs notarization instead of
+          # electron-builder. Note the build log still prints
+          # "skipped macOS notarization" from macPackager -- that is
+          # `"notarize": false` in package.json doing its job, not a skip.
+          # The hook's own output is prefixed [notarize].
         run: npm --prefix desktop run dist:dmg
 
       - name: Remove App Store Connect API key
         if: always()
         run: rm -rf "$RUNNER_TEMP/private_keys"
 
-      # #2096: electron-builder fails SOFT on notarization. macPackager's
-      # notarizeIfProvided() logs "skipped macOS notarization" and returns when
-      # the options cannot be generated, so a missing or typo'd credential
-      # produces a green build and a dmg that still shows the Gatekeeper prompt.
-      # Assert the outcome directly instead of trusting the build log.
+      # #2096: notarization used to fail SOFT here -- macPackager's
+      # notarizeIfProvided() logged "skipped macOS notarization" and returned
+      # when the options could not be generated, so a missing or typo'd
+      # credential produced a green build and a dmg that still showed the
+      # Gatekeeper prompt. The #2176 hook hard-fails instead, but this step
+      # stays: it is the only check that survives the hook being unwired,
+      # mis-pathed, or skipped because signing did not occur.
       - name: Verify signature, hardened runtime and notarization
         if: env.HAS_MACOS_SIGNING == 'true'
         run: |

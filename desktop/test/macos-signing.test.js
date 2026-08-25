@@ -23,8 +23,14 @@ test("mac: hardened runtime is on (a precondition for notarization)", () => {
   assert.equal(mac.hardenedRuntime, true);
 });
 
-test("mac: notarization is enabled", () => {
-  assert.equal(mac.notarize, true);
+test("mac: notarization is enabled, via the hook rather than the builder", () => {
+  // #2176 moved notarization out of electron-builder and into an `afterSign`
+  // hook, so `mac.notarize` is now deliberately false -- turning it back on
+  // would submit the app to Apple twice. What this test has always been for is
+  // that notarization happens at all, so it asserts the replacement is wired.
+  // The hook's own behaviour is covered in notarize.test.js.
+  assert.equal(mac.notarize, false);
+  assert.equal(pkg.build.afterSign, "scripts/notarize.js");
 });
 
 test("mac: entitlements and entitlementsInherit point at the same file", () => {

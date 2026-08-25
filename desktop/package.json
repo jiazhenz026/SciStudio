@@ -28,6 +28,7 @@
   },
   "build": {
     "appId": "org.scistudio.desktop",
+    "afterSign": "scripts/notarize.js",
     "productName": "SciStudio",
     "directories": {
       "output": "dist",
@@ -78,7 +79,7 @@
       "gatekeeperAssess": false,
       "entitlements": "assets/entitlements.mac.plist",
       "entitlementsInherit": "assets/entitlements.mac.plist",
-      "notarize": true
+      "notarize": false
     },
     "linux": {
       "target": [
