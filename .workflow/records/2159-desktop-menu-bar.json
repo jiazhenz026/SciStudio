@@ -213,12 +213,100 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T09:13:18.641601Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3170c68151bc8b66ae53bcde2c0baab75736f32d9541ffd7552dd9c4c063eb5c",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T09:13:18.719527Z",
+      "command": "ruff format scripts/ota_publish.py tests/scripts/test_ota_publish.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f69bfa1994856b2d4c000e527fcea6c8b35203063f5df72ba6d168f47283a698",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-25T09:13:29.997423Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7592baffb0a1d48580091dd7d21c2fc1c1ab042b17a2e05c0f1f11619186e4e8",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T09:13:30.021647Z",
+      "command": "ruff check scripts/ota_publish.py tests/scripts/test_ota_publish.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0dbc36e2e6224dd493b406ab33603c717bd753dd9f22b126a7820722ac7f6647",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-25T09:16:16.847262Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:8f7eb2cdc6d905911129dfe6ac352a727fc7b88fa9ec903984fb47c9ba2df9cf",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [
     {
       "name": "semantic_dup",
       "rationale": "passes standalone with ambient interpreter (2372 functions, 11.28% dup, all ratchets OK); parity venv exceeds the gate 600s timeout (#2154); ci.yml semantic-dup-scan job remains authoritative"
+    },
+    {
+      "name": "python_tests",
+      "rationale": "local-only Windows env failure, reproduces on untouched main checkout; CI Test jobs (3.11/3.13) run the same suite on Linux and are authoritative"
     }
   ],
   "commit": {
@@ -252,6 +340,11 @@
       "at": "2026-08-25T08:35:48.770034Z",
       "owner_directive": "sem dup \u4e0d\u662f\u4ece CI \u5f7b\u5e95\u53d6\u6d88\u4e86\u561b\uff1f\u4e3a\u5565\u672c\u5730\u8fd8\u5728\u8dd1\uff1f\u628a\u672c\u5730\u7ed9\u5173\u6389",
       "reason": "owner asked why local still runs semantic_dup; root cause: branch was based on stale local main. Rebased onto origin/main which contains the #2120 removal; check-na and preflight-bypass events above are superseded"
+    },
+    {
+      "at": "2026-08-25T20:35:06.824758Z",
+      "owner_directive": "owner: \u6211\u7761\u89c9\u4e86\uff0c\u4f60\u81ea\u5df1\u505a\u5230\u5e95 (finish autonomously)",
+      "reason": "documenting local-only python_tests failures before pushing the CI fix"
     }
   ],
   "docs_events": [
@@ -1565,6 +1658,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-25T09:16:16.918300Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T09:16:16.932702Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T09:16:16.948815Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T09:16:16.964431Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T09:16:16.980449Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T09:16:16.997378Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T09:16:17.012700Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T09:16:17.028521Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T09:16:17.045054Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T09:16:17.060650Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T09:16:17.082143Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1577,8 +1758,8 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "7876ccedce0f72b43c112d6d8e31d12e0d12390b",
-    "base_sha": "7876ccedc",
+    "base": "origin/main",
+    "base_sha": "3690f61c6",
     "changed_files": [
       ".workflow/records/2159-desktop-menu-bar.json",
       "CHANGELOG.md",
@@ -1597,11 +1778,13 @@
       "frontend/src/store/types.ts",
       "frontend/src/store/uiSlice.ts",
       "frontend/src/testUtils.ts",
-      "frontend/src/types/desktop.d.ts"
+      "frontend/src/types/desktop.d.ts",
+      "scripts/ota_publish.py",
+      "tests/scripts/test_ota_publish.py"
     ],
-    "diff_fingerprint": "sha256:25274c11d7edfa57ae77af53ebb892c91ea0a1a324fc72e5257ac4a4d32a68ed",
+    "diff_fingerprint": "sha256:7a3c078004e28d84151de0ea9dc592d75f5fdd2fe5bc2b0fadf2f42481238486",
     "head": "HEAD",
-    "head_sha": "871a15d16",
+    "head_sha": "17360ac04",
     "surfaces": {
       "docs": 0,
       "frontend": 10,
@@ -1611,8 +1794,8 @@
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 10,
-      "test": 4,
+      "sentrux": 11,
+      "test": 5,
       "workflow_ci": 0
     }
   },
@@ -1763,6 +1946,16 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-08-25T09:16:17.082184Z",
+      "diff_fingerprint": "sha256:7a3c078004e28d84151de0ea9dc592d75f5fdd2fe5bc2b0fadf2f42481238486",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
     }
   ],
   "record_id": "2159-desktop-menu-bar",
@@ -1774,7 +1967,8 @@
       "format_check",
       "frontend",
       "full_audit",
-      "lint_format"
+      "lint_format",
+      "python_tests"
     ],
     "docs": [
       "docs_required_or_na"
