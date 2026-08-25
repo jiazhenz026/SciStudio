@@ -109,6 +109,4 @@ def test_build_jobs_carry_a_timeout(name: str) -> None:
     for job_name, job in spec["jobs"].items():
         timeout = job.get("timeout-minutes")
         assert timeout is not None, f"{name}:{job_name} has no timeout-minutes"
-        assert 0 < timeout <= 120, (
-            f"{name}:{job_name} timeout of {timeout} minutes defeats the purpose"
-        )
+        assert 0 < timeout <= 120, f"{name}:{job_name} timeout of {timeout} minutes defeats the purpose"
