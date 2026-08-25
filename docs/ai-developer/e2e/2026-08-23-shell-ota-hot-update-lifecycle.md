@@ -331,18 +331,23 @@ Run this **last**: it leaves the client blocked at every launch until the
 ## 7. Results (skill fills in)
 
 **Run 2026-08-25, Windows 11, `electron-builder --dir` build of
-`guided/2097-shell-ota-bootstrap-loader` @ `927aa2a6f`, launched with
-`--user-data-dir`. Steps 1 and 3–6 executed; Steps 7–8 deferred (the mandatory
-dialog blocks on a human click).**
+`guided/2097-shell-ota-bootstrap-loader`, launched with `--user-data-dir`.
+Every step executed. The manifest was served from `127.0.0.1:8899`, so no
+public release infrastructure was involved and no real client could reach it.
+The owner clicked the two blocking dialogs.**
 
 | Step | Result | Evidence |
 |---|---|---|
-| Baseline launch | pass | `loading baseline shell (build 0) from …esourcespp.asar`; `/api/version` → `build: 0` |
+| Baseline launch | pass | `loading baseline shell (build 0) from …
+esourcespp.asar`; `/api/version` → `build: 0` |
 | 1 — three layers from one snapshot | **pass** | shell: `loading patch shell (build 1) from …\patchesuild1\shell`; backend: `/api/version` `build: 0 → 1`; frontend: the patched SPA served the injected marker |
 | 4 — shell throws at `require` | **pass** | `loading patch shell (build 1)` → `shell failed to load: Error: …` → `loading baseline shell (build 0)`; the app came up |
 | 5 — quarantine is sticky | **pass** | launches 2 and 3 both logged `build 1 did not reach readiness; staying on the baseline shell` with **no `loading patch shell` line at all** — the broken patch was never re-attempted |
 | 6 — newer patch after a quarantine | **pass** | `loading patch shell (build 2)`; marker cleared on readiness; `/api/version` → `build: 2` |
 | Marker lifecycle | **pass** | written before the require; **survived** the failed load; cleared only when the build it named reached readiness |
+| 1 (full path) — dialog → download → apply → relaunch | **pass** | `update decision=patch local build=0 remote build=1` → server logged `GET /backend-build1.tar.gz 200` → `applied OTA build 1; relaunching` → `loading patch shell (build 1)` → `update decision=none` |
+| 7 — mandatory reinstall prompt | **pass** | `mandatory update required: kind=incompatible remote build=26`, blocking dialog before any window, single Quit button, app exited on Quit |
+| 7b — mandatory patch delivering a copyable page | **pass** | `mandatory update required: kind=patch remote build=27` → `applied mandatory OTA build 27; relaunching` → patched SPA rendered with a working copy button |
 | Isolation | **pass** | the real client's `patches/active.json` stayed `{"build":25}` at its 2026-08-21 mtime and all of `build15…build25` were intact, before and after |
 
 ### Defects found by this run
@@ -361,10 +366,29 @@ were fixed on the branch:
    directory and found nothing. The asset now ships in the shell payload.
    Confirmed visually by the owner after the fix.
 
+### Findings that changed the release plan
+
+**The reinstall address cannot be made copyable inside the native dialog.**
+`dialog.showMessageBox` renders plain text on both platforms: the URL smuggled
+through `requires.min_base` is visible but neither clickable nor selectable, so
+a 0.3.3 user would have to retype it. Nothing can change that — the code that
+draws the dialog is the one part a patch cannot replace.
+
+A mandatory **patch** solves it, and was demonstrated in step 7b. A 0.3.3 client
+can still apply a backend snapshot, and a snapshot carries the SPA, so the patch
+delivers an ordinary web page with selectable text and a clipboard button. Spec
+section 8.1 records this as the route for the 0.3.3 cohort, with the real
+release URL rather than an abbreviated one.
+
+**A force-quit during startup quarantines an otherwise healthy shell.** Observed
+incidentally: killing the app before the runtime reaches readiness leaves the
+marker in place, so the next launch refuses that build, and because the baseline
+cannot clear the marker the patch stays quarantined until a newer build arrives.
+It is fail-safe — never worse than the baseline — but it never forgives. Whether
+to require N consecutive failures, or clear the marker on a clean `before-quit`,
+is an open design question and deliberately not changed here.
+
 ### Not executed
 
-Steps 2, 7 and 8. Step 7's mandatory-reinstall dialog and Step 1's apply flow
-block on `dialog.showMessageBox`, which needs a person; Step 8 is only
-meaningful when a real channel was published to, and this run served no
-manifest at all — patches were staged directly into the isolated `userData`,
-which is the state `downloadAndApply` produces.
+Steps 2 and 8. Step 8 is only meaningful when a real channel was published to,
+and this run served everything from localhost.

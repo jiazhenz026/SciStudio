@@ -244,6 +244,35 @@ confirm it downloads *before* publishing a mandatory manifest. Reversed, every
 0.3.3 client is blocked with no way forward, because the incompatible branch
 offers only a "Quit" button.
 
+### 8.1 How the 0.3.3 cohort is told to reinstall
+
+0.3.3 clients need one manual download, because the bootstrap loader ships in
+the asar. The obvious route — a mandatory **incompatible** manifest — produces
+the frozen 0.3.3 dialog, and a native `dialog.showMessageBox` renders plain
+text: the download address is neither clickable nor **selectable**, so the user
+has to retype it. Verified on 2026-08-25; there is no way to change that dialog,
+since the code that draws it is the one part a patch cannot replace.
+
+Use a mandatory **patch** instead (owner decision, 2026-08-25). A 0.3.3 client
+can still apply a backend snapshot, and a snapshot carries the SPA, so the patch
+can deliver an ordinary web page — where text selects, a link clicks, and a
+button can call `navigator.clipboard.writeText()`. The native dialog then only
+has to say "click Update now", which it already does through `manifest.notes`.
+
+For this the manifest must satisfy `min_base <= 0.3.3` so the decision is
+`patch` rather than `incompatible`, with `min_build` set to make it mandatory.
+
+Because the address is copyable, it does not need to be short: use the real
+0.3.4 release URL rather than an abbreviation.
+
+This composes with the build-number rule above: once the user installs 0.3.4,
+its baseline build is at least that of the notice patch, so `resolveActivePatch`
+discards it (#1787) and the dead-end page cannot outlive the migration.
+
+Verified end to end on 2026-08-25 — `mandatory update required: kind=patch`,
+`applied mandatory OTA build 27; relaunching`, then the patched page rendered
+with a working copy button.
+
 ## 9. Verification
 
 Automated, any platform:
