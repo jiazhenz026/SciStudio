@@ -543,6 +543,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:43.926442Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:43.938749Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:43.948491Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:43.958181Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:43.968816Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:43.978329Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:43.988877Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:43.998858Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:44.008624Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:44.018286Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T21:08:44.028765Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -559,28 +647,27 @@
     "base_sha": "da6184f8",
     "changed_files": [
       ".github/workflows/desktop-macos-dmg.yml",
-      ".workflow/pr-body-2165.md",
       ".workflow/records/2165-macos-x64-ci.json",
       "desktop/package.json",
       "desktop/test/macos-signing.test.js",
       "docs/specs/desktop-macos-signing-notarization.md",
       "tests/packaging/test_desktop_mvp_resources.py"
     ],
-    "diff_fingerprint": "sha256:c38075a6dc4aaa26a76fe725c26867e5632d8f30b4d2b7a9f493d4bb07c3f998",
+    "diff_fingerprint": "sha256:5f2671fddde8c67e66be2df55d1b02985266154477dc17ea2f47efbe8c67e2c0",
     "head": "HEAD",
-    "head_sha": "ad00a94f",
+    "head_sha": "31abd14a",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
-      "governance": 2,
+      "governance": 1,
       "governed_docs": 0,
-      "implementation": 2,
+      "implementation": 1,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 4,
+      "sentrux": 3,
       "test": 2,
-      "workflow_ci": 2
+      "workflow_ci": 1
     }
   },
   "owner_directive": "Build the macOS Intel (x64) 0.3.4 dmg as a signed+notarized release artifact and add x64 to the CI dmg workflow (owner request 2026-08-25).",
@@ -623,6 +710,14 @@
         "checks.full_audit",
         "scope.out-of-scope"
       ]
+    },
+    {
+      "at": "2026-08-25T21:08:44.028815Z",
+      "diff_fingerprint": "sha256:5f2671fddde8c67e66be2df55d1b02985266154477dc17ea2f47efbe8c67e2c0",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "2165-macos-x64-ci",
