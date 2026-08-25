@@ -1852,6 +1852,12 @@
       "at": "2026-08-25T06:31:14.150522Z",
       "pattern": "CHANGELOG.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T09:09:29.836250Z",
+      "pattern": "scripts/ota_publish.py",
+      "reason": "CI Test (Python 3.11) caught shell-file drift: menu.js added to asar files but not to the OTA publisher SHELL_FILES"
     }
   ],
   "session_id": "0fd47990-aab8-4b63-8dbc-bec76357366b",

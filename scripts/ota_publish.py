@@ -61,6 +61,7 @@ REINSTALL_NOTICE_TEMPLATE = REPO_ROOT / "scripts" / "templates" / "reinstall-not
 # and a manifest inside the patch would be the patch describing itself.
 SHELL_FILES = (
     "main.js",
+    "menu.js",
     "ota.js",
     "runtime-port.js",
     "preload.js",
