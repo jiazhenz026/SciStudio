@@ -292,11 +292,35 @@ function effectiveBuild() {
   return Math.max(baselineVersion().build, active ? active.build : 0);
 }
 
+// #2179: set when the shell itself fails after the backend is already
+// answering. `recordKnownGood` is what disarms the loader's crash-loop
+// quarantine, so it must not fire while this holds a reason.
+let shellFault = null;
+
+function noteShellFault(reason) {
+  if (shellFault) {
+    return;
+  }
+  shellFault = reason;
+  safeError(`[scistudio] shell fault: ${reason}`);
+}
+
 function recordKnownGood(build) {
-  // #2097: the runtime answered, so the shell that got us here booted cleanly.
-  // Clearing the loader's crash-loop marker here (rather than merely on
+  // #2097: clearing the loader's crash-loop marker here (rather than merely on
   // startup) is what makes "this shell build never reached readiness" mean
   // exactly that.
+  //
+  // #2179: it used to fire as soon as the backend answered. But the readiness
+  // probe validates the *Python runtime*, and this vouches for the *Electron
+  // shell* -- two halves of one snapshot that fail independently. A patch that
+  // broke the preload, the window, or the menu still got recorded as good, so
+  // the quarantine never engaged and the next launch loaded it again. It now
+  // runs only once the renderer has painted, and refuses outright while a shell
+  // fault stands.
+  if (shellFault) {
+    safeError(`[scistudio] not recording build ${build} as known-good: ${shellFault}`);
+    return;
+  }
   try {
     host().clearBootAttempt();
   } catch (error) {
@@ -1225,7 +1249,11 @@ async function pageHasRendered(window) {
     .catch(() => false);
 }
 
-function loadBeforeShowing(window, url, attempt = 0) {
+// #2179: `onRendered` is called only on the path that proves the shell worked --
+// the renderer finished loading *and* painted. The retry and error-page paths
+// deliberately do not call it: a window showing an error page is not evidence
+// that this shell build is worth rolling back to.
+function loadBeforeShowing(window, url, attempt = 0, onRendered = null) {
   const show = () => {
     if (!window.isDestroyed() && !window.isVisible()) {
       window.show();
@@ -1239,10 +1267,13 @@ function loadBeforeShowing(window, url, attempt = 0) {
     const rendered = await pageHasRendered(window);
     if (rendered || attempt >= 1) {
       show();
+      if (rendered && typeof onRendered === "function") {
+        onRendered();
+      }
       return;
     }
     safeError("[scistudio] blank first paint before window show; retrying once");
-    loadBeforeShowing(window, cacheBustedUrl(url, attempt + 1), attempt + 1);
+    loadBeforeShowing(window, cacheBustedUrl(url, attempt + 1), attempt + 1, onRendered);
   });
 
   window.webContents.once("did-fail-load", (_event, _code, _description, validatedUrl) => {
@@ -1252,7 +1283,7 @@ function loadBeforeShowing(window, url, attempt = 0) {
       return;
     }
     safeError(`[scistudio] failed to load ${validatedUrl}; retrying once`);
-    loadBeforeShowing(window, cacheBustedUrl(url, attempt + 1), attempt + 1);
+    loadBeforeShowing(window, cacheBustedUrl(url, attempt + 1), attempt + 1, onRendered);
   });
 
   window.loadURL(url);
@@ -1426,6 +1457,16 @@ function createWindow(url) {
     mainWindow = null;
   });
 
+  // #2179: Electron reports a preload that threw, and nothing here used to
+  // listen. The main window is sandboxed, so its preload gets a restricted
+  // `require` -- a shell patch that adds a relative import to preload.js aborts
+  // before `contextBridge.exposeInMainWorld`, `window.scistudioDesktop`
+  // disappears, and every bridge with it. None of that stops the backend
+  // answering, so without this the broken build was recorded as known-good.
+  mainWindow.webContents.on("preload-error", (_event, preloadPath, error) => {
+    noteShellFault(`preload ${path.basename(preloadPath)} failed: ${error.message}`);
+  });
+
   // #1741: capture renderer-process console output so frontend logs persist in
   // a packaged app, where beta testers have no DevTools to read.
   mainWindow.webContents.on("console-message", (_event, level, message, lineNumber, sourceId) => {
@@ -1436,7 +1477,9 @@ function createWindow(url) {
     );
   });
 
-  loadBeforeShowing(mainWindow, url);
+  // #2179: the shell has proved itself only now -- window created, preload
+  // clean, renderer painted. This is what disarms the crash-loop quarantine.
+  loadBeforeShowing(mainWindow, url, 0, () => recordKnownGood(effectiveBuild()));
 }
 
 function stopRuntime() {
@@ -1497,9 +1540,9 @@ function start(injectedHost) {
       // #1986: the runtime answered on this port, so it is worth reusing next
       // launch to keep the renderer origin (and its persisted UI state) stable.
       rememberRuntimePort(runtimePortModule.boundPortFromReady(ready));
-      // #1775: the runtime reached ready, so whatever patch is active booted
-      // cleanly; remember it as the rollback target for future launches.
-      recordKnownGood(effectiveBuild());
+      // #1775/#2179: the runtime reaching ready says the *backend* half of the
+      // patch works. The shell half is vouched for from createWindow, once the
+      // renderer has actually painted.
       await clearCacheOnBuildChange();
       Menu.setApplicationMenu(buildAppMenu());
       const url = launchUrl(ready.url);

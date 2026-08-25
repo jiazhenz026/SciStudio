@@ -1,0 +1,91 @@
+{
+  "base_ref": null,
+  "branch": "fix/2179-shell-known-good",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "desktop",
+      "docs/specs"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-25T23:56:36.908133Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/desktop-shell-ota-hot-update.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2179,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Also submit a PR for the OTA upgrade bug found while reviewing PR 2171.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2179-fix-2179-shell-known-good",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-25T23:56:36.908102Z",
+      "pattern": "desktop/main.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T23:56:36.908122Z",
+      "pattern": "desktop/test/shell-known-good.test.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T23:56:36.908124Z",
+      "pattern": "desktop/test/bootstrap.test.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T23:56:36.908126Z",
+      "pattern": "docs/specs/desktop-shell-ota-hot-update.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "e37fdc4d-f6a2-443e-8a2b-25b01d037eea",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-08-25T23:56:36.908140Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/shell-known-good.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

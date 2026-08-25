@@ -101,16 +101,21 @@ test("the loader records the boot attempt before requiring the shell", () => {
   assert.ok(recordAt < startAt, "recordBootAttempt must precede startShell");
 });
 
-test("the shell clears the boot marker only once the runtime is up", () => {
-  // Clearing it any earlier would make the marker mean "we tried" rather than
+test("the shell clears the boot marker only from the known-good path", () => {
+  // Clearing it anywhere else would make the marker mean "we tried" rather than
   // "we succeeded", and a crash-looping shell would never be refused.
+  // #2179 moved *when* that path runs -- it now waits for the renderer to paint
+  // rather than for the backend to answer -- but the marker must still be
+  // cleared from recordKnownGood and nowhere else.
   const main = read("main.js");
   const clearAt = main.indexOf("host().clearBootAttempt()");
   assert.ok(clearAt > 0, "main.js must clear the marker");
-  assert.match(
-    main.slice(Math.max(0, clearAt - 400), clearAt),
-    /function recordKnownGood/,
-    "the marker must be cleared from recordKnownGood, which runs after HTTP readiness"
+  const declAt = main.lastIndexOf("function recordKnownGood", clearAt);
+  assert.ok(declAt > 0 && declAt < clearAt, "the marker must be cleared from recordKnownGood");
+  assert.equal(
+    main.slice(declAt, clearAt).indexOf("\nfunction "),
+    -1,
+    "another function declaration sits between recordKnownGood and the clear"
   );
 });
 

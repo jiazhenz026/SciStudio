@@ -156,11 +156,35 @@ can still show a dialog. **A bad shell patch kills the main process**, so nothin
 is left running to recover, and the guard has to be on disk.
 
 `userData/shell-boot-attempt.json` names the shell build the loader is about to
-require. It is written **before** the `require` and cleared only when the runtime
-reaches HTTP readiness — from `recordKnownGood()`, which already marks the
-backend patch good at exactly that point. A marker still naming the candidate
-means the previous attempt at that build died before readiness, so it is refused
-in favour of the baseline.
+require. It is written **before** the `require` and cleared only from
+`recordKnownGood()`. A marker still naming the candidate means the previous
+attempt at that build never got that far, so it is refused in favour of the
+baseline.
+
+**What counts as "that far" changed in #2179.** `recordKnownGood()` originally
+fired the moment the runtime answered HTTP readiness. But that probe validates
+the *Python backend*, and the call vouches for the *Electron shell* — two halves
+of one snapshot that fail independently. Everything the shell does happens after
+that point: the window is created, the preload runs, the renderer paints. A
+patch that broke any of it was still recorded as good, so the quarantine never
+engaged, the loader never fell back, and the next launch loaded it again.
+
+It now runs from `createWindow`, on the path where the renderer has actually
+painted, and refuses outright while a **shell fault** stands. One fault source
+exists so far: Electron's `preload-error`, which fires when a preload script
+throws. The main window is sandboxed, so its preload gets a restricted
+`require` — a patch that adds a relative import there aborts before
+`contextBridge.exposeInMainWorld`, taking `window.scistudioDesktop` and every
+bridge with it, while the backend answers exactly as usual. That is the shape of
+failure the readiness probe could never see, and it is not hypothetical: it is
+what #2171 would have shipped.
+
+The fault is sticky within a launch: a preload error followed by a successful
+paint is still a broken shell.
+
+The retry and error-page paths in `loadBeforeShowing` deliberately do **not**
+vouch. A window showing an error page is not evidence that this shell build is
+worth rolling back to.
 
 Only a patch is ever refused. The baseline is the fallback itself; refusing it
 would turn one bad patch into an unstartable app.
@@ -178,8 +202,8 @@ and it is cleared only when
   so a reinstall is a fresh start and the quarantine never becomes a permanent
   refusal of all future updates.
 
-The second door matters as much as the first: the baseline reaches readiness too
-and calls `recordKnownGood()`, so the host's `clearBootAttempt` is guarded by
+The second door matters as much as the first: the baseline paints too and calls
+`recordKnownGood()`, so the host's `clearBootAttempt` is guarded by
 `mayClearShellMarker` and does nothing unless the shell that came up *is* the
 patch the marker names.
 
