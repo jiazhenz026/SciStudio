@@ -101,9 +101,40 @@ and a dmg that still prompts. The workflow's `Verify signature, hardened runtime
 and notarization` step exists to turn that into a red build. If it is skipped,
 the artifact is not signed no matter what the rest of the log says.
 
+### 3.2 macOS Intel (x64) is not built by CI
+
+`dist:dmg` is hardcoded to `--arm64`, and the workflow's own comment rules out
+running it on an Intel runner: `build:python:mac` keys off `uname -m`, so an
+Intel runner would bundle x64 Python inside an arm64 shell. Yet
+`v0.3.3-alpha` shipped an `-x64.dmg`.
+
+That artefact is produced **locally**, and the procedure is not written down
+anywhere — the only trace is a line in the body of a closed issue.
+
+<!-- TODO(#2165): document the macOS Intel (x64) build.
+     The procedure exists only as tacit knowledge; this section cannot be
+     completed without it. Followup:
+     https://github.com/jiazhenz026/SciStudio/issues/2165 -->
+
+Two things to carry over from section 3.1 when building it by hand:
+
+* the same `APPLE_API_KEY` / `APPLE_API_KEY_ID` / `APPLE_API_ISSUER` must be
+  exported, or the dmg is unsigned;
+* `dist:dmg` does **not** run the workflow's verification step, and
+  electron-builder's notarization fails soft, so run the four checks manually:
+
+```sh
+APP=$(find dist -maxdepth 2 -name '*.app' -print -quit)
+codesign --verify --deep --strict --verbose=2 "$APP"
+codesign --display --verbose=2 "$APP"   # must report flags=...runtime
+spctl -a -vvv -t exec "$APP"
+xcrun stapler validate "$APP"
+```
+
 ## 4. Publish the release and **verify the download**
 
-Attach all three installers to a GitHub Release for the tag.
+Attach the installers to a GitHub Release for the tag -- three from CI plus the
+macOS x64 dmg from section 3.2.
 
 Then actually download one and install it. This is the gate for section 1.1, not
 a formality: everything after this point assumes the artifact is reachable.
