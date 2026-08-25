@@ -89,3 +89,24 @@ def test_the_asset_download_stays_unauthenticated(name: str) -> None:
     ]
     for line in download_lines:
         assert "Authorization" not in line, f"{name}: the asset download must not be authenticated"
+
+
+# --------------------------------------------------------------------------- #
+# #2172: a hang must fail inside a release window, not after six hours.
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("name", BUILD_WORKFLOWS)
+def test_build_jobs_carry_a_timeout(name: str) -> None:
+    """Without one, GitHub's default is six hours.
+
+    The macOS build signs several hundred Mach-O files and then waits on Apple's
+    notarization queue, both silently, so a hang looks exactly like slowness from
+    the outside. A build that fails at 90 minutes is actionable; one that fails
+    after six hours arrives when the release window has closed.
+    """
+    import yaml
+
+    spec = yaml.safe_load((WORKFLOWS / name).read_text(encoding="utf-8"))
+    for job_name, job in spec["jobs"].items():
+        timeout = job.get("timeout-minutes")
+        assert timeout is not None, f"{name}:{job_name} has no timeout-minutes"
+        assert 0 < timeout <= 120, f"{name}:{job_name} timeout of {timeout} minutes defeats the purpose"

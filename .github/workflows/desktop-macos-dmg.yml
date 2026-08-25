@@ -30,6 +30,13 @@ jobs:
     # build:python:mac keys off `uname -m` and dist:dmg now targets --arm64
     # (#1747). An Intel runner here would bundle x64 Python in an arm64 shell.
     runs-on: macos-15
+    # #2172: signing every Mach-O in the bundle and then waiting on Apple's
+    # notarization queue both run silently for a long time, so a hang is
+    # indistinguishable from slowness. Without a timeout GitHub's default of six
+    # hours applies, and a stuck build burns a runner-day before anyone learns
+    # anything. 90 minutes is well clear of a legitimately slow notarization
+    # queue while still failing inside a release window.
+    timeout-minutes: 90
     env:
       # #2096: signing is driven by whether the Developer ID certificate is
       # configured as a repository secret. With no certificate, identity
