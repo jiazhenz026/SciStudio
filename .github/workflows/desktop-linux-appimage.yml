@@ -31,6 +31,9 @@ jobs:
     # An AppImage built on a newer runner would refuse to launch on older
     # distros. ubuntu-22.04 is the compatibility baseline (ADR-037 §7.3).
     runs-on: ubuntu-22.04
+    # #2172: without this GitHub's six-hour default applies, and a hung build
+    # burns a runner-day before failing.
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v7

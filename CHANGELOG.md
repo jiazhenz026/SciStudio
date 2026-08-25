@@ -548,6 +548,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   build step now surfaces `@electron/notarize`'s output, so the submission ID and
   each polling state reach the log and a cancelled run can still be traced with
   `notarytool log <id>` afterwards.
+- [#2172] **A hung desktop build now fails in minutes rather than hours.** The
+  three build workflows carried no `timeout-minutes`, so GitHub's six-hour
+  default applied. That matters most on macOS, where `Build DMG` signs several
+  hundred Mach-O files one process at a time and then waits on Apple's
+  notarization queue — both silent, so a hang is indistinguishable from
+  slowness while it is happening. A 0.3.4 build sat there for over forty
+  minutes with nothing to go on. macOS now has 90 minutes, generous against a
+  slow notarization queue but inside a release window; Windows and Linux have
+  60. A test asserts every build job carries one.
 
 - [#2169] **The reinstall notice can now reach the clients it exists for.**
   `--reinstall-notice` was written for one situation — the base version moved,
