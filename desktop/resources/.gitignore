@@ -15,3 +15,6 @@ git/*
 
 python/*
 !python/.gitkeep
+# #1775: written by the staging scripts at build time (channel + manifest URL).
+# A committed copy carries whatever channel the last local build used.
+ota-config.json
