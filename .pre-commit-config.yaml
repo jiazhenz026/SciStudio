@@ -11,7 +11,9 @@
 # - the final commit's Conventional Commits subject (previously the commitizen
 #   commit-msg hook) is validated by the evaluator at pre-pr/ci;
 # - the gate_record pre-commit/commit-msg reconciliation runs at pre-pr via the
-#   same evaluator the hooks used to call.
+#   same evaluator the hooks used to call;
+# - the pytest suites (python_tests / architecture_tests) are untouched: they
+#   run at pre-pr and in the ci.yml jobs exactly as before.
 #
 # All hooks in this file are bound to the `manual` stage, so even with the
 # pre-commit framework shims installed nothing fires on `git commit`. Run them

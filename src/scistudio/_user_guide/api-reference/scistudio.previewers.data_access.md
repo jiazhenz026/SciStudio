@@ -176,4 +176,3 @@ TextChunk(content: 'str', truncated: 'bool', total_bytes: 'int', language: 'str'
 ```
 
 A bounded chunk of text plus a truncation marker.
-

@@ -371,7 +371,7 @@ persists `capability_id` on the port.
   - Bio-Formats family: at minimum `imaging.image.czi.load`,
     `imaging.image.nd2.load`, `imaging.image.lif.load`, `imaging.image.oir.load`,
     `imaging.image.oib.load` (handler: cellprofiler/python-bioformats).
-  
+
   Every record MUST declare
   `metadata_fidelity=MetadataFidelity(level="format_specific", format_metadata_reads=("ome",), typed_meta_reads=(...))`
   where the typed_meta_reads enumerate which Image.Meta fields the handler
@@ -386,7 +386,7 @@ persists `capability_id` on the port.
     only);
   - `imaging.image.jpeg.save` (handler: Pillow; writes EXIF-mappable OME fields
     only).
-  
+
   Bio-Formats family (CZI/ND2/LIF/OIR/OIB) MUST NOT appear in SaveImage
   capabilities (load-only per cellprofiler/python-bioformats library scope). Each
   save capability MUST declare `format_metadata_writes=("ome",)` with
@@ -531,7 +531,7 @@ sequential audit phases (Phase B) and an integration phase (Phase C):
   - A2: imaging IO + Image.Meta.ome + Bio-Formats extras + new format handlers
     (`packages/scistudio-blocks-imaging/src/**`, `pyproject.toml`).
   - A3: frontend UI (`frontend/src/**`).
-  
+
   Each agent owns an isolated worktree, a feature branch off the umbrella branch,
   and its own PR targeting the umbrella branch.
 

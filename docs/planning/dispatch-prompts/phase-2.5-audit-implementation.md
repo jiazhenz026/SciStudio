@@ -77,7 +77,7 @@ Use Chrome MCP (`mcp__claude-in-chrome__*` tools — load via ToolSearch first).
 - Workflow continues PAUSED → DONE
 - The CSV file is produced
 
-**For ADR-036**: 
+**For ADR-036**:
 - Open editor for an existing `.py` from project tree → Monaco renders + lint markers appear after typing
 - Edit a char → wait 800 ms → verify mtime advanced on disk
 - Click "View source" on a workflow → Monaco renders YAML readonly; re-click dedups

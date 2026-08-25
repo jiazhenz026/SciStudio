@@ -81,7 +81,7 @@ Known deferred items:
    - **Mode A** (shape-preserving same-type): the block constructs output via `OutputClass(..., meta=source.meta, ...)`. Verify `meta=source.meta` propagation is intact — no-op fix expected.
    - **Mode B** (shape-changing same-type): the block constructs output via `OutputClass(..., meta=transform_helper(source.meta, ...), ...)`. Confirm the transform helper handles `ome` field — update helper if it does not.
    - **Mode C** (cross-type): the block constructs output via `OutputClass.Meta(field1=..., ...)`. If output preserves spatial coord system (e.g. Image→Label/Mask shape-aligned with input), `ome=source.meta.ome` MUST be in the rebuilt Meta. If output drops spatial structure entirely (e.g. Image→DataFrame for measurements), `meta=None` or domain-specific Meta without ome is permitted but MUST be documented.
-   
+
    Record each block's classification + ome decision in `docs/audit/adr-043-imaging-propagation-audit.md` (table: block_name, module_path, mode, ome_decision, justification).
 
 2. **T-031 (Mode B fixes):** Update `_resize_meta` in geometry.py, `_projected_meta` in projection.py, `_split_meta` in axis_ops.py. Each helper must:
