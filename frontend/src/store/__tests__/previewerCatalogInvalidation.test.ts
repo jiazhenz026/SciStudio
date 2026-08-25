@@ -121,6 +121,36 @@ describe("rescanPreviewers — the Reload button", () => {
 });
 
 describe("choice mutations re-route open previews (#2049 / #2113)", () => {
+  it("a forced fetch in flight does not overwrite a concurrent choice write (#2153 review)", async () => {
+    // The auto-rescan on a tab revisit forces a catalogue fetch whose choices
+    // GET can still be on the wire when the write route answers with the new
+    // choice. The stale GET must not land over the write's newer answer.
+    let resolveChoices: (value: { choices: unknown[] }) => void = () => {};
+    listPreviewerChoices.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveChoices = resolve;
+        }),
+    );
+    const written = {
+      target_type: "Spectrum",
+      previewer_id: "user.spectrum.view",
+      scope: "user",
+      available: true,
+    };
+    setPreviewerChoice.mockResolvedValue({ choices: [written] });
+
+    const fetch = loadPreviewerCatalog({ force: true });
+    await vi.waitFor(() => expect(listPreviewerChoices).toHaveBeenCalledTimes(1));
+    await choosePreviewer("Spectrum", "user.spectrum.view", "user");
+    expect(useAppStore.getState().previewerChoices).toEqual([written]);
+
+    // The pre-write listing lands late; the epoch guard drops it.
+    resolveChoices({ choices: [] });
+    await fetch;
+    expect(useAppStore.getState().previewerChoices).toEqual([written]);
+  });
+
   it("a written choice applies the returned choices and bumps the routing epoch", async () => {
     const choice = {
       target_type: "Spectrum",

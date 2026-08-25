@@ -174,7 +174,7 @@ export interface TypeCatalog {
   /** False until the first listing lands — the tab's own loading window. */
   loaded: boolean;
   declared: DeclaredTypeColors | undefined;
-  /** Re-scan the drop-in dirs, then re-fetch. Backs the tab's Reload button. */
+  /** Re-scan the drop-in dirs, then re-fetch. Backs the tab's Reload button and its on-switch auto-reload (#2151). */
   reload: () => Promise<void>;
 }
 

@@ -3,6 +3,7 @@
 // else shows (registry diagnostics, stale choices).
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as DataApi from "../../lib/api/data";
@@ -82,13 +83,22 @@ function makeChoice(overrides: Partial<PreviewerChoice> = {}): PreviewerChoice {
 
 /** Render the tab with the listing and choices already in the store. Setting
  *  the store BEFORE render matters: the pane's mount effect otherwise starts
- *  a catalogue fetch whose resolution would overwrite the fixture state. */
-function renderPalette(previewers: PreviewerSpecSummary[] = CATALOGUE) {
+ *  a catalogue fetch whose resolution would overwrite the fixture state.
+ *
+ *  A preloaded store also means the #2151 mount auto-rescan fires (a revisit
+ *  over a cached catalogue), so the listing mock answers with the same
+ *  fixture and the helper waits for that rescan to settle before returning —
+ *  a test that sets choices afterwards must not have them overwritten by a
+ *  late fetch landing mid-assertion. */
+async function renderPalette(previewers: PreviewerSpecSummary[] = CATALOGUE) {
+  listPreviewers.mockResolvedValue({ previewers, diagnostics: [] });
   act(() => {
     useAppStore.getState().setPreviewers(previewers, []);
     useAppStore.getState().setPreviewerChoices([]);
   });
-  return render(<PreviewerPalette />);
+  const result = render(<PreviewerPalette />);
+  await act(async () => {});
+  return result;
 }
 
 function card(id: string): HTMLElement {
@@ -111,15 +121,15 @@ afterEach(() => {
 });
 
 describe("Previewers tab — structure", () => {
-  it("titles the panel `Previewers`, matching its activity-bar label", () => {
-    renderPalette();
+  it("titles the panel `Previewers`, matching its activity-bar label", async () => {
+    await renderPalette();
     expect(screen.getByText("Previewers")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search previewers")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
   });
 
-  it("groups cards by tier: This Project, My Library, Core, then packages A→Z", () => {
-    const { container } = renderPalette();
+  it("groups cards by tier: This Project, My Library, Core, then packages A→Z", async () => {
+    const { container } = await renderPalette();
     const sections = [...container.querySelectorAll("section[data-testid^='previewer-section-']")];
     const headings = sections.map(
       (node) => node.querySelector("button span:last-child, p")?.textContent,
@@ -128,23 +138,23 @@ describe("Previewers tab — structure", () => {
     expect(within(card("project.spectrum.view")).getByText("project.spectrum.view")).toBeTruthy();
   });
 
-  it("renders both drop-in tier sections with their teaching copy when empty", () => {
-    renderPalette([coreViewer]);
+  it("renders both drop-in tier sections with their teaching copy when empty", async () => {
+    await renderPalette([coreViewer]);
     const hints = screen.getAllByTestId("palette-section-empty").map((node) => node.textContent);
     expect(hints).toHaveLength(2);
     expect(hints.some((hint) => hint?.includes("No previewers of your own yet"))).toBe(true);
     expect(hints.some((hint) => hint?.includes("No previewers in this project yet"))).toBe(true);
   });
 
-  it("says so when nothing is registered at all", () => {
-    renderPalette([]);
+  it("says so when nothing is registered at all", async () => {
+    await renderPalette([]);
     expect(screen.getByTestId("previewer-palette-empty")).toHaveTextContent(
       "No previewers registered.",
     );
   });
 
-  it("narrows the cards by search text", () => {
-    renderPalette();
+  it("narrows the cards by search text", async () => {
+    await renderPalette();
     fireEvent.change(screen.getByPlaceholderText("Search previewers"), {
       target: { value: "imaging" },
     });
@@ -162,9 +172,19 @@ describe("Previewers tab — reload (#2095)", () => {
     });
     listPreviewers.mockImplementation(() => {
       calls.push("list");
-      return Promise.resolve({ previewers: [], diagnostics: [] });
+      return Promise.resolve({ previewers: CATALOGUE, diagnostics: [] });
     });
-    renderPalette();
+    // A preloaded store makes the mount an auto-rescan revisit (#2151) — that
+    // settle is the baseline the click adds to. (Not `renderPalette`: its
+    // listing-mock default would replace the tracked implementations above.)
+    act(() => {
+      useAppStore.getState().setPreviewers(CATALOGUE, []);
+      useAppStore.getState().setPreviewerChoices([]);
+    });
+    render(<PreviewerPalette />);
+    await act(async () => {});
+    expect(calls).toEqual(["scan", "list"]);
+    calls.length = 0;
 
     fireEvent.click(screen.getByRole("button", { name: "Reload" }));
 
@@ -184,9 +204,48 @@ describe("Previewers tab — reload (#2095)", () => {
   });
 });
 
+describe("Previewers tab — auto-reload on section switch (#2151)", () => {
+  it("rescans once when the pane mounts over an already-loaded (possibly stale) catalogue", async () => {
+    // The revisit: the store still holds the last listing, which is exactly
+    // the cache a change outside the registry-refresh paths leaves stale.
+    act(() => {
+      useAppStore.getState().setPreviewers(CATALOGUE, []);
+      useAppStore.getState().setPreviewerChoices([]);
+    });
+    listPreviewers.mockResolvedValue({ previewers: CATALOGUE, diagnostics: [] });
+    render(<PreviewerPalette />);
+    await act(async () => {});
+    expect(reloadPreviewers).toHaveBeenCalledTimes(1);
+    expect(listPreviewers).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not rescan on the first ever mount — the plain load is already fetching", async () => {
+    render(<PreviewerPalette />);
+    await act(async () => {});
+    expect(reloadPreviewers).not.toHaveBeenCalled();
+    expect(listPreviewers).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays at one rescan under StrictMode's mount-effect replay (#2153 review)", async () => {
+    act(() => {
+      useAppStore.getState().setPreviewers(CATALOGUE, []);
+      useAppStore.getState().setPreviewerChoices([]);
+    });
+    listPreviewers.mockResolvedValue({ previewers: CATALOGUE, diagnostics: [] });
+    render(
+      <StrictMode>
+        <PreviewerPalette />
+      </StrictMode>,
+    );
+    await act(async () => {});
+    expect(reloadPreviewers).toHaveBeenCalledTimes(1);
+    expect(listPreviewers).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("Previewers tab — per-type choice (#2049, segmented control)", () => {
-  it("highlights the chosen card's scope segment; every other card reads Auto", () => {
-    renderPalette();
+  it("highlights the chosen card's scope segment; every other card reads Auto", async () => {
+    await renderPalette();
     act(() => {
       useAppStore.getState().setPreviewerChoices([makeChoice()]);
     });
@@ -205,8 +264,8 @@ describe("Previewers tab — per-type choice (#2049, segmented control)", () => 
     );
   });
 
-  it("names the current choice on a competing card for the same type", () => {
-    renderPalette();
+  it("names the current choice on a competing card for the same type", async () => {
+    await renderPalette();
     act(() => {
       useAppStore.getState().setPreviewerChoices([makeChoice()]);
     });
@@ -216,7 +275,7 @@ describe("Previewers tab — per-type choice (#2049, segmented control)", () => 
   });
 
   it("writes a user-scope choice from the All projects segment and re-routes", async () => {
-    renderPalette();
+    await renderPalette();
     setPreviewerChoice.mockResolvedValue({ choices: [makeChoice()] });
     const versionBefore = useAppStore.getState().previewerChoiceVersion;
 
@@ -234,7 +293,7 @@ describe("Previewers tab — per-type choice (#2049, segmented control)", () => 
   });
 
   it("writes a project-scope choice from the This project segment", async () => {
-    renderPalette();
+    await renderPalette();
     setPreviewerChoice.mockResolvedValue({
       choices: [makeChoice({ scope: "project", previewer_id: "project.spectrum.view" })],
     });
@@ -260,7 +319,7 @@ describe("Previewers tab — per-type choice (#2049, segmented control)", () => 
     // would reveal a user-layer choice underneath (#2049 reveal semantics),
     // which is correct for a scoped clear and wrong for Auto. Both DELETEs
     // succeed even when a layer holds nothing.
-    renderPalette();
+    await renderPalette();
     clearPreviewerChoice.mockResolvedValue({ choices: [] });
     act(() => {
       useAppStore
@@ -283,7 +342,7 @@ describe("Previewers tab — per-type choice (#2049, segmented control)", () => 
   });
 
   it("Auto on an unchosen card is a no-op — it must not clear another previewer's choice", async () => {
-    renderPalette();
+    await renderPalette();
     act(() => {
       useAppStore.getState().setPreviewerChoices([makeChoice()]);
     });
@@ -295,7 +354,7 @@ describe("Previewers tab — per-type choice (#2049, segmented control)", () => 
   });
 
   it("shows a card-level error instead of losing the click when the write fails", async () => {
-    renderPalette();
+    await renderPalette();
     setPreviewerChoice.mockRejectedValue(new Error("Unknown previewer 'nope'"));
 
     fireEvent.click(within(card("user.spectrum.view")).getByTestId("previewer-seg-user"));
@@ -307,10 +366,10 @@ describe("Previewers tab — per-type choice (#2049, segmented control)", () => 
     );
   });
 
-  it("renders the choice control as one pill-shaped segmented group with visible depth (owner review on #2119)", () => {
+  it("renders the choice control as one pill-shaped segmented group with visible depth (owner review on #2119)", async () => {
     // Owner call: keep the pill shape (the toolbar-button design language);
     // the control reads as interactive through the container's border + shadow.
-    renderPalette();
+    await renderPalette();
     const segments = within(card("user.spectrum.view")).getByTestId("previewer-choice-segments");
     expect(segments.className).toContain("rounded-full");
     expect(segments.className).toContain("shadow-sm");
@@ -325,7 +384,7 @@ describe("Previewers tab — per-type choice (#2049, segmented control)", () => 
 
 describe("Previewers tab — stale choices", () => {
   it("lists a choice whose previewer is not registered and clears it in place", async () => {
-    renderPalette();
+    await renderPalette();
     act(() => {
       useAppStore
         .getState()
