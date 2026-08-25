@@ -332,3 +332,70 @@ def test_snapshot_without_a_notice_keeps_the_real_spa(mod: ModuleType, tmp_path:
     with tarfile.open(out, "r:gz") as tar:
         payload = tar.extractfile(mod.SPA_INDEX_ARCNAME).read().decode("utf-8")
     assert payload == "<html>the real SPA</html>"
+
+
+# --------------------------------------------------------------------------- #
+# #2169: min_base override — what makes --reinstall-notice reach anyone.
+# --------------------------------------------------------------------------- #
+def _manifest(mod: ModuleType, **kw: object) -> dict:
+    args: dict[str, object] = {
+        "channel": "alpha",
+        "base": "0.3.4",
+        "build": 26,
+        "url": "https://example.test/backend-build26.tar.gz",
+        "sha256": "abc",
+        "size": 1,
+        "notes": "",
+        "published_at": "2026-08-25T00:00:00Z",
+    }
+    args.update(kw)
+    return mod.build_manifest(**args)
+
+
+def test_min_base_defaults_to_the_builds_own_base(mod: ModuleType) -> None:
+    assert _manifest(mod)["requires"]["min_base"] == "0.3.4"
+
+
+def test_min_base_can_be_overridden(mod: ModuleType) -> None:
+    assert _manifest(mod, min_base="0.3.3")["requires"]["min_base"] == "0.3.3"
+
+
+def test_the_override_is_what_turns_incompatible_into_patch(mod: ModuleType) -> None:
+    """The whole point, expressed as the client's own comparison.
+
+    compareBase(clientBase, min_base) < 0 is what desktop/ota.js uses to pick the
+    incompatible branch, and that branch never downloads -- so a notice page
+    published under a derived min_base is built, uploaded, and never fetched.
+    """
+
+    def client_is_incompatible(client_base: str, min_base: str) -> bool:
+        def parts(v: str) -> list[int]:
+            out = []
+            for seg in v.split(".")[:3]:
+                digits = ""
+                for ch in seg:
+                    if not ch.isdigit():
+                        break
+                    digits += ch
+                out.append(int(digits) if digits else 0)
+            while len(out) < 3:
+                out.append(0)
+            return out
+
+        return parts(client_base) < parts(min_base)
+
+    derived = _manifest(mod)["requires"]["min_base"]
+    overridden = _manifest(mod, min_base="0.3.3")["requires"]["min_base"]
+
+    # Without the override a 0.3.3 client takes the dialog-only path.
+    assert client_is_incompatible("0.3.3", str(derived)) is True
+    # With it, the same client takes the patch path and downloads the notice.
+    assert client_is_incompatible("0.3.3", str(overridden)) is False
+
+
+def test_the_migration_manifest_is_both_mandatory_and_a_patch(mod: ModuleType) -> None:
+    """The shape the 0.3.3 -> 0.3.4 migration actually needs."""
+    m = _manifest(mod, min_build=26, min_base="0.3.3")
+    assert m["requires"] == {"min_base": "0.3.3", "min_build": 26}
+    # mandatory needs manifest.build >= min_build, or isMandatoryUpdate returns False
+    assert m["build"] >= m["requires"]["min_build"]
