@@ -756,6 +756,12 @@
       "at": "2026-08-25T07:31:57.694433Z",
       "pattern": "tests/packaging/test_desktop_runtime_build_auth.py",
       "reason": "Two records. (1) tests/packaging/test_desktop_runtime_build_auth.py was recorded as a test path but never added to the declared scope, so the evaluator saw it as an unexplained changed file; it is the guard for the API-authentication fix folded into this PR. (2) python_tests classification plus the owner's preflight-skip authorization."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T07:44:40.743549Z",
+      "pattern": "scripts/docs/build_reference.py",
+      "reason": "CI's commit_hygiene check failed on end-of-file-fixer, naming exactly the six API-reference pages the version bump had forced a regeneration of. The generator never wrote a trailing newline; nothing noticed because nobody had regenerated those pages in a while, so the bump exposed a latent defect rather than introducing one. Fixed in the generator, not the output, because every page opens with a do-not-hand-edit banner and a manual newline would vanish on the next run. The same helper pins LF for the reason version.py needed it. Note on process: running pre-commit --all-files locally also 'fixed' 28 unrelated files across .specify/, .claude/skills/ and docs/, which were reverted -- CI named only the six, so those are working-tree artefacts, not repository state."
     }
   ],
   "session_id": "240bf74d-8c15-4973-b645-2849df412187",
