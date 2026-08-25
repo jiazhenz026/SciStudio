@@ -127,7 +127,7 @@
       "verified_in_diff": null
     }
   ],
-  "governance_touch": false,
+  "governance_touch": true,
   "guard_events": [
     {
       "at": "2026-08-23T08:44:56.825619Z",
