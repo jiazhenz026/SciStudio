@@ -380,4 +380,3 @@ Parse a ``done_when`` mapping, rejecting anything outside the vocabulary.
 The accepted shape is a single-key mapping: ``{term: {args}}`` for a term,
 ``{all: [condition, ...]}`` or ``{any: [...]}`` for a combinator. Called at
 manifest validation (FR-049), never at evaluation.
-

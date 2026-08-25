@@ -330,4 +330,3 @@ Args:
 Returns:
     The stored storage references as a tuple, empty when the block produced
     no intermediate.
-
