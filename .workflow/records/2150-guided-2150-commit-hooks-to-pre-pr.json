@@ -367,13 +367,18 @@
   "directive_events": [
     {
       "at": "2026-08-25T02:06:00.142723Z",
-      "owner_directive": "ci.yml 注释同步:ruff pin 唯一来源改为 ci.yml 自身",
+      "owner_directive": "ci.yml \u6ce8\u91ca\u540c\u6b65:ruff pin \u552f\u4e00\u6765\u6e90\u6539\u4e3a ci.yml \u81ea\u8eab",
       "reason": "ci.yml ruff pin comment referenced the removed .pre-commit-config.yaml revs; updated the comment and added .github/workflows/ to scope"
     },
     {
       "at": "2026-08-25T02:23:42.882967Z",
-      "owner_directive": "实现完成:commit hooks 全部移除,hygiene/最终 commit 消息检查移到 pre-pr;ruff pin 源改 ci.yml;删除遗留 hook 文件;测试与治理文档已更新",
+      "owner_directive": "\u5b9e\u73b0\u5b8c\u6210:commit hooks \u5168\u90e8\u79fb\u9664,hygiene/\u6700\u7ec8 commit \u6d88\u606f\u68c0\u67e5\u79fb\u5230 pre-pr;ruff pin \u6e90\u6539 ci.yml;\u5220\u9664\u9057\u7559 hook \u6587\u4ef6;\u6d4b\u8bd5\u4e0e\u6cbb\u7406\u6587\u6863\u5df2\u66f4\u65b0",
       "reason": "plan"
+    },
+    {
+      "at": "2026-08-25T05:07:30.696610Z",
+      "owner_directive": "python_tests/semantic_dup local evidence gaps are pre-existing Windows host issues (verified against a clean main checkout; classification N/As recorded); proceed to PR via the documented SCISTUDIO_SKIP_PREFLIGHT=1 escape, CI (ubuntu) is the authoritative gate",
+      "reason": "owner decision on the python_tests evidence gap"
     }
   ],
   "docs_events": [
@@ -942,7 +947,7 @@
       "workflow_ci": 5
     }
   },
-  "owner_directive": "取消所有 commit 时 git hook(允许自由 commit),把现有 commit hook 的全部检查项移到 gate_record check --mode pre-pr 强制执行;commit 消息类检查只校验最终 commit(owner 已确认)",
+  "owner_directive": "\u53d6\u6d88\u6240\u6709 commit \u65f6 git hook(\u5141\u8bb8\u81ea\u7531 commit),\u628a\u73b0\u6709 commit hook \u7684\u5168\u90e8\u68c0\u67e5\u9879\u79fb\u5230 gate_record check --mode pre-pr \u5f3a\u5236\u6267\u884c;commit \u6d88\u606f\u7c7b\u68c0\u67e5\u53ea\u6821\u9a8c\u6700\u7ec8 commit(owner \u5df2\u786e\u8ba4)",
   "persona": "live_implementer",
   "pull_request": null,
   "reconcile_events": [
