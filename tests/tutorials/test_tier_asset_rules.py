@@ -33,7 +33,11 @@ GRADED_IN = [TutorialSourceKind.CORE, TutorialSourceKind.PACKAGE]
 
 
 def test_the_two_restricted_sets_are_the_ones_fr_020a_names() -> None:
-    assert set(EXECUTABLE_ASSET_DIRS) == {"code", "panels", "replay"}
+    # ``workflows`` joined in #2063: a workflow YAML names a code block's
+    # script path and cwd, so it is configuration the product acts on to
+    # execute — the same reason EXECUTED_PROJECT_PATHS lists the project
+    # directory of that name.
+    assert set(EXECUTABLE_ASSET_DIRS) == {"code", "panels", "replay", "workflows"}
     assert set(EXECUTED_PROJECT_PATHS) >= {"blocks", "types", "previewers", "plots"}
 
 

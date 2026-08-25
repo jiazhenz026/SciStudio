@@ -67,7 +67,7 @@ function boxOf(element: Element): HighlightRect | null {
  *
  * Read from ARIA rather than from any component's internals: an expanded
  * control points at what it expanded, which is a property of the accessibility
- * contract every menu, popover, and combobox in this product already honours,
+ * contract every menu, popover, and combobox in this product already honors,
  * and not of the library that happens to render them.
  */
 function expandedPanelOf(element: Element): Element | null {

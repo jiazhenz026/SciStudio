@@ -91,9 +91,11 @@ export function PlotsTab() {
        * ADR-053 FR-052 — `plot_rendered`, one of the four names in the closed
        * `UI_EVENT_NAMES` set. Reported on a run that produced a figure, so a
        * step saying "press Run on the plot card" waits for the figure rather
-       * than offering Continue to a reader who has not pressed anything.
+       * than offering Continue to a reader who has not pressed anything. The
+       * plot id rides along as the event's target (#2063), so a step can wait
+       * for *this* plot's figure rather than any plot's.
        */
-      void useAppStore.getState().reportTutorialUiEvent("plot_rendered");
+      void useAppStore.getState().reportTutorialUiEvent("plot_rendered", plot.plot_id);
       // #1713 followup — select the plot's linked block so the Preview header
       // shows the block name (not "Select a block") and the result sits beside
       // its source. Skip broken plots: the bound node no longer exists.

@@ -114,6 +114,14 @@ export interface TerminalTabsProps {
 
 function tabBelongsToSurface(tab: TerminalTabModel, surface: TerminalSurface): boolean {
   if (surface === "mixed") return true;
+  // A tutorial replay is adopted with the `user-terminal` provider, but only
+  // because the WS query validates the provider against the registry
+  // whitelist before any spawn decision — it is not a user terminal. Its
+  // `source` is what says what it is. Filing it by provider put the
+  // transcript under Terminal while every replay step routes the reader to
+  // AI Chat, where they met the provider picker the level promises they will
+  // not need. Found by the level-4 end-to-end session.
+  if (tab.source === "tutorial-replay") return surface === "chat";
   const isUserTerminal = tab.provider === "user-terminal";
   return surface === "terminal" ? isUserTerminal : !isUserTerminal;
 }

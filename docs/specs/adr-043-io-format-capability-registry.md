@@ -250,6 +250,30 @@ the load → save round-trip reproduce the original file ↔ sheet grouping. Exc
 hard sheet limits (1,048,576 rows × 16,384 columns) are enforced with a clear
 error rather than silent truncation.
 
+#### A multi-file Load of a delegated type (#2146)
+
+Selecting several files in the core Load block makes `path` a list, and
+`LoadData` declares `is_collection=True` for it whatever the `core_type` is —
+including a package-registered or project-defined type, which is dispatched to
+its owning loader through `delegate_load`. Which loader that is decides who
+fans the list out:
+
+- A loader that inherits `SimpleLoader.load` reads one file: the author sets
+  three class attributes and implements `load_file(path, config)`, and the
+  inherited `load` resolves exactly one `path`. `delegate_load` calls it once
+  per entry with a single-path config and packs the results into a
+  `Collection` — the same division of labour the six core types already have,
+  where `_load_array` and its siblings read one file and `LoadData` loops.
+- A loader that implements `load` itself receives the list as written, because
+  it may want the whole batch: to order a z-stack, or to align across files.
+  Fanning that out would take the batch away from a loader that asked for it.
+
+`SimpleLoader` therefore stays single-file in both directions: it rejects a
+list handed to it directly, and never sees one through dispatch. The save
+direction already has the matching behaviour in
+`SaveData._delegate_save_collection`, which writes one file per Collection item
+and hands each delegated save a single path.
+
 ## 3. Requirements
 
 ### Functional Requirements

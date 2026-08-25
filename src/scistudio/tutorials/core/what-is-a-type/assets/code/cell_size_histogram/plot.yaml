@@ -1,0 +1,17 @@
+# The cell-size histogram core tutorial 2 scaffolds at the end of the level.
+#
+# Bound to Review Labels' areas output — the table the reader corrected by
+# hand — rather than to the segmentation, so the picture measures the cells
+# they kept and not the speck they deleted.
+schema_version: 1
+id: cell_size_histogram
+title: Cell size distribution
+target:
+  workflow_path: workflows/main.yaml
+  workflow_id: main
+  node_id: review
+  output_port: areas
+  display_label: Review Labels
+script:
+  language: python
+  path: render.py

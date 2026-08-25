@@ -18,7 +18,7 @@ incomplete — which is the intended reading, because there is new material. It
 also means a stored completion for a tutorial the source no longer ships stops
 being counted instead of pushing ``completed`` above ``total``.
 
-**Exactly one product behaviour is driven by progress** (FR-079), and it is
+**Exactly one product behavior is driven by progress** (FR-079), and it is
 driven by the core group alone (FR-080): completing one named core tutorial
 presents the work-import offer, once. Package progress is display only. And no
 capability is gated on any of it (FR-081) — the work-import toolbar entry is
@@ -63,18 +63,26 @@ PROGRESS_FILENAME = "tutorial-progress.json"
 #: Learning Center settings file, in the same directory.
 CONFIG_FILENAME = "learning-center.json"
 
-#: Overrides the configured milestone for one process. Named for the behaviour
+#: Overrides the configured milestone for one process. Named for the behavior
 #: it selects rather than for this module, because it is a product setting.
 WORK_IMPORT_MILESTONE_ENV_VAR = "SCISTUDIO_WORK_IMPORT_MILESTONE"
 
-# TODO(#2057): the work-import milestone ships unset until the Learning Center
-#   scenarios spec names the AI tutorial that carries it.
-#   Out of scope per ADR-053 Learning Center spec assumption A-005, which
-#   assigns that choice to the scenarios spec and requires FR-079's trigger to
-#   be configuration precisely so the scenarios spec can make it and revise
-#   it.
-#   Followup: https://github.com/jiazhenz026/SciStudio/issues/2057
-#: Milestone shipped with the product; see the note above and
+#: Unset while the level it belongs to is not shipped.
+#:
+#: The scenarios doc's 关卡 4 结尾 places the one-time work-import offer
+#: immediately after the AI level — "AI can do all this; want it to bring your
+#: whole codebase across?" — so the milestone becomes ``what-ai-can-do`` once
+#: that level ships. It does not ship here, and naming an absent tutorial would
+#: be a milestone no reader can reach: the offer would never fire and nothing
+#: would say why.
+#:
+#: TODO(#2083): set this to ``"what-ai-can-do"`` when core tutorial 4 ships.
+#:   Out of scope per the owner's decision to land levels 1-2 on their own.
+#:   Followup: https://github.com/jiazhenz026/SciStudio/issues/2083
+#:
+#: Still configuration, not a constant (FR-079, assumption A-005): the env
+#: var and the settings file both override it, and a future scenarios
+#: revision can move it without touching the unlock's logic. See
 #: :func:`work_import_milestone`.
 DEFAULT_WORK_IMPORT_MILESTONE: str | None = None
 
@@ -133,7 +141,7 @@ def work_import_milestone(root: Path | None = None) -> str | None:
     choice, so it must be changeable without touching the unlock's logic.
 
     A **core tutorial id** rather than a full :class:`TutorialKey`, because
-    FR-080 restricts product behaviour to the core group. Making the milestone
+    FR-080 restricts product behavior to the core group. Making the milestone
     structurally incapable of naming a package tutorial is stronger than
     checking that it does not.
 
@@ -315,7 +323,7 @@ class ProgressStore:
         :func:`scistudio.tutorials.discovery.normalize_distribution_name`
         returns, because that is the spelling a package tutorial's ``source_id``
         is recorded under. The fold is not applied here because ``discovery``
-        imports this module, so importing the normaliser back would close a
+        imports this module, so importing the normalizer back would close a
         cycle; the one call site folds instead.
         """
         return self.remove_group("package", distribution)

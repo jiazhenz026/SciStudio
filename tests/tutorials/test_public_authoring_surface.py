@@ -74,7 +74,7 @@ class _PackageDriver:
             index=self._ids.index(step_id),
             total=len(self._ids),
             title=f"Step {step_id}",
-            say="Authored against the canonical root.",
+            say=("Authored against the canonical root.",),
         )
 
     def is_satisfied(self, context: DriverContext, product: ProductState) -> bool:

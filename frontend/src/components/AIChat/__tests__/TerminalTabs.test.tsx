@@ -643,3 +643,26 @@ describe("TerminalTabs", () => {
     });
   });
 });
+
+describe("tutorial replay tabs (#2083 e2e finding)", () => {
+  // The replay is adopted with the `user-terminal` provider because the WS
+  // query validates providers against the registry whitelist, so filing tabs
+  // by provider put the transcript on the Terminal panel — while every replay
+  // step in the level routes the reader to AI Chat, which showed them a
+  // provider picker instead. The tab's `source` is what says what it is.
+  it("shows a replay transcript on AI Chat, not on Terminal", async () => {
+    act(() => {
+      useAppStore.getState().adoptTutorialReplayTab({ tabId: "replay-1", title: "Agent" });
+    });
+
+    const onAi = render(<TerminalTabs surface="chat" />);
+    await waitFor(() => expect(onAi.container.textContent).toContain("Agent"));
+    onAi.unmount();
+
+    const onTerminal = render(<TerminalTabs surface="terminal" />);
+    await waitFor(() => {
+      expect(useAppStore.getState().terminalTabs.some((t) => t.id === "replay-1")).toBe(true);
+    });
+    expect(onTerminal.queryByText("Agent")).toBeNull();
+  });
+});

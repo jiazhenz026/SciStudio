@@ -20,7 +20,7 @@ related_specs:
   - adr-053-work-import
 scope:
   in:
-    - Revising ADR-053 sections 2.1, 2.2, 4.2 and 8 - discarding rather than generalising the current tutorial implementation, admitting reading-only entries, and replacing the percentage unlock threshold with a named-tutorial milestone.
+    - Revising ADR-053 sections 2.1, 2.2, 4.2 and 8 - discarding rather than generalizing the current tutorial implementation, admitting reading-only entries, and replacing the percentage unlock threshold with a named-tutorial milestone.
     - Deleting the hardcoded single-tutorial implementation - one backend route and five frontend modules - and replacing it with a general system in the same change.
     - The tutorial package format - a directory holding a `tutorial.yaml` manifest plus an `assets/` tree, and the manifest schema.
     - A backend tutorial runtime with two drivers behind one interface - the core manifest driver, and package-supplied drivers.
@@ -35,13 +35,13 @@ scope:
     - Progress stored on the backend, grouped by source, with exactly one milestone unlock driven by the core group.
     - The Learning Center surface - a permanent toolbar entry, the first-run landing, and the unfinished-work dot.
   out:
-    - The block palette tips strip, tracked by #1997. The personal tool library spec routed it here, but it shares no mechanism with the tutorial runtime, depends on no Learning Center entry existing, and #1997 already carries its placement, behaviour, tip pool, and acceptance criteria in full. It ships on its own.
+    - The block palette tips strip, tracked by #1997. The personal tool library spec routed it here, but it shares no mechanism with the tutorial runtime, depends on no Learning Center entry existing, and #1997 already carries its placement, behavior, tip pool, and acceptance criteria in full. It ships on its own.
     - The six core tutorial scenarios themselves - their narratives, assets, copy, and step lists. Those are the Learning Center scenarios spec; this spec is the system they run on.
     - Any tutorial content shipped by a package.
     - Frontend assets supplied by a package tutorial. The shape of a tutorial step on screen stays core's.
     - A recording or authoring UI for user-level and project-level tutorials. This spec makes those tiers discoverable and runnable; the manifest is written by hand or by an agent.
     - Sandboxing drop-in execution, deferred by #1531 and unchanged here.
-    - A user tier for previewers, excluded by the personal tool library spec and tracked separately. The scenarios spec depends on it; this spec does not.
+    - The user tier for previewers itself, which landed separately (#2017, PR #2072). This spec consumes it: FR-070's scoped library carries a `previewers/` subdirectory riding the user-tier slot while a tutorial project is open (#2086), but the tier's own registry mechanics stay specified where they landed.
     - Format and storage choices behind a save. The scaffold gains `data/processed/` for results (owner decision, 2026-08-11) and a step names a filename whose suffix picks the format; nothing here specifies the capability resolution behind it.
     - The work-import dialog, brief, and session, governed by the work-import spec. Only the unlock that routes to its entry point is specified here.
     - Provider configuration and the provider registry, governed by ADR-034.
@@ -122,9 +122,9 @@ bundle, plus a single backend route that creates one specific project and writes
 one specific CSV file. Nothing about it can be reused for a second tutorial, and
 nothing about it can be shipped by a package.
 
-ADR-053 §2.1 originally recorded that this implementation would be generalised.
+ADR-053 §2.1 originally recorded that this implementation would be generalized.
 This spec revises that: it is **discarded and replaced**, keeping only the
-scenario narrative. Generalising it would mean carrying its central assumption
+scenario narrative. Generalizing it would mean carrying its central assumption
 forward — that a tutorial is a frontend object which judges itself by reading
 the frontend's copy of the workflow. Almost every completion condition the six
 designed scenarios need is a backend fact: whether a custom type registered,
@@ -202,7 +202,7 @@ spec and is routed back out. It addresses the same problem — a user cannot go
 looking for a feature whose existence they have never been shown — but it shares
 no mechanism with anything specified here, the draft requirement for it already
 said it must not depend on a Learning Center entry existing, and #1997 already
-carries its placement, behaviour, tip pool, and acceptance criteria in full. Keeping it here
+carries its placement, behavior, tip pool, and acceptance criteria in full. Keeping it here
 would have coupled a strip that ships in an afternoon to a system that ships in
 eleven steps.
 
@@ -356,7 +356,7 @@ A user completes the AI scenario. The product offers to carry their existing
 analysis into SciStudio. They can take it now or skip; if they skip, they are
 told the entry stays permanently in the toolbar under "Bring in my work".
 
-**Why this priority:** This is the only product behaviour progress drives, and
+**Why this priority:** This is the only product behavior progress drives, and
 ADR-053 §4.2 currently specifies it as a percentage threshold, which this spec
 replaces.
 
@@ -500,7 +500,10 @@ be listed.
 directory. The reserved subdirectories are `data/` for data files, `code/` for
 block, type, previewer, and plot sources written into the project, `panels/` for
 built interactive-block panel bundles, `replay/` for scripted replay material,
-and `pages/` for reading content.
+`workflows/` for workflow YAML written into the project (#2063), and `pages/`
+for reading content. `workflows/` is graded executable-adjacent under FR-020a:
+a workflow YAML names a code block's script path and working directory, so it
+is configuration the product acts on to execute, not data.
 
 **FR-007.** The manifest MUST declare `id`, `title`, and `summary`. It MAY
 declare `cover` naming an image file in the tutorial directory, and `order` as an
@@ -517,9 +520,16 @@ that lets discovery tell "written for a newer core" apart from "malformed", and
 the two owe the user different messages.
 
 **FR-008.** The manifest MAY declare a `requires` block with `scistudio` as a
-version specifier, `agent` as a boolean, and `packages` as a list of
-distribution names. A tutorial whose requirements are unmet MUST still be listed
-(FR-024).
+version specifier, `agent` as a boolean, `packages` as a list of distribution
+names, and `tutorials` as a list of same-source tutorial ids that must be
+completed before this one can be started (#2088). A tutorial whose requirements
+are unmet MUST still be listed (FR-024); an unmet `tutorials` entry lists it as
+unavailable naming the tutorial it waits on, which is how a track of levels
+shows the reader where it goes before they have walked it. Ids address siblings
+only, because progress is keyed by (source, id) and a manifest cannot address
+another source; a required id its source does not ship can never complete, so
+the typo surfaces in the catalogue as a permanently unavailable entry naming
+it, rather than being hidden.
 
 **FR-009.** The manifest MAY declare a `bootstrap` block. Presence of
 `bootstrap` is what determines whether the tutorial gets a project: a tutorial
@@ -533,15 +543,120 @@ manifest declaring both, or neither, MUST be rejected with a message naming the
 conflict.
 
 **FR-011.** A step MUST declare an `id` unique within the tutorial. It MAY
-declare `say` as display text, `highlight` naming a user-interface element,
+declare `say` as the ordered beats the step is delivered in (FR-011d),
+`highlight` naming a user-interface element,
 `route_to` naming a tab or panel the user is taken to, `prefill` seeding a
 dialog the user is about to open (FR-011b), `do` as an ordered list of
-actions, and `done_when` as a completion condition.
+actions, `done_when` as a completion condition, `pages` as an ordered list
+of reading pages the step presents, each naming a file under `assets/pages/`
+the way a `page_reached` condition names one — with or without its extension —
+and `trigger` as a user-triggered action (#2061): a button label plus an
+ordered `do` list run when the reader presses it, distinct from the entry `do`
+in exactly one respect, *when* it runs. Entry actions run because the reader
+arrived; a trigger runs because the reader asked, which is what lets a step
+hold its material back until asked for — "press Play to watch the agent work"
+cannot be an entry action without playing before the sentence is readable. A
+declared page MUST exist when the manifest is loaded, on FR-014's grounds: a
+reading step whose page is missing fails the author at listing, not the reader
+on the page turn. A trigger MUST declare both halves — a label the reader can
+be asked to press, and at least one action — and its `do` list is covered by
+the same containment (FR-014, FR-015) and tier rules (FR-020a) as every other
+action list, because pressing the button reaches the project as surely as
+entering the step does.
 
 **FR-011c.** A step MAY declare `title` as a short heading for the step card.
 A step without one MUST fall back to the tutorial's own title. Heading every
 step with the tutorial's name tells the reader the one thing they already know
 and nothing about where they are.
+
+**FR-011d (#2135).** `say` MUST accept either one line written bare or an
+ordered list of lines. A bare line is one beat. A step is delivered as a short
+exchange — a line or two introducing the material, then the line that hands the
+task over — and where those breaks fall MUST be the author's, carried through
+from the manifest rather than derived downstream. Level 1 contains steps that
+are a single instruction and must stay a single beat, and steps that want
+three; no splitter operating on the finished string can tell those apart, and a
+step whose one instruction is broken across three dialogue turns is unusable.
+
+A beat MUST be a non-empty line: an empty beat is a dialogue box with nothing
+in it. A step MUST NOT declare more beats than the format's ceiling. The
+ceiling is not a layout limit — the surface would render any number — it is the
+line past which a step has stopped being a step. A step is a beat of doing:
+something is introduced, then asked for. Past it the reader is reading, and
+reading is what `pages` is for, with its own surface and its own way back.
+Exceeding it MUST be rejected at load, where the author is, with a message
+naming `pages`.
+
+**FR-011e (#2136).** A beat MAY be declared `compact`, delivering it as a chat
+line — an avatar and the sentence, floating beside the lit target — rather than
+as a scene with the character standing in the main editing area. It MUST be the
+author's declaration and MUST NOT be inferred from geometry: which form suits a
+beat depends on what that beat is asking the reader to look at, and a surface
+that guesses will guess wrong on the beats where it matters most. It defaults to
+the full form, so a manifest that says nothing gets what every manifest got
+before it existed.
+
+**Declared per beat, not per step**, written as one boolean for the whole step
+or as a list beside `say`. A step is usually a lead-in and an instruction, and
+those two routinely want different forms: "a block is SciStudio's basic unit",
+said about the palette as a whole, wants her standing there; "drag Load onto the
+canvas", said about one entry in it, wants a chat line beside that entry.
+Per-step was tried first and produced a tutorial that had to be split into a
+step per sentence to say anything with two surfaces in it — which made the step,
+the unit of *doing*, into a unit of *saying* as well.
+
+The rule the six levels follow, and it is a rule about the target rather than
+about the text: a ring around one small control gets the chat line, because a
+character standing over the thing the reader is being told to click is in the
+way of it; a ring around a whole surface gets the scene, because there the
+surface is the subject and she belongs in it.
+
+**FR-011f (#2136).** Each beat MUST carry the expression the character delivers
+it with, and that expression MUST be the author's, not the runtime's. It is
+written as a prefix on the beat itself — `explain: A block is a unit of work.` —
+so the line and the face it is said with are one string an author cannot get out
+of step with each other. The vocabulary is closed, and closed is what makes the
+prefix safe: only a name in the set is read as an expression, so a line
+beginning `Note:` is a line beginning "Note:" and nothing has to be escaped. A
+beat naming no expression MUST default to the resting one, since a beat is far
+more often a plain line than a gesture, and a beat naming an expression and no
+words MUST be rejected at load.
+
+The expression was derived at first, from the step's state: mid-beat meant
+explaining, an unmet condition meant asking, a re-check that came back empty
+meant waiting. Every one of those is a fact about the runtime, and none of them
+is what a scene is about. The face changed when the backend changed its mind
+rather than when the writing did, and an author who wanted her surprised on the
+second line of three had no way to say so. Which line she smiles on is a writing
+decision and belongs in the manifest with the rest of the writing.
+
+**Which beat the reader is on is not session state.** It is presentation
+state, of the same kind as scroll position, and it MUST NOT enter the session,
+the progress store, or the step view. What the backend judges is whether the
+step's condition holds (§4.1), which is unaffected by which line is on screen.
+A reader who leaves a tutorial and returns re-enters the step at its first
+beat: their context is gone either way, and re-reading it is the correct
+recovery rather than a loss of place.
+
+**FR-011g (#2135).** A beat MAY set a phrase in bold, written `**like this**`,
+and that MUST be the whole of the markup a beat carries. What it is for is the
+sentence that says what to do: a beat is usually a lead-in and an instruction,
+and the reader spends most of the beat looking at the product rather than at the
+panel. Coming back to a paragraph of even weight, they have to re-read it to
+find the half that was addressed to them; coming back to one bold sentence, they
+do not.
+
+The emphasis MUST be authored and MUST NOT be inferred. A runtime that picked
+out imperative verbs would eventually put the weight on the wrong half of
+somebody else's sentence, in a tutorial its author cannot edit, with no way to
+say otherwise — and a tutorial's copy belongs to whoever wrote it, which is the
+same principle FR-011f states about expressions.
+
+Markdown MUST NOT be adopted wholesale to serve this. A beat is a spoken
+sentence: it has no headings, no lists, no links and no code spans, and a
+general renderer brought in for one pair of asterisks makes every other
+construct start working too — including the ones that emit block elements into
+a panel of fixed height that cannot hold them (FR-089d).
 
 **FR-011b.** A step MAY declare `prefill` as a list of single-key mappings, each
 naming one dialog and the values it opens holding. A step that names a value and
@@ -561,6 +676,12 @@ A prefill MUST be a default and not a decision: what it seeds stays editable,
 and a reader who supplies something else MUST NOT be blocked, because the step's
 `done_when` judges the world rather than the dialog.
 
+The current members are `new_custom_block` and `new_data_type`, each seeding
+its dialog's filename stem; `new_plot`, seeding the new-plot dialog's name; and
+`block_config`, the one settings-field target the next paragraph constrains.
+`new_data_type` joined as the type-side twin of `new_custom_block` (#2061),
+because the type-authoring levels name the file they are about to discuss.
+
 A target that seeds a block's settings rather than a dialog MUST fill only a
 field the reader has left empty, and MUST NOT overwrite a value they supplied.
 A step using one MUST judge something the reader did rather than the field it
@@ -569,9 +690,10 @@ completes itself.
 
 **FR-012.** A step omitting `done_when` MUST advance on an explicit user action
 to continue. Reading steps are the common case; requiring a synthetic condition
-for them would be ceremony. Under FR-054a every step advances this way; what
-distinguishes a reading step is that it is ready to continue from the moment it
-is entered, having no condition to meet.
+for them would be ceremony. A step with no condition can never declare
+FR-054c's `auto_advance` into meaning anything — there is nothing to satisfy —
+so a reading step is always the reader's to leave, and what distinguishes it is
+that it is ready from the moment it is entered.
 
 **FR-013.** The manifest MUST be validated against a published schema at
 discovery. Validation failures MUST name the file, the field, and the reason.
@@ -612,11 +734,18 @@ at validation with a message naming the field and the restriction.
 **FR-020a.** Rejecting `driver` alone does not make a tier incapable of carrying
 executable code, and the tier restriction MUST therefore extend to assets and
 destinations. A user-level or project-level manifest MUST be rejected at
-validation when it carries an asset under `assets/code/`, `assets/panels/`, or
-`assets/replay/`; when it declares a `replay` action; or when a write or copy
-action's destination resolves under a directory the product imports or executes,
-which is at minimum `blocks/`, `types/`, `previewers/`, and `plots/` in the
-tutorial project. Without this, a project-level tutorial could place a `.py` file
+validation when it carries an asset under `assets/code/`, `assets/panels/`,
+`assets/replay/`, or `assets/workflows/`; when it declares a `replay` action; or
+when a write or copy action's destination resolves under a directory the product
+imports, executes, or reads as configuration for something it executes. That
+restricted destination set is declared in exactly one place
+(`scistudio.tutorials.actions.EXECUTED_PROJECT_PATHS`) and is wider than the
+four directories originally named here as a floor: beside `blocks/`, `types/`,
+`previewers/`, and `plots/` it covers `workflows/` and `tutorials/` — both
+configuration this runtime acts on — the agent-surface directories every project
+is provisioned with (`.claude/`, `.codex/`, `.agents/`, `.qoder/`,
+`.kimi-code/`, `.scistudio/`, `.git/`), and the root files agents auto-load
+(`.mcp.json`, `CLAUDE.md`, `AGENTS.md`). Without this, a project-level tutorial could place a `.py` file
 under `blocks/` through an ordinary write action (FR-057) and have it imported and
 executed on the next registry refresh, which is exactly the exposure the tier
 grading exists to avoid. The rejection MUST name the tier, the field, and the
@@ -752,6 +881,14 @@ which tutorial, which project, which step, and which steps are satisfied.
 
 **FR-037.** Session state MUST survive a backend restart.
 
+The active-session response additionally carries a read-only outline of every
+step — index, id, title, say, and pages, with the current position given by the
+step view's own index — so the reading window can show the whole tutorial's
+card names up front. The outline is a session-level listing of static metadata,
+deliberately without conditions, highlights, prefills, or actions, so FR-041's
+closure of the per-step view is untouched by it; for a sequential tutorial a
+step is behind the reader exactly when its index is smaller.
+
 **FR-038.** The runtime MUST interact with tutorials only through a driver
 interface. The interface MUST cover: the view of the current step, whether the
 current step is satisfied given current product state, the actions to perform on
@@ -769,6 +906,30 @@ reveal which driver produced it.
 defines. A driver MUST NOT be able to introduce new rendering primitives, supply
 frontend assets, or address any surface the manifest format cannot address. Core
 owns what a tutorial step looks like.
+
+The closed set widens with FR-011 and stays closed (#2061): the view now also
+carries the step's `pages` — names only, each served by the existing pages
+route — and its `trigger` as the label alone. What pressing the trigger *does*
+never crosses the view boundary: the runtime asks the driver for the actions
+separately, reduces them to core action objects exactly as it does entry
+actions, and executes them itself, so a driver still cannot introduce an
+action kind, supply content, or address a surface the manifest format cannot.
+It widens by `say_moods` for FR-011f (#2136) on the same footing `say` itself
+stands on: it is the content of a beat, and a driver that computes its lines
+computes their expressions with them. The boundary reads it off each beat's own
+prefix, so a driver that returns lines the way a manifest writes them declares
+nothing; a driver that names the expressions itself replaces them wholesale
+rather than merging, because a half-applied override is the one outcome nobody
+could reason about.
+
+It widens once more with FR-011e (#2136), by `compact`: a boolean saying this
+step is delivered as a chat line rather than as a scene. It is a shape, not
+content or a surface — the two things FR-041 exists to keep a driver out of —
+and a driver setting it can do no more than pick between two presentations core
+already ships.
+
+The set remains core-owned and `StepView.of`-reduced; a driver returning more
+has the excess dropped at the boundary as before.
 
 **FR-042.** A package driver MUST be able to call the core condition evaluator so
 it can use the vocabulary for the conditions it covers and implement only the
@@ -789,6 +950,11 @@ core. Tutorials reference terms; they do not define them.
 
 **FR-046.** Conditions MUST be evaluated on the backend against product state.
 No condition may be evaluated from frontend state, except `ui_event` (FR-052).
+The evaluation context additionally includes the session-supplied entry time of
+the current step (#2066): the session records when each step was entered and
+hands that time in per evaluation, because it describes the reader's position
+in the tutorial rather than the state of the product, and only the session
+knows it.
 
 **FR-047.** The vocabulary MUST include at least:
 
@@ -797,19 +963,47 @@ No condition may be evaluated from frontend state, except `ui_event` (FR-052).
 | `node_exists` | a node of a given block type is present in the workflow |
 | `edge_exists` | an edge connects two given block types or node ids |
 | `config_equals` | a node's configuration key holds a given value |
-| `run_succeeded` | a run of the workflow, or of a given node, completed successfully |
-| `port_has_output` | a given output port holds data |
+| `config_matches` | a node's configuration key matches a glob, compared as a path |
+| `run_succeeded` | a run of the workflow — or of a given node, or of any node of a given block type — completed successfully; `since_step_entry: true` counts only runs started since the current step was entered |
+| `run_failed` | the most recent run ended without succeeding; `since_step_entry: true` reads only runs started since the current step was entered |
+| `port_has_output` | a given output port holds data, on a named node or on any node of a given block type |
 | `block_registered` | a block type is present in the registry |
 | `type_registered` | a data type is present in the type registry |
 | `previewer_registered` | a previewer is registered for a given type |
-| `plot_exists` | a plot exists, optionally bound to a given block's output |
+| `plot_exists` | a plot exists, optionally bound to a given block's output by node id or block type |
+| `plot_rendered` | a rendered figure exists for a plot, addressed like `plot_exists` |
 | `file_exists` | a project-relative path exists |
 | `git_branch_exists` | a branch exists in the project repository |
 | `git_current_branch` | the checked-out branch is a given name |
 | `library_contains` | the tutorial-scoped library holds a named block, type, or previewer |
-| `interaction_completed` | an interactive block's panel was submitted |
+| `interaction_completed` | an interactive block's panel was submitted, on a named node or on any node of a given block type |
 | `page_reached` | a reading step reached a given page |
-| `ui_event` | a named frontend event was reported |
+| `ui_event` | a named frontend event was reported, optionally for a named target |
+
+Where a term addresses a node, `node_id` and `block_type` are alternative
+selectors for it: `block_type` alone reads "any node of that type", the two
+filter conjunctively when both are given, and a term whose meaning requires a
+node (`port_has_output`, `interaction_completed`) requires one of them at
+validation. This is the same selector convention `node_exists`, `config_equals`,
+and `config_matches` already use, extended in #2062 so the level designs can
+address "the Load block" without knowing the node id a reader's drag produced.
+
+The two run terms additionally accept `since_step_entry: true` (#2066), which
+scopes the records they read to runs started since the current step was
+entered, judged against the entry time FR-046's evaluation context supplies. A
+step whose text says "press Run" can then wait for the run the reader performs
+*on this step* instead of being satisfied by one they performed three steps
+ago. FR-054 is untouched: at entry no run has started since entry, so the
+scoped condition is simply false until the reader runs.
+
+`plot_rendered` names a backend fact — display artifacts exist in the preview
+cache under `.scistudio/previews/<workflow_id>/<node_id>/<output_port>/
+<plot_id>/` — and deliberately coexists with the `ui_event` of the same name
+(#2066). They answer different questions: the reported event says the reader
+*saw* the figure render on their screen, the term says a figure *exists* as
+product truth, whoever caused it and whether or not anyone was watching. The
+welcome tutorial waits on the event and keeps meaning what it meant; a level
+that cares about the artifact waits on the term.
 
 **FR-048.** The vocabulary MUST support `all` and `any` combinators taking lists
 of conditions. Negation is deliberately omitted: a tutorial step that advances
@@ -825,12 +1019,19 @@ event in a declared mapping is observed. The mapping MUST at minimum be:
 
 | Event | Terms re-evaluated |
 |---|---|
-| `workflow.changed` | `node_exists`, `edge_exists`, `config_equals` |
-| `workflow_completed`, `block_done`, `block_error` | `run_succeeded`, `port_has_output` |
+| `workflow.changed` | `node_exists`, `edge_exists`, `config_equals`, `config_matches` |
+| `workflow_completed`, `block_done` | `run_succeeded`, `run_failed`, `port_has_output`, `plot_rendered` |
+| `block_error` | `run_succeeded`, `run_failed`, `port_has_output` |
 | `blocks.reloaded` | `block_registered`, `type_registered`, `previewer_registered`, `library_contains` |
 | `git.head_changed` | `git_branch_exists`, `git_current_branch` |
-| `file.changed` | `file_exists` |
+| `file.changed` | `file_exists`, `plot_exists` |
 | `interactive_complete` | `interaction_completed` |
+
+`plot_rendered` rides the run events rather than `file.changed` because a
+figure lands as an image, and image formats are outside the watcher's ADR-036
+extension allowlist — no file event will ever announce one. A render the
+reader triggers from the plot card is covered by the frontend's own `ui_event`
+report and by FR-053's explicit re-check.
 
 The two naming conventions in that table are the product's, not a typo. Engine
 lifecycle events are declared in `src/scistudio/engine/events.py` with
@@ -851,6 +1052,18 @@ the backend, which MUST satisfy a matching `ui_event` condition. This is the onl
 completion path that originates in the frontend and exists because some product
 actions — enlarging the preview panel, opening a tab — produce no backend state.
 
+A report MAY carry the target the event acted on, and each event name declares
+the one argument it may carry, on FR-089b's precedent for highlight entities
+(#2063): `node_selected` and `block_source_viewed` take `block_type`,
+`plot_rendered` takes `plot_id`, and `preview_expanded` — a singleton surface —
+takes none. The pairing is core-owned and declared in exactly one place
+(`scistudio.tutorials.conditions.UI_EVENT_SPECS`), read by manifest validation
+and by the report route alike, so a condition naming an argument its event does
+not carry is rejected at validation rather than waiting forever on a report no
+emitter sends. A bare name remains a complete report and a complete condition:
+an untargeted condition is satisfied by any report of its name, targeted or
+not, while a targeted condition waits for a report carrying that target.
+
 **FR-053.** The frontend MUST be able to request an explicit re-evaluation of the
 active step. This covers state changes that no mapped event reaches: the
 `file.changed` event is filtered to the allowlisted extensions in
@@ -861,21 +1074,85 @@ not emit `blocks.reloaded` are likewise uncovered.
 **FR-054.** A condition already satisfied when its step is entered MUST satisfy
 that step immediately.
 
-**FR-054a.** A satisfied step MUST NOT advance the session on its own. Advancing
-MUST require an explicit user action to continue, for every step alike — the
-ones with a `done_when` and the reading ones of FR-012. The step view MUST
-report whether the current step's condition holds, so a client can present the
-continue control as live or inert without re-deriving the judgment that spec
-§4.1 places on the backend, and the backend MUST refuse to advance a step that
-is neither satisfied nor a reading step.
+**FR-054a.** *Superseded by FR-054c and FR-054d (#2136, 2026-08-23).* It read:
+a satisfied step MUST NOT advance the session on its own, for every step alike.
 
-This reverses the original design, in which a condition that came true advanced
-the session with no confirmation. Automatic advance replaces the text the reader
-is in the middle of with the next step's, and there is no way back to it: the
-tutorial takes an action the reader did not ask for, at the moment they are
-least able to follow it. Judging stays automatic and continuous — FR-050's
-mapped events and FR-053's explicit re-check both keep the reported state
-current — and only the move is the user's.
+It was itself a reversal, made on 2026-08-10, of the original design in which a
+condition coming true advanced the session with no confirmation. Two things
+carried it: automatic advance replaces the text the reader is in the middle of,
+and **there is no way back to it**. Both have since moved. FR-054b gave the
+reader a way back (#2138), and FR-011d made the reading a sequence of beats the
+reader clicks through, so an advance can wait until the whole step has been
+shown rather than interrupting it. What is left is a judgment about the
+particular step — whether the reader is meant to *look* at what they just did —
+and FR-054c puts that judgment where the rest of a step's shape lives.
+
+The rule it is replaced by is not "advance automatically". It is that the step
+says which, and that a step saying nothing still waits.
+
+**FR-054c (#2136).** A step MAY declare `auto_advance`, moving on by itself once
+its `done_when` holds instead of waiting to be continued. It MUST default to
+waiting, so a manifest that says nothing behaves as every manifest did before
+it. The advance MUST NOT happen before the step's last beat has been shown: the
+objection that overturned the original design was text replaced mid-read, and a
+declaration cannot waive that on the reader's behalf. It MUST NOT happen on a
+step the reader has walked back into (FR-054b) — a revisited step reports
+satisfied whatever its condition now says, and advancing on that would bounce
+them straight forward again.
+
+Where it belongs, as the six levels use it: a step whose whole content is one
+mechanical action the reader has now performed — a click, a drag — has nothing
+left to confirm, and asking them to confirm a click is a click for nothing. A
+step where they configure something, create something, or are meant to read a
+result waits, because there the moment the condition flips is the moment they
+have started looking.
+
+**FR-054d (#2136).** Moving on MUST be one gesture, and the surface MUST say so
+wherever that gesture would do something. There is no separate continue control:
+the dialogue itself is the target, for the next beat and for the next step
+alike, and a prompt naming the gesture MUST be shown on every beat a click would
+move. A dedicated Continue button was tried and removed — it appeared only once
+the step was finished, beside a prompt that said the same thing, and the reader
+had to work out which of the two was the way forward.
+
+The controls a step does carry MUST be the ones the click cannot replace: the
+step's own `trigger` (FR-056) and the explicit re-check of FR-053. They MUST NOT
+make the panel inert while they are shown, or a step carrying a trigger would
+have no way out at all; a press that lands on one of them MUST NOT also advance
+the reading.
+
+The backend MUST still refuse to advance a step that is neither satisfied nor a
+reading step. Judging stays automatic and continuous — FR-050's mapped events
+and FR-053's explicit re-check both keep the reported state current — and the
+step view MUST report whether the condition holds, so a client can decide
+whether a click means anything without re-deriving the judgment that spec §4.1
+places on the backend.
+
+**FR-054b (#2138).** The session MUST record the ordered trail of steps it has
+entered, and the reader MUST be able to move back along it. Going back MUST NOT
+re-enter a step: a step's entry actions write files into the tutorial project
+and replay agent sessions (FR-056, FR-057), and arriving at a step a second time
+must not run them a second time. Continuing from a position behind the trail's
+end MUST likewise walk the trail, and MUST call the driver's `advance` only once
+the reader is back at the furthest step they had reached.
+
+Not `advance` in reverse: a driver's `advance` may branch on product state, so
+there is nothing to invert. Recording where the reader came from is the only
+answer that holds for a driver whose route is its own to decide (FR-040).
+
+A step behind the reader that they have already satisfied MUST report as
+satisfied when they return to it, whatever its condition says at that moment.
+Without that rule going back is a trap: a condition scoped to step entry
+(#2066), or one describing a workflow the reader has since moved past, would
+answer no on a step they had already finished and leave them behind an inert
+continue control with no way forward. The rule MUST NOT extend to the step the
+reader is actually on — there the judgment is the judgment, and FR-054d's
+honesty depends on it.
+
+The session view MUST report whether there is an earlier step to return to, so
+the client offers the control exactly where it works. It is session state, not a
+step-view field: it describes the trail this session walked rather than anything
+a driver declares, and FR-041 keeps the driver's field set closed.
 
 **FR-055.** Condition evaluation MUST be side-effect free. Evaluating a condition
 MUST NOT create files, mutate registries, or trigger runs.
@@ -883,7 +1160,10 @@ MUST NOT create files, mutate registries, or trigger runs.
 #### Step actions
 
 **FR-056.** A step MAY declare actions performed on entry, before its text is
-displayed.
+displayed. It MAY additionally declare a `trigger` (#2061): actions performed
+when the reader presses the button the step's trigger label names, through the
+same execution machinery as entry — ordering, settle, and failure semantics
+included (FR-059, FR-059a, FR-060).
 
 **FR-057.** The action set MUST include writing an asset into the tutorial
 project, copying an asset directory into the tutorial project, and replaying
@@ -908,8 +1188,29 @@ its purpose. A write outside those directories MUST NOT trigger a re-scan —
 a `.py` file under `data/` is teaching material, and an ordinary copy step must
 not pay for a scan it cannot benefit from.
 
+A write landing under the project's `workflows/` MUST reach the open canvas the
+same way (#2063): the canvas renders the frontend's copy of the graph, so the
+runtime broadcasts the same `workflow.changed` frame an external on-disk edit
+produces, before the step's text is displayed.
+
+A trigger's actions carry the same obligations at a different moment (#2061):
+they MUST run to completion, and the registries MUST have re-scanned where the
+writes call for it, before the trigger reports done — so whatever the button
+claimed to do has happened by the time anything re-renders on the strength of
+the response. The filesystem watcher is not an
+answer here — it is not running headless, and FR-059a's ordering is
+a property of the entry sequence, not of an observer's timing.
+
 **FR-060.** An action failure MUST end the session with an error naming the step
 and the action, and MUST NOT silently advance.
+
+A *trigger's* action failure is the one deliberate exception (#2061): it MUST
+be surfaced on the step, naming the step and the action, and it MUST NOT end
+the session — the press MUST be retryable. The difference is what the reader
+was shown on the strength of the actions: an entry failure leaves a step whose
+premise never landed, so the session cannot honestly continue, while a trigger
+failure leaves the step exactly as it was before the press, which is a state
+the reader was already legitimately in.
 
 **FR-061.** Replay actions MUST NOT be able to reach any surface other than the
 one the action names. Replay is scripted content playback, not a general remote
@@ -933,6 +1234,17 @@ MUST complete before the next segment's bytes are delivered. A scripted agent
 that claims to have written a block has to be matched by the block existing at the
 moment the claim is readable, which a single opaque stream played to completion
 cannot guarantee.
+
+A replay action MAY declare `continue_tab: true` (#2089): its segments are
+appended to the surface's open replay tab, transcript intact, instead of that
+tab being closed and a new one opened. It MUST be an error when no replay tab
+is open — a continuation of nothing is an authoring mistake, not an empty
+operation — and FR-061b's ordering holds per appended segment: each appended
+segment's bound writes land before its bytes are delivered. Combined with the
+step trigger (FR-011, #2061), this is the conversation-pacing mechanism: the
+reader presses the step's button, more of the scripted session arrives in the
+same tab, and the files the transcript claims to have written are on disk
+before the claims are readable.
 
 **FR-061c.** Ending a session mid-replay MUST terminate the scripted session and
 leave no replay session object behind, on the same path a real PTY session uses
@@ -986,7 +1298,14 @@ the start.
 
 **FR-070.** Tutorial projects MUST scan a tutorial-scoped library directory in
 place of the user-wide library, defaulting to a `.library/` directory under the
-tutorial parent with `blocks/` and `types/` subdirectories.
+tutorial parent with `blocks/`, `types/`, and `previewers/` subdirectories.
+The previewer subdirectory joined with #2086, once the previewer registry had
+gained a user tier to swap (#2017): the scoped library rides the user-tier
+slot of each registry's tier order, so a scoped-library previewer registers as
+the user tier while a tutorial project is open — precedence stays
+project > user > package > core with no fourth library tier — and one
+tutorial's saved previewer travels to the next tutorial's project the way the
+level designs require.
 
 **FR-071.** Real projects MUST NOT scan the tutorial-scoped library.
 
@@ -1018,13 +1337,13 @@ upgrade is the intended reading: there is new material.
 **FR-078.** Uninstalling a package MUST delete that package's progress group.
 Reinstalling MUST start it from zero.
 
-**FR-079.** Exactly one product behaviour MUST be driven by progress: completing
+**FR-079.** Exactly one product behavior MUST be driven by progress: completing
 a named core tutorial MUST present the work-import offer, once. The named
 tutorial MUST be configuration, not a constant.
 
-**FR-080.** Only the core group MUST drive product behaviour. Package group
+**FR-080.** Only the core group MUST drive product behavior. Package group
 progress is display only and MUST NOT drive the unlock, the toolbar dot, or any
-other behaviour.
+other behavior.
 
 **FR-081.** No capability MUST be gated on progress. The work-import toolbar
 entry MUST remain permanently available regardless of progress, as work-import
@@ -1041,7 +1360,7 @@ existing surface rather than one this spec has to define.
 be what the user sees.
 
 **FR-084.** The Learning Center MUST list tutorials grouped by source, each group
-labelled with its origin and its own count, with core first. Groups are
+labeled with its origin and its own count, with core first. Groups are
 presented as tabs, one source per tab; a tab's tutorials, the selected
 tutorial's detail, and that source's progress occupy separate regions, so
 selecting a tutorial and starting it are distinct gestures. Selecting MUST NOT
@@ -1057,6 +1376,12 @@ either waits on an explicit continue or waits on a term that judges only the
 reader's own progress through the material. The Reading tab MUST NOT carry a
 count of its own, because its tutorials may come from several sources at once
 and FR-076 forbids reporting a count across them.
+
+The reading surface itself is core-owned, like every step surface (FR-041): a
+reading step is rendered as a card presenting its declared `pages` in order,
+with each page's content served by the existing pages route — the same route
+whose serving records `page_reached` — so what a manifest contributes is names
+and prose, never markup or a rendering primitive of its own.
 
 **FR-085.** Each entry MUST show its title, summary, cover if declared, and
 state: not started, in progress, complete, or unavailable with the reason. An
@@ -1100,9 +1425,38 @@ the containing surface — the palette, the canvas — is guidance only when the
 step is about that surface; for a step whose content is *which* block or *which*
 node, it names the haystack. Each target that addresses an entity therefore
 declares a required argument (`block_type` for a palette entry or a canvas node,
-`plot_id` for a plot card), a manifest naming such a target without its argument
-MUST be rejected at validation, and the frontend MUST annotate every candidate
-element with both the target name and that argument's value.
+`plot_id` for a plot card, `tab` for one of the bottom panel's tabs), a manifest
+naming such a target without its argument MUST be rejected at validation, and
+the frontend MUST annotate every candidate element with both the target name and
+that argument's value. The singleton targets — the Run, New, new-plot,
+View-source, History-restore, and Bring-in-my-work controls, and the Previewers
+list and the runs list, of which exactly one exists on screen — take no argument,
+their name being the whole address; `bring_in_my_work_button` joined for the
+work-import level's closing step (#2061), and `workflow_list`,
+`view_source_button`, `previewer_palette` and `history_runs_list` for core
+tutorial 1 (#2135), which shows the reader where a project keeps its workflows,
+where a block's code is read, where the previewers live, and where their past
+runs are before asking them to restore one. `type_palette` joined for core
+tutorial 2 (#2135), which opens on the Data types list to show that the type
+the reader is about to write is not in it yet, and returns to it twice — once
+when their type appears there, once to move it to the library. `route_to`'s closed set likewise
+grew `data_types`, `workflows` and `previewers`, the left panel's Data types,
+Workflows and Previewers tabs, named the way the product names them to the user
+— a highlight on a panel the reader is not looking at draws a ring around
+nothing, so the two grow together.
+
+**The bottom panel's tabs are one target, not seven** (#2135). Every other
+singleton is a control with a name of its own; the tab strip is seven of the
+same control, and a step pointing at one of them is almost always pointing at
+the tab it has just routed the reader to. So `bottom_tab` takes the tab as its
+argument, and that argument MUST be spelled the way `route_to` spells it —
+`history`, `ai_chat` — rather than the way the frontend's own tab keys are
+spelled. A step then writes `route_to: history` and
+`highlight: {bottom_tab: {tab: history}}`, saying one word twice on purpose,
+and the frontend MUST derive the strip's annotation from the routing table it
+already keeps rather than repeating it, since two hand-written copies of that
+mapping would eventually disagree and the disagreement would show as a ring
+drawn around nothing.
 
 **FR-089c.** A step that declares no `highlight`, and a step whose target is not
 on screen, MUST dock the step surface in the bottom-right corner and MUST NOT
@@ -1113,28 +1467,124 @@ rather than the center: a step with no target is prose to be read while looking
 at the workspace it describes, and centering it puts a block of text in the
 middle of the user's own canvas that must be dealt with before anything else.
 
+**FR-089d (#2136).** Where the active step is delivered as a character dialogue,
+the group — character and panel together — MUST be laid out inside the main
+editing area's box rather than the window's, and MUST take a corner of that box
+which the lit target does not occupy. Anchoring to the window put the group over
+whichever control happened to be at that corner: the icon rail, the preview
+panel, the tab strip and the settings beneath it. The main area is the one
+surface a tutorial may cover without covering a control, so everything the
+product puts around it stays reachable by construction rather than by choosing
+corners carefully.
+
+The *main area* rather than the canvas element, because the canvas is only
+sometimes what is in it. A tutorial that opens a code editor — core tutorial 1
+opens one itself, to write a block's source — then has a step to deliver with no
+canvas on screen, and anchoring to the canvas dropped the character into the
+corner of the window, standing over the left panel and talking about code she
+was nowhere near.
+
+The compact form of FR-011e is **not** laid out in that box. It is placed beside
+the lit target wherever that is, in window coordinates, because half the targets
+a chat line points at are outside the main area entirely — a palette entry in
+the left panel, the Restore button in the bottom one. It MUST NOT cover the
+target, which is FR-089 again and the same arithmetic answers it.
+
+Corners MUST be tried in an order that keeps the dialogue where the reader's eye
+already is — the other side of the same edge before the opposite edge — and a
+target that leaves no corner free MUST fall back to a fixed default rather than
+to an arbitrary one, since a predictable overlap is easier to work around than a
+dialogue that appears somewhere new each time.
+
+The panel MUST have a fixed size, and text longer than it holds MUST scroll
+inside it. A panel sized to its text is a different panel on every beat, which
+moves both the words and the controls the reader is reaching for; it is also
+what would make the corner arithmetic above a guess. The character MUST NOT be
+occluded by the panel, and the clearance between them MUST be measured to her
+silhouette rather than to her image's bounds, which differ by up to a fifth of
+her width between expressions — a fixed image-edge offset would move the gap
+every time her face changed, which is the one moment it is being looked at.
+
+**FR-089e (#2136).** A `highlight` MUST be declarable per beat: one highlight,
+which every beat of the step shares, or a list beside `say` with an entry per
+beat and an explicit nothing for the beats that point at nothing. A list whose
+length does not match the beats MUST be rejected at load, because a list one
+entry short silently unrings the last beat, which is the beat that asks for
+something.
+
+Per beat for the same reason `compact` is (FR-011e): a step is a lead-in and an
+instruction, and ringing the control the instruction names while the lead-in is
+still on screen points at something the reader has not been told about yet.
+A ring is read as an instruction, so it sends them off to act before they have
+been asked to.
+
+**FR-089f (#2135).** A beat MUST be revealed at a reading pace rather than
+appearing whole, and a click on the panel while it is still arriving MUST
+complete that beat rather than advance past it.
+
+The pacing is the point of the mechanism and the click is what makes it free.
+Text that appears whole is read at whatever speed the reader was already going,
+which on a tutorial they are half-skimming is not at all; text that arrives at a
+speaking pace is read at a speaking pace. But a reader who does not want to wait
+must never be made to: one click gives them the whole beat, a second moves them
+on, so the pacing costs them a click at worst and never costs them a sentence
+they did not see.
+
+The affordances that say a beat is finished — the chevron of FR-054d and the
+prompt beside it — MUST NOT be shown while it is still arriving. They are what
+tells a reader the line is theirs to leave, and shown against a sentence still
+being delivered they would say it early and mean nothing.
+
+The reveal MUST NOT reflow the panel: the beat MUST be laid out in full from the
+first frame with the part not yet reached drawn invisibly, rather than grown
+character by character. Growing it re-wraps the paragraph on nearly every
+character — words jumping between lines, a scrollbar appearing and disappearing
+in a box of fixed height — which is motion the reader has to ignore in order to
+read, in the one place they are being asked to read.
+
+A reader who has asked for reduced motion MUST be given each beat whole. So MUST
+any host that cannot be asked, which is also what keeps the behavior out of
+tests: a renderer with no motion preference to report is not a reader.
+
 **FR-090.** Leaving a tutorial MUST be possible at any step and MUST preserve the
 session.
 
-**FR-090a.** Finishing a tutorial MUST open the Learning Center and MUST close
-the tutorial's project. A card reporting "complete" over the workspace is a dead
-end: it names the outcome and leaves the reader with nothing to do next, while
-the catalogue is where the next tutorial is. The project is closed for a
-separate reason — a tutorial project looks like any other workspace once the
-card is gone, and restarting the tutorial deletes it (FR-066), so leaving it
-open invites the reader to keep working somewhere their work will not survive.
+**FR-090a.** *Qualified by FR-090b (#2135, 2026-08-23): it is now one of two
+endings the reader picks between, rather than the only one.* Finishing a
+tutorial MUST open the Learning Center and MUST close the tutorial's project. A
+card reporting "complete" over the workspace is a dead end: it names the outcome
+and leaves the reader with nothing to do next, while the catalogue is where the
+next tutorial is. The project is closed for a separate reason — a tutorial
+project looks like any other workspace once the card is gone, and restarting the
+tutorial deletes it (FR-066), so leaving it open invites the reader to keep
+working somewhere their work will not survive.
+
+**FR-090b (#2135).** The last step of a tutorial MUST offer both endings and
+MUST NOT pick one. Finishing means two different things to two readers who have
+both just done the same thing: one is moving on to the next tutorial, for whom
+FR-090a's ending is exactly right, and one wants to keep poking at the workflow
+they have just built, for whom closing their project is the opposite of what
+they asked for. The last beat of core tutorial 1 already says both are fine, so
+the ending asks which.
+
+It MUST be asked with controls rather than taken from the panel's own click
+(FR-054d), which is the one place in a tutorial that rule is set aside. The
+click that ends a tutorial is not small and not reversible — it completes the
+session, and one of its two outcomes closes the project the reader has spent the
+whole tutorial building — so the panel MUST go inert while the two are up, and a
+stray click MUST do nothing at all.
 
 #### ADR-053 revisions
 
 **FR-091.** ADR-053 §2.1 MUST be revised. It records that the existing
-single-tutorial implementation is generalised; the decision is now that it is
+single-tutorial implementation is generalized; the decision is now that it is
 discarded and replaced, with only the scenario narrative retained.
 
 **FR-092.** ADR-053 §2.2 MUST be revised. It records that completion is granted
 only by running and that reading is not progress. A reading-only summary tutorial
 is part of the designed set, and it completes by being read. The revision MUST
 carry the distinction rather than deleting the principle: the summary tutorial
-names and organises capabilities the user has already exercised in earlier
+names and organizes capabilities the user has already exercised in earlier
 tutorials, so it is review rather than instruction, and the principle continues
 to hold for tutorials that teach. The revision MUST reach §1.1 and the §2 and
 §2.2 headings as well as the section body: the §1.1 problem table states that
@@ -1315,6 +1765,17 @@ a file the change happens to touch.
 | `src/components/LearningCenter.parts/TargetHighlight.tsx` | The ring drawn around the step's target (FR-089a) |
 | `src/components/LearningCenter.parts/useHighlightRect.ts` | Following the target element as it moves (FR-089a) |
 | `src/components/LearningCenter.parts/placeCard.ts` | Placing the step card beside the target, or centered (FR-089, FR-089c) |
+| `src/components/LearningCenter.parts/placeDialogue.ts` | The dialogue group's stage box and corner (FR-089d) |
+| `src/components/LearningCenter.parts/DialogueSurface.tsx` | The dialogue's two forms, and the prompt that is the only way forward (FR-011e, FR-054d, FR-089d) |
+| `src/components/LearningCenter.parts/beatText.ts` | The one piece of markup a beat carries (FR-011g) |
+| `src/components/LearningCenter.parts/useTypewriter.ts` | Delivering a beat at a reading pace, and the click that finishes it (FR-089f) |
+| `src/components/LearningCenter.parts/StepHeading.tsx` | Back, the step's name, the progress ring, and leaving (FR-011c, FR-054b, FR-090) |
+| `src/components/LearningCenter.parts/StepControls.tsx` | The two controls a click cannot replace: the trigger and the re-check (FR-053, FR-054d) |
+| `src/components/LearningCenter.parts/FinishChoice.tsx` | The two endings the last step offers (FR-090b) |
+| `src/components/LearningCenter.parts/stepFlow.ts` | May the reader leave, does the step want something, does it leave by itself (FR-054c, FR-054d) |
+| `src/components/LearningCenter.parts/TutorialProblemBanner.tsx` | A stopped session, said unconditionally (FR-044) |
+| `src/components/LearningCenter.parts/mio.ts` | The character's sprites, avatars, authored expressions, and measured insets (FR-011f, FR-089d) |
+| `src/components/LearningCenter.parts/StepProgressRing.tsx` | The step's position, drawn rather than counted |
 | `src/store/learningCenterSlice.ts` | Session view state and the tab split; no judging, no content |
 | `src/lib/api/learningCenter.ts` | API client |
 
@@ -1336,7 +1797,7 @@ removal note's citation (FR-035).
    moved onto it. This lands *before* `scistudio.tutorials` exists, so the fourth
    group is written against a settled contract rather than retrofitted onto one.
    It is independently reviewable and independently revertable, and it is the
-   only step here that changes behaviour users already depend on.
+   only step here that changes behavior users already depend on.
 1. **Manifest and schema.** Model, schema, validation, tier rules for `driver`.
    Testable with fixture directories and no runtime.
 2. **Discovery.** Four sources, the entry-point group, duplicate and requirement
@@ -1436,8 +1897,8 @@ the escape hatch is free.
 that changes a path every installed package already travels, and its failure mode
 is a package that used to load and now does not. Three things bound it: it ships
 alone (step 0), the parity test in FR-033 fails loudly rather than degrading
-quietly, and the one behaviour with a genuine compatibility obligation — the bare
-class form accepted by `scistudio.blocks` — is preserved rather than normalised
+quietly, and the one behavior with a genuine compatibility obligation — the bare
+class form accepted by `scistudio.blocks` — is preserved rather than normalized
 away. The residual risk is a package relying on an undocumented accident of one
 registry's current error handling, which the shared helper would change.
 
@@ -1460,7 +1921,7 @@ in the test material.
 modules, asserted by test rather than by inspection.
 
 **SC-003.** All four `scistudio.*` entry-point groups produce the same
-observable behaviour under enumeration failure, under a single entry point
+observable behavior under enumeration failure, under a single entry point
 failing to load, and under refresh — asserted by one parity test that a fifth
 group cannot be added divergently without failing.
 
@@ -1482,7 +1943,7 @@ operable through every other route.
 **SC-009.** Clearing tutorial data removes progress, tutorial projects, and the
 scoped library, and leaves user projects untouched.
 
-**SC-010.** Package tutorial progress changes no product behaviour: not the
+**SC-010.** Package tutorial progress changes no product behavior: not the
 unlock, not the toolbar dot, not the availability of any capability.
 
 **SC-011.** The work-import toolbar entry is reachable with zero tutorials
@@ -1522,12 +1983,17 @@ there is written by hand or by an agent.
 work-import milestone. FR-079 requires the trigger be configuration precisely so
 that decision can be made there and changed later.
 
-**A-006.** The previewer user tier is out of scope here. The scenarios spec
-depends on it — one designed scenario reuses a custom type across two tutorial
-projects and needs its previewer to travel — and it is excluded by the personal
-tool library spec's scope. Nothing in this spec assumes it exists.
+**A-006.** *Retired.* When this was written the previewer user tier was out of
+scope: the scenarios spec depended on it — one designed scenario reuses a
+custom type across two tutorial projects and needs its previewer to travel —
+while the personal tool library spec excluded it. The tier has since landed
+(#2017, PR #2072), and #2086 built on it: FR-070's scoped library now carries
+a `previewers/` subdirectory riding the user-tier slot, `library_contains`
+accepts `kind: previewer` at validation instead of rejecting it as
+unsatisfiable, and the previewer a tutorial saves travels exactly as that
+scenario requires.
 
-**A-007.** The recovery-path behaviour the scenario content depends on has
+**A-007.** The recovery-path behavior the scenario content depends on has
 landed and is no longer an assumption. ADR-038 Addendum 1 (#2033) withdrew Re-run
 entirely, widened the History tab's Restore from one workflow YAML to the run's
 full recorded tree so it matches the Git tab's, added advisory input and
@@ -1536,8 +2002,11 @@ refresh the block registry. "Run from here" is explicitly unaffected. None of
 this changes the system specified here; it changes what the tutorials say, and
 the scenarios draft has been updated against it.
 
-**A-008.** The personal tool library's user-visible surfaces have *not* landed.
-Its plumbing has: the drop-in consolidation, the drop-in type import fix, and
-refresh symmetry are all on `main`. Its surfaces are not — `map_block_origin`
-still collapses `tier1` to `custom`, and there is no types route and no types
-palette. The scenarios spec depends on those surfaces; this spec does not.
+**A-008.** *Retired.* When this was written the personal tool library's
+user-visible surfaces had not landed, only its plumbing (the drop-in
+consolidation, the drop-in type import fix, and refresh symmetry). The
+surfaces have since landed too: `map_block_origin` resolves per-project
+origins, the types route and Data types palette exist, and the promotion flow
+("Move to My Library") runs from the editor toolbar, the canvas node, and the
+palette popovers — and, with #2086, offers a project previewer the same way.
+The scenarios spec may rely on those surfaces.

@@ -699,8 +699,9 @@ describe("ADR-053 FR-011b — a tutorial step seeds a settings field", () => {
           index: 7,
           total: 15,
           title: null,
-          say: "Press Browse and choose the data/processed folder.",
-          highlight: { target: "config_panel", args: {} },
+          say: ["Press Browse and choose the data/processed folder."],
+          compacts: [false],
+          highlights: [{ target: "config_panel", args: {} }],
           route_to: "config",
           prefill: [
             { target: "block_config", args: { block_type: "save_data", key: "filename", value } },

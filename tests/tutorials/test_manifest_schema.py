@@ -22,11 +22,14 @@ from scistudio.tutorials import actions as actions_module
 from scistudio.tutorials import conditions as conditions_module
 from scistudio.tutorials import manifest as manifest_module
 from scistudio.tutorials.manifest import (
+    DEFAULT_SAY_MOOD,
     HIGHLIGHT_SPECS,
     HIGHLIGHT_TARGETS,
+    MAX_SAY_BEATS,
     PREFILL_SPECS,
     PREFILL_TARGETS,
     ROUTE_TARGETS,
+    SAY_MOODS,
     SCHEMA_PATH,
     Highlight,
     HighlightSpec,
@@ -38,6 +41,7 @@ from scistudio.tutorials.manifest import (
     load_manifest,
     load_schema,
     parse_manifest,
+    validate_against_schema,
 )
 from tests.helpers import link_to_directory
 
@@ -176,8 +180,133 @@ def test_step_fields_round_trip(tmp_path: Path) -> None:
     data = copy.deepcopy(MINIMAL_MANIFEST)
     data["steps"] = [{"id": "one", "say": "Hello", "highlight": "block_palette", "route_to": "canvas"}]
     step = parse(data, tmp_path=tmp_path).steps[0]
-    assert (step.say, step.route_to) == ("Hello", "canvas")
-    assert step.highlight == Highlight(target="block_palette")
+    assert (step.say, step.route_to) == (("Hello",), "canvas")
+    assert step.highlights == (Highlight(target="block_palette"),)
+
+
+# ---------------------------------------------------------------------------
+# say, and the beats a step is delivered in (FR-011)
+# ---------------------------------------------------------------------------
+
+
+def test_a_bare_say_is_one_beat(tmp_path: Path) -> None:
+    """The short form is not a legacy alias: it is what one thing to say looks like."""
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [{"id": "one", "say": "Drag Load onto the canvas."}]
+    assert parse(data, tmp_path=tmp_path).steps[0].say == ("Drag Load onto the canvas.",)
+
+
+def test_a_listed_say_keeps_the_authors_order(tmp_path: Path) -> None:
+    """Where the breaks fall is the author's decision, so it survives parsing verbatim."""
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [{"id": "one", "say": ["A block is a unit of work.", "Drag Load onto the canvas."]}]
+    assert parse(data, tmp_path=tmp_path).steps[0].say == (
+        "A block is a unit of work.",
+        "Drag Load onto the canvas.",
+    )
+
+
+def test_a_step_that_says_nothing_has_no_beats(tmp_path: Path) -> None:
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [{"id": "one"}]
+    assert parse(data, tmp_path=tmp_path).steps[0].say == ()
+
+
+def test_a_blank_beat_is_rejected(tmp_path: Path) -> None:
+    """A blank beat is a dialogue box with nothing in it - an authoring slip, not a pause.
+
+    Whitespace, specifically: the schema's minLength cannot tell a blank line
+    from a written one, so this is the parser's own guard and the one place the
+    two layers do not overlap.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [{"id": "one", "say": ["Something.", "   "]}]
+    with pytest.raises(ManifestValidationError) as excinfo:
+        parse(data, tmp_path=tmp_path)
+    assert "non-empty line" in str(excinfo.value)
+
+
+def test_more_beats_than_a_step_can_hold_are_rejected(tmp_path: Path) -> None:
+    """Past the ceiling the reader is reading, and reading is what pages is for.
+
+    The published schema states the ceiling, so it is the schema that answers
+    first and its message the author sees. The parser carries the same guard
+    behind it; what only the parser can catch is the blank beat below, which no
+    JSON Schema keyword expresses.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [{"id": "one", "say": [f"Line {n}." for n in range(MAX_SAY_BEATS + 1)]}]
+    with pytest.raises(ManifestValidationError) as excinfo:
+        parse(data, tmp_path=tmp_path)
+    assert f"at most {MAX_SAY_BEATS} item(s)" in str(excinfo.value)
+
+
+def test_a_say_that_is_neither_a_line_nor_a_list_is_rejected(tmp_path: Path) -> None:
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [{"id": "one", "say": {"line": "Hello"}}]
+    with pytest.raises(ManifestValidationError) as excinfo:
+        parse(data, tmp_path=tmp_path)
+    assert "expected string or array" in str(excinfo.value)
+
+
+def test_the_published_schema_carries_the_beat_rules_itself(tmp_path: Path) -> None:
+    """The schema is what package authors write against, so it must say this too.
+
+    Not a duplicate of the parser tests above. Those prove the loader refuses a
+    bad manifest; this proves the *published document* refuses it, which is what
+    an author validating against `tutorial.schema.json` outside this codebase
+    gets. The two must agree, and the schema is only worth reading if it does.
+
+    Written against `validate_against_schema` rather than the full parse for the
+    same reason: it is the schema's own answer.
+    """
+    base = {k: v for k, v in MINIMAL_MANIFEST.items() if k != "steps"}
+
+    def check(say: object) -> None:
+        validate_against_schema({**base, "steps": [{"id": "one", "say": say}]}, path=tmp_path / "t.yaml")
+
+    check("One line.")
+    check(["Setup.", "Now do it."])
+    for bad, reason in (
+        ({"line": "Hello"}, "expected string or array"),
+        ([f"Line {n}." for n in range(MAX_SAY_BEATS + 1)], "at most"),
+        (["A line.", ""], "at least 1 character"),
+    ):
+        with pytest.raises(ManifestValidationError) as excinfo:
+            check(bad)
+        assert reason in str(excinfo.value)
+
+
+def test_a_step_is_delivered_as_a_scene_unless_it_says_otherwise(tmp_path: Path) -> None:
+    """FR-011e defaults to the full form, so manifests predating it are unchanged."""
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [{"id": "one", "say": "Hello."}]
+    assert parse(data, tmp_path=tmp_path).steps[0].compacts == (False,)
+
+
+def test_a_step_can_declare_itself_compact(tmp_path: Path) -> None:
+    """Whose call it is: the author's, not the surface's.
+
+    Which form suits a step depends on what that step is asking the reader to
+    look at, which is why it is declared here rather than derived from where the
+    highlight happens to be.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [{"id": "one", "say": "Hello.", "compact": True}]
+    assert parse(data, tmp_path=tmp_path).steps[0].compacts == (True,)
+
+
+def test_a_compact_that_is_not_a_boolean_is_rejected(tmp_path: Path) -> None:
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [{"id": "one", "say": "Hello.", "compact": "yes"}]
+    with pytest.raises(ManifestValidationError) as excinfo:
+        parse(data, tmp_path=tmp_path)
+    assert "boolean" in str(excinfo.value)
+
+
+def test_the_schema_ceiling_and_the_parser_ceiling_are_the_same_number() -> None:
+    """Two places state the ceiling; a drift between them is a schema that lies."""
+    assert load_schema()["$defs"]["step"]["properties"]["say"]["maxItems"] == MAX_SAY_BEATS
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +325,9 @@ def test_the_route_target_set_is_the_declared_one() -> None:
         "git",
         "canvas",
         "block_palette",
+        "data_types",
+        "workflows",
+        "previewers",
     }
 
 
@@ -214,12 +346,21 @@ def test_the_highlight_target_set_is_the_declared_one() -> None:
         "run_button",
         "new_menu_button",
         "plots_new_button",
+        "plot_export_button",
+        "preview_item",
+        "view_source_button",
         "history_restore_button",
+        "history_runs_list",
+        "bring_in_my_work_button",
         "data_preview",
         "config_panel",
+        "workflow_list",
+        "previewer_palette",
+        "type_palette",
         "palette_block",
         "node",
         "plot_card",
+        "bottom_tab",
     }
 
 
@@ -238,6 +379,8 @@ def test_only_the_entity_targets_require_an_argument() -> None:
         "palette_block": ("block_type",),
         "node": ("block_type",),
         "plot_card": ("plot_id",),
+        "preview_item": ("index",),
+        "bottom_tab": ("tab",),
     }
 
 
@@ -254,7 +397,7 @@ def test_every_highlight_target_is_accepted(spec: HighlightSpec, tmp_path: Path)
     data = copy.deepcopy(MINIMAL_MANIFEST)
     data["steps"][0]["highlight"] = spec.name if not args else {spec.name: args}
 
-    assert parse(data, tmp_path=tmp_path).steps[0].highlight == Highlight(target=spec.name, args=args)
+    assert parse(data, tmp_path=tmp_path).steps[0].highlights == (Highlight(target=spec.name, args=args),)
 
 
 @pytest.mark.parametrize("spec", [spec for spec in HIGHLIGHT_SPECS if not spec.required], ids=lambda spec: spec.name)
@@ -268,7 +411,7 @@ def test_an_argument_free_target_may_also_be_written_as_a_mapping(spec: Highligh
     data = copy.deepcopy(MINIMAL_MANIFEST)
     data["steps"][0]["highlight"] = {spec.name: {}}
 
-    assert parse(data, tmp_path=tmp_path).steps[0].highlight == Highlight(target=spec.name)
+    assert parse(data, tmp_path=tmp_path).steps[0].highlights == (Highlight(target=spec.name),)
 
 
 @pytest.mark.parametrize("spec", [spec for spec in HIGHLIGHT_SPECS if spec.required], ids=lambda spec: spec.name)
@@ -317,7 +460,13 @@ def test_a_highlight_naming_two_targets_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(ManifestValidationError) as excinfo:
         parse(data, tmp_path=tmp_path)
 
-    assert "exactly one target" in str(excinfo.value)
+    # The published schema catches this first, and says so in its own words:
+    # `maxProperties` is enforced now that the node is written in keywords the
+    # validator implements (it used to be inside a `oneOf` it silently ignored).
+    # The parser's friendlier wording still covers a driver-supplied highlight,
+    # which never passes through the schema.
+    assert "steps[0].highlight" in str(excinfo.value)
+    assert "at most 1 key" in str(excinfo.value)
 
 
 # ---------------------------------------------------------------------------
@@ -331,7 +480,7 @@ def test_the_prefill_target_set_is_the_declared_one() -> None:
     A prefill only does anything once the frontend seeds the dialog it names,
     so a target with no consumer is a manifest line that silently does nothing.
     """
-    assert set(PREFILL_TARGETS) == {"new_custom_block", "new_plot", "block_config"}
+    assert set(PREFILL_TARGETS) == {"new_custom_block", "new_data_type", "new_plot", "block_config"}
 
 
 @pytest.mark.parametrize("spec", PREFILL_SPECS, ids=lambda spec: spec.name)
@@ -459,7 +608,7 @@ def test_a_highlight_outside_the_set_is_rejected_naming_the_field_and_the_values
 def test_omitting_route_to_and_highlight_stays_legal(tmp_path: Path) -> None:
     step = parse(copy.deepcopy(MINIMAL_MANIFEST), tmp_path=tmp_path).steps[0]
     assert step.route_to is None
-    assert step.highlight is None
+    assert step.highlights == (None,)
 
 
 def test_a_bad_route_target_fails_the_author_while_the_tutorial_is_listed(tmp_path: Path) -> None:
@@ -528,11 +677,11 @@ def test_symlinked_asset_escape_is_rejected_when_the_directory_is_read(tmp_path:
     data["steps"][0]["do"] = [{"write": {"source": "assets/link/evil.py", "destination": "notes.py"}}]
     directory = write_tutorial(tmp_path / "linky", data)
     (directory / "assets").mkdir(exist_ok=True)
-    # #2075: a bare symlink_to needs a privilege Windows does not grant by
-    # default, which used to fail this test rather than skip it. The helper
-    # falls back to a directory junction, which os.path.realpath follows
-    # identically -- and a real-path comparison is exactly how the loader
-    # detects the escape -- so the case stays covered on Windows.
+    # #2075: a real symlink needs Developer Mode or elevation on Windows, so
+    # the helper falls back to a directory junction and only skips when the OS
+    # refuses both. The escape being tested is a directory link, and a junction
+    # is one — skipping here would leave the containment rule unexercised on
+    # the platform most likely to have a link the validator must refuse.
     link_to_directory(directory / "assets" / "link", outside)
     with pytest.raises(ManifestValidationError) as excinfo:
         load_manifest(directory, source_kind=TutorialSourceKind.CORE)
@@ -667,10 +816,10 @@ def test_the_schema_does_not_restate_any_of_the_closed_sets() -> None:
             assert f'"{member}"' not in raw, f"the schema restates the {label} {member!r}"
 
 
-def test_the_reserved_asset_directories_are_the_five_the_spec_names() -> None:
+def test_the_reserved_asset_directories_are_the_six_the_spec_names() -> None:
     from scistudio.tutorials.manifest import RESERVED_ASSET_DIRS
 
-    assert RESERVED_ASSET_DIRS == ("data", "code", "panels", "replay", "pages")
+    assert RESERVED_ASSET_DIRS == ("data", "code", "panels", "replay", "workflows", "pages")
 
 
 def test_yaml_round_trip_of_the_fixture_matches_the_parsed_model() -> None:
@@ -748,3 +897,517 @@ def test_the_reading_terms_are_a_subset_of_the_vocabulary() -> None:
     """A reading term that is not a term at all could never be written down."""
     assert conditions_module.READING_TERMS <= conditions_module.VOCABULARY
     assert frozenset({"page_reached"}) == conditions_module.READING_TERMS
+
+
+# ---------------------------------------------------------------------------
+# The reading step's pages field (FR-011, FR-014)
+# ---------------------------------------------------------------------------
+
+
+def _reading_manifest(pages: list[str]) -> dict[str, Any]:
+    return {
+        "manifest_version": 1,
+        "id": "reads",
+        "title": "Reads",
+        "summary": "A reading tutorial.",
+        "steps": [
+            {
+                "id": "read-on",
+                "say": "Read these.",
+                "pages": pages,
+                "done_when": {"page_reached": {"page": pages[0].split(".")[0]}},
+            }
+        ],
+    }
+
+
+def test_a_step_may_declare_pages_that_exist_under_assets_pages(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "reads",
+        _reading_manifest(["intro", "closing.md"]),
+        files={"assets/pages/intro.md": "# Intro\n", "assets/pages/closing.md": "# Closing\n"},
+    )
+    manifest = load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+    assert manifest.steps[0].pages == ("intro", "closing.md")
+
+
+def test_a_missing_page_fails_the_author_at_load(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "reads",
+        _reading_manifest(["intro", "absent"]),
+        files={"assets/pages/intro.md": "# Intro\n"},
+    )
+    with pytest.raises(ManifestValidationError) as excinfo:
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+    assert "steps[0].pages" in str(excinfo.value)
+    assert "absent" in str(excinfo.value)
+
+
+def test_a_page_name_cannot_escape_the_pages_directory(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "reads",
+        _reading_manifest(["../../tutorial"]),
+        files={"assets/pages/intro.md": "# Intro\n"},
+    )
+    with pytest.raises(ManifestValidationError) as excinfo:
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+    assert "steps[0].pages" in str(excinfo.value)
+
+
+def test_a_duplicate_page_in_one_step_is_rejected(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "reads",
+        _reading_manifest(["intro", "intro"]),
+        files={"assets/pages/intro.md": "# Intro\n"},
+    )
+    with pytest.raises(ManifestValidationError, match="listed twice"):
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+
+
+def test_a_paged_tutorial_judged_by_page_reached_reads_as_reading_only(tmp_path: Path) -> None:
+    """The dispatch's is_reading_only check: all/any over page_reached is still reading.
+
+    ``is_reading_only`` reads ``done_when.terms() <= READING_TERMS``, and
+    ``terms()`` unions through combinators — so wrapping ``page_reached`` in
+    ``all``/``any`` must not push a reading tutorial into the hands-on lists.
+    """
+    payload = {
+        "manifest_version": 1,
+        "id": "reads",
+        "title": "Reads",
+        "summary": "A reading tutorial.",
+        "steps": [
+            {
+                "id": "read-on",
+                "say": "Read these.",
+                "pages": ["intro", "closing"],
+                "done_when": {
+                    "all": [
+                        {"page_reached": {"page": "intro"}},
+                        {"any": [{"page_reached": {"page": "closing"}}]},
+                    ]
+                },
+            },
+            {"id": "done", "say": "Done."},
+        ],
+    }
+    directory = write_tutorial(
+        tmp_path / "reads",
+        payload,
+        files={"assets/pages/intro.md": "# Intro\n", "assets/pages/closing.md": "# Closing\n"},
+    )
+    manifest = load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+    assert manifest.is_reading_only is True
+
+
+# ---------------------------------------------------------------------------
+# The step trigger (FR-011, #2061)
+# ---------------------------------------------------------------------------
+
+
+def _triggered_manifest(trigger: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "manifest_version": 1,
+        "id": "triggered",
+        "title": "Triggered",
+        "summary": "A step with a trigger.",
+        "steps": [{"id": "press-play", "say": "Press Play.", "trigger": trigger}],
+    }
+
+
+def test_a_step_may_declare_a_trigger(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "triggered",
+        _triggered_manifest(
+            {"label": "Play", "do": [{"write": {"source": "assets/data/a.txt", "destination": "data/a.txt"}}]}
+        ),
+        files={"assets/data/a.txt": "hello"},
+    )
+    manifest = load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+    trigger = manifest.steps[0].trigger
+    assert trigger is not None
+    assert trigger.label == "Play"
+    assert len(trigger.do) == 1
+
+
+def test_a_trigger_requires_a_label(tmp_path: Path) -> None:
+    directory = write_tutorial(
+        tmp_path / "triggered",
+        _triggered_manifest({"do": [{"write": {"source": "assets/data/a.txt", "destination": "data/a.txt"}}]}),
+        files={"assets/data/a.txt": "hello"},
+    )
+    with pytest.raises(ManifestValidationError, match="label"):
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+
+
+def test_a_trigger_requires_at_least_one_action(tmp_path: Path) -> None:
+    """A button that does nothing is a mistake, not a step."""
+    directory = write_tutorial(tmp_path / "triggered", _triggered_manifest({"label": "Play", "do": []}))
+    # The schema's minItems fires first for an empty list; the parser's own
+    # message covers the None-shaped spelling. Either way the author is told.
+    with pytest.raises(ManifestValidationError, match=r"at least (1 item|one action)"):
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+
+
+def test_a_trigger_destination_is_contained_like_any_other(tmp_path: Path) -> None:
+    """FR-015 reaches the trigger's do list: pressing the button reaches the project."""
+    directory = write_tutorial(
+        tmp_path / "triggered",
+        _triggered_manifest(
+            {"label": "Play", "do": [{"write": {"source": "assets/data/a.txt", "destination": "../outside.txt"}}]}
+        ),
+        files={"assets/data/a.txt": "hello"},
+    )
+    with pytest.raises(ManifestValidationError, match="triggered"):
+        load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+
+
+def test_a_trigger_write_into_an_executed_path_is_tier_graded(tmp_path: Path) -> None:
+    """FR-020a reaches the trigger's do list for the ungraded tiers."""
+    directory = write_tutorial(
+        tmp_path / "triggered",
+        _triggered_manifest(
+            {"label": "Play", "do": [{"write": {"source": "assets/data/a.py", "destination": "blocks/a.py"}}]}
+        ),
+        files={"assets/data/a.py": "print()"},
+    )
+    with pytest.raises(ManifestValidationError) as excinfo:
+        load_manifest(directory, source_kind=TutorialSourceKind.USER)
+    assert "trigger.do" in str(excinfo.value)
+    assert "blocks" in str(excinfo.value)
+    # The same manifest is legal for core, whose tier may write there.
+    load_manifest(directory, source_kind=TutorialSourceKind.CORE)
+
+
+# ---------------------------------------------------------------------------
+# FR-011f (#2136) — the expression a beat is delivered with
+# ---------------------------------------------------------------------------
+
+
+def test_a_beat_names_its_expression_as_a_prefix(tmp_path: Path) -> None:
+    """The authored form: the expression is a prefix on the line itself."""
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [
+        {
+            "id": "one",
+            "say": [
+                "explain: A block is SciStudio's basic unit.",
+                "curious: Drag Load onto the canvas.",
+            ],
+        }
+    ]
+
+    step = parse(data, tmp_path=tmp_path).steps[0]
+
+    assert step.say == ("A block is SciStudio's basic unit.", "Drag Load onto the canvas.")
+    assert step.say_moods == ("explain", "curious")
+
+
+def test_a_beat_with_no_prefix_is_delivered_resting(tmp_path: Path) -> None:
+    """A beat is far more often a plain line than a gesture."""
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [{"id": "one", "say": ["Welcome to SciStudio."]}]
+
+    step = parse(data, tmp_path=tmp_path).steps[0]
+
+    assert step.say == ("Welcome to SciStudio.",)
+    assert step.say_moods == (DEFAULT_SAY_MOOD,)
+
+
+def test_prose_that_happens_to_contain_a_colon_is_left_alone(tmp_path: Path) -> None:
+    """What makes the prefix form safe is that its vocabulary is closed.
+
+    Only the six names count. A line beginning "Note:" begins "Note:", so no
+    author has to escape anything or know the rule until they want it — which
+    is the whole reason this is a prefix rather than a second parallel list.
+    """
+    lines = [
+        "Note: the palette is on the left.",
+        "One more thing: press Continue.",
+        "explaain: a typo is prose, not an expression.",
+    ]
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [{"id": "one", "say": lines}]
+
+    step = parse(data, tmp_path=tmp_path).steps[0]
+
+    assert step.say == tuple(lines)
+    assert step.say_moods == (DEFAULT_SAY_MOOD,) * 3
+
+
+def test_a_bare_say_carries_its_expression_too(tmp_path: Path) -> None:
+    """The short form is not a lesser form."""
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [{"id": "one", "say": "success: Nicely done."}]
+
+    step = parse(data, tmp_path=tmp_path).steps[0]
+
+    assert step.say == ("Nicely done.",)
+    assert step.say_moods == ("success",)
+
+
+def test_a_beat_that_is_only_an_expression_is_refused(tmp_path: Path) -> None:
+    """An expression with no line is a dialogue box with a face and no words."""
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [{"id": "one", "say": ["curious:"]}]
+
+    with pytest.raises(ManifestValidationError) as caught:
+        parse(data, tmp_path=tmp_path)
+    assert "not only the expression" in str(caught.value)
+
+
+def test_the_expression_vocabulary_is_the_sprite_set() -> None:
+    """A seventh name would be a seventh drawing, so the tuple is the contract.
+
+    Guards the frontend's copy of this list, which cannot import it.
+    """
+    assert SAY_MOODS == (
+        "idle",
+        "explain",
+        "curious",
+        "focus",
+        "success",
+        "error",
+        "angry",
+    )
+    assert DEFAULT_SAY_MOOD in SAY_MOODS
+
+
+# ---------------------------------------------------------------------------
+# FR-011e (#2136) — the form each beat is delivered in
+# ---------------------------------------------------------------------------
+
+
+def test_one_compact_flag_is_every_beat_of_the_step(tmp_path: Path) -> None:
+    """A manifest written before the form was per beat goes on meaning the whole step.
+
+    Every ``compact: true`` already on disk was written about a step, not about
+    a beat. Read as the first beat's answer it would leave the rest of the step
+    reverting to a scene halfway through delivery: the character an author
+    deliberately kept small beside the canvas jumps into the main area between
+    one sentence and the next.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [
+        {
+            "id": "one",
+            "say": ["A block is a unit of work.", "Drag Load onto the canvas."],
+            "compact": True,
+        }
+    ]
+
+    assert parse(data, tmp_path=tmp_path).steps[0].compacts == (True, True)
+
+
+def test_a_compact_list_is_read_beside_say_beat_for_beat(tmp_path: Path) -> None:
+    """The pairing the list form exists for: a lead-in and its instruction differ.
+
+    "A block is a unit of work", said about the palette as a whole, wants her
+    standing in the main area; "drag Load onto the canvas", said about one entry
+    in it, wants a chat line beside that entry. One answer for the whole step
+    forces the author to choose which of the two beats is delivered wrongly.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [
+        {
+            "id": "one",
+            "say": ["A block is a unit of work.", "Drag Load onto the canvas."],
+            "compact": [False, True],
+        }
+    ]
+
+    assert parse(data, tmp_path=tmp_path).steps[0].compacts == (False, True)
+
+
+def test_a_compact_list_that_does_not_match_the_beats_is_rejected(tmp_path: Path) -> None:
+    """A list one entry short would silently change the form of the last beat.
+
+    Nothing downstream can tell a missing entry from a written ``false``, so the
+    step would be delivered the wrong way round with no error anywhere and no
+    way for the author to notice except by watching the tutorial. Padding the
+    list is not a kinder answer than refusing it; it is the same silence.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [
+        {
+            "id": "one",
+            "say": ["A block is a unit of work.", "Drag Load onto the canvas."],
+            "compact": [True],
+        }
+    ]
+
+    with pytest.raises(ManifestValidationError) as caught:
+        parse(data, tmp_path=tmp_path)
+    message = str(caught.value)
+    assert "steps[0].compact" in message
+    assert "one entry per beat" in message
+
+
+def test_a_compact_entry_that_is_neither_true_nor_false_is_rejected(tmp_path: Path) -> None:
+    """There is no third presentation, so a value that is not a form cannot become one.
+
+    An author writing ``"yes"`` is reaching for something the surface does not
+    ship. Coerced, the entry would come out compact and the manifest would go on
+    describing a step nobody wrote. The complaint names the entry rather than
+    only the step, because in a six-beat step the author otherwise has to guess
+    which line is at fault.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [
+        {
+            "id": "one",
+            "say": ["A block is a unit of work.", "Drag Load onto the canvas."],
+            "compact": [False, "yes"],
+        }
+    ]
+
+    with pytest.raises(ManifestValidationError) as caught:
+        parse(data, tmp_path=tmp_path)
+    assert "steps[0].compact[1]" in str(caught.value)
+
+
+# ---------------------------------------------------------------------------
+# FR-089e (#2136) — what each beat points at
+# ---------------------------------------------------------------------------
+
+
+def test_one_highlight_is_every_beat_of_the_step(tmp_path: Path) -> None:
+    """The singular form is what every manifest on disk says, and it still says the step.
+
+    Narrowed to the first beat, a ring an author wrote once would come off the
+    moment the step moves to its second line, leaving the control the
+    instruction names unlit for exactly the beat that names it.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [
+        {
+            "id": "one",
+            "say": ["The palette holds every block.", "Drag Load onto the canvas."],
+            "highlight": "block_palette",
+        }
+    ]
+
+    assert parse(data, tmp_path=tmp_path).steps[0].highlights == (
+        Highlight(target="block_palette"),
+        Highlight(target="block_palette"),
+    )
+
+
+def test_a_highlight_list_is_read_beside_say_beat_for_beat(tmp_path: Path) -> None:
+    """A lead-in that rings a control is an instruction the reader has not been given yet.
+
+    "The palette holds every block" is context; lighting the one entry the next
+    beat is about to name, while that beat is still unsaid, reads as a command
+    and sends the reader off early. A beat that points at nothing is written
+    ``~`` in the manifest, which is the ``None`` this list carries.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [
+        {
+            "id": "one",
+            "say": ["The palette holds every block.", "Drag Load onto the canvas."],
+            "highlight": [None, {"palette_block": {"block_type": "load_data"}}],
+        }
+    ]
+
+    assert parse(data, tmp_path=tmp_path).steps[0].highlights == (
+        None,
+        Highlight(target="palette_block", args={"block_type": "load_data"}),
+    )
+
+
+def test_a_highlight_list_that_does_not_match_the_beats_says_how_to_fill_the_gap(tmp_path: Path) -> None:
+    """A list one short unrings the last beat, which is the beat carrying the task.
+
+    Refusing is only half the job. An author with three beats and two things to
+    point at needs to be told the empty slot is spelled ``~``; without that, the
+    obvious way to make the lengths agree is to delete a beat, and the step
+    loses a line of its writing to a validation message.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [
+        {
+            "id": "one",
+            "say": ["The palette holds every block.", "Drag Load onto the canvas."],
+            "highlight": ["block_palette"],
+        }
+    ]
+
+    with pytest.raises(ManifestValidationError) as caught:
+        parse(data, tmp_path=tmp_path)
+    message = str(caught.value)
+    assert "steps[0].highlight" in message
+    assert "one entry per beat" in message
+    assert "~" in message
+
+
+def test_a_step_that_points_at_nothing_still_answers_once_per_beat(tmp_path: Path) -> None:
+    """Everything downstream reads the entry beside the beat it is rendering.
+
+    A step declaring no highlight is the common case, and it has to answer with
+    a slot per beat rather than with nothing: a shorter tuple makes the second
+    beat of an ordinary step an out-of-range read on the surface.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [{"id": "one", "say": ["The palette holds every block.", "Drag Load onto the canvas."]}]
+
+    assert parse(data, tmp_path=tmp_path).steps[0].highlights == (None, None)
+
+
+def test_a_highlight_declared_without_any_say_is_not_thrown_away(tmp_path: Path) -> None:
+    """A step that only points is a legal step: an action with nothing to add in words.
+
+    Counting slots from the beats alone would give such a step none, and the
+    author's ring would be parsed and then discarded — no error, no highlight,
+    and nothing in the manifest to suggest why.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [{"id": "one", "highlight": "run_button"}]
+
+    assert parse(data, tmp_path=tmp_path).steps[0].highlights == (Highlight(target="run_button"),)
+
+
+# ---------------------------------------------------------------------------
+# FR-054c (#2136) — the step that moves on by itself
+# ---------------------------------------------------------------------------
+
+
+def test_a_step_waits_for_the_reader_unless_it_asks_not_to(tmp_path: Path) -> None:
+    """FR-054a is the default, and every step written before FR-054c relies on it.
+
+    The moment a condition flips is the moment the reader has started reading
+    the result, so advancing then takes the page away mid-sentence. Defaulting
+    the other way would retro-fit that failure onto every step already shipped,
+    including the ones whose whole point is that the reader looks at what just
+    happened.
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [
+        {
+            "id": "one",
+            "say": "Look at what the preview is showing you.",
+            "done_when": {"node_exists": {"block_type": "LoadCSV"}},
+        }
+    ]
+
+    assert parse(data, tmp_path=tmp_path).steps[0].auto_advance is False
+
+
+def test_a_step_whose_whole_content_is_one_action_can_move_on_by_itself(tmp_path: Path) -> None:
+    """Asking a reader to confirm a click they have already made is a second click for nothing.
+
+    Whether a step is that kind of step is the author's call and no one else's:
+    the runtime sees a satisfied condition either way and cannot tell "you
+    dragged the block" from "now read what it produced".
+    """
+    data = copy.deepcopy(MINIMAL_MANIFEST)
+    data["steps"] = [
+        {
+            "id": "one",
+            "say": "Drag Load onto the canvas.",
+            "auto_advance": True,
+            "done_when": {"node_exists": {"block_type": "LoadCSV"}},
+        }
+    ]
+
+    assert parse(data, tmp_path=tmp_path).steps[0].auto_advance is True

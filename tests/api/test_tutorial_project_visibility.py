@@ -17,32 +17,21 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
-from scistudio.api.runtime import ApiRuntime
-
-# #2075: the tests below simulate an out-of-product delete. Plain
-# ``shutil.rmtree`` cannot do that on Windows -- auto-init leaves
-# ``.git/objects`` read-only and Windows refuses to unlink a read-only file --
-# so use the helper the product already uses for exactly this case.
-from scistudio.api.runtime._helpers import _rmtree_force
-from scistudio.api.runtime.models import KnownProject
+from scistudio.api.runtime import ApiRuntime, KnownProject, _rmtree_force
 from scistudio.core import dropins
 from scistudio.tutorials import projects as tutorial_projects
-from scistudio.tutorials.projects import TutorialKey, TutorialProjectPlan
+from scistudio.tutorials.projects import TutorialKey
 
 WELCOME = TutorialKey.core("welcome-to-scistudio")
 
 
-# #2075: the two annotations here and on ``user_project`` below are pre-existing
-# gaps that mypy only reports once this file is otherwise touched. Filling them
-# in is cheaper than leaving the file unable to pass the commit hook.
 def _start_tutorial_project(
     runtime: ApiRuntime, key: TutorialKey = WELCOME, title: str = "Welcome To SciStudio"
-) -> tuple[TutorialProjectPlan, KnownProject]:
+) -> tuple[tutorial_projects.TutorialProjectPlan, KnownProject]:
     """Create one tutorial project the way the Learning Center will.
 
     The plan comes from the tutorial layer and the creation from the runtime,
@@ -65,15 +54,15 @@ def _start_tutorial_project(
 
 
 @pytest.fixture
-def user_project(client: TestClient, project_parent: Path) -> dict[str, Any]:
+def user_project(client: TestClient, project_parent: Path) -> dict:
     """A project of the user's own, stored outside the tutorial parent."""
     response = client.post(
         "/api/projects/",
         json={"name": "My Analysis", "description": "real work", "path": str(project_parent)},
     )
     assert response.status_code == 200
-    body: dict[str, Any] = response.json()
-    return body
+    payload: dict = response.json()
+    return payload
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +282,8 @@ def test_a_project_removed_outside_the_product_reads_as_gone(client: TestClient,
     _, project = _start_tutorial_project(runtime)
     assert tutorial_projects.tutorial_project_exists(project.path) is True
 
+    # The product's forced rmtree, not shutil.rmtree: git objects are
+    # read-only on Windows and a bare rmtree cannot unlink them (#2075).
     _rmtree_force(Path(project.path))
 
     assert tutorial_projects.tutorial_project_exists(project.path) is False

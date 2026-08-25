@@ -28,11 +28,11 @@ from scistudio.core.types import DataFrame
 
 
 class NormaliseFluorescenceBlock(ProcessBlock):
-    """Normalise fluorescence using negative and positive control means."""
+    """Normalize fluorescence using negative and positive control means."""
 
-    name: ClassVar[str] = "Normalise Fluorescence"
+    name: ClassVar[str] = "Normalize Fluorescence"
     type_name: ClassVar[str] = "normalise_fluorescence"
-    description: ClassVar[str] = "Normalise fluorescence with negative and positive controls."
+    description: ClassVar[str] = "Normalize fluorescence with negative and positive controls."
     algorithm: ClassVar[str] = "fluorescence_control_normalization"
 
     # Carried over unchanged, so the block still looks like itself in the

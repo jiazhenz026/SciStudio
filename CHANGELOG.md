@@ -9,6 +9,140 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2082] **Core tutorial 3 — *Two modalities, one answer*.** The multimodal
+  level, and the git level. A scanner and a sequencer looked at the same three
+  tissue sections and neither file can answer alone — the only thing joining
+  them is the `y`/`x` every measured position carries, so the analysis is
+  genuinely joint rather than two analyses in a row. It is also the first level
+  that mostly *reuses*: the `Image` type, the `Segment Cells` block, and the
+  `Image` previewer all arrive from My Library where tutorial 2 put them, and
+  the only new blocks are the two this experiment actually needs. The reader
+  builds the first forked canvas, meets index pairing as a real hazard — the
+  stack's pages are in the scanner's acquisition order (`S05`, `S09`, `S01`)
+  and the workbook's sheets in section-label order (`S01`, `S05`, `S09`), so
+  every pair is wrong, and the Pair Editor's panel is where that is visible at
+  all — then aggregates expression inside imaged regions and clusters them with
+  hand-written NumPy k-means, deliberately in a block rather than in a plot,
+  because a plot is preview-only and overwritten next run. The second half is
+  git: a second, deeper sequencing run needs a different normalisation from the
+  first (total-count loses batch 2 to two runaway housekeeping genes;
+  median-of-ratios loses batch 1 to shallow, zero-heavy counts — both real
+  statistics, both recomputed by the tests), so the reader keeps a `batch-2`
+  branch alive alongside `main`, switches back, meets the stale figure, and
+  lands the lesson that git stores the recipe and not the results because
+  `data/` and `.scistudio/` are not in version control. Every number the steps
+  quote — nine regions per section, twenty-seven in all, and the 9/9/9, 14/8/5
+  and 7/18/2 cluster splits — is recomputed from the shipped stack and
+  workbooks by `tests/tutorials/test_core_tutorial_two_modalities.py`.
+- [#2081] **Core tutorial 2 — *What is a type*.** The type-system level. An
+  image-analysis task arrives and the reader builds the missing vocabulary one
+  real gap at a time: a project-tier `Image` type created through New → New
+  data type and derived from the core `Array` (the template's commented
+  `ui_color` / `ui_ring_color` lines are the one hand edit — the reader picks
+  their type's colour); the product's real dispatch error `no load capability
+  is registered for type 'Image'`, met by running and fixed by a
+  tutorial-written TIFF `IOBlock` loader that reads the baseline-TIFF contract
+  itself with the standard library (core ships no image decoder — that is why
+  the capability was missing — and a test referees the reader against
+  dev-only tifffile); the real previewer fallback — an
+  Image previews as the parent Array's number table until a project previewer
+  claiming `target_type: Image` lands and registers live; a NumPy-only
+  threshold segmentation whose imperfection is genuine (7 objects on 6 cells;
+  the adaptive method honestly worse at 73), every quoted number recomputed
+  from the shipped 120×120 TIFF by the tests; an interactive Review Labels
+  block whose window is a hand-written, dependency-free ES module carried
+  beside the block (`asset_root` from its own `__file__`, served
+  same-origin), used to hand-delete the nine-pixel debris speck — with the
+  interaction-memory toggle named where it lives; a per-cell area DataFrame
+  exported through Save into `data/processed/`; and the ending bridge: Image,
+  the segmentation block, and the previewer go to My Library
+  (`library_contains` judged for all three), which is how tutorial 3's fresh
+  project starts with them. The previewer derives its tier from its own
+  location, so the same file answers as project tier beside `project.yaml`
+  and as the user tier after the move.
+- [#2085] **Core tutorial 6 — *Start Your Own Project*.** The level the first
+  five leave missing: the reader has never brought in their own data. The
+  tutorial supplies a pretend-"your own" folder inside its project and walks a
+  real import — a do-it-with-me button copies the files into `data/raw`, the
+  reader wires Load through a small pre-written block into a Save aimed at
+  `data/processed`, runs it, and exports a figure. Along the way it answers the
+  project's six geography questions: where data goes in (`data/raw`), where
+  results land (`data/processed`, by the reader's own Save — nothing writes
+  there uninvited), where the project's own tools live (`blocks/`, `types/`,
+  `previewers/`, hot-reloaded on save), how data is handed to external software
+  (`data/exchange`, plain files both ways), how a figure survives (Export —
+  plots live in the preview cache and are overwritten next run), and how data
+  is saved. It also names why `data/` and `.scistudio/` stay out of version
+  control, and closes by sending the reader off to a project of their own.
+- [#2083] **Core tutorial 4 — *What AI can do*.** A declared-fake AI session:
+  the AI Chat terminal plays a pre-recorded agent transcript, and every claim
+  it makes is matched by a real file landing in the tutorial project before
+  the claim is readable. Over fourteen judged steps the scripted agent answers
+  what SciStudio is, lists the palette, writes a QC outlier-filter block,
+  wires load → QC → summary → save, fails a run on a wrong column name — the
+  reader meets the `KeyError` in the Logs tab, then watches the agent read the
+  same logs and fix its own block — inspects the filtered table, argues a
+  3σ→2σ threshold change whose retained-sample count the reader can verify,
+  scaffolds a before/after plot, and hands three undocumented CSVs to a
+  tutorial-only **AI Block**: a real `AIBlock` subclass (its palette category
+  is inferred from the class hierarchy and cannot be faked) whose canned run
+  returns a typed, validated, lineage-tracked metadata table. Completing this
+  tutorial is now the shipped **work-import milestone**: the ending introduces
+  the five real agent providers (Claude Code, Codex, Kimi Code, and Qoder's
+  two channels — greyed when not set up, never hidden) and then offers, once,
+  to bring the reader's existing work across; skipping names the permanent
+  "Bring in my work" toolbar entry. The scripted replay tab is adopted into
+  the real AI Chat tab strip — same terminal, same tabs, only the byte source
+  differs — and torn down with the session.
+- [#2086] **The tutorial-scoped library gained a previewer tier.** The scoped
+  library's `.library/` root now carries a `previewers/` directory beside
+  `blocks/` and `types/`, and a tutorial project's previewer scans resolve
+  through the same one-root swap the other two kinds make: the scoped library
+  answers as the user tier while a tutorial project is open, so precedence
+  stays project > user > package > core and a previewer saved during one
+  tutorial travels to the next tutorial's project — which is how core
+  tutorial 3 reuses tutorial 2's previewer instead of falling back to the
+  numeric table. `library_contains: {kind: previewer}` is judgeable now
+  (matching a previewer's id or its target type) instead of rejected at
+  validation as unsatisfiable, a tutorial step that writes `previewers/*.py`
+  registers it live before the step's text is readable, and "Move to My
+  Library" from the editor toolbar now offers a project previewer, landing it
+  in whichever library — scoped or real — the open project resolves.
+
+- [#2061 #2062 #2063 #2066 #2088 #2089] **The tutorial format can now express
+  the designed Learning Center levels 2–6.** A step may declare a `trigger` — a
+  button labelled by the manifest whose actions run when the reader presses it,
+  with a failure surfaced on the step and retryable rather than ending the
+  session — and a `pages` list naming the reading pages it presents. Replays
+  can continue the open terminal tab instead of replacing it, which with the
+  trigger is how a scripted conversation is paced. Completion conditions grew:
+  the node-addressed terms accept `block_type` ("any node of that type") beside
+  `node_id`; the run terms accept `since_step_entry: true` so "press Run" waits
+  for the run performed on this step; a backend `plot_rendered` term judges
+  that a figure exists as product truth; and `ui_event` reports may carry the
+  target they acted on. A tutorial may require same-source tutorials completed
+  first, listing itself unavailable naming the unmet level until then. The
+  session response now carries a read-only outline of every step for the
+  reading window, `assets/workflows/` is a reserved (and executable-graded)
+  asset directory whose writes reach the open canvas before a step's text is
+  readable, and the guidance vocabularies gained the Data types tab, a
+  New-data-type prefill, and the Bring-in-my-work toolbar highlight.
+- [#2084] **Core tutorial 5 — *SciStudio at a Glance*, and the reading window
+  it runs in.** The fifth core tutorial is the summary level: one window, one
+  top sentence, and eight cards — workflow, block, data type, previewer, plot
+  card, history, my library, others — each opening a short paged read. It
+  introduces nothing new by design: it names and organises what the first four
+  levels already had you do, which is why reading it is completing it (the one
+  exception, `CompositeData`, is presented honestly as the one core type you
+  have not used). No project is created; every claim in the cards is checked
+  against the product's actual behaviour.
+  Reading tutorials now have their own surface: while one runs, the Learning
+  Center shows a **window of cards instead of the floating step card** — the
+  tutorial's summary on top, one card per step in step order, read cards
+  marked and reopenable. Opening a page *is* the progress report (the backend
+  records the page on serve and re-judges the step), and the tutorial
+  completes through the same explicit Continue as every other tutorial. The
+  window is built for any reading tutorial, not this one.
 - [#2080] **A package can now build tutorials against a supported API.** The
   Learning Center opened two authoring paths to packages — a `tutorial.yaml`
   manifest, and a driver class for logic a manifest cannot express — but neither
@@ -257,6 +391,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2148] **Re-running a block that writes an array no longer fails on Windows
+  while the machine is busy.** Re-running such a block raised
+  `[WinError 5] Access is denied` from `auto_flush`, and only ever on a loaded
+  machine — an idle box re-ran the same block all day, a box with a test suite
+  running hit it repeatedly.
+  The Zarr backend committed a rewrite by deleting the old store and then
+  renaming the freshly staged one onto the freed name. That order is the whole
+  problem, and not for the reason the arrow in the error suggests. Renaming a
+  directory on Windows is denied while *any* file anywhere in its subtree is
+  open, and antimalware and the search indexer open files the instant they are
+  written — which is exactly the moment the staged store is renamed into place.
+  The rename that failed was blocked by a handle on the new tree, not by the
+  old name still being taken. Load did not create the race; it made the
+  scanner's window overlap the rename.
+  Because the delete ran first, the failure also took the previous good store
+  with it: the exception left the block with no data at all rather than the
+  copy it had a moment earlier. Writes now stage the new store, move the old
+  one aside, swap the new one in, and only then discard the old — so a rewrite
+  that cannot complete rolls back to the previous store instead of losing it.
+  The swap waits out a busy tree rather than failing on first contact, which is
+  what makes the common case succeed. Saving a Zarr-backed array through
+  SaveData took the same treatment: it too deleted an existing export before
+  copying its replacement over the name.
 - [#2143] **A failed gate check now tells you everything it found, and a
   stacked branch is measured against its own base.** Four defects shared one
   shape — the gate observed more than it reported — and together they meant a

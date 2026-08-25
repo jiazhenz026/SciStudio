@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import numpy as np
@@ -15,6 +17,7 @@ from scistudio.core.storage.errors import StorageMissingError, StorageReferenceI
 from scistudio.core.storage.filesystem import FilesystemBackend
 from scistudio.core.storage.ref import StorageReference
 from scistudio.core.storage.zarr_backend import ZarrBackend
+from scistudio.utils import atomic_io
 
 
 class TestZarrBackend:
@@ -218,6 +221,114 @@ class TestZarrBackend:
         # distinction is preserved after the #1440 fix.
         assert type(exc_info.value) is StorageMissingError
         assert exc_info.value.operation == "read"
+
+
+class TestZarrRewriteSafety:
+    """#2148: rewriting a store must not destroy the old one before committing.
+
+    The original commit was ``shutil.rmtree(target)`` followed by
+    ``tmp.rename(target)``. Two things go wrong with that order, and both are
+    reproduced here without depending on machine load:
+
+    * A rename that fails after the delete leaves the block with no store at
+      all — the previous good data is already gone.
+    * On Windows a directory rename is denied while any handle is open in its
+      subtree, so a scanner touching the store makes the rewrite fail outright.
+    """
+
+    @staticmethod
+    def _store_file(root: Path) -> Path:
+        """Return a regular file inside the zarr store at *root*."""
+        files = sorted(p for p in root.rglob("*") if p.is_file())
+        assert files, f"expected the zarr store at {root} to contain files"
+        return files[0]
+
+    def test_failed_swap_leaves_the_previous_store_readable(self, tmp_path: Path) -> None:
+        """A rename failure must not cost the caller the data already stored.
+
+        Fails the swap-in rename and asserts the original store survives. Under
+        the delete-then-rename commit this is unrecoverable: ``rmtree`` has
+        already run by the time the rename is attempted.
+
+        The injection targets ``_replace_with_retry`` rather than ``os.replace``
+        because zarr writes each chunk through ``os.replace`` of its own; a
+        patch at that level would fire inside the staging write and never reach
+        the swap under test.
+        """
+        backend = ZarrBackend()
+        path = tmp_path / "keepme.zarr"
+        original = np.arange(24, dtype="int32").reshape(4, 6)
+        ref = backend.write(original, StorageReference(backend="zarr", path=str(path)))
+
+        real_swap = atomic_io._replace_with_retry
+
+        def fail_swap_in(src: Path, dst: Path) -> None:
+            # Staging and backup are both named ".<dest>.*.tmp"; only the
+            # backup carries the ".bak." marker. Fail the staging -> dest
+            # rename and let the rollback rename through.
+            if ".bak." not in src.name:
+                raise OSError(13, "injected swap failure")
+            real_swap(src, dst)
+
+        with (
+            patch.object(atomic_io, "_replace_with_retry", fail_swap_in),
+            pytest.raises(OSError, match="injected swap failure"),
+        ):
+            backend.write(
+                np.zeros((2, 2), dtype="int32"),
+                StorageReference(backend="zarr", path=str(path)),
+            )
+
+        np.testing.assert_array_equal(backend.read(ref), original)
+
+    def test_rewrite_succeeds_while_a_handle_is_held_inside_the_store(self, tmp_path: Path) -> None:
+        """#2148 regression: a transient handle inside the store must not fail the write.
+
+        Windows denies a directory rename while any file in the subtree is
+        open, which is exactly what antimalware and the search indexer do to a
+        store the moment it is written. Rather than wait for a loaded machine
+        to produce that collision, the test holds a handle open across the
+        start of the write and releases it shortly after, so the rewrite is
+        guaranteed to begin while the store is busy. The write is expected to
+        wait the handle out and succeed.
+
+        On POSIX an open handle blocks nothing, so this degrades to a plain
+        rewrite round-trip.
+        """
+        backend = ZarrBackend()
+        path = tmp_path / "busy.zarr"
+        backend.write(
+            np.arange(24, dtype="int32").reshape(4, 6),
+            StorageReference(backend="zarr", path=str(path)),
+        )
+
+        handle = self._store_file(path).open("rb")
+        release = threading.Timer(0.2, handle.close)
+        release.start()
+        try:
+            replacement = np.arange(100, 112, dtype="int32").reshape(3, 4)
+            ref = backend.write(replacement, StorageReference(backend="zarr", path=str(path)))
+            np.testing.assert_array_equal(backend.read(ref), replacement)
+        finally:
+            release.cancel()
+            handle.close()
+
+    def test_rewrite_leaves_no_scratch_directories_behind(self, tmp_path: Path) -> None:
+        """A successful rewrite must clean up both the staging and backup trees.
+
+        Leftovers here are the ``.zarr_tmp_*`` exposure named in #2148: each
+        one holds a full copy of the array, so an accumulating leak is a real
+        disk cost rather than clutter.
+        """
+        backend = ZarrBackend()
+        path = tmp_path / "clean.zarr"
+        for size in (4, 6, 8):
+            backend.write(
+                np.arange(size, dtype="int32"),
+                StorageReference(backend="zarr", path=str(path)),
+            )
+
+        assert sorted(p.name for p in tmp_path.iterdir()) == ["clean.zarr"]
 
 
 class TestArrowBackend:
@@ -555,11 +666,11 @@ class TestCompositeStore:
         dest = tmp_path / "atomic_comp"
 
         class _Boom:
-            def write(self, data, ref):
+            def write(self, data: Any, ref: StorageReference) -> Any:
                 raise RuntimeError("backend exploded mid-write")
 
         real_get = store._get_backend_for
-        store._get_backend_for = lambda name: _Boom() if name == "boom" else real_get(name)  # type: ignore[method-assign]
+        store._get_backend_for = lambda name: _Boom() if name == "boom" else real_get(name)  # type: ignore[method-assign,assignment]
 
         composite_data = {
             "ok": ("filesystem", "good slot"),
@@ -581,11 +692,11 @@ class TestCompositeStore:
         assert store.read(ref)["a"] == "v1"
 
         class _Boom:
-            def write(self, data, ref):
+            def write(self, data: Any, ref: StorageReference) -> Any:
                 raise RuntimeError("boom")
 
         real_get = store._get_backend_for
-        store._get_backend_for = lambda name: _Boom() if name == "boom" else real_get(name)  # type: ignore[method-assign]
+        store._get_backend_for = lambda name: _Boom() if name == "boom" else real_get(name)  # type: ignore[method-assign,assignment]
         with pytest.raises(RuntimeError):
             store.write({"b": ("boom", "x")}, ref)
 

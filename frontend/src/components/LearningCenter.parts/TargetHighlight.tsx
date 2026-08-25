@@ -2,7 +2,7 @@
  * ADR-053 Learning Center (#2057) — FR-089a's outline on the step's target.
  *
  * The element the step points at gets a ring drawn around it, in the product's
- * accent colour, sitting a few pixels clear of the element's own box so it
+ * accent color, sitting a few pixels clear of the element's own box so it
  * reads as pointing rather than as a border the element grew.
  *
  * **Why not a dimming overlay.** Darkening everything else was tried first and

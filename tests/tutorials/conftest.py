@@ -17,7 +17,7 @@ import pytest
 import yaml
 
 from scistudio.tutorials.conditions import RunSummary
-from scistudio.tutorials.manifest import TUTORIAL_MANIFEST_FILENAME
+from scistudio.tutorials.manifest import TUTORIAL_MANIFEST_FILENAME, TutorialStep
 from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
 
 MINIMAL_MANIFEST: dict[str, Any] = {
@@ -27,6 +27,16 @@ MINIMAL_MANIFEST: dict[str, Any] = {
     "summary": "A tutorial used by the tests.",
     "steps": [{"id": "one", "say": "Do the thing."}],
 }
+
+
+def say_text(step: TutorialStep) -> str:
+    """The step's beats as one searchable string.
+
+    ``say`` is the ordered beats a step is delivered in. A test asserting that
+    some phrase reaches the reader does not care where the author put the
+    breaks, and should not have to be rewritten when one moves.
+    """
+    return " ".join(step.say)
 
 
 def write_tutorial(
@@ -50,11 +60,9 @@ def write_tutorial(
     for relative, content in (files or {}).items():
         target = directory / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        # #2075: newline="" writes the content byte-for-byte. Without it, text
-        # mode translates a newline to CRLF on Windows, and a replay asset is
-        # delivered to the frontend as raw bytes -- so a test asserting the
-        # bytes it wrote saw two extra carriage returns on Windows only. These
-        # are fixture bytes, not platform-native text.
+        # newline="": tests compare bytes read back from these files against
+        # POSIX literals, so LF must land on disk untranslated rather than
+        # becoming CRLF on Windows (#2075).
         target.write_text(content, encoding="utf-8", newline="")
     return directory
 
@@ -94,6 +102,7 @@ class StubProductState:
     data_types: frozenset[str] = frozenset()
     previewer_types: frozenset[str] = frozenset()
     plots: tuple[tuple[str, str, str], ...] = ()
+    rendered: tuple[tuple[str, str, str, str], ...] = ()
     runs: tuple[RunSummary, ...] = ()
     ports_with_output: frozenset[tuple[str, str]] = frozenset()
     branches: frozenset[str] = frozenset()
@@ -102,6 +111,7 @@ class StubProductState:
     interactions: frozenset[str] = frozenset()
     pages: frozenset[str] = frozenset()
     events: frozenset[str] = frozenset()
+    targeted_events: frozenset[tuple[str, str]] = frozenset()
     reads: list[str] = field(default_factory=list)
 
     def workflow(self) -> WorkflowDefinition | None:
@@ -123,6 +133,10 @@ class StubProductState:
     def plot_bindings(self) -> tuple[tuple[str, str, str], ...]:
         self.reads.append("plot_bindings")
         return self.plots
+
+    def rendered_plots(self) -> tuple[tuple[str, str, str, str], ...]:
+        self.reads.append("rendered_plots")
+        return self.rendered
 
     def run_records(self) -> tuple[RunSummary, ...]:
         self.reads.append("run_records")
@@ -155,6 +169,10 @@ class StubProductState:
     def ui_events(self) -> frozenset[str]:
         self.reads.append("ui_events")
         return self.events
+
+    def ui_events_with_targets(self) -> frozenset[tuple[str, str]]:
+        self.reads.append("ui_events_with_targets")
+        return self.targeted_events
 
 
 @pytest.fixture

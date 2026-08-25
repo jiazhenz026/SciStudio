@@ -34,7 +34,11 @@ pass ``fsync_dir=True``.
 Directory-style outputs (zarr stores, ``shutil.copytree`` targets) are
 handled by :func:`atomic_replace_dir`, which builds the new tree in a
 temp sibling directory and swaps it into place; see its docstring for the
-non-empty-destination caveat.
+non-empty-destination caveat. Directory swaps carry a Windows-only
+hazard that files do not: a directory rename is denied while any handle
+is open anywhere in its subtree, and antimalware scanners open files the
+instant they are written. :func:`atomic_replace_dir` retries its renames
+for that reason — see issue #2148 and :func:`_replace_with_retry`.
 """
 
 from __future__ import annotations
@@ -43,6 +47,7 @@ import contextlib
 import os
 import shutil
 import tempfile
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import IO, Any
@@ -264,6 +269,65 @@ def atomic_write_text(
     return dest
 
 
+#: Windows error codes that make a directory rename a *transient* failure.
+#: ``ERROR_ACCESS_DENIED`` (5) is what a directory rename raises while any
+#: handle is open anywhere in its subtree; ``ERROR_SHARING_VIOLATION`` (32)
+#: is the equivalent for a file. Both clear as soon as the holder closes.
+_TRANSIENT_WINERRORS = frozenset({5, 32})
+
+#: Retry budget for the two renames in :func:`atomic_replace_dir`. The
+#: delay doubles from ``_SWAP_RETRY_INITIAL_DELAY`` up to
+#: ``_SWAP_RETRY_MAX_DELAY``, giving roughly two seconds of total patience
+#: across ``_SWAP_RETRY_ATTEMPTS`` tries. Antimalware and indexer handles on
+#: a freshly written tree are released in tens of milliseconds, so the early
+#: attempts carry almost all of the benefit.
+_SWAP_RETRY_ATTEMPTS = 10
+_SWAP_RETRY_INITIAL_DELAY = 0.01
+_SWAP_RETRY_MAX_DELAY = 0.5
+
+
+def _is_transient_rename_error(exc: OSError) -> bool:
+    """Return whether *exc* is a Windows rename denial worth retrying.
+
+    Only Windows reports these codes, and only Windows blocks a directory
+    rename on an unrelated open handle. On POSIX ``winerror`` is absent, so
+    this is always ``False`` and the caller re-raises immediately — the
+    retry loop is a no-op off Windows.
+    """
+    return getattr(exc, "winerror", None) in _TRANSIENT_WINERRORS
+
+
+def _replace_with_retry(src: Path, dst: Path) -> None:
+    """``os.replace(src, dst)``, retrying while Windows reports a busy tree.
+
+    Renaming a directory on Windows fails with ``ERROR_ACCESS_DENIED`` while
+    *any* file inside its subtree is open — the share mode of that handle
+    does not matter, so even a scanner that opened the file with
+    ``FILE_SHARE_DELETE`` blocks the rename (issue #2148). Antimalware and
+    the search indexer open files immediately after they are written, which
+    is precisely the moment a freshly staged store is renamed into place, so
+    the denial is common under load and absent on an idle machine.
+
+    These handles are transient. Retrying with a short exponential backoff
+    turns an intermittent hard failure into a brief wait. A denial that
+    outlives the budget is re-raised unchanged so the caller still sees the
+    original error.
+    """
+    delay = _SWAP_RETRY_INITIAL_DELAY
+    for _ in range(_SWAP_RETRY_ATTEMPTS - 1):
+        try:
+            os.replace(str(src), str(dst))
+        except OSError as exc:
+            if not _is_transient_rename_error(exc):
+                raise
+            time.sleep(delay)
+            delay = min(delay * 2, _SWAP_RETRY_MAX_DELAY)
+        else:
+            return
+    # Final attempt: let whatever it raises propagate to the caller.
+    os.replace(str(src), str(dst))
+
+
 @contextlib.contextmanager
 def atomic_replace_dir(path: str | os.PathLike[str]) -> Iterator[Path]:
     """Context manager that builds a directory tree then atomically swaps it.
@@ -281,6 +345,16 @@ def atomic_replace_dir(path: str | os.PathLike[str]) -> Iterator[Path]:
     documented limitation of directory swaps; readers that hit that window
     see "missing" rather than "half-written", which is the safe failure
     mode for the zarr/copytree outputs this is used for.
+
+    Never delete the destination first. Deleting and then renaming onto the
+    freed name looks equivalent but is not: the moment the old tree is gone,
+    a rename that fails leaves *no* copy at all, so a transient error costs
+    the caller their previous good data. Moving the old tree aside keeps it
+    recoverable, and this helper restores it when the swap-in fails.
+
+    Both renames go through :func:`_replace_with_retry` because Windows
+    denies a directory rename while any handle is open in its subtree
+    (issue #2148); see that function for why the denial is transient.
 
     Args:
         path: Final destination directory.
@@ -303,15 +377,30 @@ def atomic_replace_dir(path: str | os.PathLike[str]) -> Iterator[Path]:
         # mkdtemp created an empty dir; remove it so os.replace can move
         # the old tree onto that name.
         backup.rmdir()
-        os.replace(str(dest), str(backup))
+        try:
+            _replace_with_retry(dest, backup)
+        except BaseException:
+            # `backup` is only a reserved name at this point — the rename
+            # that would have populated it is the one that failed. The old
+            # tree is still in place and still correct, so the staging tree
+            # is the only thing to discard.
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            raise
     try:
-        os.replace(str(tmp_dir), str(dest))
+        _replace_with_retry(tmp_dir, dest)
     except BaseException:
         # Roll back: restore the original tree if we moved it aside.
         if backup is not None and backup.exists() and not dest.exists():
             with contextlib.suppress(OSError):
-                os.replace(str(backup), str(dest))
+                _replace_with_retry(backup, dest)
         shutil.rmtree(tmp_dir, ignore_errors=True)
         raise
     if backup is not None:
+        # Best-effort by design: the swap is already published, so an
+        # undeletable old tree is a disk cost rather than a failed write.
+        # TODO(#2149): nothing reclaims a scratch tree this leaves behind.
+        #   Out of scope per the #2148 fix: a safe sweep needs an age policy
+        #   (a bare sibling glob would race a concurrent writer's live
+        #   staging tree) and a decision about where it runs.
+        #   Followup: https://github.com/jiazhenz026/SciStudio/issues/2149
         shutil.rmtree(backup, ignore_errors=True)

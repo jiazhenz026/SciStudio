@@ -32,8 +32,8 @@ from pathlib import Path
 
 import pytest
 
-from scistudio.tutorials.actions import CopyAction, ReplayAction, WriteAction
-from scistudio.tutorials.conditions import UI_EVENT_NAMES, VOCABULARY
+from scistudio.tutorials.actions import CopyAction, FileAction, ReplayAction, WriteAction, iter_file_actions
+from scistudio.tutorials.conditions import UI_EVENT_NAMES, VOCABULARY, Condition
 from scistudio.tutorials.discovery import (
     DiscoveryEnvironment,
     _unmet_version,
@@ -72,13 +72,33 @@ def _load(directory: Path) -> TutorialManifest:
 
 
 def _actions(manifest: TutorialManifest) -> list[WriteAction | CopyAction | ReplayAction]:
-    """Every action the manifest declares, from bootstrap and from every step."""
+    """Every action the manifest declares: bootstrap, step entry, and triggers.
+
+    Trigger ``do`` lists (#2061) are included for the same reason the manifest
+    validator walks them: pressing the button reaches the project as surely as
+    entering the step does, and tutorial 4 declares nearly everything it writes
+    inside triggers. A declaration site missing here is a hole in every check
+    below.
+    """
     found: list[WriteAction | CopyAction | ReplayAction] = []
     if manifest.bootstrap is not None:
         found.extend(manifest.bootstrap.do)
     for step in manifest.steps:
         found.extend(step.do)
+        if step.trigger is not None:
+            found.extend(step.trigger.do)
     return found
+
+
+def _file_actions(manifest: TutorialManifest) -> list[FileAction]:
+    """Every write and copy the manifest can perform, replay-bound ones included.
+
+    A replay segment's ``do`` (FR-061b) is where tutorial 4 lands almost all of
+    its files, so a check that filters ``_actions`` down to bare ``WriteAction``
+    instances never sees them. ``iter_file_actions`` is the runtime's own
+    flattening, reused so this file cannot disagree with it.
+    """
+    return list(iter_file_actions(_actions(manifest)))
 
 
 def _asset_sources(manifest: TutorialManifest) -> list[str]:
@@ -179,7 +199,7 @@ class TestEveryShippedCoreTutorial:
     def test_every_ui_event_name_is_in_the_closed_set(self, directory: Path) -> None:
         """A name the backend never reports is a step that never advances."""
 
-        def walk(condition, step_id: str) -> None:
+        def walk(condition: Condition, step_id: str) -> None:
             if condition.is_combinator:
                 for operand in condition.operands:
                     walk(operand, step_id)
@@ -197,8 +217,10 @@ class TestEveryShippedCoreTutorial:
         for step in _load(directory).steps:
             if step.route_to is not None:
                 assert step.route_to in ROUTE_TARGETS, f"step {step.id!r} routes to unknown {step.route_to!r}"
-            if step.highlight is not None:
-                target = step.highlight.target
+            for highlight in step.highlights:
+                if highlight is None:
+                    continue
+                target = highlight.target
                 assert target in HIGHLIGHT_TARGETS, f"step {step.id!r} highlights unknown {target!r}"
 
     def test_every_referenced_asset_exists_on_disk(self, directory: Path) -> None:
@@ -211,7 +233,7 @@ class TestEveryShippedCoreTutorial:
     def test_copy_sources_are_directories_and_write_sources_are_files(self, directory: Path) -> None:
         """The two actions are not interchangeable; the mismatch only shows at run time."""
         manifest = _load(directory)
-        for action in _actions(manifest):
+        for action in _file_actions(manifest):
             if isinstance(action, WriteAction):
                 assert manifest.resolve_asset(action.source).is_file(), (
                     f"{manifest.id}: write source {action.source!r} is not a file"
@@ -258,7 +280,7 @@ class TestEveryShippedCoreTutorial:
         nothing, and the step waiting on ``block_registered`` never completes.
         """
         manifest = _load(directory)
-        for action in _actions(manifest):
+        for action in _file_actions(manifest):
             if not isinstance(action, WriteAction):
                 continue
             if not action.destination.startswith("blocks/"):
@@ -286,10 +308,13 @@ class TestEveryShippedCoreTutorial:
         it rather than when it is written.
         """
         manifest = _load(directory)
-        for action in _actions(manifest):
+        for action in _file_actions(manifest):
             if not isinstance(action, WriteAction):
                 continue
             if not action.destination.startswith("plots/"):
+                continue
+            if not action.destination.endswith(".py"):
+                # A plot is a manifest plus a script; only the script is Python.
                 continue
             tree = ast.parse(manifest.resolve_asset(action.source).read_text(encoding="utf-8"))
             renders = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "render"]
@@ -322,21 +347,22 @@ class TestEveryShippedCoreTutorial:
         """
         manifest = _load(directory)
         shipped: set[str] = set()
-        for action in _actions(manifest):
+        for action in _file_actions(manifest):
             if not isinstance(action, WriteAction) or not action.destination.startswith("blocks/"):
                 continue
             tree = ast.parse(manifest.resolve_asset(action.source).read_text(encoding="utf-8"))
             for cls in (node for node in tree.body if isinstance(node, ast.ClassDef)):
                 for node in cls.body:
-                    target = node.target if isinstance(node, ast.AnnAssign) else None
-                    if target is None or not isinstance(target, ast.Name) or target.id != "type_name":
+                    if not isinstance(node, ast.AnnAssign):
+                        continue
+                    if not isinstance(node.target, ast.Name) or node.target.id != "type_name":
                         continue
                     if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
                         shipped.add(node.value.value)
         if not shipped:
             pytest.skip("this tutorial ships no project blocks")
 
-        def walk(condition, step_id: str) -> None:
+        def walk(condition: Condition, step_id: str) -> None:
             if condition.is_combinator:
                 for operand in condition.operands:
                     walk(operand, step_id)
@@ -376,7 +402,7 @@ class TestEveryShippedCoreTutorial:
         placed: set[str] = set()
         configured: set[str] = set()
 
-        def walk(condition, _step_id: str) -> None:
+        def walk(condition: Condition, _step_id: str) -> None:
             if condition.is_combinator:
                 for operand in condition.operands:
                     walk(operand, _step_id)
@@ -416,16 +442,80 @@ def test_every_shipped_tutorial_is_startable_in_this_tree() -> None:
     needing a newer SciStudio than the one it came in. Nothing in a manifest, a
     schema, or a discovery unit test can see that: it needs the shipped
     manifest and the running version in the same assertion.
+
+    The environment states every core tutorial as completed (#2088). What this
+    test is about is whether the *installation* can run what it ships — a
+    version specifier that excludes its own tree, a package that is not there,
+    an agent that is not configured. A prerequisite tutorial is a different
+    kind of unavailability: it is the catalogue working as designed, it names
+    the tutorial the reader should do first, and it clears itself the moment
+    they do. Judging a track of levels against an empty progress store would
+    make "level 3 asks you to finish level 2" indistinguishable from "level 3
+    cannot run here", and only the second is a defect.
     """
 
     result = discover_tutorials()
     assert result.tutorials, "discovery found no core tutorials"
+    shipped = frozenset(tutorial.key for tutorial in result.tutorials)
+    environment = DiscoveryEnvironment(completed_tutorials=shipped)
     for tutorial in result.tutorials:
-        reason = unmet_requirement(tutorial.manifest, DiscoveryEnvironment())
+        assert tutorial.manifest is not None, f"core tutorial {tutorial.key.tutorial_id!r} listed without a manifest"
+        reason = unmet_requirement(tutorial.manifest, environment)
         assert reason is None, (
             f"core tutorial {tutorial.key.tutorial_id!r} ships in a SciStudio it says it cannot run in: {reason}"
         )
-        assert tutorial.is_startable, f"core tutorial {tutorial.key.tutorial_id!r} is discovered but not startable"
+
+
+def test_a_prerequisite_is_the_only_thing_that_may_hold_a_core_tutorial_back() -> None:
+    """On a clean install, every core tutorial is startable or names a sibling.
+
+    The complement of the test above. That one fixes progress so environment
+    faults are the only thing left; this one fixes the environment so progress
+    is. A core tutorial that is unavailable to a first-time reader must be
+    unavailable for exactly one reason — a prerequisite level the catalogue
+    also ships and lists — because that is the one reason the reader can act
+    on from inside the product.
+    """
+
+    result = discover_tutorials()
+    shipped = {tutorial.key.tutorial_id for tutorial in result.tutorials}
+    for tutorial in result.tutorials:
+        assert tutorial.manifest is not None
+        if tutorial.is_startable:
+            continue
+        required = tuple(tutorial.manifest.requires.tutorials)
+        assert required, (
+            f"core tutorial {tutorial.key.tutorial_id!r} is not startable on a clean install and does not "
+            f"declare a prerequisite: {unmet_requirement(tutorial.manifest, DiscoveryEnvironment())}"
+        )
+        missing = [needed for needed in required if needed not in shipped]
+        assert not missing, (
+            f"core tutorial {tutorial.key.tutorial_id!r} requires {missing}, which this tree does not ship — "
+            "the reader would have no way to clear it"
+        )
+        assert tutorial.key.tutorial_id not in required, (
+            f"core tutorial {tutorial.key.tutorial_id!r} requires itself, so nothing a reader does can ever clear it"
+        )
+
+    # Reachability, which the per-tutorial checks above cannot see: a cycle
+    # gates every level in it forever while each one individually looks
+    # well-formed. Walk the declared order and assert the catalogue can be
+    # completed from a clean install by doing the levels one at a time.
+    remaining = {
+        tutorial.key.tutorial_id: set(tutorial.manifest.requires.tutorials)
+        for tutorial in result.tutorials
+        if tutorial.manifest is not None
+    }
+    completed: set[str] = set()
+    while remaining:
+        clearable = [tid for tid, needs in remaining.items() if needs <= completed]
+        assert clearable, (
+            f"no core tutorial is startable once {sorted(completed)} are done — the remaining "
+            f"{ {tid: sorted(needs) for tid, needs in remaining.items()} } wait on each other"
+        )
+        for tid in clearable:
+            completed.add(tid)
+            del remaining[tid]
 
 
 @pytest.mark.parametrize(

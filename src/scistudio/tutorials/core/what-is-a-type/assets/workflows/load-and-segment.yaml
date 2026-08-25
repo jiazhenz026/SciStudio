@@ -1,0 +1,44 @@
+# The workflow core tutorial 2 wires for the reader at the segmentation step.
+#
+# Written over workflows/main.yaml rather than asked for: tutorial 1 already
+# taught dragging and connecting, and repeating that lesson here would spend the
+# reader's attention on the one thing this level is not about. What is left on
+# screen is the graph they would have built.
+#
+# The Load node carries exactly the configuration the steps before this one
+# asked for — both micrographs and the reader's own Image type — so overwriting
+# the file cannot lose a choice they made. Paths are project-relative because a
+# run executes with the project root as its working directory
+# (engine/runners/local.py).
+workflow:
+  id: main
+  version: 1.0.0
+  description: Read both micrographs and segment the cells in each.
+  nodes:
+    - id: load-cells
+      block_type: load_data
+      config:
+        params:
+          # No capability_id: a drop-in block's id carries the source file's
+          # mtime (`_scistudio_dropin_<stem>_<mtime>.…`), so a value written
+          # here would name a capability that does not exist on the reader's
+          # machine. Dispatch resolves (Image, .tif) to the one loader that
+          # claims it, which is the same answer the reader picked.
+          core_type: Image
+          path:
+            - data/raw/cells_01.tif
+            - data/raw/cells_02.tif
+      layout:
+        x: 120
+        y: 200
+    - id: segment
+      block_type: segment_cells
+      config:
+        params:
+          method: threshold
+      layout:
+        x: 440
+        y: 200
+  edges:
+    - source: load-cells:data
+      target: segment:image

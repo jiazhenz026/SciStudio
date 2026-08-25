@@ -464,6 +464,13 @@ function useFileActions({ currentProject, openFileTab, promptInput }: FileAction
       promptInput,
       openFileTab,
       openUserLibraryFileTab,
+      // ADR-053 FR-011b (#2061) — the type-side twin of the block prefill
+      // above, read at open time for the same reason.
+      defaultStem: tutorialPrefillValue(
+        useAppStore.getState().learningCenterSession,
+        "new_data_type",
+        "filename",
+      ),
     });
   }, [currentProject, openFileTab, openUserLibraryFileTab, promptInput]);
 

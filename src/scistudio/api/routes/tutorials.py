@@ -43,6 +43,7 @@ import logging
 import mimetypes
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, TypeVar
 
@@ -51,14 +52,26 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from scistudio.api.deps import get_runtime
-from scistudio.api.file_contracts import FILE_CHANGED_EVENT_TYPE
+from scistudio.api.file_contracts import FILE_CHANGED_EVENT_TYPE, FILE_ENTITY_CLASS
 from scistudio.api.routes.ai_pty.replay import open_replay_tab
 from scistudio.api.runtime import ApiRuntime
 from scistudio.api.runtime._helpers import _rmtree_force
 from scistudio.api.ws import BLOCKS_RELOADED
-from scistudio.core.dropins import BLOCKS_DIR_NAME, TYPES_DIR_NAME, tutorial_library_dir
-from scistudio.engine.events import INTERACTIVE_COMPLETE, EngineEvent
-from scistudio.tutorials.conditions import UI_EVENT_NAMES, ExternalEventNames, ProductState, RunSummary
+from scistudio.core.dropins import (
+    BLOCKS_DIR_NAME,
+    PREVIEWERS_DIR_NAME,
+    TYPES_DIR_NAME,
+    previewer_scan_dirs,
+    tutorial_library_dir,
+)
+from scistudio.engine.events import INTERACTIVE_COMPLETE, WORKFLOW_CHANGED, EngineEvent
+from scistudio.tutorials.conditions import (
+    UI_EVENT_NAMES,
+    ExternalEventNames,
+    ProductState,
+    RunSummary,
+    ui_event_target_arg,
+)
 from scistudio.tutorials.discovery import Catalogue, CatalogueEntry, CatalogueGroup, DiscoveredTutorial
 from scistudio.tutorials.manifest import ASSETS_DIR_NAME
 from scistudio.tutorials.projects import (
@@ -73,6 +86,7 @@ from scistudio.tutorials.session import (
     AnotherSessionActiveError,
     NoActiveSessionError,
     SessionView,
+    TriggerFailedError,
     TutorialRuntime,
     TutorialSessionError,
     TutorialUnavailableError,
@@ -154,6 +168,14 @@ class UiEventRequest(BaseModel):
     """A named interface event the user just caused."""
 
     name: str = Field(description="The event name. One of a closed set the product declares.")
+    target: str | None = Field(
+        default=None,
+        description=(
+            "What the event acted on, for the events that declare a target argument "
+            "(#2063): the block type behind node_selected and block_source_viewed, "
+            "the plot id behind plot_rendered. Omitted for the rest."
+        ),
+    )
 
 
 class ClearDataRequest(BaseModel):
@@ -205,22 +227,68 @@ class StepResponse(BaseModel):
     total: int
     #: FR-011c — the step's own short heading, when it declares one.
     title: str | None = None
-    say: str | None = None
-    highlight: HighlightResponse | None = None
+    #: FR-011 — what the step says, as the ordered beats it is delivered in.
+    #: A step that says nothing sends an empty list, not a null, so the
+    #: surface has one shape to render rather than two.
+    say: list[str] = Field(default_factory=list)
+    #: FR-011f (#2136) — one expression per beat, in the same order as `say`.
+    say_moods: list[str] = Field(default_factory=list)
+    #: FR-089e (#2136) — what each beat points at, in the same order as `say`.
+    highlights: list[HighlightResponse | None] = Field(default_factory=list)
     route_to: str | None = None
     #: FR-011b — dialogs this step seeds, in the same target/args shape as a
     #: highlight and for the same reason: the closed set and its required
     #: values are validated where they are declared, in
     #: :data:`scistudio.tutorials.manifest.PREFILL_SPECS`.
     prefill: list[PrefillResponse] = Field(default_factory=list)
+    #: FR-011 — the reading pages this step presents, in order, each a name the
+    #: pages route serves. Names only; the reading surface fetches content as
+    #: the reader turns.
+    pages: list[str] = Field(default_factory=list)
+    #: FR-011 / #2061 — the step's user-triggered action, when it declares one.
+    trigger: TriggerResponse | None = None
+    #: FR-011e (#2136) — deliver this step as a chat line rather than a scene.
+    #: FR-011e (#2136) — which form each beat is delivered in, in `say`'s order.
+    compacts: list[bool] = Field(default_factory=list)
+    #: FR-054c (#2136) — this step moves on by itself once its condition holds.
+    auto_advance: bool = False
     awaiting_continue: bool = False
-    #: FR-054a — whether this step's condition holds right now.
+    #: FR-054d — whether this step's condition holds right now.
     #:
     #: What the Continue button reads to decide whether it is live. Reported
     #: rather than inferred by the client, because inferring it would put a
     #: second copy of the judgment in the frontend, which is the thing spec §4.1
     #: exists to prevent.
     satisfied: bool = False
+
+
+class TriggerResponse(BaseModel):
+    """The step's user-triggered action, as the reader sees it: a button label.
+
+    Only the label crosses the wire (#2061). What pressing it does is the
+    backend's to perform through the trigger route, which is what keeps a
+    driver from addressing any surface the manifest format cannot (FR-041).
+    """
+
+    label: str
+
+
+class StepOutlineResponse(BaseModel):
+    """One row of the session's read-only step outline.
+
+    The inert subset of a step — index, id, title, say, pages — so the reading
+    window can show every card name up front. Deliberately no condition,
+    highlight, prefill, or action: this is a session-level listing, not a
+    second step surface, and FR-041's step-view closure is untouched by it.
+    For a sequential tutorial, a row is behind the reader exactly when its
+    index is smaller than the current step's.
+    """
+
+    index: int
+    id: str
+    title: str | None = None
+    say: list[str] = Field(default_factory=list)
+    pages: list[str] = Field(default_factory=list)
 
 
 class ReplayResponse(BaseModel):
@@ -241,9 +309,17 @@ class SessionResponse(BaseModel):
     project_path: str | None = None
     step: StepResponse | None = None
     satisfied_step_ids: list[str] = Field(default_factory=list)
+    #: Whether an earlier step is reachable with the back control (#2138).
+    can_go_back: bool = False
+    #: Whether the reader has walked back and is behind the furthest step they
+    #: reached (#2138). A revisited step reports satisfied whatever its
+    #: condition now says, so this is what tells the two apart.
+    revisiting: bool = False
     status: str
     error: str | None = None
     replay: ReplayResponse | None = None
+    #: The whole tutorial's read-only step outline; see StepOutlineResponse.
+    steps: list[StepOutlineResponse] = Field(default_factory=list)
 
 
 class CatalogueEntryResponse(BaseModel):
@@ -344,11 +420,19 @@ class _RecordedSignals:
 
     def __init__(self) -> None:
         self.ui_events: set[str] = set()
+        self.ui_event_targets: set[tuple[str, str]] = set()
         self.interactions: set[str] = set()
         self.pages: set[str] = set()
 
-    def record_ui_event(self, name: str) -> None:
+    def record_ui_event(self, name: str, target: str | None = None) -> None:
+        """Record one reported event, and the target it acted on when it named one.
+
+        The bare name is kept either way, so a condition that does not care
+        which element was acted on is satisfied by a targeted report too.
+        """
         self.ui_events.add(name)
+        if target:
+            self.ui_event_targets.add((name, target))
 
     def forget_ui_events(self) -> None:
         """Drop the recorded events, called when a step is entered.
@@ -361,6 +445,7 @@ class _RecordedSignals:
         facts about the project that stay true.
         """
         self.ui_events.clear()
+        self.ui_event_targets.clear()
 
     def record_page(self, name: str) -> None:
         self.pages.add(name)
@@ -495,6 +580,33 @@ class _ApiProductState:
                 bindings.append((str(loaded.plot_id), str(node_id), str(output_port)))
         return tuple(bindings)
 
+    def rendered_plots(self) -> tuple[tuple[str, str, str, str], ...]:
+        """``(workflow_id, node_id, output_port, plot_id)`` for every rendered figure.
+
+        Read straight off the preview cache, whose layout is the plot runtime's
+        contract: ``.scistudio/previews/<workflow_id>/<node_id>/<output_port>/
+        <plot_id>/`` holding ``current.*`` display artifacts beside a
+        ``current.json`` run record. A directory holding only the record has
+        recorded a run that produced no figure, so it does not count — the term
+        judges "a figure exists", not "a render was attempted" (#2066).
+        """
+        project_dir = self.project_dir
+        if project_dir is None:
+            return ()
+        root = project_dir / ".scistudio" / "previews"
+        found: list[tuple[str, str, str, str]] = []
+        artifacts: list[Path] = _read_or(lambda: sorted(root.glob("*/*/*/*/current.*")), list[Path]())
+        for artifact in artifacts:
+            if artifact.name == "current.json":
+                continue
+            plot_dir = artifact.parent
+            port_dir = plot_dir.parent
+            node_dir = port_dir.parent
+            entry = (node_dir.parent.name, node_dir.name, port_dir.name, plot_dir.name)
+            if entry not in found:
+                found.append(entry)
+        return tuple(found)
+
     # -- runs -------------------------------------------------------------
 
     def run_records(self) -> tuple[RunSummary, ...]:
@@ -519,6 +631,7 @@ class _ApiProductState:
                     run_id=run_id,
                     workflow_id=str(row.get("workflow_id") or ""),
                     succeeded=row.get("status") == "completed",
+                    started_at=str(row.get("started_at")) if row.get("started_at") else None,
                     succeeded_node_ids=frozenset(
                         str(execution.get("block_id") or "")
                         for execution in executions
@@ -620,15 +733,17 @@ class _ApiProductState:
         Membership is decided by the spec's source file sitting under the scoped
         library, which is the definition of the library holding it.
 
-        Only ``block`` and ``type`` can appear. ``scoped_library_dirs`` creates
-        exactly those two directories (FR-070) and the previewer registry does
-        not scan the library at all, so a ``library_contains`` condition naming
-        ``previewer`` cannot become true; the vocabulary accepts the kind, which
-        makes that a gap in the library rather than in this method.
-        TODO(#2057): give the tutorial-scoped library a ``previewers`` tier, or
-            drop ``previewer`` from ``library_contains``' accepted kinds, so the
-            vocabulary and the library agree.
-            Followup: https://github.com/jiazhenz026/SciStudio/issues/2057
+        All three FR-047 kinds can appear: ``scoped_library_dirs`` creates
+        ``blocks/``, ``types/``, and ``previewers/`` (FR-070, #2086).
+        Previewer membership is decided differently, because a
+        :class:`~scistudio.previewers.models.PreviewerSpec` carries no source
+        file path to test. The swap itself is the answer: while a tutorial
+        project is open, its user tier *is* the scoped library
+        (:func:`scistudio.core.dropins.previewer_scan_dirs`), so every
+        user-tier previewer spec came from it — and when the open project
+        resolves its user tier elsewhere the scoped library is not scanned at
+        all, which is the same empty answer the file test gives for blocks and
+        types then.
         """
         library = self.tutorial_library_dir
         if library is None:
@@ -647,6 +762,20 @@ class _ApiProductState:
         for name, spec in type_specs.items():
             if _is_under(getattr(spec, "file_path", None), types_dir):
                 entries.add(("type", str(name)))
+        if previewer_scan_dirs(self.project_dir)[-1] == library / PREVIEWERS_DIR_NAME:
+            from scistudio.previewers.models import OwnerKind
+
+            previewer_specs: list[Any] = _read_or(lambda: self.runtime.get_preview_service().registry.all_specs(), [])
+            for spec in previewer_specs:
+                if getattr(spec, "owner_kind", None) is OwnerKind.USER:
+                    entries.add(("previewer", str(spec.previewer_id)))
+                    if getattr(spec, "target_type", ""):
+                        # Both names, mirroring blocks: the id is the registered
+                        # identity, and the target type is the name the author
+                        # reads off the previewer they are teaching — "a
+                        # previewer for Image is in the library" is the fact the
+                        # level designs wait on.
+                        entries.add(("previewer", str(spec.target_type)))
         return frozenset(entries)
 
     # -- the three recorded signals ----------------------------------------
@@ -659,6 +788,9 @@ class _ApiProductState:
 
     def ui_events(self) -> frozenset[str]:
         return frozenset(self.recorded.ui_events)
+
+    def ui_events_with_targets(self) -> frozenset[tuple[str, str]]:
+        return frozenset(self.recorded.ui_event_targets)
 
 
 def _read_or(read: Callable[..., _T], default: _T) -> _T:
@@ -851,7 +983,71 @@ class _TutorialWiring:
 #:
 #: Named from ``scistudio.core.dropins`` rather than spelled here, so a tier
 #: that gains a directory does not need this list edited to keep working.
-_SCANNED_PROJECT_DIRS: frozenset[str] = frozenset({BLOCKS_DIR_NAME, TYPES_DIR_NAME})
+#: ``previewers/`` joined with #2086: a tutorial step that writes
+#: ``previewers/*.py`` and then says "expand the preview" needs the previewer
+#: registered before the step's text is readable, exactly as blocks and types
+#: already settle — ``refresh_all_registries`` rebuilds the preview service too.
+_SCANNED_PROJECT_DIRS: frozenset[str] = frozenset({BLOCKS_DIR_NAME, TYPES_DIR_NAME, PREVIEWERS_DIR_NAME})
+
+
+#: The project subdirectory holding workflow YAML, which the open canvas renders.
+_WORKFLOWS_DIR_NAME = "workflows"
+
+
+def _workflow_writes(written: Sequence[Path], *, project_dir: Path | None) -> list[tuple[str, str]]:
+    """``(workflow stem, project-relative posix path)`` for writes landing under ``workflows/``.
+
+    A step that writes ``workflows/main.workflow.yaml`` has changed the graph
+    the reader is looking at, and the canvas renders the frontend's copy of it:
+    without a broadcast the file is right and the screen is stale, which is the
+    palette problem FR-059a solves for blocks, one surface over (#2063). The
+    watcher cannot be relied on to cover it — it is a filesystem observer that
+    headless runs and tests do not start, and FR-059a's ordering wants the
+    product to have taken the write in before the text is readable.
+    """
+    if project_dir is None:
+        return []
+    hits: list[tuple[str, str]] = []
+    for path in written:
+        try:
+            relative = path.resolve().relative_to(project_dir.resolve())
+        except (OSError, ValueError):
+            continue
+        if len(relative.parts) >= 2 and relative.parts[0] == _WORKFLOWS_DIR_NAME:
+            # The stem the product addresses a workflow by: the filename minus
+            # every suffix, so ``main.workflow.yaml`` reloads workflow ``main``.
+            stem = relative.name.split(".", 1)[0]
+            if stem:
+                hits.append((stem, relative.as_posix()))
+    return hits
+
+
+def _workflow_reload_payload(project_dir: Path | None, stem: str, relative: str) -> dict[str, Any]:
+    """The ``workflow.changed`` payload the watcher emits for an external edit.
+
+    Mirrors ``workflow_watcher``'s unversioned shape — ``source: "external"``
+    with the file's mtime as the version — so the frontend's existing
+    ``workflow.changed`` reconcile path treats a tutorial's write exactly like
+    any other on-disk edit; only ``changed_by`` says who wrote it.
+    """
+    version = 0
+    if project_dir is not None:
+        try:
+            version = int((project_dir / relative).stat().st_mtime_ns)
+        except OSError:
+            version = 0
+    return {
+        "entity_class": "workflow",
+        "entity_id": stem,
+        "version": version,
+        "source": "external",
+        "source_id": None,
+        "kind": "modified",
+        "timestamp": datetime.now(tz=UTC).isoformat(),
+        "workflow_id": stem,
+        "path": relative,
+        "changed_by": "tutorial",
+    }
 
 
 def _wrote_into_a_scanned_dir(written: Sequence[Path], *, project_dir: Path | None) -> bool:
@@ -872,6 +1068,66 @@ def _wrote_into_a_scanned_dir(written: Sequence[Path], *, project_dir: Path | No
         if relative.parts and relative.parts[0] in _SCANNED_PROJECT_DIRS:
             return True
     return False
+
+
+def _file_change_events(runtime: ApiRuntime, written: Sequence[Path]) -> list[EngineEvent]:
+    """One ``file.changed`` frame per file a step wrote (#2135).
+
+    The frontend refreshes an open editor tab on exactly this event and on
+    nothing else: `handleFileChanged` refetches a clean tab's content and
+    records a conflict on a dirty one. A tutorial step that writes a file the
+    reader is *looking at* — which core tutorial 2 does, rewriting
+    ``types/image.py`` in the editor the New data type dialog just opened —
+    therefore left Monaco showing the template while the step said "look at the
+    editor". The file was right, the registry was right, and the one surface
+    the step pointed at was stale.
+
+    The version is bumped and marked as a first-party write for the same reason
+    the save route does it: the watcher will see the same change land on disk,
+    and without the mark it would send a second frame that the tab reads as a
+    remote edit racing the reader.
+
+    ``kind="modified"`` for every write, including one that created the file.
+    A created file already reaches the tree through the registry refresh
+    beside this, and "modified" is the kind that makes an open tab refetch
+    rather than raise a moved/deleted conflict — which is what this is for.
+    """
+    project_dir = runtime.project_dir
+    project_id = getattr(getattr(runtime, "active_project", None), "id", None)
+    if project_dir is None or project_id is None:
+        return []
+    root = Path(project_dir).resolve()
+
+    events: list[EngineEvent] = []
+    for path in written:
+        try:
+            relative = Path(path).resolve().relative_to(root).as_posix()
+        except (OSError, ValueError):
+            # A step may write outside the project (the scoped library); those
+            # are nobody's open tab.
+            continue
+        target = Path(path)
+        version = runtime.bump_entity_version(FILE_ENTITY_CLASS, relative, path=target)
+        runtime.mark_entity_first_party_write(FILE_ENTITY_CLASS, relative, version, path=target, kind="modified")
+        events.append(
+            EngineEvent(
+                event_type=FILE_CHANGED_EVENT_TYPE,
+                data=runtime.versioned_change_payload(
+                    entity_class=FILE_ENTITY_CLASS,
+                    entity_id=relative,
+                    version=version,
+                    source="tutorial",
+                    # No source id: this is not an echo of something the tab
+                    # sent, so the reconcile must refresh rather than confirm.
+                    source_id=None,
+                    kind="modified",
+                    project_id=project_id,
+                    path=relative,
+                    changed_by="tutorial",
+                ),
+            )
+        )
+    return events
 
 
 def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
@@ -912,9 +1168,16 @@ def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
         runtime with no event bus or no loop — every test, and any headless
         run — simply skips it.
         """
-        if not _wrote_into_a_scanned_dir(written, project_dir=runtime.project_dir):
+        wrote_scanned = _wrote_into_a_scanned_dir(written, project_dir=runtime.project_dir)
+        workflow_writes = _workflow_writes(written, project_dir=runtime.project_dir)
+        # Built before the registry gate below, because a write that reaches no
+        # scanned directory and no workflow can still be a file the reader has
+        # open — and telling that tab is the whole point of these frames.
+        file_events = _file_change_events(runtime, written)
+        if not wrote_scanned and not workflow_writes and not file_events:
             return
-        runtime.refresh_all_registries()
+        if wrote_scanned:
+            runtime.refresh_all_registries()
 
         event_bus = getattr(runtime, "event_bus", None)
         if event_bus is None:
@@ -923,14 +1186,29 @@ def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             return
-        specs: dict[str, Any] = _read_or(runtime.block_registry.all_specs, {})
-        event = EngineEvent(
-            event_type=BLOCKS_RELOADED,
-            data={"added": [], "removed": [], "reloaded": sorted(specs), "source": "tutorial"},
+        events: list[EngineEvent] = list(file_events)
+        if wrote_scanned:
+            specs: dict[str, Any] = _read_or(runtime.block_registry.all_specs, {})
+            events.append(
+                EngineEvent(
+                    event_type=BLOCKS_RELOADED,
+                    data={"added": [], "removed": [], "reloaded": sorted(specs), "source": "tutorial"},
+                )
+            )
+        # A write landing under workflows/ must reach the open canvas (#2063):
+        # the frontend's workflow.changed reconcile path is the one that redraws
+        # it, and this is the same frame the watcher itself would send.
+        events.extend(
+            EngineEvent(
+                event_type=WORKFLOW_CHANGED,
+                data=_workflow_reload_payload(runtime.project_dir, stem, relative),
+            )
+            for stem, relative in workflow_writes
         )
-        task = loop.create_task(_emit_quietly(event_bus, event))
-        broadcasts.add(task)
-        task.add_done_callback(broadcasts.discard)
+        for event in events:
+            task = loop.create_task(_emit_quietly(event_bus, event))
+            broadcasts.add(task)
+            task.add_done_callback(broadcasts.discard)
 
     tutorials = TutorialRuntime(
         product_state=product_state,
@@ -951,7 +1229,7 @@ async def _emit_quietly(event_bus: Any, event: EngineEvent) -> None:
     try:
         await event_bus.emit(event)
     except Exception:
-        logger.exception("tutorial step: blocks.reloaded broadcast failed")
+        logger.exception("tutorial step: %s broadcast failed", event.event_type)
 
 
 def _subscribe(runtime: ApiRuntime, tutorials: TutorialRuntime, recorded: _RecordedSignals) -> None:
@@ -1084,10 +1362,17 @@ def _session_response(runtime: ApiRuntime, view: SessionView | None) -> SessionR
             index=view.step.index,
             total=view.step.total,
             title=view.step.title,
-            say=view.step.say,
-            highlight=None if view.step.highlight is None else HighlightResponse(**view.step.highlight),
+            say=list(view.step.say),
+            say_moods=list(view.step.say_moods),
+            highlights=[
+                None if highlight is None else HighlightResponse(**highlight) for highlight in view.step.highlights
+            ],
             route_to=view.step.route_to,
             prefill=[PrefillResponse(**entry) for entry in view.step.prefill],
+            pages=list(view.step.pages),
+            trigger=None if view.step.trigger is None else TriggerResponse(**view.step.trigger),
+            compacts=list(view.step.compacts),
+            auto_advance=view.step.auto_advance,
             awaiting_continue=view.step.awaiting_continue,
             satisfied=view.step.satisfied,
         )
@@ -1101,9 +1386,21 @@ def _session_response(runtime: ApiRuntime, view: SessionView | None) -> SessionR
         project_path=None if view.project_path is None else str(view.project_path),
         step=step,
         satisfied_step_ids=list(view.satisfied_step_ids),
+        can_go_back=view.can_go_back,
+        revisiting=view.revisiting,
         status=str(view.status),
         error=view.error,
         replay=None if view.replay is None else ReplayResponse(surface=view.replay.surface, tab_id=view.replay.tab_id),
+        steps=[
+            StepOutlineResponse(
+                index=int(entry.get("index", position)),
+                id=str(entry.get("id", "")),
+                title=entry.get("title"),
+                say=list(entry.get("say", ())),
+                pages=list(entry.get("pages", ())),
+            )
+            for position, entry in enumerate(view.steps)
+        ],
     )
 
 
@@ -1132,6 +1429,11 @@ def _acting(action: Callable[[], _T]) -> _T:
         return action()
     except AnotherSessionActiveError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except TriggerFailedError as exc:
+        # 502 rather than 409: the press was legitimate and the product failed
+        # to perform it. The session is untouched and the press can be retried
+        # (#2061), which the detail is worded to say.
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     except TutorialUnavailableError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except NoActiveSessionError as exc:
@@ -1271,8 +1573,30 @@ async def report_ui_event(body: UiEventRequest, runtime: RuntimeDep) -> SessionR
                 f"expected one of {', '.join(sorted(UI_EVENT_NAMES))}."
             ),
         )
+    if body.target is not None and ui_event_target_arg(body.name) is None:
+        # The pairing table is the one conditions.py validates manifests
+        # against, read from this side too (#2063): recording a target no
+        # condition can ever name would be a silently dead datum.
+        raise HTTPException(
+            status_code=422,
+            detail=f"{body.name!r} does not carry a target; report the bare name.",
+        )
     tutorials = _tutorials(runtime)
-    return _rendered(runtime, _acting(lambda: tutorials.report_ui_event(body.name)))
+    return _rendered(runtime, _acting(lambda: tutorials.report_ui_event(body.name, body.target)))
+
+
+@router.post("/sessions/active/trigger", response_model=SessionResponse)
+async def trigger_active_step(runtime: RuntimeDep) -> SessionResponse:
+    """Run the current step's user-triggered action (#2061).
+
+    The step's trigger button posts here. The actions run to completion and
+    the registries settle before the response returns, so whatever the button
+    claimed to do has happened by the time anything re-renders; the response is
+    the re-judged session. A failure leaves the session on the same step,
+    active, and the press can simply be retried.
+    """
+    tutorials = _tutorials(runtime)
+    return _rendered(runtime, _acting(tutorials.trigger_active))
 
 
 @router.post("/sessions/active/continue", response_model=SessionResponse)
@@ -1280,6 +1604,19 @@ async def continue_active_session(runtime: RuntimeDep) -> SessionResponse:
     """Move on from a step that is only asking to be read."""
     tutorials = _tutorials(runtime)
     return _rendered(runtime, _acting(tutorials.continue_active))
+
+
+@router.post("/sessions/active/back", response_model=SessionResponse)
+async def back_active_session(runtime: RuntimeDep) -> SessionResponse:
+    """Return to the step before this one (#2138).
+
+    A cursor move over steps the session has already entered, not an undo: no
+    entry action runs again, and nothing the reader has already satisfied is
+    given back. A press with nowhere to go returns the current step unchanged
+    rather than failing, which is how ``continue`` refuses too.
+    """
+    tutorials = _tutorials(runtime)
+    return _rendered(runtime, _acting(tutorials.back_active))
 
 
 @router.post("/sessions/active/leave", status_code=204)

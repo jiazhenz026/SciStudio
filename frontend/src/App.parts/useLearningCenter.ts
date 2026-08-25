@@ -8,7 +8,7 @@
  * — and nothing here holds step content.
  */
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { applyStepRoute } from "../components/LearningCenter.parts/targets";
 import { useAppStore } from "../store";
@@ -57,6 +57,19 @@ export function useLearningCenter({
   const refreshActiveTutorialSession = useAppStore((state) => state.refreshActiveTutorialSession);
   const openLearningCenter = useAppStore((state) => state.openLearningCenter);
   const openBottomTab = useAppStore((state) => state.openBottomTab);
+  const switchTab = useAppStore((state) => state.switchTab);
+  /*
+   * Bring the workflow tab back to the front for a step routed to the canvas.
+   *
+   * A no-op when there is no workflow tab, which is a reading tutorial with no
+   * project. The tutorial is the thing that opened the code editor covering the
+   * canvas in the first place — this undoes that, and nothing else about the
+   * layout the user chose.
+   */
+  const showCanvas = useCallback(() => {
+    const workflow = useAppStore.getState().tabs.find((tab) => tab.kind === "workflow");
+    if (workflow) switchTab(workflow.id);
+  }, [switchTab]);
   const learningCenterCatalogue = useAppStore((state) => state.learningCenterCatalogue);
   const learningCenterFirstRunDismissed = useAppStore(
     (state) => state.learningCenterFirstRunDismissed,
@@ -230,7 +243,15 @@ export function useLearningCenter({
      * "Tutorial complete." in the corner is a dead end: it reports the outcome
      * and leaves the reader looking at a workspace with nothing to do next.
      * The catalogue is where the next tutorial is, so finishing one opens it.
+     *
+     * Unless the reader said otherwise (#2135). The last step now ends in two
+     * buttons, and one of them means "I want to keep poking at the thing I
+     * just built" — for which closing the project is the opposite of what was
+     * asked. Read off the store at the moment the session completes rather
+     * than subscribed to: it is an instruction attached to this finish, not a
+     * condition to re-run this effect for.
      */
+    if (useAppStore.getState().learningCenterStayOnFinish) return;
     openLearningCenter();
     // ...and out of the tutorial's project, before it looks like somewhere to
     // keep working. See `closeProject` above.
@@ -245,7 +266,7 @@ export function useLearningCenter({
 
   useEffect(() => {
     if (!tutorialStepKey || !tutorialStepRoute) return;
-    applyStepRoute(tutorialStepRoute, { openBottomTab, setLeftTab });
+    applyStepRoute(tutorialStepRoute, { openBottomTab, setLeftTab, showCanvas });
     // `tutorialStepRoute` is a property of the step `tutorialStepKey` names, so
     // the key alone decides when this runs. Adding the route or the two setters
     // would re-route on identity changes that are not a new step.

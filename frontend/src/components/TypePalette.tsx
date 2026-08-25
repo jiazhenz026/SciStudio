@@ -2,7 +2,7 @@
 //
 // Specs:
 //   docs/specs/adr-053-personal-tool-library.md §9.2 (FR-039 – FR-043),
-//     §7.1 FR-051 (colour precedence), §10.1 (shared helpers, FR-047),
+//     §7.1 FR-051 (color precedence), §10.1 (shared helpers, FR-047),
 //     §9.3 (FR-044 – FR-046 interactive popover).
 //   docs/specs/frontend-block-palette.md §11.
 //
@@ -139,7 +139,7 @@ function SectionView({
  *
  * The chip vocabulary stays surface-owned (§10.1): the Blocks tab supplies its
  * base categories, and a type's analogue is the core base family it descends
- * from. Each chip is tinted with that family's own resolved colour, so the
+ * from. Each chip is tinted with that family's own resolved color, so the
  * chip row is also a legend for the row swatches under it.
  */
 function familyChips(
@@ -193,7 +193,7 @@ export function TypePalette() {
 
   const hierarchy = useMemo(() => typeHierarchyFrom(types), [types]);
   // FR-041 + FR-051: one resolution, shared with the canvas port handles. The
-  // declared colour (FR-050) wins, then `typeColorMap`, then the hash
+  // declared color (FR-050) wins, then `typeColorMap`, then the hash
   // fallback; `declared` is `undefined` until the listing lands (FR-067).
   const swatchFor = useMemo(() => {
     const forName = (name: string) => ({
@@ -264,6 +264,11 @@ export function TypePalette() {
 
       <div
         className="flex min-h-0 flex-1 flex-col"
+        // ADR-053 FR-089 — the list as a whole. Core tutorial 2 opens on it to
+        // show what the product already knows how to hold, and returns to it to
+        // show the reader's own type sitting among them; both are about the set,
+        // not about one tile.
+        data-tutorial-target="type_palette"
         data-testid="type-palette-content"
         ref={contentRef}
       >

@@ -174,6 +174,17 @@ class PtyReplayHandle:
     tab_id: str
     session: ScriptedReplaySession = field(repr=False)
 
+    @property
+    def is_open(self) -> bool:
+        """Whether this tab can still receive segments (#2089).
+
+        What a ``continue_tab`` replay checks before appending: the scripted
+        session is alive *and* the tab is still registered — a WebSocket
+        teardown pops the registry entry and kills the session, and appending
+        into either half-gone state would deliver bytes nothing will read.
+        """
+        return self.session.is_alive() and _pkg._active_ptys.get(self.tab_id) is self.session
+
     def deliver(self, segment: ReplaySegment, payload: bytes) -> None:
         """Play one segment's bytes into the terminal.
 

@@ -156,6 +156,8 @@ interface WorkflowChangedContext {
   eventVersion: number | null;
   source: ReturnType<typeof eventSource>;
   sourceId: string | null;
+  /** Who wrote it, when the writer said so — "tutorial" for a step's write. */
+  changedBy: string | null;
   payload: WorkflowEventMessage;
 }
 
@@ -173,6 +175,7 @@ function parseWorkflowChangedPayload(payload: WorkflowEventMessage): WorkflowCha
     eventVersion: numberOrNull(data.version),
     source: eventSource(data),
     sourceId: stringOrNull(data.source_id),
+    changedBy: stringOrNull(data.changed_by),
     payload,
   };
 }
@@ -248,6 +251,16 @@ export function handleWorkflowChanged(
 
   const currentId = useAppStore.getState().workflowId;
   if (ctx.changedId !== currentId) return;
+
+  // A tutorial step wrote the graph the reader is looking at. The canvas keeps
+  // its own pan and zoom, so a reader who dragged the view earlier is now
+  // looking at empty space with the new nodes off screen — and the step's next
+  // line tells them to press Run on a graph they cannot see. Ask the canvas to
+  // frame it. Scoped to writes that name their author: the reader's own edits
+  // must never yank the viewport out from under them mid-drag.
+  if (ctx.changedBy === "tutorial") {
+    useAppStore.getState().bumpCanvasFitRequest();
+  }
 
   reconcileCurrentWorkflow(ctx, deps);
 }

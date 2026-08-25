@@ -25,7 +25,7 @@ Two authoring paths, and only the second one is Python:
 
 What a driver may *not* do is as much of the contract as what it may. A driver
 answers four questions and supplies no rendering: whatever it returns is
-normalised through :meth:`~scistudio.tutorials.driver.StepView.of` at the
+normalized through :meth:`~scistudio.tutorials.driver.StepView.of` at the
 boundary, so it cannot introduce a display primitive, ship a frontend asset, or
 address a surface the manifest format cannot address. Core owns what a step
 looks like (FR-041). A driver is also handed a

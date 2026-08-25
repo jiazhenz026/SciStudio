@@ -171,6 +171,26 @@ function injectManifestCss(manifest: PanelManifestDescriptor): void {
 }
 
 /**
+ * The module URL with a per-mount cache buster.
+ *
+ * `import()` caches by URL for the life of the page, and a panel's module URL
+ * is fixed by its manifest — so the *first* version of a panel a session ever
+ * loaded was the version it kept using. That is wrong for the thing this
+ * loader exists to serve: a panel is drop-in code the person is editing, and
+ * a block written by a tutorial step is rewritten by the next run of that
+ * step. The file on disk changed and the window went on running what it had.
+ *
+ * A timestamp rather than the manifest's `version`: the version is written by
+ * hand, and an author who edits a panel without bumping it is exactly the
+ * person this breaks. Re-fetching a small ES module each time a modal opens
+ * costs nothing next to showing stale code.
+ */
+function freshModuleUrl(moduleUrl: string): string {
+  const separator = moduleUrl.includes("?") ? "&" : "?";
+  return `${moduleUrl}${separator}mounted=${Date.now()}`;
+}
+
+/**
  * Validate + import + mount a dynamic panel. Resolves to a {@link LoadResult}.
  * Never throws.
  */
@@ -202,7 +222,7 @@ export async function mountDynamicPanel(
 
   let mod: Record<string, unknown>;
   try {
-    mod = await importer(manifest.module_url);
+    mod = await importer(freshModuleUrl(manifest.module_url));
   } catch (err) {
     return {
       ok: false,

@@ -489,7 +489,16 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
               }}
             >
               <ResizablePanel defaultSize="70%" minSize="20%">
-                <CanvasOrEditor {...props} />
+                {/*
+                 * ADR-053 FR-089d — the box the tutorial's character stands in.
+                 * The main area, not the canvas: a step can be delivered while
+                 * a code editor is open over it, and anchoring to the canvas
+                 * element left her standing in the corner of the *window*, over
+                 * the left panel, when it was not on screen.
+                 */}
+                <div className="h-full min-h-0" data-tutorial-target="workspace_stage">
+                  <CanvasOrEditor {...props} />
+                </div>
               </ResizablePanel>
               <ResizableHandle withHandle />
               <ResizablePanel

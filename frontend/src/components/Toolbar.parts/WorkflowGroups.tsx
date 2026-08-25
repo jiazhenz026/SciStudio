@@ -88,6 +88,10 @@ function EditOperations(props: WorkflowGroupsProps) {
           label="View source"
           disabled={!currentProject}
           onClick={onViewSource}
+          // ADR-053 FR-089b — what the reader presses to read a block's code.
+          // The button shows the *selected node's* source, so a step pointing
+          // here has to have put that node on the canvas first.
+          dataTutorialTarget="view_source_button"
         />
       ) : null}
     </div>

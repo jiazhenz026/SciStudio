@@ -23,10 +23,11 @@ user library root, and ``PUT /api/projects/{project_id}/file`` is untouched
 Four rules make that constraint hold, and each one closes a case the others do
 not:
 
-1. **The caller names the tier.** ``target`` is a ``Literal["blocks", "types"]``
-   and the roots come from :mod:`scistudio.core.dropins`, so the destination is
-   never inferred from file content (FR-006) and this module never spells out
-   ``~/.scistudio`` itself (FR-058).
+1. **The caller names the tier.** ``target`` is a
+   ``Literal["blocks", "types", "previewers"]`` and the roots come from
+   :mod:`scistudio.core.dropins`, so the destination is never inferred from
+   file content (FR-006) and this module never spells out ``~/.scistudio``
+   itself (FR-058).
 2. **The caller supplies a filename, not a path.** Anything carrying a
    separator, a drive, a ``..`` segment, or an absolute or drive-relative form
    is refused before it touches the filesystem. ``C:blocks.py`` is a Windows
@@ -77,7 +78,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 
 from scistudio.api.deps import get_runtime
-from scistudio.api.routes.projects import ADR036_FILE_SIZE_CAP_BYTES, _resolve_project_file
+from scistudio.api.routes.projects import (
+    ADR036_FILE_SIZE_CAP_BYTES,
+    BLOCKS_RELOADED_EVENT_TYPE,
+    _resolve_project_file,
+)
 from scistudio.api.runtime import ApiRuntime
 from scistudio.api.schemas import (
     MoveSourceRef,
@@ -86,7 +91,13 @@ from scistudio.api.schemas import (
     UserLibraryWriteRequest,
     UserLibraryWriteResponse,
 )
-from scistudio.core.dropins import BLOCKS_DIR_NAME, TYPES_DIR_NAME, library_root_for_project
+from scistudio.core.dropins import (
+    BLOCKS_DIR_NAME,
+    PREVIEWERS_DIR_NAME,
+    TYPES_DIR_NAME,
+    library_root_for_project,
+)
+from scistudio.engine.events import EngineEvent
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +111,9 @@ RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 _TARGET_DIR_NAMES = {
     "blocks": BLOCKS_DIR_NAME,
     "types": TYPES_DIR_NAME,
+    # Learning Center FR-070 / #2086: the previewer tier promotes through the
+    # same door, and the same library-root swap, as blocks and types.
+    "previewers": PREVIEWERS_DIR_NAME,
 }
 
 #: Only Python sources belong in a drop-in tier; both registries scan for
@@ -425,6 +439,8 @@ async def write_user_library_file(
     # registered twice — once from each tier — which is the state FR-017 exists
     # to avoid.
     refreshed = _refresh_registries(runtime)
+    if refreshed:
+        await _announce_reload(runtime, resolved)
 
     try:
         stat = resolved.stat()
@@ -490,6 +506,40 @@ def _consume_source(
     except OSError as exc:
         return None, f"could not remove {ref.path!r}: {exc}"
     return str(target), None
+
+
+async def _announce_reload(runtime: ApiRuntime, target: Path) -> None:
+    """Tell open clients the registries were rebuilt (FR-062).
+
+    Refreshing is only half of it. Every other caller that rebuilds the
+    registries — a save under ``blocks/`` or ``types/``, a branch switch, a
+    tutorial step's write — follows it with this event, and the frontend hangs
+    real behaviour off it: the block palette and the type and previewer
+    catalogues re-read themselves, and the Learning Center re-judges the
+    conditions that turn on what the registries hold.
+
+    Promoting a block or a type to the user library did not send it. The
+    registries were right and nothing on screen knew, so a tutorial step
+    waiting on ``library_contains`` sat unsatisfied until the reader pressed
+    "Check again" by hand — the product having done the thing and the product
+    saying so had come apart.
+
+    Best-effort, like the refresh above: the file is written and the library
+    holds it, so a bus failure is logged rather than turned into a 500 on a
+    request that succeeded.
+    """
+    event_bus = getattr(runtime, "event_bus", None)
+    if event_bus is None:
+        return
+    try:
+        await event_bus.emit(
+            EngineEvent(
+                event_type=BLOCKS_RELOADED_EVENT_TYPE,
+                data={"added": [], "removed": [], "reloaded": [target.name], "path": str(target)},
+            )
+        )
+    except Exception:
+        logger.exception("user library write: event_bus.emit raised")
 
 
 def _refresh_registries(runtime: ApiRuntime) -> bool:
