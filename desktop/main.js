@@ -10,6 +10,7 @@ const path = require("path");
 const readline = require("readline");
 
 const ota = require("./ota");
+const { MENU_ACTION_CHANNEL, buildMenuTemplate } = require("./menu");
 const runtimePortModule = require("./runtime-port");
 
 // #1784: the in-app Package Manager stages a package update on disk (into the
@@ -186,6 +187,27 @@ function appIconPath() {
   // #2097: assets/ stays in the asar and does not travel with a shell patch, so
   // this resolves against the bundle root rather than this file's directory.
   return path.join(host().appRoot, "assets", "icon.png");
+}
+
+// Forward a menu action to the renderer; the frontend dispatches it via
+// window.scistudioDesktop.onMenuAction (App.parts/useDesktopMenuActions.ts).
+// Before the main window exists (splash still up) the action is dropped — the
+// user has no project state to act on yet anyway.
+function sendMenuAction(action) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(MENU_ACTION_CHANNEL, action);
+  }
+}
+
+function installApplicationMenu() {
+  const template = buildMenuTemplate({
+    platform: process.platform,
+    appName: app.name,
+    sendMenuAction,
+    checkForUpdates: maybeCheckForUpdate,
+    showAbout,
+  });
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 // --------------------------------------------------------------------------- //
@@ -1372,38 +1394,6 @@ async function showAbout() {
   });
 }
 
-function buildAppMenu() {
-  const isMac = process.platform === "darwin";
-  const about = { label: "About SciStudio", click: () => void showAbout() };
-  // Replacing the default menu wholesale means the standard roles have to be
-  // restored explicitly; without them copy/paste and the developer tools lose
-  // their accelerators.
-  const macAppMenu = {
-    label: app.name,
-    submenu: [
-      about,
-      { type: "separator" },
-      { role: "services" },
-      { type: "separator" },
-      { role: "hide" },
-      { role: "hideOthers" },
-      { role: "unhide" },
-      { type: "separator" },
-      { role: "quit" }
-    ]
-  };
-  return Menu.buildFromTemplate([
-    ...(isMac ? [macAppMenu] : []),
-    {
-      label: "File",
-      submenu: isMac ? [{ role: "close" }] : [about, { type: "separator" }, { role: "quit" }]
-    },
-    { role: "editMenu" },
-    { role: "viewMenu" },
-    { role: "windowMenu" }
-  ]);
-}
-
 function createWindow(url) {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -1479,6 +1469,7 @@ function start(injectedHost) {
     }
     try {
       safeLog("[scistudio] electron ready");
+      installApplicationMenu();
       splashWindow = createSplashWindow();
       // #1868: enforce a mandatory OTA update before starting the runtime/window.
       // Fail-open: returns true (continue) unless a fetched manifest marks the
@@ -1501,7 +1492,6 @@ function start(injectedHost) {
       // cleanly; remember it as the rollback target for future launches.
       recordKnownGood(effectiveBuild());
       await clearCacheOnBuildChange();
-      Menu.setApplicationMenu(buildAppMenu());
       const url = launchUrl(ready.url);
       safeLog(`[scistudio] creating window for ${url}`);
       splashStatus("Loading the interface…");

@@ -36,6 +36,7 @@
     "files": [
       "bootstrap.js",
       "main.js",
+      "menu.js",
       "ota.js",
       "runtime-port.js",
       "preload.js",

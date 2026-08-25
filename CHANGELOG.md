@@ -274,6 +274,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   recorded-but-unavailable choices are shown rather than silent, because a
   drop-in refused at scan time or a choice outliving its package used to be
   indistinguishable from "never existed".
+- [#2159] **The desktop app has a real application menu.** The File menu grew
+  from a lone Exit into the actions the toolbar already had: Projects Home,
+  New Project…, Save / Save As… (with the same Ctrl/Cmd+S shortcuts), and Bring
+  In My Work…. A new Packages menu opens the in-app Package Manager, and a new
+  Help menu reaches the Learning Center and runs the update check on demand.
+  Menu clicks are forwarded to the renderer and dispatched onto the same
+  handlers the toolbar uses, so the menu and the buttons cannot drift apart.
 
 - [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
   that are real, runnable projects, reached from a permanent toolbar entry and

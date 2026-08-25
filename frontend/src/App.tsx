@@ -41,6 +41,7 @@ import { useAppLifecycleEffects } from "./App.parts/useAppLifecycleEffects";
 import { useBottomPanelControls } from "./App.parts/useBottomPanelControls";
 import { useCanvasHandlers } from "./App.parts/useCanvasHandlers";
 import { useCanvasReadability } from "./App.parts/useCanvasReadability";
+import { useDesktopMenuActions } from "./App.parts/useDesktopMenuActions";
 import { useFileTabsAutosave } from "./App.parts/useFileTabsAutosave";
 import { useLearningCenter } from "./App.parts/useLearningCenter";
 import { useTutorialReplayTab } from "./App.parts/useTutorialReplayTab";
@@ -440,6 +441,13 @@ export default function App() {
     togglePalette,
     togglePreview,
     undoWorkflow,
+  });
+  // Desktop application menu (desktop/menu.js). No-op in the browser build.
+  useDesktopMenuActions({
+    goHome: () => closeCurrentProject({ setCurrentProject, setWorkflow, resetExecution }),
+    newProject: () => openProjectDialog("new", { path: projectDialog.path }),
+    save: handleSave,
+    saveAs: () => void saveWorkflowAs(),
   });
   // The New-menu entries are project-scoped: `undefined` is what makes the
   // toolbar hide/disable them. ADR-053 FR-032 adds a third one, so the shape is

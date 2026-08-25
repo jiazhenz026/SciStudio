@@ -1,0 +1,681 @@
+{
+  "branch": "guided/desktop-menu-bar",
+  "check_events": [
+    {
+      "at": "2026-08-25T06:31:25.822352Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-25T06:31:37.270857Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T06:31:37.310675Z",
+      "command": "ruff check .",
+      "covered_surface": "python",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-25T07:28:40.160765Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:caf1bfad79e38f0361d9eeaca7d1ffb4ef4b4f39365b57c4888aaf25daf58c8b",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T07:28:54.833650Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1c47b21183ce2983b8159c2db8a9ae676e40aad12ebb2a7a4dcdc8f7a8417b3d",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-25T07:38:54.871093Z",
+      "command": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "covered_surface": "python",
+      "exit_code": null,
+      "input_fingerprint": "sha256:b13d930beb6463e42699b177a2bcbd05d9b1207813b233e8dc556fe1dd9ba560",
+      "name": "semantic_dup",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": "964879a16ec495cc3cef6766d4bf0c12e8552ee5",
+    "shas": [
+      "964879a16ec495cc3cef6766d4bf0c12e8552ee5"
+    ],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-25T06:31:13.884126Z",
+      "owner_directive": "Help \u83dc\u5355\u5305\u542b learning center \u5165\u53e3\u548c check updates\uff1b\u65b0\u589e Packages \u83dc\u5355\uff08\u53ea\u6709 package manager\uff09\uff1bFile \u91cc\u518d\u52a0 bring in my work",
+      "reason": "owner expanded live scope: add Help menu and Packages menu"
+    },
+    {
+      "at": "2026-08-25T06:31:14.150487Z",
+      "owner_directive": "desktop application menu: File (projects home, new, save/save-as, bring in my work), Packages (package manager), Help (learning center, check updates)",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-25T06:31:14.150530Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T06:31:14.150541Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "no contract/schema/runtime-API change; desktop menu is a shell UI addition",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T06:31:14.150547Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "not architectural; no cross-module or hard-to-reverse decision",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T06:31:14.150549Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "no user doc documents the desktop menu today; CHANGELOG covers the behavior change",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-08-25T06:31:37.350180Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:31:37.392825Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:31:37.408109Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:31:37.423002Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:31:37.442068Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:31:37.457687Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:31:37.473921Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:31:37.496043Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:31:37.511480Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:31:37.526900Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:31:37.542934Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:32:21.754735Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:32:21.769349Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:32:21.782977Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:32:21.796395Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:32:21.809530Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:32:21.823463Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:32:21.836929Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:32:21.850054Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:32:21.864518Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:32:21.882268Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T06:32:21.930361Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:25:54.395041Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:25:54.409592Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:25:54.425390Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:25:54.446678Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:25:54.464411Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:25:54.479698Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:25:54.494809Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:25:54.510021Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:25:54.527090Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:25:54.542526Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:25:54.561066Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:38:54.933690Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:38:54.949722Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:38:54.965109Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:38:54.980738Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:38:54.995238Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:38:55.009610Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:38:55.024875Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:38:55.042594Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:38:55.057017Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:38:55.071159Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-25T07:38:55.088329Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2159,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "acfe20255",
+    "changed_files": [
+      ".workflow/records/2159-desktop-menu-bar.json",
+      "CHANGELOG.md",
+      "desktop/main.js",
+      "desktop/menu.js",
+      "desktop/package.json",
+      "desktop/preload.js",
+      "desktop/test/menu.test.js",
+      "frontend/src/App.parts/__tests__/useDesktopMenuActions.test.tsx",
+      "frontend/src/App.parts/useDesktopMenuActions.ts",
+      "frontend/src/App.tsx",
+      "frontend/src/components/Toolbar.tsx",
+      "frontend/src/components/__tests__/BringInMyWorkToolbarEntry.test.tsx",
+      "frontend/src/store/types.ts",
+      "frontend/src/store/uiSlice.ts",
+      "frontend/src/testUtils.ts",
+      "frontend/src/types/desktop.d.ts"
+    ],
+    "diff_fingerprint": "sha256:e2e4c1856d1b80342c390b6bbb84a2bfffe0af764056c09af87e90335bad73c3",
+    "head": "HEAD",
+    "head_sha": "964879a16",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 9,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 9,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 9,
+      "test": 3,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "\u684c\u9762\u7248\u9876\u90e8\u83dc\u5355\u680f\uff1aFile \u52a0 projects/new/save/bring-in-my-work\uff1b\u65b0\u589e Packages \u548c Help \u83dc\u5355",
+  "persona": "live_implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2159
+    ],
+    "number": null,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-08-25T06:31:37.542975Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-25T06:32:21.930410Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-25T07:25:54.561127Z",
+      "diff_fingerprint": "sha256:e2e4c1856d1b80342c390b6bbb84a2bfffe0af764056c09af87e90335bad73c3",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.frontend",
+        "checks.full_audit",
+        "checks.semantic_dup"
+      ]
+    },
+    {
+      "at": "2026-08-25T07:38:55.088368Z",
+      "diff_fingerprint": "sha256:e2e4c1856d1b80342c390b6bbb84a2bfffe0af764056c09af87e90335bad73c3",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2159-desktop-menu-bar",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "frontend",
+      "full_audit",
+      "lint_format",
+      "semantic_dup"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "agents:kimi-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-25T06:31:13.884143Z",
+      "pattern": "desktop/main.js",
+      "reason": "owner expanded live scope: add Help menu and Packages menu"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T06:31:13.884151Z",
+      "pattern": "frontend/src/types",
+      "reason": "owner expanded live scope: add Help menu and Packages menu"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T06:31:14.150505Z",
+      "pattern": "desktop/main.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T06:31:14.150511Z",
+      "pattern": "desktop/menu.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T06:31:14.150513Z",
+      "pattern": "desktop/preload.js",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T06:31:14.150515Z",
+      "pattern": "desktop/package.json",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T06:31:14.150518Z",
+      "pattern": "desktop/test",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T06:31:14.150520Z",
+      "pattern": "frontend/src",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-25T06:31:14.150522Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "0fd47990-aab8-4b63-8dbc-bec76357366b",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-08-25T06:31:14.150554Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/menu.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T06:31:14.150558Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/__tests__/useDesktopMenuActions.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-25T06:31:14.150560Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/BringInMyWorkToolbarEntry.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
