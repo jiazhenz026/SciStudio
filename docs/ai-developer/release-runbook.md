@@ -156,7 +156,7 @@ xcrun stapler validate "$APP"
 ## 4. Publish the release and **verify the download**
 
 Attach the installers to a GitHub Release for the tag -- three from CI plus the
-macOS x64 dmg from section 3.2.
+macOS x64 dmg from section 3.3.
 
 Then actually download one and install it. This is the gate for section 1.1, not
 a formality: everything after this point assumes the artifact is reachable.
