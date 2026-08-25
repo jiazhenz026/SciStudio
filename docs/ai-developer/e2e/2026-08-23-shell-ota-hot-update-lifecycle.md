@@ -7,7 +7,7 @@ trigger:
   kind: "pr-readiness"
   ref: "PR #2139 (issue #2097), depends on PR #2128 (issue #2096)"
 related_adrs: []
-status: "draft"
+status: "passed"
 language_source: en
 ---
 
@@ -69,7 +69,40 @@ and it changes no file:
 > equivalents) with the real client **and with every `npm run dev` session in
 > every worktree**.
 
-### 2.2 Nothing else may be running
+### 2.2 `ELECTRON_RUN_AS_NODE` must be unset
+
+If this variable is set in the launching shell's environment, the Electron
+binary starts as **Node**, rejects the Chromium switches with
+`bad option: --user-data-dir`, and **exits 0 having done nothing**. It is
+indistinguishable from a clean run and it cost an hour on 2026-08-25. It can be
+inherited from a parent process without appearing in the User or Machine scope,
+so check the process scope specifically:
+
+```powershell
+$env:ELECTRON_RUN_AS_NODE          # must be empty
+Remove-Item env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+```
+
+A GUI launch from Explorer or the Start Menu does not inherit a process-scoped
+value, so the real client is unaffected — only shell-launched test builds are.
+
+### 2.3 The bundled interpreter must be freshly built
+
+A `desktop/resources/python` copied from another checkout can be stale in ways
+that break the test and look like product bugs. Both were hit on 2026-08-25:
+
+- an old **embeddable** Python carrying `pythonXX._pth`, which makes CPython
+  ignore `PYTHONPATH` entirely, so no OTA patch can ever shadow the baseline.
+  `build-python-runtime.ps1` documents this and stages python-build-standalone
+  precisely to avoid it. Assert `desktop/resources/python/*._pth` does not exist.
+- a `scistudio` left in `Lib/site-packages` from before the build script's
+  `pip uninstall` step, which shadows the source tree and surfaces as a
+  `TypeError` from a *newer* registry key (looking exactly like a #2073
+  regression). Assert `Lib/site-packages/scistudio` does not exist.
+
+Run `npm --prefix desktop run build:python` rather than copying.
+
+### 2.4 Nothing else may be running
 
 The shell holds a single-instance lock (#1867). If any other SciStudio has it —
 the installed client, or an `npm run dev` session in any worktree — the test
@@ -296,3 +329,42 @@ Run this **last**: it leaves the client blocked at every launch until the
   `ota_publish.py` invocation without `--channel test` is a session failure.
 
 ## 7. Results (skill fills in)
+
+**Run 2026-08-25, Windows 11, `electron-builder --dir` build of
+`guided/2097-shell-ota-bootstrap-loader` @ `927aa2a6f`, launched with
+`--user-data-dir`. Steps 1 and 3–6 executed; Steps 7–8 deferred (the mandatory
+dialog blocks on a human click).**
+
+| Step | Result | Evidence |
+|---|---|---|
+| Baseline launch | pass | `loading baseline shell (build 0) from …esourcespp.asar`; `/api/version` → `build: 0` |
+| 1 — three layers from one snapshot | **pass** | shell: `loading patch shell (build 1) from …\patchesuild1\shell`; backend: `/api/version` `build: 0 → 1`; frontend: the patched SPA served the injected marker |
+| 4 — shell throws at `require` | **pass** | `loading patch shell (build 1)` → `shell failed to load: Error: …` → `loading baseline shell (build 0)`; the app came up |
+| 5 — quarantine is sticky | **pass** | launches 2 and 3 both logged `build 1 did not reach readiness; staying on the baseline shell` with **no `loading patch shell` line at all** — the broken patch was never re-attempted |
+| 6 — newer patch after a quarantine | **pass** | `loading patch shell (build 2)`; marker cleared on readiness; `/api/version` → `build: 2` |
+| Marker lifecycle | **pass** | written before the require; **survived** the failed load; cleared only when the build it named reached readiness |
+| Isolation | **pass** | the real client's `patches/active.json` stayed `{"build":25}` at its 2026-08-21 mtime and all of `build15…build25` were intact, before and after |
+
+### Defects found by this run
+
+Both were invisible to unit tests, code review and the Codex review, and both
+were fixed on the branch:
+
+1. **The loader produced no observable output in a packaged app.** It logged
+   only to `process.stdout`, which is detached for a GUI-subsystem process — so
+   its diagnostics vanished in the one case they exist for. It now mirrors into
+   the same desktop log `main.js` uses. Every "Evidence" cell above depends on
+   that fix.
+2. **The patched splash screen rendered a broken logo.** `splash.html`
+   references `assets/icon.png` with a *relative* `src`, and `assets/` did not
+   travel with the shell, so under a patch it resolved against the patch
+   directory and found nothing. The asset now ships in the shell payload.
+   Confirmed visually by the owner after the fix.
+
+### Not executed
+
+Steps 2, 7 and 8. Step 7's mandatory-reinstall dialog and Step 1's apply flow
+block on `dialog.showMessageBox`, which needs a person; Step 8 is only
+meaningful when a real channel was published to, and this run served no
+manifest at all — patches were staged directly into the isolated `userData`,
+which is the state `downloadAndApply` produces.

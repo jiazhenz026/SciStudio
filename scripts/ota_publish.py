@@ -63,6 +63,11 @@ SHELL_FILES = (
     "runtime-port.js",
     "preload.js",
     "splash.html",
+    # splash.html references this with a RELATIVE src, so it has to travel with
+    # the shell. Without it a patched splash resolves the logo against the patch
+    # directory, finds nothing, and renders the loading screen with a broken
+    # image -- observed on the first real patched launch.
+    "assets/icon.png",
 )
 DESKTOP_PACKAGE_JSON = REPO_ROOT / "desktop" / "package.json"
 
@@ -194,7 +199,8 @@ def make_snapshot(src_dir: Path, out_path: Path, desktop_dir: Path = DESKTOP_DIR
     with tarfile.open(out_path, "w:gz") as tar:
         tar.add(src_dir, arcname="src", filter=_filter)
         for shell_file in shell_sources(desktop_dir):
-            tar.add(shell_file, arcname=f"shell/{shell_file.name}")
+            arcname = f"shell/{shell_file.relative_to(desktop_dir).as_posix()}"
+            tar.add(shell_file, arcname=arcname)
 
 
 # --------------------------------------------------------------------------- #

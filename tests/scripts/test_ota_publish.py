@@ -184,6 +184,8 @@ def _fake_desktop(tmp_path: Path) -> Path:
     desktop.mkdir(exist_ok=True)
     for name in ("main.js", "ota.js", "runtime-port.js", "preload.js", "splash.html"):
         (desktop / name).write_text("// " + name, encoding="utf-8")
+    (desktop / "assets").mkdir(exist_ok=True)
+    (desktop / "assets" / "icon.png").write_bytes(b"PNG-stub")
     # Present in the real desktop/ but deliberately never packed.
     (desktop / "bootstrap.js").write_text("// loader", encoding="utf-8")
     (desktop / "package.json").write_text('{"version": "0.3.3-alpha-build0000"}', encoding="utf-8")
@@ -234,7 +236,15 @@ def test_published_shell_matches_the_asar_baseline_shell(mod: ModuleType) -> Non
 
     assert published <= bundled, f"published but not bundled: {sorted(published - bundled)}"
     # bootstrap.js and package.json are bundled on purpose and never published.
-    assert bundled - published == {"bootstrap.js", "package.json", "assets/icon.png"}
+    assert bundled - published == {"bootstrap.js", "package.json"}
+
+
+def test_snapshot_carries_the_splash_asset(mod: ModuleType, tmp_path: Path) -> None:
+    # splash.html references the logo with a RELATIVE src, so a patched splash
+    # resolves it against the patch directory. Without the asset travelling with
+    # the shell the loading screen renders a broken image -- observed on the
+    # first real patched launch, not caught by any earlier test.
+    assert "shell/assets/icon.png" in _snapshot_names(mod, tmp_path)
 
 
 def test_shell_sources_refuses_an_incomplete_shell(mod: ModuleType, tmp_path: Path) -> None:

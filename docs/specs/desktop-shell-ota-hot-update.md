@@ -262,7 +262,10 @@ Automated, any platform:
   loader, never a shell manifest; an incomplete shell fails the publish; the
   published list and the asar's `build.files` cannot drift.
 
-Owner-executed, **not yet run** — this is why the status is `Draft`:
+Executed 2026-08-25 on a packaged Windows build, recorded in
+[docs/ai-developer/e2e/2026-08-23-shell-ota-hot-update-lifecycle.md](../ai-developer/e2e/2026-08-23-shell-ota-hot-update-lifecycle.md).
+All of the following passed except the two dialog-driven steps, which block on a
+human click and remain owner-executed:
 
 - A shell-only change published as a build is applied by an installed client and
   takes effect after relaunch, with no installer download.
