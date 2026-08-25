@@ -8,6 +8,7 @@
 // "drag me onto the canvas" and a type cannot be dragged anywhere.
 
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resolveTypeColor } from "../../config/typeColorMap";
@@ -373,6 +374,21 @@ describe("Data types tab — auto-reload on tab switch (#2151)", () => {
     render(<TypePalette />);
     await act(async () => {});
     expect(reloadTypes).not.toHaveBeenCalled();
+    expect(listTypes).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays at one rescan under StrictMode's mount-effect replay (#2153 review)", async () => {
+    act(() => {
+      useAppStore.getState().setTypes([array]);
+    });
+    listTypes.mockResolvedValue({ types: [array] });
+    render(
+      <StrictMode>
+        <TypePalette />
+      </StrictMode>,
+    );
+    await act(async () => {});
+    expect(reloadTypes).toHaveBeenCalledTimes(1);
     expect(listTypes).toHaveBeenCalledTimes(1);
   });
 });

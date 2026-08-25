@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BlockPalette, paletteColumns } from "./BlockPalette";
@@ -431,6 +432,16 @@ describe("BlockPalette — auto-reload on section switch (#2151)", () => {
     // turn into a per-render reload.
     rerender(<BlockPalette {...defaultProps} onReload={onReload} blocks={[{ ...cellpose }]} />);
     rerender(<BlockPalette {...defaultProps} onReload={onReload} blocks={[{ ...cellpose }]} />);
+    expect(onReload).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays at one reload under StrictMode's mount-effect replay (#2153 review)", () => {
+    const onReload = vi.fn();
+    render(
+      <StrictMode>
+        <BlockPalette {...defaultProps} onReload={onReload} blocks={[cellpose]} />
+      </StrictMode>,
+    );
     expect(onReload).toHaveBeenCalledTimes(1);
   });
 });

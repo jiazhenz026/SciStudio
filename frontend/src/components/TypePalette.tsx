@@ -20,7 +20,7 @@
 // blocks as props: refreshing types must not mean refreshing the palette, and
 // drawing types must not require a blocks request.
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { resolveRingColor, resolveTypeColor } from "../config/typeColorMap";
 import { useReloadFlash } from "../hooks/useReloadFlash";
@@ -169,7 +169,12 @@ export function TypePalette() {
   // A first-ever mount skips it, because the hook's own load is already
   // fetching; the store is read imperatively so the effect sees the
   // mount-time snapshot rather than subscribing to `loaded` flipping true.
+  // The ref latch keeps it to one rescan under StrictMode's dev effect
+  // replay, which re-runs mount effects on the same instance (#2153 review).
+  const didAutoReload = useRef(false);
   useEffect(() => {
+    if (didAutoReload.current) return;
+    didAutoReload.current = true;
     if (useAppStore.getState().typesLoaded) {
       void reload();
     }

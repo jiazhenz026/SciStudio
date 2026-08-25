@@ -860,10 +860,24 @@ exactly one section at a time), so "on switch" is "on mount":
 The auto reload is silent: the `useReloadFlash` blink (§9) stays tied to the
 manual Reload button, so panel switching does not pulse.
 
+Two guards keep the auto reload honest (#2153 review):
+
+- **StrictMode idempotence.** The app root is wrapped in `React.StrictMode`,
+  whose dev effect replay re-runs mount effects on the same instance. Each
+  pane latches its auto reload behind a ref that survives the replay, so a
+  visit issues exactly one reload rather than two.
+- **Choice-write sequencing (Previewers).** The automatic rescan's forced
+  fetch also re-reads the per-type choices, and that read can land after a
+  choice write the user made while it was on the wire. The write route's
+  response is the newer answer, so the catalogue module tracks a
+  choice-write epoch: a fetch applies its choices only when no write
+  interleaved since the read started.
+
 Covered by the `#2151` describes in
 `frontend/src/components/__tests__/TypePalette.test.tsx`,
 `frontend/src/components/__tests__/PreviewerPalette.test.tsx`, and
-`frontend/src/components/BlockPalette.test.tsx`.
+`frontend/src/components/BlockPalette.test.tsx`, plus the choice-write race
+test in `frontend/src/store/__tests__/previewerCatalogInvalidation.test.ts`.
 
 ## 16. Drop Centres The Block On The Cursor (#2151)
 

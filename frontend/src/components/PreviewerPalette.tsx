@@ -18,7 +18,7 @@
 // previewer catalogue directly from the store, so opening it neither waits
 // for nor re-triggers a blocks fetch.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useReloadFlash } from "../hooks/useReloadFlash";
 import { useAppStore } from "../store";
@@ -140,7 +140,12 @@ export function PreviewerPalette() {
   // button drives. A first-ever mount skips it (the hook's own load is
   // already fetching); the store is read imperatively so the effect sees the
   // mount-time snapshot rather than subscribing to `loaded` flipping true.
+  // The ref latch keeps it to one rescan under StrictMode's dev effect
+  // replay, which re-runs mount effects on the same instance (#2153 review).
+  const didAutoReload = useRef(false);
   useEffect(() => {
+    if (didAutoReload.current) return;
+    didAutoReload.current = true;
     if (useAppStore.getState().previewersLoaded) {
       void reload();
     }

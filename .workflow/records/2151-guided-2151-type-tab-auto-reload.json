@@ -98,9 +98,7 @@
   "declared_scope": {
     "exclude": [],
     "include": [
-      "frontend/src/components/TypePalette.tsx",
-      "frontend/src/store/useTypeCatalog.ts",
-      "frontend/src/components/__tests__/TypePalette.test.tsx"
+      "frontend/src/store/__tests__/previewerCatalogInvalidation.test.ts"
     ]
   },
   "directive_events": [

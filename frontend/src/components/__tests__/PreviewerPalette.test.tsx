@@ -3,6 +3,7 @@
 // else shows (registry diagnostics, stale choices).
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as DataApi from "../../lib/api/data";
@@ -222,6 +223,22 @@ describe("Previewers tab — auto-reload on section switch (#2151)", () => {
     render(<PreviewerPalette />);
     await act(async () => {});
     expect(reloadPreviewers).not.toHaveBeenCalled();
+    expect(listPreviewers).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays at one rescan under StrictMode's mount-effect replay (#2153 review)", async () => {
+    act(() => {
+      useAppStore.getState().setPreviewers(CATALOGUE, []);
+      useAppStore.getState().setPreviewerChoices([]);
+    });
+    listPreviewers.mockResolvedValue({ previewers: CATALOGUE, diagnostics: [] });
+    render(
+      <StrictMode>
+        <PreviewerPalette />
+      </StrictMode>,
+    );
+    await act(async () => {});
+    expect(reloadPreviewers).toHaveBeenCalledTimes(1);
     expect(listPreviewers).toHaveBeenCalledTimes(1);
   });
 });

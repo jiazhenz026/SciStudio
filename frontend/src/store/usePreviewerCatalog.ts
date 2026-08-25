@@ -38,6 +38,17 @@ import { useAppStore } from "./index";
 let inFlight: Promise<void> | null = null;
 
 /**
+ * Choice-write epoch (#2153 review). A forced catalogue fetch reads the
+ * choices list over the wire, and that read can be in flight while the user
+ * writes a choice from the tab. The write route's response is the newer,
+ * authoritative answer — `applyChoiceAnswer` applies it immediately — so a
+ * fetch that STARTED before the write must not land afterwards and overwrite
+ * the fresh choices with its stale list. Every choice mutation bumps this
+ * counter; the fetch applies its choices only when the epoch is unchanged.
+ */
+let choiceWriteEpoch = 0;
+
+/**
  * One round trip for both halves, unconditionally. A failure is warned and
  * swallowed: the catalogue is a listing *surface*, and the tab already renders
  * an empty state without it. The attempt is not latched, so the next surface
@@ -50,9 +61,12 @@ async function fetchPreviewerCatalog(): Promise<void> {
   } catch (error) {
     console.warn("[previewers] previewer catalogue unavailable; keeping the empty state", error);
   }
+  const choicesEpoch = choiceWriteEpoch;
   try {
     const choices = await dataApi.listPreviewerChoices();
-    useAppStore.getState().setPreviewerChoices(choices.choices ?? []);
+    if (choicesEpoch === choiceWriteEpoch) {
+      useAppStore.getState().setPreviewerChoices(choices.choices ?? []);
+    }
   } catch (error) {
     console.warn("[previewers] previewer choices unavailable; keeping the empty state", error);
   }
@@ -128,6 +142,7 @@ export async function rescanPreviewers(): Promise<void> {
  * (its keys predate the choice).
  */
 function applyChoiceAnswer(result: PreviewerChoiceListResponse): void {
+  choiceWriteEpoch += 1;
   const store = useAppStore.getState();
   store.setPreviewerChoices(result.choices ?? []);
   store.clearPreviewEnvelopeCache();
