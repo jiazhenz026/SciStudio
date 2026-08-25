@@ -93,7 +93,19 @@ export function resolveDocsLink(from: string, href: string): DocsLinkTarget {
   }
   if (trimmed.startsWith("/")) {
     // The reader is rooted at the user guide; an absolute path is not a path
-    // within it, so there is nothing honest to open.
+    // within it, so there is nothing honest to open. (A drive-lettered path is
+    // already refused above, where `C:` reads as a scheme.)
+    return { kind: "none" };
+  }
+  if (trimmed.includes("\\")) {
+    /*
+     * A backslash is a separator on Windows and a filename character
+     * elsewhere, so it is never a legitimate part of a segment in a tree the
+     * guide addresses with `/`. The backend refuses it for the same reason —
+     * see `user_docs._segments`, after exactly this shape escaped that route's
+     * containment check in review — and refusing it here too means such a link
+     * never becomes a request at all.
+     */
     return { kind: "none" };
   }
 

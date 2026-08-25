@@ -165,7 +165,19 @@ class TestPages:
 
 
 class TestContainment:
-    """The path is a request parameter, so it is never allowed to leave the tree."""
+    """The path is a request parameter, so it is never allowed to leave the tree.
+
+    The backslash cases below are a defect this route shipped in review, not a
+    hypothetical. Splitting the request path on ``/`` alone left
+    ``..\\version.py`` as a single segment: it passed the ``..`` test, and then
+    ``Path`` joined it and Windows read the backslash as a separator.
+    ``GET /api/user-docs/pages/%2e%2e%5cversion.py`` returned
+    ``scistudio/version.py``, and repeated climbs reached ``pyproject.toml`` at
+    the repository root. The rule is now
+    ``tutorials.actions.validate_relative_path``'s — a backslash is refused
+    outright, because it is a separator on Windows and a filename character
+    elsewhere — with a realpath containment check behind it.
+    """
 
     @pytest.mark.parametrize(
         "path",
@@ -175,8 +187,32 @@ class TestContainment:
             "..%2f..%2fpyproject.toml",
             "examples/../../version.py",
             "....//pyproject.toml",
+            "..%5cversion.py",
+            "%2e%2e%5cversion.py",
+            "..%5capi%5capp.py",
+            "..%5c..%5c..%5cpyproject.toml",
+            "examples%5c..%5c..%5cversion.py",
+            "..%5c_agent_reference%5cREADME.md",
+            "%2e%2e%5c%2e%2e%5cscistudio%5cversion.py",
+            "C:%5cWindows%5cwin.ini",
+            "%2fetc%2fpasswd",
         ],
-        ids=["climb", "sibling", "encoded climb", "climb from within", "doubled dots"],
+        ids=[
+            "climb",
+            "sibling",
+            "encoded climb",
+            "climb from within",
+            "doubled dots",
+            "backslash climb",
+            "encoded backslash climb",
+            "backslash into a sibling package",
+            "backslash to the repository root",
+            "backslash climb from within",
+            "backslash to a sibling doc tree",
+            "backslash climb back down",
+            "drive letter",
+            "absolute posix path",
+        ],
     )
     def test_refuses_a_path_that_leaves_the_documentation(self, client: TestClient, path: str) -> None:
         response = client.get(f"/api/user-docs/pages/{path}")
@@ -189,3 +225,15 @@ class TestContainment:
 
     def test_refuses_an_empty_path(self, client: TestClient) -> None:
         assert client.get("/api/user-docs/pages/").status_code == 404
+
+    def test_a_refusal_never_carries_the_file_it_refused(self, client: TestClient) -> None:
+        """A 404 quotes the path; it must never quote what was behind it."""
+        response = client.get("/api/user-docs/pages/%2e%2e%5cversion.py")
+
+        assert response.status_code == 404
+        assert "Version deriver" not in response.text
+
+    def test_the_pages_the_guide_really_links_to_still_open(self, client: TestClient) -> None:
+        """The refusal is of separators, not of the tree's own shape."""
+        for path in ("README.md", "examples/app-fiji/block.py", "api-reference/index.md"):
+            assert client.get(f"/api/user-docs/pages/{path}").status_code == 200, path

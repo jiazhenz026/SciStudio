@@ -145,6 +145,13 @@ describe("resolveDocsLink", () => {
     ["a script url", "javascript:alert(1)"],
     ["a data url", "data:text/html,<script>alert(1)</script>"],
     ["an empty href", "   "],
+    // A backslash is a separator on Windows and a filename character
+    // elsewhere. The backend refuses it after exactly this shape escaped its
+    // containment check in review; refusing it here means it never becomes a
+    // request.
+    ["a backslash climb", "..\\version.py"],
+    ["a backslash climb from within", "examples\\..\\..\\version.py"],
+    ["a drive-lettered path", "C:\\Windows\\win.ini"],
   ])("refuses %s", (_what, href) => {
     expect(resolveDocsLink("README.md", href)).toEqual({ kind: "none" });
   });

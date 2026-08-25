@@ -27,6 +27,14 @@ against the behaviour it mirrors. Package Development is absent because it is a
 developer document that lives in the repository rather than in this tree — it was
 never part of what ships.
 
+**The page path is a request parameter, and is treated as one** (#2160). It is
+split into plain names by :func:`_segments` — no separator of *either* platform,
+no ``..``, nothing absolute or drive-lettered — and :func:`_contained` checks the
+resolved real path against the tree root behind that. Two locks, because the
+first version had one and it was the wrong one: splitting on ``/`` alone left a
+backslash inside a single segment, where it passed the ``..`` refusal and then
+became a separator the moment ``Path`` joined it on Windows.
+
 The tree is read once per process and cached: it is packaged data, so it cannot
 change under a running server.
 """
@@ -34,19 +42,23 @@ change under a running server.
 from __future__ import annotations
 
 import importlib.resources
+import os
 import posixpath
 import re
 from functools import lru_cache
 from importlib.resources.abc import Traversable
+from pathlib import PurePosixPath, PureWindowsPath
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-#: The packaged documentation tree. ``_user_guide`` is not an importable package
-#: (it holds no Python), but it is a namespace portion inside one, which is
-#: enough for ``importlib.resources`` — the same access ``agent_provisioning.docs``
-#: uses to copy it into a project.
-_DOCS_PACKAGE = "scistudio._user_guide"
+#: The package the documentation tree sits in, and the tree's directory name.
+#: ``_user_guide`` holds no Python and so is not an importable package of its
+#: own; reaching it through its parent is what ``agent_provisioning.docs`` does
+#: to copy it into a project, and it yields a real directory (rather than a
+#: ``MultiplexedPath``) whose containment can be checked.
+_DOCS_PACKAGE = "scistudio"
+_DOCS_DIR = "_user_guide"
 
 #: Extensions rendered as prose. MkDocs builds its nav from Markdown pages only;
 #: every other file is copied verbatim beside them and reachable by link.
@@ -191,10 +203,15 @@ def _nav_of(directory: Traversable, prefix: str) -> list[DocsNavItem]:
     return items
 
 
+def _root() -> Traversable:
+    """The documentation tree's directory."""
+    return importlib.resources.files(_DOCS_PACKAGE) / _DOCS_DIR
+
+
 @lru_cache(maxsize=1)
 def _nav() -> DocsNavResponse:
     """The whole tree's navigation, read once — packaged data does not change."""
-    root = importlib.resources.files(_DOCS_PACKAGE)
+    root = _root()
     return DocsNavResponse(
         # The caption the published sidebar prints above this group. It comes
         # from the site's staging directory name, not from this tree.
@@ -204,32 +221,86 @@ def _nav() -> DocsNavResponse:
     )
 
 
+def _segments(path: str) -> list[str] | None:
+    """Split a tree-relative path into plain names, or return ``None`` to refuse.
+
+    The rules are ``tutorials.actions.validate_relative_path``'s, for its
+    reasons. A backslash is rejected outright rather than treated as an ordinary
+    character, because it is a separator on Windows and a filename character
+    elsewhere: splitting a request path on ``/`` alone leaves ``..\\version.py``
+    as one segment that passes a ``..`` test and then escapes the tree the
+    moment ``Path`` joins it. Absolute and drive-lettered forms go the same way.
+
+    What survives is a list of plain names — no separator of either platform, no
+    ``..``, nothing empty — which is the only shape a documentation path is ever
+    written in.
+    """
+    trimmed = path.strip("/")
+    if not trimmed or "\\" in trimmed:
+        return None
+    if PurePosixPath(trimmed).is_absolute() or PureWindowsPath(trimmed).drive:
+        return None
+    segments = [segment for segment in trimmed.split("/") if segment != "."]
+    if not segments or any(segment in ("", "..") for segment in segments):
+        return None
+    return segments
+
+
+def _filesystem_path(item: Traversable) -> str | None:
+    """``item`` as a real filesystem path, or ``None`` when it has none.
+
+    A ``Traversable`` is not required to be on a filesystem — a tree read out
+    of a zip is not — so this narrows rather than assumes.
+    """
+    if not isinstance(item, os.PathLike):
+        return None
+    resolved: str | bytes = os.fspath(item)
+    return resolved if isinstance(resolved, str) else None
+
+
+def _contained(candidate: Traversable) -> bool:
+    """Whether ``candidate`` really sits beneath the documentation tree.
+
+    :func:`_segments` already refuses every path that could name something
+    outside, so this is the second lock rather than the first: it is what a
+    symbolic link planted inside the tree would have to defeat, and it is
+    checked on the *real* paths for that reason. A tree loaded from a zip
+    exposes no filesystem path and needs none — the segment rules govern there,
+    and a zip has no symbolic links to follow.
+    """
+    root = _filesystem_path(_root())
+    target = _filesystem_path(candidate)
+    if root is None or target is None:
+        return True
+    return os.path.realpath(target).startswith(os.path.realpath(root) + os.sep)
+
+
 def _resolve(path: str) -> Traversable:
     """Resolve a tree-relative path, or refuse.
 
-    Containment is not checked after the fact: the path is normalised, then
-    walked one segment at a time from the package root, so a segment that is not
-    a plain name never reaches the filesystem. A directory resolves to its index
-    page, which is what a link like ``examples/`` means.
+    A directory resolves to its index page, which is what a link like
+    ``examples/`` means.
     """
-    normalised = posixpath.normpath(path.strip("/")) if path.strip("/") else ""
-    segments = [segment for segment in normalised.split("/") if segment not in ("", ".")]
-    if not segments or any(segment == ".." for segment in segments):
-        raise HTTPException(status_code=404, detail=f"No such documentation page: {path!r}")
-    current: Traversable = importlib.resources.files(_DOCS_PACKAGE)
+    refused = HTTPException(status_code=404, detail=f"No such documentation page: {path!r}")
+    segments = _segments(path)
+    if segments is None:
+        raise refused
+    current: Traversable = _root()
     for segment in segments:
         try:
             current = current / segment
             if not (current.is_file() or current.is_dir()):
                 raise FileNotFoundError(segment)
         except (FileNotFoundError, NotADirectoryError, OSError, ValueError):
-            raise HTTPException(status_code=404, detail=f"No such documentation page: {path!r}") from None
+            raise refused from None
+    if not _contained(current):
+        raise refused
     if current.is_dir():
         for stem in _INDEX_STEMS:
             candidate = current / f"{stem}{_PAGE_SUFFIX}"
             if candidate.is_file():
                 return candidate
-        raise HTTPException(status_code=404, detail=f"No such documentation page: {path!r}")
+        raise refused
     return current
 
 
