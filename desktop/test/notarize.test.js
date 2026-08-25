@@ -150,6 +150,34 @@ test("a nonsensical timeout falls back to the default rather than to zero", () =
 });
 
 // --------------------------------------------------------------------------
+// Where the trace survives. The build log is not enough.
+// --------------------------------------------------------------------------
+
+test("the trace is mirrored to a file, defaulting under the runner temp dir", () => {
+  // GitHub drops the tail of an in-progress step's log when a job is cancelled
+  // or times out -- exactly when the trace is wanted. The first cancelled run
+  // of this hook lost twelve minutes of output that way, leaving the runner's
+  // own "Terminate orphan process (notarytool)" as the only evidence it had
+  // run. The workflow cats this file in an `if: always()` step.
+  assert.equal(notarize.logPath({ RUNNER_TEMP: "/tmp/runner" }), path.join("/tmp/runner", "notarize.log"));
+  assert.equal(notarize.logPath({ SCISTUDIO_NOTARIZE_LOG: "/x/y.log" }), "/x/y.log");
+  // No RUNNER_TEMP off-CI: still a real path, never undefined.
+  assert.ok(notarize.logPath({}).endsWith("notarize.log"));
+});
+
+test("the workflow prints the trace however the job ends", () => {
+  // A trace written to a file nobody reads is no better than one that was lost.
+  const wf = fs.readFileSync(
+    path.join(__dirname, "..", "..", ".github", "workflows", "desktop-macos-dmg.yml"),
+    "utf8",
+  );
+  const step = wf.slice(wf.indexOf("- name: Notarization trace"));
+  assert.ok(step.length > 0, "the workflow has no step printing the notarization trace");
+  assert.match(step.slice(0, 200), /if:\s*always\(\)/);
+  assert.match(step.slice(0, 300), /notarize\.log/);
+});
+
+// --------------------------------------------------------------------------
 // Credentials.
 // --------------------------------------------------------------------------
 

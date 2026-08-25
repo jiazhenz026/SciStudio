@@ -129,6 +129,17 @@ jobs:
           # The hook's own output is prefixed [notarize].
         run: npm --prefix desktop run dist:dmg
 
+      # #2176: the hook mirrors its progress to this file because GitHub drops
+      # the tail of an in-progress step's log when a job is cancelled or times
+      # out -- exactly when the trace matters. A cancelled 0.3.4 build lost
+      # twelve minutes of hook output that way, leaving the runner's own
+      # "Terminate orphan process (notarytool)" as the only evidence. Printing
+      # it here means even a killed build says how far notarization got and
+      # which submission ID to query.
+      - name: Notarization trace
+        if: always()
+        run: cat "$RUNNER_TEMP/notarize.log" 2>/dev/null || echo "no notarization trace was written"
+
       - name: Remove App Store Connect API key
         if: always()
         run: rm -rf "$RUNNER_TEMP/private_keys"

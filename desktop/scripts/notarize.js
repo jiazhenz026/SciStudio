@@ -149,8 +149,28 @@ function timeoutMinutes(env) {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MIN;
 }
 
+/**
+ * Write a progress line to the build log *and* to a file.
+ *
+ * The file is the load-bearing half. GitHub drops the tail of an in-progress
+ * step's log when a job is cancelled or times out -- which is exactly when the
+ * trace is wanted. A cancelled 0.3.4 build lost twelve minutes of hook output
+ * that way, leaving the runner's own `Terminate orphan process (notarytool)`
+ * as the only evidence the hook had run at all. The workflow cats this file in
+ * an `if: always()` step, so the trace survives however the job ends.
+ */
+function logPath(env) {
+  return env.SCISTUDIO_NOTARIZE_LOG || path.join(env.RUNNER_TEMP || os.tmpdir(), "notarize.log");
+}
+
 function log(message) {
-  process.stdout.write(`[notarize] ${message}\n`);
+  const line = `[notarize] ${message}\n`;
+  process.stdout.write(line);
+  try {
+    fs.appendFileSync(logPath(process.env), `${new Date().toISOString()} ${line}`);
+  } catch {
+    // A build must never fail because its own progress log is unwritable.
+  }
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -285,8 +305,17 @@ async function afterSign(context) {
   await notarizeApp(appPath, creds, process.env);
 }
 
+// Emitted when electron-builder resolves the hook, which happens while it is
+// still loading configuration -- within the first second of the build, long
+// before any truncation risk. If a log shows no [notarize] lines at all, the
+// absence of *this* one is what separates "the hook was never wired", a real
+// defect, from "the tail was lost", which is what actually happened to the
+// first run this hook shipped in.
+log("hook loaded; electron-builder's own notarization is disabled");
+
 module.exports = afterSign;
 module.exports.default = afterSign;
+module.exports.logPath = logPath;
 module.exports.credentials = credentials;
 module.exports.submitArgs = submitArgs;
 module.exports.infoArgs = infoArgs;
