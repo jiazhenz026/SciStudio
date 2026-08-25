@@ -38,6 +38,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import hashlib
+import io
 import json
 import re
 import subprocess
@@ -50,6 +51,7 @@ DEFAULT_REPO = "jiazhenz026/SciStudio"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 STAGED_SRC = REPO_ROOT / "desktop" / "resources" / "backend" / "src"
 DESKTOP_DIR = REPO_ROOT / "desktop"
+REINSTALL_NOTICE_TEMPLATE = REPO_ROOT / "scripts" / "templates" / "reinstall-notice.html"
 
 # #2097: the Electron shell rides inside the same snapshot as the backend tree,
 # under ``shell/``. These are exactly the files the frozen bootstrap loader can
@@ -160,6 +162,30 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+SPA_INDEX_ARCNAME = "src/scistudio/api/static/index.html"
+
+
+def render_reinstall_notice(download_url: str, version_line: str) -> str:
+    """Render the reinstall notice page (#2097, spec section 8.1).
+
+    A client that cannot be hot-updated any further has to be told to reinstall.
+    Doing that through the mandatory *incompatible* dialog puts the address in a
+    native ``dialog.showMessageBox``, which renders plain text: not clickable and
+    not selectable, so the user must retype it — and that dialog cannot be
+    changed, because it is drawn by the one part a patch cannot replace.
+
+    Publishing it as a mandatory *patch* instead delivers an ordinary web page,
+    where the address selects and a button copies it. The manifest must keep
+    ``min_base`` at or below the target clients' base so the decision is
+    ``patch`` rather than ``incompatible``, with ``min_build`` set to make it
+    mandatory.
+    """
+    if not REINSTALL_NOTICE_TEMPLATE.is_file():
+        raise SystemExit(f"Missing template: {REINSTALL_NOTICE_TEMPLATE}")
+    html = REINSTALL_NOTICE_TEMPLATE.read_text(encoding="utf-8")
+    return html.replace("__DOWNLOAD_URL__", download_url).replace("__VERSION_LINE__", version_line)
+
+
 def shell_sources(desktop_dir: Path = DESKTOP_DIR) -> list[Path]:
     """The Electron shell files a snapshot carries (#2097).
 
@@ -174,7 +200,12 @@ def shell_sources(desktop_dir: Path = DESKTOP_DIR) -> list[Path]:
     return paths
 
 
-def make_snapshot(src_dir: Path, out_path: Path, desktop_dir: Path = DESKTOP_DIR) -> None:
+def make_snapshot(
+    src_dir: Path,
+    out_path: Path,
+    desktop_dir: Path = DESKTOP_DIR,
+    reinstall_notice: str | None = None,
+) -> None:
     """Pack a snapshot of the backend tree and the Electron shell.
 
     The tarball is rooted at ``src/`` and ``shell/``: extracting it yields
@@ -194,10 +225,20 @@ def make_snapshot(src_dir: Path, out_path: Path, desktop_dir: Path = DESKTOP_DIR
             return None
         if "scistudio.egg-info" in parts:
             return None
+        # The notice replaces the SPA entry point in the ARCHIVE only; the
+        # staged tree on disk is never touched, so a checkout cannot be left
+        # quietly shipping the notice as its real frontend.
+        if reinstall_notice is not None and info.name.replace("\\", "/") == SPA_INDEX_ARCNAME:
+            return None
         return info
 
     with tarfile.open(out_path, "w:gz") as tar:
         tar.add(src_dir, arcname="src", filter=_filter)
+        if reinstall_notice is not None:
+            payload = reinstall_notice.encode("utf-8")
+            info = tarfile.TarInfo(SPA_INDEX_ARCNAME)
+            info.size = len(payload)
+            tar.addfile(info, io.BytesIO(payload))
         for shell_file in shell_sources(desktop_dir):
             arcname = f"shell/{shell_file.relative_to(desktop_dir).as_posix()}"
             tar.add(shell_file, arcname=arcname)
@@ -303,6 +344,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Build the snapshot and manifest locally without creating/uploading a release.",
     )
+    parser.add_argument(
+        "--reinstall-notice",
+        metavar="URL",
+        default=None,
+        help=(
+            "#2097: replace the snapshot's SPA with the reinstall notice pointing at URL. "
+            "Use for the migration patch that tells clients to download a build they cannot "
+            "reach by OTA. Publish it as a mandatory PATCH (min_base at or below their base, "
+            "min_build set), not as incompatible -- a native dialog cannot be copied from."
+        ),
+    )
     parser.add_argument("--yes", action="store_true", help="Skip the confirmation prompt before uploading.")
     args = parser.parse_args(argv)
 
@@ -324,8 +376,15 @@ def main(argv: list[str] | None = None) -> int:
 
     workdir = Path(tempfile.mkdtemp(prefix="scistudio-ota-"))
     tarball = workdir / name
+    notice = None
+    if args.reinstall_notice:
+        notice = render_reinstall_notice(
+            args.reinstall_notice, f"Installed {baseline['base']} · update {build}"
+        )
+        print(f"Snapshot SPA replaced with the reinstall notice -> {args.reinstall_notice}")
+
     print(f"Packing snapshot of {src_dir} -> {tarball.name} ...")
-    make_snapshot(src_dir, tarball)
+    make_snapshot(src_dir, tarball, reinstall_notice=notice)
 
     digest = sha256_file(tarball)
     size = tarball.stat().st_size

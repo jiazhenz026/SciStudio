@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, nativeTheme, session } = require("electron");
+const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, session } = require("electron");
 const { spawn, spawnSync } = require("child_process");
 const crypto = require("crypto");
 const fs = require("fs");
@@ -32,6 +32,11 @@ const READY_EVENT = "scistudio.ready";
 const READY_TIMEOUT_MS = 120000;
 const HTTP_READY_TIMEOUT_MS = 30000;
 const DEFAULT_DEV_FRONTEND_URL = "http://127.0.0.1:5173";
+
+// #2097: mirrored verbatim from the repository LICENSE and pyproject.toml,
+// with a test pinning the three together so they cannot drift apart.
+const LICENSE_NAME = "Apache License 2.0";
+const COPYRIGHT = "Copyright 2026 Jiazhen Zhang";
 
 // #1775: OTA hot-update (backend + embedded frontend).
 const OTA_MANIFEST_TIMEOUT_MS = 8000;
@@ -1325,6 +1330,80 @@ function closeSplash() {
   splash.close();
 }
 
+// #2097: the About dialog and the menu that reaches it.
+//
+// There was no menu code at all, so Electron's default menu applied. That menu
+// shows `app.getVersion()` on macOS -- the version baked into the packaged
+// package.json, i.e. the INSTALLER BASELINE -- and offers no About item at all
+// on Windows or Linux. Reporting the baseline is wrong here by construction:
+// once a patch is applied the app is running a different build than the one
+// that was installed, which is the entire point of OTA.
+//
+// So About reports the effective build, and names the installed baseline
+// separately whenever the two differ -- the pair a support conversation needs.
+function aboutText() {
+  const baseline = baselineVersion();
+  const effective = effectiveBuild();
+  const lines = [`Version ${ota.displayBuildVersion(baseline.base, effective)}`];
+  if (effective !== baseline.build) {
+    lines.push(
+      `Installed ${ota.displayBuildVersion(baseline.base, baseline.build)}, updated without reinstalling`
+    );
+  }
+  lines.push("");
+  lines.push(
+    `Electron ${process.versions.electron} · Chromium ${process.versions.chrome} · Node ${process.versions.node}`
+  );
+  lines.push("");
+  lines.push(LICENSE_NAME);
+  lines.push(COPYRIGHT);
+  return lines.join("\n");
+}
+
+async function showAbout() {
+  await dialog.showMessageBox({
+    type: "info",
+    title: "About SciStudio",
+    message: "SciStudio",
+    detail: aboutText(),
+    buttons: ["OK"],
+    defaultId: 0,
+    cancelId: 0
+  });
+}
+
+function buildAppMenu() {
+  const isMac = process.platform === "darwin";
+  const about = { label: "About SciStudio", click: () => void showAbout() };
+  // Replacing the default menu wholesale means the standard roles have to be
+  // restored explicitly; without them copy/paste and the developer tools lose
+  // their accelerators.
+  const macAppMenu = {
+    label: app.name,
+    submenu: [
+      about,
+      { type: "separator" },
+      { role: "services" },
+      { type: "separator" },
+      { role: "hide" },
+      { role: "hideOthers" },
+      { role: "unhide" },
+      { type: "separator" },
+      { role: "quit" }
+    ]
+  };
+  return Menu.buildFromTemplate([
+    ...(isMac ? [macAppMenu] : []),
+    {
+      label: "File",
+      submenu: isMac ? [{ role: "close" }] : [about, { type: "separator" }, { role: "quit" }]
+    },
+    { role: "editMenu" },
+    { role: "viewMenu" },
+    { role: "windowMenu" }
+  ]);
+}
+
 function createWindow(url) {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -1422,6 +1501,7 @@ function start(injectedHost) {
       // cleanly; remember it as the rollback target for future launches.
       recordKnownGood(effectiveBuild());
       await clearCacheOnBuildChange();
+      Menu.setApplicationMenu(buildAppMenu());
       const url = launchUrl(ready.url);
       safeLog(`[scistudio] creating window for ${url}`);
       splashStatus("Loading the interface…");

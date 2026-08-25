@@ -147,3 +147,71 @@ test("the loader persists its diagnostics instead of only writing stdout", () =>
   const logFn = bootstrap.slice(bootstrap.indexOf("function log(message)"), bootstrap.indexOf("// The installed baseline"));
   assert.equal((logFn.match(/catch/g) || []).length, 2, "both the stdout and file writes must be guarded");
 });
+
+// --------------------------------------------------------------------------- //
+// #2097: About reports the build that is RUNNING, not the one installed.
+// --------------------------------------------------------------------------- //
+
+test("the app installs its own menu instead of inheriting Electron's default", () => {
+  // The default menu is why macOS showed a stale version and Windows had no
+  // About item at all.
+  const main = read("main.js");
+  assert.match(main, /Menu\.setApplicationMenu\(buildAppMenu\(\)\)/);
+});
+
+test("About reports the effective build, never app.getVersion()", () => {
+  // app.getVersion() is the packaged package.json version, i.e. the installer
+  // baseline. Once a patch is applied that is not what is running, so reporting
+  // it would be wrong by construction for an app whose whole premise is that
+  // the two can differ.
+  const main = read("main.js");
+  const about = main.slice(main.indexOf("function aboutText()"), main.indexOf("async function showAbout()"));
+  assert.match(about, /effectiveBuild\(\)/);
+  assert.doesNotMatch(about, /app\.getVersion\(\)/);
+  // and it names the installed baseline whenever the two diverge
+  assert.match(about, /effective !== baseline\.build/);
+});
+
+test("About carries the licence and copyright, pinned to the repository", () => {
+  // The strings are duplicated into the shell out of necessity -- a native
+  // dialog cannot read LICENSE at runtime from inside an asar patch -- so pin
+  // them to their sources instead of trusting them to stay in step.
+  const main = read("main.js");
+  const license = /const LICENSE_NAME = "(.+)";/.exec(main);
+  const copyright = /const COPYRIGHT = "(.+)";/.exec(main);
+  assert.ok(license && copyright, "both constants must exist");
+
+  const repoRoot = path.join(desktopRoot, "..");
+  const licenseFile = fs.readFileSync(path.join(repoRoot, "LICENSE"), "utf8");
+  assert.ok(
+    licenseFile.includes(copyright[1]),
+    `LICENSE does not contain ${copyright[1]}`
+  );
+  assert.ok(licenseFile.includes("Apache License"), "LICENSE is not the Apache License");
+
+  const pyproject = fs.readFileSync(path.join(repoRoot, "pyproject.toml"), "utf8");
+  assert.match(pyproject, /license = \{text = "Apache-2\.0"\}/);
+
+  const about = main.slice(main.indexOf("function aboutText()"), main.indexOf("async function showAbout()"));
+  assert.match(about, /lines\.push\(LICENSE_NAME\)/);
+  assert.match(about, /lines\.push\(COPYRIGHT\)/);
+});
+
+test("every platform can reach About", () => {
+  // macOS gets it in the application menu, Windows and Linux in File -- which
+  // previously held nothing but Quit.
+  const main = read("main.js");
+  const build = main.slice(main.indexOf("function buildAppMenu()"), main.indexOf("function createWindow(url)"));
+  assert.match(build, /label:\s*"About SciStudio"/);
+  assert.match(build, /isMac \? \[\{ role: "close" \}\] : \[about,/);
+  assert.match(build, /macAppMenu/);
+});
+
+test("replacing the default menu keeps the standard roles", () => {
+  // Without these, copy/paste and the developer tools lose their accelerators.
+  const main = read("main.js");
+  const build = main.slice(main.indexOf("function buildAppMenu()"), main.indexOf("function createWindow(url)"));
+  for (const role of ["editMenu", "viewMenu", "windowMenu"]) {
+    assert.ok(build.includes(`{ role: "${role}" }`), `missing role ${role}`);
+  }
+});

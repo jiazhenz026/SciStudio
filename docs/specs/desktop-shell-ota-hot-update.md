@@ -36,6 +36,7 @@ governs:
     - desktop/ota.js
     - desktop/package.json
     - scripts/ota_publish.py
+    - scripts/templates/reinstall-notice.html
   excludes: []
 tests:
   - desktop/test/bootstrap.test.js
@@ -272,6 +273,36 @@ discards it (#1787) and the dead-end page cannot outlive the migration.
 Verified end to end on 2026-08-25 — `mandatory update required: kind=patch`,
 `applied mandatory OTA build 27; relaunching`, then the patched page rendered
 with a working copy button.
+
+## 8.2 About reports the build that is running
+
+Electron's default menu shows `app.getVersion()` — the version compiled into
+the packaged `package.json`, i.e. the **installer baseline** — and offers no
+About item at all on Windows or Linux. For an app whose premise is that the
+running build can differ from the installed one, reporting the baseline is
+wrong by construction.
+
+`desktop/main.js` therefore installs its own menu. About reports the **effective
+build**, and names the installed baseline separately whenever the two differ:
+
+```
+Version 0.3.4.0026
+Installed 0.3.4.0000, updated without reinstalling
+```
+
+That second line is the pair a support conversation actually needs — "which
+build are you on" and "which one did you install" are different questions once
+patches exist.
+
+Replacing the default menu means the standard roles (`editMenu`, `viewMenu`,
+`windowMenu`) must be restored explicitly, or copy/paste and the developer tools
+lose their accelerators. A test asserts they are present.
+
+The licence and copyright shown there are duplicated into the shell out of
+necessity: a native dialog cannot read `LICENSE` at runtime from inside a
+patched asar. A test pins the two constants to the repository `LICENSE` and
+`pyproject.toml` so they cannot drift silently — About is not a surface anyone
+checks.
 
 ## 9. Verification
 

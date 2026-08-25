@@ -255,3 +255,79 @@ def test_shell_sources_refuses_an_incomplete_shell(mod: ModuleType, tmp_path: Pa
     with pytest.raises(SystemExit) as excinfo:
         mod.shell_sources(desktop)
     assert "main.js" in str(excinfo.value)
+
+# --------------------------------------------------------------------------- #
+# #2097 spec 8.1: the reinstall notice delivered as a patch.
+# --------------------------------------------------------------------------- #
+def test_reinstall_notice_substitutes_both_placeholders(mod: ModuleType) -> None:
+    html = mod.render_reinstall_notice("https://example.test/download", "Installed 0.3.3")
+    assert "https://example.test/download" in html
+    assert "Installed 0.3.3" in html
+    assert "__DOWNLOAD_URL__" not in html
+    assert "__VERSION_LINE__" not in html
+
+
+def test_reinstall_notice_page_can_be_copied_from(mod: ModuleType) -> None:
+    # The whole reason this exists: a native dialog renders plain text that is
+    # neither clickable nor selectable, so the address has to live in a page
+    # where a button can put it on the clipboard.
+    html = mod.render_reinstall_notice("https://example.test/download", "x")
+    assert "clipboard.writeText" in html
+
+
+def test_snapshot_replaces_the_spa_with_the_notice(mod: ModuleType, tmp_path: Path) -> None:
+    src = tmp_path / "backend" / "src"
+    static = src / "scistudio" / "api" / "static"
+    static.mkdir(parents=True)
+    (src / "scistudio" / "__init__.py").write_text("x = 1", encoding="utf-8")
+    (static / "index.html").write_text("<html>the real SPA</html>", encoding="utf-8")
+    out = tmp_path / "snap.tar.gz"
+
+    notice = mod.render_reinstall_notice("https://example.test/dl", "Installed 0.3.3")
+    mod.make_snapshot(src, out, desktop_dir=_fake_desktop(tmp_path), reinstall_notice=notice)
+
+    with tarfile.open(out, "r:gz") as tar:
+        names = tar.getnames()
+        payload = tar.extractfile(mod.SPA_INDEX_ARCNAME).read().decode("utf-8")
+
+    # Exactly one entry, and it is the notice rather than the real SPA.
+    assert names.count(mod.SPA_INDEX_ARCNAME) == 1
+    assert "https://example.test/dl" in payload
+    assert "the real SPA" not in payload
+    # The shell still rides along; this is an ordinary snapshot otherwise.
+    assert "shell/main.js" in names
+
+
+def test_snapshot_never_mutates_the_staged_tree(mod: ModuleType, tmp_path: Path) -> None:
+    # Injecting into the archive rather than the tree is what stops a checkout
+    # from quietly shipping the notice as its real frontend on the next publish.
+    src = tmp_path / "backend" / "src"
+    static = src / "scistudio" / "api" / "static"
+    static.mkdir(parents=True)
+    (src / "scistudio" / "__init__.py").write_text("x = 1", encoding="utf-8")
+    index = static / "index.html"
+    index.write_text("<html>the real SPA</html>", encoding="utf-8")
+
+    mod.make_snapshot(
+        src,
+        tmp_path / "snap.tar.gz",
+        desktop_dir=_fake_desktop(tmp_path),
+        reinstall_notice=mod.render_reinstall_notice("https://example.test/dl", "x"),
+    )
+
+    assert index.read_text(encoding="utf-8") == "<html>the real SPA</html>"
+
+
+def test_snapshot_without_a_notice_keeps_the_real_spa(mod: ModuleType, tmp_path: Path) -> None:
+    src = tmp_path / "backend" / "src"
+    static = src / "scistudio" / "api" / "static"
+    static.mkdir(parents=True)
+    (src / "scistudio" / "__init__.py").write_text("x = 1", encoding="utf-8")
+    (static / "index.html").write_text("<html>the real SPA</html>", encoding="utf-8")
+    out = tmp_path / "snap.tar.gz"
+
+    mod.make_snapshot(src, out, desktop_dir=_fake_desktop(tmp_path))
+
+    with tarfile.open(out, "r:gz") as tar:
+        payload = tar.extractfile(mod.SPA_INDEX_ARCNAME).read().decode("utf-8")
+    assert payload == "<html>the real SPA</html>"

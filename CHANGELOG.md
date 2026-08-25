@@ -344,6 +344,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Snapshots published before this change carry no `shell/` at all. Such a patch
   keeps serving the backend while the baseline shell runs, which is a supported
   state rather than an error.
+  **About now reports the build that is running.** There was no menu code at
+  all, so Electron's default menu applied: it shows `app.getVersion()` — the
+  installer baseline — and offers no About item whatsoever on Windows or Linux.
+  Reporting the baseline is wrong by construction here, because a patched app is
+  running a different build than the one that was installed. About now shows the
+  effective build and names the installed baseline separately when the two
+  differ, alongside the Electron/Chromium/Node versions and the Apache-2.0
+  licence and copyright. The standard menu roles are restored explicitly, since
+  replacing the default menu otherwise costs copy/paste and the developer tools
+  their accelerators.
+  **The reinstall notice is a repository template rather than a description.**
+  A client that cannot be hot-updated any further has to be told to reinstall,
+  and doing that through the mandatory *incompatible* dialog puts the address in
+  a native message box, where it is neither clickable nor selectable — the user
+  has to retype it, and that dialog cannot be changed because it is drawn by the
+  one part a patch cannot replace. Publishing it as a mandatory *patch* delivers
+  an ordinary web page instead, where the address selects and a button copies
+  it. `scripts/ota_publish.py --reinstall-notice <url>` builds that snapshot from
+  `scripts/templates/reinstall-notice.html`, injecting the page into the
+  **archive** rather than the staged tree so a checkout can never be left
+  quietly shipping the notice as its real frontend.
   Design record: `docs/specs/desktop-shell-ota-hot-update.md` (status `Draft`:
   the code and its platform-independent tests have landed, but applying a real
   shell patch end to end, and rolling a deliberately broken one back, are
