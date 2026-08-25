@@ -28,7 +28,6 @@
   },
   "build": {
     "appId": "org.scistudio.desktop",
-    "afterSign": "scripts/notarize.js",
     "productName": "SciStudio",
     "directories": {
       "output": "dist",

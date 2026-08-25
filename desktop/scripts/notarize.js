@@ -1,48 +1,55 @@
+#!/usr/bin/env node
 "use strict";
 
 /**
- * electron-builder `afterSign` hook: notarize the signed .app, visibly (#2176).
+ * Apple notarization, driven by us instead of by electron-builder (#2176).
  *
- * electron-builder can notarize on its own, and did until this hook existed.
- * The problem was never that it failed -- it was that it was silent, and that
- * it handed an unbounded wait to a third party.
+ * Three subcommands, deliberately separable so Apple's queue is not on the
+ * release critical path:
+ *
+ *     node scripts/notarize.js submit <artifact>   # upload, print the id, exit
+ *     node scripts/notarize.js wait <submissionId> # poll until a verdict
+ *     node scripts/notarize.js staple <artifact>   # attach the ticket
+ *
+ * ## Why not electron-builder's own notarization
  *
  * `@electron/notarize` runs:
  *
  *     xcrun notarytool submit <zip> --key ... --wait --output-format json
  *
- * Two separate defects come out of that one line.
+ * `--output-format json` suppresses every progress line -- notarytool emits one
+ * object when it finishes and nothing before it -- so a submission queued behind
+ * Apple and one that is wedged produce byte-identical logs: empty ones. Two
+ * 0.3.4 builds were cancelled at 118 and 79 minutes reading that silence as a
+ * hang. `DEBUG: electron-notarize*` (#2174) did not help: it surfaces that
+ * package's phase logging, which stops where notarytool is spawned.
  *
- * `--output-format json` suppresses every progress line: notarytool emits one
- * JSON object when it finishes and nothing before it. So a submission queued
- * behind Apple and a submission that is wedged produce byte-identical logs --
- * empty ones. Two 0.3.4 builds were cancelled at 118 and 79 minutes on the
- * strength of that silence, neither ever allowed to finish, leaving it unknown
- * whether notarization worked at all. #2174 tried to fix this with
- * `DEBUG: electron-notarize*`, which surfaces @electron/notarize's own phase
- * logging and stops at the moment notarytool is spawned: enough to prove
- * signing takes ~2 min and `ditto` 26 s, blind to the only phase that mattered.
+ * `--wait` is separately untrustworthy -- it has been reported outliving Apple's
+ * own verdict -- so this polls `notarytool info` instead. Every poll is a fresh
+ * short-lived process that cannot wedge, and every poll writes a line.
  *
- * `--wait` is the second defect, and the reason this hook polls instead of
- * asking for a bounded wait. There are reports of `submit --wait` sitting for
- * hours after Apple has already finished processing -- the wait loop itself
- * wedging, not the queue. Anything built on `--wait` inherits that, including
- * `--wait --timeout`, which still depends on the same loop noticing. So we
- * submit without waiting, take the submission ID, and drive the polling here:
- * each `notarytool info` is a fresh short-lived process that cannot wedge, and
- * every poll writes a line, so elapsed time is legible in the build log while
- * it is happening rather than only in hindsight.
+ * ## Why submit and wait are separate commands
  *
- * The hook keeps the semantics electron-builder had -- the ticket is stapled to
- * the .app *before* the dmg is built around it, because `afterSign` fires
- * between signing and target assembly. It differs in one deliberate way: a
- * notarization error fails the build. electron-builder fails soft here (#2096),
- * which is the reason the workflow needs a separate `Verify signature...` step
- * to assert the outcome rather than trust the build log.
+ * Measured on 2026-08-25: signing 2 min 36 s, `ditto` 20 s, upload 17 s, and
+ * then **61 consecutive polls, every one `In Progress`** -- Apple held the
+ * submission for over an hour without a verdict and the build timed out. That
+ * is not a failure anything here can fix, and waiting inside the build job
+ * throws away the queue position along with the signed artifact.
  *
- * On timeout the build fails with the submission ID, because the submission is
- * still live at Apple and stays queryable with `notarytool history`/`log`.
- * That ID is the thing every earlier cancelled build failed to produce.
+ * So the build submits and stops. A later job waits and staples the artifact
+ * the build kept. A slow queue then costs a delay instead of a rebuild, and the
+ * ticket Apple eventually issues still matches the artifact we have -- it is
+ * bound to the signed code's cdhash, so a rebuilt artifact would need a fresh
+ * submission and a fresh hour.
+ *
+ * ## What gets submitted
+ *
+ * The dmg, not the `.app`. Stapling has to attach to something that outlives
+ * the build, and the dmg is the artifact that ships. The `.app` inside is
+ * therefore not itself stapled: Gatekeeper resolves it online, which every
+ * download-from-GitHub user is. Only a first launch with no network would
+ * notice. A `.app` (or any bundle directory) is still accepted here and gets
+ * zipped first, because notarytool takes an archive rather than a directory.
  */
 
 const { spawn } = require("node:child_process");
@@ -102,10 +109,10 @@ function authArgs({ keyPath, keyId, issuer }) {
  *
  * Neither `--output-format json` nor `--wait` may appear here; both are tested
  * for. The first is what made a stall indistinguishable from progress, and the
- * second is the unbounded wait this hook replaces with its own polling.
+ * second both wedges and would put Apple's queue back inside the build.
  */
-function submitArgs({ zipPath, ...creds }) {
-  return ["notarytool", "submit", zipPath, ...authArgs(creds)];
+function submitArgs({ artifactPath, ...creds }) {
+  return ["notarytool", "submit", artifactPath, ...authArgs(creds)];
 }
 
 function infoArgs({ submissionId, ...creds }) {
@@ -154,10 +161,10 @@ function timeoutMinutes(env) {
  *
  * The file is the load-bearing half. GitHub drops the tail of an in-progress
  * step's log when a job is cancelled or times out -- which is exactly when the
- * trace is wanted. A cancelled 0.3.4 build lost twelve minutes of hook output
- * that way, leaving the runner's own `Terminate orphan process (notarytool)`
- * as the only evidence the hook had run at all. The workflow cats this file in
- * an `if: always()` step, so the trace survives however the job ends.
+ * trace is wanted. A cancelled 0.3.4 build lost twelve minutes of output that
+ * way, leaving the runner's own `Terminate orphan process (notarytool)` as the
+ * only evidence anything had run. The workflow cats this file in an
+ * `if: always()` step, so the trace survives however the job ends.
  */
 function logPath(env) {
   return env.SCISTUDIO_NOTARIZE_LOG || path.join(env.RUNNER_TEMP || os.tmpdir(), "notarize.log");
@@ -202,25 +209,60 @@ function run(command, args, { label = command, quiet = false } = {}) {
   });
 }
 
-async function zipApp(appPath) {
+/**
+ * notarytool takes a file, not a bundle directory. A dmg is already a file; a
+ * `.app` has to be zipped, with `ditto --sequesterRsrc --keepParent` so the
+ * signature survives the round trip.
+ */
+async function archiveFor(artifactPath) {
+  if (fs.statSync(artifactPath).isFile()) {
+    return { uploadPath: artifactPath, cleanup: null };
+  }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "scistudio-notarize-"));
-  const zipPath = path.join(dir, "app.zip");
-  log(`compressing ${path.basename(appPath)} for submission`);
+  const zipPath = path.join(dir, "upload.zip");
+  log(`compressing ${path.basename(artifactPath)} for submission`);
   const { code } = await run(
     "ditto",
-    ["-c", "-k", "--sequesterRsrc", "--keepParent", appPath, zipPath],
+    ["-c", "-k", "--sequesterRsrc", "--keepParent", artifactPath, zipPath],
     { label: "ditto" },
   );
   if (code !== 0) {
     throw new Error(`ditto failed with exit code ${code}`);
   }
-  const { size } = fs.statSync(zipPath);
-  log(`submission archive is ${(size / 1024 / 1024).toFixed(0)} MB`);
-  return { zipPath, dir };
+  return { uploadPath: zipPath, cleanup: dir };
 }
 
-/** Poll Apple until the submission reaches a terminal status or we give up. */
-async function waitForVerdict(submissionId, creds, deadline) {
+/** `submit` -- upload and return the submission id without waiting. */
+async function commandSubmit(artifactPath, creds) {
+  const { uploadPath, cleanup } = await archiveFor(artifactPath);
+  try {
+    const { size } = fs.statSync(uploadPath);
+    log(`submission archive is ${(size / 1024 / 1024).toFixed(0)} MB`);
+    log("uploading to Apple");
+    const result = await run("xcrun", submitArgs({ artifactPath: uploadPath, ...creds }), {
+      label: "notarytool submit",
+    });
+    const submissionId = parseSubmissionId(result.transcript);
+    if (result.code !== 0 || !submissionId) {
+      throw new Error(`notarytool submit failed with exit code ${result.code}`);
+    }
+    log(`submission ${submissionId}`);
+    log("Apple is now queueing this; the build does not wait for it");
+    return submissionId;
+  } finally {
+    if (cleanup) {
+      fs.rmSync(cleanup, { recursive: true, force: true });
+    }
+  }
+}
+
+/** `wait` -- poll until Apple returns a verdict, or give up with the id intact. */
+async function commandWait(submissionId, creds, env) {
+  const started = Date.now();
+  const minutes = timeoutMinutes(env);
+  const deadline = started + minutes * 60_000;
+  log(`waiting on ${submissionId}; polling every 60s, giving up after ${minutes} min`);
+
   let polls = 0;
   for (;;) {
     const { transcript } = await run("xcrun", infoArgs({ submissionId, ...creds }), {
@@ -229,98 +271,107 @@ async function waitForVerdict(submissionId, creds, deadline) {
     });
     polls += 1;
     const status = parseStatus(transcript) || "unknown";
-    const elapsed = Math.round((Date.now() - deadline.started) / 60_000);
-    log(`poll ${polls} at ${elapsed} min: ${status}`);
+    log(`poll ${polls} at ${Math.round((Date.now() - started) / 60_000)} min: ${status}`);
+
     if (isTerminal(status)) {
-      return status;
-    }
-    if (Date.now() >= deadline.at) {
-      return null;
-    }
-    await sleep(POLL_INTERVAL_MS);
-  }
-}
-
-async function notarizeApp(appPath, creds, env) {
-  const { zipPath, dir } = await zipApp(appPath);
-  const started = Date.now();
-  const minutes = timeoutMinutes(env);
-  try {
-    log("uploading to Apple");
-    const submit = await run("xcrun", submitArgs({ zipPath, ...creds }), {
-      label: "notarytool submit",
-    });
-    const submissionId = parseSubmissionId(submit.transcript);
-    if (submit.code !== 0 || !submissionId) {
-      throw new Error(`notarytool submit failed with exit code ${submit.code}`);
-    }
-    log(`submission ${submissionId}; polling every 60s, giving up after ${minutes} min`);
-    log(`check independently with: xcrun notarytool history --key ... --key-id ... --issuer ...`);
-
-    const status = await waitForVerdict(submissionId, creds, {
-      started,
-      at: started + minutes * 60_000,
-    });
-
-    if (status === null) {
-      throw new Error(
-        `notarization did not finish within ${minutes} min. The submission is still live at ` +
-          `Apple: ${submissionId}. Query it with \`xcrun notarytool info ${submissionId}\` rather ` +
-          `than resubmitting.`,
-      );
-    }
-    if (status !== "Accepted") {
+      if (status === "Accepted") {
+        return;
+      }
       // The status says *that* Apple refused; only the log says why.
       log("fetching Apple's rejection detail");
       await run("xcrun", logArgs({ submissionId, ...creds }), { label: "notarytool log" });
       throw new Error(`Apple returned ${status} for submission ${submissionId}`);
     }
-
-    log("accepted; stapling the ticket");
-    const stapled = await run("xcrun", ["stapler", "staple", appPath], { label: "stapler" });
-    if (stapled.code !== 0) {
-      throw new Error(`stapler failed with exit code ${stapled.code}`);
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `no verdict within ${minutes} min. The submission is still live at Apple: ` +
+          `${submissionId}. Re-run this wait rather than resubmitting -- a new submission ` +
+          `starts a new queue wait, and the ticket is bound to the artifact already uploaded.`,
+      );
     }
-    log(`notarized and stapled in ${((Date.now() - started) / 60_000).toFixed(1)} min`);
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
+    await sleep(POLL_INTERVAL_MS);
   }
 }
 
-/** The electron-builder hook itself. */
-async function afterSign(context) {
-  if (context.electronPlatformName !== "darwin") {
+/** `staple` -- attach the issued ticket to the artifact we kept. */
+async function commandStaple(artifactPath) {
+  log(`stapling ${path.basename(artifactPath)}`);
+  const { code } = await run("xcrun", ["stapler", "staple", artifactPath], { label: "stapler" });
+  if (code !== 0) {
+    throw new Error(`stapler failed with exit code ${code}`);
+  }
+  log("stapled");
+}
+
+/**
+ * Publish a value to the GitHub step output, when running in Actions.
+ *
+ * The submission id has to reach the stapling job somehow, and a step output is
+ * the channel that does not require the artifact to be re-read.
+ */
+function emitOutput(name, value) {
+  const file = process.env.GITHUB_OUTPUT;
+  if (!file) {
     return;
   }
+  try {
+    fs.appendFileSync(file, `${name}=${value}\n`);
+  } catch (error) {
+    log(`could not write ${name} to GITHUB_OUTPUT: ${error.message}`);
+  }
+}
+
+async function main(argv) {
+  const [command, target] = argv;
+  if (!command || !target) {
+    process.stderr.write("usage: notarize.js <submit|wait|staple> <artifact|submissionId>\n");
+    return 2;
+  }
+
   const creds = credentials(process.env);
   if (!creds) {
+    // Matches the pre-#2176 behaviour: a developer with no App Store Connect
+    // key gets an unsigned local build rather than a failure.
     log("no App Store Connect credentials in the environment; skipping notarization");
-    return;
+    return 0;
   }
-  const appName = context.packager.appInfo.productFilename;
-  const appPath = path.join(context.appOutDir, `${appName}.app`);
-  if (!fs.existsSync(appPath)) {
-    throw new Error(`expected a signed app at ${appPath}`);
+
+  if (command === "submit") {
+    const id = await commandSubmit(target, creds);
+    emitOutput("submission-id", id);
+    return 0;
   }
-  await notarizeApp(appPath, creds, process.env);
+  if (command === "wait") {
+    await commandWait(target, creds, process.env);
+    return 0;
+  }
+  if (command === "staple") {
+    await commandStaple(target);
+    return 0;
+  }
+  process.stderr.write(`unknown command: ${command}\n`);
+  return 2;
 }
 
-// Emitted when electron-builder resolves the hook, which happens while it is
-// still loading configuration -- within the first second of the build, long
-// before any truncation risk. If a log shows no [notarize] lines at all, the
-// absence of *this* one is what separates "the hook was never wired", a real
-// defect, from "the tail was lost", which is what actually happened to the
-// first run this hook shipped in.
-log("hook loaded; electron-builder's own notarization is disabled");
+if (require.main === module) {
+  main(process.argv.slice(2)).then(
+    (code) => process.exit(code),
+    (error) => {
+      log(`FAILED: ${error.message}`);
+      process.exit(1);
+    },
+  );
+}
 
-module.exports = afterSign;
-module.exports.default = afterSign;
-module.exports.logPath = logPath;
-module.exports.credentials = credentials;
-module.exports.submitArgs = submitArgs;
-module.exports.infoArgs = infoArgs;
-module.exports.logArgs = logArgs;
-module.exports.parseSubmissionId = parseSubmissionId;
-module.exports.parseStatus = parseStatus;
-module.exports.isTerminal = isTerminal;
-module.exports.timeoutMinutes = timeoutMinutes;
+module.exports = {
+  credentials,
+  submitArgs,
+  infoArgs,
+  logArgs,
+  parseSubmissionId,
+  parseStatus,
+  isTerminal,
+  timeoutMinutes,
+  logPath,
+  main,
+};

@@ -52,7 +52,7 @@ test("the submit argv never asks for JSON output", () => {
   // Reintroducing `--output-format json` -- by hand, or by letting
   // electron-builder notarize again -- restores the exact blindness that cost
   // two cancelled builds. It is the one flag that must never come back.
-  const args = notarize.submitArgs({ zipPath: "/tmp/app.zip", ...CREDS });
+  const args = notarize.submitArgs({ artifactPath: "/tmp/SciStudio.dmg", ...CREDS });
   assert.ok(!args.includes("--output-format"), `--output-format present: ${args.join(" ")}`);
   assert.ok(!args.includes("json"), `json output requested: ${args.join(" ")}`);
 });
@@ -61,9 +61,9 @@ test("the submit argv does not wait; polling is this hook's job", () => {
   // `--wait` hands an unbounded wait to a process that has been observed
   // wedging after Apple already returned a verdict. Submitting and polling
   // separately means every check is a fresh, short-lived process.
-  const args = notarize.submitArgs({ zipPath: "/tmp/app.zip", ...CREDS });
+  const args = notarize.submitArgs({ artifactPath: "/tmp/SciStudio.dmg", ...CREDS });
   assert.ok(!args.includes("--wait"), `--wait present: ${args.join(" ")}`);
-  assert.deepEqual(args.slice(0, 3), ["notarytool", "submit", "/tmp/app.zip"]);
+  assert.deepEqual(args.slice(0, 3), ["notarytool", "submit", "/tmp/SciStudio.dmg"]);
   assert.equal(args[args.indexOf("--key") + 1], CREDS.keyPath);
   assert.equal(args[args.indexOf("--key-id") + 1], CREDS.keyId);
   assert.equal(args[args.indexOf("--issuer") + 1], CREDS.issuer);
@@ -165,20 +165,19 @@ test("the trace is mirrored to a file, defaulting under the runner temp dir", ()
   assert.ok(notarize.logPath({}).endsWith("notarize.log"));
 });
 
-test("the notarization bound sits below the job's own timeout", () => {
-  // Two equal bounds race, and the job wins: it is killed before the hook can
-  // say which submission was left in flight -- the one thing a timed-out build
-  // needs to report. The headroom also has to cover signing, which precedes
-  // notarization and has been measured at anywhere from 2 to 12 minutes.
+test("the notarization bound sits below the staple job's own timeout", () => {
+  // Two equal bounds race, and the job wins: it is killed before the script can
+  // say which submission was left in flight -- the one thing a timed-out wait
+  // needs to report, since re-waiting is free and resubmitting costs an hour.
   const wf = fs.readFileSync(
-    path.join(__dirname, "..", "..", ".github", "workflows", "desktop-macos-dmg.yml"),
+    path.join(__dirname, "..", "..", ".github", "workflows", "desktop-macos-staple.yml"),
     "utf8",
   );
   const job = Number(/timeout-minutes:\s*(\d+)/.exec(wf)?.[1]);
-  const hook = Number(/SCISTUDIO_NOTARIZE_TIMEOUT_MIN:\s*"?(\d+)"?/.exec(wf)?.[1]);
-  assert.ok(Number.isFinite(job), "the macOS job has no timeout-minutes");
-  assert.ok(Number.isFinite(hook), "the build step does not bound notarization");
-  assert.ok(hook + 15 <= job, `notarization bound ${hook} leaves no headroom under job timeout ${job}`);
+  const bound = Number(/SCISTUDIO_NOTARIZE_TIMEOUT_MIN:\s*"?(\d+)"?/.exec(wf)?.[1]);
+  assert.ok(Number.isFinite(job), "the staple job has no timeout-minutes");
+  assert.ok(Number.isFinite(bound), "the staple job does not bound the wait");
+  assert.ok(bound + 15 <= job, `wait bound ${bound} leaves no headroom under job timeout ${job}`);
 });
 
 test("the workflow prints the trace however the job ends", () => {
@@ -227,28 +226,76 @@ test("a complete credential set is accepted", () => {
 });
 
 // --------------------------------------------------------------------------
-// Wiring. A correct hook nobody calls is worth nothing.
+// The split. Apple's queue must not be able to fail a build.
 // --------------------------------------------------------------------------
 
-test("the hook is wired as afterSign and points at a file that exists", () => {
-  assert.equal(pkg.build.afterSign, "scripts/notarize.js");
-  assert.ok(fs.existsSync(path.join(__dirname, "..", pkg.build.afterSign)));
-  assert.equal(typeof notarize, "function");
+const workflow = (name) =>
+  fs.readFileSync(path.join(__dirname, "..", "..", ".github", "workflows", name), "utf8");
+
+test("electron-builder does not notarize, and no hook re-adds it", () => {
+  // `notarize: true` would put a blind `--wait --output-format json` submission
+  // back inside the build -- the exact thing measured holding a build for 61
+  // minutes. An `afterSign` hook would do the same at a different seam.
+  assert.equal(pkg.build.mac.notarize, false);
+  assert.equal(pkg.build.afterSign, undefined);
 });
 
-test("electron-builder's own notarization is off, so Apple is asked once", () => {
-  // Leaving `notarize: true` alongside the hook submits the same app twice --
-  // once blind, once visible -- and doubles an already unbounded wait.
-  assert.equal(pkg.build.mac.notarize, false);
+test("the build submits and does not wait", () => {
+  // Waiting here discards the signed dmg *and* the queue position when Apple is
+  // slow, so the next attempt starts another hour from zero.
+  const wf = workflow("desktop-macos-dmg.yml");
+  assert.match(wf, /notarize\.js submit/);
+  assert.ok(!/notarize\.js wait/.test(wf), "the build workflow waits on Apple");
+  assert.ok(!/notarize\.js staple/.test(wf), "the build workflow staples before a ticket exists");
+});
+
+test("the build keeps the dmg, because the ticket is bound to it", () => {
+  // Apple issues the ticket against this artifact's cdhash. A rebuild to staple
+  // would invalidate it and need a fresh submission.
+  const wf = workflow("desktop-macos-dmg.yml");
+  assert.match(wf, /upload-artifact/);
+  assert.match(wf, /desktop\/dist\/\*\.dmg/);
+});
+
+test("the build cannot assert a ticket it has not been issued", () => {
+  // `spctl` and `stapler validate` both check for a notarization ticket. Run in
+  // the build they would fail every time now that submission does not wait.
+  const wf = workflow("desktop-macos-dmg.yml");
+  const verify = wf
+    .slice(wf.indexOf("Verify signature"), wf.indexOf("Verify DMG artifact"))
+    .split("\n")
+    .filter((line) => !line.trim().startsWith("#"))
+    .join("\n");
+  assert.ok(!/stapler validate/.test(verify), "the build validates a ticket that cannot exist yet");
+  assert.ok(!/spctl/.test(verify), "the build runs spctl before notarization completes");
+});
+
+test("the staple workflow waits, staples, and asserts the ticket", () => {
+  const wf = workflow("desktop-macos-staple.yml");
+  assert.match(wf, /notarize\.js wait/);
+  assert.match(wf, /notarize\.js staple/);
+  assert.match(wf, /stapler validate/);
+  assert.match(wf, /spctl/);
+  // Resubmitting is the one thing that must not happen on a retry: it buys a
+  // fresh queue wait and invalidates nothing.
+  assert.ok(!/notarize\.js submit/.test(wf), "the staple workflow resubmits instead of waiting");
+});
+
+test("the staple workflow can read another run's artifact", () => {
+  // Downloading across runs needs `actions: read`; `contents` alone fails with a
+  // 403 that reads like a bad run id.
+  const wf = workflow("desktop-macos-staple.yml");
+  assert.match(wf, /actions:\s*read/);
+  assert.match(wf, /run-id:/);
 });
 
 test("the hardened runtime stays on", () => {
-  // Apple refuses to notarize without it, so a regression here would surface as
-  // a notarization rejection rather than as a config error.
+  // Apple refuses to notarize without it, so a regression would surface as a
+  // rejection an hour later rather than as a config error.
   assert.equal(pkg.build.mac.hardenedRuntime, true);
 });
 
-test("the hook is a build tool and does not ship inside the app", () => {
+test("the notarization script is a build tool and does not ship inside the app", () => {
   // `files` is the asar allowlist. Shipping build scripts would put the
   // notarization argv, and the shape of our credentials handling, in every
   // user's install for no reason.

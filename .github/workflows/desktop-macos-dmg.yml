@@ -117,24 +117,33 @@ jobs:
           chmod 600 "$RUNNER_TEMP/private_keys/AuthKey.p8"
 
       - name: Build DMG
+        # #2176: this signs but does not notarize -- `"notarize": false` in
+        # package.json. The build log still prints "skipped macOS notarization"
+        # from macPackager; that is the setting working, not a failure.
+        # Notarization is the next step, and it does not wait.
+        run: npm --prefix desktop run dist:dmg
+
+      # #2176: submit and stop. Apple held a 0.3.4 submission for over an hour
+      # without a verdict (61 consecutive `In Progress` polls), which is not a
+      # failure anything here can fix -- but waiting for it inside the build
+      # discards the signed dmg and the queue position together, so the next
+      # attempt starts another hour from zero.
+      #
+      # The dmg is submitted rather than the .app, because stapling has to
+      # attach to something that outlives this job. `Desktop macOS Staple`
+      # finishes the job once Apple returns a verdict.
+      - name: Submit for notarization
+        id: notarize
+        if: env.HAS_NOTARY_KEY == 'true'
         env:
-          APPLE_API_KEY: ${{ env.HAS_NOTARY_KEY == 'true' && format('{0}/private_keys/AuthKey.p8', runner.temp) || '' }}
+          APPLE_API_KEY: ${{ format('{0}/private_keys/AuthKey.p8', runner.temp) }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          # #2176: these three are read by desktop/scripts/notarize.js, the
-          # `afterSign` hook that now performs notarization instead of
-          # electron-builder. Note the build log still prints
-          # "skipped macOS notarization" from macPackager -- that is
-          # `"notarize": false` in package.json doing its job, not a skip.
-          # The hook's own output is prefixed [notarize].
-          #
-          # This bound must stay comfortably below the job's timeout-minutes
-          # (#2172). If the job dies first the hook never gets to say which
-          # submission was left in flight, which is the one thing a timed-out
-          # build needs to report. The headroom covers signing, which precedes
-          # notarization and has been measured anywhere from 2 to 12 minutes.
-          SCISTUDIO_NOTARIZE_TIMEOUT_MIN: "60"
-        run: npm --prefix desktop run dist:dmg
+        run: |
+          set -euo pipefail
+          DMG=$(find desktop/dist -maxdepth 1 -name '*.dmg' -print -quit)
+          test -n "$DMG" || { echo "::error::no dmg to submit"; exit 1; }
+          node desktop/scripts/notarize.js submit "$DMG"
 
       # #2176: the hook mirrors its progress to this file because GitHub drops
       # the tail of an in-progress step's log when a job is cancelled or times
@@ -177,21 +186,36 @@ jobs:
             exit 1
           }
 
-          # Gatekeeper's own verdict — the check that corresponds to a user
-          # double-clicking the app.
-          spctl -a -vvv -t exec "$APP"
-
-          # A stapled ticket is the only proof notarization actually ran.
-          xcrun stapler validate "$APP"
+          # `spctl` and `stapler validate` are deliberately absent here. Both
+          # assert a notarization ticket, and at this point the submission has
+          # only just been uploaded -- Apple has not issued one yet. They run in
+          # `Desktop macOS Staple`, against the stapled dmg, which is the
+          # artifact that actually ships.
 
       - name: Verify DMG artifact exists
         run: |
           test -n "$(find desktop/dist -maxdepth 1 -name '*.dmg' -print -quit)"
           find desktop/dist -maxdepth 1 -type f -print
 
+      # #2176: the dmg has to survive this job, because the ticket Apple will
+      # issue is bound to this exact signed artifact's cdhash. Rebuilding to
+      # staple would invalidate it and require a fresh submission.
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v7
         with:
           name: scistudio-macos-dmg
           path: desktop/dist/*.dmg
           if-no-files-found: error
+
+      - name: Report how to finish notarization
+        if: env.HAS_NOTARY_KEY == 'true'
+        run: |
+          echo "### macOS notarization submitted" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Submission: \`${{ steps.notarize.outputs.submission-id }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "The dmg is signed but **not yet stapled**. Run the" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`Desktop macOS Staple\` workflow with:" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`run_id\`: \`${{ github.run_id }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`submission_id\`: \`${{ steps.notarize.outputs.submission-id }}\`" >> "$GITHUB_STEP_SUMMARY"

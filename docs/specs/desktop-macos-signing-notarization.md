@@ -72,8 +72,8 @@ All four steps are necessary. Signing alone does not remove the prompt.
 |---|---|---|
 | Developer ID signature | `mac.identity` (auto-detected from the keychain) | Must be a **Developer ID Application** certificate — not "Apple Development", not a Mac App Store certificate |
 | Hardened runtime | `mac.hardenedRuntime: true` | Apple refuses to notarize without it |
-| Notarization | `build.afterSign: scripts/notarize.js` | electron-builder's native `mac.notarize` was used until #2176 and is now deliberately `false`; see section 6.5 |
-| Stapling | performed by the same hook | Without a stapled ticket the **first launch needs network access** to reach Apple, so an offline first run still prompts |
+| Notarization | the `Desktop macOS DMG` workflow submits; `mac.notarize` is deliberately `false` | electron-builder's native path waits on Apple inside the build, which has no upper bound; see section 6.5 |
+| Stapling | the `Desktop macOS Staple` workflow, once Apple returns a verdict | Without a stapled ticket the **first launch needs network access** to reach Apple, so an offline first run still prompts |
 
 `mac.gatekeeperAssess` stays `false`. It controls a local `spctl` assessment
 electron-builder runs on the build machine; it does not affect what ships, and
@@ -239,63 +239,6 @@ signing was expected:
 
 Any of these failing fails the build.
 
-### 6.5 Notarization runs from a hook, and polls rather than waits (#2176)
-
-`mac.notarize` is `false`. Notarization is performed by an `afterSign` hook,
-`desktop/scripts/notarize.js`, which electron-builder invokes between signing
-the `.app` and assembling the dmg around it — so the ticket is still stapled
-before the dmg exists, exactly as the native path did.
-
-The move was forced by two properties of the command `@electron/notarize`
-issues:
-
-```
-xcrun notarytool submit <zip> --key ... --wait --output-format json
-```
-
-**`--output-format json` makes a stall indistinguishable from progress.**
-notarytool emits one JSON object when it finishes and nothing before it. A
-submission sitting in Apple's queue and a submission that is wedged therefore
-produce byte-identical logs: empty ones. Two 0.3.4 builds were cancelled at 118
-and 79 minutes reading that silence as a hang, and because neither was allowed
-to finish it remained unknown whether notarization worked at all.
-
-`DEBUG: electron-notarize*` (#2174) did not fix this. It surfaces that
-package's own phase logging, which stops at the moment notarytool is spawned.
-That bounded the problem usefully — packaging plus signing measured ~2 min and
-`ditto` 26 s, ruling out everything before submission — but it cannot see the
-one phase that matters.
-
-**`--wait` is not a trustworthy bound.** It has been reported sitting for hours
-after Apple had already returned a verdict, so the wait loop itself can wedge;
-`--timeout` would still depend on that same loop noticing.
-
-So the hook submits *without* waiting, keeps the submission ID, and drives the
-polling itself: `notarytool info` every 60 s, bounded at 90 minutes
-(`SCISTUDIO_NOTARIZE_TIMEOUT_MIN` overrides). Each poll is a fresh short-lived
-process that cannot wedge, and each writes a line, so elapsed time is legible
-while the build is running rather than only in hindsight.
-
-Three behaviours are deliberate:
-
-- **A rejection fails the build.** notarytool exits 0 for a submission Apple
-  refused — the submission completed, the verdict was `Invalid` — so the status
-  line decides, not the exit status. On rejection the hook runs
-  `notarytool log <id>` first, because the status says only *that* Apple
-  refused.
-- **A timeout fails the build carrying the submission ID.** The submission stays
-  live at Apple, so the ID keeps it queryable with `notarytool info`/`history`
-  instead of forcing a blind resubmit. Every build cancelled before #2176 failed
-  to produce one.
-- **Missing credentials skip; partial credentials fail.** A developer with no
-  App Store Connect key still gets an unsigned local build, which is the
-  behaviour section 6.2 describes. A half-configured set is always a
-  misconfiguration, and electron-builder threw there too.
-
-The build log still prints `skipped macOS notarization` from
-`macPackager.notarizeIfProvided()`. That is `mac.notarize: false` working as
-intended, not a skip; the hook's own output is prefixed `[notarize]`.
-
 ### 6.4 Local build
 
 For a one-off local build on macOS, the same credentials work as environment
@@ -313,12 +256,95 @@ npm --prefix desktop run dist:dmg
 The Developer ID Application certificate must be in the local keychain;
 electron-builder selects it automatically.
 
+`dist:dmg` signs but does not notarize (section 6.5), so a local dmg still
+meets Gatekeeper until the two remaining phases are run by hand:
+
+```sh
+node desktop/scripts/notarize.js submit desktop/dist/SciStudio-*.dmg   # prints the id
+node desktop/scripts/notarize.js wait <submission-id>
+node desktop/scripts/notarize.js staple desktop/dist/SciStudio-*.dmg
+```
+
+`wait` is safe to re-run and safe to interrupt. Re-submitting is not: the ticket
+is bound to that dmg's cdhash, so a second submission buys a second queue wait
+and invalidates nothing.
+
+### 6.5 Notarization is submitted by the build and finished separately (#2176)
+
+`mac.notarize` is `false` and there is no `afterSign` hook. electron-builder
+signs; `desktop/scripts/notarize.js` does everything else, in two phases that
+run in different jobs.
+
+**Why it left electron-builder.** `@electron/notarize` runs
+
+```
+xcrun notarytool submit <zip> --key ... --wait --output-format json
+```
+
+and both flags are load-bearing mistakes for us. `--output-format json`
+suppresses every progress line — notarytool emits one object at the end and
+nothing before it — so a submission queued behind Apple and one that is wedged
+produce byte-identical logs: empty ones. Two 0.3.4 builds were cancelled at 118
+and 79 minutes reading that silence as a hang. `DEBUG: electron-notarize*`
+(#2174) did not fix it: that surfaces the package's own phase logging, which
+stops where notarytool is spawned. `--wait` is separately untrustworthy — it has
+been reported outliving Apple's own verdict — so the script polls
+`notarytool info` instead, one fresh short-lived process per minute, each
+writing a line.
+
+**Why it is split across two jobs.** Measured on 2026-08-25 with that
+instrumentation: signing 2 min 36 s, `ditto` 20 s, upload 17 s — and then
+**61 consecutive polls, every one `In Progress`**. Apple held the submission for
+over an hour without a verdict.
+
+That is not a failure anything here can fix. What *was* fixable is the cost:
+waiting inside the build discarded the signed dmg together with the queue
+position, so each attempt began another hour from zero. So:
+
+| Job | Does |
+|---|---|
+| `Desktop macOS DMG` | sign, build the dmg, submit it, upload it, print the submission ID — then stop |
+| `Desktop macOS Staple` | wait for the verdict, staple the ticket to that dmg, assert the result |
+
+A slow queue now costs a delay rather than a rebuild. Re-running the staple
+workflow is free; **resubmitting is not** — the ticket is bound to the signed
+artifact's cdhash, so a rebuilt dmg needs a fresh submission and a fresh wait,
+and the old one was never invalid.
+
+**What is submitted.** The dmg, not the `.app`. Stapling has to attach to
+something that outlives the build, and the dmg is what ships. The `.app` inside
+is therefore not itself stapled: Gatekeeper resolves it online, which every
+download-from-GitHub user is. Only a first launch with no network would notice,
+and that is the trade the split buys.
+
+**Where the assertions live.** The build job can only assert what exists at
+build time — the signature and the hardened runtime. `spctl` and
+`xcrun stapler validate` both require a ticket, so they run in the staple job,
+against the shipped dmg and the app mounted from it. That is also the more
+faithful check: it asks Gatekeeper about the app a user will actually launch.
+
+**Where the trace lives.** The script mirrors every line to
+`$RUNNER_TEMP/notarize.log`, and both workflows print it in an `if: always()`
+step. GitHub drops the tail of an in-progress step's log when a job is cancelled
+or times out — exactly when the trace is wanted. A cancelled build lost twelve
+minutes of output that way, leaving the runner's own
+`Terminate orphan process (notarytool)` as the only evidence anything had run.
+
+**Failure behaviour.** A rejection fails the job: notarytool exits 0 for a
+submission Apple *refused* — it completed, the verdict was `Invalid` — so the
+status line decides, not the exit status, and `notarytool log <id>` runs first
+because the status says only *that* Apple refused. A timeout fails carrying the
+submission ID, which keeps the submission queryable instead of forcing a blind
+resubmit. Missing credentials skip; partial credentials fail, because a
+half-configured set is always a misconfiguration.
+
 ## 7. Verification
 
 Automated, any platform — `desktop/test/macos-signing.test.js`:
 
-- `hardenedRuntime` is on, `mac.notarize` is `false`, and `build.afterSign`
-  points at `scripts/notarize.js` (#2176).
+- `hardenedRuntime` is on, `mac.notarize` is `false`, and there is no
+  `build.afterSign` — notarization is driven by the workflows, not by
+  electron-builder (#2176).
 - `entitlements` and `entitlementsInherit` are set and identical (section 3.2).
 - The configured entitlements path exists. electron-builder returns an
   explicitly configured entitlements path verbatim rather than resolving it
