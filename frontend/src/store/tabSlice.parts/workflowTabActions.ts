@@ -167,6 +167,23 @@ export function createSyncActiveTab(set: StoreSetter, get: StoreGetter): TabSlic
   return () => {
     const state = get();
     if (!state.activeTabId) return;
+    const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
+    if (activeTab?.kind === "preview") {
+      // #2112 — while a preview tab owns focus, the live workflow slice still
+      // belongs to the backing workflow tab (restoreTab on a preview only sets
+      // activeTabId). Capture into that tab so autosave / WebSocket updates
+      // landing during the preview are not lost when switching back restores
+      // the snapshot. captureWorkflowTab derives `id` from activeTabId, so the
+      // tab's own id must be preserved explicitly.
+      set({
+        tabs: state.tabs.map((t) =>
+          t.kind === "workflow" && t.workflowId === state.workflowId
+            ? { ...captureActiveTab(state, t), id: t.id }
+            : t,
+        ),
+      });
+      return;
+    }
     set({
       tabs: state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t)),
     });

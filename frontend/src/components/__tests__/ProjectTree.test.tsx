@@ -211,6 +211,48 @@ describe("ProjectTree — Data tree double-click opens a preview tab (#2112)", (
     expect(openFileTab).not.toHaveBeenCalled();
   });
 
+  it("double-click on a .zarr store directory opens a preview (directory-backed store)", async () => {
+    registerDataPathMock.mockResolvedValue({
+      ref: "data://zarr9",
+      recorded_type: "Array",
+      type_chain: ["DataObject", "Array"],
+      display_name: "stack.zarr",
+    });
+    const openPreviewTab = vi.fn();
+    useAppStore.setState({ openPreviewTab });
+
+    // The tree API reports .zarr stores as directories; they must still reach
+    // the preview branch instead of the directory early return.
+    await renderDataTree([{ name: "stack.zarr", type: "directory" }]);
+    fireEvent.doubleClick(screen.getByText("stack.zarr"));
+
+    await waitFor(() =>
+      expect(registerDataPathMock).toHaveBeenCalledWith({
+        projectId: "proj-1",
+        path: "data/stack.zarr",
+      }),
+    );
+    await waitFor(() =>
+      expect(openPreviewTab).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "data_ref", ref: "data://zarr9" }),
+        "stack.zarr",
+      ),
+    );
+  });
+
+  it("double-click on a plain directory in the Data tree does nothing", async () => {
+    const openPreviewTab = vi.fn();
+    useAppStore.setState({ openPreviewTab });
+
+    await renderDataTree([{ name: "raw", type: "directory" }]);
+    fireEvent.doubleClick(screen.getByText("raw"));
+
+    // Let any pending async work settle, then assert nothing happened.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(registerDataPathMock).not.toHaveBeenCalled();
+    expect(openPreviewTab).not.toHaveBeenCalled();
+  });
+
   it("double-click on a csv file in the Data tree opens a preview, not the editor", async () => {
     registerDataPathMock.mockResolvedValue({
       ref: "data://def456",

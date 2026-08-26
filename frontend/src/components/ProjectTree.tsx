@@ -51,6 +51,8 @@ function formatSize(size: number | null | undefined): string {
 // NOTE: the Data tree (rootPath === "data") never reaches this list — #2112
 // routes every data-file double-click to a preview tab instead.
 const EDITABLE_EXTENSIONS: readonly string[] = ["py", "r", "txt", "md", "json", "csv"];
+// Directory-backed dataset stores the preview backend accepts (#2112).
+const STORE_DIRECTORY_EXTENSIONS: readonly string[] = ["zarr"];
 
 /**
  * #2112 — Data-tree double-click: register the file with the data catalog and
@@ -120,18 +122,22 @@ function handleDoubleClickRoute(
   rootPath: string,
   projectId: string,
 ): void {
-  if (node.type === "directory") return;
+  // Directory-backed dataset stores (e.g. `.zarr`) are reported by the tree
+  // API as directories, but `POST /api/data/register-path` accepts them, so
+  // they must reach the preview branch before the directory early return.
+  const ext = node.name.split(".").pop()?.toLowerCase() ?? "";
+  const isStoreDirectory = node.type === "directory" && STORE_DIRECTORY_EXTENSIONS.includes(ext);
 
   // #2112 — in the Data tree every file double-click opens a preview tab.
   // Preview takes precedence over the editor, so this branch runs before the
   // workflows/blocks/EDITABLE_EXTENSIONS routing below (data/ paths would not
   // match those prefixes anyway, but csv would hit the editable list).
-  if (rootPath === "data") {
+  if (rootPath === "data" && (node.type === "file" || isStoreDirectory)) {
     void openDataFilePreview(projectId, node);
     return;
   }
 
-  const ext = node.name.split(".").pop()?.toLowerCase() ?? "";
+  if (node.type === "directory") return;
 
   // Double-click .yaml in workflows/ -> load workflow (#796).
   if ((ext === "yaml" || ext === "yml") && node.path.startsWith("workflows/")) {

@@ -214,6 +214,32 @@ describe("tabSlice preview tabs (#2112 transient preview tab)", () => {
     const tabs = persisted?.state?.tabs ?? [];
     expect(tabs.some((t: { id: string }) => t.id === "preview:data-123")).toBe(false);
   });
+
+  it("keeps the backing workflow tab snapshot in sync while a preview is active", () => {
+    useAppStore.getState().openTab(workflow("main"));
+    const workflowTabId = useAppStore.getState().activeTabId ?? "";
+    useAppStore.getState().openPreviewTab(previewTarget, "beads.tif");
+
+    // An autosave / WebSocket update lands while the preview owns focus: the
+    // live workflow slice changes underneath the preview tab.
+    useAppStore.setState({
+      workflowDirty: true,
+      workflowNodes: [{ id: "n1", type: "block", position: { x: 0, y: 0 }, data: {} } as never],
+    });
+    useAppStore.getState().syncActiveTab();
+
+    // The backing workflow tab's snapshot must reflect the live change...
+    const backing = useAppStore.getState().tabs.find((t) => t.id === workflowTabId);
+    expect(asWorkflowTab(backing ?? {}).workflowDirty).toBe(true);
+    // ...and its identity must not be clobbered by the capture.
+    expect(asWorkflowTab(backing ?? {}).id).toBe(workflowTabId);
+
+    // Switching back restores the synced snapshot, not the pre-preview one.
+    useAppStore.getState().switchTab(workflowTabId);
+    const state = useAppStore.getState();
+    expect(state.workflowDirty).toBe(true);
+    expect(state.workflowNodes).toHaveLength(1);
+  });
 });
 
 describe("uiSlice unread counters (#793 no auto-tab-switch)", () => {
