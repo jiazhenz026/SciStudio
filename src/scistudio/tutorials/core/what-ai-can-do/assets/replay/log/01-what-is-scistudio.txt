@@ -1,0 +1,27 @@
+> What is SciStudio?
+
+* get_project_info()
+    project "What AI Can Do" - workflows/main.yaml is empty - 9 blocks in the palette
+* list_data(project_dir='.')
+    data/raw/drug_A-J_1mM_500uM_200uM_100uM_50uM_20uM_10uM_5uM_2uM_1uM_plus_VEH_BLANK.csv
+
+SciStudio is a bench for scientific data. You join blocks on a canvas into a
+pipeline - load, process, analyse, save - press Run once, and open any edge to see
+the data going through it.
+
+Against writing the script yourself, three things are different:
+
+  - The pipeline is visible, and it is typed. Every block declares what it takes
+    and what it returns, so a wrong connection is refused as you draw it instead of
+    halfway through a run.
+
+  - Every run is recorded. In three months, when you want to know where a figure
+    came from, you can follow its lineage back to the raw file - or put the project
+    back the way it was for that run.
+
+  - The parts that need code, you can hand to me. When the built-in blocks are not
+    enough, you say "I want to fit an IC50" and I write the block, run its tests,
+    and wire it into the workflow.
+
+What you have open is the "What AI can do" workspace, with one plate-reader export
+in data/raw/ and an empty workflow. That is the starting point.

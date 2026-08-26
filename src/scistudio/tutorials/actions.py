@@ -47,6 +47,7 @@ from typing import Any, Protocol, TypeVar, cast, runtime_checkable
 from scistudio.stability import provisional
 
 __all__ = [
+    "AI_BLOCK_TERMINAL_SURFACE",
     "AI_CHAT_TERMINAL_SURFACE",
     "EXECUTED_PROJECT_PATHS",
     "REPLAY_SURFACES",
@@ -82,9 +83,19 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 AI_CHAT_TERMINAL_SURFACE = "ai_chat_terminal"
-"""The AI Chat terminal — the only surface a replay may name."""
+"""The AI Chat terminal — the conversation the reader is having."""
 
-REPLAY_SURFACES: frozenset[str] = frozenset({AI_CHAT_TERMINAL_SURFACE})
+AI_BLOCK_TERMINAL_SURFACE = "ai_block_terminal"
+"""The terminal an AI Block runs in.
+
+A separate surface rather than a second tab on the same one, because they are
+separate places: the chat is a conversation the reader is having, and this is a
+block in their workflow doing its work. Keeping them apart is what lets both be
+open at once — the runtime holds one scripted session *per surface* — so a
+block's terminal opening does not end the conversation that asked for it.
+"""
+
+REPLAY_SURFACES: frozenset[str] = frozenset({AI_CHAT_TERMINAL_SURFACE, AI_BLOCK_TERMINAL_SURFACE})
 """FR-061a: the closed, core-owned set of surfaces a replay action may name.
 
 This is the *single* declaration. The published manifest schema deliberately
@@ -318,6 +329,35 @@ class CopyAction:
     kind: str = field(default="copy", init=False)
 
 
+FileAction = WriteAction | CopyAction
+"""The two actions that put files on disk -- the ones a replay segment may bind."""
+
+
+@provisional(since="0.3.4")
+@dataclass(frozen=True)
+class RunAction:
+    """Start a real workflow run from a step (FR-061d).
+
+    The tutorial runtime could already *observe* runs -- ``run_succeeded`` and
+    ``run_failed`` judge steps on them -- but not start one, so every run in
+    every level was a button the reader had to press. That is right when
+    pressing Run is the lesson and wrong when it is stage machinery: core
+    tutorial 3's subject is an agent that runs things itself, and a scripted
+    reply saying so while nothing ran would leave the reader reading logs that
+    do not exist.
+
+    Deliberately fire-and-forget. The port returns as soon as the run is
+    queued, exactly as ``run_workflow`` does over MCP, and the step's own
+    ``done_when`` is what waits for the outcome -- which is the mechanism a
+    reader-pressed Run already went through, so nothing new judges it.
+    """
+
+    workflow: str
+    """Tutorial-project-relative path of the workflow YAML to run."""
+
+    kind: str = field(default="run", init=False)
+
+
 @dataclass(frozen=True)
 class ReplaySegment:
     """One ordered piece of a replay, with the actions bound to it (FR-061b)."""
@@ -325,8 +365,15 @@ class ReplaySegment:
     id: str
     source: str
     """Tutorial-directory-relative path of the segment's scripted bytes."""
-    do: tuple[FileAction, ...] = ()
-    """Write and copy actions that MUST land before this segment's bytes are delivered."""
+    do: tuple[SegmentAction, ...] = ()
+    """The actions bound to this segment.
+
+    Write and copy actions MUST land before the segment's bytes are delivered
+    (FR-061b, as revised by #2083 for a paced surface). A ``run`` bound here
+    starts after every one of them has landed and settled -- a reply that
+    writes a block and then runs a workflow that uses it cannot be allowed to
+    race its own registry re-scan.
+    """
 
 
 @provisional(since="0.3.4")
@@ -348,24 +395,39 @@ class ReplayAction:
     #: close-then-open. The conversation-pacing form: a step (or a trigger, in
     #: which case the reader's press is what asks for more) continues the
     #: scripted session already on screen instead of tearing its transcript
-    #: down. It is an error when no tab is open — a continuation of nothing is
-    #: an authoring mistake, not an empty operation.
+    #: down. A tab that has gone -- closed, or its socket dropped -- is not an
+    #: authoring error: the runtime opens a fresh one and plays into that
+    #: (#2083), because the alternative strands the reader for the rest of the
+    #: level.
     continue_tab: bool = False
 
     kind: str = field(default="replay", init=False)
 
 
-FileAction = WriteAction | CopyAction
-"""The two actions that put files on disk — the ones a replay segment may bind."""
+SegmentAction = FileAction | RunAction
+"""What a replay segment may bind: the file actions, plus starting a run."""
 
-Action = WriteAction | CopyAction | ReplayAction
+Action = WriteAction | CopyAction | ReplayAction | RunAction
 """Every action a step may declare (FR-057)."""
+
+
+RunPort = Callable[[str], None]
+"""How the runtime starts a workflow: given a project-relative path, queue a run.
+
+Fire-and-forget by contract. The product's own Run button and the agent's
+``run_workflow`` MCP tool both return as soon as the run is queued, and a
+tutorial that blocked here would freeze the step's press while the workflow
+executed. What the run *does* is judged where every other run is judged: the
+step's ``done_when``.
+"""
 
 
 def describe_action(action: Action) -> str:
     """Return a short human phrase naming the action, used in error messages."""
     if isinstance(action, ReplayAction):
         return f"replay action into {action.surface!r}"
+    if isinstance(action, RunAction):
+        return f"run action on {action.workflow!r}"
     return f"{action.kind} action {action.source!r} -> {action.destination!r}"
 
 
@@ -373,8 +435,9 @@ def describe_action(action: Action) -> str:
 # Parsing (validation time)
 # ---------------------------------------------------------------------------
 
-_ACTION_KINDS = ("write", "copy", "replay")
+_ACTION_KINDS = ("write", "copy", "replay", "run")
 _FILE_ACTION_KINDS = ("write", "copy")
+_SEGMENT_ACTION_KINDS = ("write", "copy", "run")
 
 
 def _single_key(raw: Any, *, field_name: str, allowed: Sequence[str]) -> tuple[str, Any]:
@@ -447,6 +510,14 @@ def _parse_file_action(kind: str, body: Any, *, field_name: str) -> FileAction:
     return CopyAction(source=source, destination=destination)
 
 
+def _parse_run(body: Any, *, field_name: str) -> RunAction:
+    field = f"{field_name}.run"
+    declared = _require_declaration(body, field_name=field, keys=("workflow",))
+    workflow = _require_text(declared, "workflow", field_name=field)
+    validate_relative_path(workflow, field_name=f"{field}.workflow")
+    return RunAction(workflow=workflow)
+
+
 def _parse_replay(body: Any, *, field_name: str) -> ReplayAction:
     field = f"{field_name}.replay"
     declared = _require_declaration(
@@ -480,7 +551,7 @@ def _parse_segment(raw: Any, *, field_name: str, seen: set[str]) -> ReplaySegmen
     seen.add(segment_id)
     source = _require_text(declared, "source", field_name=field_name)
     validate_relative_path(source, field_name=f"{field_name}.source")
-    bound = parse_file_actions(declared.get("do") or (), field_name=f"{field_name}.do")
+    bound = parse_segment_actions(declared.get("do") or (), field_name=f"{field_name}.do")
     return ReplaySegment(id=segment_id, source=source, do=bound)
 
 
@@ -489,6 +560,8 @@ def _parse_one_action(raw: Any, *, field_name: str, allowed: Sequence[str]) -> A
     kind, body = _single_key(raw, field_name=field_name, allowed=allowed)
     if kind == "replay":
         return _parse_replay(body, field_name=field_name)
+    if kind == "run":
+        return _parse_run(body, field_name=field_name)
     return _parse_file_action(kind, body, field_name=field_name)
 
 
@@ -521,7 +594,7 @@ def parse_actions(raw: Any, *, field_name: str) -> tuple[Action, ...]:
 
 
 def parse_file_actions(raw: Any, *, field_name: str) -> tuple[FileAction, ...]:
-    """Parse a ``do`` list restricted to write and copy — a replay segment's binding.
+    """Parse a ``do`` list restricted to write and copy.
 
     Narrowed rather than checked again: ``_FILE_ACTION_KINDS`` excludes
     ``replay``, so :func:`_parse_action_list` can only have built write and copy
@@ -536,6 +609,23 @@ def parse_file_actions(raw: Any, *, field_name: str) -> tuple[FileAction, ...]:
     return cast("tuple[FileAction, ...]", parsed)
 
 
+def parse_segment_actions(raw: Any, *, field_name: str) -> tuple[SegmentAction, ...]:
+    """Parse a replay segment's ``do`` list: write, copy, or run.
+
+    A segment may not nest a replay -- a scripted reply that opens another
+    scripted reply is not a thing the format means -- but it may start a run,
+    which is how a transcript that says "running it now" comes to be telling
+    the truth (FR-061d).
+    """
+    parsed = _parse_action_list(
+        raw,
+        field_name=field_name,
+        allowed=_SEGMENT_ACTION_KINDS,
+        expected="a list of write, copy or run actions",
+    )
+    return cast("tuple[SegmentAction, ...]", parsed)
+
+
 def iter_file_actions(actions: Iterable[Action]) -> Iterable[FileAction]:
     """Yield every write and copy an action list performs, including inside replays.
 
@@ -543,9 +633,15 @@ def iter_file_actions(actions: Iterable[Action]) -> Iterable[FileAction]:
     tutorial can reach, and a replay reaches destinations through its segments.
     """
     for action in actions:
+        if isinstance(action, RunAction):
+            # No source and no destination: nothing for a tier rule or a
+            # containment check to judge.
+            continue
         if isinstance(action, ReplayAction):
             for segment in action.segments:
-                yield from segment.do
+                for bound in segment.do:
+                    if not isinstance(bound, RunAction):
+                        yield bound
         else:
             yield action
 
@@ -557,10 +653,14 @@ def iter_asset_sources(action: Action) -> Iterable[tuple[str, str]]:
     where the action was declared can build the full field name FR-013's error
     messages need.
     """
+    if isinstance(action, RunAction):
+        return
     if isinstance(action, ReplayAction):
         for segment in action.segments:
             yield (f"replay.segments[{segment.id}].source", segment.source)
             for bound in segment.do:
+                if isinstance(bound, RunAction):
+                    continue
                 yield (f"replay.segments[{segment.id}].{bound.kind}.source", bound.source)
     else:
         yield (f"{action.kind}.source", action.source)
@@ -644,16 +744,36 @@ def execute_replay(
     context: ActionContext,
     step_id: str,
     delivery: ReplayDelivery,
+    defer: list[SegmentAction] | None = None,
 ) -> tuple[Path, ...]:
-    """Run a replay: for each segment, land its actions, then deliver its bytes.
+    """Run a replay: deliver each segment's bytes and land its bound actions.
 
-    FR-061b in one line. A scripted agent that claims to have written a block
-    is matched by the block existing at the moment the claim becomes readable,
-    which is why the segment's own actions run *before* its bytes and not
-    merely before the next segment's.
+    FR-061b is the ordering rule here: a scripted agent that claims to have
+    written a block is matched by the block existing at the moment the claim
+    becomes readable. Which moment that is depends on how the surface plays the
+    bytes, and that is what ``defer`` is for.
+
+    Without ``defer``, the bytes are readable as soon as they are delivered, so
+    the segment's actions run first — the original ordering, and still the
+    right one for any surface that renders a transcript at once.
+
+    With ``defer``, the surface reveals the transcript over time (#2083: the
+    scripted agent window types it at a speaking pace). "The moment the claim
+    becomes readable" is then the end of the reply, not the start of it, and
+    running the actions here would put the block on the canvas ten seconds
+    before the agent finishes saying it wrote one — which reads as the tutorial
+    knowing the future. So the actions are collected into ``defer`` instead and
+    the caller runs them when the surface reports it has finished playing.
+
+    Deferral is per *replay*, not per segment: the caller learns that the
+    terminal has gone quiet, not which segment quietened it. For a
+    single-segment replay — every replay these tutorials declare — the two are
+    the same thing. A multi-segment replay lands all of its writes at the end
+    of the last segment rather than each before its own.
 
     Returns the project paths the segments wrote, for the same reason
-    :func:`execute_actions` does.
+    :func:`execute_actions` does — which is nothing at all when deferring,
+    because nothing has been written yet.
     """
     if delivery.surface != action.surface:
         raise ActionExecutionError(
@@ -663,8 +783,16 @@ def execute_replay(
         )
     written: list[Path] = []
     for segment in action.segments:
-        for bound in segment.do:
-            written.append(_execute_file_action(bound, context=context, step_id=step_id))
+        if defer is None:
+            for bound in segment.do:
+                if isinstance(bound, RunAction):
+                    # Started by `perform_step_entry`, after the settle -- see
+                    # `start_runs`. Running it here would beat the files this
+                    # very loop is still writing.
+                    continue
+                written.append(_execute_file_action(bound, context=context, step_id=step_id))
+        else:
+            defer.extend(segment.do)
         try:
             source = resolve_contained_path(context.tutorial_dir, segment.source, field_name="segment source")
             payload = source.read_bytes()
@@ -684,11 +812,17 @@ def execute_action(
     context: ActionContext,
     step_id: str,
     delivery: ReplayDelivery | None = None,
+    defer: list[SegmentAction] | None = None,
 ) -> tuple[Path, ...]:
     """Run one action and return the project paths it wrote.
 
+    A :class:`RunAction` is not run here and writes nothing; see
+    :func:`start_runs` for why starting one is a separate pass.
+
     Raises :class:`ActionExecutionError` on any failure (FR-060).
     """
+    if isinstance(action, RunAction):
+        return ()
     if isinstance(action, ReplayAction):
         if delivery is None:
             raise ActionExecutionError(
@@ -696,8 +830,73 @@ def execute_action(
                 action=action,
                 reason="no replay delivery was supplied for the declared surface",
             )
-        return execute_replay(action, context=context, step_id=step_id, delivery=delivery)
+        return execute_replay(action, context=context, step_id=step_id, delivery=delivery, defer=defer)
     return (_execute_file_action(action, context=context, step_id=step_id),)
+
+
+def _declared_runs(actions: Iterable[Action], *, include_bound: bool) -> Iterable[RunAction]:
+    """The run actions *actions* declares, optionally descending into replays.
+
+    ``include_bound`` is the caller saying whether it deferred. A step-entry
+    replay runs its bound actions immediately, so its runs have to be found
+    here or they never start at all. A deferred one has already handed the same
+    actions to the defer list, and finding them here too would start the run at
+    press time -- before the reply has finished saying it is starting one, which
+    is the whole point of deferring.
+    """
+    for action in actions:
+        if isinstance(action, RunAction):
+            yield action
+        elif include_bound and isinstance(action, ReplayAction):
+            for segment in action.segments:
+                for bound in segment.do:
+                    if isinstance(bound, RunAction):
+                        yield bound
+
+
+def start_runs(
+    actions: Iterable[Action],
+    *,
+    step_id: str,
+    run: RunPort | None,
+    include_bound: bool = True,
+) -> tuple[str, ...]:
+    """Start every :class:`RunAction` in *actions*, and return what was started.
+
+    A separate pass rather than a branch inside :func:`execute_actions`, so
+    that the ordering FR-061d requires is a property of the call sequence
+    instead of something an author has to get right by where they put the
+    action in their ``do`` list. A run always comes last: the workflow it
+    executes may have been written by an action beside it, and the blocks that
+    workflow needs may have been written there too, so it cannot start until
+    those files have landed *and* the product has taken them in.
+
+    Raises:
+        ActionExecutionError: A run was declared with no runner wired into the
+            runtime. Silence would be worse than an error here -- the step's
+            ``done_when`` waits on a run that will never happen, and the reader
+            is left pressing a button that does nothing.
+    """
+    started: list[str] = []
+    for action in _declared_runs(actions, include_bound=include_bound):
+        if run is None:
+            raise ActionExecutionError(
+                step_id=step_id,
+                action=action,
+                reason="no workflow runner is wired into the tutorial runtime",
+            )
+        try:
+            run(action.workflow)
+        except ActionExecutionError:
+            raise
+        except Exception as exc:
+            raise ActionExecutionError(
+                step_id=step_id,
+                action=action,
+                reason=f"the workflow could not be started: {type(exc).__name__}: {exc}",
+            ) from exc
+        started.append(action.workflow)
+    return tuple(started)
 
 
 def execute_actions(
@@ -706,15 +905,24 @@ def execute_actions(
     context: ActionContext,
     step_id: str,
     delivery: ReplayDelivery | None = None,
+    defer: list[SegmentAction] | None = None,
 ) -> tuple[Path, ...]:
     """Run an ordered action list. Declaration order is execution order.
 
     Returns every project path written, in the order it was written, so a
     caller can react to what landed without re-deriving it from the manifest.
+
+    ``defer`` reaches :func:`execute_replay` and nothing else; see its
+    docstring for what a replay does with it. A step's own ``write`` and
+    ``copy`` actions are not claims anybody is in the middle of reading, so
+    they run here exactly as they always have.
+
+    ``run`` actions are skipped -- :func:`start_runs` is the pass that starts
+    them, after this one and after the caller has settled what it wrote.
     """
     written: list[Path] = []
     for action in actions:
-        written.extend(execute_action(action, context=context, step_id=step_id, delivery=delivery))
+        written.extend(execute_action(action, context=context, step_id=step_id, delivery=delivery, defer=defer))
     return tuple(written)
 
 
@@ -729,6 +937,8 @@ def perform_step_entry(
     reveal: Callable[[], _Reveal],
     delivery: ReplayDelivery | None = None,
     settle: Callable[[Sequence[Path]], None] | None = None,
+    defer: list[SegmentAction] | None = None,
+    run: RunPort | None = None,
 ) -> _Reveal:
     """Run a step's entry actions, let the product take them in, then reveal (FR-059).
 
@@ -747,8 +957,21 @@ def perform_step_entry(
     take them in has happened by the time the step's text can be read. It is
     given no way to change the reveal, and a caller that supplies none gets the
     plain write-then-reveal ordering.
+
+    ``defer`` is passed to :func:`execute_actions` for a replay to collect its
+    bound actions into. Whatever lands there has not run and has not settled,
+    so a caller that defers owns running it — and settling it — later (#2083).
+
+    ``run`` is the port a ``run`` action reaches. It is called after the settle
+    and never before, so a workflow started here sees every file this step
+    wrote and a product that has already noticed them.
     """
-    written = execute_actions(actions, context=context, step_id=step_id, delivery=delivery)
+    written = execute_actions(actions, context=context, step_id=step_id, delivery=delivery, defer=defer)
     if settle is not None and written:
         settle(written)
+    # Fourth in the ordering, and after the settle for the reason FR-061d
+    # gives: a run started before the registries have re-scanned would execute
+    # against a palette that does not yet contain the block the step just
+    # wrote for it.
+    start_runs(actions, step_id=step_id, run=run, include_bound=defer is None)
     return reveal()

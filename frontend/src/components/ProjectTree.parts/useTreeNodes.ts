@@ -52,7 +52,22 @@ export interface UseTreeNodesResult {
   handleToggle: (node: TreeNodeData) => Promise<void>;
 }
 
-export function useTreeNodes(projectId: string, basePath = ""): UseTreeNodesResult {
+/** Stable empty default, so the hook's `refresh` does not re-run every render. */
+const EMPTY_PATHS: readonly string[] = [];
+
+export function useTreeNodes(
+  projectId: string,
+  basePath = "",
+  /**
+   * Directories to open on the first load, as project-relative paths.
+   *
+   * Only the first load: after that the tree remembers what the user opened,
+   * and re-imposing an initial set on every refresh would re-open a folder
+   * they had just closed on the next watcher tick. Pass a stable reference —
+   * a module-level constant — or `refresh` re-runs on every render.
+   */
+  initiallyExpanded: readonly string[] = EMPTY_PATHS,
+): UseTreeNodesResult {
   const [rootNodes, setRootNodes] = useState<TreeNodeData[]>([]);
   const [loading, setLoading] = useState(false);
   // Mirror the latest tree so `refresh()` (a stable callback) can read the
@@ -84,7 +99,9 @@ export function useTreeNodes(projectId: string, basePath = ""): UseTreeNodesResu
       // every run (#1751). Paths are shallow→deep, so each parent's children are
       // loaded before a descendant is merged into them; folders that vanished
       // since the last load are skipped and simply stay collapsed.
-      const expandedPaths = collectExpandedPaths(rootNodesRef.current);
+      const expandedPaths = rootNodesRef.current.length
+        ? collectExpandedPaths(rootNodesRef.current)
+        : [...initiallyExpanded];
       let tree = await loadChildren(basePath);
       for (const path of expandedPaths) {
         try {
@@ -100,7 +117,7 @@ export function useTreeNodes(projectId: string, basePath = ""): UseTreeNodesResu
     } finally {
       setLoading(false);
     }
-  }, [loadChildren, basePath]);
+  }, [loadChildren, basePath, initiallyExpanded]);
 
   useEffect(() => {
     void refresh();

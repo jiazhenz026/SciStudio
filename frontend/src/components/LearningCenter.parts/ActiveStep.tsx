@@ -72,6 +72,7 @@ function useViewport() {
 }
 
 export function ActiveStep() {
+  const requestUserGuidePage = useAppStore((state) => state.requestUserGuidePage);
   const session = useAppStore((state) => state.learningCenterSession);
   const learningCenterOpen = useAppStore((state) => state.learningCenterOpen);
   const openLearningCenter = useAppStore((state) => state.openLearningCenter);
@@ -342,6 +343,7 @@ export function ActiveStep() {
       <TargetHighlight rect={ringed} />
       <DialogueSurface
         controls={controls}
+        onOpenDoc={requestUserGuidePage}
         heading={heading}
         line={beats[cursor] ?? ""}
         mood={mood}

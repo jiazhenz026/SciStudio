@@ -1,0 +1,498 @@
+# Core tutorial 3 — "What AI can do" (scenarios doc, 关卡 4; now level 3).
+#
+# A declared-fake AI session: the terminal plays a pre-recorded agent
+# transcript, and every claim the transcript makes is matched by a real file
+# landing in the project (FR-061b). The reader spends no tokens and configures
+# no provider — that is the point of the fake — but the blocks, the workflow,
+# the failed run, the fix, the plot and the AI Block output are all real
+# product state, judged by real conditions.
+#
+# Pacing: each step's button appends the next reply to the SAME terminal tab
+# (replay continue_tab, #2089). Conversation-only steps bind a clean-text copy
+# of the reply into data/agent_log/ so the press itself is judgeable
+# (file_exists) and the reader keeps a browsable record; steps whose reply
+# changes the product are judged on the product fact instead.
+#
+# Completing this tutorial is the work-import milestone (FR-079): the ending
+# hands over to the provider introduction and the one-time import offer.
+manifest_version: 1
+id: what-ai-can-do
+title: What can the AI do
+# 文案: SciStudio的ai agent不只是一个chat robot，而是一个agent really does things。 AI agent 可以工作在你的 whole project上: your data, your blocks,
+#   your runs and their logs. 这个教程将告诉你如何在真实的工作中使用SciStudio的ai agent。The session is
+#  a recording, so it costs you no tokens.
+summary: >-
+  SciStudio's AI agent is not just a chat robot; it is an agent that really
+  does things. The AI agent can work on your whole project: your data, your
+  blocks, your runs and their logs. This tutorial shows you how to use
+  SciStudio's AI agent in real work. The session is a recording, so it costs
+  you no tokens — and if you have not installed an AI tool yet,
+  [the installation guide is here](doc:ai-assistant.md).
+order: 3
+
+requires:
+  # to_memory() and the table accessors the shipped blocks rely on are stable
+  # from 0.3.1 (ADR-052 §10).
+  scistudio: ">=0.3.1"
+  # Deliberately false: the scripted session exists precisely so no live agent
+  # is needed. The provider introduction at the end is where real agents enter.
+  agent: false
+  packages: []
+
+bootstrap:
+  project_name: What AI Can Do
+  do:
+    # Lands the plate-reader export at data/raw/. Its filename is the only
+    # place the concentrations appear, which is what the level turns on.
+    - copy:
+        source: assets/data
+        destination: data/raw
+
+steps:
+  # 这一关的节奏跟关卡 1、2 一样：一句引导 + 一句指导，一步一件事，短句。
+  #
+  # **Three beats is the ceiling.** A step that wants a fourth is a step doing
+  # two things.
+  #
+  # **Scene by default, chat line by exception.** `compact` is for the beats
+  # that point at one small control — Run, a palette entry, a node, a plot
+  # card. A ring around a whole surface (the config panel, the logs) keeps the
+  # scene, because there the surface is the subject and she belongs in it.
+  #
+  # **`auto_advance` where the reader's own action is the condition** — a run,
+  # a config edit, a click on a node. A click to confirm a click is a click for
+  # nothing.
+  #
+  # The trigger steps deliberately do NOT auto-advance. Their condition is met
+  # the moment the reply's bound file lands, which is while the agent is still
+  # typing; advancing there would pull the reader off a reply they are in the
+  # middle of. Their click is not a confirmation, it is "I have read this" —
+  # the same pace a reading step sets.
+  # TODO(#2083): when a replay can report that a segment has finished playing,
+  #   these become auto_advance like every other judged step.
+  #   Followup: https://github.com/jiazhenz026/SciStudio/issues/2083
+  #
+  # **With `auto_advance`, the last beat must be the instruction.** A payoff
+  # written after it is never read: the step leaves the moment the reader
+  # arrives on that beat with the condition already met. So every payoff opens
+  # the *following* step instead.
+
+  # ---------------------------------------------------------------- opening
+
+  - id: welcome-back
+    title: What an agent can do here
+    route_to: ai_chat
+    say:
+      - "success: Good to see you again! Today is about the AI agent — what it can actually do once it is holding your project."
+      - "explain: SciStudio AI is not just a chat bot that answers your questions. It reads your data, writes your blocks, runs your workflows, and reads the logs when they fail."
+  # 这里文案不太好。第3句应该是：你的lab用plate reader测了一个96孔板，来测试不同药物浓度下细胞的存活率。
+  # 第4句：我们今天的任务是画出一个药物浓度-存活率的IC50存活曲线。
+  # 第5句：数据永远包括了各种噪声和outlier。我们今天要在SciStudio AI agent的帮助下做数据清洗和分析。
+  # 第6句：One thing before we start,The AI session you are about to watch is a **recording**.这次运行将不会消耗你的token。剩下的都不要。
+  - id: the-plate-that-came-back
+    title: The plate on your desk
+    route_to: canvas
+    say:
+      - "Your lab ran a 96-well plate on a plate reader, to test cell viability at a range of drug concentrations."
+      - "explain: Today's job is to draw an IC50 survival curve of drug concentration against viability."
+      - "curious: Data always comes with noise and outliers of every kind. Today we will do the cleaning and the analysis with the help of the SciStudio AI agent."
+# 这个整体不要
+  # 第6句. It is a step of its own only because the three beats above it are
+  # already the ceiling; the rest of what this step used to say is gone.
+
+  # A dialogue step: `route_to` has already opened the panel, so there is
+  # nothing for the reader to do here and nothing to judge — the ring is the
+  # point, and the second beat is what they should notice while it is on
+  # screen.
+  - id: where-your-data-lives
+    title: Where your data lives
+    route_to: data
+    highlight: data
+    say:
+      - "explain: Every file this project holds is here, in the **Data** section of the left panel — raw exports, processed results, everything a run writes."
+      - "curious: And your lab left you exactly one file: **drug_A-J_1mM_500uM_200uM_..._1uM_plus_VEH_BLANK.csv**. Read that name."
+      - "This is the data we are analysing today."
+
+  - id: a-recording-not-a-live-agent
+    title: Honest about the fake
+    route_to: ai_chat
+    say:
+      - "explain: One thing before we start. The AI session you are about to watch is a **recording**, and this run will not spend any of your tokens."
+
+  # ------------------------------------------------------------ warming up
+# 真正开始之前我们得先介绍一下ai chat这个tab下的gui是什么。
+# 第一句话：AI住在AI chat内或者ai block内。首先点AI chat
+# 第二句话：highlight provider，说：这里包括了我们支持的所有provider。注意，由于ai在scistudio中需要操作你的project，因此网页版chat并不能使用在scistudio中，而是需要下载ai的客户端。
+# 第3-4句话：highlight两种mode：manual mode xxx，bypass mode xxx。
+#
+  # The tab has not been launched yet, so what is on screen is the setup
+  # screen — which is the only moment the provider chooser and the permission
+  # modes exist to point at. 第3-4句 name what each mode does, taken from the
+  # words the picker itself uses rather than invented for the tutorial.
+  - id: where-the-ai-lives
+    title: Where the AI lives
+    route_to: ai_chat
+    compact: true
+    highlight:
+      - bottom_tab:
+          tab: ai_chat
+      - ai_provider_picker
+      - ai_permission_modes
+    say:
+      - "explain: The AI lives in the AI Chat tab, or inside an AI Block. Press **AI Chat** first."
+      - "Every provider we support is listed here. One thing to know: the AI has to operate on your project, so a browser chat cannot be used — you need the provider's own client installed."
+      - "curious: Then pick how it may act. **Manual Approve** asks you before it runs a command or changes a file; **Bypass Permission** does neither. This is only how the session starts — the agent can change it from inside afterwards."
+
+  # ------------------------------------------------------- the conversation
+
+  - id: say-hello
+    title: Say hello
+    route_to: ai_chat
+    trigger:
+      label: Ask what SciStudio is
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            segments:
+              - id: what-is-scistudio
+                source: assets/replay/01-what-is-scistudio.txt
+                do:
+                  - write:
+                      source: assets/replay/log/01-what-is-scistudio.txt
+                      destination: data/agent_log/01-what-is-scistudio.txt
+    say:
+      - "focus: Start with the easiest possible question. Press **Ask what SciStudio is**."
+    done_when:
+      file_exists:
+        path: data/agent_log/01-what-is-scistudio.txt
+
+  # 这里按我改的
+  - id: it-reads-your-project
+    title: It answered from your project
+    route_to: ai_chat
+    trigger:
+      label: Ask what blocks it can see
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: list-blocks
+                source: assets/replay/02-list-blocks.txt
+                do:
+                  - write:
+                      source: assets/replay/log/02-list-blocks.txt
+                      destination: data/agent_log/02-list-blocks.txt
+    say:
+      - "Notice what it did before answering: it looked. The project name, the workflow, the file in data/raw — it read them."
+      - "focus: Press **Ask what blocks it can see**."
+    done_when:
+      file_exists:
+        path: data/agent_log/02-list-blocks.txt
+
+  # ------------------------------------------------------ look before you touch
+
+  # Three steps rather than one because a plot card renders a *block's* output:
+  # the agent has to lay down a workflow for the card to bind to, and that
+  # block has to have run before the card has anything to draw. The run is the
+  # agent's own (FR-061d) — the reader pressing Run here would be operating
+  # stage machinery in a level about an agent that operates its own.
+  - id: see-it-first
+    title: Look before you touch
+    route_to: ai_chat
+    trigger:
+      label: Ask it to show you the plate
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: see-the-plate
+                source: assets/replay/03-see-the-plate.txt
+                do:
+                  - write:
+                      source: assets/workflows/load-only.yaml
+                      destination: workflows/main.yaml
+                  - write:
+                      source: assets/code/plate_raw_plot.yaml
+                      destination: plots/plate_raw/plot.yaml
+                  - write:
+                      source: assets/code/plate_raw_render.py
+                      destination: plots/plate_raw/render.py
+                  - run:
+                      workflow: workflows/main.yaml
+    say:
+      - "curious: Before you hand data to anything — a person or an agent — look at it."
+      - "focus: Press **Ask it to show you the plate**."
+    done_when:
+      run_succeeded:
+        since_step_entry: true
+
+  - id: the-whole-plate
+    title: Ninety-six wells
+    auto_advance: true
+    route_to: plots
+    compact: true
+    highlight:
+      plot_card:
+        plot_id: plate_raw
+    say:
+      - "focus: The AI wrote you a plot card to draw the 96-well plate. Let's **Run** it together."
+    done_when:
+      plot_rendered:
+        plot_id: plate_raw
+
+  - id: what-do-you-see
+    title: Ask it what it sees
+    route_to: ai_chat
+    trigger:
+      label: Ask what it sees in the plate
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: read-the-plate
+                source: assets/replay/04-read-the-plate.txt
+                do:
+                  - write:
+                      source: assets/replay/log/04-read-the-plate.txt
+                      destination: data/agent_log/04-read-the-plate.txt
+    say:
+      - "Two grey squares, and one bright cell in the blank column — that is what your eyes get you."
+      - "focus: Press **Ask what it sees in the plate**."
+    done_when:
+      file_exists:
+        path: data/agent_log/04-read-the-plate.txt
+
+  # ------------------------------------------------------------- the analysis
+
+  # The reply's bound write lands the block source and the registries re-scan
+  # before the trigger reports done (FR-059a), so when the transcript says the
+  # palette now lists QC Outlier Filter, it does.
+  - id: it-can-see-your-palette
+    title: Everything in your palette
+    route_to: ai_chat
+    trigger:
+      label: Ask for a QC filter block
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: qc-block
+                source: assets/replay/05-qc-block.txt
+                do:
+                  - write:
+                      source: assets/code/qc_outlier_filter.py
+                      destination: blocks/qc_outlier_filter.py
+    # 第2-3句合成1句：现在让我们来做些real science。让ai给你的plate reader数据做一个QC block，来去除明显的outlier。
+    say:
+      - "Three wells are broken. The rest of the plate is just a plate."
+      - "curious: Now let's do some real science. Have it write a QC block for your plate-reader data, to strip the obvious outliers — press **Ask for a QC filter block**."
+    done_when:
+      block_registered:
+        block_type: qc_outlier_filter
+
+  # `main.yaml` already exists by now — the plate step wrote a one-block
+  # version of it — so this reply extends that file. The plate card stays bound
+  # to the same `load-plate` block and keeps working for the rest of the level.
+  # Routes the LEFT panel to the palette so the first beat's ring lands on
+  # something. The bottom panel is a separate axis and is untouched by a
+  # left-panel route — and pressing the trigger opens the AI Chat tab by
+  # itself (`useReplayFocus`), so the reply is on screen without this step
+  # having to spend its one `route_to` on it.
+  - id: a-block-you-did-not-write
+    title: A block you did not write
+    route_to: block_palette
+    # The palette entry exists by now — the previous step's reply put it there —
+    # so this is the first beat that can actually point at it.
+    compact: [true, false]
+    highlight:
+      - palette_block:
+          block_type: qc_outlier_filter
+      - ~
+    trigger:
+      label: Ask it to wire the analysis
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: assemble
+                source: assets/replay/06-assemble.txt
+                do:
+                  - write:
+                      source: assets/code/fit_ic50.py
+                      destination: blocks/fit_ic50.py
+                  - write:
+                      source: assets/workflows/main.yaml
+                      destination: workflows/main.yaml
+                  - run:
+                      workflow: workflows/main.yaml
+    say:
+      - "success: There it is in the palette — and **blocks/qc_outlier_filter.py** is in your project."
+      - "focus: Press **Ask it to wire the analysis**."
+    done_when:
+      node_exists:
+        block_type: fit_ic50
+
+  # A dialogue step: the run this describes was started by the previous step's
+  # reply and has already stopped by the time the reader arrives, so any
+  # condition here would be true on entry and the step would advance out from
+  # under a sentence nobody had read.
+  - id: the-fit-stopped
+    title: It stopped at the fit
+    route_to: canvas
+    say:
+      - "error: The AI built the whole workflow, ran it — and it stopped at **Fit IC50**. Not a crash — a missing fact."
+
+  - id: show-it-the-failure
+    title: Ask it why
+    route_to: ai_chat
+    trigger:
+      label: Ask why the fit stopped
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: no-x-axis
+                source: assets/replay/07-no-x-axis.txt
+                do:
+                  - write:
+                      source: assets/replay/log/07-no-x-axis.txt
+                      destination: data/agent_log/07-no-x-axis.txt
+    say:
+      - "focus: Press **Ask why the fit stopped**."
+    done_when:
+      file_exists:
+        path: data/agent_log/07-no-x-axis.txt
+
+  # ------------------------------------------------------------ the AI Block
+
+  - id: add-an-ai-block
+    title: The one block that reads a name
+    route_to: ai_chat
+    trigger:
+      label: Add an AI Block
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: ai-block
+                source: assets/replay/08-ai-block.txt
+                do:
+                  - write:
+                      source: assets/code/tutorial_ai_agent.py
+                      destination: blocks/tutorial_ai_agent.py
+                  - write:
+                      source: assets/workflows/main-with-ai.yaml
+                      destination: workflows/main.yaml
+    say:
+      - "curious: The doses were never missing. They are in the file's name — and nothing in your palette reads a name into data."
+      - "explain: In fact, the AI can also run inside your workflow, appearing as a block. We can have it look at this data, infer a metadata table, and hand that to the next block."
+      - "focus: Press **Add an AI Block**."
+    done_when:
+      node_exists:
+        block_type: tutorial_ai_agent
+
+  - id: read-the-prompt
+    title: Read what it will ask
+    auto_advance: true
+    route_to: canvas
+    compact: [false, true]
+    highlight:
+      - ~
+      - node:
+          block_type: tutorial_ai_agent
+    say:
+      - "explain: An AI Block's prompt is its whole content — it is the part you would be writing yourself, and it is worth reading before it runs."
+      - "focus: Click the **AI Agent (Tutorial Only)** block and read its prompt."
+    done_when:
+      ui_event:
+        name: node_selected
+        block_type: tutorial_ai_agent
+
+  # Its own surface, not the chat's: an AI Block runs in a terminal of its own,
+  # and the runtime keeps one scripted session per surface (#2083), so this one
+  # opens *beside* the conversation rather than replacing it. The next step
+  # goes back to that conversation, which is only possible because it is still
+  # there.
+  - id: run-it-with-the-doses
+    title: Now it has an x axis
+    route_to: config
+    trigger:
+      label: Run the workflow
+      do:
+        - replay:
+            surface: ai_block_terminal
+            segments:
+              - id: ai-block-run
+                source: assets/replay/09-ai-block-run.txt
+                do:
+                  - write:
+                      source: assets/replay/log/09-ai-block-run.txt
+                      destination: data/agent_log/09-ai-block-run.txt
+        # Top-level, not bound to the segment: the run starts on the press,
+        # while the terminal is still talking, the way a real one would.
+        - run:
+            workflow: workflows/main.yaml
+    say:
+      - "One line, and what it asks for is what comes back: one row per group, with its concentration."
+      - "focus: An AI Block opens its own terminal when it runs. Press **Run the workflow**."
+    done_when:
+      run_succeeded:
+        block_type: fit_ic50
+
+  # ---------------------------------------------------------------- the answer
+
+  - id: the-curve
+    title: Twelve numbers, no shape
+    route_to: ai_chat
+    trigger:
+      label: Ask it to draw the curve
+      do:
+        - replay:
+            surface: ai_chat_terminal
+            continue_tab: true
+            segments:
+              - id: the-curve
+                source: assets/replay/10-the-curve.txt
+                do:
+                  - write:
+                      source: assets/code/ic50_curve_plot.yaml
+                      destination: plots/ic50_curve/plot.yaml
+                  - write:
+                      source: assets/code/ic50_curve_render.py
+                      destination: plots/ic50_curve/render.py
+    say:
+      - "success: Green all the way through, and the curve landed at **data/processed/ic50_curve.csv**."
+      - "focus: A table is not intuitive. Let's have the AI draw it — press **Ask it to draw the curve**."
+    done_when:
+      plot_exists:
+        plot_id: ic50_curve
+
+  - id: draw-the-curve
+    title: The number you came for
+    auto_advance: true
+    route_to: plots
+    compact: true
+    highlight:
+      plot_card:
+        plot_id: ic50_curve
+    say:
+      - "focus: Press **Run** on the **ic50_curve** card."
+    done_when:
+      plot_rendered:
+        plot_id: ic50_curve
+
+  - id: the-real-ones
+    title: The real ones are one setup away
+    say:
+      - "success: **IC50 = 29.3 µM**, over 78 wells in ten dose groups — and one box per dose, so you can see the spread the number came out of."
+      - "success: Congratulations! Today's tutorial is over. We walked you through what SciStudio's AI agent can do."
+      - "explain: **Tip 1** — the AI can write your workflows, your blocks, your previewers, your plots, your types, and every other kind of SciStudio component."
+      - "explain: **Tip 2** — whenever you do not know something, just ask the AI. They already know SciStudio well enough."
+      - "curious: If you have not installed an AI tool yet, [the installation guide is right here](doc:ai-assistant.md)."

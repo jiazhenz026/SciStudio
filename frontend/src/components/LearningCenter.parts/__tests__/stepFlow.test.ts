@@ -37,7 +37,7 @@ function sessionOf(
     revisiting: false,
     status,
     error: null,
-    replay: null,
+    replays: [],
   };
 }
 

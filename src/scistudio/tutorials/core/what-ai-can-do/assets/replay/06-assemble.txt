@@ -1,0 +1,20 @@
+[1m[36m> Good. Now wire up the analysis: QC the plate, fit the IC50, save the curve.[0m
+
+[32m* scaffold_block(...)  ->  blocks/fit_ic50.py[0m
+[2m    class FitIc50Block(ProcessBlock)  ->  per-dose means, fitted curve, ic50_um, hill_slope[0m
+
+The fit is twenty lines and no dependency: SciStudio ships neither SciPy nor
+scikit-learn, so instead of an iterative curve fit I straighten the sigmoid. The
+log-odds of viability are linear in log dose, so a least-squares line has the IC50
+at its x-intercept. Open the file - you should be able to check it by eye.
+
+[32m* edit_workflow(path='workflows/main.yaml', ...)[0m
+[2m    load-plate -> qc-filter -> fit-curve -> save-summary[0m
+
+Three blocks added to the workflow you already have, so the plate card you have been
+looking at keeps working.
+
+[32m* run_workflow(path='workflows/main.yaml')[0m
+[2m    run queued[0m
+
+Running it now.

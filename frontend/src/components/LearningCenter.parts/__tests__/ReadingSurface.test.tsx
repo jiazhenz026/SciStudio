@@ -104,7 +104,7 @@ function session(over: Partial<TutorialSessionResponse> = {}): TutorialSessionRe
     satisfied_step_ids: [],
     status: "active",
     error: null,
-    replay: null,
+    replays: [],
     steps: outline(),
     ...over,
   };

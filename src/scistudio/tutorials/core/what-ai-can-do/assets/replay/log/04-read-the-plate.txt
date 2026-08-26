@@ -1,0 +1,25 @@
+> I'm looking at it. Tell me what you see.
+
+* get_block_output(run_id='run_7f3a1c', block_id='load-plate', port='data')
+    DataFrame ref - 96 rows x 3 columns: well, group, viability_pct
+* preview_data(ref=..., fmt='markdown')
+    12 groups of 8 wells: A-J, then VEH and BLANK
+
+Left to right the plate does what a dose-response should: group A is dead (0.4-5.3%)
+and by group J everything is back at 91-101%. Then two columns that are not doses at
+all - VEH sitting at about 100 and BLANK at about 2. Those two are what make the
+percentages mean anything: a top and a floor measured on the same plate.
+
+Three wells are wrong, and none of them is a judgement call:
+
+  - H4 and D9 never reported a number. They are the grey squares.
+  - C12 reads 46.8% in the BLANK column, where the other seven wells read about 2.
+    There are no cells in a blank. Something is in that one.
+
+Nothing else on this plate is out of place. The wells wander by a percent or two
+inside each group, which is what eight replicates look like, not something to
+remove.
+
+One thing the table cannot tell either of us: what any of these groups was dosed
+with. There is no concentration column. A is the strongest and J the weakest, and
+that is all the data says.

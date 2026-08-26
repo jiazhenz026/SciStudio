@@ -33,6 +33,7 @@ import {
   type DocsPageResponse,
 } from "../../lib/api/userDocs";
 
+import { useAppStore } from "../../store";
 import { DocMarkdown } from "./DocMarkdown";
 import { docsNavItems, docsNavPathOf, docsPages } from "./docsNav";
 
@@ -118,6 +119,21 @@ export function DocsBrowser() {
   const [page, setPage] = useState<DocsPageResponse | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
+
+  /*
+   * A beat asked for a specific page (#2083). It wins over the entry page and
+   * over wherever the reader had got to: they asked for this one, just now.
+   * Cleared here rather than by the caller, because this is the component that
+   * can say the page is actually up.
+   */
+  const pendingUserGuidePage = useAppStore((state) => state.pendingUserGuidePage);
+  const clearUserGuidePage = useAppStore((state) => state.clearUserGuidePage);
+  useEffect(() => {
+    if (pendingUserGuidePage === null) return;
+    setLocation({ path: pendingUserGuidePage, anchor: null });
+    setTrail([]);
+    clearUserGuidePage();
+  }, [pendingUserGuidePage, clearUserGuidePage]);
 
   /* The tree, and the page it says to start on. */
   useEffect(() => {

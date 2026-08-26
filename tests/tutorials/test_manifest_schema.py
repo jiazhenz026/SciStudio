@@ -328,6 +328,7 @@ def test_the_route_target_set_is_the_declared_one() -> None:
         "data_types",
         "workflows",
         "previewers",
+        "data",
     }
 
 
@@ -343,6 +344,7 @@ def test_the_highlight_target_set_is_the_declared_one() -> None:
     assert set(HIGHLIGHT_TARGETS) == {
         "block_palette",
         "canvas",
+        "data",
         "run_button",
         "new_menu_button",
         "plots_new_button",
@@ -355,6 +357,8 @@ def test_the_highlight_target_set_is_the_declared_one() -> None:
         "data_preview",
         "config_panel",
         "workflow_list",
+        "ai_provider_picker",
+        "ai_permission_modes",
         "previewer_palette",
         "type_palette",
         "palette_block",

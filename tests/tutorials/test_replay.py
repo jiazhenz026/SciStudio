@@ -21,6 +21,7 @@ from pathlib import Path
 import pytest
 
 from scistudio.tutorials.actions import (
+    AI_BLOCK_TERMINAL_SURFACE,
     AI_CHAT_TERMINAL_SURFACE,
     REPLAY_SURFACES,
     ActionContext,
@@ -28,10 +29,13 @@ from scistudio.tutorials.actions import (
     ActionValidationError,
     ReplayAction,
     ReplaySegment,
+    RunAction,
     WriteAction,
     execute_action,
     execute_replay,
     parse_action,
+    perform_step_entry,
+    start_runs,
 )
 from scistudio.tutorials.manifest import ManifestValidationError, TutorialSourceKind, load_manifest
 
@@ -86,9 +90,17 @@ def replay_context(tmp_path: Path) -> ActionContext:
 # ---------------------------------------------------------------------------
 
 
-def test_the_surface_set_has_exactly_one_member() -> None:
-    assert set(REPLAY_SURFACES) == {"ai_chat_terminal"}
+def test_the_surface_set_is_the_two_places_a_scripted_session_can_be() -> None:
+    """The chat, and the terminal an AI Block runs in.
+
+    Two rather than one since #2083, and the count is the contract: the
+    runtime keeps one open session *per surface*, so adding a surface adds a
+    terminal that can be open at the same time as the others. A surface added
+    without meaning that is a surface that will silently close another one.
+    """
+    assert set(REPLAY_SURFACES) == {"ai_chat_terminal", "ai_block_terminal"}
     assert AI_CHAT_TERMINAL_SURFACE == "ai_chat_terminal"
+    assert AI_BLOCK_TERMINAL_SURFACE == "ai_block_terminal"
 
 
 def test_a_surface_outside_the_set_is_rejected_at_validation() -> None:
@@ -338,3 +350,227 @@ def test_continue_tab_must_be_a_boolean() -> None:
             },
             field_name="steps[0].do[0]",
         )
+
+
+# ---------------------------------------------------------------------------
+# Deferring a segment's writes until the surface has finished playing (#2083)
+# ---------------------------------------------------------------------------
+
+
+def test_deferring_delivers_the_bytes_and_writes_nothing(replay_context: ActionContext) -> None:
+    """The point of the flag: the reply starts, the project does not change yet.
+
+    A surface that reveals the transcript over time makes "the moment the claim
+    becomes readable" the END of the reply. Landing the file at delivery time
+    would put the block on the canvas while the agent is still describing it.
+    """
+    action = ReplayAction(
+        surface=AI_CHAT_TERMINAL_SURFACE,
+        segments=(
+            ReplaySegment(
+                id="writes-the-block",
+                source="assets/replay/one.txt",
+                do=(WriteAction(source="assets/code/cluster.py", destination="blocks/cluster.py"),),
+            ),
+        ),
+    )
+    delivery = RecordingDelivery(project_dir=replay_context.project_dir)
+    deferred: list[object] = []
+
+    written = execute_replay(
+        action,
+        context=replay_context,
+        step_id="fake-agent",
+        delivery=delivery,
+        defer=deferred,  # type: ignore[arg-type]
+    )
+
+    # The bytes went out...
+    assert [entry[0] for entry in delivery.log] == ["writes-the-block"]
+    # ...and nothing was written, on disk or in the return value.
+    assert written == ()
+    assert not (replay_context.project_dir / "blocks" / "cluster.py").exists()
+    assert "blocks/cluster.py" not in delivery.log[0][2]
+
+
+def test_deferring_hands_back_the_actions_in_declaration_order(replay_context: ActionContext) -> None:
+    """The caller runs them later, so it has to be given all of them, in order."""
+    first = WriteAction(source="assets/code/cluster.py", destination="blocks/cluster.py")
+    second = WriteAction(source="assets/code/cluster.py", destination="plots/scatter.py")
+    action = ReplayAction(
+        surface=AI_CHAT_TERMINAL_SURFACE,
+        segments=(
+            ReplaySegment(id="one", source="assets/replay/one.txt", do=(first,)),
+            ReplaySegment(id="two", source="assets/replay/two.txt", do=(second,)),
+        ),
+    )
+    deferred: list[object] = []
+
+    execute_replay(
+        action,
+        context=replay_context,
+        step_id="s1",
+        delivery=RecordingDelivery(),
+        defer=deferred,  # type: ignore[arg-type]
+    )
+
+    assert deferred == [first, second]
+
+
+def test_not_deferring_is_still_the_old_ordering(replay_context: ActionContext) -> None:
+    """The flag is opt-in. A surface that shows the transcript at once is unaffected."""
+    action = ReplayAction(
+        surface=AI_CHAT_TERMINAL_SURFACE,
+        segments=(
+            ReplaySegment(
+                id="one",
+                source="assets/replay/one.txt",
+                do=(WriteAction(source="assets/code/cluster.py", destination="blocks/cluster.py"),),
+            ),
+        ),
+    )
+    delivery = RecordingDelivery(project_dir=replay_context.project_dir)
+
+    written = execute_replay(action, context=replay_context, step_id="s1", delivery=delivery)
+
+    assert written and written[0].name == "cluster.py"
+    assert "blocks/cluster.py" in delivery.log[0][2]
+
+
+# ---------------------------------------------------------------------------
+# run (#2083, FR-061d)
+# ---------------------------------------------------------------------------
+
+
+def test_a_run_action_parses_and_rejects_a_path_that_escapes_the_project() -> None:
+    """The workflow is a project-relative path, held to the same rule as every other."""
+    action = parse_action({"run": {"workflow": "workflows/main.yaml"}}, field_name="do[0]")
+    assert isinstance(action, RunAction)
+    assert action.workflow == "workflows/main.yaml"
+
+    with pytest.raises(ActionValidationError, match="escape"):
+        parse_action({"run": {"workflow": "../elsewhere/main.yaml"}}, field_name="do[0]")
+
+
+def test_a_run_with_no_runner_wired_is_an_error_rather_than_a_silent_no_op() -> None:
+    """Silence would leave the reader pressing a button that does nothing.
+
+    The step's ``done_when`` waits on a run; if the action quietly did not
+    start one, the tutorial would sit there looking like the reader had failed
+    to do something.
+    """
+    action = RunAction(workflow="workflows/main.yaml")
+
+    with pytest.raises(ActionExecutionError, match="no workflow runner"):
+        start_runs([action], step_id="s1", run=None)
+
+
+def test_a_run_starts_after_the_files_beside_it_have_landed_and_settled(
+    replay_context: ActionContext,
+) -> None:
+    """FR-061d's ordering, which is the whole reason runs are a separate pass.
+
+    The reply writes a block and then runs a workflow that uses it. If the run
+    went in declaration order it would start before the settle, and the
+    workflow would execute against a registry that has not seen the block yet
+    — a failure that looks like the tutorial's own planted bug and is not.
+    """
+    order: list[str] = []
+    actions = [
+        WriteAction(source="assets/code/cluster.py", destination="blocks/cluster.py"),
+        RunAction(workflow="workflows/main.yaml"),
+    ]
+
+    perform_step_entry(
+        actions,
+        context=replay_context,
+        step_id="s1",
+        reveal=lambda: order.append("revealed"),
+        settle=lambda written: order.append(f"settled:{[path.name for path in written]}"),
+        run=lambda workflow: order.append(f"ran:{workflow}"),
+    )
+
+    assert order == ["settled:['cluster.py']", "ran:workflows/main.yaml", "revealed"]
+
+
+def test_a_run_bound_to_a_segment_starts_when_the_replay_is_not_deferred(
+    replay_context: ActionContext,
+) -> None:
+    """A step-entry replay runs its bound actions at once, runs included.
+
+    Nothing defers here, so if the walk did not descend into the segment the
+    run would never start at all.
+    """
+    started: list[str] = []
+    action = ReplayAction(
+        surface=AI_CHAT_TERMINAL_SURFACE,
+        segments=(
+            ReplaySegment(
+                id="one",
+                source="assets/replay/one.txt",
+                do=(
+                    WriteAction(source="assets/code/cluster.py", destination="blocks/cluster.py"),
+                    RunAction(workflow="workflows/main.yaml"),
+                ),
+            ),
+        ),
+    )
+
+    perform_step_entry(
+        [action],
+        context=replay_context,
+        step_id="s1",
+        reveal=lambda: None,
+        delivery=RecordingDelivery(project_dir=replay_context.project_dir),
+        settle=lambda written: None,
+        run=started.append,
+    )
+
+    assert started == ["workflows/main.yaml"]
+
+
+def test_a_deferred_segment_run_does_not_start_at_press_time(
+    replay_context: ActionContext,
+) -> None:
+    """The trap the two paths set for each other.
+
+    A deferred replay hands its bound actions to the defer list *and* leaves
+    them in the action tree, so a walk that descends unconditionally would
+    start the run the moment the reader pressed — before the reply has finished
+    saying it is starting one, and before the files it promised exist. The run
+    has to come back out of the defer list later, and only from there.
+    """
+    started: list[str] = []
+    deferred: list[object] = []
+    run_action = RunAction(workflow="workflows/main.yaml")
+    action = ReplayAction(
+        surface=AI_CHAT_TERMINAL_SURFACE,
+        segments=(
+            ReplaySegment(
+                id="one",
+                source="assets/replay/one.txt",
+                do=(
+                    WriteAction(source="assets/code/cluster.py", destination="blocks/cluster.py"),
+                    run_action,
+                ),
+            ),
+        ),
+    )
+
+    perform_step_entry(
+        [action],
+        context=replay_context,
+        step_id="s1",
+        reveal=lambda: None,
+        delivery=RecordingDelivery(),
+        settle=lambda written: None,
+        defer=deferred,  # type: ignore[arg-type]
+        run=started.append,
+    )
+
+    assert started == [], "the press must not start a run the reply has not finished announcing"
+    assert run_action in deferred
+
+    # And it does start once the surface reports the reply has landed.
+    start_runs(deferred, step_id="s1", run=started.append)  # type: ignore[arg-type]
+    assert started == ["workflows/main.yaml"]

@@ -72,7 +72,7 @@ function activeSession(overrides: Record<string, unknown> = {}) {
     satisfied_step_ids: ["welcome"],
     status: "active" as const,
     error: null,
-    replay: null,
+    replays: [],
     ...overrides,
   };
 }
@@ -385,7 +385,12 @@ describe("a session adopted already-complete at start-up is history, not news (#
     );
     expect(useAppStore.getState().learningCenterOpen).toBe(false);
     expect(closeProject).not.toHaveBeenCalled();
-    expect(learningCenterApi.getTutorialUnlock).not.toHaveBeenCalled();
+    /*
+     * Asking is fine and now expected (#2083): an offer owed to a finish this
+     * app run never watched was otherwise never asked for again. What #2079
+     * forbids is the *reaction* — opening the catalogue and closing the
+     * project — and the two assertions above are the ones that hold it.
+     */
   });
 
   it("stays history when the session request wins the start-up race", async () => {
@@ -411,14 +416,12 @@ describe("a session adopted already-complete at start-up is history, not news (#
     );
     expect(useAppStore.getState().learningCenterOpen).toBe(false);
     expect(closeProject).not.toHaveBeenCalled();
-    expect(learningCenterApi.getTutorialUnlock).not.toHaveBeenCalled();
 
     // The catalogue arriving later changes nothing.
     resolveCatalogue(STALE_CATALOGUE);
     await waitFor(() => expect(useAppStore.getState().learningCenterCatalogue).not.toBeNull());
     expect(useAppStore.getState().learningCenterOpen).toBe(false);
     expect(closeProject).not.toHaveBeenCalled();
-    expect(learningCenterApi.getTutorialUnlock).not.toHaveBeenCalled();
   });
 
   it("does not resurrect the finished tutorial's project", async () => {

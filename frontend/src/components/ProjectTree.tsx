@@ -25,6 +25,20 @@ interface ProjectTreeProps {
   rootPath?: string;
   /** Panel title; defaults to "Project". The Data section passes "Data". */
   title?: string;
+  /**
+   * ADR-053 FR-011 — the name a tutorial's `highlight` addresses this panel
+   * by, stamped on the root element for the Learning Center to find. Only the
+   * Data section sets it: the Project tree is not somewhere a tutorial sends
+   * anyone, and an unset attribute is what keeps the two trees telling apart.
+   */
+  tutorialTarget?: string;
+  /**
+   * Directories to open on first load, project-relative. The Data section
+   * passes `data/raw`: a panel that opens on a single closed folder tells the
+   * reader nothing, and the file's *name* is the subject of core tutorial 3's
+   * opening. Must be a stable reference.
+   */
+  initiallyExpanded?: readonly string[];
 }
 
 function fileIcon(entry: TreeEntry): string {
@@ -126,8 +140,14 @@ export function ProjectTree({
   onReloadBlocks,
   rootPath = "",
   title = "Project",
+  tutorialTarget,
+  initiallyExpanded,
 }: ProjectTreeProps) {
-  const { rootNodes, loading, refresh, handleToggle } = useTreeNodes(projectId, rootPath);
+  const { rootNodes, loading, refresh, handleToggle } = useTreeNodes(
+    projectId,
+    rootPath,
+    initiallyExpanded,
+  );
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   // Blink the tree once a Reload actually lands (same feedback as the palette).
   const { ref: treeRef, trigger: triggerFlash } = useReloadFlash<HTMLDivElement, TreeNodeData[]>(
@@ -181,7 +201,10 @@ export function ProjectTree({
   };
 
   return (
-    <aside className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-4">
+    <aside
+      className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-4"
+      data-tutorial-target={tutorialTarget}
+    >
       <div className="flex items-center justify-between gap-2">
         <p className="font-display text-xl text-ink">{title}</p>
         <button className="toolbar-button" disabled={loading} onClick={handleRefresh} type="button">
