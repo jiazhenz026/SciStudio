@@ -92,6 +92,17 @@ export function LearningCenter() {
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
 
   /*
+   * A beat asked for a user-guide page (#2083). The page is in the reading
+   * tab, so that is the tab to be on — `DocsBrowser` loads it from there and
+   * clears the request.
+   */
+  const pendingUserGuidePage = useAppStore((state) => state.pendingUserGuidePage);
+  useEffect(() => {
+    if (pendingUserGuidePage === null) return;
+    setActiveTabId(READING_TAB_ID);
+  }, [pendingUserGuidePage]);
+
+  /*
    * Refetch whenever the panel opens.
    *
    * The spec's edge case: a condition satisfied while the Learning Center was

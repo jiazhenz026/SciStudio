@@ -66,6 +66,12 @@ export interface CanvasReadabilityWiring {
  */
 export type LeftTab = "blocks" | "types" | "previewers" | "workflows" | "data" | "project";
 
+/**
+ * What the Data section opens with. Module-level so the reference is stable —
+ * `useTreeNodes` depends on it.
+ */
+const DATA_TREE_OPEN: readonly string[] = ["data/raw"];
+
 export interface ProjectWorkspaceProps {
   // Project / workflow context
   currentProject: ProjectResponse;
@@ -217,6 +223,8 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
           projectPath={currentProject.path}
           title="Data"
           rootPath="data"
+          tutorialTarget="data"
+          initiallyExpanded={DATA_TREE_OPEN}
           onLoadWorkflow={(workflowId, displayName) => onLoadWorkflowById(workflowId, displayName)}
           onReloadBlocks={onReloadBlocks}
         />

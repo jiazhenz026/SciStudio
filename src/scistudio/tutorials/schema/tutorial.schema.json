@@ -264,21 +264,42 @@
         },
         "replay": {
           "$ref": "#/$defs/replay"
+        },
+        "run": {
+          "$ref": "#/$defs/run"
         }
       }
     },
-    "file_action": {
+    "segment_action": {
       "type": "object",
       "minProperties": 1,
       "maxProperties": 1,
       "additionalProperties": false,
-      "description": "The subset of actions a replay segment may bind: the ones that put files on disk.",
+      "description": "The subset of actions a replay segment may bind: the ones that put files on disk, plus starting a run. Not a nested replay - a scripted reply that opens another scripted reply is not a thing the format means.",
       "properties": {
         "write": {
           "$ref": "#/$defs/write"
         },
         "copy": {
           "$ref": "#/$defs/copy"
+        },
+        "run": {
+          "$ref": "#/$defs/run"
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflow"
+      ],
+      "description": "Start a real run of a workflow in the tutorial project (FR-061d). Queued through the same entry point the Run control and the agent's run_workflow tool use, and never waited on - the step's done_when judges the outcome exactly as it judges a run the reader started. A run declared beside write actions, or bound to a replay segment, starts after every one of those files has landed and the product has taken them in; a run bound to a segment of a deferred replay starts when that replay settles, so the reply claiming the run has finished being read before the run begins.",
+      "properties": {
+        "workflow": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Project-relative path of the workflow YAML to run, e.g. workflows/main.yaml. Held to the same containment rule as every other tutorial path."
         }
       }
     },
@@ -370,7 +391,7 @@
         "do": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/file_action"
+            "$ref": "#/$defs/segment_action"
           }
         }
       }

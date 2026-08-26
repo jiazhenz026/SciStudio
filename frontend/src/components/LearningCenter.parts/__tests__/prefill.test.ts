@@ -32,7 +32,7 @@ function session(prefill: TutorialPrefillView[]): TutorialSessionResponse {
     satisfied_step_ids: [],
     status: "active",
     error: null,
-    replay: null,
+    replays: [],
   };
 }
 

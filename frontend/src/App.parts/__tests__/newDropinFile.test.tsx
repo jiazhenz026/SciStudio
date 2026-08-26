@@ -290,7 +290,7 @@ describe("ADR-053 FR-011b — a tutorial step seeds the filename", () => {
         satisfied_step_ids: [],
         status: "active",
         error: null,
-        replay: null,
+        replays: [],
       },
     });
   }

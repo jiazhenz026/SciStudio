@@ -320,8 +320,10 @@ def test_a_step_that_replays_reports_the_tab_to_attach_to(client: TestClient, re
     """
     payload = _start_replay(client)
 
-    assert payload["replay"]["surface"] == AI_CHAT_TERMINAL_SURFACE
-    tab_id = payload["replay"]["tab_id"]
+    # A list since #2083: a scripted session per surface, and a step that plays
+    # into one surface leaves the others open.
+    assert [entry["surface"] for entry in payload["replays"]] == [AI_CHAT_TERMINAL_SURFACE]
+    tab_id = payload["replays"][0]["tab_id"]
     assert tab_id in _state._active_ptys
     assert getattr(_state._active_ptys[tab_id], "_engine_prespawned", False) is True
     assert (Path(payload["project_path"]) / "blocks" / "written_by_segment.py").is_file()
@@ -334,7 +336,7 @@ def test_ending_a_session_mid_replay_leaves_no_session_object(client: TestClient
     cannot be preserved, so it is terminated on the way out.
     """
     payload = _start_replay(client)
-    tab_id = payload["replay"]["tab_id"]
+    tab_id = payload["replays"][0]["tab_id"]
 
     assert client.post("/api/tutorials/sessions/active/leave").status_code == 204
 
@@ -364,7 +366,7 @@ def test_the_real_terminal_route_joins_the_replay_and_streams_it(
     ``PtyProcess`` does, this connection would fail rather than stream.
     """
     payload = _start_replay(client)
-    tab_id = payload["replay"]["tab_id"]
+    tab_id = payload["replays"][0]["tab_id"]
     project_dir = payload["project_path"]
 
     received = b""

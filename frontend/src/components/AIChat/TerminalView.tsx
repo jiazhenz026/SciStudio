@@ -57,8 +57,11 @@ import "@xterm/xterm/css/xterm.css";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { prefersReducedMotion } from "../LearningCenter.parts/useTypewriter";
 import type { TerminalProvider } from "../../store/types";
 import { usePtyWebSocket } from "./hooks/usePtyWebSocket";
+import type { PacedWriter, PromptSink } from "./scriptedPacing";
+import { createPacedWriter } from "./scriptedPacing";
 import { TerminalContextMenu } from "./TerminalView.parts/TerminalContextMenu";
 import { useTerminalClipboard } from "./TerminalView.parts/useTerminalClipboard";
 import { useTerminalScrollHint } from "./TerminalView.parts/useTerminalScrollHint";
@@ -75,6 +78,49 @@ export interface TerminalViewProps {
   dangerous: boolean;
   onExit: (code: number) => void;
   onError: (message: string) => void;
+  /**
+   * ADR-053 FR-061a (#2083) — reveal stdout at a speaking pace.
+   *
+   * Set only for the tutorial's scripted replay tab, where the bytes are a
+   * recorded conversation rather than a live process: the point of that tab is
+   * watching the agent answer, and an answer that is already finished when it
+   * appears is not something anyone watches. A live agent's terminal must
+   * never be paced — its output is the process talking in real time, and
+   * delaying it would be lying about when things happened.
+   */
+  paced?: boolean;
+  /**
+   * ADR-053 FR-061a (#2083) — where the reader's question is typed.
+   *
+   * Supplied by {@link ScriptedAgentView}, which draws a prompt box under the
+   * terminal. With it, a `>` line is diverted into that box and echoed into the
+   * scrollback when it is sent; without it, the question is typed into the
+   * terminal like everything else. Meaningless unless `paced`.
+   */
+  promptSink?: PromptSink;
+  /**
+   * Drop this component's own frame.
+   *
+   * The agent window supplies the border, the rounding and the background, and
+   * two nested frames read as a panel inside a panel.
+   */
+  chromeless?: boolean;
+  /**
+   * Called when the paced reveal runs dry — the reply has finished arriving.
+   *
+   * #2083: the tutorial runtime holds a replay segment's file writes until the
+   * surface says the reply is on screen, so this is the signal that lands them.
+   * Meaningless unless `paced`.
+   */
+  onScriptedIdle?: () => void;
+  /**
+   * Text written into the terminal once, before anything arrives from the PTY.
+   *
+   * The scripted agent's name plate. It goes into the buffer rather than into
+   * chrome above it so it scrolls away like a real CLI's start-up banner, and
+   * it is written unpaced: a banner is not something anyone watches type.
+   */
+  banner?: string;
 }
 
 export function TerminalView({
@@ -84,6 +130,11 @@ export function TerminalView({
   dangerous,
   onExit,
   onError,
+  paced = false,
+  promptSink,
+  chromeless = false,
+  banner,
+  onScriptedIdle,
 }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   // Outer frame; the context menu is positioned relative to it.
@@ -109,6 +160,72 @@ export function TerminalView({
   onExitRef.current = onExit;
   onErrorRef.current = onError;
 
+  /*
+   * ADR-053 FR-061a (#2083) — the scripted tab's pacing.
+   *
+   * Sits between the WebSocket frame and xterm, so everything downstream of it
+   * (the pending-writes buffer, the bootstrap flush, the scroll hint) is the
+   * path every tab already takes and only the *timing* differs. Built lazily
+   * on the first stdout frame because a tab that never receives one should not
+   * own a timer, and rebuilt whenever the tab identity changes.
+   */
+  const pacedWriterRef = useRef<PacedWriter | null>(null);
+
+  /*
+   * The sink is a fresh object literal on every render of the agent window, so
+   * the writer is handed a stable indirection instead. Rebuilding the writer
+   * whenever the parent re-rendered would restart the question mid-word.
+   */
+  const promptSinkRef = useRef(promptSink);
+  promptSinkRef.current = promptSink;
+  const onScriptedIdleRef = useRef(onScriptedIdle);
+  onScriptedIdleRef.current = onScriptedIdle;
+  /** Whether this tab has a prompt box at all — that much must not change. */
+  const hasPromptSink = promptSink !== undefined;
+
+  /** Put text on screen now — or hold it until xterm finishes booting. */
+  const emitRef = useRef((data: string) => {
+    const t = termRef.current as { write?: (data: string) => void } | null;
+    if (t?.write) {
+      t.write(data);
+    } else {
+      pendingWritesRef.current.push(data);
+    }
+  });
+
+  useEffect(() => {
+    return () => {
+      pacedWriterRef.current?.dispose();
+      pacedWriterRef.current = null;
+    };
+  }, [tabId, paced, hasPromptSink]);
+
+  /*
+   * The banner, written once per tab. `emitRef` handles the case this always
+   * hits in practice — xterm is still finishing its async import, so the text
+   * waits in the pending buffer and is flushed with everything else — and the
+   * latch keeps a re-render from stamping a second copy.
+   */
+  const bannerWrittenFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!banner) return;
+    if (bannerWrittenFor.current === tabId) return;
+    bannerWrittenFor.current = tabId;
+    emitRef.current(banner);
+  }, [banner, tabId]);
+
+  /**
+   * Finish the scripted line immediately.
+   *
+   * The dialogue box's rule, applied to the terminal: a reader who does not
+   * want to wait presses once and has the whole reply. Without it the pacing
+   * would be taking the reader's time rather than giving the text a rhythm.
+   * A no-op on a live tab, which is never paced.
+   */
+  const revealScriptedNow = useCallback(() => {
+    pacedWriterRef.current?.finishNow();
+  }, []);
+
   useEffect(() => {
     sawExitRef.current = false;
     ptyOpenRef.current = false;
@@ -126,12 +243,24 @@ export function TerminalView({
     initialRows: initialSize?.rows ?? null,
     onMessage: (frame) => {
       if (frame.type === "stdout") {
-        const t = termRef.current as { write?: (data: string) => void } | null;
-        if (t?.write) {
-          t.write(frame.data);
-        } else {
-          pendingWritesRef.current.push(frame.data);
+        if (!paced) {
+          emitRef.current(frame.data);
+          return;
         }
+        if (pacedWriterRef.current === null) {
+          pacedWriterRef.current = createPacedWriter({
+            write: (data) => emitRef.current(data),
+            instant: prefersReducedMotion(),
+            onIdle: () => onScriptedIdleRef.current?.(),
+            promptSink: hasPromptSink
+              ? {
+                  onType: (text) => promptSinkRef.current?.onType(text),
+                  onSubmit: () => promptSinkRef.current?.onSubmit(),
+                }
+              : undefined,
+          });
+        }
+        pacedWriterRef.current.push(frame.data);
       } else if (frame.type === "exit") {
         sawExitRef.current = true;
         onExitRef.current(frame.code);
@@ -486,9 +615,19 @@ export function TerminalView({
   return (
     <div
       ref={frameRef}
-      className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-stone-200 bg-[#1e1e1e]"
+      className={
+        chromeless
+          ? "relative flex h-full flex-col overflow-hidden"
+          : "relative flex h-full flex-col overflow-hidden rounded-2xl border border-stone-200 bg-[#1e1e1e]"
+      }
       data-testid={`terminal-view-${tabId}`}
       onContextMenu={handleContextMenu}
+      // #2083 — a click finishes the scripted line. Bound on the frame rather
+      // than on the xterm host so the hit area is the whole terminal, and on
+      // mousedown so it lands before a drag turns into a text selection. It
+      // neither preventDefaults nor stops propagation: selecting, focusing and
+      // the context menu all still behave exactly as they do on a live tab.
+      onMouseDown={paced ? revealScriptedNow : undefined}
     >
       <button
         type="button"

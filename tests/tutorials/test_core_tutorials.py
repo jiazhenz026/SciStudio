@@ -28,11 +28,20 @@ What each check is really protecting:
 from __future__ import annotations
 
 import ast
+import itertools
+import re
 from pathlib import Path
 
 import pytest
 
-from scistudio.tutorials.actions import CopyAction, FileAction, ReplayAction, WriteAction, iter_file_actions
+from scistudio.tutorials.actions import (
+    CopyAction,
+    FileAction,
+    ReplayAction,
+    RunAction,
+    WriteAction,
+    iter_file_actions,
+)
 from scistudio.tutorials.conditions import UI_EVENT_NAMES, VOCABULARY, Condition
 from scistudio.tutorials.discovery import (
     DiscoveryEnvironment,
@@ -101,14 +110,86 @@ def _file_actions(manifest: TutorialManifest) -> list[FileAction]:
     return list(iter_file_actions(_actions(manifest)))
 
 
-def _asset_sources(manifest: TutorialManifest) -> list[str]:
-    """Every tutorial-directory-relative path any action reads, replays included."""
+#: A CSI escape sequence — every colour change the transcripts use.
+#: A complete bold run -- the one piece of markup a beat may carry.
+#: Highlight targets that live in the LEFT panel, and the `route_to` that
+#: opens the tab each one is on. The right panel and the bottom panel are
+#: not in here: a step routing to a bottom tab leaves the left panel alone
+#: and vice versa, so only these can be pointed at through a closed tab.
+_LEFT_PANEL_ROUTE_FOR: dict[str, str] = {
+    "block_palette": "block_palette",
+    "palette_block": "block_palette",
+    "type_palette": "data_types",
+    "previewer_palette": "previewers",
+    "data": "data",
+}
+
+#: A `[text](doc:page)` run in a beat -- the one thing besides bold that a
+#: beat may carry, and the only place a tutorial can name a page of the user
+#: guide (#2083).
+_DOC_LINK = re.compile(r"\]\(doc:([^)\s]+)\)")
+
+#: Where those pages ship from.
+USER_GUIDE_DIR = Path(__file__).resolve().parents[2] / "src" / "scistudio" / "_user_guide"
+
+_BOLD_PAIR = re.compile(r"\*\*[^*]+\*\*")
+
+_ANSI_CSI = re.compile("\x1b\\[[0-9;]*[@-~]")
+
+
+def _visible_lines(text: str) -> list[str]:
+    """The transcript with its colour codes and CRLF removed, split into lines.
+
+    What a reader sees, which is also what the frontend's pacer classifies: the
+    escape sequences in front of a line are not characters and do not decide
+    where the line starts.
+    """
+    return _ANSI_CSI.sub("", text).replace("\r", "").split("\n")
+
+
+def _replay_segment_sources(manifest: TutorialManifest) -> list[str]:
+    """Every transcript a replay plays, excluding the files its segments write."""
     sources: list[str] = []
     for action in _actions(manifest):
         if isinstance(action, ReplayAction):
+            sources.extend(segment.source for segment in action.segments)
+    return sources
+
+
+def _core_palette_type_names() -> set[str]:
+    """The block type names a reader actually finds in their palette.
+
+    Deliberately ``_scan_builtins`` rather than :meth:`BlockRegistry.scan`.
+    ``scan`` also walks the ``scistudio.blocks`` entry-point group, which is
+    reserved for third-party plugins (#1779) but is served by whatever
+    ``*.dist-info`` happens to sit in the developer's environment. A stale
+    editable install of core therefore re-registers blocks that
+    ``_scan_builtins`` excludes on purpose, and a test built on ``scan`` would
+    pass or fail on one machine's leftovers instead of on this repository.
+    """
+    from scistudio.blocks.registry import BlockRegistry
+    from scistudio.blocks.registry._scan import _scan_builtins
+
+    registry = BlockRegistry()
+    _scan_builtins(registry)
+    return {registry.get_spec(name).type_name for name in registry.all_specs()}
+
+
+def _asset_sources(manifest: TutorialManifest) -> list[str]:
+    """Every tutorial-directory-relative path any action reads, replays included.
+
+    A ``run`` action reads no asset — it names a path inside the reader's
+    project, not one in the tutorial directory — so it contributes nothing here
+    and must not be asked for a ``source`` it does not have.
+    """
+    sources: list[str] = []
+    for action in _actions(manifest):
+        if isinstance(action, RunAction):
+            continue
+        if isinstance(action, ReplayAction):
             for segment in action.segments:
                 sources.append(segment.source)
-                sources.extend(bound.source for bound in segment.do)
+                sources.extend(bound.source for bound in segment.do if not isinstance(bound, RunAction))
         else:
             sources.append(action.source)
     return sources
@@ -229,6 +310,132 @@ class TestEveryShippedCoreTutorial:
         for relative in _asset_sources(manifest):
             resolved = manifest.resolve_asset(relative)
             assert resolved.exists(), f"{manifest.id}: action source {relative!r} does not exist at {resolved}"
+
+    def test_every_replay_segment_marks_its_question_with_one_prompt_line(self, directory: Path) -> None:
+        """The `>` line is a contract the frontend paces on, not a styling choice.
+
+        The scripted terminal types the reader's question at a human's pace and
+        the agent's reply at a machine's (#2083,
+        ``frontend/src/components/AIChat/scriptedPacing.ts``). What tells the
+        two voices apart is the shell convention the transcripts already
+        follow: the question is the line whose first *visible* character — the
+        colour codes in front of it do not count — is `>`.
+
+        Two ways that breaks silently, and both are caught here. A segment with
+        no `>` line plays the reader's own question at machine speed, so the
+        exchange loses the half that makes it an exchange. A reply line that
+        happens to open with `>` (a quote, a diff, a shell example) types
+        itself out at 45ms a character, which on a long line is a terminal that
+        looks hung.
+        """
+        manifest = _load(directory)
+        for relative in _replay_segment_sources(manifest):
+            text = manifest.resolve_asset(relative).read_text(encoding="utf-8")
+            prompts = [line for line in _visible_lines(text) if line.startswith(">")]
+            assert len(prompts) == 1, (
+                f"{manifest.id}: replay segment {relative!r} has {len(prompts)} lines opening with '>', "
+                f"expected exactly one (the reader's question): {prompts}"
+            )
+
+    def test_a_transcript_that_enumerates_the_palette_enumerates_the_real_one(self, directory: Path) -> None:
+        """A scripted reply that lists the palette must list the palette they have.
+
+        Tutorial 3 has the agent answer "what blocks do you have to work with?"
+        by printing the registry, and the reader is invited to check that answer
+        against their own left panel. So the list is a claim about the product,
+        not set dressing: name a block that is not there and the tutorial has
+        taught a beginner something false at the exact moment it asked them to
+        trust it.
+
+        The drift this catches is one-directional and quiet. ``Merge`` and
+        ``Split`` are still importable classes — excluded from the palette in
+        ``_scan_builtins`` because ``Data Router`` supersedes them, kept for
+        plugin development and tests — so a transcript can name them, a
+        developer can import them, and nothing complains. Only the reader,
+        looking at a panel that does not contain them, finds out.
+        """
+        manifest = _load(directory)
+        palette = _core_palette_type_names()
+        for relative in _replay_segment_sources(manifest):
+            lines = _visible_lines(manifest.resolve_asset(relative).read_text(encoding="utf-8"))
+            for index, line in enumerate(lines):
+                if "list_blocks()" not in line:
+                    continue
+                listed = [
+                    entry.split()[0] for entry in itertools.takewhile(lambda text: text.strip(), lines[index + 1 :])
+                ]
+                assert set(listed) == palette, (
+                    f"{manifest.id}: replay segment {relative!r} enumerates the palette as {sorted(listed)}, "
+                    f"but the palette a reader gets is {sorted(palette)}"
+                )
+
+    def test_no_beat_leaks_an_asterisk_the_dialogue_cannot_render(self, directory: Path) -> None:
+        """`**bold**` is the only markup a beat has; anything else reaches the screen.
+
+        `frontend/src/components/LearningCenter.parts/beatText.ts` splits a beat
+        on a `**` pair and treats every other character as text, so a lone `*it*`
+        -- the habit of anyone who writes markdown all day -- renders as literal
+        asterisks in the dialogue box. There is no parse error and no warning: it
+        simply looks like the tutorial was written by someone who did not check.
+        """
+        manifest = _load(directory)
+        for step in manifest.steps:
+            for index, beat in enumerate(step.say):
+                leftover = _BOLD_PAIR.sub("", beat)
+                assert "*" not in leftover, (
+                    f"{manifest.id}: step {step.id!r} beat {index} carries an asterisk outside a "
+                    f"bold pair, which the dialogue renders as itself: {beat!r}"
+                )
+
+    def test_a_left_panel_highlight_is_on_a_step_that_opens_that_panel(self, directory: Path) -> None:
+        """A ring around a tab nobody is looking at is a ring around nothing.
+
+        `route_to` is a property of the step, not of the beat, and the left
+        panel and the bottom panel are separate axes: routing to `ai_chat`
+        moves the bottom panel and leaves the left one wherever the previous
+        step put it. So a step that rings a palette entry while routing to a
+        bottom tab draws its highlight on a tab that may not be open —
+        silently, because the highlight simply finds no element.
+
+        Caught by a reader, not by a test, the first time: the QC block's
+        "there it is in the palette" beat rang the palette while the left
+        panel was still showing Data.
+        """
+        manifest = _load(directory)
+        for step in manifest.steps:
+            for highlight in step.highlights:
+                if highlight is None:
+                    continue
+                needed = _LEFT_PANEL_ROUTE_FOR.get(highlight.target)
+                if needed is None:
+                    continue
+                assert step.route_to == needed, (
+                    f"{manifest.id}: step {step.id!r} highlights {highlight.target!r}, which is in the "
+                    f"left panel, but routes to {step.route_to!r} — it must route to {needed!r} or the "
+                    f"ring lands on a tab that may not be open"
+                )
+
+    def test_every_doc_link_names_a_page_that_ships(self, directory: Path) -> None:
+        """A link to a page that is not there is a 404 with a beat pointing at it.
+
+        The path is what the docs API is asked for verbatim, extension and
+        all — `ai-assistant` is not the page, `ai-assistant.md` is — and
+        nothing between the beat and the request would notice the
+        difference. The reader gets "No such documentation page", having
+        been told the guide was right there.
+
+        Both a step's beats and the tutorial's summary are checked: the
+        summary carries the same markup, so the catalogue page can point at
+        a page that does not exist just as easily.
+        """
+        manifest = _load(directory)
+        beats = [manifest.summary, *(beat for step in manifest.steps for beat in step.say)]
+        for beat in beats:
+            for page in _DOC_LINK.findall(beat):
+                assert (USER_GUIDE_DIR / page).is_file(), (
+                    f"{manifest.id}: a beat links to user-guide page {page!r}, which does not ship "
+                    f"under {USER_GUIDE_DIR}"
+                )
 
     def test_copy_sources_are_directories_and_write_sources_are_files(self, directory: Path) -> None:
         """The two actions are not interchangeable; the mismatch only shows at run time."""
