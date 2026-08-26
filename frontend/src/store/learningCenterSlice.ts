@@ -25,6 +25,7 @@
 
 import type { StateCreator } from "zustand";
 
+import { bottomTabForReplaySurface } from "../components/LearningCenter.parts/targets";
 import { ApiError } from "../lib/api/core";
 import {
   learningCenterApi,
@@ -429,10 +430,71 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
      * settles the registries, and answers with the re-judged session; a
      * failure is surfaced beside the button and the press can be retried.
      */
+    pendingUserGuidePage: null,
+
+    requestUserGuidePage: (path) => {
+      /*
+       * The Learning Center is opened here because that part is unconditional:
+       * every consumer of `pendingUserGuidePage` lives inside it or reacts to
+       * it, and a request that left the reader in their project would set a
+       * field nothing was watching.
+       */
+      set({ pendingUserGuidePage: path });
+      get().openLearningCenter();
+    },
+
+    clearUserGuidePage: () => set({ pendingUserGuidePage: null }),
+
     triggerActiveTutorialStep: async () => {
       set({ learningCenterTriggerError: null });
       try {
-        adoptSession(await learningCenterApi.triggerActiveTutorialStep());
+        const session = await learningCenterApi.triggerActiveTutorialStep();
+        adoptSession(session);
+        /*
+         * Show the reply where it is being typed.
+         *
+         * The button sits in the dialogue, which floats over whatever surface
+         * the step routed to — and a step that spends its one `route_to` on
+         * the left panel (ringing a palette entry, say) cannot also spend it
+         * on the terminal. Without this the agent types its answer into a tab
+         * that is not on screen: nothing errors, and the reader is left
+         * looking at a step claiming something just happened.
+         *
+         * Here rather than in `useTutorialReplayTab`, which opens the tab only
+         * when it adopts a *new* one. A `continue_tab` reply (#2089) appends
+         * to the tab already open and never changes `tab_id`, so that hook
+         * never fires for it — and continuations are most of this level.
+         */
+        const live = (session.replays ?? [])[0];
+        if (live) {
+          const tab = bottomTabForReplaySurface(live.surface);
+          if (tab) get().openBottomTab(tab);
+          /*
+           * And select the terminal, not just the panel. With two scripted
+           * terminals open — an AI Block's beside the chat — opening the AI
+           * panel lands on whichever tab was last selected, which after the
+           * block has run is the block's. The backend orders `replays` most
+           * recently written to first, so this is the one the reply is
+           * arriving in.
+           */
+          get().setActiveTerminalTab(live.tab_id);
+        }
+      } catch (error) {
+        set({ learningCenterTriggerError: describe(error) });
+      }
+    },
+
+    /**
+     * #2083 — the scripted terminal has finished revealing its reply.
+     *
+     * Whatever the press deferred lands now, which is what keeps the canvas
+     * from rearranging itself ten seconds before the agent finishes saying it
+     * did. Errors go to the trigger's own slot: the press is what queued this
+     * work, and pressing again is the recovery.
+     */
+    settleActiveTutorialReplay: async () => {
+      try {
+        adoptSession(await learningCenterApi.settleActiveTutorialReplay());
       } catch (error) {
         set({ learningCenterTriggerError: describe(error) });
       }

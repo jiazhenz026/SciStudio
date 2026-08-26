@@ -227,6 +227,26 @@ export function useLearningCenter({
   const seenRunningTutorial = useRef<string | null>(null);
   const lastCompletionAsked = useRef<string | null>(null);
 
+  /*
+   * Ask once at start-up whether the offer is still owed (#2083).
+   *
+   * The reaction below only fires on the *transition* into complete, watched
+   * by this app run. That covers the ordinary finish and nothing else: a
+   * reader who finished and then reloaded, restarted, pressed "Keep
+   * exploring", or followed a link out of the tutorial is owed an offer that
+   * is never asked for again — `work_import_offer_pending` stays true forever,
+   * because only being shown the offer clears it.
+   *
+   * Safe to ask every start-up precisely because the backend owns "once":
+   * `GET /unlock` answers false the moment the offer has been dismissed. What
+   * must NOT move up here is the rest of that reaction — opening the Learning
+   * Center and closing the project on every launch is #2079, and the "seen
+   * running" guard below is what keeps it fixed.
+   */
+  useEffect(() => {
+    void checkWorkImportOffer();
+  }, [checkWorkImportOffer]);
+
   useEffect(() => {
     if (!tutorialSessionKey) return;
     if (!tutorialSessionComplete) {
@@ -263,6 +283,33 @@ export function useLearningCenter({
     openLearningCenter,
     closeProject,
   ]);
+
+  /*
+   * A beat asked for a page of the user guide (#2083). The page lives in the
+   * Learning Center's reading tab, on the other side of the open project, so
+   * the project closes — the same ending "Back to Learning Center" has always
+   * had. The store opened the Learning Center already; the tab and the page
+   * are handled where each is owned.
+   */
+  const pendingUserGuidePage = useAppStore((state) => state.pendingUserGuidePage);
+  /*
+   * `closeProject` is an inline arrow in `App`, so its identity changes every
+   * render. Depending on it here re-ran the effect on every render, and each
+   * run closed the project again — a state change, another render, forever.
+   * The request itself is what this reacts to, and each one is acted on once.
+   */
+  const closeProjectRef = useRef(closeProject);
+  closeProjectRef.current = closeProject;
+  const guidePageHandled = useRef<string | null>(null);
+  useEffect(() => {
+    if (pendingUserGuidePage === null) {
+      guidePageHandled.current = null;
+      return;
+    }
+    if (guidePageHandled.current === pendingUserGuidePage) return;
+    guidePageHandled.current = pendingUserGuidePage;
+    closeProjectRef.current();
+  }, [pendingUserGuidePage]);
 
   useEffect(() => {
     if (!tutorialStepKey || !tutorialStepRoute) return;

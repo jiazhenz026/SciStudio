@@ -28,6 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   "remember" box there forgets the choice. A file registered this way now also
   records its full type chain, so a type with no previewer of its own inherits
   its parent's rather than falling back to the plain-file view.
+  file into the data catalog (with the same extension-based type inference
+  block outputs get), so parquet, zarr, images, and friends route to their
+  proper previewers instead of doing nothing.
+- [#2190] **Plot cards show how long a run has been going.** While a plot run
+  is in flight, the card shows a small elapsed-time pill next to the Run
+  button — the same `7s` / `2:05` / `1:04:09` counter a running canvas block
+  already had — and it disappears the moment the run finishes or fails,
+  leaving no final duration on the card. The timer's formatting and ticking
+  now live in one shared helper, so both surfaces always read identically.
 
 - [#2090] **The left sidebar is a VS Code-style icon rail, and it gained two
   sections.** The Blocks / Data types / Project text tabs are replaced by a 48px

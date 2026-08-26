@@ -317,7 +317,13 @@ class SessionResponse(BaseModel):
     revisiting: bool = False
     status: str
     error: str | None = None
-    replay: ReplayResponse | None = None
+    replays: list[ReplayResponse] = Field(default_factory=list)
+    """Every scripted terminal that is open, one per surface (#2083).
+
+    A list rather than a single value: an AI Block's terminal and the chat are
+    different surfaces and both stay open, so the frontend adopts a set of tabs
+    rather than swapping one.
+    """
     #: The whole tutorial's read-only step outline; see StepOutlineResponse.
     steps: list[StepOutlineResponse] = Field(default_factory=list)
 
@@ -1210,12 +1216,24 @@ def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
             broadcasts.add(task)
             task.add_done_callback(broadcasts.discard)
 
+    def start_tutorial_run(workflow: str) -> None:
+        """The tutorial runtime's FR-061d port: queue a run of *workflow*.
+
+        The same call the Run button and the agent's ``run_workflow`` MCP tool
+        make, reached the same way -- by workflow id, which is the file's stem.
+        Nothing here waits for the outcome: the run is queued and the step's
+        ``done_when`` judges what happens, exactly as it does for a run the
+        reader started themselves.
+        """
+        runtime.start_workflow(Path(workflow).stem)
+
     tutorials = TutorialRuntime(
         product_state=product_state,
         external_events=_EXTERNAL_EVENTS,
         project_dir=lambda: runtime.project_dir,
         provisioner=_RuntimeProvisioner(runtime=runtime),
         open_replay=open_replay_tab,
+        run_workflow=start_tutorial_run,
         record_ui_event=recorded.record_ui_event,
         forget_ui_events=recorded.forget_ui_events,
         files_written=files_written,
@@ -1390,7 +1408,7 @@ def _session_response(runtime: ApiRuntime, view: SessionView | None) -> SessionR
         revisiting=view.revisiting,
         status=str(view.status),
         error=view.error,
-        replay=None if view.replay is None else ReplayResponse(surface=view.replay.surface, tab_id=view.replay.tab_id),
+        replays=[ReplayResponse(surface=r.surface, tab_id=r.tab_id) for r in view.replays],
         steps=[
             StepOutlineResponse(
                 index=int(entry.get("index", position)),
@@ -1597,6 +1615,24 @@ async def trigger_active_step(runtime: RuntimeDep) -> SessionResponse:
     """
     tutorials = _tutorials(runtime)
     return _rendered(runtime, _acting(tutorials.trigger_active))
+
+
+@router.post("/sessions/active/replay-settled", response_model=SessionResponse)
+async def settle_active_replay(runtime: RuntimeDep) -> SessionResponse:
+    """Report that a scripted reply has finished playing (#2083).
+
+    The scripted agent window reveals a transcript at a speaking pace, so the
+    files its segments bind are held back at press time and land here instead:
+    when the agent says it wrote a block, the block appears then, and not ten
+    seconds before it finished saying so. The response is the re-judged
+    session, because landing those files is usually what makes the step's
+    condition true.
+
+    Safe to post when nothing is pending — a surface that reports twice, or one
+    whose replay bound no files, gets the current session and no second write.
+    """
+    tutorials = _tutorials(runtime)
+    return _rendered(runtime, _acting(tutorials.settle_replay_active))
 
 
 @router.post("/sessions/active/continue", response_model=SessionResponse)

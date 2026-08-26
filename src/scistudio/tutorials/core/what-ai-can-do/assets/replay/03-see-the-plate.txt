@@ -1,0 +1,29 @@
+[1m[36m> Draw me a plot so I can see what this plate looks like.[0m
+
+Two things have to exist before a picture can: a plot card draws a block's output,
+so there has to be a block, and it has to have run.
+
+[32m* write_workflow(path='workflows/main.yaml', ...)[0m
+[2m    load-plate  (Load)  ->  data/raw/drug_A-J_1mM_500uM_200uM_100uM_50uM_20...csv[0m
+
+One block for now. Everything else gets added to this same workflow later.
+
+[32m* list_plot_targets(workflow_path='workflows/main.yaml')[0m
+[2m    main:load-plate:data    Load -> data    (DataFrame)[0m
+[32m* scaffold_plot(plot_id='plate_raw', target_id='main:load-plate:data')[0m
+[2m    plots/plate_raw/plot.yaml[0m
+[2m    plots/plate_raw/render.py[0m
+
+One square per well, one column per group, coloured by viability. Ninety-six
+numbers in a column tell you very little; ninety-six squares laid out the way the
+plate was laid out tell you a lot, because a bad well is something that happened in
+a place.
+
+The x axis is the group label, because that is every bit of what the table knows
+about which well got what.
+
+[32m* run_workflow(path='workflows/main.yaml')[0m
+[2m    run queued[0m
+
+Running it, because the card needs that block's output and the block has to have
+produced one. Open the Plots tab and press Run on the card.

@@ -1,0 +1,23 @@
+[1m[36m> That worked. Now draw me the curve.[0m
+
+[32m* get_block_output(run_id='run_7f3a1c', block_id='fit-curve', port='curve')[0m
+[2m    DataFrame ref - 10 rows x 7 columns[0m
+[32m* preview_data(ref=..., fmt='markdown')[0m
+[2m    concentration_um, group, n_wells, mean_viability_pct, fitted_viability_pct, ...[0m
+[2m    ic50_um = 29.34    hill_slope = 0.985    over 78 wells in 10 groups[0m
+
+That table is your answer and nobody can see it. Ten means falling from alive to
+dead is a shape, and a shape belongs in a picture.
+
+[32m* list_plot_targets(workflow_path='workflows/main.yaml')[0m
+[2m    main:fit-curve:wells    Fit IC50 -> wells    (DataFrame, 78 rows)[0m
+[32m* scaffold_plot(plot_id='ic50_curve', target_id='main:fit-curve:wells')[0m
+[2m    plots/ic50_curve/plot.yaml[0m
+[2m    plots/ic50_curve/render.py[0m
+
+Bound to the fit's well-level output rather than its means, so each dose is drawn
+as a box over the wells behind it. A mean is what gets quoted; the spread is what
+tells you whether to quote it. The curve and the IC50 line come from the fit's own
+columns, so the picture cannot disagree with the block that made it.
+
+Open the Plots tab and press Run on the card.

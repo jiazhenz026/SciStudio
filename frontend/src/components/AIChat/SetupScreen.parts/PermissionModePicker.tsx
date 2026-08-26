@@ -15,6 +15,12 @@
  * FR-021f: this change is presentational only. The stored `safe` / `dangerous`
  * values, the radio `value` attributes, the test ids, and the launch payload are
  * all unchanged.
+ *
+ * #2083: the Bypass copy used to end "this cannot be changed once the session
+ * starts", which was true of the CLI flag this picker once set and is not true
+ * of the agents themselves — every supported one lets you change how much it
+ * asks from inside the running session. What this picker decides is how the
+ * session *starts*, and the copy now says only that.
  */
 import type { PermissionMode } from "./types";
 
@@ -30,7 +36,12 @@ export function PermissionModePicker({
   onChange,
 }: PermissionModePickerProps) {
   return (
-    <fieldset className="grid gap-2" data-testid="setup-permission-group">
+    // #2083: core tutorial 3 rings the pair while naming what each one means.
+    <fieldset
+      className="grid gap-2"
+      data-testid="setup-permission-group"
+      data-tutorial-target="ai_permission_modes"
+    >
       <legend className="text-sm font-medium text-ink">Permission mode</legend>
       <label className="flex items-start gap-2 rounded-2xl border border-stone-300 px-3 py-2 text-sm text-ink hover:bg-stone-50">
         <input
@@ -62,8 +73,8 @@ export function PermissionModePicker({
           <span className="font-medium">Bypass Permission</span> — the agent runs commands and
           changes files without asking.
           <span className="block text-xs">
-            Use only in a sandbox you can throw away. This cannot be changed once the session
-            starts.
+            Use only in a sandbox you can throw away. This is how the session starts; the
+            agent&apos;s own controls can change it from inside afterwards.
           </span>
         </span>
       </label>

@@ -1229,26 +1229,73 @@ and the tab lifecycle stay the product's real ones and only the byte source
 changes. A replay MUST NOT accept user input back into the scripted session.
 
 **FR-061b.** A replay MUST be expressible as an ordered sequence of segments,
-each of which MAY carry its own write or copy actions, and a segment's actions
-MUST complete before the next segment's bytes are delivered. A scripted agent
-that claims to have written a block has to be matched by the block existing at the
+each of which MAY carry its own write or copy actions. A scripted agent that
+claims to have written a block has to be matched by the block existing at the
 moment the claim is readable, which a single opaque stream played to completion
 cannot guarantee.
 
+**Which moment that is depends on how the surface plays the bytes** (#2083). A
+surface that renders a transcript at once makes it readable on delivery, and
+there a segment's actions MUST complete before its bytes are delivered. A
+surface that reveals the transcript over time — the scripted agent window types
+it at a speaking pace — makes it readable at the *end* of the reply, and there
+the actions MUST NOT run at delivery: they are held, and land when the surface
+reports the reply has finished playing. Running them at delivery on such a
+surface keeps the letter of the rule and inverts what it is for, putting the
+block on the canvas ten seconds before the agent finishes saying it wrote one.
+
+Holding is per replay rather than per segment: the surface reports that it has
+gone quiet, not which segment quietened it, so a multi-segment replay lands all
+of its writes at the end of its last segment. Held writes MUST be discarded when
+the reader leaves the step that pressed for them — a report arriving late cannot
+write into a step that never asked — and a repeated report MUST NOT write twice,
+because a surface reports without knowing whether the reply bound anything.
+
 A replay action MAY declare `continue_tab: true` (#2089): its segments are
 appended to the surface's open replay tab, transcript intact, instead of that
-tab being closed and a new one opened. It MUST be an error when no replay tab
-is open — a continuation of nothing is an authoring mistake, not an empty
-operation — and FR-061b's ordering holds per appended segment: each appended
-segment's bound writes land before its bytes are delivered. Combined with the
-step trigger (FR-011, #2061), this is the conversation-pacing mechanism: the
-reader presses the step's button, more of the scripted session arrives in the
-same tab, and the files the transcript claims to have written are on disk
-before the claims are readable.
+tab being closed and a new one opened. Combined with the step trigger (FR-011,
+#2061), this is the conversation-pacing mechanism: the reader presses the step's
+button, more of the scripted session arrives in the same tab, and the files the
+transcript claims to have written are on disk before the claims have finished
+being made.
+
+When there is no open tab to continue, the action MUST open one and play into
+it rather than fail (revised, #2083 — it was previously specified as an error).
+The tab is a real tab in the reader's window: they can close it, its WebSocket
+can drop, the frontend can reload, and a step can be separated from the tab it
+continues by other surfaces and several workflow runs. Refusing turns any of
+those into a level that cannot be finished, because every later press continues
+the same absent tab. The transcript above the new tab is NOT restored, so a
+recovered conversation resumes rather than continues; the step's dialogue is
+what carries the thread across the gap. A live tab bound to a surface other
+than the one declared MUST still be an error — that is an authoring mistake,
+and nothing in the reader's window causes or corrects it.
 
 **FR-061c.** Ending a session mid-replay MUST terminate the scripted session and
 leave no replay session object behind, on the same path a real PTY session uses
 for termination.
+
+**FR-061d.** A step MAY declare a `run` action naming a project-relative
+workflow path, and a replay segment MAY bind one. The runtime MUST queue a real
+run of that workflow through the same entry point the Run control and the
+agent's `run_workflow` MCP tool use, and MUST NOT wait for its outcome — the
+step's `done_when` judges the run exactly as it judges one the reader started.
+
+The runtime could previously observe runs (`run_succeeded`, `run_failed`) and
+not start one, so every run in every level was a control the reader pressed.
+That is correct where pressing Run is the lesson and wrong where it is stage
+machinery: a level about what an agent does must be able to show the agent
+doing it, and a scripted reply claiming a run that never happened would leave
+the next step reading logs that do not exist.
+
+**Ordering.** A run MUST start after every file action in the same batch has
+landed *and* after the settle hook has run. A reply that writes a block and
+then runs a workflow using it would otherwise race the registry re-scan and
+fail on a block that is on disk and unknown. A run bound to a segment of a
+deferred replay MUST NOT start until that replay settles (FR-061b), so the run
+begins when the reply claiming it has finished being revealed. A `run` action
+declared with no runner wired MUST be an error, not a silent no-op: the step's
+`done_when` would otherwise wait forever on a run nothing started.
 
 #### Tutorial projects
 
@@ -1873,7 +1920,7 @@ vocabulary term and every action type is part of this spec's test material.
 | Conditions | `tests/tutorials/test_conditions.py` | Each vocabulary term true and false against a constructed project; `all` / `any`; evaluation leaves no side effects (FR-055) |
 | Events | `tests/tutorials/test_condition_events.py` | Each mapped event re-evaluates its terms; no timer or poll exists (FR-051); explicit evaluation satisfies a `file_exists` condition on a non-allowlisted extension (FR-053) |
 | Actions | `tests/tutorials/test_actions.py` | Write and copy land before step text is exposed (FR-059); a path escaping the project is rejected; a failed action ends the session (FR-060) |
-| Replay | `tests/tutorials/test_replay.py` | A replay action naming a surface outside the declared set is rejected at validation (FR-061); a replay segment's bound actions complete before the next segment is delivered (FR-061b); a replay stream reaches only the surface the action names (FR-061) |
+| Replay | `tests/tutorials/test_replay.py` | A replay action naming a surface outside the declared set is rejected at validation (FR-061); a replay segment's bound actions complete before its bytes are delivered on a surface that renders at once, and are held until the surface reports the reply has finished playing on one that reveals over time (FR-061b, #2083); a replay stream reaches only the surface the action names (FR-061) |
 | Tier assets | `tests/tutorials/test_tier_asset_rules.py` | A user-level or project-level manifest is rejected when it declares an executable asset, a replay action, or a destination under an executed directory (FR-020a) |
 | Session | `tests/tutorials/test_session_lifecycle.py` | Resume across restart (FR-037); one session at a time (FR-043); a raising driver ends the session without marking completion (FR-044); an already-true condition satisfies on entry (FR-054) |
 | Driver parity | `tests/tutorials/test_driver_parity.py` | A fixture package driver and a manifest tutorial produce API responses distinguishable only by content (FR-040); a driver cannot return fields outside the step view (FR-041) |

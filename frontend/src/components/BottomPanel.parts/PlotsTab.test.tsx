@@ -1,4 +1,4 @@
-import { render, waitFor, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, waitFor, screen, fireEvent, cleanup, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PlotListItem, PlotRunResponse } from "../../types/api";
@@ -297,5 +297,73 @@ describe("PlotsTab", () => {
 
     await waitFor(() => expect(runPlotJob).toHaveBeenCalled());
     expect(reportTutorialUiEvent).not.toHaveBeenCalled();
+  });
+});
+
+// #2190 — transient elapsed-time pill next to the Run button, mirroring the
+// block node timer (#1974): visible only while the run is in flight, no final
+// duration left on the card. Format/tick rules live in the shared hook tests
+// (`hooks/__tests__/useElapsedMs.test.tsx`); these tests pin the card wiring.
+describe("PlotsTab — running elapsed timer (#2190)", () => {
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  it("shows the elapsed pill next to the Run button while the run is in flight", async () => {
+    const run = deferred<PlotRunResponse>();
+    listPlots.mockResolvedValue({ plots: [makePlot()], count: 1, warnings: [] });
+    runPlotJob.mockReturnValue(run.promise);
+    render(<PlotsTab />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Run plot My Plot" }));
+
+    const pill = await screen.findByTestId("plot-run-elapsed");
+    expect(pill.textContent).toMatch(/^\d+s$/);
+    expect(pill).toHaveAccessibleName(/^Running for /);
+    expect(screen.getByRole("button", { name: "Run plot My Plot" })).toHaveTextContent("Running");
+
+    run.resolve(plotRunResponse());
+    await waitFor(() => expect(screen.queryByTestId("plot-run-elapsed")).toBeNull());
+    expect(screen.getByRole("button", { name: "Run plot My Plot" })).toHaveTextContent("Run");
+  });
+
+  it("shows the pill only on the card whose run is in flight", async () => {
+    const run = deferred<PlotRunResponse>();
+    listPlots.mockResolvedValue({
+      plots: [makePlot(), makePlot({ plot_id: "p2", title: "Other Plot" })],
+      count: 2,
+      warnings: [],
+    });
+    runPlotJob.mockReturnValue(run.promise);
+    render(<PlotsTab />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Run plot My Plot" }));
+
+    await screen.findByTestId("plot-run-elapsed");
+    expect(screen.getAllByTestId("plot-run-elapsed")).toHaveLength(1);
+    expect(within(screen.getByTestId("plot-card-p2")).queryByTestId("plot-run-elapsed")).toBeNull();
+
+    run.resolve(plotRunResponse());
+    await waitFor(() => expect(screen.queryByTestId("plot-run-elapsed")).toBeNull());
+  });
+
+  it("drops the pill when the run fails, leaving no final duration", async () => {
+    const run = deferred<PlotRunResponse>();
+    listPlots.mockResolvedValue({ plots: [makePlot()], count: 1, warnings: [] });
+    runPlotJob.mockReturnValue(run.promise);
+    render(<PlotsTab />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Run plot My Plot" }));
+    await screen.findByTestId("plot-run-elapsed");
+
+    run.reject(new Error("boom"));
+    expect(await screen.findByText("boom")).toBeInTheDocument();
+    expect(screen.queryByTestId("plot-run-elapsed")).toBeNull();
   });
 });

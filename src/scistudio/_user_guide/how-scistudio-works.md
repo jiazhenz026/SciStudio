@@ -82,7 +82,7 @@ Plot cards turn workflow results into figures for exploration and communication.
 
 | Surface | Role |
 |---|---|
-| Plot card | Saves a visualization connected to one workflow output |
+| Plot card | Saves a visualization connected to one workflow output; shows an elapsed-time indicator next to Run while a run is in progress |
 | Authoring | Uses Python or R and supports several views of one result |
 | Preview and export | Displays figures in the preview panel and exports SVG, PNG, PDF, or JPEG |
 | Relinking | Connects a card to a new output after workflow changes |

@@ -31,6 +31,7 @@ function surface(
       line="Drag Load onto the canvas."
       mood="curious"
       onAdvance={null}
+      onOpenDoc={vi.fn()}
       placement={placement}
       remaining={0}
       speaker="Mio"
@@ -74,15 +75,39 @@ describe("the full form", () => {
     /*
      * The art is drawn facing screen-left, so the side she stands on decides
      * which of the two baked sets she wears. Same expression, different file.
+     *
+     * `explain` rather than the helper's `curious`: that one mood is served
+     * un-mirrored on both sides because reflection turns its question mark
+     * backwards (`mio.ts`, NEVER_MIRRORED), so it is the wrong mood to ask
+     * about mirroring with. The next case is the one that holds it.
      */
-    const { unmount } = render(surface({ side: "left", edge: "bottom" }, false));
+    const { unmount } = render(
+      surface({ side: "left", edge: "bottom" }, false, { mood: "explain" }),
+    );
     const facingRight = screen.getByTestId("tutorial-dialogue-sprite").getAttribute("src");
     unmount();
 
-    render(surface({ side: "right", edge: "bottom" }, false));
+    render(surface({ side: "right", edge: "bottom" }, false, { mood: "explain" }));
     const facingLeft = screen.getByTestId("tutorial-dialogue-sprite").getAttribute("src");
 
     expect(facingRight).not.toBe(facingLeft);
+  });
+
+  it("keeps `curious` in its own orientation on both sides", () => {
+    /*
+     * Rendered rather than asserted on the lookup (`mio.test.ts` does that),
+     * because the surface used to override this mood's sprite itself for the
+     * poke gag. The override is gone; if anything here ever reaches past
+     * `spriteFor` again, this catches it.
+     */
+    const { unmount } = render(surface({ side: "left", edge: "bottom" }, false));
+    const onLeft = screen.getByTestId("tutorial-dialogue-sprite").getAttribute("src");
+    unmount();
+
+    render(surface({ side: "right", edge: "bottom" }, false));
+    const onRight = screen.getByTestId("tutorial-dialogue-sprite").getAttribute("src");
+
+    expect(onLeft).toBe(onRight);
   });
 });
 
@@ -357,5 +382,44 @@ describe("a beat that has not finished arriving (#2135)", () => {
     fireEvent.click(screen.getByTestId("tutorial-dialogue-line"));
 
     expect(onAdvance).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("moving to the next beat (#2083)", () => {
+  /**
+   * A long beat scrolls inside its fixed-height box. jsdom reports every
+   * element as zero-sized, so `scrollTop` is set by hand here — the assertion
+   * is about the component putting it back, not about jsdom's layout.
+   */
+  it("puts the line box back to the top", () => {
+    const { rerender } = render(
+      surface({ side: "left", edge: "bottom" }, false, {
+        line: "A long first beat.",
+        remaining: 2,
+      }),
+    );
+    const box = screen.getByTestId("tutorial-dialogue-line");
+    box.scrollTop = 120;
+
+    rerender(
+      surface({ side: "left", edge: "bottom" }, false, { line: "The second beat.", remaining: 1 }),
+    );
+
+    // Without this, the second beat opens on its own last line: the reader
+    // meets the end of a sentence that never started.
+    expect(screen.getByTestId("tutorial-dialogue-line").scrollTop).toBe(0);
+  });
+
+  it("resets even when two beats in a row say the same words", () => {
+    const repeated = "Press Run.";
+    const { rerender } = render(
+      surface({ side: "left", edge: "bottom" }, false, { line: repeated, remaining: 2 }),
+    );
+    screen.getByTestId("tutorial-dialogue-line").scrollTop = 90;
+
+    // `remaining` is what tells the two apart; the text alone does not.
+    rerender(surface({ side: "left", edge: "bottom" }, false, { line: repeated, remaining: 1 }));
+
+    expect(screen.getByTestId("tutorial-dialogue-line").scrollTop).toBe(0);
   });
 });
