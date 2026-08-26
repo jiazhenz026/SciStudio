@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import shutil
 import sys
 from pathlib import Path, PurePosixPath
 from types import ModuleType
@@ -55,6 +56,17 @@ from .conftest import say_text
 
 TUTORIAL_DIR = Path(__file__).resolve().parents[2] / "src" / "scistudio" / "tutorials" / "core" / "what-is-a-type"
 ASSETS = TUTORIAL_DIR / "assets"
+
+
+def _module_from(path: Path, name: str) -> ModuleType:
+    """Import one drop-in file under *name*, the way a Tier-1 scan does."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
 
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
@@ -799,21 +811,46 @@ def test_the_step_texts_stand_on_what_the_pixels_do(manifest: TutorialManifest) 
 # ---------------------------------------------------------------------------
 
 
-def test_the_review_block_is_a_real_interactive_block(assets: dict[str, ModuleType]) -> None:
-    """Mixin + execution mode + panel manifest: the registry's own validation gate."""
+def test_the_review_block_is_a_real_interactive_block(assets: dict[str, ModuleType], tmp_path: Path) -> None:
+    """Mixin + execution mode + panel manifest: the registry's own validation gate.
+
+    Loaded from a **deployed** copy rather than the ``assets`` fixture, because
+    the block's ``asset_root`` is ``Path(__file__).parent / "review_labels_panel"``
+    and the panel does not sit there in this repository — ``tutorial.yaml`` copies
+    ``assets/panels/review_labels`` to ``blocks/review_labels_panel`` when the
+    reader starts the tutorial. The staged file is a template; only the deployed
+    pair is a block. Since #2196 the registry checks the panel the manifest names
+    and not just the class shape, so validating the template where it is staged
+    asks it to satisfy a contract that layout was never meant to satisfy.
+
+    Reproducing the copy is also the stronger test: it proves the layout the
+    reader actually gets satisfies the panel contract, which is what breaks their
+    tutorial if it is wrong. The ``assets`` fixture is still requested: it binds
+    ``image`` in ``sys.modules``, which this block imports, and unbinds it after.
+    """
     from scistudio.blocks.base import ExecutionMode, InteractiveMixin
     from scistudio.blocks.registry._spec import _spec_from_class
 
-    cls = assets["review"].ReviewLabelsBlock
-    assert issubclass(cls, InteractiveMixin)
-    assert cls.execution_mode is ExecutionMode.INTERACTIVE
+    blocks_dir = tmp_path / "blocks"
+    blocks_dir.mkdir()
+    shutil.copy(ASSETS / "code" / "review_labels.py", blocks_dir / "review_labels.py")
+    shutil.copytree(ASSETS / "panels" / "review_labels", blocks_dir / "review_labels_panel")
 
-    spec = _spec_from_class(cls, source="custom")
+    module_name = "_scistudio_dropin_test_t2_review_deployed"
+    try:
+        cls = _module_from(blocks_dir / "review_labels.py", module_name).ReviewLabelsBlock
+        assert issubclass(cls, InteractiveMixin)
+        assert cls.execution_mode is ExecutionMode.INTERACTIVE
+
+        spec = _spec_from_class(cls, source="custom")
+    finally:
+        sys.modules.pop(module_name, None)
+
     assert spec.type_name == "review_labels"
     assert spec.execution_mode == "interactive"
     assert spec.panel_manifest is not None
     assert spec.panel_manifest["panel_id"] == "tutorial.review_labels"
-    assert spec.panel_asset_root is not None and spec.panel_asset_root.endswith("review_labels_panel")
+    assert spec.panel_asset_root == str(blocks_dir / "review_labels_panel")
 
 
 def test_the_panel_manifest_names_the_served_module(assets: dict[str, ModuleType]) -> None:
