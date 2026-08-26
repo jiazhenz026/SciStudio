@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -510,6 +511,120 @@ class TestScanTier2CallableProtocol:
 
         assert len(reg.all_specs()) == 0
         assert len(reg.packages()) == 0
+
+
+class TestBlockRegistryHotReloadTier2:
+    """#1791: hot_reload() re-scans Tier 2 entry-point plugins.
+
+    Before the fix, ``hot_reload()`` re-scanned Tier 1 only, and even a full
+    re-scan reused the plugin's cached ``sys.modules`` entries, so an edited
+    installed plugin stayed stale until the process restarted.
+    """
+
+    def _write_ep_plugin(self, root: Path, *, module: str, description: str) -> None:
+        """Write a minimal ``scistudio_blocks_*`` plugin package on disk."""
+        pkg_dir = root / module
+        pkg_dir.mkdir(parents=True, exist_ok=True)
+        (pkg_dir / "__init__.py").write_text(
+            "from typing import Any\n"
+            "\n"
+            "from scistudio.blocks.base.config import BlockConfig\n"
+            "from scistudio.blocks.base.package_info import PackageInfo\n"
+            "from scistudio.blocks.base.block import Block\n"
+            "\n"
+            "class EpHotBlock(Block):\n"
+            '    name = "EpHotBlock"\n'
+            f'    description = "{description}"\n'
+            "    input_ports = []\n"
+            "    output_ports = []\n"
+            '    config_schema = {"type": "object", "properties": {}}\n'
+            "\n"
+            "    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:\n"
+            "        return {}\n"
+            "\n"
+            "def get_blocks():\n"
+            f'    return PackageInfo(name="EP Hot", version="0.1.0"), [EpHotBlock]\n',
+            encoding="utf-8",
+        )
+
+    def _make_ep(self, module: str) -> MagicMock:
+        """Entry-point stand-in whose load() imports the real on-disk plugin."""
+        import importlib
+
+        ep = MagicMock()
+        ep.name = module
+        ep.module = module
+        ep.value = f"{module}:get_blocks"
+        ep.load.side_effect = lambda: importlib.import_module(module).get_blocks
+        return ep
+
+    def test_hot_reload_reimports_edited_entry_point_plugin(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """An edited installed plugin re-imports on hot_reload, not on restart."""
+        module = "scistudio_blocks_ephotedit"
+        self._write_ep_plugin(tmp_path, module=module, description="v1")
+        monkeypatch.syspath_prepend(str(tmp_path))
+        ep = self._make_ep(module)
+        mock_eps = MagicMock()
+        mock_eps.select.return_value = [ep]
+
+        reg = BlockRegistry()
+        with patch("importlib.metadata.entry_points", return_value=mock_eps):
+            reg.scan()
+        spec = reg.get_spec("EpHotBlock")
+        assert spec is not None
+        assert spec.description == "v1"
+        assert spec.source == "entry_point"
+
+        # Edit the installed plugin in place, then hot-reload.
+        self._write_ep_plugin(tmp_path, module=module, description="v2 edited")
+        with patch("importlib.metadata.entry_points", return_value=mock_eps):
+            reg.hot_reload()
+
+        spec = reg.get_spec("EpHotBlock")
+        assert spec is not None
+        assert spec.description == "v2 edited"
+
+    def test_hot_reload_drops_uninstalled_entry_point_plugin(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """A plugin whose entry point disappears is removed, package info too."""
+        module = "scistudio_blocks_ephotgone"
+        self._write_ep_plugin(tmp_path, module=module, description="present")
+        monkeypatch.syspath_prepend(str(tmp_path))
+        ep = self._make_ep(module)
+        mock_eps = MagicMock()
+        mock_eps.select.return_value = [ep]
+
+        reg = BlockRegistry()
+        with patch("importlib.metadata.entry_points", return_value=mock_eps):
+            reg.scan()
+        assert reg.get_spec("EpHotBlock") is not None
+        assert "EP Hot" in reg.packages()
+
+        empty_eps = MagicMock()
+        empty_eps.select.return_value = []
+        with patch("importlib.metadata.entry_points", return_value=empty_eps):
+            reg.hot_reload()
+
+        assert reg.get_spec("EpHotBlock") is None
+        assert "EP Hot" not in reg.packages()
+
+    def test_evict_entry_point_package_never_touches_core(self) -> None:
+        """The eviction guard must not drop core's own modules mid-process."""
+        import scistudio.blocks  # noqa: F401 — ensure the module is cached
+        from scistudio.blocks.registry._scan import _evict_entry_point_package
+
+        ep = MagicMock()
+        ep.module = "scistudio.blocks"
+        _evict_entry_point_package(ep)
+
+        assert "scistudio.blocks" in sys.modules
 
 
 # ----------------------------------------------------------------------------

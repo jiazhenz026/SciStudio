@@ -537,6 +537,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#1791] **Reloading a custom block now works for installed and packaged
+  plugins, not just project drop-in files.** Editing a block inside an
+  installed or packaged `scistudio_blocks_*` plugin and reloading — from the
+  palette's Reload button, the agent's `reload_blocks` tool, or the
+  save-on-write hook — used to report "nothing changed" no matter what, and
+  only a full app restart picked the edit up. The reload path re-scanned only
+  loose project `blocks/*.py` files, and even where packaged plugins were
+  re-scanned, Python's module cache handed back the classes from the first
+  import. Reload now re-scans every block source and re-imports the plugin
+  from disk, so edited blocks appear, removed plugins disappear, and a plugin
+  that fails to re-import surfaces in the palette diagnostics instead of
+  silently going stale.
+
 - [#2174] **A stalled notarization now leaves evidence behind.** Notarization is
   the one release step that depends on a third party, has no upper bound on how
   long it may take, and prints nothing while it waits — which makes it both the
