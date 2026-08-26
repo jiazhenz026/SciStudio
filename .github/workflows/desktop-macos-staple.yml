@@ -1,0 +1,147 @@
+name: Desktop macOS Staple
+
+# #2176: the second half of macOS notarization.
+#
+# `Desktop macOS DMG` signs, builds and *submits* the dmg, then stops. Apple's
+# notary queue has no upper bound -- a 0.3.4 submission sat at `In Progress`
+# through 61 consecutive one-minute polls -- and waiting for it inside the build
+# throws away the signed dmg along with the queue position, so each attempt
+# starts another hour from zero.
+#
+# This workflow finishes the job: it waits for the verdict, staples the ticket
+# to the dmg the build kept, and asserts the result a user will actually meet.
+# It is cheap to re-run, because the submission stays live at Apple and the
+# ticket is bound to that dmg's cdhash. Never resubmit to "retry" -- that
+# invalidates nothing and buys a fresh queue wait.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Run ID of the Desktop macOS DMG build that produced the dmg"
+        required: true
+      submission_id:
+        description: "Apple submission ID printed by that build"
+        required: true
+      artifact:
+        description: "Artifact name to staple"
+        required: false
+        default: "scistudio-macos-dmg"
+
+permissions:
+  contents: read
+  # Reading an artifact from another workflow run needs this; `contents` alone
+  # is not enough and the download fails with a 403 that reads like a bad id.
+  actions: read
+
+jobs:
+  staple:
+    name: Staple and verify
+    runs-on: macos-15
+    # Apple's queue is the thing being waited on and it is not ours to bound.
+    # Three hours is well past anything observed; the step-level notarization
+    # timeout below fails first and says which submission was left in flight.
+    timeout-minutes: 180
+    env:
+      HAS_NOTARY_KEY: ${{ secrets.APPLE_API_KEY_P8 != '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Fail early without notarization credentials
+        if: env.HAS_NOTARY_KEY != 'true'
+        run: |
+          echo "::error::APPLE_API_KEY_P8 is not configured; there is nothing to wait on"
+          exit 1
+
+      - name: Download the dmg from the build run
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ github.event.inputs.artifact }}
+          run-id: ${{ github.event.inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: dist
+
+      # Mirrors the build workflow: the key is written under RUNNER_TEMP with
+      # restrictive permissions, passed by path rather than interpolated into a
+      # command line, and removed by an always() step.
+      - name: Write App Store Connect API key
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          install -d -m 700 "$RUNNER_TEMP/private_keys"
+          printf '%s' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/private_keys/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/private_keys/AuthKey.p8"
+
+      - name: Wait for Apple's verdict
+        env:
+          APPLE_API_KEY: ${{ format('{0}/private_keys/AuthKey.p8', runner.temp) }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          # Comfortably under the job timeout so the script, not the runner,
+          # reports which submission was left in flight.
+          SCISTUDIO_NOTARIZE_TIMEOUT_MIN: "150"
+        run: node desktop/scripts/notarize.js wait "${{ github.event.inputs.submission_id }}"
+
+      - name: Staple the ticket
+        env:
+          APPLE_API_KEY: ${{ format('{0}/private_keys/AuthKey.p8', runner.temp) }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          DMG=$(find dist -maxdepth 1 -name '*.dmg' -print -quit)
+          test -n "$DMG" || { echo "::error::no dmg in the downloaded artifact"; exit 1; }
+          node desktop/scripts/notarize.js staple "$DMG"
+
+      - name: Notarization trace
+        if: always()
+        run: cat "$RUNNER_TEMP/notarize.log" 2>/dev/null || echo "no notarization trace was written"
+
+      - name: Remove App Store Connect API key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/private_keys"
+
+      # #2096 in its final form. The build job asserts the signature and the
+      # hardened runtime; only here can the *ticket* be asserted, and only here
+      # does the assessment correspond to what a user meets: mount the dmg they
+      # will download and ask Gatekeeper about the app they will launch.
+      - name: Verify the stapled artifact
+        run: |
+          set -euo pipefail
+          DMG=$(find dist -maxdepth 1 -name '*.dmg' -print -quit)
+          echo "verifying $DMG"
+
+          # The ticket is attached to the dmg itself.
+          xcrun stapler validate "$DMG"
+
+          MOUNT=$(mktemp -d)
+          hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT" >/dev/null
+          trap 'hdiutil detach "$MOUNT" -quiet || true' EXIT
+
+          APP=$(find "$MOUNT" -maxdepth 1 -name '*.app' -print -quit)
+          test -n "$APP" || { echo "::error::no .app inside the dmg"; exit 1; }
+
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+          codesign --display --verbose=2 "$APP" > "$RUNNER_TEMP/csinfo.txt" 2>&1
+          grep -qE 'flags=.*runtime' "$RUNNER_TEMP/csinfo.txt" || {
+            echo "::error::hardened runtime flag missing from the signature"
+            cat "$RUNNER_TEMP/csinfo.txt"
+            exit 1
+          }
+
+          # Gatekeeper's own verdict on the app as shipped. The app inside is
+          # not itself stapled -- the ticket is on the dmg -- so this resolves
+          # against Apple online, exactly as a downloading user's Mac does.
+          spctl -a -vvv -t exec "$APP"
+
+      - name: Upload the stapled dmg
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ github.event.inputs.artifact }}-stapled
+          path: dist/*.dmg
+          if-no-files-found: error

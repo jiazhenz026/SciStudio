@@ -23,8 +23,19 @@ test("mac: hardened runtime is on (a precondition for notarization)", () => {
   assert.equal(mac.hardenedRuntime, true);
 });
 
-test("mac: notarization is enabled", () => {
-  assert.equal(mac.notarize, true);
+test("mac: notarization happens, but outside electron-builder", () => {
+  // #2176 took notarization away from electron-builder entirely: `mac.notarize`
+  // is false and there is no `afterSign` hook, because both would put a blind,
+  // unbounded `--wait --output-format json` submission back inside the build.
+  // What this test has always been for is that notarization happens at all, so
+  // it asserts the replacement is wired -- in the workflow, not the config.
+  assert.equal(mac.notarize, false);
+  assert.equal(pkg.build.afterSign, undefined);
+  const wf = fs.readFileSync(
+    path.join(desktopRoot, "..", ".github", "workflows", "desktop-macos-dmg.yml"),
+    "utf8",
+  );
+  assert.match(wf, /notarize\.js submit/);
 });
 
 test("mac: entitlements and entitlementsInherit point at the same file", () => {
