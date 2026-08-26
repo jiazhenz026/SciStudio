@@ -250,24 +250,14 @@ export APPLE_API_KEY_ID=... APPLE_API_ISSUER=...
 export SCISTUDIO_OTA_CHANNEL=alpha
 npm --prefix desktop run build:python:mac
 npm --prefix desktop run stage:sh
-npm --prefix desktop run dist:dmg
+npm --prefix desktop run dist:dmg:arm64   # or dist:dmg:x64 for an Intel build
 ```
 
 The Developer ID Application certificate must be in the local keychain;
-electron-builder selects it automatically.
-
-`dist:dmg` signs but does not notarize (section 6.5), so a local dmg still
-meets Gatekeeper until the two remaining phases are run by hand:
-
-```sh
-node desktop/scripts/notarize.js submit desktop/dist/SciStudio-*.dmg   # prints the id
-node desktop/scripts/notarize.js wait <submission-id>
-node desktop/scripts/notarize.js staple desktop/dist/SciStudio-*.dmg
-```
-
-`wait` is safe to re-run and safe to interrupt. Re-submitting is not: the ticket
-is bound to that dmg's cdhash, so a second submission buys a second queue wait
-and invalidates nothing.
+electron-builder selects it automatically. `dist:dmg:<arch>` produces the
+runtime and shell for the arch of the machine it runs on, so an Intel dmg is
+built on an Intel Mac (or under Rosetta) and an arm64 dmg on Apple Silicon.
+`dist:dmg` remains an alias for `dist:dmg:arm64`.
 
 ### 6.5 Notarization is submitted by the build and finished separately (#2176)
 
@@ -337,6 +327,47 @@ because the status says only *that* Apple refused. A timeout fails carrying the
 submission ID, which keeps the submission queryable instead of forcing a blind
 resubmit. Missing credentials skip; partial credentials fail, because a
 half-configured set is always a misconfiguration.
+
+### 6.6 Both architectures are built by CI (#2165)
+
+The dmg job is a matrix over architecture, one leg per runner whose native arch
+matches the artifact — arm64 on `macos-15`, x64 on `macos-15-intel`.
+`build:python:mac` keys off `uname -m`, so each runner bundles the matching
+CPython automatically and no Rosetta cross-build is involved.
+
+The Intel leg was originally written against `macos-13`. GitHub retired that
+image — it keeps only the latest two macOS versions — so a leg pinned to it
+fails on an unknown runner label rather than building anything, a failure with
+no useful diagnostic. `macos-15-intel` is the current x64 image.
+
+`macos-15-intel` is also a *larger* runner, and larger runners are billed even
+for public repositories where the arm64 leg is not, so building both
+architectures on every dispatch has a cost the arm64-only workflow did not.
+
+Each leg is a separate submission with its own artifact
+(`scistudio-macos-dmg-<arch>`), so each needs its own `Desktop macOS Staple`
+run (section 6.5). `dist:dmg:${{ matrix.arch }}` passes the electron-builder arch flag,
+and `build.dmg.artifactName` (`${productName}-${version}-${arch}.dmg`) gives the
+two dmgs distinct, arch-suffixed names so both can be attached to one release
+without colliding.
+
+Before this, only arm64 had a CI path and the Intel dmg was built by hand
+(#2165). The signing, notarization and verification steps above are shared by
+both legs, so the Intel dmg is signed, notarized and stapled on exactly the same
+terms as the Apple Silicon one.
+
+`dist:dmg` signs but does not notarize (section 6.5), so a local dmg still
+meets Gatekeeper until the two remaining phases are run by hand:
+
+```sh
+node desktop/scripts/notarize.js submit desktop/dist/SciStudio-*.dmg   # prints the id
+node desktop/scripts/notarize.js wait <submission-id>
+node desktop/scripts/notarize.js staple desktop/dist/SciStudio-*.dmg
+```
+
+`wait` is safe to re-run and safe to interrupt. Re-submitting is not: the ticket
+is bound to that dmg's cdhash, so a second submission buys a second queue wait
+and invalidates nothing.
 
 ## 7. Verification
 

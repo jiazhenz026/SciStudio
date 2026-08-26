@@ -149,9 +149,13 @@ def test_desktop_has_macos_dmg_builder() -> None:
     scripts = package_data["scripts"]
     assert isinstance(scripts, dict)
     assert "build-python-runtime-macos.sh" in scripts["build:python:mac"]
-    # #1747: local manual builds are arm64-only; the bundled Python (built per
-    # `uname -m`) and the Electron shell must share one architecture.
+    # #2165: one dmg script per architecture, each with the matching
+    # electron-builder flag. The bundled Python (built per `uname -m`) and the
+    # Electron shell share one architecture within each leg. `dist:dmg` stays an
+    # arm64 alias for back-compat.
     assert "--mac dmg --arm64" in scripts["dist:dmg"]
+    assert "--mac dmg --arm64" in scripts["dist:dmg:arm64"]
+    assert "--mac dmg --x64" in scripts["dist:dmg:x64"]
 
     script = DESKTOP_DIR / "scripts" / "build-python-runtime-macos.sh"
     content = script.read_text(encoding="utf-8")
@@ -165,12 +169,23 @@ def test_desktop_has_macos_dmg_builder() -> None:
     assert "workflow_dispatch:" in workflow_text
     assert "pull_request:" not in workflow_text
     assert "push:" not in workflow_text
-    # #1747: arm64 (Apple Silicon) runner so the whole chain is arm64-consistent
-    # (an Intel runner would bundle x64 Python in an arm64 shell).
-    assert "runs-on: macos-15\n" in workflow_text
-    assert "macos-15-intel" not in workflow_text
+    # #2165: a matrix over architecture, each leg on a runner whose native arch
+    # matches the artifact so build:python:mac bundles the right CPython off
+    # `uname -m` with no Rosetta — arm64 on macos-15, x64 on macos-15-intel.
+    #
+    # This originally pinned macos-13 and asserted macos-15-intel was *absent*.
+    # GitHub has since retired macos-13: a job asking for it is never scheduled
+    # and fails with no diagnostic, so the assertion was holding the Intel leg
+    # to a label that cannot build anything. tests/qa/test_workflow_expressions
+    # now guards the retired-label class directly.
+    assert "runs-on: ${{ matrix.runner }}" in workflow_text
+    assert "runner: macos-15\n" in workflow_text
+    assert "runner: macos-15-intel" in workflow_text
+    # No "macos-13 is absent" assertion here: it matched the comment explaining
+    # why the label was dropped. tests/qa/test_workflow_expressions.py guards
+    # retired labels by parsing the YAML, which cannot be fooled by prose.
     assert "npm --prefix desktop run build:python:mac" in workflow_text
-    assert "npm --prefix desktop run dist:dmg" in workflow_text
+    assert "npm --prefix desktop run dist:dmg:${{ matrix.arch }}" in workflow_text
     assert "desktop/dist/*.dmg" in workflow_text
 
 
