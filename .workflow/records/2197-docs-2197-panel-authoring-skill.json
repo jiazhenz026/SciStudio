@@ -1,0 +1,114 @@
+{
+  "base_ref": null,
+  "branch": "docs/2197-panel-authoring-skill",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/_skills/**",
+      "src/scistudio/_agent_reference/block-contract.md",
+      "src/scistudio/cli/templates/**",
+      "src/scistudio/ai/agent/mcp/panel_scaffold.py",
+      "frontend/src/App.parts/InteractiveModals.parts/panelModuleLoader.ts",
+      "tests/**",
+      ".workflow/records/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-26T20:50:58.333506Z",
+      "owner_directive": "Deliver: (1) new skill src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md; (2) routing update in scistudio-write-block/SKILL.md and the base scistudio/SKILL.md index; (3) self-contained scaffold helper src/scistudio/ai/agent/mcp/panel_scaffold.py emitting blocks/<name>.py plus the panel module skeleton; (4) block-contract.md default-export and module_url corrections; (5) panelModuleLoader.ts header comment route fix; (6) tests for scaffold output shape.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-08-26T21:00:48.270081Z",
+      "owner_directive": "BLOCKER for the manager: provisioning the new scistudio-write-panel skill into projects requires src/scistudio/agent_provisioning/skills.py (_SKILL_NAMES), _orchestrate.py (_expected_skill_paths, 14 -> 16) and templates/claude_agents_md.md, all of which are agent A2's exclusive write set for this dispatch (#2196). Those edits plus the paired test-count updates in tests/agent_provisioning/test_skills.py and tests/packaging/test_wheel_skills.py must land together; this branch deliberately leaves all of them untouched.",
+      "reason": "Record the sequencing blocker found during implementation and the docs check the dispatch asked for."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-26T20:50:58.333531Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_agent_reference/block-contract.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:50:58.333539Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:50:58.333547Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "agent-facing skill and reference text plus an internal scaffold helper; no user-visible release-note behavior change",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:50:58.333552Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR-051 already defines the interactive panel contract; this work corrects reference docs to match it and adds no new contract",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T21:00:48.270103Z",
+      "class": "package-development",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs/package-development/blocks.md does not document the interactive panel contract at all (no interactive/module_url/apiVersion text), so the default-export and module_url corrections have no counterpart there",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2197,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Manager dispatch A3 (#2197): dedicated interactive-panel authoring skill, a self-contained interactive scaffold helper, and the block-contract / loader-comment documentation corrections. tools_authoring.py and agent_provisioning/** are sequenced to other agents.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2197-docs-2197-panel-authoring-skill",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:claude-opus-5",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "deb032ec-f24f-4feb-adbe-27b01e1e2cee",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-08-26T20:50:58.333556Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_panel_scaffold.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

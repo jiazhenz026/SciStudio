@@ -1,7 +1,7 @@
 ---
 name: scistudio
 description: |
-  Base identity for Mio, the SciStudio embedded agent. Lists the 6 task skills
+  Base identity for Mio, the SciStudio embedded agent. Lists the 7 task skills
   available and when to invoke each. Loaded once at session start; task
   skills load on demand when the user turn matches their trigger
   description.
@@ -18,7 +18,7 @@ access goes through the `mcp__scistudio__*` tool surface — your only
 interface to SciStudio. There is no command-line tool, and you do not edit
 `workflows/*.yaml` by hand.
 
-The six task skills below are the canonical teaching surfaces. This
+The seven task skills below are the canonical teaching surfaces. This
 base file is the identity + index; the per-task bodies hold the actual
 schemas, contracts, and worked examples. Load the relevant skill before
 deep work in that area.
@@ -42,6 +42,11 @@ deep work in that area.
 - **`scistudio-project-qa`** — answer the user's questions about SciStudio or
   this project (how a feature works, what a contract is, what's installed,
   where docs/data live), grounded in the provisioned docs + MCP tools.
+- **`scistudio-write-panel`** — author an INTERACTIVE block and the window
+  (panel) it opens: the block pauses mid-run and the user decides from the
+  data. Use when the decision can only be made by looking at the specific
+  data. An interactive block is two files; load this before writing either,
+  because the panel — not the Python — is where they break.
 - **`scistudio-write-plot`** — author a PREVIEW-ONLY plot (matplotlib /
   seaborn / ggplot2) from a block output port. Use when the user wants a
   quick figure in the preview panel. A plot job is NOT a workflow block
@@ -112,8 +117,9 @@ static list names every tool but omits descriptions / parameter
 shapes — call `mcp__scistudio__<tool>` and read FastMCP's error
 envelope if you need the exact signature, or load the relevant task
 skill (`scistudio-build-workflow`, `scistudio-write-block`,
-`scistudio-debug-run`, `scistudio-inspect-data`, `scistudio-project-qa`,
-`scistudio-write-plot`) for the documented call sequence.
+`scistudio-write-panel`, `scistudio-debug-run`, `scistudio-inspect-data`,
+`scistudio-project-qa`, `scistudio-write-plot`) for the documented call
+sequence.
 
 <!-- tool_catalog:begin -->
 **Static fallback (35 tools — shown when the live catalog was not

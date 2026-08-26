@@ -51,22 +51,45 @@ Two panel options:
   from pathlib import Path
   interactive_panel = PanelManifest(
       panel_id="myproj.pick_baseline",
-      module_url="/api/blocks/panels/myproj.pick_baseline/index.js",
-      asset_root=str(Path(__file__).parent / "pick_baseline"),  # dir holding index.js
+      module_url="/api/blocks/panels/myproj.pick_baseline/panel.mjs",
+      asset_root=str(Path(__file__).parent / "pick_baseline"),  # dir holding panel.mjs
       version="1",
   )
   ```
 
   `asset_root` is the on-disk directory (next to the block `.py`) holding the
   panel files; it is served path-confined and never sent to the browser.
-  `module_url` is always `/api/blocks/panels/<panel_id>/<file>`. The module
-  exports `{ apiVersion: "1", mount(container, host) }`; `host.panelPayload` is
-  what `prepare_prompt` returned, `host.confirm(decision)` sends the JSON that
-  becomes `config["interactive_response"]`, and `host.cancel()` cancels the
-  block. `mount` returns `{ unmount() {...} }`.
+  `module_url` is **always** `/api/blocks/panels/<panel_id>/<file>` — that is the
+  route the backend serves panel assets on, and it must name the file that
+  actually exists under `asset_root` (`.mjs` and `.js` are both served). A URL of
+  any other shape fails to load as `import_failed`.
+
+  The module's **default export** is the panel — `export_name` defaults to
+  `"default"`, so a module that exports only a named binding fails to load as
+  `export_missing`. The exported object is
+  `{ apiVersion: "1", mount(container, host) }` and `mount` returns
+  `{ unmount() {...} }`:
+
+  ```js
+  export default {
+    apiVersion: "1",
+    mount(container, host) { /* ... */ return { unmount() { /* ... */ } }; },
+  };
+  ```
+
+  `host.panelPayload` is what `prepare_prompt` returned, `host.confirm(decision)`
+  sends the JSON that becomes `config["interactive_response"]`, and
+  `host.cancel()` cancels the block.
+
+**The panel MUST give the user a reachable way to both confirm and cancel.** The
+run is paused on this window; a panel that renders neither leaves the user with
+no way forward and no way out. This is not enforced by the registry — it is on
+you, on every panel, whatever else the window does.
 
 The registry rejects an interactive block that declares the mixin without the
 mode (or vice versa), omits `prepare_prompt`, or has no valid `interactive_panel`.
+Write a panel with the `scistudio-write-panel` skill; it carries a minimal
+working module and the failure codes the panel host reports.
 
 ## Hand off to an app (AppBlock) or a script (CodeBlock)
 

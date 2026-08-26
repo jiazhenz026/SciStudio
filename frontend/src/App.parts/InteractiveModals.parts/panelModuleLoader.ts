@@ -5,7 +5,10 @@
  * ({@link ../../components/DataPreview.parts/dynamicPreviewer.ts}) but for the
  * interactive-block panel host. A package-provided interactive block ships its
  * window as an ESM module served by the backend under a same-origin, backend-
- * relative `module_url` (e.g. `/api/interactive/panels/<panel_id>/<file>.js`).
+ * relative `module_url`. That route is `/api/blocks/panels/<panel_id>/<file>`
+ * (`serve_panel_asset` in `src/scistudio/api/routes/blocks.py`, router prefix
+ * `/api/blocks`) — a `module_url` of any other shape resolves to nothing and
+ * fails here as `import_failed`.
  *
  * {@link mountDynamicPanel} validates the manifest, dynamically `import()`s the
  * module from a *same-origin* URL only, reads the named export, checks it is a

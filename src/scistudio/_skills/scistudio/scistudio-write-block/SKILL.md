@@ -65,7 +65,11 @@ genuinely helps the user. See `block-contract.md` for how to author each.
 - **interactive (optional)** — a block can pause and let the user make a
   data-dependent decision in the GUI (route items, mark a region). Reuse a
   built-in panel (`core.interactive.data_router`, `core.interactive.pair_editor`)
-  or ship a small custom panel.
+  or ship a small custom panel. **Load `scistudio-write-panel` before writing
+  one**: an interactive block is two files, and both of the ways they reach users
+  broken — a panel the host cannot load, and a panel with no way out of the
+  paused run — live in the second one. That skill carries the working module and
+  the failure codes.
 - **AppBlock / CodeBlock** — hand the step to an external GUI/CLI tool, or to a
   project-local script.
 
@@ -123,3 +127,6 @@ a convenient default.
 - An interactive block declaring `InteractiveMixin` without
   `execution_mode=INTERACTIVE` (or vice versa), or missing `prepare_prompt` /
   `interactive_panel` — the registry rejects it at scan time.
+- Writing an interactive block's panel from this skill instead of loading
+  `scistudio-write-panel`. The registry checks the Python half only; the panel
+  is where interactive blocks actually break.
