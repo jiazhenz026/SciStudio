@@ -137,6 +137,26 @@ describe("tabSlice preview tabs (#2112 transient preview tab)", () => {
     expect(activePreviewTab().displayName).toBe("data-123");
   });
 
+  it("carries the open-as descriptor so the tab can say — and change — its type", () => {
+    useAppStore.getState().openPreviewTab(previewTarget, "beads.tif", undefined, {
+      path: "data/beads.tif",
+      extension: ".tif",
+      typeName: "Image",
+      remembered: true,
+    });
+    expect(activePreviewTab().openAs).toEqual({
+      path: "data/beads.tif",
+      extension: ".tif",
+      typeName: "Image",
+      remembered: true,
+    });
+  });
+
+  it("leaves openAs unset for a tab opened by maximizing the sidebar preview", () => {
+    useAppStore.getState().openPreviewTab(previewTarget, "beads.tif");
+    expect(activePreviewTab().openAs).toBeUndefined();
+  });
+
   it("de-duplicates on the ref: re-maximizing focuses the existing tab", () => {
     useAppStore.getState().openPreviewTab(previewTarget, "first");
     useAppStore.getState().openPreviewTab(previewTarget, "second");

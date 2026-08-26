@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 
 import { useReloadFlash } from "../hooks/useReloadFlash";
 import { api } from "../lib/api";
+import { openDataFileAsPreview } from "../lib/openDataFile";
 import { useAppStore } from "../store";
 import type { TreeEntry } from "../types/api";
 import { ContextMenu } from "./ProjectTree.parts/ContextMenu";
@@ -56,22 +57,14 @@ const STORE_DIRECTORY_EXTENSIONS: readonly string[] = ["zarr"];
 
 /**
  * #2112 — Data-tree double-click: register the file with the data catalog and
- * open the returned `data_ref` target in a preview tab. Async because the
- * catalog round-trip must complete before the tab can open; failures are
- * logged and leave the UI untouched (no editor fallback).
+ * open the returned `data_ref` target in a preview tab, asking which type to
+ * open it as when the extension is ambiguous. Async because the catalog
+ * round-trip must complete before the tab can open; failures are logged and
+ * leave the UI untouched (no editor fallback).
  */
 async function openDataFilePreview(projectId: string, node: TreeNodeData): Promise<void> {
   try {
-    const result = await api.registerDataPath({ projectId, path: node.path });
-    useAppStore.getState().openPreviewTab(
-      {
-        kind: "data_ref",
-        ref: result.ref,
-        recorded_type: result.recorded_type,
-        type_chain: result.type_chain,
-      },
-      result.display_name ?? node.name,
-    );
+    await openDataFileAsPreview(projectId, node.path, node.name);
   } catch (err) {
     console.error(`Failed to open data preview for ${node.path}:`, err);
   }

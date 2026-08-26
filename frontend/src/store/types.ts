@@ -890,6 +890,22 @@ export interface FileTab {
  * focuses the existing tab instead of piling up duplicates (mirrors
  * `openFileTab`'s id-keyed dedup).
  */
+/**
+ * How a data-tree file was opened, so the preview tab can say which type it
+ * chose and offer to change it (#2112). Absent on tabs opened by maximizing
+ * the sidebar preview, which have no file path behind them.
+ */
+export interface PreviewTabOpenAs {
+  /** Project-relative path the tab was opened from. */
+  path: string;
+  /** Normalized extension the remembered choice is keyed on (".tif"). */
+  extension: string;
+  /** The type the file was recorded as. */
+  typeName: string;
+  /** Whether that type is the project's remembered choice for the extension. */
+  remembered: boolean;
+}
+
 export interface PreviewTab {
   /** Discriminator. Always "preview". */
   kind: "preview";
@@ -897,6 +913,8 @@ export interface PreviewTab {
   /** Frozen preview target captured when the tab was opened. */
   target: PreviewTarget;
   displayName: string;
+  /** Set when the tab came from a Data-tree double-click (#2112). */
+  openAs?: PreviewTabOpenAs;
   /**
    * Collection targets carry their item snapshot through the session query
    * (see `refEntries.ts`), so the initial query must freeze alongside the
@@ -990,6 +1008,7 @@ export interface TabSlice {
     target: PreviewTarget,
     displayName?: string,
     initialQuery?: Record<string, unknown>,
+    openAs?: PreviewTabOpenAs,
   ) => void;
   /**
    * ADR-036 §3.10 — save a file tab's content to disk.

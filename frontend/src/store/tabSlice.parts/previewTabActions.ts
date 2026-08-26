@@ -18,7 +18,7 @@ export function createOpenPreviewTab(
   set: StoreSetter,
   get: StoreGetter,
 ): TabSlice["openPreviewTab"] {
-  return (target, displayName, initialQuery) => {
+  return (target, displayName, initialQuery, openAs) => {
     const state = get();
     const id = `preview:${target.ref}`;
 
@@ -46,6 +46,7 @@ export function createOpenPreviewTab(
       id,
       target,
       displayName: displayName || target.ref,
+      openAs,
       initialQuery,
       openedAt: Date.now(),
     };

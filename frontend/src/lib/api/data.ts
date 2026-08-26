@@ -8,6 +8,8 @@
 
 import type {
   DataMetadataResponse,
+  DataOpenAsCandidatesResponse,
+  DataOpenAsListResponse,
   DataRegisterPathResponse,
   DataUploadResponse,
   PlotCreateRequest,
@@ -79,13 +81,51 @@ export const dataApi = {
 
   /** Register a project-relative (or project-local absolute) file path with
    *  the data catalog (`POST /api/data/register-path`). #2112: the Data tree
-   *  double-click feeds the response into a `data_ref` preview target. */
-  registerDataPath: (request: { projectId?: string; path: string }) =>
+   *  double-click feeds the response into a `data_ref` preview target.
+   *
+   *  `typeName` opens the file as a specific type and `remember` records that
+   *  choice for the extension in the open project; omit both to let the
+   *  backend apply the remembered or inferred type. */
+  registerDataPath: (request: {
+    projectId?: string;
+    path: string;
+    typeName?: string;
+    remember?: boolean;
+  }) =>
     apiFetch<DataRegisterPathResponse>("/api/data/register-path", {
       method: "POST",
       headers: JSON_HEADERS,
-      body: JSON.stringify({ project_id: request.projectId, path: request.path }),
+      body: JSON.stringify({
+        project_id: request.projectId,
+        path: request.path,
+        type_name: request.typeName,
+        remember: request.remember ?? false,
+      }),
     }),
+
+  /** The types a file could be opened as, plus any remembered choice
+   *  (`GET /api/data/open-as/candidates`, #2112). More than one candidate with
+   *  nothing remembered is what raises the picker. */
+  getOpenAsCandidates: (request: { projectId?: string; path: string }) => {
+    const params = new URLSearchParams({ path: request.path });
+    if (request.projectId) params.set("project_id", request.projectId);
+    return apiFetch<DataOpenAsCandidatesResponse>(`/api/data/open-as/candidates?${params}`);
+  },
+
+  /** The open project's remembered extension -> type choices (#2112). */
+  listOpenAsTypes: (projectId?: string) =>
+    apiFetch<DataOpenAsListResponse>(
+      `/api/data/open-as${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`,
+    ),
+
+  /** Forget the remembered type for one extension (#2112). */
+  clearOpenAsType: (request: { projectId?: string; extension: string }) => {
+    const query = request.projectId ? `?project_id=${encodeURIComponent(request.projectId)}` : "";
+    return apiFetch<DataOpenAsListResponse>(
+      `/api/data/open-as/${encodeURIComponent(request.extension)}${query}`,
+      { method: "DELETE" },
+    );
+  },
 
   // -- ADR-048 SPEC 1: routed previewer session API (additive, FR-007) ------
 

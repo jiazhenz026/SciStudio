@@ -17,9 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the preview tab closes itself, since the right-hand panel keeps the live
   preview anyway. Double-clicking a file in the left **Data** tree now opens it
   the same way — a new `POST /api/data/register-path` endpoint registers the
-  file into the data catalog (with the same extension-based type inference
-  block outputs get), so parquet, zarr, images, and friends route to their
-  proper previewers instead of doing nothing.
+  file into the data catalog, so parquet, zarr, images, and friends route to
+  their proper previewers instead of doing nothing.
+
+  When more than one installed type can read the extension — a `.tif` is
+  loadable as the imaging package's `Image`, as a project's own `SRSImage`, or
+  as a plain `Artifact` — SciStudio asks which one to open it as instead of
+  guessing, and can remember the answer for that extension in the project. The
+  preview tab says which type it used and offers **Change**; clearing the
+  "remember" box there forgets the choice. A file registered this way now also
+  records its full type chain, so a type with no previewer of its own inherits
+  its parent's rather than falling back to the plain-file view.
 
 - [#2090] **The left sidebar is a VS Code-style icon rail, and it gained two
   sections.** The Blocks / Data types / Project text tabs are replaced by a 48px
@@ -555,6 +563,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   breaking regardless, because a route leaves the API surface.
 
 ### Fixed
+
+- [#2112] **A package previewer's deferred imports resolve again.** A previewer
+  shipped by an installed package could route correctly and still fail to
+  render: opening a TIFF through the imaging package's image viewer reported
+  `No module named 'tifffile'`. The package module itself was importable only
+  because discovery had cached it while the plugin `site-packages` was
+  temporarily on `sys.path`, so an import written inside the render function ran
+  later, with that path gone. Package previewers now run with the installed
+  plugin import roots active, the same way package loaders and savers already
+  did.
 
 - [#2174] **A stalled notarization now leaves evidence behind.** Notarization is
   the one release step that depends on a third party, has no upper bound on how

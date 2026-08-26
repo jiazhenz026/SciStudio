@@ -43,6 +43,53 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+#: Depth cap for :func:`_type_chain_from_registry`. A registry built from real
+#: classes cannot loop, but the walk reads recorded ``base_type`` strings, and a
+#: malformed drop-in spec must not be able to hang a registration.
+_MAX_TYPE_CHAIN_DEPTH = 32
+
+
+def _type_chain_from_registry(type_registry: Any, type_name: str) -> list[str]:
+    """Return *type_name*'s ancestry, ordered general -> specific.
+
+    #2112: a file registered straight off disk carries no ``type_chain``, and a
+    single-entry chain is not routable — :class:`PreviewRouter` walks the chain
+    to reach a previewer registered for an *ancestor*, so a ``.tif`` recorded as
+    a project's ``SRSImage`` with chain ``["SRSImage"]`` could never reach the
+    imaging package's ``Image`` viewer and fell through to the artifact
+    fallback. Filling the chain in is what makes the recorded type routable.
+
+    The walk reads :attr:`~scistudio.core.types.registry.TypeSpec.base_type`
+    rather than importing the class, so registering a file cannot execute a
+    drop-in module as a side effect. That field is recorded from the class MRO,
+    so the result matches
+    :meth:`~scistudio.core.types.base.TypeSignature.from_type` — the shape the
+    worker writes for a block output — rather than a second convention.
+
+    Returns ``[type_name]`` when the registry cannot answer: an unroutable
+    chain is still better than none, and a preview must not fail because a type
+    was uninstalled.
+    """
+    if type_registry is None:
+        return [type_name]
+    chain = [type_name]
+    seen = {type_name}
+    current = type_name
+    for _ in range(_MAX_TYPE_CHAIN_DEPTH):
+        try:
+            spec = type_registry.resolve(current)
+        except Exception:
+            break
+        parent = getattr(spec, "base_type", "") or ""
+        if not parent or parent in seen:
+            break
+        chain.append(parent)
+        seen.add(parent)
+        current = parent
+    chain.reverse()
+    return chain
+
+
 def register_data_ref(
     self: ApiRuntime,
     ref: StorageReference,
@@ -52,12 +99,14 @@ def register_data_ref(
 ) -> DataRecord:
     from .models import DataRecord
 
-    resolved_type_name = type_name or _infer_type_name_from_ref(ref)
+    resolved_type_name = type_name or _infer_type_name_from_ref(ref, getattr(self, "block_registry", None))
     ref_type_chain: list[str] = []
     if ref.metadata:
         tc = ref.metadata.get("type_chain")
         if isinstance(tc, list):
             ref_type_chain = [str(n) for n in tc]
+    if not ref_type_chain:
+        ref_type_chain = _type_chain_from_registry(getattr(self, "type_registry", None), resolved_type_name)
     record = DataRecord(
         id=f"data-{uuid4().hex}",
         ref=ref,

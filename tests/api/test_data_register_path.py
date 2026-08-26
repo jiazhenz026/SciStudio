@@ -31,7 +31,8 @@ def test_register_path_parquet_infers_dataframe(client: TestClient, opened_proje
     body = resp.json()
     assert body["ref"].startswith("data-")
     assert body["recorded_type"] == "DataFrame"
-    assert body["type_chain"] == ["DataFrame"]
+    # FR-041: the chain is filled in from the type registry, general -> specific.
+    assert body["type_chain"] == ["DataObject", "DataFrame"]
     assert body["display_name"] == "table.parquet"
 
 
@@ -44,7 +45,7 @@ def test_register_path_unknown_extension_infers_artifact(client: TestClient, ope
     resp = client.post("/api/data/register-path", json={"path": "data/blob.xyz"})
     assert resp.status_code == 200, resp.text
     assert resp.json()["recorded_type"] == "Artifact"
-    assert resp.json()["type_chain"] == ["Artifact"]
+    assert resp.json()["type_chain"] == ["DataObject", "Artifact"]
 
 
 def test_register_path_accepts_absolute_path_inside_project(client: TestClient, opened_project: Path) -> None:

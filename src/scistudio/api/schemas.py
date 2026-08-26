@@ -391,6 +391,14 @@ class DataRegisterPathRequest(BaseModel):
 
     project_id: str | None = Field(default=None, description="Project id; defaults to the active project.")
     path: str = Field(description="Project-relative or absolute path of the file to register.")
+    type_name: str | None = Field(
+        default=None,
+        description="Open the file as this registered type. Omit to use the remembered or inferred type.",
+    )
+    remember: bool = Field(
+        default=False,
+        description="Remember type_name for this extension in the open project (#2112).",
+    )
 
 
 class DataRegisterPathResponse(BaseModel):
@@ -398,12 +406,64 @@ class DataRegisterPathResponse(BaseModel):
 
     Field names mirror the frontend ``PreviewTarget``: the caller opens a
     preview with ``{kind: "data_ref", ref, recorded_type, type_chain}``.
+    ``extension`` and ``remembered`` let the caller show, and undo, the
+    remembered open-as choice without a second round trip (#2112).
     """
 
     ref: str
     recorded_type: str
     type_chain: list[str] = Field(default_factory=list)
     display_name: str | None = None
+    extension: str = Field(default="", description="Normalized extension the open-as choice is keyed on.")
+    remembered: bool = Field(default=False, description="Whether this type is remembered for the extension.")
+
+
+class DataOpenAsCandidate(BaseModel):
+    """One type a file could be opened as (#2112).
+
+    ``origin`` and ``package_name`` are the same tier facts the Data types tab
+    reports, so the picker can say where a candidate came from rather than
+    offering a bare list of names.
+    """
+
+    name: str
+    base_type: str = ""
+    description: str = ""
+    origin: str = ""
+    package_name: str | None = None
+    loadable: bool = Field(
+        default=True,
+        description="False for a candidate offered as a plain-file fallback rather than a declared loader.",
+    )
+
+
+class DataOpenAsCandidatesResponse(BaseModel):
+    """Answer to ``GET /api/data/open-as/candidates`` (#2112).
+
+    ``candidates`` is ordered project -> package -> core, so the first entry is
+    the picker's default. ``remembered`` is the project's recorded choice for
+    this extension when there is one, in which case the caller opens the file
+    without asking.
+    """
+
+    path: str
+    extension: str
+    candidates: list[DataOpenAsCandidate] = Field(default_factory=list)
+    remembered: str | None = None
+
+
+class DataOpenAsEntry(BaseModel):
+    """One remembered extension -> type choice (#2112)."""
+
+    extension: str
+    type_name: str
+    available: bool = Field(default=True, description="Whether the remembered type is still registered.")
+
+
+class DataOpenAsListResponse(BaseModel):
+    """The open project's remembered open-as choices (#2112)."""
+
+    entries: list[DataOpenAsEntry] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

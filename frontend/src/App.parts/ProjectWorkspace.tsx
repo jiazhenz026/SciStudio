@@ -11,6 +11,7 @@ import type { PanelImperativeHandle } from "react-resizable-panels";
 import { useEffect, useRef, type RefObject } from "react";
 
 import { useAppStore } from "../store";
+import { openDataFileAsPreview } from "../lib/openDataFile";
 import { buildPreviewCacheKey } from "../store/previewSlice";
 import type { AnyTab, FileTab, PreviewTab } from "../store/types";
 import type {
@@ -264,25 +265,52 @@ function deriveRunScope(props: ProjectWorkspaceProps): {
  * shared envelope cache. The tab is dropped when focus moves elsewhere, so
  * this pane unmounts with it and its session state goes away on its own.
  */
-function PreviewTabPane({ tab }: { tab: PreviewTab }) {
+function PreviewTabPane({ tab, projectId }: { tab: PreviewTab; projectId: string }) {
   const previewEnvelopeCache = useAppStore((s) => s.previewEnvelopeCache);
   const cachePreviewEnvelope = useAppStore((s) => s.cachePreviewEnvelope);
   // #2113 — a previewer choice change re-routes the open session here exactly
   // as it does in the sidebar preview.
   const previewerChoiceVersion = useAppStore((s) => s.previewerChoiceVersion);
+  const openAs = tab.openAs;
   return (
     <div
-      className="h-full min-h-0 overflow-y-auto bg-stone-50/60 p-6 scrollbar-thin"
+      className="h-full min-h-0 overflow-y-auto bg-stone-50/60 px-6 py-6 scrollbar-thin sm:px-10 lg:px-16"
       data-testid="preview-tab-pane"
     >
-      <PreviewHost
-        target={tab.target}
-        initialQuery={tab.initialQuery}
-        routingEpoch={previewerChoiceVersion}
-        getCachedEnvelope={(key) => previewEnvelopeCache[key]}
-        cacheEnvelope={cachePreviewEnvelope}
-        buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}
-      />
+      <div className="mx-auto w-full max-w-6xl">
+        {openAs ? (
+          <div
+            className="mb-3 flex items-center gap-2 text-xs text-stone-500"
+            data-testid="preview-tab-open-as"
+          >
+            <span>
+              Opened as <span className="font-medium text-stone-700">{openAs.typeName}</span>
+              {openAs.remembered ? ` · remembered for ${openAs.extension}` : ""}
+            </span>
+            <button
+              className="rounded-full border border-stone-300 px-2 py-0.5 transition hover:border-ink hover:text-ink"
+              onClick={() => {
+                void openDataFileAsPreview(projectId, openAs.path, tab.displayName, {
+                  forceAsk: true,
+                }).catch((error) => {
+                  console.warn(`Failed to reopen ${openAs.path}:`, error);
+                });
+              }}
+              type="button"
+            >
+              Change
+            </button>
+          </div>
+        ) : null}
+        <PreviewHost
+          target={tab.target}
+          initialQuery={tab.initialQuery}
+          routingEpoch={previewerChoiceVersion}
+          getCachedEnvelope={(key) => previewEnvelopeCache[key]}
+          cacheEnvelope={cachePreviewEnvelope}
+          buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}
+        />
+      </div>
     </div>
   );
 }
@@ -323,7 +351,7 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
 
   // #2112 — a focused preview tab takes the stage with its frozen snapshot.
   if (activePreviewTab) {
-    return <PreviewTabPane tab={activePreviewTab} />;
+    return <PreviewTabPane tab={activePreviewTab} projectId={props.currentProject.id} />;
   }
 
   if (activeFileTab) {

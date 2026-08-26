@@ -22,6 +22,8 @@ vi.mock("../../lib/api", async () => {
       ...actual.api,
       getProjectTree: vi.fn(),
       registerDataPath: vi.fn(),
+      getOpenAsCandidates: vi.fn(),
+      clearOpenAsType: vi.fn(),
     },
   };
 });
@@ -32,6 +34,27 @@ import { ProjectTree } from "../ProjectTree";
 
 const getProjectTreeMock = vi.mocked(api.getProjectTree);
 const registerDataPathMock = vi.mocked(api.registerDataPath);
+const getOpenAsCandidatesMock = vi.mocked(api.getOpenAsCandidates);
+
+/** #2112 — the unambiguous answer: one candidate, nothing remembered, so the
+ *  double-click opens the file without raising the picker. */
+function singleCandidate(extension: string, name: string) {
+  return {
+    path: "",
+    extension,
+    candidates: [
+      {
+        name,
+        base_type: "DataObject",
+        description: "",
+        origin: "core",
+        package_name: null,
+        loadable: true,
+      },
+    ],
+    remembered: null,
+  };
+}
 
 beforeEach(() => {
   // Reset store + open-file action.
@@ -52,6 +75,8 @@ beforeEach(() => {
   });
   getProjectTreeMock.mockReset();
   registerDataPathMock.mockReset();
+  getOpenAsCandidatesMock.mockReset();
+  getOpenAsCandidatesMock.mockResolvedValue(singleCandidate(".bin", "Artifact") as any);
 });
 
 afterEach(() => {
@@ -182,7 +207,10 @@ describe("ProjectTree — Data tree double-click opens a preview tab (#2112)", (
       recorded_type: "DataFrame",
       type_chain: ["DataObject", "DataFrame"],
       display_name: "table.parquet",
+      extension: ".parquet",
+      remembered: false,
     });
+    getOpenAsCandidatesMock.mockResolvedValue(singleCandidate(".parquet", "DataFrame") as any);
     const openPreviewTab = vi.fn();
     const openFileTab = vi.fn();
     useAppStore.setState({ openPreviewTab, openFileTab });
@@ -194,6 +222,8 @@ describe("ProjectTree — Data tree double-click opens a preview tab (#2112)", (
       expect(registerDataPathMock).toHaveBeenCalledWith({
         projectId: "proj-1",
         path: "data/table.parquet",
+        typeName: undefined,
+        remember: false,
       }),
     );
     await waitFor(() =>
@@ -205,6 +235,13 @@ describe("ProjectTree — Data tree double-click opens a preview tab (#2112)", (
           type_chain: ["DataObject", "DataFrame"],
         },
         "table.parquet",
+        undefined,
+        {
+          path: "data/table.parquet",
+          extension: ".parquet",
+          typeName: "DataFrame",
+          remembered: false,
+        },
       ),
     );
     // Preview takes precedence: the editor must not open.
@@ -217,7 +254,10 @@ describe("ProjectTree — Data tree double-click opens a preview tab (#2112)", (
       recorded_type: "Array",
       type_chain: ["DataObject", "Array"],
       display_name: "stack.zarr",
+      extension: ".zarr",
+      remembered: false,
     });
+    getOpenAsCandidatesMock.mockResolvedValue(singleCandidate(".zarr", "Array") as any);
     const openPreviewTab = vi.fn();
     useAppStore.setState({ openPreviewTab });
 
@@ -230,12 +270,16 @@ describe("ProjectTree — Data tree double-click opens a preview tab (#2112)", (
       expect(registerDataPathMock).toHaveBeenCalledWith({
         projectId: "proj-1",
         path: "data/stack.zarr",
+        typeName: undefined,
+        remember: false,
       }),
     );
     await waitFor(() =>
       expect(openPreviewTab).toHaveBeenCalledWith(
         expect.objectContaining({ kind: "data_ref", ref: "data://zarr9" }),
         "stack.zarr",
+        undefined,
+        expect.objectContaining({ path: "data/stack.zarr", typeName: "Array" }),
       ),
     );
   });
@@ -259,7 +303,10 @@ describe("ProjectTree — Data tree double-click opens a preview tab (#2112)", (
       recorded_type: "DataFrame",
       type_chain: ["DataObject", "DataFrame"],
       display_name: null,
+      extension: ".csv",
+      remembered: false,
     });
+    getOpenAsCandidatesMock.mockResolvedValue(singleCandidate(".csv", "DataFrame") as any);
     const openPreviewTab = vi.fn();
     const openFileTab = vi.fn();
     useAppStore.setState({ openPreviewTab, openFileTab });
@@ -273,6 +320,8 @@ describe("ProjectTree — Data tree double-click opens a preview tab (#2112)", (
     expect(openPreviewTab).toHaveBeenCalledWith(
       expect.objectContaining({ kind: "data_ref", ref: "data://def456" }),
       "table.csv",
+      undefined,
+      expect.objectContaining({ path: "data/table.csv", typeName: "DataFrame" }),
     );
     expect(openFileTab).not.toHaveBeenCalled();
   });
