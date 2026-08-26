@@ -119,8 +119,12 @@ class ResourceManager:
         - GPU: discrete slot counting (declaration-based)
         - CPU: discrete core counting (declaration-based)
         - Memory: OS-level check via psutil.virtual_memory().percent
-        - memory_high_watermark=0.80: pause dispatch above 80%
-        - memory_critical=0.95: never dispatch above 95%
+        - memory_high_watermark=0.95: soft pause on new dispatch above 95%
+          while other blocks are running. #2187 removed the former
+          ``memory_critical`` hard cap: a hard refusal could stall a READY
+          block forever (no retry fires when nothing else is running) while
+          modern OSes routinely sit near-full on cache/standby memory. OOM
+          is now surfaced by Layer 3 as a block ERROR instead.
 
     Layer 2 (block-internal): _auto_flush, LazyList, parallel_map(max_workers)
         -- operates independently, not managed here.
@@ -140,8 +144,7 @@ class ResourceManager:
         self,
         gpu_slots: int | None = None,
         cpu_workers: int = 4,
-        memory_high_watermark: float = 0.90,
-        memory_critical: float = 0.95,
+        memory_high_watermark: float = 0.95,
         event_bus: Any | None = None,
     ) -> None:
         # ADR-027 D10: None triggers auto-detect; explicit ints (including 0)
@@ -154,7 +157,6 @@ class ResourceManager:
         self.gpu_slots = gpu_slots
         self.max_cpu_workers = cpu_workers
         self.memory_high_watermark = memory_high_watermark
-        self.memory_critical = memory_critical
         self._gpu_in_use: int = 0
         self._cpu_in_use: int = 0
         self._allocations: dict[str, ResourceRequest] = {}
@@ -179,15 +181,19 @@ class ResourceManager:
         Returns False if:
         - GPU is required but all GPU slots are in use
         - Requested CPU cores would exceed the pool
-        - System memory percent >= memory_critical (always blocked)
-        - System memory percent > memory_high_watermark (paused) — but only
-          when ``active_count > 0``
+        - System memory percent > memory_high_watermark (soft pause) — but
+          only when ``active_count > 0``
 
         Deadlock prevention (#495): when ``active_count == 0`` (nothing is
-        currently executing), the high watermark is bypassed.  Only the
-        critical threshold (0.95) acts as a hard cap.  Without this, a
-        system whose baseline memory exceeds the watermark would refuse to
-        dispatch any block, guaranteeing deadlock.
+        currently executing), the high watermark is bypassed so at least one
+        block can start; the scheduler's 1s polling retry (#2187) re-attempts
+        soft-paused blocks even when no resource-freeing event fires.
+
+        #2187: there is deliberately no hard memory cap here. A hard refusal
+        at high memory permanently stalled workflows (modern OSes fill RAM
+        with reclaimable cache) with no user-visible signal; OOM is instead
+        surfaced by Layer 3 — the OS kills the worker subprocess and the
+        block transitions to ERROR.
 
         ADR-027 D10: when ``request.requires_gpu`` and ``self.gpu_slots == 0``,
         a single WARNING is logged (per ResourceManager instance) explaining
@@ -213,13 +219,10 @@ class ResourceManager:
         # CPU check
         if self._cpu_in_use + request.effective_cpu > self.max_cpu_workers:
             return False
-        # Memory check via psutil (ADR-022)
+        # Memory check via psutil (ADR-022): soft back-pressure only (#2187).
         mem_percent = psutil.virtual_memory().percent / 100.0
-        if mem_percent >= self.memory_critical:
-            return False
         # Deadlock prevention (#495): when nothing is running, skip the high
-        # watermark so at least one block can start.  The critical threshold
-        # above still acts as a hard cap.
+        # watermark so at least one block can start.
         if active_count == 0:
             return True
         return not mem_percent > self.memory_high_watermark

@@ -389,10 +389,10 @@ def generate_selfcontained() -> list[tuple[str, int]]:
     stats: list[tuple[str, int]] = []
     for root in CANONICAL_ROOTS:
         page, count = _sc_render_root_page(root)
-        (PACKAGE_REFERENCE_DIR / f"{root}.md").write_text(page, encoding="utf-8")
+        _write_page(PACKAGE_REFERENCE_DIR / f"{root}.md", page)
         stats.append((root, count))
         print(f"  [self-contained] wrote {root}.md  ({count} symbols)")
-    (PACKAGE_REFERENCE_DIR / "index.md").write_text(_sc_render_index(stats), encoding="utf-8")
+    _write_page(PACKAGE_REFERENCE_DIR / "index.md", _sc_render_index(stats))
     print(f"  [self-contained] wrote index.md  (version {_core_version()})")
     return stats
 
@@ -403,10 +403,10 @@ def generate() -> list[tuple[str, int, int]]:
     stats: list[tuple[str, int, int]] = []
     for root in CANONICAL_ROOTS:
         page, public_count, marked = _render_root_page(root)
-        (REFERENCE_DIR / f"{root}.md").write_text(page, encoding="utf-8")
+        _write_page(REFERENCE_DIR / f"{root}.md", page)
         stats.append((root, public_count, marked))
         print(f"  wrote {root}.md  ({public_count} public, {marked} marked)")
-    (REFERENCE_DIR / "index.md").write_text(_render_index(stats), encoding="utf-8")
+    _write_page(REFERENCE_DIR / "index.md", _render_index(stats))
     print(f"  wrote index.md  (version {_core_version()})")
     return stats
 
@@ -426,6 +426,27 @@ def build_strict() -> int:
     ]
     print(f"  $ {' '.join(cmd)}")
     return subprocess.call(cmd, cwd=str(REPO_ROOT))
+
+
+def _write_page(path: Path, text: str) -> None:
+    """Write a generated page the way the repository stores every other file.
+
+    Two properties the generator did not previously guarantee, both of which
+    surfaced only when a version bump forced a regeneration (#2162):
+
+    * a trailing newline, which pre-commit's end-of-file-fixer requires and
+      which the templates do not reliably produce;
+    * LF endings, because Path.write_text without an explicit newline uses the
+      platform default and a regeneration on Windows would otherwise rewrite
+      every page to CRLF.
+
+    Hand-fixing the output instead would not survive the next regeneration --
+    each page opens with "Do not hand-edit; regenerate".
+    """
+
+    if not text.endswith("\n"):
+        text += "\n"
+    path.write_text(text, encoding="utf-8", newline="\n")
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -182,7 +182,7 @@ def _fake_desktop(tmp_path: Path) -> Path:
     """A desktop/ directory holding just the files a snapshot deals with."""
     desktop = tmp_path / "desktop"
     desktop.mkdir(exist_ok=True)
-    for name in ("main.js", "ota.js", "runtime-port.js", "preload.js", "splash.html"):
+    for name in ("main.js", "menu.js", "ota.js", "runtime-port.js", "preload.js", "splash.html"):
         (desktop / name).write_text("// " + name, encoding="utf-8")
     (desktop / "assets").mkdir(exist_ok=True)
     (desktop / "assets" / "icon.png").write_bytes(b"PNG-stub")
@@ -206,7 +206,7 @@ def _snapshot_names(mod: ModuleType, tmp_path: Path) -> set[str]:
 def test_make_snapshot_carries_the_shell_beside_src(mod: ModuleType, tmp_path: Path) -> None:
     names = _snapshot_names(mod, tmp_path)
     assert "src/scistudio/__init__.py" in names
-    for name in ("main.js", "ota.js", "runtime-port.js", "preload.js", "splash.html"):
+    for name in ("main.js", "menu.js", "ota.js", "runtime-port.js", "preload.js", "splash.html"):
         assert f"shell/{name}" in names
 
 
@@ -276,6 +276,42 @@ def test_reinstall_notice_page_can_be_copied_from(mod: ModuleType) -> None:
     assert "clipboard.writeText" in html
 
 
+def test_reinstall_notice_leads_with_the_address(mod: ModuleType) -> None:
+    """The address comes before the release summary, not after it (#2183).
+
+    This page exists to hand over one address. The summary was added during the
+    0.3.4 migration and initially sat above it, so the only action the user has
+    to take waited behind three sections of release notes. Ordering is a layout
+    choice with no runtime signal, which is exactly the kind that gets undone by
+    accident in a later copy edit.
+    """
+    html = mod.render_reinstall_notice("https://example.test/download", "x")
+    address_at = html.index('id="url"')
+    summary_at = html.index("<h2>")
+    assert address_at < summary_at, "the release summary was moved above the address"
+
+
+def test_reinstall_notice_says_what_to_do_with_the_address(mod: ModuleType) -> None:
+    # A bare field and a Copy button do not say where to paste it. The page is
+    # shown inside the app, so "open this in a browser" is not obvious.
+    html = mod.render_reinstall_notice("https://example.test/download", "x")
+    assert "browser" in html.lower()
+
+
+def test_reinstall_notice_does_not_promise_notarization(mod: ModuleType) -> None:
+    """A drafted section claimed macOS builds open without a right-click.
+
+    The 0.3.4 dmgs ship signed but not stapled, so that is false until the
+    staple workflow has run and the release assets have been replaced. A notice
+    page is the wrong place to make a claim about the build the user is being
+    sent to download, since the page outlives whatever was true when it was
+    written.
+    """
+    html = mod.render_reinstall_notice("https://example.test/download", "x").lower()
+    assert "notarized" not in html
+    assert "right-click" not in html
+
+
 def test_snapshot_replaces_the_spa_with_the_notice(mod: ModuleType, tmp_path: Path) -> None:
     src = tmp_path / "backend" / "src"
     static = src / "scistudio" / "api" / "static"
@@ -332,3 +368,70 @@ def test_snapshot_without_a_notice_keeps_the_real_spa(mod: ModuleType, tmp_path:
     with tarfile.open(out, "r:gz") as tar:
         payload = tar.extractfile(mod.SPA_INDEX_ARCNAME).read().decode("utf-8")
     assert payload == "<html>the real SPA</html>"
+
+
+# --------------------------------------------------------------------------- #
+# #2169: min_base override — what makes --reinstall-notice reach anyone.
+# --------------------------------------------------------------------------- #
+def _manifest(mod: ModuleType, **kw: object) -> dict:
+    args: dict[str, object] = {
+        "channel": "alpha",
+        "base": "0.3.4",
+        "build": 26,
+        "url": "https://example.test/backend-build26.tar.gz",
+        "sha256": "abc",
+        "size": 1,
+        "notes": "",
+        "published_at": "2026-08-25T00:00:00Z",
+    }
+    args.update(kw)
+    return mod.build_manifest(**args)
+
+
+def test_min_base_defaults_to_the_builds_own_base(mod: ModuleType) -> None:
+    assert _manifest(mod)["requires"]["min_base"] == "0.3.4"
+
+
+def test_min_base_can_be_overridden(mod: ModuleType) -> None:
+    assert _manifest(mod, min_base="0.3.3")["requires"]["min_base"] == "0.3.3"
+
+
+def test_the_override_is_what_turns_incompatible_into_patch(mod: ModuleType) -> None:
+    """The whole point, expressed as the client's own comparison.
+
+    compareBase(clientBase, min_base) < 0 is what desktop/ota.js uses to pick the
+    incompatible branch, and that branch never downloads -- so a notice page
+    published under a derived min_base is built, uploaded, and never fetched.
+    """
+
+    def client_is_incompatible(client_base: str, min_base: str) -> bool:
+        def parts(v: str) -> list[int]:
+            out = []
+            for seg in v.split(".")[:3]:
+                digits = ""
+                for ch in seg:
+                    if not ch.isdigit():
+                        break
+                    digits += ch
+                out.append(int(digits) if digits else 0)
+            while len(out) < 3:
+                out.append(0)
+            return out
+
+        return parts(client_base) < parts(min_base)
+
+    derived = _manifest(mod)["requires"]["min_base"]
+    overridden = _manifest(mod, min_base="0.3.3")["requires"]["min_base"]
+
+    # Without the override a 0.3.3 client takes the dialog-only path.
+    assert client_is_incompatible("0.3.3", str(derived)) is True
+    # With it, the same client takes the patch path and downloads the notice.
+    assert client_is_incompatible("0.3.3", str(overridden)) is False
+
+
+def test_the_migration_manifest_is_both_mandatory_and_a_patch(mod: ModuleType) -> None:
+    """The shape the 0.3.3 -> 0.3.4 migration actually needs."""
+    m = _manifest(mod, min_build=26, min_base="0.3.3")
+    assert m["requires"] == {"min_base": "0.3.3", "min_build": 26}
+    # mandatory needs manifest.build >= min_build, or isMandatoryUpdate returns False
+    assert m["build"] >= m["requires"]["min_build"]

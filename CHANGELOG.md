@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2190] **Plot cards show how long a run has been going.** While a plot run
+  is in flight, the card shows a small elapsed-time pill next to the Run
+  button — the same `7s` / `2:05` / `1:04:09` counter a running canvas block
+  already had — and it disappears the moment the run finishes or fails,
+  leaving no final duration on the card. The timer's formatting and ticking
+  now live in one shared helper, so both surfaces always read identically.
+
+- [#2090] **The left sidebar is a VS Code-style icon rail, and it gained two
+  sections.** The Blocks / Data types / Project text tabs are replaced by a 48px
+  vertical rail of icons that sits outside the resizable area, so it stays put
+  when the panel is dragged and stays visible when the panel is closed. Clicking
+  the active icon collapses the panel and clicking again reopens it, which is
+  also what `Ctrl+B` has always meant — the shortcut wrote a `paletteCollapsed`
+  flag nothing read, so the panel never moved.
+  **Workflows** lists every workflow in the open project with the description
+  from its YAML, opens one on the canvas in a single click, and marks the one
+  already there. **Data** shows the project tree rooted at `data/` — `raw`,
+  `processed`, `zarr`, `parquet`, `artifacts`, `exchange` — so the files a
+  workflow reads and writes are reachable without leaving the app. A section
+  entered programmatically, by the library reveal or by a Learning Center step,
+  always expands the panel first.
+
+- [#1719] **Plot cards gained Edit and Delete.** A plot could be created and
+  looked at, and that was all: changing how it rendered meant finding the render
+  script by hand, and a plot you no longer wanted stayed. Edit opens that script
+  in a Monaco editor tab; Delete removes the project-local plot directory after
+  a confirmation and refreshes both the plot list and the project tree.
+
 - [#2157] **The Learning Center's Reading tab is now a reader for the shipped
   user documentation.** SciStudio already writes a complete user guide and
   generates a self-contained API reference from its own code; both ship in the
@@ -253,6 +281,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   recorded-but-unavailable choices are shown rather than silent, because a
   drop-in refused at scan time or a choice outliving its package used to be
   indistinguishable from "never existed".
+- [#2159] **The desktop app has a real application menu.** The File menu grew
+  from a lone Exit into the actions the toolbar already had: Projects Home,
+  New Project…, Save / Save As… (with the same Ctrl/Cmd+S shortcuts), and Bring
+  In My Work…. A new Packages menu opens the in-app Package Manager, and a new
+  Help menu reaches the Learning Center and runs the update check on demand.
+  Menu clicks are forwarded to the renderer and dispatched onto the same
+  handlers the toolbar uses, so the menu and the buttons cannot drift apart.
 
 - [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
   that are real, runnable projects, reached from a permanent toolbar entry and
@@ -315,6 +350,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   failing.
 
 ### Changed
+
+- [#2137] **The built-in AI assistant is named Mio.** It had no name, which made
+  it hard to write about and hard to speak to — every tutorial line had to say
+  "the assistant". Mio is also the guide in the Learning Center dialogue, so the
+  same character is what a reader meets in the tutorials and what answers them
+  in the chat panel. The provisioned agent guide is unified on `AGENTS.md` in
+  the same change, so a project carries one file describing how agents work here
+  rather than one per runtime.
+
+- [#2135] **A tutorial step is a character's dialogue rather than a paragraph.**
+  A step carried one `say` string and the card printed it beside whatever it
+  pointed at: accurate and inert, reading like the reference manual for a
+  scientific tool, which is what it was. It gave a first-time reader no reason
+  to continue. A step is now delivered as dialogue, and core levels 1 and 2 are
+  rewritten in it.
 
 - [#2097] **The Electron shell updates over the air like the rest of the app.**
   Changing `main.js`, `preload.js`, `ota.js`, `runtime-port.js` or `splash.html`
@@ -500,6 +550,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   breaking regardless, because a route leaves the API surface.
 
 ### Fixed
+
+- [#2174] **A stalled notarization now leaves evidence behind.** Notarization is
+  the one release step that depends on a third party, has no upper bound on how
+  long it may take, and prints nothing while it waits — which makes it both the
+  step most in need of observability and the least observable one. A macOS build
+  that hung for 118 minutes produced exactly one usable line, and only from the
+  runner's own cleanup: `Terminate orphan process (notarytool)`. That ruled out
+  the signing phase and nothing else, leaving "never uploaded" and "uploaded and
+  Apple never answered" indistinguishable, though they have different fixes. The
+  build step now surfaces `@electron/notarize`'s output, so the submission ID and
+  each polling state reach the log and a cancelled run can still be traced with
+  `notarytool log <id>` afterwards.
+- [#2172] **A hung desktop build now fails in minutes rather than hours.** The
+  three build workflows carried no `timeout-minutes`, so GitHub's six-hour
+  default applied. That matters most on macOS, where `Build DMG` signs several
+  hundred Mach-O files one process at a time and then waits on Apple's
+  notarization queue — both silent, so a hang is indistinguishable from
+  slowness while it is happening. A 0.3.4 build sat there for over forty
+  minutes with nothing to go on. macOS now has 90 minutes, generous against a
+  slow notarization queue but inside a release window; Windows and Linux have
+  60. A test asserts every build job carries one.
+
+- [#2169] **The reinstall notice can now reach the clients it exists for.**
+  `--reinstall-notice` was written for one situation — the base version moved,
+  older clients cannot reach the new build over the air, and they must be told
+  to reinstall in a web page because a native dialog renders an address that is
+  neither clickable nor selectable. It could not be used for that situation.
+  `requires.min_base` derived from the version being published, so after a base
+  bump the manifest declared the *new* base and every client on the old one
+  evaluated to `incompatible` rather than `patch` — and the incompatible branch
+  never downloads, so the notice page was built, uploaded, and never fetched.
+  A new `--min-base` overrides it. Verified against the client's own decision
+  module: with the derived value a 0.3.3 client returns
+  `{kind: "incompatible"}`, with the override `{kind: "patch"}`, both mandatory.
+
+- [#2151] **Left-panel sections show what is actually there when you switch to
+  them.** Blocks, Data types and Previewers each read their listing once and
+  kept it, so a block or type added while another section was open stayed
+  invisible until a manual Reload. Each section now re-reads on entry.
+  Dropping a block from the palette also lands it centred on the cursor rather
+  than offset from it — React Flow positions a node by its top-left corner, and
+  the drop was passing the cursor point straight through.
+
+- [#2141] **An edge takes its colour from the port type before the driving
+  parameter is set.** Edges leaving a Load block rendered in the grey-black
+  `DataObject` fallback instead of the colour of the block's own output port,
+  because a dynamic port has no resolved type until its driving parameter is
+  filled in. The edge now matches the port it leaves from either way, so the
+  canvas does not briefly claim every new connection is untyped.
 
 - [#2160] **The documentation reader can no longer be talked out of the
   documentation.** `GET /api/user-docs/pages/{path}` split the request path on

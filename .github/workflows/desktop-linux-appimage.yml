@@ -31,6 +31,9 @@ jobs:
     # An AppImage built on a newer runner would refuse to launch on older
     # distros. ubuntu-22.04 is the compatibility baseline (ADR-037 §7.3).
     runs-on: ubuntu-22.04
+    # #2172: without this GitHub's six-hour default applies, and a hung build
+    # burns a runner-day before failing.
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -59,6 +62,13 @@ jobs:
         run: npm --prefix desktop ci
 
       - name: Build portable Python runtime
+        # #2162: the runtime build asks the GitHub releases API which
+        # python-build-standalone asset to fetch. Unauthenticated that call draws
+        # on a rate limit shared by every Actions runner on the same egress IP,
+        # which is how a macOS build failed 0.24s in with HTTP 403. The token is
+        # only used for that query, never for the asset download.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: npm --prefix desktop run build:python:linux
 
       # #1908: An OTA channel enables launch-time update checks against that

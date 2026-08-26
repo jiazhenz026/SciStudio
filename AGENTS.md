@@ -218,6 +218,11 @@ If any item is missing, the task is not complete.
   strictness tiers, per-task-kind and per-persona obligation profiles, and a
   soft-routing decision guide an agent can follow to self-route a task.
 
+- Use `docs/ai-developer/release-runbook.md` if you are cutting a desktop
+  release or publishing an OTA update. Two of its rules brick users when
+  broken: the installer must be downloadable before any mandatory manifest,
+  and it must carry a build number at or above the highest published patch.
+
 - Use `docs/ai-developer/specific_rules/gated-workflow.md` if you are doing
   AI-authored work that needs gate evidence.
 

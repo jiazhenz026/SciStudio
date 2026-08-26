@@ -72,8 +72,8 @@ All four steps are necessary. Signing alone does not remove the prompt.
 |---|---|---|
 | Developer ID signature | `mac.identity` (auto-detected from the keychain) | Must be a **Developer ID Application** certificate — not "Apple Development", not a Mac App Store certificate |
 | Hardened runtime | `mac.hardenedRuntime: true` | Apple refuses to notarize without it |
-| Notarization | `mac.notarize: true` | electron-builder 26.15.3 supports this natively; `@electron/notarize` is already a transitive dependency |
-| Stapling | automatic after notarization | Without a stapled ticket the **first launch needs network access** to reach Apple, so an offline first run still prompts |
+| Notarization | the `Desktop macOS DMG` workflow submits; `mac.notarize` is deliberately `false` | electron-builder's native path waits on Apple inside the build, which has no upper bound; see section 6.5 |
+| Stapling | the `Desktop macOS Staple` workflow, once Apple returns a verdict | Without a stapled ticket the **first launch needs network access** to reach Apple, so an offline first run still prompts |
 
 `mac.gatekeeperAssess` stays `false`. It controls a local `spctl` assessment
 electron-builder runs on the build machine; it does not affect what ships, and
@@ -219,7 +219,13 @@ fully green PR.
 
 `macPackager.notarizeIfProvided()` logs `skipped macOS notarization` and returns
 when its options cannot be generated. A missing or mistyped credential therefore
-yields a **green build and a dmg that still shows the Gatekeeper prompt**.
+yielded a **green build and a dmg that still shows the Gatekeeper prompt**.
+
+The #2176 hook hard-fails instead, so that specific hole is closed at the
+source. The verification step still runs, because it is the only check that
+survives the hook being unwired, mis-pathed, or skipped because signing did not
+occur — and it asserts the shipped artifact rather than the build's account of
+itself.
 
 The workflow closes that hole with a verification step that runs whenever
 signing was expected:
@@ -244,17 +250,132 @@ export APPLE_API_KEY_ID=... APPLE_API_ISSUER=...
 export SCISTUDIO_OTA_CHANNEL=alpha
 npm --prefix desktop run build:python:mac
 npm --prefix desktop run stage:sh
-npm --prefix desktop run dist:dmg
+npm --prefix desktop run dist:dmg:arm64   # or dist:dmg:x64 for an Intel build
 ```
 
 The Developer ID Application certificate must be in the local keychain;
-electron-builder selects it automatically.
+electron-builder selects it automatically. `dist:dmg:<arch>` produces the
+runtime and shell for the arch of the machine it runs on, so an Intel dmg is
+built on an Intel Mac (or under Rosetta) and an arm64 dmg on Apple Silicon.
+`dist:dmg` remains an alias for `dist:dmg:arm64`.
+
+### 6.5 Notarization is submitted by the build and finished separately (#2176)
+
+`mac.notarize` is `false` and there is no `afterSign` hook. electron-builder
+signs; `desktop/scripts/notarize.js` does everything else, in two phases that
+run in different jobs.
+
+**Why it left electron-builder.** `@electron/notarize` runs
+
+```
+xcrun notarytool submit <zip> --key ... --wait --output-format json
+```
+
+and both flags are load-bearing mistakes for us. `--output-format json`
+suppresses every progress line — notarytool emits one object at the end and
+nothing before it — so a submission queued behind Apple and one that is wedged
+produce byte-identical logs: empty ones. Two 0.3.4 builds were cancelled at 118
+and 79 minutes reading that silence as a hang. `DEBUG: electron-notarize*`
+(#2174) did not fix it: that surfaces the package's own phase logging, which
+stops where notarytool is spawned. `--wait` is separately untrustworthy — it has
+been reported outliving Apple's own verdict — so the script polls
+`notarytool info` instead, one fresh short-lived process per minute, each
+writing a line.
+
+**Why it is split across two jobs.** Measured on 2026-08-25 with that
+instrumentation: signing 2 min 36 s, `ditto` 20 s, upload 17 s — and then
+**61 consecutive polls, every one `In Progress`**. Apple held the submission for
+over an hour without a verdict.
+
+That is not a failure anything here can fix. What *was* fixable is the cost:
+waiting inside the build discarded the signed dmg together with the queue
+position, so each attempt began another hour from zero. So:
+
+| Job | Does |
+|---|---|
+| `Desktop macOS DMG` | sign, build the dmg, submit it, upload it, print the submission ID — then stop |
+| `Desktop macOS Staple` | wait for the verdict, staple the ticket to that dmg, assert the result |
+
+A slow queue now costs a delay rather than a rebuild. Re-running the staple
+workflow is free; **resubmitting is not** — the ticket is bound to the signed
+artifact's cdhash, so a rebuilt dmg needs a fresh submission and a fresh wait,
+and the old one was never invalid.
+
+**What is submitted.** The dmg, not the `.app`. Stapling has to attach to
+something that outlives the build, and the dmg is what ships. The `.app` inside
+is therefore not itself stapled: Gatekeeper resolves it online, which every
+download-from-GitHub user is. Only a first launch with no network would notice,
+and that is the trade the split buys.
+
+**Where the assertions live.** The build job can only assert what exists at
+build time — the signature and the hardened runtime. `spctl` and
+`xcrun stapler validate` both require a ticket, so they run in the staple job,
+against the shipped dmg and the app mounted from it. That is also the more
+faithful check: it asks Gatekeeper about the app a user will actually launch.
+
+**Where the trace lives.** The script mirrors every line to
+`$RUNNER_TEMP/notarize.log`, and both workflows print it in an `if: always()`
+step. GitHub drops the tail of an in-progress step's log when a job is cancelled
+or times out — exactly when the trace is wanted. A cancelled build lost twelve
+minutes of output that way, leaving the runner's own
+`Terminate orphan process (notarytool)` as the only evidence anything had run.
+
+**Failure behaviour.** A rejection fails the job: notarytool exits 0 for a
+submission Apple *refused* — it completed, the verdict was `Invalid` — so the
+status line decides, not the exit status, and `notarytool log <id>` runs first
+because the status says only *that* Apple refused. A timeout fails carrying the
+submission ID, which keeps the submission queryable instead of forcing a blind
+resubmit. Missing credentials skip; partial credentials fail, because a
+half-configured set is always a misconfiguration.
+
+### 6.6 Both architectures are built by CI (#2165)
+
+The dmg job is a matrix over architecture, one leg per runner whose native arch
+matches the artifact — arm64 on `macos-15`, x64 on `macos-15-intel`.
+`build:python:mac` keys off `uname -m`, so each runner bundles the matching
+CPython automatically and no Rosetta cross-build is involved.
+
+The Intel leg was originally written against `macos-13`. GitHub retired that
+image — it keeps only the latest two macOS versions — so a leg pinned to it
+fails on an unknown runner label rather than building anything, a failure with
+no useful diagnostic. `macos-15-intel` is the current x64 image.
+
+`macos-15-intel` is also a *larger* runner, and larger runners are billed even
+for public repositories where the arm64 leg is not, so building both
+architectures on every dispatch has a cost the arm64-only workflow did not.
+
+Each leg is a separate submission with its own artifact
+(`scistudio-macos-dmg-<arch>`), so each needs its own `Desktop macOS Staple`
+run (section 6.5). `dist:dmg:${{ matrix.arch }}` passes the electron-builder arch flag,
+and `build.dmg.artifactName` (`${productName}-${version}-${arch}.dmg`) gives the
+two dmgs distinct, arch-suffixed names so both can be attached to one release
+without colliding.
+
+Before this, only arm64 had a CI path and the Intel dmg was built by hand
+(#2165). The signing, notarization and verification steps above are shared by
+both legs, so the Intel dmg is signed, notarized and stapled on exactly the same
+terms as the Apple Silicon one.
+
+`dist:dmg` signs but does not notarize (section 6.5), so a local dmg still
+meets Gatekeeper until the two remaining phases are run by hand:
+
+```sh
+node desktop/scripts/notarize.js submit desktop/dist/SciStudio-*.dmg   # prints the id
+node desktop/scripts/notarize.js wait <submission-id>
+node desktop/scripts/notarize.js staple desktop/dist/SciStudio-*.dmg
+```
+
+`wait` is safe to re-run and safe to interrupt. Re-submitting is not: the ticket
+is bound to that dmg's cdhash, so a second submission buys a second queue wait
+and invalidates nothing.
 
 ## 7. Verification
 
 Automated, any platform — `desktop/test/macos-signing.test.js`:
 
-- `hardenedRuntime` is on and `notarize` is enabled.
+- `hardenedRuntime` is on, `mac.notarize` is `false`, and there is no
+  `build.afterSign` — notarization is driven by the workflows, not by
+  electron-builder (#2176).
 - `entitlements` and `entitlementsInherit` are set and identical (section 3.2).
 - The configured entitlements path exists. electron-builder returns an
   explicitly configured entitlements path verbatim rather than resolving it

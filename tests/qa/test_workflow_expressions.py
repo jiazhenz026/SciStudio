@@ -102,3 +102,81 @@ def test_no_env_context_in_a_job_level_if(path: Path) -> None:
         "step-level one), so this is the same rejected-workflow failure. Use `needs`, "
         "`github`, `vars`, or `inputs` at the job level.\n  " + "\n  ".join(offenders)
     )
+
+
+# --------------------------------------------------------------------------- #
+# Retired runner images (#2165)
+# --------------------------------------------------------------------------- #
+# GitHub keeps only the latest two versions of each OS image. A workflow pinned
+# to a retired label does not degrade to a newer one -- the job never gets a
+# runner and fails with nothing to go on. The macOS Intel leg was written
+# against `macos-13` and that image was retired before the PR landed, so the
+# feature would have shipped dead.
+#
+# This is the same blind spot as the `if:` guards above: `workflow_dispatch`
+# build workflows are never exercised by a pull request, so nothing else in the
+# repository would notice.
+RETIRED_RUNNER_LABELS = frozenset(
+    {
+        "macos-10.15",
+        "macos-11",
+        "macos-11-arm64",
+        "macos-12",
+        "macos-12-large",
+        "macos-12-xlarge",
+        "macos-13",
+        "macos-13-large",
+        "macos-13-xlarge",
+        "ubuntu-18.04",
+        "ubuntu-20.04",
+        "windows-2016",
+        "windows-2019",
+    }
+)
+
+
+def _runs_on_labels(doc: dict) -> list[tuple[str, str]]:
+    """Every literal runner label in the document as (location, label).
+
+    Expressions such as ``${{ matrix.runner }}`` are skipped here and covered by
+    the matrix walk below, which sees the values they resolve to.
+    """
+    found: list[tuple[str, str]] = []
+
+    def collect(location: str, value: object) -> None:
+        if isinstance(value, str):
+            if "${{" not in value:
+                found.append((location, value))
+        elif isinstance(value, list):
+            for item in value:
+                collect(location, item)
+
+    for job_id, job in _jobs(doc).items():
+        if not isinstance(job, dict):
+            continue
+        collect(f"jobs.{job_id}.runs-on", job.get("runs-on"))
+        matrix = (job.get("strategy") or {}).get("matrix") if isinstance(job.get("strategy"), dict) else None
+        if not isinstance(matrix, dict):
+            continue
+        for key, value in matrix.items():
+            if key == "include" and isinstance(value, list):
+                for entry in value:
+                    if isinstance(entry, dict):
+                        for entry_key, entry_value in entry.items():
+                            collect(f"jobs.{job_id}.strategy.matrix.include[].{entry_key}", entry_value)
+            else:
+                collect(f"jobs.{job_id}.strategy.matrix.{key}", value)
+    return found
+
+
+@pytest.mark.parametrize("path", _workflow_files(), ids=lambda p: p.name)
+def test_no_retired_runner_images(path: Path) -> None:
+    offenders = [
+        f"{location}: {label}" for location, label in _runs_on_labels(_load(path)) if label in RETIRED_RUNNER_LABELS
+    ]
+    assert not offenders, (
+        f"{path.name}: these runner labels have been retired by GitHub. A job asking for "
+        "one is never scheduled and fails without a useful message, rather than falling "
+        "back to a supported image. Move to a current label (for macOS Intel, "
+        "`macos-15-intel`).\n  " + "\n  ".join(offenders)
+    )

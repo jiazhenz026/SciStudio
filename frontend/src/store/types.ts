@@ -443,6 +443,17 @@ export interface UISlice {
   toggleMinimap: () => void;
   setPanelSize: (panel: "palette" | "preview" | "bottom", size: number) => void;
   setLastError: (message: string | null) => void;
+  /**
+   * Desktop application menu (desktop/menu.js) opens these dialogs from
+   * outside the toolbar, so the open state lives in the store instead of
+   * Toolbar-local useState. Not persisted: a reopened app never starts with a
+   * dialog already up.
+   */
+  packageManagerOpen: boolean;
+  /** See `packageManagerOpen`; the dialog mounts only while open. */
+  bringInMyWorkOpen: boolean;
+  setPackageManagerOpen: (open: boolean) => void;
+  setBringInMyWorkOpen: (open: boolean) => void;
 }
 
 export interface PreviewSlice {

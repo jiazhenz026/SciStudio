@@ -35,7 +35,10 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+
+// #1974/#2190 — the elapsed counter contract (format + 1 Hz tick) is shared
+// with the plot card via this hook; this file only places the pill.
+import { formatElapsed, useElapsedMs } from "../../../hooks/useElapsedMs";
 
 interface SurfaceStyle {
   /** Icon rendered inside the corner badge. */
@@ -53,8 +56,6 @@ interface SurfaceStyle {
 const STATUS_BADGE_BACKGROUND = "rgba(255, 255, 255, 0.86)";
 const STATUS_BADGE_BORDER = "rgba(15, 23, 42, 0.14)";
 const ERROR_STATUSES = new Set(["error", "fail", "failed", "failure"]);
-/** #1974 — the counter ticks once a second; sub-second precision is noise here. */
-const ELAPSED_TICK_MS = 1000;
 
 const RUNTIME_STYLES: Record<string, SurfaceStyle> = {
   idle: { Icon: Circle, iconName: "circle", color: "#8A94A6", label: "Idle" },
@@ -94,38 +95,6 @@ const WARNING_STYLE: SurfaceStyle = {
 };
 
 export type ProblemSeverity = "none" | "warning" | "error";
-
-/**
- * #1974 — render the elapsed run time compactly: `7s` under a minute, `2:05`
- * under an hour, `1:04:09` beyond it. Seconds are floored so the counter reads
- * `0s` the instant the block starts rather than skipping ahead.
- */
-function formatElapsed(elapsedMs: number): string {
-  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  const paddedSeconds = String(seconds).padStart(2, "0");
-  if (hours > 0) return `${hours}:${String(minutes).padStart(2, "0")}:${paddedSeconds}`;
-  if (minutes > 0) return `${minutes}:${paddedSeconds}`;
-  return `${seconds}s`;
-}
-
-/**
- * #1974 — tick once a second while `startedAt` is set. Passing `null` (any
- * non-running state) tears the interval down, so a finished node holds no
- * timer, no duration, and no pending work.
- */
-function useElapsedMs(startedAt: number | null): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (startedAt === null) return undefined;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), ELAPSED_TICK_MS);
-    return () => clearInterval(timer);
-  }, [startedAt]);
-  return startedAt === null ? 0 : Math.max(0, now - startedAt);
-}
 
 export interface NodeStatusSurfaceProps {
   /** Runtime state — defaults to "idle" when unset. */

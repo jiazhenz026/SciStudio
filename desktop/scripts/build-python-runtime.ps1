@@ -45,8 +45,22 @@ New-Item -ItemType Directory -Force -Path $ResourcesRoot | Out-Null
 if (-not (Test-Path $AssetJson)) {
     Write-Host "Querying python-build-standalone latest release"
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    # #2162: this query is rate limited per egress IP when unauthenticated, and
+    # every GitHub Actions runner shares that pool -- a macOS build died 0.24s
+    # in with an HTTP 403 while earlier ones had succeeded, so the difference
+    # was timing rather than configuration. A token raises the budget from 60
+    # requests an hour per IP to 1000 per repository.
+    #
+    # Only the QUERY is authenticated; the download below uses the public
+    # browser_download_url and must not carry an Authorization header. With no
+    # token set the header is omitted, so a local run is unaffected.
+    $GhHeaders = @{ "User-Agent" = "scistudio-desktop-build" }
+    $GhToken = if ($env:GITHUB_TOKEN) { $env:GITHUB_TOKEN } else { $env:GH_TOKEN }
+    if ($GhToken) {
+        $GhHeaders["Authorization"] = "Bearer $GhToken"
+    }
     Invoke-WebRequest -Uri "https://api.github.com/repos/astral-sh/python-build-standalone/releases/latest" `
-        -Headers @{ "User-Agent" = "scistudio-desktop-build" } -OutFile $AssetJson
+        -Headers $GhHeaders -OutFile $AssetJson
 }
 
 $Release = Get-Content $AssetJson -Raw | ConvertFrom-Json

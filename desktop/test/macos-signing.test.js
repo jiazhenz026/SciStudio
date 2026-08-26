@@ -23,8 +23,19 @@ test("mac: hardened runtime is on (a precondition for notarization)", () => {
   assert.equal(mac.hardenedRuntime, true);
 });
 
-test("mac: notarization is enabled", () => {
-  assert.equal(mac.notarize, true);
+test("mac: notarization happens, but outside electron-builder", () => {
+  // #2176 took notarization away from electron-builder entirely: `mac.notarize`
+  // is false and there is no `afterSign` hook, because both would put a blind,
+  // unbounded `--wait --output-format json` submission back inside the build.
+  // What this test has always been for is that notarization happens at all, so
+  // it asserts the replacement is wired -- in the workflow, not the config.
+  assert.equal(mac.notarize, false);
+  assert.equal(pkg.build.afterSign, undefined);
+  const wf = fs.readFileSync(
+    path.join(desktopRoot, "..", ".github", "workflows", "desktop-macos-dmg.yml"),
+    "utf8",
+  );
+  assert.match(wf, /notarize\.js submit/);
 });
 
 test("mac: entitlements and entitlementsInherit point at the same file", () => {
@@ -58,6 +69,23 @@ test("mac: entitlements carry the keys the runtime depends on", () => {
   ]) {
     assert.ok(plist.includes(key), `entitlements are missing ${key}`);
   }
+});
+
+test("build: a per-arch dmg script exists for each CI matrix leg (#2165)", () => {
+  // The dmg workflow is a matrix over architecture and invokes
+  // `dist:dmg:${{ matrix.arch }}`. A missing script would fail only when that
+  // arch's job runs — a workflow_dispatch never exercised by a PR. Assert both
+  // legs' scripts exist and carry the matching electron-builder arch flag.
+  const scripts = pkg.scripts;
+  assert.match(scripts["dist:dmg:arm64"], /--arm64\b/);
+  assert.match(scripts["dist:dmg:x64"], /--x64\b/);
+});
+
+test("build: the dmg name carries the arch so both mac artifacts pair (#2165)", () => {
+  // Both dmgs land on one release; without an arch token in the name the second
+  // upload would overwrite the first.
+  assert.ok(pkg.build.dmg, "build.dmg must be configured");
+  assert.match(pkg.build.dmg.artifactName, /\$\{arch\}/);
 });
 
 test("build: electron fuses stay unset", () => {

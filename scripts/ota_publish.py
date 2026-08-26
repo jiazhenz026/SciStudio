@@ -61,6 +61,7 @@ REINSTALL_NOTICE_TEMPLATE = REPO_ROOT / "scripts" / "templates" / "reinstall-not
 # and a manifest inside the patch would be the patch describing itself.
 SHELL_FILES = (
     "main.js",
+    "menu.js",
     "ota.js",
     "runtime-port.js",
     "preload.js",
@@ -131,14 +132,23 @@ def build_manifest(
     notes: str,
     published_at: str,
     min_build: int | None = None,
+    min_base: str | None = None,
 ) -> dict:
     """Assemble the manifest document the desktop client compares against.
 
     #1868: pass ``min_build`` to mark the patch mandatory — clients whose
     effective build is below it must take the update before they can continue
     (the desktop shell blocks startup). Omit it for an ordinary optional patch.
+
+    #2169: ``min_base`` defaults to this build's own base, which is right for an
+    ordinary patch and wrong for the one case ``--reinstall-notice`` exists for.
+    After a base bump the derived value is the *new* base, so every client on the
+    old base evaluates to ``incompatible`` rather than ``patch`` — and the
+    incompatible branch never downloads anything, so the notice page is never
+    fetched and the user gets the plain native dialog the notice was written to
+    avoid. Pass ``min_base`` at or below the target clients' base to reach them.
     """
-    requires: dict[str, object] = {"min_base": base}
+    requires: dict[str, object] = {"min_base": min_base or base}
     if min_build is not None:
         requires["min_build"] = min_build
     return {
@@ -345,6 +355,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Build the snapshot and manifest locally without creating/uploading a release.",
     )
     parser.add_argument(
+        "--min-base",
+        metavar="A.B.C",
+        default=None,
+        help=(
+            "#2169: override requires.min_base, which otherwise derives from this build's "
+            "own base. Needed whenever the base moved and older clients must still be "
+            "reached: set it at or below their base so they evaluate the manifest as a "
+            "patch rather than incompatible. Pair with --reinstall-notice."
+        ),
+    )
+    parser.add_argument(
         "--reinstall-notice",
         metavar="URL",
         default=None,
@@ -396,6 +417,7 @@ def main(argv: list[str] | None = None) -> int:
         notes=args.notes,
         published_at=_utc_now_iso(),
         min_build=args.min_build,
+        min_base=args.min_base,
     )
     manifest_path = workdir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")

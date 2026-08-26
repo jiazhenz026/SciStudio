@@ -68,18 +68,19 @@ class TestResourceManagerInit:
         rm = ResourceManager(gpu_slots=0)
         assert rm.gpu_slots == 0
         assert rm.max_cpu_workers == 4
-        assert rm.memory_high_watermark == 0.90
-        assert rm.memory_critical == 0.95
+        assert rm.memory_high_watermark == 0.95
+        # #2187: the memory_critical hard cap was removed — OOM is surfaced
+        # as a block ERROR via Layer 3 instead of a silent permanent stall.
+        assert not hasattr(rm, "memory_critical")
         assert rm._gpu_in_use == 0
         assert rm._cpu_in_use == 0
         assert rm._allocations == {}
 
     def test_custom_parameters(self):
-        rm = ResourceManager(gpu_slots=2, cpu_workers=8, memory_high_watermark=0.70, memory_critical=0.90)
+        rm = ResourceManager(gpu_slots=2, cpu_workers=8, memory_high_watermark=0.70)
         assert rm.gpu_slots == 2
         assert rm.max_cpu_workers == 8
         assert rm.memory_high_watermark == 0.70
-        assert rm.memory_critical == 0.90
 
 
 # ---------------------------------------------------------------------------
@@ -158,16 +159,14 @@ class TestCanDispatchMemory:
         with patch("psutil.virtual_memory", return_value=_mock_vm(80.0)):
             assert rm.can_dispatch(ResourceRequest(), active_count=1)
 
-    def test_above_critical(self):
-        rm = ResourceManager(gpu_slots=0, memory_critical=0.95)
+    def test_no_hard_memory_cap(self):
+        """#2187: memory_critical was removed — even at 96% the watermark is a
+        soft pause only: blocked while other blocks run, bypassed when idle.
+        """
+        rm = ResourceManager(gpu_slots=0, memory_high_watermark=0.95)
         with patch("psutil.virtual_memory", return_value=_mock_vm(96.0)):
             assert not rm.can_dispatch(ResourceRequest(), active_count=1)
-
-    def test_at_critical_boundary(self):
-        """At exactly critical should block (>= check)."""
-        rm = ResourceManager(gpu_slots=0, memory_critical=0.95)
-        with patch("psutil.virtual_memory", return_value=_mock_vm(95.0)):
-            assert not rm.can_dispatch(ResourceRequest(), active_count=1)
+            assert rm.can_dispatch(ResourceRequest(), active_count=0)
 
 
 # ---------------------------------------------------------------------------
@@ -400,35 +399,33 @@ class TestMaxInternalWorkers:
 
 class TestCanDispatchDeadlockPrevention:
     """When active_count == 0, the high watermark must be bypassed so that
-    at least one block can start.  Only the critical threshold blocks.
+    at least one block can start.  #2187: there is no longer a critical
+    hard cap — the watermark is the only memory gate and it is soft.
     """
 
     def test_active_count_zero_bypasses_watermark(self):
-        """Memory above watermark but below critical: allow when nothing running."""
-        rm = ResourceManager(gpu_slots=0, memory_high_watermark=0.80, memory_critical=0.95)
+        """Memory above watermark: allow when nothing running."""
+        rm = ResourceManager(gpu_slots=0, memory_high_watermark=0.80)
         with patch("psutil.virtual_memory", return_value=_mock_vm(85.0)):
             assert rm.can_dispatch(ResourceRequest(), active_count=0)
 
-    def test_active_count_zero_blocked_by_critical(self):
-        """Memory above critical: block even when nothing running."""
-        rm = ResourceManager(gpu_slots=0, memory_high_watermark=0.80, memory_critical=0.95)
-        with patch("psutil.virtual_memory", return_value=_mock_vm(96.0)):
-            assert not rm.can_dispatch(ResourceRequest(), active_count=0)
-
-    def test_active_count_zero_at_critical_boundary(self):
-        """Exactly at critical: block even when nothing running (>= check)."""
-        rm = ResourceManager(gpu_slots=0, memory_high_watermark=0.80, memory_critical=0.95)
-        with patch("psutil.virtual_memory", return_value=_mock_vm(95.0)):
-            assert not rm.can_dispatch(ResourceRequest(), active_count=0)
+    def test_active_count_zero_bypasses_extreme_memory(self):
+        """#2187: even extreme memory pressure must not hard-block a system
+        with nothing running — modern OSes fill RAM with reclaimable cache,
+        and a hard refusal here stalls the workflow forever.
+        """
+        rm = ResourceManager(gpu_slots=0, memory_high_watermark=0.80)
+        with patch("psutil.virtual_memory", return_value=_mock_vm(97.0)):
+            assert rm.can_dispatch(ResourceRequest(), active_count=0)
 
     def test_active_count_nonzero_watermark_enforced(self):
         """Memory above watermark with tasks running: still blocked."""
-        rm = ResourceManager(gpu_slots=0, memory_high_watermark=0.80, memory_critical=0.95)
+        rm = ResourceManager(gpu_slots=0, memory_high_watermark=0.80)
         with patch("psutil.virtual_memory", return_value=_mock_vm(85.0)):
             assert not rm.can_dispatch(ResourceRequest(), active_count=1)
 
     def test_default_active_count_is_zero(self):
         """Default active_count=0 bypasses watermark (backward compat)."""
-        rm = ResourceManager(gpu_slots=0, memory_high_watermark=0.80, memory_critical=0.95)
+        rm = ResourceManager(gpu_slots=0, memory_high_watermark=0.80)
         with patch("psutil.virtual_memory", return_value=_mock_vm(85.0)):
             assert rm.can_dispatch(ResourceRequest())
