@@ -168,7 +168,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "8f278ab567162321c0f1ef33f11127246658f29d",
+    "shas": [
+      "8f278ab567162321c0f1ef33f11127246658f29d"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -311,6 +317,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-26T05:44:06.528820Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T05:44:06.544001Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T05:44:06.559792Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T05:44:06.576231Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T05:44:06.591039Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T05:44:06.608459Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T05:44:06.673214Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T05:44:06.687876Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T05:44:06.702798Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T05:44:06.718270Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T05:44:06.734804Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -335,9 +429,9 @@
       "frontend/src/hooks/useElapsedMs.ts",
       "src/scistudio/_user_guide/how-scistudio-works.md"
     ],
-    "diff_fingerprint": "sha256:1118d31ba04d3f4a869f1985d8b735a7ed9fac258e26f65fe03cbec5bf10f4c2",
+    "diff_fingerprint": "sha256:aa057193b3d26bdafb13d1c082f50194584296dda6844dd63f28542bca71cfba",
     "head": "HEAD",
-    "head_sha": "cb5d04952",
+    "head_sha": "8f278ab56",
     "surfaces": {
       "docs": 0,
       "frontend": 5,
@@ -354,11 +448,26 @@
   },
   "owner_directive": "Plot card running UX: show a small elapsed-time timer next to the plot card buttons while a run is in flight (like the block node timer from #1974); hide it when the run completes or fails.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2190
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-08-26T05:43:21.938777Z",
       "diff_fingerprint": "sha256:1118d31ba04d3f4a869f1985d8b735a7ed9fac258e26f65fe03cbec5bf10f4c2",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-26T05:44:06.734835Z",
+      "diff_fingerprint": "sha256:aa057193b3d26bdafb13d1c082f50194584296dda6844dd63f28542bca71cfba",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
