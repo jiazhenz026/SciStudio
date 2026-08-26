@@ -39,6 +39,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("scistudio.engine.scheduler")
 
+# #2187: polling interval for re-attempting resource-refused READY blocks.
+_RESOURCE_RETRY_INTERVAL_S = 1.0
+
 
 async def _emit_block_ready(self: DAGScheduler, node_id: str) -> None:
     """Emit ``BLOCK_READY`` after a block's IDLE->READY transition.
@@ -78,7 +81,9 @@ async def _dispatch(self: DAGScheduler, node_id: str) -> None:
     If ``_paused`` is True or ``ResourceManager.can_dispatch`` returns
     False, the block stays in its current state (READY) and the
     method returns without creating a task — it will be retried on
-    the next successor event via ``_dispatch_newly_ready``.
+    the next successor event via ``_dispatch_newly_ready`` and, for
+    resource refusals, by the 1s polling retry (#2187) so a refusal
+    can never silently stall the run when no terminal events fire.
     """
     if self._paused:
         return
@@ -92,7 +97,8 @@ async def _dispatch(self: DAGScheduler, node_id: str) -> None:
     #   trigger.
     if not self._resource_manager.can_dispatch(ResourceRequest(), active_count=len(self._active_tasks)):
         # Stay READY; retried by _dispatch_newly_ready on the next
-        # resource-freeing event (BLOCK_DONE).
+        # resource-freeing event (BLOCK_DONE) or by the polling retry (#2187).
+        self._schedule_resource_retry()
         return
 
     # A task already exists for this block — guard against double
@@ -190,6 +196,51 @@ async def _dispatch(self: DAGScheduler, node_id: str) -> None:
             name=f"dispatch:{node_id}",
         )
     self._active_tasks[node_id] = task
+
+
+def _schedule_resource_retry(self: DAGScheduler) -> None:
+    """Schedule a 1s polling retry for resource-refused READY blocks (#2187).
+
+    Terminal events (``BLOCK_DONE`` etc.) are the usual retry trigger via
+    ``_dispatch_newly_ready``, but when nothing is running a resource refusal
+    produces no further events and the block would stall in READY forever —
+    even after the memory pressure that caused the refusal has passed. A
+    single deduplicated timer re-runs ``_dispatch_newly_ready`` after
+    ``_RESOURCE_RETRY_INTERVAL_S``; if dispatch is refused again, ``_dispatch``
+    schedules the next poll, so the retry chain continues until dispatch
+    succeeds, the block leaves READY, or the scheduler is disposed.
+    """
+    if self._disposed:
+        return
+    if self._resource_retry_handle is not None:
+        # One pending retry covers all refused blocks; do not stack timers.
+        return
+    loop = asyncio.get_running_loop()
+    self._resource_retry_handle = loop.call_later(
+        _RESOURCE_RETRY_INTERVAL_S,
+        self._on_resource_retry_timer,
+    )
+
+
+def _consume_resource_retry_task(task: asyncio.Task[None]) -> None:
+    """Done callback for a polling pass: surface unexpected failures."""
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        logger.error("Resource retry pass failed", exc_info=exc)
+
+
+def _on_resource_retry_timer(self: DAGScheduler) -> None:
+    """Timer callback: fire one polling pass over refused READY blocks."""
+    self._resource_retry_handle = None
+    if self._disposed:
+        return
+    retry = asyncio.create_task(
+        self._dispatch_newly_ready(),
+        name=f"resource-retry:{self._workflow.id}",
+    )
+    retry.add_done_callback(_consume_resource_retry_task)
 
 
 async def _run_and_finalize(
@@ -667,8 +718,11 @@ def _gather_inputs(self: DAGScheduler, node_id: str) -> dict[str, Any]:
 async def _dispatch_newly_ready(self: DAGScheduler) -> None:
     """Dispatch blocks that became ready or were previously throttled.
 
-    Called from ``_on_block_done`` after
-    a terminal event. Scans the topological order for:
+    Called from ``_on_block_done`` after a terminal event, and from the
+    1s polling retry (#2187) that ``_dispatch`` schedules whenever
+    ``can_dispatch`` refuses a block — the poll covers the case where no
+    terminal event will fire because nothing is currently running.
+    Scans the topological order for:
 
     * IDLE blocks whose predecessors are all DONE — transition to
       READY and dispatch.

@@ -1,0 +1,326 @@
+{
+  "base_ref": null,
+  "branch": "guided-2187-memory-dispatch-gate",
+  "check_events": [
+    {
+      "at": "2026-08-26T03:13:46.338115Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f758b128a156a5cae07d13248d2c2af1e66530353ec499d0b3c1f253cf095526",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-26T03:13:46.392641Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-26T03:14:00.003765Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-26T03:14:00.054234Z",
+      "command": "ruff check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/engine/resources.py",
+      "src/scistudio/engine/scheduler/_dispatch.py",
+      "tests/engine/test_resources.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-26T03:13:11.085171Z",
+      "owner_directive": "Remove memory_critical hard wall; single 0.95 high-watermark soft pause with active_count==0 bypass; 1s polling retry for resource-refused READY blocks; OOM via worker exit -> ERROR; no UI change",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-08-26T03:13:11.419570Z",
+      "owner_directive": "Remove memory_critical hard wall; single 0.95 soft watermark; 1s polling retry; OOM via Layer 3 ERROR",
+      "reason": "ADR-022/ADR-027 are agent_editable=false; documented the decision as new addendum ADR-022-addendum1.md instead of editing them; runtime recorded as agents:kimi-code (persona guard maps agents* -> .agents root)"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-26T03:13:11.085299Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-022-addendum1.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T03:13:11.419739Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-022-addendum1.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-08-26T03:14:00.144913Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T03:14:00.166343Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T03:14:00.228278Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T03:14:00.299602Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T03:14:00.317875Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T03:14:00.380559Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T03:14:00.396538Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T03:14:00.462545Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T03:14:00.477338Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T03:14:00.539529Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T03:14:00.555476Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2187,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "094431972",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "094431972",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Remove the memory_critical (0.95) hard wall from ResourceManager.can_dispatch; make the high watermark a single 0.95 soft pause; add 1s polling retry for resource-refused READY blocks; OOM surfaced via worker exit -> block ERROR; no UI state changes",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-08-26T03:14:00.555527Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2187-guided-2187-memory-dispatch-gate",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "commit_hygiene",
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "agents:kimi-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-26T03:13:11.085191Z",
+      "pattern": "src/scistudio/engine/resources.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-26T03:13:11.085198Z",
+      "pattern": "src/scistudio/engine/scheduler/_dispatch.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-26T03:13:11.085200Z",
+      "pattern": "src/scistudio/engine/scheduler/__init__.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-26T03:13:11.085202Z",
+      "pattern": "tests/engine/test_resources.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-26T03:13:11.085204Z",
+      "pattern": "tests/engine/test_scheduler.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-26T03:13:11.085205Z",
+      "pattern": "docs/adr/ADR-022-addendum1.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-26T03:13:11.419596Z",
+      "pattern": "docs/adr/ADR-022-addendum1.md",
+      "reason": "ADR-022/ADR-027 are agent_editable=false; documented the decision as new addendum ADR-022-addendum1.md instead of editing them; runtime recorded as agents:kimi-code (persona guard maps agents* -> .agents root)"
+    }
+  ],
+  "session_id": "e926d42b-6097-495d-ae6f-b7e7ea3cfc41",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-08-26T03:13:11.085309Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_resources.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T03:13:11.085314Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_scheduler.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

@@ -155,6 +155,12 @@ class DAGScheduler:
         # and popped by that task's ``finally`` clause on exit.
         self._active_tasks: dict[str, asyncio.Task[None]] = {}
 
+        # #2187: pending polling-retry timer for resource-refused READY
+        # blocks. At most one TimerHandle is ever pending; ``_dispatch``
+        # schedules it on resource refusal and ``_on_resource_retry_timer``
+        # clears it when it fires. Cancelled by ``dispose()``.
+        self._resource_retry_handle: asyncio.TimerHandle | None = None
+
         self._completed_event = asyncio.Event()
         self._paused = False
         self._reset_lock = asyncio.Lock()
@@ -189,6 +195,11 @@ class DAGScheduler:
         """
         if self._disposed:
             return
+        # #2187: cancel any pending resource-retry timer so a disposed
+        # scheduler never fires a polling pass into a later run's event bus.
+        if self._resource_retry_handle is not None:
+            self._resource_retry_handle.cancel()
+            self._resource_retry_handle = None
         self._event_bus.unsubscribe(BLOCK_DONE, self._on_block_done)
         self._event_bus.unsubscribe(BLOCK_ERROR, self._on_block_error)
         self._event_bus.unsubscribe(CANCEL_BLOCK_REQUEST, self._on_cancel_block)
@@ -507,6 +518,8 @@ class DAGScheduler:
     _run_and_finalize = _dispatch_mod._run_and_finalize
     _run_interactive = _dispatch_mod._run_interactive
     _dispatch_newly_ready = _dispatch_mod._dispatch_newly_ready
+    _schedule_resource_retry = _dispatch_mod._schedule_resource_retry
+    _on_resource_retry_timer = _dispatch_mod._on_resource_retry_timer
     _instantiate_block = _dispatch_mod._instantiate_block
     _gather_inputs = _dispatch_mod._gather_inputs
 
