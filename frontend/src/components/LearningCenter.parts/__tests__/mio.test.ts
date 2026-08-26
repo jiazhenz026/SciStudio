@@ -8,7 +8,15 @@
 
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_MIO_MOOD, MIO_MOOD_NAMES, avatarFor, moodAt, spriteFor } from "../mio";
+import {
+  DEFAULT_MIO_MOOD,
+  MIO_MARGINS,
+  MIO_MOOD_NAMES,
+  avatarFor,
+  facingInset,
+  moodAt,
+  spriteFor,
+} from "../mio";
 
 describe("the expression a beat is delivered with", () => {
   it("takes the one the author wrote on that beat", () => {
@@ -48,9 +56,38 @@ describe("the expression a beat is delivered with", () => {
   });
 
   it("gives the two sides different files, so she faces her own dialogue", () => {
-    for (const mood of MIO_MOOD_NAMES) {
+    for (const mood of MIO_MOOD_NAMES.filter((name) => name !== "curious")) {
       expect(spriteFor(mood, "left")).not.toBe(spriteFor(mood, "right"));
       expect(avatarFor(mood, "left")).not.toBe(avatarFor(mood, "right"));
     }
+  });
+
+  it("shows `curious` in its own orientation on both sides, question mark included", () => {
+    /*
+     * The exception, pinned rather than left to be re-derived. Reflection is a
+     * fact about pixels: the pose survives it and the purple `?` beside her
+     * head does not, and a backwards question mark is the one thing in the
+     * frame a reader is certain to read. Facing her dialogue is worth less than
+     * that, so this mood is served un-mirrored on either side.
+     *
+     * Written as an equality rather than a filename so it keeps holding if the
+     * art is ever recut: what matters is that one file serves both sides.
+     */
+    expect(spriteFor("curious", "left")).toBe(spriteFor("curious", "right"));
+    expect(avatarFor("curious", "left")).toBe(avatarFor("curious", "right"));
+  });
+
+  it("measures her gap from whichever side of her the panel is on", () => {
+    /*
+     * A mirrored mood meets its panel with the same band on either side —
+     * reflection carries it across — so the inset does not move. `curious` is
+     * not mirrored, so on the left the panel meets her other side, and reading
+     * the mirrored number there would put the gap out by the difference
+     * between her two margins.
+     */
+    expect(facingInset("idle", "left")).toBe(facingInset("idle", "right"));
+    expect(facingInset("curious", "right")).toBe(MIO_MARGINS.curious.left);
+    expect(facingInset("curious", "left")).toBe(MIO_MARGINS.curious.right);
+    expect(MIO_MARGINS.curious.left).not.toBe(MIO_MARGINS.curious.right);
   });
 });

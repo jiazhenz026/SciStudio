@@ -27,7 +27,7 @@ function session(replayTabId: string | null): TutorialSessionResponse {
     satisfied_step_ids: [],
     status: "active",
     error: null,
-    replay: replayTabId === null ? null : { surface: "ai_chat_terminal", tab_id: replayTabId },
+    replays: replayTabId === null ? [] : [{ surface: "ai_chat_terminal", tab_id: replayTabId }],
   };
 }
 

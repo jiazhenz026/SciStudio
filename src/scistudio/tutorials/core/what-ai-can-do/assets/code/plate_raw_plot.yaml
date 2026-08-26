@@ -1,0 +1,18 @@
+# The reader's first look at their own data in core tutorial 3.
+#
+# Bound to the bare load node, before any QC exists: the point of this card is
+# that it shows the plate exactly as the reader received it, bad wells and all.
+# Everything the tutorial does afterwards is an argument about the wells this
+# picture makes visible.
+schema_version: 1
+id: plate_raw
+title: "The plate, as it came off the reader"
+target:
+  workflow_path: workflows/main.yaml
+  workflow_id: main
+  node_id: load-plate
+  output_port: data
+  display_label: Load
+script:
+  language: python
+  path: render.py

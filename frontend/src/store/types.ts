@@ -153,6 +153,20 @@ export interface LearningCenterSlice {
   learningCenterStayOnFinish: boolean;
   setLearningCenterStayOnFinish: (stay: boolean) => void;
   openLearningCenter: () => void;
+  /**
+   * A page of the user guide the reader has asked for, or null (#2083).
+   *
+   * A field rather than a call because opening one is three things owned by
+   * three places: the project has to close (App owns that), the Learning
+   * Center has to show its reading tab (`LearningCenter` owns that), and the
+   * browser has to load the page (`DocsBrowser` owns that). Each watches this
+   * and does its own part; `DocsBrowser` clears it once the page is up.
+   */
+  pendingUserGuidePage: string | null;
+  /** Ask for a user-guide page — from a `[text](doc:page)` run in a beat. */
+  requestUserGuidePage: (path: string) => void;
+  /** Called by whoever finally showed the page. */
+  clearUserGuidePage: () => void;
   closeLearningCenter: () => void;
   setLearningCenterCatalogue: (catalogue: TutorialCatalogueResponse | null) => void;
   setLearningCenterSession: (session: TutorialSessionResponse | null) => void;
@@ -176,6 +190,11 @@ export interface LearningCenterSlice {
   backActiveTutorialStep: () => Promise<void>;
   /** #2061 — run the current step's user-triggered action. */
   triggerActiveTutorialStep: () => Promise<void>;
+  /**
+   * #2083 — report that a scripted reply has finished playing, landing the
+   * files the replay held back. A no-op when nothing is pending.
+   */
+  settleActiveTutorialReplay: () => Promise<void>;
   reportTutorialUiEvent: (name: string, target?: string) => Promise<void>;
   leaveActiveTutorial: () => Promise<void>;
   /** Resolves to the directories the backend reports it deleted. */

@@ -1,0 +1,19 @@
+[1m[36m> Then use one. Add an AI Block that turns that filename into a table.[0m
+
+[32m* scaffold_block(...)  ->  blocks/tutorial_ai_agent.py[0m
+[2m    class TutorialAiAgentBlock(AIBlock)  ->  AI Agent (Tutorial Only)[0m
+[32m* edit_workflow(path='workflows/main.yaml', ...)[0m
+[2m    + ai-metadata      load-plate -> ai-metadata -> fit-curve:metadata[0m
+
+It takes the plate so its answer covers exactly the groups you have, and returns
+one row per group: the group, and the concentration it was dosed at. VEH and BLANK
+get no concentration at all - that empty cell is what makes the fit leave them out,
+without the fit needing to know their names.
+
+Being straight with you: this one is a tutorial-only subclass with the answer
+already in it, so the run costs you nothing. It is a real AIBlock - that is why it
+wears the AI colour and the AI Agent icon - and a live one puts the prompt on its
+config to a real model and gets the same shape back.
+
+Read that prompt before you run it. It is the block's actual content, and it is the
+part you would be writing yourself.

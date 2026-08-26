@@ -77,8 +77,11 @@ from scistudio.tutorials.actions import (
     ActionExecutionError,
     ReplayAction,
     ReplaySegment,
+    RunPort,
+    SegmentAction,
     execute_actions,
     perform_step_entry,
+    start_runs,
 )
 from scistudio.tutorials.conditions import (
     ExternalEventNames,
@@ -590,7 +593,11 @@ class SessionView:
     #: would hide it on every step the reader walked back through, which is
     #: exactly when the pointer is the illustration.
     revisiting: bool = False
-    replay: ReplayView | None = None
+    #: Every scripted session that is open, one per surface. A tuple rather
+    #: than a single value since #2083: an AI Block runs in a terminal of
+    #: its own while the chat that asked for it stays open, and the reader
+    #: should be able to look at both.
+    replays: tuple[ReplayView, ...] = ()
     #: A read-only outline of every step — index, id, title, say, pages — so
     #: the reading window can show the whole tutorial's card names up front.
     #: Session-level and inert by construction: no condition, highlight,
@@ -631,6 +638,7 @@ class TutorialRuntime:
         progress: ProgressStore | None = None,
         sessions: SessionStore | None = None,
         open_replay: Callable[[str], ReplayHandle] | None = None,
+        run_workflow: RunPort | None = None,
         record_ui_event: Callable[[str, str | None], None] | None = None,
         forget_ui_events: Callable[[], None] | None = None,
         files_written: Callable[[Sequence[Path]], None] | None = None,
@@ -652,6 +660,13 @@ class TutorialRuntime:
             open_replay: Opens a byte source for a replay surface
                 (checklist §6.1.7). A tutorial declaring no replay never needs
                 one.
+            run_workflow: Queues a workflow run, given its project-relative
+                path (FR-061d). The runtime could already judge steps on runs
+                and not start one, which meant every run in every level was a
+                button the reader pressed; core tutorial 3 needs the agent to
+                run things itself, and needs the run to be real, because the
+                next step reads its logs. A tutorial declaring no ``run``
+                action never needs one.
             record_ui_event: Records a frontend-reported user-interface event
                 into product state before it is judged (FR-052), together with
                 the optional target it acted on (#2063). The API layer owns
@@ -677,10 +692,21 @@ class TutorialRuntime:
         self._progress = progress or ProgressStore()
         self._sessions = sessions or SessionStore()
         self._open_replay = open_replay
+        self._run_workflow = run_workflow
         self._record_ui_event = record_ui_event
         self._forget_ui_events = forget_ui_events
         self._files_written = files_written
-        self._replay: ReplayHandle | None = None
+        #: The scripted sessions that are open, keyed by the surface each
+        #: plays into. More than one at a time is the normal case once an
+        #: AI Block has its own terminal: the block's terminal and the chat
+        #: are different places and both stay open.
+        self._replays: dict[str, ReplayHandle] = {}
+        #: #2083 — actions a replay bound to bytes that are still being
+        #: revealed: the files it promised, and any run it said it was
+        #: starting. Held with the step that pressed for them so a settle
+        #: arriving after the reader has moved on cannot write into a step that
+        #: never asked. Empty whenever no replay is mid-play.
+        self._pending_replay: tuple[str, tuple[SegmentAction, ...]] | None = None
 
     # -- discovery and the catalogue -------------------------------------
 
@@ -948,6 +974,11 @@ class TutorialRuntime:
         if view.trigger is None:
             raise TutorialSessionError(f"step {record.step_id!r} declares no trigger")
         action_context = ActionContext(tutorial_dir=tutorial_dir, project_dir=record.project_path)
+        # #2083: a replay's bound writes are collected rather than run here, and
+        # land when the surface reports the reply has finished playing — see
+        # :meth:`settle_replay_active`. A press that opens no replay collects
+        # nothing and this stays empty.
+        deferred: list[SegmentAction] = []
         try:
             # Inside the try: obtaining the delivery can itself fail the way an
             # action does — continue_tab with no open tab is the sharp case —
@@ -960,6 +991,8 @@ class TutorialRuntime:
                 reveal=lambda: None,
                 delivery=delivery,
                 settle=self._settle,
+                defer=deferred,
+                run=self._run_workflow,
             )
         except ActionExecutionError as exc:
             # FR-060, as revised for triggers (#2061): surfaced on the step and
@@ -967,7 +1000,70 @@ class TutorialRuntime:
             # revealed before the press, so nothing was shown on the strength
             # of actions that did not land.
             raise TriggerFailedError(record.step_id, str(exc)) from exc
+        if deferred:
+            self._pending_replay = (record.step_id, tuple(deferred))
         return self._reevaluate(state, record, driver, tutorial_dir)
+
+    def settle_replay_active(self) -> SessionView:
+        """Land what the replay promised, now that it has finished saying it (#2083).
+
+        The scripted agent window reveals a transcript at a speaking pace, so
+        the moment its claims become readable is the end of the reply rather
+        than the start of it. :func:`~scistudio.tutorials.actions.execute_replay`
+        collects the segment's bound writes instead of running them, and this is
+        where they run: the frontend calls it when the terminal goes quiet.
+
+        Idempotent, and safe to call when nothing is pending — a surface that
+        reports twice, or one that reports on a step whose replay wrote
+        nothing, gets the re-judged session and no second write.
+
+        Nothing is written for a step the reader has already left. The pending
+        set is stamped with the step that pressed for it, and
+        :meth:`_discard_pending_replay` drops it on every path off that step, so
+        a late report cannot write into a step that never asked.
+
+        Raises:
+            TutorialSessionError: The session is dormant under another project.
+        """
+        state, record, driver, tutorial_dir = self._resolved()
+        if record.status is not SessionStatus.ACTIVE or record.step_id is None:
+            raise NoActiveSessionError("no tutorial step is active")
+        if not self._is_live(record):
+            raise TutorialSessionError(
+                f"'{record.title}' is not running in the open project, so its replay cannot settle"
+            )
+        pending = self._pending_replay
+        self._pending_replay = None
+        if pending is not None and pending[0] == record.step_id:
+            action_context = ActionContext(tutorial_dir=tutorial_dir, project_dir=record.project_path)
+            try:
+                written = execute_actions(
+                    pending[1],
+                    context=action_context,
+                    step_id=record.step_id,
+                )
+            except ActionExecutionError as exc:
+                # Same shape as the press that queued them: surfaced on the step
+                # and retryable, because the reader can press the button again.
+                raise TriggerFailedError(record.step_id, str(exc)) from exc
+            self._settle(written)
+            # Last, and after the settle (FR-061d). A reply that writes a block
+            # and then runs a workflow using it would otherwise race its own
+            # registry re-scan and fail on a block that is on disk but unknown.
+            try:
+                start_runs(pending[1], step_id=record.step_id, run=self._run_workflow)
+            except ActionExecutionError as exc:
+                raise TriggerFailedError(record.step_id, str(exc)) from exc
+        return self._reevaluate(state, record, driver, tutorial_dir)
+
+    def _discard_pending_replay(self) -> None:
+        """Forget writes a replay promised on a step the reader is leaving.
+
+        The reader who walks away mid-reply does not return to a canvas that
+        rearranged itself behind them, and a settle arriving from the tab they left
+        open cannot write into whatever step they are on now.
+        """
+        self._pending_replay = None
 
     def leave_active(self) -> None:
         """Leave the active tutorial, preserving its session (FR-090).
@@ -1298,6 +1394,9 @@ class TutorialRuntime:
         # ``forget_ui_events`` in :meth:`__init__`.
         if self._forget_ui_events is not None:
             self._forget_ui_events()
+        # So does a replay's promise (#2083): arriving on a new step means the
+        # reader left the one that pressed, and its unfinished reply with it.
+        self._discard_pending_replay()
         actions = driver.entry_actions(context)
         action_context = ActionContext(tutorial_dir=tutorial_dir, project_dir=record.project_path)
         delivery = self._delivery_for(actions, step_id=step_id)
@@ -1315,6 +1414,7 @@ class TutorialRuntime:
             reveal=_judge_then_reveal,
             delivery=delivery,
             settle=self._settle,
+            run=self._run_workflow,
         )
 
     def _settle(self, written: Sequence[Path]) -> None:
@@ -1339,9 +1439,30 @@ class TutorialRuntime:
         A replay declaring ``continue_tab`` (#2089) reuses the open handle
         instead: the scripted session already on screen receives the new
         segments, transcript intact, which is what lets a trigger pace a
-        conversation — press, watch more arrive, press again. Continuing
-        *nothing* is refused as an action failure naming the reason: an open
-        tab is the premise the manifest declared.
+        conversation — press, watch more arrive, press again.
+
+        **A tab that is gone is not an authoring error (#2083).** ``continue_tab``
+        used to refuse when there was nothing to continue, on the reading that
+        the open tab is a premise the manifest declared. That reading holds for
+        the manifest and not for the run: the tab is a real tab in the reader's
+        window, and it can go away for reasons the manifest has no say in — they
+        close it, a WebSocket drops, the frontend reloads. The tutorial then
+        routes them back to a terminal that refuses to speak, on every press,
+        for the rest of the level, with no way back short of restarting it.
+        A level 3 press is separated from the tab it continues by two other
+        surfaces and two workflow runs, so this is an ordinary reader's
+        accident, not a corner.
+
+        So a continuation whose tab has gone opens a fresh one and plays into
+        that. What is lost is the transcript above it — the earlier exchange is
+        not replayed into the new tab, so a reader who loses their tab mid-level
+        sees the conversation resume rather than continue. Losing the scrollback
+        is a smaller harm than losing the rest of the tutorial, and the step's
+        own dialogue carries the thread.
+
+        A live tab playing into a *different* surface than the one declared is
+        still refused: that one is a manifest mistake, and nothing about the
+        reader's window can cause or fix it.
         """
         replay = next((action for action in actions if isinstance(action, ReplayAction)), None)
         if replay is None:
@@ -1352,43 +1473,57 @@ class TutorialRuntime:
                 action=replay,
                 reason="no replay byte source is wired into the tutorial runtime",
             )
-        if replay.continue_tab:
-            handle = self._replay
-            if handle is None:
-                raise ActionExecutionError(
-                    step_id=step_id,
-                    action=replay,
-                    reason="the replay declares continue_tab, but no replay tab is open to continue",
-                )
-            if not getattr(handle, "is_open", True):
-                raise ActionExecutionError(
-                    step_id=step_id,
-                    action=replay,
-                    reason="the replay declares continue_tab, but the open replay tab has been closed",
-                )
-            if handle.surface != replay.surface:
-                raise ActionExecutionError(
-                    step_id=step_id,
-                    action=replay,
-                    reason=(
-                        f"the replay declares continue_tab on {replay.surface!r}, but the open tab "
-                        f"plays into {handle.surface!r}"
-                    ),
-                )
-            return handle
-        self._close_replay()
-        self._replay = self._open_replay(replay.surface)
-        return self._replay
+        open_here = self._replays.get(replay.surface)
+        if replay.continue_tab and self._can_continue(open_here):
+            assert open_here is not None  # narrowed by _can_continue
+            # Re-inserted, not just returned: the mapping's order is what tells
+            # the frontend which terminal was written to last, and a
+            # continuation is exactly as much "the one being spoken into" as a
+            # fresh tab is.
+            self._replays[replay.surface] = self._replays.pop(replay.surface)
+            return open_here
+        # Only this surface's session is replaced. A replay into the AI Block's
+        # terminal must not end the conversation happening in the chat.
+        self._close_replay(replay.surface)
+        handle = self._open_replay(replay.surface)
+        self._replays[replay.surface] = handle
+        return handle
 
-    def _close_replay(self) -> None:
-        """Terminate a scripted session, leaving no replay object behind (FR-061c)."""
-        handle, self._replay = self._replay, None
-        if handle is None:
-            return
-        try:
-            handle.close()
-        except Exception:  # pragma: no cover - closing must not mask the real outcome
-            logger.warning("Learning Center: failed to close a replay session", exc_info=True)
+    @staticmethod
+    def _can_continue(handle: ReplayHandle | None) -> bool:
+        """Whether *handle* is a tab new segments can still be appended to.
+
+        ``is_open`` is read defensively because it is an optional part of the
+        port: a handle that does not report is taken at its word. The concrete
+        one answers for both halves of the tab — the scripted session alive and
+        the registry entry still pointing at it — because either half missing
+        means bytes delivered here reach nobody.
+        """
+        return handle is not None and getattr(handle, "is_open", True)
+
+    def _close_replay(self, surface: str | None = None) -> None:
+        """Terminate scripted sessions, leaving no replay object behind (FR-061c).
+
+        With no *surface*, every open session ends — the path off a step, off a
+        tutorial, and off a session. With one, only that surface's session is
+        replaced, which is what starting a fresh replay on one surface means
+        now that another surface may be mid-conversation.
+        """
+        # The tab that was going to report the reply finished is going away, so
+        # anything it promised is never landing (#2083).
+        self._discard_pending_replay()
+        closing = (
+            [self._replays.pop(surface)]
+            if surface is not None and surface in self._replays
+            else []
+            if surface is not None
+            else [self._replays.pop(key) for key in list(self._replays)]
+        )
+        for handle in closing:
+            try:
+                handle.close()
+            except Exception:  # pragma: no cover - closing must not mask the real outcome
+                logger.warning("Learning Center: failed to close a replay session", exc_info=True)
 
     def _complete(self, state: SessionState, record: SessionRecord) -> SessionRecord:
         """End a session that reached the end of its tutorial (FR-079)."""
@@ -1457,8 +1592,15 @@ class TutorialRuntime:
         discovery and never re-imports a package driver (FR-021): the caller
         already has both.
         """
-        replay = (
-            ReplayView(surface=self._replay.surface, tab_id=self._replay.tab_id) if self._replay is not None else None
+        # Most recently written to FIRST. With two scripted terminals open,
+        # "open the AI panel" is no longer enough — the frontend also has to
+        # pick which terminal tab to select, and the only thing that knows
+        # which one was just spoken into is this runtime. Order is the
+        # channel: `_delivery_for` re-inserts the surface it used, so the
+        # mapping's last entry is the live one.
+        replays = tuple(
+            ReplayView(surface=handle.surface, tab_id=handle.tab_id)
+            for handle in reversed(list(self._replays.values()))
         )
         return SessionView(
             source_kind=record.key.source_kind,
@@ -1472,6 +1614,6 @@ class TutorialRuntime:
             error=record.error,
             can_go_back=record.can_go_back,
             revisiting=record.revisiting,
-            replay=replay,
+            replays=replays,
             steps=steps,
         )

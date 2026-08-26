@@ -1,0 +1,19 @@
+> What blocks can you see?
+
+* list_blocks()
+    load_data               IO            read a file into a typed data object
+    save_data               IO            write a typed data object back out
+    code_block              Code          run your own Python on what comes in
+    app_block               App           hand data to an external application
+    ai.agent                AI            put a question to a model, typed answer back
+    subworkflow_block       Subworkflow   run a whole workflow as a single block
+    datarouter_block        Process       send items down different paths
+    mergecollection_block   Process       concatenate collections into one
+    paireditor_block        Process       line two collections up by hand
+
+Nine, and none of them knows anything about plate readers - they are the general
+pieces every analysis is built from. Anything specific to your experiment is a
+block you write, which is a Python file under blocks/ that the registry picks up
+the moment it lands.
+
+I can write those too.

@@ -1,0 +1,21 @@
+[1m[36m> Write me a QC block that drops the broken wells.[0m
+
+Broken, not surprising - and that distinction is the whole design.
+
+Each well is scored against its own group rather than against the plate, because
+viability is supposed to change from group to group; scoring against the plate
+would flag all of group A for being low, which is exactly what the drug is meant to
+do. Median and MAD rather than mean and standard deviation, so one broken well
+cannot hide inside the statistic that is supposed to catch it.
+
+[32m* scaffold_block(...)  ->  blocks/qc_outlier_filter.py[0m
+[2m    class QcOutlierFilterBlock(ProcessBlock)  ->  adds qc_robust_z, qc_keep, qc_reason[0m
+
+The default threshold is ten sigma, which is not a typo. With eight replicates the
+MAD is itself a noisy estimate, so three sigma flags ordinary scatter - wells that
+are data, not errors, and nobody wants those thrown away by a default. What is
+actually broken sits far further out: that blank is eighty-six sigma from its group,
+and the widest well I am keeping is five and a half.
+
+It flags rather than deletes. Every row survives with a qc_keep and a qc_reason, so
+the decision is in the data where you can argue with it.

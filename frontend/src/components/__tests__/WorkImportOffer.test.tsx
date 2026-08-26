@@ -37,10 +37,24 @@ import { Toolbar } from "../Toolbar";
  * #2083 — the intro's availability probe is a live backend call; the tests
  * feed it a fixed report (or leave it hanging where the static rendering is
  * the point — the card must be complete before the probe answers).
+ *
+ * #2083 — the page moved from `GET /api/ai/availability` to `GET /api/ai/status`.
+ * The graded report makes a live call through each provider's CLI, fifteen
+ * seconds of timeout apiece, to tell "signed in but failing" from "ready";
+ * this page only asks whether one is installed, and status answers that from
+ * a two-second probe. So the fixture is `fetch`, and by default it hangs —
+ * which is the state several cases below are about.
  */
-vi.mock("../../lib/api/agentAvailability", () => ({
-  fetchAgentAvailability: vi.fn(() => new Promise(() => {})),
-}));
+const hangingProbe = () => new Promise<never>(() => {});
+
+function stubProviderStatus(providers: unknown[] | null): void {
+  vi.stubGlobal(
+    "fetch",
+    providers === null
+      ? vi.fn(hangingProbe)
+      : vi.fn(async () => ({ ok: true, json: async () => ({ providers }) })),
+  );
+}
 
 vi.mock("../../lib/api/learningCenter", async (importOriginal) => {
   const actual = await importOriginal<typeof LearningCenterModule>();
@@ -170,13 +184,54 @@ describe("the offer is answered once (FR-079)", () => {
     await waitFor(() => expect(learningCenterApi.dismissTutorialUnlock).toHaveBeenCalledTimes(1));
   });
 
-  it("opens the existing Bring in my work dialog rather than a new surface", async () => {
+  it("asks for a project to import into, then opens the existing dialog", async () => {
+    /*
+     * #2083 — the importer imports into the *open* project, and this offer
+     * arrives with none: it waited for the tutorial's project to close so the
+     * reader's real codebase would not be filed inside a throwaway. So "Yes"
+     * asks for a project first, named and placed by them, and the importer
+     * follows once one exists.
+     *
+     * The importer is still the product's own dialog, which is what this test
+     * was originally guarding: no second import surface exists.
+     */
     render(<WorkImportOffer />);
 
     continueThroughIntro();
     fireEvent.click(screen.getByRole("button", { name: OFFER_ACCEPT_LABEL }));
 
+    expect(useAppStore.getState().projectDialogOpen).toBe(true);
+    expect(screen.queryByTestId("work-import-dialog")).not.toBeInTheDocument();
+
+    act(() => {
+      useAppStore.setState({
+        currentProject: { id: "mine", name: "My Work", path: "/tmp/mine" } as never,
+      });
+    });
+
     expect(await screen.findByTestId("work-import-dialog")).toBeInTheDocument();
+  });
+
+  it("goes straight to the importer if a project got opened while the offer was up", async () => {
+    /*
+     * The offer only ever appears with no project open, but it does not vanish
+     * if one is opened underneath it — a reader can reach the card, open
+     * something from the toolbar, and come back. There is somewhere for the
+     * work to land now, so asking for another project would be a step that
+     * does nothing.
+     */
+    render(<WorkImportOffer />);
+    continueThroughIntro();
+
+    act(() => {
+      useAppStore.setState({
+        currentProject: { id: "p1", name: "Existing", path: "/tmp/p1" } as never,
+      });
+    });
+    fireEvent.click(screen.getByRole("button", { name: OFFER_ACCEPT_LABEL }));
+
+    expect(await screen.findByTestId("work-import-dialog")).toBeInTheDocument();
+    expect(useAppStore.getState().projectDialogOpen).toBe(false);
   });
 
   it("keeps no local record of having been shown — the backend owns that", async () => {
@@ -239,7 +294,7 @@ describe("the offer is triggered by a tutorial completing", () => {
       satisfied_step_ids: [],
       status: "complete" as const,
       error: null,
-      replay: null,
+      replays: [],
     };
   }
 
@@ -280,11 +335,59 @@ describe("the offer is triggered by a tutorial completing", () => {
     useAppStore.setState({ learningCenterSession: completedSession("welcome") });
 
     expect(await screen.findByTestId("work-import-offer")).toBeInTheDocument();
-    expect(learningCenterApi.getTutorialUnlock).toHaveBeenCalledTimes(1);
+    /*
+     * Twice, not once: #2083 added a start-up ask, because an offer owed to a
+     * reader who finished and then reloaded was never asked for again. The
+     * count is not the contract — the backend owns "once" and answers false
+     * after a dismissal — so what is pinned is that finishing still asks.
+     */
+    expect(learningCenterApi.getTutorialUnlock).toHaveBeenCalled();
   });
 
-  it("does not ask while a tutorial is still running", async () => {
+  it("asks at start-up for an offer owed to a finish this app run never saw", async () => {
+    /*
+     * #2083 — the offer used to fire only on the transition into complete,
+     * watched by the running app. Everything else lost it for good: a reload,
+     * a restart, "Keep exploring", or following a link out of the tutorial.
+     * `work_import_offer_pending` stays true until the offer is *shown*, so
+     * the only thing missing was somebody asking.
+     */
     vi.mocked(learningCenterApi.getTutorialCatalogue).mockResolvedValue(emptyCatalogue);
+    vi.mocked(learningCenterApi.getTutorialUnlock).mockResolvedValue({
+      work_import_offer_pending: true,
+    });
+    const { useLearningCenter } = await import("../../App.parts/useLearningCenter");
+
+    function Harness() {
+      useLearningCenter({
+        closeProject: vi.fn(),
+        wsConnected: true,
+        setLeftTab: vi.fn(),
+        openProject: vi.fn(),
+      });
+      return <WorkImportOffer />;
+    }
+
+    // A tutorial finished before this app run started: the session is already
+    // complete when the page first looks at it.
+    useAppStore.setState({ learningCenterSession: completedSession("welcome") });
+    render(<Harness />);
+
+    expect(await screen.findByTestId("work-import-offer")).toBeInTheDocument();
+  });
+
+  it("waits for a closed project, so imported work does not land in the tutorial's", async () => {
+    /*
+     * #2083 — "Bring in my work" imports into whatever project is open. Asked
+     * while the tutorial's own project is still open — which is exactly where
+     * the reader is when they press "Keep exploring" — it would file their
+     * real codebase inside a throwaway. The offer stays owed until the backend
+     * is told it was shown, so waiting costs nothing.
+     */
+    vi.mocked(learningCenterApi.getTutorialCatalogue).mockResolvedValue(emptyCatalogue);
+    vi.mocked(learningCenterApi.getTutorialUnlock).mockResolvedValue({
+      work_import_offer_pending: true,
+    });
     const { useLearningCenter } = await import("../../App.parts/useLearningCenter");
 
     function Harness() {
@@ -298,12 +401,58 @@ describe("the offer is triggered by a tutorial completing", () => {
     }
 
     useAppStore.setState({
-      learningCenterSession: { ...completedSession("welcome"), status: "active" },
+      learningCenterSession: completedSession("welcome"),
+      currentProject: { id: "p1", name: "What AI Can Do", path: "/tmp/p1" } as never,
     });
     render(<Harness />);
 
-    await waitFor(() => expect(learningCenterApi.getTutorialCatalogue).toHaveBeenCalled());
-    expect(learningCenterApi.getTutorialUnlock).not.toHaveBeenCalled();
+    await waitFor(() => expect(learningCenterApi.getTutorialUnlock).toHaveBeenCalled());
+    expect(screen.queryByTestId("work-import-offer")).not.toBeInTheDocument();
+
+    // Close the project and the question is finally a fair one to ask.
+    act(() => {
+      useAppStore.setState({ currentProject: null });
+    });
+    expect(await screen.findByTestId("work-import-offer")).toBeInTheDocument();
+  });
+
+  it("start-up asking does not close the reader's project", async () => {
+    /*
+     * The other half of #2079, and the reason only the *ask* moved to
+     * start-up. Finishing a tutorial opens the Learning Center and closes the
+     * project; doing that on every launch, off a session that was already
+     * complete before the page loaded, is the bug the "seen running" guard
+     * fixed. Asking the backend a question is not that.
+     */
+    vi.mocked(learningCenterApi.getTutorialCatalogue).mockResolvedValue(emptyCatalogue);
+    vi.mocked(learningCenterApi.getTutorialUnlock).mockResolvedValue({
+      work_import_offer_pending: true,
+    });
+    const { useLearningCenter } = await import("../../App.parts/useLearningCenter");
+
+    const closeProject = vi.fn();
+
+    function Harness() {
+      useLearningCenter({
+        closeProject,
+        wsConnected: true,
+        setLeftTab: vi.fn(),
+        openProject: vi.fn(),
+      });
+      return <WorkImportOffer />;
+    }
+
+    useAppStore.setState({ learningCenterSession: completedSession("welcome") });
+    render(<Harness />);
+
+    expect(await screen.findByTestId("work-import-offer")).toBeInTheDocument();
+    expect(closeProject).not.toHaveBeenCalled();
+    /*
+     * Deliberately no assertion about `learningCenterOpen`: the first-run
+     * landing opens it whenever the catalogue shows no recorded progress,
+     * which this harness's empty catalogue does. That is a different feature
+     * and it would make this test pass or fail for the wrong reason.
+     */
   });
 });
 
@@ -363,28 +512,10 @@ describe("the provider introduction (#2083)", () => {
     // The rows come whole from the availability report (ADR-034 FR-020a/b:
     // no hand-maintained key or label list in the frontend), so the fixture
     // is the report, and a sixth provider would appear with no code change.
-    const { fetchAgentAvailability } = await import("../../lib/api/agentAvailability");
-    vi.mocked(fetchAgentAvailability).mockResolvedValue({
-      state: "ready",
-      providers: [
-        {
-          key: "provider-a",
-          label: "Provider A",
-          state: "ready",
-          cause: null,
-          next_step: null,
-          session_unsupported_reason: null,
-        },
-        {
-          key: "provider-b",
-          label: "Provider B",
-          state: "not_installed",
-          cause: null,
-          next_step: "Install the `provider-b` executable; SciStudio looked in ~/.local/bin.",
-          session_unsupported_reason: null,
-        },
-      ],
-    });
+    stubProviderStatus([
+      { name: "provider-a", label: "Provider A", available: true, logged_in: true },
+      { name: "provider-b", label: "Provider B", available: false, logged_in: false },
+    ]);
 
     render(<WorkImportOffer />);
 
@@ -398,8 +529,13 @@ describe("the provider introduction (#2083)", () => {
     expect(other).toBeInTheDocument();
     expect(other.className).toContain("opacity-60");
     expect(other).toHaveTextContent("not installed");
-    // The configure line is the backend's own guidance, never a local copy.
-    expect(other).toHaveTextContent("SciStudio looked in ~/.local/bin");
+    /*
+     * No per-provider install command any more: that was `next_step` from the
+     * graded report, and the page no longer waits fifteen seconds a provider
+     * to get it. The installation guide link beside the list is what carries
+     * the "how" now.
+     */
+    expect(screen.getByTestId("provider-intro-install-guide")).toBeInTheDocument();
   });
 
   it("continue leads to the import question; the offer is not yet answered", () => {

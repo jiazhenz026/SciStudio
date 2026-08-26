@@ -20,6 +20,7 @@ import { useCallback } from "react";
 import { sendWebSocketMessage } from "../../hooks/useWebSocket";
 import { useAppStore } from "../../store";
 import { SetupScreen, type SetupLaunchConfig } from "./SetupScreen";
+import { ScriptedAgentView } from "./ScriptedAgentView";
 import { TerminalView } from "./TerminalView";
 
 export interface TerminalTabProps {
@@ -210,6 +211,25 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
     // ADR-035 §3.5 (c) / §3.9 — for AI-Block tabs, overlay a floating
     // "Mark done" pill in the upper-right corner when the block is paused.
     // Keeps TerminalView (xterm) logic untouched per dispatch scope.
+    // ADR-053 FR-061a (#2083) — the tutorial's scripted tab is rendered as an
+    // agent window: same terminal component for the conversation, plus the
+    // header and the prompt box a recording cannot contain. `source` is already
+    // the tab's own record of where its bytes come from, so nothing new is
+    // stored to tell a recording apart from a live agent.
+    if (tab.source === "tutorial-replay") {
+      return (
+        <div className="relative h-full" data-testid={`terminal-tab-running-${tabId}`}>
+          <ScriptedAgentView
+            tabId={tabId}
+            projectDir={projectPath}
+            provider={tab.provider}
+            onExit={handleExit}
+            onError={handleError}
+          />
+        </div>
+      );
+    }
+
     return (
       <div className="relative h-full" data-testid={`terminal-tab-running-${tabId}`}>
         <TerminalView

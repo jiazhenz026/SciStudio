@@ -176,7 +176,7 @@ function session(overrides: Partial<TutorialSessionResponse> = {}): TutorialSess
     satisfied_step_ids: [],
     status: "active",
     error: null,
-    replay: null,
+    replays: [],
     ...overrides,
   };
 }

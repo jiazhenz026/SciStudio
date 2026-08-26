@@ -24,7 +24,10 @@ import { PlotsTab } from "../BottomPanel.parts/PlotsTab";
 import { CollectionViewer } from "../DataPreview.parts/coreViewers";
 import { PlotViewer } from "../DataPreview.parts/PlotViewer";
 import { DataPreview } from "../DataPreview";
+import { PermissionModePicker } from "../AIChat/SetupScreen.parts/PermissionModePicker";
+import { ProviderPicker } from "../AIChat/SetupScreen.parts/ProviderPicker";
 import { PreviewerPalette } from "../PreviewerPalette";
+import { ProjectTree } from "../ProjectTree";
 import { TypePalette } from "../TypePalette";
 import { WorkflowPanel } from "../WorkflowPanel";
 import {
@@ -192,6 +195,26 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
           onReload={vi.fn()}
           onSearch={vi.fn()}
           search=""
+        />,
+      );
+    },
+  },
+
+  // The Data section of the left panel. `ProjectTree` renders both it and the
+  // Project tree; only the Data one is given a tutorial target, which is why
+  // the prop is passed here rather than hard-coded in the component.
+  data: {
+    args: {},
+    render: () => {
+      render(
+        <ProjectTree
+          projectId="p1"
+          projectPath="/tmp/p1"
+          title="Data"
+          rootPath="data"
+          tutorialTarget="data"
+          onLoadWorkflow={vi.fn()}
+          onReloadBlocks={vi.fn()}
         />,
       );
     },
@@ -464,6 +487,31 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
           selectedSchema={undefined}
         />,
       );
+    },
+  },
+
+  // #2083 — the AI Chat setup screen. Core tutorial 3 points at both of these
+  // before any session is launched, which is the only moment either is on
+  // screen: once a tab is running, the setup screen is gone.
+  ai_provider_picker: {
+    args: {},
+    render: () => {
+      render(
+        <ProviderPicker
+          tabId="t1"
+          providers={[]}
+          statusLoading={false}
+          provider={null}
+          onChange={vi.fn()}
+        />,
+      );
+    },
+  },
+
+  ai_permission_modes: {
+    args: {},
+    render: () => {
+      render(<PermissionModePicker tabId="t1" permissionMode={null} onChange={vi.fn()} />);
     },
   },
 };
