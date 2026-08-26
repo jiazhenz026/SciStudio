@@ -1,0 +1,74 @@
+{
+  "base_ref": "origin/main",
+  "branch": "fix/2195-panel-escape-hatch",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/App.parts/InteractiveModals.tsx",
+      "frontend/src/App.parts/InteractiveModals.parts/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-26T20:57:04.313541Z",
+      "class": "no-doc-describes-surface",
+      "kind": "na",
+      "path": null,
+      "rationale": "no ADR, spec, or guide documents the interactive modal's chrome. ADR-051 US3/FR-012 already promise that closing the window cancels the block; this restores the missing affordance for that promise rather than changing it. The panel host API version, PanelHostApi, and PanelModule contracts are unchanged, so src/scistudio/_agent_reference/block-contract.md stays accurate.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2195,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "A user was locked inside an AI-written interactive block's panel that drew neither a continue nor a cancel control; the host must always offer a way out.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2195-fix-2195-panel-escape-hatch",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:claude-opus-5",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "d176b4b6-540f-4e37-8401-513d91a35f68",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-08-26T20:57:04.313564Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/InteractiveModals.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:57:04.313570Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/InteractiveModals.parts/DynamicPanel.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
