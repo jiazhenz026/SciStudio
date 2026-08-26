@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2190] **Plot cards show how long a run has been going.** While a plot run
+  is in flight, the card shows a small elapsed-time pill next to the Run
+  button — the same `7s` / `2:05` / `1:04:09` counter a running canvas block
+  already had — and it disappears the moment the run finishes or fails,
+  leaving no final duration on the card. The timer's formatting and ticking
+  now live in one shared helper, so both surfaces always read identically.
+
 - [#2090] **The left sidebar is a VS Code-style icon rail, and it gained two
   sections.** The Blocks / Data types / Project text tabs are replaced by a 48px
   vertical rail of icons that sits outside the resizable area, so it stays put

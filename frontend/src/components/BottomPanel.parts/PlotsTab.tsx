@@ -3,9 +3,34 @@ import { useEffect, useState } from "react";
 
 import { api } from "../../lib/api";
 import { plotTargetFromRunResponse } from "../../lib/api/data";
+import { formatElapsed, useElapsedMs } from "../../hooks/useElapsedMs";
 import { useAppStore } from "../../store";
 import type { PlotListItem } from "../../types/api";
 import { PlotTargetPicker } from "./PlotTargetPicker";
+
+/**
+ * #2190 — compact elapsed counter rendered next to the Run button while this
+ * card's plot run is in flight, mirroring the block node timer (#1974): same
+ * `formatElapsed`/`useElapsedMs` contract, same transient lifetime — it
+ * unmounts the moment the run settles (success or failure), leaving no final
+ * duration or history on the card. A plot run is a direct API call, not an
+ * engine block run, so the anchor is the client-side `Date.now()` captured
+ * when the run starts.
+ */
+function PlotRunElapsed({ startedAt }: { startedAt: number }) {
+  const elapsedMs = useElapsedMs(startedAt);
+  const label = formatElapsed(elapsedMs);
+  return (
+    <span
+      aria-label={`Running for ${label}`}
+      className="rounded-full border border-stone-200 bg-stone-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-blue-600"
+      data-testid="plot-run-elapsed"
+      title={`Running for ${label}`}
+    >
+      {label}
+    </span>
+  );
+}
 
 /**
  * #1713 — dedicated Plots panel.
@@ -25,6 +50,10 @@ import { PlotTargetPicker } from "./PlotTargetPicker";
  * the canvas stays visible above it and hovering a target highlights/centers
  * the matching block on the canvas. Cards bound to the selected/highlighted
  * node are ringed, completing the canvas ↔ card mapping.
+ *
+ * #2190 — while a card's run is in flight, a small elapsed-time pill sits next
+ * to its Run button (same contract as the block node timer, #1974) and
+ * disappears when the run completes or fails.
  */
 export function PlotsTab() {
   const workflowId = useAppStore((s) => s.workflowId);
@@ -47,6 +76,9 @@ export function PlotsTab() {
   // Run, relink, and delete failures stay on the plot card that produced them.
   const [cardError, setCardError] = useState<{ plotId: string; message: string } | null>(null);
   const [runningId, setRunningId] = useState<string | null>(null);
+  // #2190 — client-side anchor for the elapsed pill; set with `runningId`,
+  // cleared with it, so the timer lives exactly as long as the run.
+  const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // Bumped after relink / create so the list re-fetches. Also re-runs whenever
   // the tab is (re)mounted — BottomPanel unmounts inactive tabs, so switching
@@ -75,6 +107,7 @@ export function PlotsTab() {
 
   async function handleRun(plot: PlotListItem) {
     setRunningId(plot.plot_id);
+    setRunStartedAt(Date.now());
     setCardError(null);
     try {
       const result = await api.runPlotJob({ plot_id: plot.plot_id });
@@ -109,6 +142,7 @@ export function PlotsTab() {
       });
     } finally {
       setRunningId(null);
+      setRunStartedAt(null);
     }
   }
 
@@ -300,6 +334,11 @@ export function PlotsTab() {
                   {plot.language}
                 </span>
                 <div className="flex items-center justify-end gap-1.5">
+                  {/* #2190 — elapsed pill sits immediately left of the Run
+                      button, only while this card's run is in flight. */}
+                  {runningId === plot.plot_id && runStartedAt !== null ? (
+                    <PlotRunElapsed startedAt={runStartedAt} />
+                  ) : null}
                   <button
                     aria-label={`Run plot ${name}`}
                     className="shrink-0 rounded-full bg-ink px-2.5 py-1 text-xs text-white disabled:opacity-50"
