@@ -123,7 +123,7 @@ def test_package_port_type_falls_back_and_says_so(tmp_path: Path) -> None:
     a warning the authoring agent is required to read.
     """
     result = scaffold_interactive_block(tmp_path, "review", input_ports={"labels": {"type": "Image"}})
-    assert 'accepted_types=[DataObject]' in result.block_path.read_text(encoding="utf-8")
+    assert "accepted_types=[DataObject]" in result.block_path.read_text(encoding="utf-8")
     assert any("Image" in warning and "DataObject" in warning for warning in result.warnings)
 
 
