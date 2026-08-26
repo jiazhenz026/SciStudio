@@ -12,11 +12,34 @@ from scistudio.blocks.base.state import BlockState
 
 _T = TypeVar("_T")
 
+# #2186: these are failure-detection bounds, not performance assertions.
+#
+# Every helper below polls every 50 ms and returns the instant its condition
+# holds, so a generous budget costs nothing when things work -- it only changes
+# how long a genuine hang takes to report. A tight one buys nothing, and makes
+# "the machine is busy" indistinguishable from "the code is broken". That is
+# what these were doing: at 5 s and 10 s, seven to nine API tests failed under a
+# full-suite parallel run on a 32-core Windows box while passing in CI and
+# passing alone. Raising the workflow budget to 60 s took that from seven
+# failures to one.
+#
+# The ceiling is pytest-timeout's per-test kill -- `timeout = 60` in
+# pyproject.toml, the ADR-040 preflight that hard-kills Windows
+# subprocess/asyncio hangs. A budget at or above 60 s can never elapse: the test
+# is killed first and reports a thread dump instead of a clean assertion. These
+# therefore sit under it with room for setup and teardown, rather than raising
+# the ceiling and weakening that kill for every test in the suite.
+WORKFLOW_TIMEOUT = 45.0
+"""Budget for a whole workflow run to reach a terminal state."""
+
+STEP_TIMEOUT = 30.0
+"""Budget for one condition or one block state transition."""
+
 
 def wait_for_condition(
     predicate: Callable[[], _T | None],
     *,
-    timeout: float = 5.0,
+    timeout: float = STEP_TIMEOUT,
     interval: float = 0.05,
 ) -> _T:
     """Poll until *predicate* returns a truthy value, then return it."""
@@ -33,7 +56,7 @@ def wait_for_workflow_completion(
     runtime: ApiRuntime,
     workflow_id: str,
     *,
-    timeout: float = 10.0,
+    timeout: float = WORKFLOW_TIMEOUT,
 ) -> WorkflowRun:
     """Wait until a workflow run finishes and surface task exceptions."""
 
@@ -56,7 +79,7 @@ def wait_for_block_state(
     block_id: str,
     expected_state: str | BlockState,
     *,
-    timeout: float = 5.0,
+    timeout: float = STEP_TIMEOUT,
 ) -> dict[str, BlockState]:
     """Wait until a specific block reaches *expected_state*."""
     target = BlockState(expected_state) if isinstance(expected_state, str) else expected_state
