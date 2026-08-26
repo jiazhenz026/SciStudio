@@ -182,7 +182,7 @@ def _fake_desktop(tmp_path: Path) -> Path:
     """A desktop/ directory holding just the files a snapshot deals with."""
     desktop = tmp_path / "desktop"
     desktop.mkdir(exist_ok=True)
-    for name in ("main.js", "ota.js", "runtime-port.js", "preload.js", "splash.html"):
+    for name in ("main.js", "menu.js", "ota.js", "runtime-port.js", "preload.js", "splash.html"):
         (desktop / name).write_text("// " + name, encoding="utf-8")
     (desktop / "assets").mkdir(exist_ok=True)
     (desktop / "assets" / "icon.png").write_bytes(b"PNG-stub")
@@ -206,7 +206,7 @@ def _snapshot_names(mod: ModuleType, tmp_path: Path) -> set[str]:
 def test_make_snapshot_carries_the_shell_beside_src(mod: ModuleType, tmp_path: Path) -> None:
     names = _snapshot_names(mod, tmp_path)
     assert "src/scistudio/__init__.py" in names
-    for name in ("main.js", "ota.js", "runtime-port.js", "preload.js", "splash.html"):
+    for name in ("main.js", "menu.js", "ota.js", "runtime-port.js", "preload.js", "splash.html"):
         assert f"shell/{name}" in names
 
 

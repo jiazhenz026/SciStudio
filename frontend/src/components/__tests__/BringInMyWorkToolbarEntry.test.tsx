@@ -10,10 +10,17 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { useAppStore } from "../../store";
 import { Toolbar } from "../Toolbar";
 import { ENTRY_LABEL } from "../BringInMyWorkDialog.parts/copy";
 
-afterEach(cleanup);
+// The dialog open state is store-backed (the desktop application menu opens it
+// too), so it must be reset between tests — a store value survives unmount,
+// unlike the Toolbar-local useState it replaced.
+afterEach(() => {
+  cleanup();
+  useAppStore.setState({ bringInMyWorkOpen: false, packageManagerOpen: false });
+});
 
 function makeProps(overrides: Partial<React.ComponentProps<typeof Toolbar>> = {}) {
   return {

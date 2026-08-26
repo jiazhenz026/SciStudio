@@ -38,6 +38,9 @@ export function resetAppStore() {
     panelSizes: { palette: 15, preview: 22, bottom: 30 },
     minimapVisible: true,
     lastError: null,
+    // Desktop-menu-reachable dialog state (desktop/menu.js).
+    packageManagerOpen: false,
+    bringInMyWorkOpen: false,
     blocks: [],
     blockSchemas: {},
     paletteSearch: "",

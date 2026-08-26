@@ -1,7 +1,6 @@
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FolderInput, GraduationCap, Package } from "lucide-react";
-import { useState } from "react";
 
 import type { ConnectionStatus } from "../hooks/connectionState";
 import { usePackageUpdates } from "../hooks/usePackageUpdates";
@@ -123,11 +122,15 @@ export function Toolbar(props: ToolbarProps) {
   void wsStatus;
   void sseStatus;
   const isFileTab = activeTabKind === "file";
-  const [packageManagerOpen, setPackageManagerOpen] = useState(false);
+  // #1784 — dialog open state lives in the store so the desktop application
+  // menu (desktop/menu.js → useDesktopMenuActions) can open it too.
+  const packageManagerOpen = useAppStore((state) => state.packageManagerOpen);
+  const setPackageManagerOpen = useAppStore((state) => state.setPackageManagerOpen);
   // ADR-053 spec 2 (#2001) — the dialog is mounted only while open so its
   // availability probe fires when the user asks for the feature, not on every
-  // app start.
-  const [bringInMyWorkOpen, setBringInMyWorkOpen] = useState(false);
+  // app start. Store-backed for the same desktop-menu reason as above.
+  const bringInMyWorkOpen = useAppStore((state) => state.bringInMyWorkOpen);
+  const setBringInMyWorkOpen = useAppStore((state) => state.setBringInMyWorkOpen);
   const { updateCount } = usePackageUpdates();
   /*
    * ADR-053 Learning Center (#2057) FR-082 — a PERMANENT entry, on the same

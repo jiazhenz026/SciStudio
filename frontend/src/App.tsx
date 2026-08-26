@@ -28,10 +28,11 @@ import { useLogStream } from "./hooks/useSSE";
 import { useWorkflowWebSocket } from "./hooks/useWebSocket";
 import { useAppStore } from "./store";
 import type { AnyTab } from "./store/types";
-import type { ProjectResponse, WorkflowResponse } from "./types/api";
+import type { WorkflowResponse } from "./types/api";
 
 import { AppLevelMergeFlow } from "./App.parts/AppLevelMergeFlow";
 import { AppDialogs } from "./App.parts/AppDialogs";
+import { closeCurrentProject } from "./App.parts/closeProject";
 import { InteractiveModals } from "./App.parts/InteractiveModals";
 import { ProjectWorkspace, type LeftTab } from "./App.parts/ProjectWorkspace";
 import { WelcomePane } from "./App.parts/WelcomePane";
@@ -41,6 +42,7 @@ import { useAppLifecycleEffects } from "./App.parts/useAppLifecycleEffects";
 import { useBottomPanelControls } from "./App.parts/useBottomPanelControls";
 import { useCanvasHandlers } from "./App.parts/useCanvasHandlers";
 import { useCanvasReadability } from "./App.parts/useCanvasReadability";
+import { useDesktopMenuActions } from "./App.parts/useDesktopMenuActions";
 import { useFileTabsAutosave } from "./App.parts/useFileTabsAutosave";
 import { useLearningCenter } from "./App.parts/useLearningCenter";
 import { useTutorialReplayTab } from "./App.parts/useTutorialReplayTab";
@@ -55,33 +57,6 @@ import { ActiveStep } from "./components/LearningCenter.parts/ActiveStep";
 import { WorkImportOffer } from "./components/LearningCenter.parts/WorkImportOffer";
 import { Toolbar } from "./components/Toolbar";
 import { TooltipProvider } from "./components/ui/tooltip";
-
-function emptyWorkflow(id = "main"): WorkflowResponse {
-  return {
-    id,
-    version: "1.0.0",
-    description: "",
-    nodes: [],
-    edges: [],
-    metadata: {},
-  };
-}
-
-/**
- * Close the active project: clear the project, reset the canvas/execution, and
- * drop the previous project's open workflow tabs (bug #5). Module-level so it
- * does not count against App()'s line budget.
- */
-function closeCurrentProject(actions: {
-  setCurrentProject: (project: ProjectResponse | null) => void;
-  setWorkflow: (workflow: WorkflowResponse | null) => void;
-  resetExecution: () => void;
-}): void {
-  actions.setCurrentProject(null);
-  actions.setWorkflow(emptyWorkflow());
-  actions.resetExecution();
-  useAppStore.setState({ tabs: [], activeTabId: null });
-}
 
 /** Dismissable top-of-canvas error banner. Extracted to keep App() under the
  * max-lines-per-function lint limit. */
@@ -416,7 +391,7 @@ export default function App() {
     wsConnected,
     setLeftTab: selectLeftTab,
     openProject,
-    closeProject: () => closeCurrentProject({ setCurrentProject, setWorkflow, resetExecution }),
+    closeProject: () => closeCurrentProject(),
   });
   /*
    * ADR-053 FR-061a (#2083) — fold the tutorial's scripted replay tab into
@@ -441,9 +416,9 @@ export default function App() {
     togglePreview,
     undoWorkflow,
   });
-  // The New-menu entries are project-scoped: `undefined` is what makes the
-  // toolbar hide/disable them. ADR-053 FR-032 adds a third one, so the shape is
-  // written once rather than three times.
+  useDesktopMenuActions({ save: handleSave, saveAs: () => void saveWorkflowAs() });
+  // The New-menu entries are project-scoped: `undefined` hides/disables them in
+  // the toolbar. ADR-053 FR-032 adds a third one, so the shape is written once.
   const whenProjectOpen = (run: () => Promise<void>) =>
     currentProject ? () => void run() : undefined;
 
@@ -466,9 +441,7 @@ export default function App() {
             onNewProject={() => openProjectDialog("new", { path: projectDialog.path })}
             onOpenProject={() => openProjectDialog("open")}
             onOpenRecent={(project) => void openProject(project.id)}
-            onCloseProject={() =>
-              closeCurrentProject({ setCurrentProject, setWorkflow, resetExecution })
-            }
+            onCloseProject={() => closeCurrentProject()}
             onNewWorkflow={newWorkflow}
             onNewCustomBlock={whenProjectOpen(createNewCustomBlock)}
             onNewDataType={whenProjectOpen(createNewDataType)}
