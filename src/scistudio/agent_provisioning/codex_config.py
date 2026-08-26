@@ -101,6 +101,11 @@ _POST_HOOKS: tuple[tuple[str, str, str], ...] = (
         "enforce_concrete_port_types.py",
         "Checking port types for §3.2a compliance",
     ),
+    (
+        "^(Edit|Write|MultiEdit|apply_patch)$",
+        "check_panel_contract.py",
+        "Checking the interactive panel module contract (ADR-051)",
+    ),
 )
 
 

@@ -30,6 +30,7 @@ def test_install_project_agent_assets_fresh_project(tmp_project_dir: Path) -> No
         ".claude/hooks/remind_poll_status.py",
         ".claude/hooks/mark_list_blocks_called.py",
         ".claude/hooks/enforce_concrete_port_types.py",
+        ".claude/hooks/check_panel_contract.py",
         ".codex/config.toml",
         ".claude/.scistudio-provision-version",
     }

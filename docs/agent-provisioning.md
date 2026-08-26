@@ -25,6 +25,7 @@ the first time it is created or opened:
       remind_poll_status.py                # PostToolUse / run_workflow — stderr reminder to poll
       mark_list_blocks_called.py           # PostToolUse / list_blocks — writes session marker
       enforce_concrete_port_types.py       # PostToolUse — stderr-warns on DataObject ports
+      check_panel_contract.py              # PostToolUse — stderr-warns on a broken interactive panel .js/.mjs
     skills/                                  # 6 task-scoped Claude Code skills (flat — one level only)
       scistudio/SKILL.md                     # base index
       scistudio-build-workflow/SKILL.md

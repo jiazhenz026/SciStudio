@@ -262,33 +262,46 @@ def test_non_interactive_block_spec_has_no_manifest() -> None:
     assert spec.panel_asset_root is None
 
 
-class _PackagePanelBlock(InteractiveMixin, ProcessBlock):
-    """Package-style interactive block whose panel is wheel-served (has asset_root)."""
+def test_package_panel_asset_root_kept_off_the_wire(tmp_path: Path) -> None:
+    """§4.2: asset_root is server-only — it must never appear in the serialized manifest.
 
-    name = "PackagePanelBlock"
-    execution_mode = ExecutionMode.INTERACTIVE
-    interactive_panel = PanelManifest(
-        panel_id="pkg.interactive.demo",
-        module_url="/api/blocks/panels/pkg.interactive.demo/index.js",
-        asset_root="/server/only/secret/root",
-        version="2",
+    #2196: the root has to be a real directory holding the real module now, so
+    the block is built here rather than at module scope. A manifest pointing at
+    a path that does not exist is the ``import_failed`` the scan refuses — which
+    is the behaviour this file's other new cases cover.
+    """
+    root = tmp_path / "server_only_secret_root"
+    root.mkdir()
+    (root / "index.js").write_text(
+        'export default { apiVersion: "1", mount(c, host) { host.confirm(); host.cancel(); '
+        "return { unmount() {} }; } };",
+        encoding="utf-8",
     )
 
-    def prepare_prompt(self, inputs: dict[str, Any], config: Any) -> InteractivePrompt:
-        return InteractivePrompt(panel_payload={})
+    class _PackagePanelBlock(InteractiveMixin, ProcessBlock):
+        """Package-style interactive block whose panel is wheel-served (has asset_root)."""
 
-    def run(self, inputs: dict[str, Any], config: Any) -> dict[str, Any]:  # type: ignore[override]
-        return {}
+        name = "PackagePanelBlock"
+        execution_mode = ExecutionMode.INTERACTIVE
+        interactive_panel = PanelManifest(
+            panel_id="pkg.interactive.demo",
+            module_url="/api/blocks/panels/pkg.interactive.demo/index.js",
+            asset_root=str(root),
+            version="2",
+        )
 
+        def prepare_prompt(self, inputs: dict[str, Any], config: Any) -> InteractivePrompt:
+            return InteractivePrompt(panel_payload={})
 
-def test_package_panel_asset_root_kept_off_the_wire() -> None:
-    """§4.2: asset_root is server-only — it must never appear in the serialized manifest."""
+        def run(self, inputs: dict[str, Any], config: Any) -> dict[str, Any]:  # type: ignore[override]
+            return {}
+
     spec = _spec_from_class(_PackagePanelBlock)
     assert spec.panel_manifest is not None
     assert "asset_root" not in spec.panel_manifest, "asset_root leaked onto the wire"
     assert spec.panel_manifest["module_url"].startswith("/api/")
     # The server-side confinement root is captured separately on the spec.
-    assert spec.panel_asset_root == "/server/only/secret/root"
+    assert spec.panel_asset_root == str(root)
 
 
 # ===========================================================================

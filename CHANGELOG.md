@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2196] **An interactive block's panel is checked before it can break for
+  you.** An interactive block opens a window built from a small JavaScript
+  module the package ships beside it. Nothing checked that module, or the
+  manifest pointing at it, so a wrong URL, a missing file, or the wrong kind of
+  export all arrived the same way: the panel opened and immediately errored,
+  mid-run, with the reason nowhere you could see it.
+
+  All of those are now decided ahead of time — without running any JavaScript —
+  and reported using the same words the error would have used. A block whose
+  panel cannot mount is refused when the block library is scanned, and a
+  workflow containing one refuses to start rather than pausing on a broken
+  window. Editing a panel after the fact is caught too, which the scan alone
+  could not see. Checks that a text search cannot prove — that the panel's
+  confirm and cancel buttons are really wired — are reported as advice and never
+  block anything.
+
+  For anyone writing blocks with the in-app assistant, the same information now
+  comes back from reloading the block library: a block that was refused is
+  listed with the reason and the fix, instead of quietly not appearing. That
+  also covers every other reason a block can be refused, which used to be
+  equally silent. A new project hook warns right after a panel file is written.
+
 - [#2112] **Previews open as canvas tabs, and the Data tree opens files for
   preview.** The DataPreview panel's maximize button used to float the preview
   over the workspace as an overlay; it now opens the preview as a tab in the

@@ -1,0 +1,227 @@
+{
+  "base_ref": null,
+  "branch": "feat/2196-interactive-contract-validation",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/blocks/base/panel_contract.py",
+      "src/scistudio/blocks/registry/**",
+      "src/scistudio/ai/agent/mcp/tools_authoring.py",
+      "src/scistudio/ai/agent/mcp/_reload.py",
+      "src/scistudio/workflow/validator.py",
+      "src/scistudio/agent_provisioning/**",
+      "tests/**",
+      "docs/package-development/blocks.md",
+      "docs/specs/adr-051-interactive-blocks.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-26T20:53:58.955954Z",
+      "owner_directive": "Shared static panel-contract validator in src/scistudio/blocks/base/panel_contract.py (next to interactive.py, which owns PanelManifest/PANEL_API_VERSION; no cycle). Surfaced at three agent-unavoidable points: registry scan rejection reasons returned by reload_blocks, workflow validator Check 11, and a new provisioned PostToolUse hook covering panel .js/.mjs writes.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-26T20:53:58.955978Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/package-development/blocks.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:53:58.955985Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-051-interactive-blocks.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T21:13:33.417422Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T21:13:33.417427Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/package-development/blocks.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T21:13:33.417429Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-051-interactive-blocks.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T21:14:12.216351Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/agent-provisioning.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T21:14:12.216362Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "no new architectural decision \u2014 the panel contract and its scan-time enforcement are ADR-051; this lands FR-016/017/018 in the ADR-051 implementation spec",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T21:14:12.216367Z",
+      "class": "ai-developer-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs/ai-developer/** describes the SciStudio-repo gate workflow and the worktree write guard, neither of which changes here; the new hook is provisioned into end-user projects under ADR-040 and is documented in docs/agent-provisioning.md",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2196,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Manager dispatch A2 (#2196): validate the interactive block + panel contract statically at three agent-unavoidable surfaces (registry scan/reload_blocks, workflow validator, PostToolUse hook), emitting the same failure codes the frontend panel host shows. No JS runtime, no CLI entry point, no new MCP tool.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2196-feat-2196-interactive-contract-validation",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:claude-opus-5",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-26T21:13:33.417399Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "CHANGELOG entry for the user-visible change; also naming the ADR-051 spec FR-016/017/018 addition and the new test paths"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-26T21:14:12.216329Z",
+      "pattern": "docs/agent-provisioning.md",
+      "reason": "docs/agent-provisioning.md lists the provisioned hook set and gains the new PostToolUse entry"
+    }
+  ],
+  "session_id": "7278a440-0cc5-4a88-b463-7c0f00c01733",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-08-26T20:53:58.955990Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_panel_contract.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:53:58.955995Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_registry_rejections.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:53:58.955996Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/workflow/test_validator_panel_contract.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:53:58.955998Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_hooks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:53:58.956000Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/agent/mcp/test_tools_authoring_reload.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T21:13:33.417432Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_panel_contract.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T21:13:33.417435Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_registry_rejections.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T21:13:33.417437Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/workflow/test_validator_panel_contract.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T21:13:33.417438Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_hook_panel_contract_parity.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T21:13:33.417439Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_authoring.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

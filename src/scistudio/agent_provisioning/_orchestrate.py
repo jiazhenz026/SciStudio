@@ -116,6 +116,7 @@ def install_project_agent_assets(
                 ".claude/hooks/remind_poll_status.py",
                 ".claude/hooks/mark_list_blocks_called.py",
                 ".claude/hooks/enforce_concrete_port_types.py",
+                ".claude/hooks/check_panel_contract.py",
             ],
         ),
         (

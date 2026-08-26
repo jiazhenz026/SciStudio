@@ -100,7 +100,7 @@ def test_codex_config_emits_hooks(tmp_project_dir: Path) -> None:
     pre = data.get("hooks", {}).get("PreToolUse", [])
     post = data.get("hooks", {}).get("PostToolUse", [])
     assert len(pre) == 4, f"expected 4 PreToolUse hooks, got {len(pre)}"
-    assert len(post) == 3, f"expected 3 PostToolUse hooks, got {len(post)}"
+    assert len(post) == 4, f"expected 4 PostToolUse hooks, got {len(post)}"
 
     expected_pre_scripts = {
         "deny_scistudio_cli.py",
@@ -112,6 +112,7 @@ def test_codex_config_emits_hooks(tmp_project_dir: Path) -> None:
         "remind_poll_status.py",
         "mark_list_blocks_called.py",
         "enforce_concrete_port_types.py",
+        "check_panel_contract.py",
     }
 
     def _script_names(groups: list[dict]) -> set[str]:

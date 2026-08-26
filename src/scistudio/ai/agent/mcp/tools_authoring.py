@@ -80,12 +80,27 @@ class ScaffoldBlockResult(BaseModel):
     )
 
 
+class RejectedBlock(BaseModel):
+    """One block the reload refused, and what to change (#2196)."""
+
+    block: str = Field(description="Block class name, or the file stem when the module never imported.")
+    reasons: list[str] = Field(default_factory=list, description="One line per distinct fault.")
+    fix: str = Field(default="", description="What to change to make the block register.")
+
+
 class ReloadBlocksResult(BaseModel):
     """Result envelope for ``reload_blocks``."""
 
     reloaded: int = Field(description="Total number of block types after reload.")
     added: list[str] = Field(default_factory=list, description="Newly added block type names.")
     removed: list[str] = Field(default_factory=list, description="Removed block type names.")
+    rejected: list[RejectedBlock] = Field(
+        default_factory=list,
+        description=(
+            "Blocks the scan refused, with the reason and the repair. A block you just wrote that "
+            "does not appear in list_blocks is here."
+        ),
+    )
     next_step: str = Field(
         default=(
             "Call mcp__scistudio__list_blocks to confirm the new block is registered, "
@@ -441,12 +456,33 @@ async def reload_blocks() -> ReloadBlocksResult:
     #9: the broadcast keeps connected GUI clients' palette and schemas current
     right after the agent edits and reloads a custom block, instead of the user
     having to hit palette reload.
+
+    #2196: a block the scan refuses is reported in ``rejected`` with the reason
+    and the repair, instead of simply not appearing in ``list_blocks``. That
+    makes the ordinary ``write -> reload_blocks -> list_blocks`` loop a
+    validation loop with no new tool and no new step: if ``rejected`` is empty
+    the block registered, and if it is not, every entry says what to change.
     """
     ctx = get_context()
     added, removed = refresh_context_registries(ctx)
-    logger.info("reload_blocks: added=%s removed=%s", added, removed)
+    rejected = [
+        RejectedBlock(block=rejection.block, reasons=list(rejection.reasons), fix=rejection.fix)
+        for rejection in ctx.block_registry.rejections()
+    ]
+    logger.info("reload_blocks: added=%s removed=%s rejected=%d", added, removed, len(rejected))
     await broadcast_blocks_reloaded(ctx, added=added, removed=removed)
-    return ReloadBlocksResult(reloaded=len(ctx.block_registry.all_specs()), added=added, removed=removed)
+    return ReloadBlocksResult(
+        reloaded=len(ctx.block_registry.all_specs()),
+        added=added,
+        removed=removed,
+        rejected=rejected,
+        next_step=(
+            "Fix the blocks in `rejected` — each carries the reason and the repair — then call "
+            "mcp__scistudio__reload_blocks again."
+            if rejected
+            else ReloadBlocksResult.model_fields["next_step"].default
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------

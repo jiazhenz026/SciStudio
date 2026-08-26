@@ -1,6 +1,6 @@
 """Write project-scoped hook config + scripts (ADR-040 §3.6).
 
-Provisions ``<project>/.claude/settings.json`` and the 7 hook scripts at
+Provisions ``<project>/.claude/settings.json`` and the 8 hook scripts at
 ``<project>/.claude/hooks/`` for Claude Code's hook system.
 
 Per ADR §3.6 (matcher list expanded with ``MultiEdit`` per Codex P1
@@ -14,11 +14,16 @@ tool name; omitting it leaves a bypass path):
     - hook_enforce_list_blocks_before_block_write.py
         (matcher: Edit|Write|MultiEdit|Bash|mcp__scistudio__scaffold_block)
 
-  PostToolUse (3):
+  PostToolUse (4):
     - hook_remind_poll_status.py                    (matcher: mcp__scistudio__run_workflow)
     - hook_mark_list_blocks_called.py               (matcher: mcp__scistudio__list_blocks)
     - hook_enforce_concrete_port_types.py
         (matcher: Edit|Write|MultiEdit|mcp__scistudio__scaffold_block)
+    - hook_check_panel_contract.py                  (matcher: Edit|Write|MultiEdit)
+        ADR-051 / #2196: an interactive block's panel is a ``.js``/``.mjs``
+        module beside the block, and no hook matched it — the block-write hook
+        matches Python block files only. Every way of getting a panel wrong
+        therefore reached the user as a modal that opened and errored.
 
 Hook scripts read JSON from stdin (Claude Code's hook stdin contract);
 exit code 2 blocks the tool call (PreToolUse only); exit code 0 passes.
@@ -102,6 +107,7 @@ _HOOK_FILES: tuple[tuple[str, str], ...] = (
     ("hook_remind_poll_status.py", "remind_poll_status.py"),
     ("hook_mark_list_blocks_called.py", "mark_list_blocks_called.py"),
     ("hook_enforce_concrete_port_types.py", "enforce_concrete_port_types.py"),
+    ("hook_check_panel_contract.py", "check_panel_contract.py"),
 )
 
 
@@ -158,6 +164,11 @@ def _build_settings_json(hooks_dir_rel: str, project_dir_var: str = _CLAUDE_PROJ
             "Edit|Write|MultiEdit|mcp__scistudio__scaffold_block",
             "enforce_concrete_port_types.py",
         ),
+        # #2196: panel modules are written with the plain file tools; there is
+        # no MCP tool that produces one, so the file-tool matcher is the whole
+        # coverage. The script itself decides whether the written file is a
+        # panel (suffix + path/content), because a matcher cannot.
+        ("Edit|Write|MultiEdit", "check_panel_contract.py"),
     ]
 
     def _entry(matcher: str, script: str) -> dict:
@@ -523,7 +534,7 @@ def write_hooks(
     """Write the project-scope hook settings for every hook-capable provider.
 
     Writes ``<project>/.claude/settings.json`` (Claude Code),
-    ``<project>/.qoder/settings.json`` (both Qoder channels) and the seven
+    ``<project>/.qoder/settings.json`` (both Qoder channels) and the eight
     shared hook scripts under ``<project>/.claude/hooks/``. Codex's hook
     declarations live in ``<project>/.codex/config.toml`` and are written by
     :mod:`scistudio.agent_provisioning.codex_config`.

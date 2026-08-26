@@ -141,6 +141,52 @@ def get_block_package() -> tuple[PackageInfo, list[type]]:
 `PackageInfo` (from `scistudio.blocks.base`) carries your package name, version,
 and update channel. See [publishing.md](publishing.md) for wiring it up.
 
+## Interactive blocks ship a panel, and the panel is checked
+
+A block becomes interactive by mixing in `InteractiveMixin`, declaring
+`execution_mode = ExecutionMode.INTERACTIVE`, and naming the window it opens in
+a `PanelManifest`. A package-provided panel is a plain ES module you ship beside
+the block:
+
+```python
+interactive_panel: ClassVar[PanelManifest] = PanelManifest(
+    panel_id="myplugin.review_labels",
+    module_url="/api/blocks/panels/myplugin.review_labels/panel.mjs",
+    asset_root=str(Path(__file__).resolve().parent / "review_labels_panel"),
+)
+```
+
+Both halves are validated, statically, before your block ever runs — at registry
+scan, at workflow validation, and by a write-time hook in the AI project. What
+each of them requires:
+
+| The manifest | Why |
+|---|---|
+| `module_url` is site-relative and spelled `/api/blocks/panels/<panel_id>/<file>` | It is the panel asset route; any other shape 404s. `panel_id` must be the manifest's own |
+| `asset_root` is a directory that ships with the package | The route serves the module path-confined under it and nowhere else |
+| the file `module_url` names exists under `asset_root` | A URL naming nothing is the `import_failed` the user sees as a modal that opens and errors |
+| its suffix is one the route serves (`.js`, `.mjs`, `.css`, `.map`, `.json`, `.svg`, `.woff`, `.woff2`) | Anything else is refused before it is read |
+| `api_version` majors match the host's | The host refuses the manifest before importing |
+
+| The module | Why |
+|---|---|
+| it exports the name `export_name` names (`default` unless you say otherwise) | The host imports exactly that name — named exports against the default is the most common mistake |
+| that export carries `apiVersion` and `mount` | The host's `PanelModule` guard refuses anything else |
+| `apiVersion`'s major matches the host's | Checked again on the module, not only the manifest |
+| it imports nothing off-origin | No remote or inline code is ever loaded |
+
+Three more are checked and reported as advisories, never as errors, because a
+text search finds a name and not a binding: `mount()` returning something with
+an `unmount`, and the module calling `host.confirm(...)` and `host.cancel()`.
+Wire both controls anyway — they are how the paused run resumes or stops.
+
+A block whose *manifest or module* fails a hard check is refused at scan time
+and does not appear in the palette. If you are writing one through the in-app
+agent, `reload_blocks` returns it in `rejected` with the reason and the repair.
+
+A core panel — one the app bundles — carries only a `panel_id` and no
+`module_url`; that is the one shape with nothing to check.
+
 ## Next
 
 [previewers.md](previewers.md) — show your types in the inspector.

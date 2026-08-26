@@ -19,6 +19,9 @@ Owns:
   ``packages/*/src`` source packages (desktop runtime).
 - ``_register_spec`` — apply per-spec validation and write into the
   registry's ``_registry`` + ``_aliases`` dicts.
+- ``_record_rejection`` — record why one block (or one drop-in file) was
+  refused, so ``reload_blocks`` can tell the author instead of the block
+  simply not appearing (#2196).
 - ``_validate_capability_registration`` — ADR-043 capability-id and
   default-conflict cross-spec validation.
 """
@@ -171,6 +174,59 @@ def _record_dropin_failure(registry: BlockRegistry, py_file: Path, error_type: s
     registry._dropin_failures.append(DropinFailure(file_path=str(py_file), error_type=error_type, message=message))
 
 
+#: What to tell an author who has no more specific repair to offer. A rejection
+#: with no fix is the silence this record exists to end, so there is always one.
+_GENERIC_REJECTION_FIX = (
+    "Read the reasons above, correct the block class, then call reload_blocks again "
+    "and check the 'rejected' list is empty."
+)
+
+
+def _record_rejection(
+    registry: BlockRegistry,
+    *,
+    block: str,
+    reasons: list[str],
+    fix: str,
+    source: str,
+) -> None:
+    """Record why one block was refused, for ``reload_blocks`` to report (#2196).
+
+    The scan already logs every refusal and, for drop-in files, records a
+    :class:`~scistudio.blocks.registry.DropinFailure` the palette can show. An
+    authoring agent reads neither: it writes a block, reloads, and sees the block
+    absent from ``list_blocks`` with nothing to act on. This is the same event,
+    kept per block and shaped for that reader.
+    """
+    from scistudio.blocks.registry import BlockRejection
+
+    registry._rejections.append(BlockRejection(block=block, reasons=tuple(reasons), fix=fix, source=source))
+
+
+def _record_rejected_class(
+    registry: BlockRegistry,
+    *,
+    block: str,
+    exc: BaseException,
+    source: str,
+) -> None:
+    """Record a rejection raised while turning one class into a ``BlockSpec``.
+
+    A :class:`~scistudio.blocks.registry.BlockContractError` already carries the
+    split reasons and the repair; anything else contributes the one string it
+    has, plus the generic repair.
+    """
+    from scistudio.blocks.registry import BlockContractError
+
+    if isinstance(exc, BlockContractError):
+        reasons = list(exc.reasons)
+        fix = exc.fix
+    else:
+        reasons = [str(exc) or type(exc).__name__]
+        fix = _GENERIC_REJECTION_FIX
+    _record_rejection(registry, block=block, reasons=reasons, fix=fix, source=source)
+
+
 def _reject_shadowing_type_files(registry: BlockRegistry, import_roots: tuple[Path, ...]) -> None:
     """Report every FR-016 collision in *import_roots* on the registry.
 
@@ -182,6 +238,17 @@ def _reject_shadowing_type_files(registry: BlockRegistry, import_roots: tuple[Pa
     for collision in guard_dropin_type_roots(import_roots):
         logger.error("ADR-053 FR-016: rejected drop-in type %s — %s", collision.path, collision.message)
         _record_dropin_failure(registry, collision.path, "DropinTypeNameCollision", collision.message)
+        # #2196: a refused type file is a scan-time rejection too, and it is one
+        # an author hits by naming a file after an installed module. Reported in
+        # the same list so ``reload_blocks`` covers every reason something the
+        # author just wrote did not appear.
+        _record_rejection(
+            registry,
+            block=collision.path.stem,
+            reasons=[collision.message],
+            fix="Rename the drop-in type file so its stem does not shadow an installed top-level module.",
+            source="tier1",
+        )
 
 
 def _scan_tier1(registry: BlockRegistry) -> None:
@@ -235,6 +302,10 @@ def _scan_tier1(registry: BlockRegistry) -> None:
     from scistudio.blocks.registry._spec import _spec_from_class
 
     registry._dropin_failures = []
+    # #2196: ``hot_reload`` rescans this tier alone, so only this tier's
+    # rejections are stale. What the entry-point and source-package passes found
+    # is left in place — those passes did not run again.
+    registry._rejections = [rejection for rejection in registry._rejections if rejection.source != "tier1"]
     import_roots = dropin_import_roots_for_block_dirs(registry._scan_dirs)
     _reject_shadowing_type_files(registry, import_roots)
 
@@ -288,6 +359,16 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                         exc_info=True,
                     )
                     _record_dropin_failure(registry, py_file, type(exc).__name__, str(exc) or type(exc).__name__)
+                    _record_rejection(
+                        registry,
+                        block=py_file.stem,
+                        reasons=[f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__],
+                        fix=(
+                            "The module raised while importing, so none of its blocks were seen. "
+                            "Fix the import-time error and call reload_blocks again."
+                        ),
+                        source="tier1",
+                    )
                     continue
 
                 for attr_name in dir(module):
@@ -320,12 +401,27 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                         # than silently mis-dispatching.
                         with suppress(AttributeError, TypeError):
                             obj._scistudio_file_path = str(py_file)  # type: ignore[attr-defined]
-                        block_spec = _spec_from_class(obj, source="tier1")
-                        block_spec.file_path = str(py_file)
-                        block_spec.file_mtime = mtime
-                        block_spec.module_path = mod_name
-                        block_spec.runtime_import_roots = [str(path) for path in import_roots]
-                        _register_spec(registry, block_spec)
+                        # #2196: contain a refusal to the offending class. It
+                        # used to fall to the file-level handler below, which
+                        # abandoned every remaining class in the file and left
+                        # the author with one log line naming a path. Now the
+                        # rest of the file still registers, the FR-015 file
+                        # record is still written, and the reason is attached to
+                        # the block that caused it.
+                        try:
+                            block_spec = _spec_from_class(obj, source="tier1")
+                            block_spec.file_path = str(py_file)
+                            block_spec.file_mtime = mtime
+                            block_spec.module_path = mod_name
+                            block_spec.runtime_import_roots = [str(path) for path in import_roots]
+                            _register_spec(registry, block_spec)
+                        except Exception as exc:
+                            logger.warning("Failed to register block %s from %s", obj.__name__, py_file, exc_info=True)
+                            _record_dropin_failure(
+                                registry, py_file, type(exc).__name__, str(exc) or type(exc).__name__
+                            )
+                            _record_rejected_class(registry, block=obj.__name__, exc=exc, source="tier1")
+                            continue
             except Exception as exc:
                 logger.warning(
                     "Failed to import block from %s",
@@ -454,15 +550,31 @@ def _register_entry_point_blocks(
 
         for cls in block_classes:
             if isinstance(cls, type) and issubclass(cls, Block) and not inspect.isabstract(cls):
-                block_spec = _spec_from_class(cls, source="entry_point")
-                block_spec.module_path = cls.__module__
-                block_spec.class_name = cls.__name__
-                block_spec.package_name = pkg_name
-                # #1772: surface shared user-site deps (installed via the
-                # in-app Python terminal) to the worker for entry-point
-                # blocks too, matching the source-package path.
-                block_spec.runtime_import_roots = [str(path) for path in _desktop_user_python_import_roots()]
-                _register_spec(registry, block_spec)
+                # #2196: same containment as Tier 1 — one refused class must not
+                # take the rest of the package's blocks with it, and the reason
+                # belongs on the block rather than only in the log.
+                try:
+                    block_spec = _spec_from_class(cls, source="entry_point")
+                    block_spec.module_path = cls.__module__
+                    block_spec.class_name = cls.__name__
+                    block_spec.package_name = pkg_name
+                    # #1772: surface shared user-site deps (installed via the
+                    # in-app Python terminal) to the worker for entry-point
+                    # blocks too, matching the source-package path.
+                    block_spec.runtime_import_roots = [str(path) for path in _desktop_user_python_import_roots()]
+                    _register_spec(registry, block_spec)
+                except Exception as exc:
+                    message = f"{cls.__name__}: {exc}" if str(exc) else f"{cls.__name__}: {type(exc).__name__}"
+                    logger.warning("Entry-point '%s' block %s", ep_name, message, exc_info=True)
+                    diagnostics.append(
+                        EntryPointDiagnostic(
+                            group=BLOCKS_ENTRY_POINT_GROUP,
+                            entry_point=ep_name,
+                            stage=STAGE_REGISTER,
+                            message=message,
+                        )
+                    )
+                    _record_rejected_class(registry, block=cls.__name__, exc=exc, source="entry_point")
             elif isinstance(cls, type) and issubclass(cls, Block) and inspect.isabstract(cls):
                 message = f"contained abstract Block subclass: {cls}"
                 logger.warning("Entry-point '%s' %s", ep_name, message)
@@ -560,8 +672,24 @@ def _process_package_protocol_result(
     for cls in block_classes:
         if not (isinstance(cls, type) and issubclass(cls, Block) and not inspect.isabstract(cls)):
             logger.warning("Package '%s' contained non-concrete Block item: %s", module_name, cls)
+            _record_rejection(
+                registry,
+                block=getattr(cls, "__name__", str(cls)),
+                reasons=[f"package '{module_name}' returned a non-concrete Block item: {cls}"],
+                fix="Return only concrete Block subclasses from get_blocks()/get_block_package().",
+                source=source,
+            )
             continue
-        block_spec = _spec_from_class(cls, source=source)
+        # #2196: this loop had no containment at all — a refused class raised
+        # out of ``_scan_source_package_module``'s handler, which logged one
+        # warning and dropped the *entire package*. Every block in a source
+        # package could vanish because of one of them.
+        try:
+            block_spec = _spec_from_class(cls, source=source)
+        except Exception as exc:
+            logger.warning("Package '%s' block %s was refused", module_name, cls.__name__, exc_info=True)
+            _record_rejected_class(registry, block=cls.__name__, exc=exc, source=source)
+            continue
         block_spec.module_path = cls.__module__
         block_spec.class_name = cls.__name__
         block_spec.package_name = pkg_name

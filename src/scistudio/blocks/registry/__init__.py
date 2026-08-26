@@ -14,8 +14,10 @@ disturbing blocks already running in a workflow.
 
 This module also defines the errors raised when registration or a
 file-format lookup fails: :class:`BlockRegistrationError`,
-:class:`CapabilityRegistrationError`, :class:`CapabilityLookupError`,
-:class:`MissingCapabilityError`, and :class:`AmbiguousCapabilityError`.
+:class:`CapabilityRegistrationError`, :class:`BlockContractError`,
+:class:`CapabilityLookupError`, :class:`MissingCapabilityError`, and
+:class:`AmbiguousCapabilityError`, plus :class:`BlockRejection` — the
+per-block record of what a scan refused and how to repair it (#2196).
 """
 
 # Maintainer notes (provenance):
@@ -35,6 +37,7 @@ from __future__ import annotations
 import contextlib
 import importlib
 import importlib.util
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -143,6 +146,57 @@ class AmbiguousCapabilityError(CapabilityLookupError):
     ``capability_id`` to :meth:`BlockRegistry.find_loader_capability` or
     :meth:`BlockRegistry.find_saver_capability`.
     """
+
+
+class BlockContractError(BlockRegistrationError, ValueError):
+    """Raised when a block class violates a declared contract, with the repair.
+
+    Also a ``ValueError`` because that is what every other scan-time class-shape
+    validator raises (see ``registry._capability``); a caller that already
+    handles those keeps working when one of them starts carrying structure.
+
+    An ordinary ``ValueError`` from a scan-time validator carries one string,
+    and the scan turns that string into a log line. That is enough for a person
+    reading a server log and not enough for the authoring agent, which sees only
+    that the block it just wrote is absent from ``list_blocks`` (#2196). This
+    error carries the individual reasons and the change that fixes them, so the
+    scan can record a :class:`BlockRejection` a tool can hand back verbatim.
+
+    Args:
+        block: Name of the block class that was refused.
+        reasons: One line per distinct fault.
+        fix: What to change, as one line.
+    """
+
+    def __init__(self, block: str, reasons: Sequence[str], fix: str) -> None:
+        super().__init__(f"{block}: " + " ".join(reasons))
+        self.block = block
+        """Name of the block class that was refused."""
+        self.reasons = tuple(reasons)
+        """One line per distinct fault."""
+        self.fix = fix
+        """What to change to make the block registrable."""
+
+
+@dataclass(frozen=True)
+class BlockRejection:
+    """One block (or block file) the scan refused, and why (#2196).
+
+    :class:`DropinFailure` records the same event for drop-in *files*, keyed by
+    path and shaped for the palette's "these files did not load" surface. This
+    records it per *block*, with the reasons split apart and a repair attached,
+    because the consumer is an authoring agent deciding what to edit next rather
+    than a person reading a list. Both are rebuilt by every scan.
+    """
+
+    block: str
+    """Block class name, or the file stem when the module never imported."""
+    reasons: tuple[str, ...]
+    """One line per distinct fault."""
+    fix: str
+    """What to change to make the block registrable."""
+    source: str
+    """Which scan pass refused it: ``"tier1"``, ``"entry_point"``, or ``"package_src"``."""
 
 
 @dataclass(frozen=True)
@@ -363,6 +417,7 @@ class BlockRegistry:
         self._packages: dict[str, PackageInfo] = {}
         self._dropin_failures: list[DropinFailure] = []
         self._entry_point_diagnostics: list[str] = []
+        self._rejections: list[BlockRejection] = []
 
     def add_scan_dir(self, directory: str | Path) -> None:
         """Register a directory of drop-in block files to scan.
@@ -416,6 +471,10 @@ class BlockRegistry:
             >>> registry.scan()
             >>> specs = registry.all_specs()  # name -> BlockSpec
         """
+        # #2196: every pass appends to ``_rejections``; a full scan starts a
+        # fresh list so the surface always describes the most recent catalogue,
+        # the way ``dropin_failures`` and ``diagnostics`` already do.
+        self._rejections = []
         self._scan_builtins()
         self._scan_tier1()
         self._scan_tier2()
@@ -617,6 +676,17 @@ class BlockRegistry:
         :meth:`hot_reload`.
         """
         return list(self._dropin_failures)
+
+    def rejections(self) -> list[BlockRejection]:
+        """Return every block the most recent scan refused, and why (#2196).
+
+        See :class:`BlockRejection`. A full :meth:`scan` rebuilds the whole
+        list; :meth:`hot_reload` rescans drop-ins only and so replaces just the
+        ``tier1`` entries, leaving what the entry-point and source-package
+        passes found in place — those passes did not run again, so their
+        findings are still the current truth about them.
+        """
+        return list(self._rejections)
 
     @property
     def diagnostics(self) -> list[str]:
@@ -823,8 +893,10 @@ from scistudio.blocks.registry._spec import (  # noqa: E402
 
 __all__ = [
     "AmbiguousCapabilityError",
+    "BlockContractError",
     "BlockRegistrationError",
     "BlockRegistry",
+    "BlockRejection",
     "BlockSpec",
     "CapabilityLookupError",
     "CapabilityRegistrationError",

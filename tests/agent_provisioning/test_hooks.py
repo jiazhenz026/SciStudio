@@ -27,6 +27,9 @@ _HOOK_NAMES = (
     "remind_poll_status.py",
     "mark_list_blocks_called.py",
     "enforce_concrete_port_types.py",
+    # #2196: the panel-module contract check — the only hook that matches a
+    # written ``.js``/``.mjs`` file.
+    "check_panel_contract.py",
 )
 
 
@@ -41,7 +44,7 @@ def test_write_hooks_creates_settings_json(tmp_project_dir: Path) -> None:
     pre = data["hooks"]["PreToolUse"]
     post = data["hooks"]["PostToolUse"]
     assert len(pre) == 4  # +protect_data_dir.py (#1858)
-    assert len(post) == 3
+    assert len(post) == 4  # +check_panel_contract.py (#2196)
 
     # #1858: the data/ guard is registered for both file tools and Bash.
     data_dir_entries = [e for e in pre if "protect_data_dir.py" in e["hooks"][0]["command"]]
@@ -691,7 +694,7 @@ def test_write_hooks_creates_qoder_settings(tmp_project_dir: Path) -> None:
 
     data = json.loads((tmp_project_dir / ".qoder" / "settings.json").read_text(encoding="utf-8"))
     assert len(data["hooks"]["PreToolUse"]) == 4
-    assert len(data["hooks"]["PostToolUse"]) == 3
+    assert len(data["hooks"]["PostToolUse"]) == 4
 
 
 def test_qoder_hooks_expand_qoders_own_project_dir_variable(tmp_project_dir: Path) -> None:

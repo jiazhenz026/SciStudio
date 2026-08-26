@@ -250,6 +250,52 @@ each is rejected at scan time; cancel a paused interaction and assert the block 
   identity needed to resolve the panel manifest, independent of whether other
   lifecycle events carry `block_type` (the known #1452/#1454 drift).
 
+#### Panel contract validation (#2196)
+
+FR-002 binds the capability to the execution mode and requires a manifest. It
+says nothing about the window that manifest names, so every way of getting the
+panel wrong reached the user as a modal that opened and immediately errored,
+with the reason visible only in the browser. All of them are statically
+decidable.
+
+- **FR-016**: One implementation MUST decide whether a panel manifest and the
+  module it names can produce a mountable window, without executing the module.
+  It MUST check, deterministically: `module_url` is site-relative and shaped
+  `/api/blocks/panels/<panel_id>/<file>` with a `panel_id` matching the
+  manifest; `asset_root` is set and is an existing directory; the file
+  `module_url` names resolves under `asset_root` with a suffix the asset route
+  serves; declared `css` entries are same-origin; the manifest's `api_version`
+  major matches `PANEL_API_VERSION`. It MUST check, statically over the module
+  source: an export matching `export_name` exists, that export carries
+  `apiVersion` and `mount`, the module's `apiVersion` major matches, and no
+  import is off-origin. Every diagnostic MUST name the failure code the frontend
+  panel host reports for the same fault. A core panel — bundled with the app and
+  resolved from the frontend's built-in registry — carries no `module_url` and
+  MUST validate clean.
+- **FR-017**: The checks MUST carry two severities. A certain runtime failure
+  (the deterministic manifest and filesystem checks; a missing export,
+  `apiVersion`, or `mount`; an off-origin import) is a hard error that refuses
+  the block and invalidates the workflow. A heuristic finding — `unmount`,
+  `host.confirm`, and `host.cancel` not found — MUST be advisory and MUST NOT
+  block. Proving that a control is bound to a DOM element requires a JavaScript
+  runtime the backend deliberately does not have; the host-owned escape hatch
+  (#2195) is the guarantee that covers it. A CSS entry naming a file that is not
+  on disk is likewise advisory: the panel host injects stylesheets best-effort
+  and mounts without them.
+- **FR-018**: The checks MUST be surfaced at three points an authoring agent
+  cannot route around, and MUST NOT require a tool the agent has to remember to
+  call. (1) The registry scan refuses a hard-invalid block and MUST report the
+  refusal — reasons and repair, per block — through `reload_blocks`, which MUST
+  do the same for every other scan-time rejection rather than dropping blocks
+  silently. (2) `validate_workflow` MUST re-run the checks against every
+  interactive node, so a panel edited or deleted after registration is caught
+  before a run reaches the pause; hard errors invalidate the workflow and
+  advisories use the `Warning:` prefix. (3) A provisioned PostToolUse hook MUST
+  fire on a written panel `.js`/`.mjs` file and warn on stderr. The hook runs
+  under the base interpreter and so MUST NOT import `scistudio`; its
+  transcription of the source checks MUST be held to the shared implementation
+  by test.
+
 ### Key Entities
 
 - **InteractiveMixin**: The capability mixed into a block to make it interactive.

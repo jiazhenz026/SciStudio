@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from scistudio.blocks.base.panel_contract import diagnostics_for_spec
 from scistudio.blocks.base.ports import InputPort, OutputPort, validate_connection
 from scistudio.blocks.code.validation import validate_codeblock_config
 from scistudio.blocks.registry import BlockRegistry, BlockSpec, CapabilityLookupError
@@ -220,6 +221,11 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
        (case-insensitive) would make extension-based binning ambiguous, so
        such configurations are rejected at workflow save time
        (issue #680).
+    11. **Interactive panel contract** (#2196) -- an interactive node whose
+       panel manifest or panel module cannot produce a mountable window is
+       rejected here, before the run reaches the pause and the user gets an
+       empty modal. Certain failures are errors; the heuristic source checks
+       are ``Warning:`` advisories. Only when *registry* is provided.
 
     Parameters
     ----------
@@ -624,5 +630,32 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
                 )
             except CapabilityLookupError as exc:
                 errors.append(f"Node '{node.id}' output port '{port_name}': {exc}")
+
+    # ------------------------------------------------------------------
+    # Check 11: interactive panel contract (ADR-051, #2196)
+    # ------------------------------------------------------------------
+    # The registry refuses a hard-invalid interactive block at scan time, so
+    # most of these never reach a workflow. This check is what catches the case
+    # the scan cannot: a panel is a JavaScript file beside the block, and
+    # nothing re-registers the block when that file changes — Tier-1 hot reload
+    # keys on the block's ``.py`` mtime. A block that registered cleanly can be
+    # pointing at a module that has since been edited into something that will
+    # not mount, or deleted outright. Reaching a paused block and a broken modal
+    # is a much worse way to find that out than refusing to start.
+    #
+    # Runs in draft mode too, unlike Checks 6/9/10: this is not a
+    # partially-configured-node condition that resolves as the user keeps
+    # working, and the advisories are exactly what an author editing a panel
+    # wants to see while they edit it.
+    for node in workflow.nodes:
+        spec = registry.get_spec(node.block_type)
+        if spec is None or getattr(spec, "panel_manifest", None) is None:
+            continue
+        for diagnostic in diagnostics_for_spec(spec):
+            # ``Warning:`` marks an advisory, the convention the API layer and
+            # the MCP tool split on (#1988): a heuristic finding must never
+            # decide whether a workflow saves or dispatches.
+            prefix = "" if diagnostic.is_error else "Warning: "
+            errors.append(f"{prefix}Node '{node.id}': {diagnostic.render()}")
 
     return errors

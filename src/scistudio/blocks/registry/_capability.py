@@ -293,6 +293,17 @@ def _validate_interactive_capability(cls: type) -> None:
     that an interactive block defines ``prepare_prompt`` and declares a valid
     :class:`~scistudio.blocks.base.interactive.PanelManifest`. A no-op for the
     common AUTO/EXTERNAL case (neither half present).
+
+    #2196 extends it past the class shape to the panel the manifest names: the
+    module URL's route, the asset root, the file on disk, and the module's own
+    source are all checked statically by
+    :mod:`scistudio.blocks.base.panel_contract`. A certain failure raises
+    :class:`~scistudio.blocks.registry.BlockContractError` — a ``ValueError``
+    like every other refusal here, but carrying the individual reasons and the
+    repair so the scan can record a
+    :class:`~scistudio.blocks.registry.BlockRejection` instead of dropping the
+    block in silence. Heuristic findings never raise; they are logged here and
+    reported to the author by the workflow validator and the write-time hook.
     """
     # Local imports keep this registry helper import-light and avoid a cycle
     # with blocks.base (mirrors the lazy-import style used across this module).
@@ -328,6 +339,30 @@ def _validate_interactive_capability(cls: type) -> None:
             f"{cls_name}: INTERACTIVE block must declare a valid interactive_panel "
             f"PanelManifest with a non-empty panel_id (ADR-051 FR-002)."
         )
+
+    # #2196: the manifest is only half the contract. The window the user sees is
+    # the JavaScript module the manifest points at, and until now nothing looked
+    # at it — a module_url that resolves to no route, an asset_root that is not
+    # there, or an export the host cannot mount all passed this check and became
+    # a modal that opened and immediately errored, with the reason visible only
+    # in the browser. The panel checks live in ``blocks.base.panel_contract`` so
+    # the workflow validator and the write-time hook decide the same way; it is
+    # imported here rather than at module scope for the same reason the
+    # ``interactive`` import above is (keep this registry helper import-light).
+    from scistudio.blocks.base.panel_contract import diagnostics_for_manifest
+
+    diagnostics = diagnostics_for_manifest(panel)
+    blocking = [diagnostic for diagnostic in diagnostics if diagnostic.is_error]
+    if blocking:
+        from scistudio.blocks.registry import BlockContractError
+
+        raise BlockContractError(
+            cls_name,
+            [diagnostic.message for diagnostic in blocking],
+            " ".join(diagnostic.fix for diagnostic in blocking),
+        )
+    for diagnostic in diagnostics:
+        logger.info("registry: %s panel advisory — %s %s", cls_name, diagnostic.code, diagnostic.message)
 
 
 def _resolve_class(spec: BlockSpec) -> type | None:

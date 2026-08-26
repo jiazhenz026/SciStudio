@@ -79,17 +79,21 @@ def test_sibling_modules_define_no_classes(module_name: str) -> None:
 
 
 def test_registry_init_defines_exactly_the_public_classes() -> None:
-    """``__init__.py`` owns the registry, its two records, and 5 error classes.
+    """``__init__.py`` owns the registry, its three records, and 6 error classes.
 
     ``DropinFailure`` joined the inventory with ADR-053 FR-015 (the drop-in
-    refusals the palette listing reports). ADR-047 §C9 keeps every public class
-    of the package here, so this is the only legal home for it.
+    refusals the palette listing reports), and ``BlockRejection`` /
+    ``BlockContractError`` with #2196 (the same refusals kept per block, with
+    the repair attached, for the authoring agent). ADR-047 §C9 keeps every
+    public class of the package here, so this is the only legal home for them.
     """
     assert sorted(_module_class_names("scistudio.blocks.registry")) == sorted(
         [
             "AmbiguousCapabilityError",
+            "BlockContractError",
             "BlockRegistrationError",
             "BlockRegistry",
+            "BlockRejection",
             "BlockSpec",
             "CapabilityLookupError",
             "CapabilityRegistrationError",

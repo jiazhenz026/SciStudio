@@ -165,6 +165,65 @@ def test_reload_blocks_no_context_raises() -> None:
         _run(tools_authoring.reload_blocks())
 
 
+def test_reload_blocks_reports_a_refused_block_instead_of_dropping_it(ctx: _StubRuntime, tmp_path: Path) -> None:
+    """#2196: the ``write -> reload_blocks -> list_blocks`` loop becomes a validation loop.
+
+    A block the scan refuses used to be indistinguishable, from the agent's
+    side, from a block it never wrote: absent from ``list_blocks``, with the
+    reason in a server log. Now the reason and the repair come back from the
+    reload that dropped it.
+    """
+    panel_root = tmp_path / "panel_assets"
+    panel_root.mkdir()
+    (panel_root / "panel.mjs").write_text(
+        'export default { apiVersion: "1", mount(c, host) { host.confirm(); host.cancel(); '
+        "return { unmount() {} }; } };",
+        encoding="utf-8",
+    )
+    blocks_dir = tmp_path / "blocks"
+    blocks_dir.mkdir()
+    (blocks_dir / "broken_panel.py").write_text(
+        "from typing import Any, ClassVar\n\n"
+        "from scistudio.blocks.base.config import BlockConfig\n"
+        "from scistudio.blocks.base.interactive import (\n"
+        "    InteractiveMixin,\n"
+        "    InteractivePrompt,\n"
+        "    PanelManifest,\n"
+        ")\n"
+        "from scistudio.blocks.base.state import ExecutionMode\n"
+        "from scistudio.blocks.process.process_block import ProcessBlock\n\n\n"
+        "class BrokenPanel(InteractiveMixin, ProcessBlock):\n"
+        '    name: ClassVar[str] = "BrokenPanel"\n'
+        "    execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE\n"
+        "    interactive_panel: ClassVar[PanelManifest] = PanelManifest(\n"
+        '        panel_id="pkg.broken",\n'
+        '        module_url="/api/blocks/panels/pkg.broken/typo.mjs",\n'
+        f"        asset_root={str(panel_root)!r},\n"
+        "    )\n\n"
+        "    def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> InteractivePrompt:\n"
+        "        return InteractivePrompt(panel_payload={})\n",
+        encoding="utf-8",
+    )
+    ctx.block_registry.add_scan_dir(blocks_dir)
+
+    result = _run(tools_authoring.reload_blocks())
+
+    assert "BrokenPanel" not in ctx.block_registry.all_specs()
+    assert [entry.block for entry in result.rejected] == ["BrokenPanel"]
+    assert result.rejected[0].reasons
+    assert result.rejected[0].fix
+    assert "rejected" in result.next_step
+
+
+def test_reload_blocks_next_step_points_at_list_blocks_when_nothing_was_refused(
+    ctx: _StubRuntime,
+) -> None:
+    result = _run(tools_authoring.reload_blocks())
+
+    assert result.rejected == []
+    assert "list_blocks" in result.next_step
+
+
 # --- run_block_tests -------------------------------------------------------
 
 
