@@ -1,7 +1,156 @@
 {
   "base_ref": null,
   "branch": "feat/2196-interactive-contract-validation",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-08-26T21:24:01.540395Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:fecf6ca3563a231a4e10ca8805bf05530612333efc3e9801ad14996e0dde7117",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-26T21:24:06.383607Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2f18447b755472ca845e12c13c006d9ba7a7b34d20ababd99925c12727499aa8",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-26T21:24:07.830682Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f01df772b6e45c9006cf616c3729feb7af6898686afdf50c0326d7c25203ca48",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-26T21:24:07.862354Z",
+      "command": "ruff format src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/codex_config.py src/scistudio/agent_provisioning/hooks.py src/scistudio/agent_provisioning/templates/hook_check_panel_contract.py src/scistudio/ai/agent/mcp/tools_authoring.py src/scistudio/blocks/base/panel_contract.py src/scistudio/blocks/registry/__init__.py src/scistudio/blocks/registry/_capability.py src/scistudio/blocks/registry/_scan.py src/scistudio/workflow/validator.py tests/agent_provisioning/test_codex_config.py tests/agent_provisioning/test_hook_panel_contract_parity.py tests/agent_provisioning/test_hooks.py tests/agent_provisioning/test_orchestrate.py tests/ai/test_mcp_tools_authoring.py tests/blocks/test_interactive_adversarial_registry.py tests/blocks/test_panel_contract.py tests/blocks/test_registry_package_layout.py tests/blocks/test_registry_rejections.py tests/workflow/test_validator_panel_contract.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b00911be6b4fdea6764a8483247f73c151edb2c62e70531a71666e73d9657dc6",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-26T21:24:19.883031Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:292738fe707ad7db74b9a25a971291c071d78ac5b4edd28fc8a407a27fadf531",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-26T21:24:20.413634Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4cc424c26fbc8ca9cc1cac01a1e14f51d3356cc7089d57f91360d8793b70d96c",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-26T21:24:20.441874Z",
+      "command": "ruff check src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/codex_config.py src/scistudio/agent_provisioning/hooks.py src/scistudio/agent_provisioning/templates/hook_check_panel_contract.py src/scistudio/ai/agent/mcp/tools_authoring.py src/scistudio/blocks/base/panel_contract.py src/scistudio/blocks/registry/__init__.py src/scistudio/blocks/registry/_capability.py src/scistudio/blocks/registry/_scan.py src/scistudio/workflow/validator.py tests/agent_provisioning/test_codex_config.py tests/agent_provisioning/test_hook_panel_contract_parity.py tests/agent_provisioning/test_hooks.py tests/agent_provisioning/test_orchestrate.py tests/ai/test_mcp_tools_authoring.py tests/blocks/test_interactive_adversarial_registry.py tests/blocks/test_panel_contract.py tests/blocks/test_registry_package_layout.py tests/blocks/test_registry_rejections.py tests/workflow/test_validator_panel_contract.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d4ea7b932f5c607dfac22fcb3e6087736568330a4567f6ae88779d5f9f041f3c",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-08-26T21:24:59.459380Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/agent_provisioning tests/agent_provisioning/test_codex_config.py tests/agent_provisioning/test_hook_panel_contract_parity.py tests/agent_provisioning/test_hooks.py tests/agent_provisioning/test_orchestrate.py tests/ai/agent/mcp tests/ai/test_mcp_tools_authoring.py tests/blocks tests/blocks/test_interactive_adversarial_registry.py tests/blocks/test_panel_contract.py tests/blocks/test_registry_package_layout.py tests/blocks/test_registry_rejections.py tests/workflow tests/workflow/test_validator_panel_contract.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d0b1e1cfeeddf3eae6b61c1a41d67474c6776af59571047acc49604bc8d9732f",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-26T21:25:07.594069Z",
+      "command": "mypy src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/codex_config.py src/scistudio/agent_provisioning/hooks.py src/scistudio/agent_provisioning/templates/hook_check_panel_contract.py src/scistudio/ai/agent/mcp/tools_authoring.py src/scistudio/blocks/base/panel_contract.py src/scistudio/blocks/registry/__init__.py src/scistudio/blocks/registry/_capability.py src/scistudio/blocks/registry/_scan.py src/scistudio/workflow/validator.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:87fc2d885c5ea4b2d23f9b6a6fa354ecdfc41dfb9f3461bcc66d571616351d33",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -92,7 +241,202 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-08-26T21:25:07.667382Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T21:25:07.682726Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/base/panel_contract.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/base/panel_contract.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/registry/__init__.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/registry/__init__.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/registry/_capability.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/registry/_capability.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/registry/_scan.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/registry/_scan.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/validator.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/validator.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T21:25:07.697044Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T21:25:07.711509Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T21:25:07.726647Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T21:25:07.743010Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T21:25:07.759676Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T21:25:07.776007Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T21:25:07.791856Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T21:25:07.806859Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-26T21:25:07.829478Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -102,11 +446,66 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "2543d2e90",
+    "changed_files": [
+      ".workflow/records/2196-feat-2196-interactive-contract-validation.json",
+      "CHANGELOG.md",
+      "docs/agent-provisioning.md",
+      "docs/package-development/blocks.md",
+      "docs/specs/adr-051-interactive-blocks.md",
+      "src/scistudio/agent_provisioning/_orchestrate.py",
+      "src/scistudio/agent_provisioning/codex_config.py",
+      "src/scistudio/agent_provisioning/hooks.py",
+      "src/scistudio/agent_provisioning/templates/hook_check_panel_contract.py",
+      "src/scistudio/ai/agent/mcp/tools_authoring.py",
+      "src/scistudio/blocks/base/panel_contract.py",
+      "src/scistudio/blocks/registry/__init__.py",
+      "src/scistudio/blocks/registry/_capability.py",
+      "src/scistudio/blocks/registry/_scan.py",
+      "src/scistudio/workflow/validator.py",
+      "tests/agent_provisioning/test_codex_config.py",
+      "tests/agent_provisioning/test_hook_panel_contract_parity.py",
+      "tests/agent_provisioning/test_hooks.py",
+      "tests/agent_provisioning/test_orchestrate.py",
+      "tests/ai/test_mcp_tools_authoring.py",
+      "tests/blocks/test_interactive_adversarial_registry.py",
+      "tests/blocks/test_panel_contract.py",
+      "tests/blocks/test_registry_package_layout.py",
+      "tests/blocks/test_registry_rejections.py",
+      "tests/workflow/test_validator_panel_contract.py"
+    ],
+    "diff_fingerprint": "sha256:c6eed6efc3d0073c74630f07da7b47c23cbdd46632220aad8694c4fb1044bc2a",
+    "head": "HEAD",
+    "head_sha": "0480b3cc5",
+    "surfaces": {
+      "docs": 3,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 10,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 5,
+      "sentrux": 21,
+      "test": 10,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Manager dispatch A2 (#2196): validate the interactive block + panel contract statically at three agent-unavoidable surfaces (registry scan/reload_blocks, workflow validator, PostToolUse hook), emitting the same failure codes the frontend panel host shows. No JS runtime, no CLI entry point, no new MCP tool.",
   "persona": "implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-08-26T21:25:07.829522Z",
+      "diff_fingerprint": "sha256:c6eed6efc3d0073c74630f07da7b47c23cbdd46632220aad8694c4fb1044bc2a",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "2196-feat-2196-interactive-contract-validation",
   "requested_admin_labels": [
     {
@@ -117,11 +516,39 @@
     }
   ],
   "required_obligations": {
-    "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "admin_labels": [
+      "admin-approved:core-change"
+    ],
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code:claude-opus-5",
   "schema_version": 2,
@@ -140,7 +567,7 @@
     }
   ],
   "session_id": "7278a440-0cc5-4a88-b463-7c0f00c01733",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "feature",
   "test_events": [
     {
