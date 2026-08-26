@@ -1,0 +1,60 @@
+{
+  "base_ref": null,
+  "branch": "track/interactive-panel-quality",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/planning/**",
+      ".workflow/records/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2195,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2196,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2197,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner: AI-written interactive blocks are poor quality; a user was locked in a panel with no continue/cancel. Fix as three PRs using manager dispatch: host-owned escape hatch, contract validation at reload/workflow-validate/write time, and a panel authoring skill plus scaffold template.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2195-track-interactive-panel-quality",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:claude-opus-5",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "886631a6-850a-47f1-adac-3c28d77c484b",
+  "strictness_tier": null,
+  "task_kind": "manager",
+  "test_events": []
+}
