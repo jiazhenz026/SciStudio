@@ -48,7 +48,32 @@ function formatSize(size: number | null | undefined): string {
 
 // ADR-036 §3.5 (Phase 2C / I36c): file extensions the embedded Monaco editor
 // knows how to render. Anything outside this set is ignored on double-click.
+// NOTE: the Data tree (rootPath === "data") never reaches this list — #2112
+// routes every data-file double-click to a preview tab instead.
 const EDITABLE_EXTENSIONS: readonly string[] = ["py", "r", "txt", "md", "json", "csv"];
+
+/**
+ * #2112 — Data-tree double-click: register the file with the data catalog and
+ * open the returned `data_ref` target in a preview tab. Async because the
+ * catalog round-trip must complete before the tab can open; failures are
+ * logged and leave the UI untouched (no editor fallback).
+ */
+async function openDataFilePreview(projectId: string, node: TreeNodeData): Promise<void> {
+  try {
+    const result = await api.registerDataPath({ projectId, path: node.path });
+    useAppStore.getState().openPreviewTab(
+      {
+        kind: "data_ref",
+        ref: result.ref,
+        recorded_type: result.recorded_type,
+        type_chain: result.type_chain,
+      },
+      result.display_name ?? node.name,
+    );
+  } catch (err) {
+    console.error(`Failed to open data preview for ${node.path}:`, err);
+  }
+}
 
 function TreeNodeRow({
   node,
@@ -92,8 +117,20 @@ function handleDoubleClickRoute(
   node: TreeNodeData,
   onLoadWorkflow: (filePath: string, displayName: string) => void,
   onReloadBlocks: () => void,
+  rootPath: string,
+  projectId: string,
 ): void {
   if (node.type === "directory") return;
+
+  // #2112 — in the Data tree every file double-click opens a preview tab.
+  // Preview takes precedence over the editor, so this branch runs before the
+  // workflows/blocks/EDITABLE_EXTENSIONS routing below (data/ paths would not
+  // match those prefixes anyway, but csv would hit the editable list).
+  if (rootPath === "data") {
+    void openDataFilePreview(projectId, node);
+    return;
+  }
+
   const ext = node.name.split(".").pop()?.toLowerCase() ?? "";
 
   // Double-click .yaml in workflows/ -> load workflow (#796).
@@ -141,9 +178,9 @@ export function ProjectTree({
 
   const handleDoubleClick = useCallback(
     (node: TreeNodeData) => {
-      handleDoubleClickRoute(node, onLoadWorkflow, onReloadBlocks);
+      handleDoubleClickRoute(node, onLoadWorkflow, onReloadBlocks, rootPath, projectId);
     },
-    [onLoadWorkflow, onReloadBlocks],
+    [onLoadWorkflow, onReloadBlocks, rootPath, projectId],
   );
 
   const handleContextMenu = useCallback((event: React.MouseEvent, node: TreeNodeData) => {

@@ -21,6 +21,7 @@ vi.mock("../../lib/api", async () => {
     api: {
       ...actual.api,
       getProjectTree: vi.fn(),
+      registerDataPath: vi.fn(),
     },
   };
 });
@@ -30,6 +31,7 @@ import { useAppStore } from "../../store";
 import { ProjectTree } from "../ProjectTree";
 
 const getProjectTreeMock = vi.mocked(api.getProjectTree);
+const registerDataPathMock = vi.mocked(api.registerDataPath);
 
 beforeEach(() => {
   // Reset store + open-file action.
@@ -49,6 +51,7 @@ beforeEach(() => {
     projectTreeRefreshCounter: 0,
   });
   getProjectTreeMock.mockReset();
+  registerDataPathMock.mockReset();
 });
 
 afterEach(() => {
@@ -150,6 +153,112 @@ describe("ProjectTree — Data section rooting (#2090)", () => {
     await screen.findByText("raw");
     expect(getProjectTreeMock).toHaveBeenCalledWith("proj-1", "data");
     expect(screen.getByText("Data")).toBeInTheDocument();
+  });
+});
+
+describe("ProjectTree — Data tree double-click opens a preview tab (#2112)", () => {
+  async function renderDataTree(
+    entries: { name: string; type: "file" | "directory"; size?: number }[],
+  ) {
+    getProjectTreeMock.mockResolvedValue({ entries: entries as any });
+    render(
+      <ProjectTree
+        projectId="proj-1"
+        projectPath="/tmp/proj-1"
+        title="Data"
+        rootPath="data"
+        onLoadWorkflow={vi.fn()}
+        onReloadBlocks={vi.fn()}
+      />,
+    );
+    for (const e of entries) {
+      await screen.findByText(e.name);
+    }
+  }
+
+  it("double-click on a parquet file registers the path and opens a preview tab", async () => {
+    registerDataPathMock.mockResolvedValue({
+      ref: "data://abc123",
+      recorded_type: "DataFrame",
+      type_chain: ["DataObject", "DataFrame"],
+      display_name: "table.parquet",
+    });
+    const openPreviewTab = vi.fn();
+    const openFileTab = vi.fn();
+    useAppStore.setState({ openPreviewTab, openFileTab });
+
+    await renderDataTree([{ name: "table.parquet", type: "file", size: 10 }]);
+    fireEvent.doubleClick(screen.getByText("table.parquet"));
+
+    await waitFor(() =>
+      expect(registerDataPathMock).toHaveBeenCalledWith({
+        projectId: "proj-1",
+        path: "data/table.parquet",
+      }),
+    );
+    await waitFor(() =>
+      expect(openPreviewTab).toHaveBeenCalledWith(
+        {
+          kind: "data_ref",
+          ref: "data://abc123",
+          recorded_type: "DataFrame",
+          type_chain: ["DataObject", "DataFrame"],
+        },
+        "table.parquet",
+      ),
+    );
+    // Preview takes precedence: the editor must not open.
+    expect(openFileTab).not.toHaveBeenCalled();
+  });
+
+  it("double-click on a csv file in the Data tree opens a preview, not the editor", async () => {
+    registerDataPathMock.mockResolvedValue({
+      ref: "data://def456",
+      recorded_type: "DataFrame",
+      type_chain: ["DataObject", "DataFrame"],
+      display_name: null,
+    });
+    const openPreviewTab = vi.fn();
+    const openFileTab = vi.fn();
+    useAppStore.setState({ openPreviewTab, openFileTab });
+
+    await renderDataTree([{ name: "table.csv", type: "file", size: 4 }]);
+    fireEvent.doubleClick(screen.getByText("table.csv"));
+
+    // csv is in EDITABLE_EXTENSIONS — the Data tree must still prefer preview.
+    await waitFor(() => expect(openPreviewTab).toHaveBeenCalled());
+    // display_name null -> the tab label falls back to the node name.
+    expect(openPreviewTab).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "data_ref", ref: "data://def456" }),
+      "table.csv",
+    );
+    expect(openFileTab).not.toHaveBeenCalled();
+  });
+
+  it("double-click on a csv outside the Data tree still opens the editor (regression)", async () => {
+    const openFileTab = vi.fn();
+    useAppStore.setState({ openFileTab });
+    await renderTreeWith([{ name: "table.csv", type: "file", size: 4 }]);
+    fireEvent.doubleClick(screen.getByText("table.csv"));
+    await waitFor(() => expect(openFileTab).toHaveBeenCalledWith("table.csv"));
+    expect(registerDataPathMock).not.toHaveBeenCalled();
+  });
+
+  it("a failed register-path call logs and does not open a tab or crash", async () => {
+    registerDataPathMock.mockRejectedValue(new Error("404 not found"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const openPreviewTab = vi.fn();
+    const openFileTab = vi.fn();
+    useAppStore.setState({ openPreviewTab, openFileTab });
+
+    await renderDataTree([{ name: "missing.parquet", type: "file", size: 1 }]);
+    fireEvent.doubleClick(screen.getByText("missing.parquet"));
+
+    await waitFor(() => expect(registerDataPathMock).toHaveBeenCalled());
+    await waitFor(() => expect(consoleError).toHaveBeenCalled());
+    expect(openPreviewTab).not.toHaveBeenCalled();
+    expect(openFileTab).not.toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 });
 

@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -24,6 +25,8 @@ from scistudio.api.routes.filesystem import _resolve_safe_path
 from scistudio.api.runtime import ApiRuntime
 from scistudio.api.schemas import (
     DataMetadataResponse,
+    DataRegisterPathRequest,
+    DataRegisterPathResponse,
     DataUploadResponse,
     PreviewEnvelopeModel,
     PreviewerChoiceListResponse,
@@ -38,6 +41,8 @@ from scistudio.api.schemas import (
     PreviewSessionCreate,
     PreviewSessionPatch,
 )
+from scistudio.core.meta._display_name import resolve_display_name
+from scistudio.core.storage.ref import StorageReference
 from scistudio.previewers import (
     PreviewSource,
     PreviewTarget,
@@ -98,6 +103,61 @@ async def upload_data(
         runtime.discard_staged_upload(staged_path)
         raise
     return DataUploadResponse(**payload)
+
+
+@router.post("/register-path", response_model=DataRegisterPathResponse)
+async def register_data_path(payload: DataRegisterPathRequest, runtime: RuntimeDep) -> DataRegisterPathResponse:
+    """Register a file already inside a project into the data catalog.
+
+    #2112: the data-preview tab needs a catalog ref for a file that already
+    lives under the project (e.g. ``data/foo.parquet``) so it can flow through
+    the standard routed preview session API (``POST /api/previews/sessions``).
+    Registration goes through ``register_data_ref`` so suffix-based type
+    inference and ``describe_ref`` metadata come for free; the returned
+    ``ref``/``recorded_type``/``type_chain`` mirror the frontend
+    ``PreviewTarget`` fields (kind is always ``"data_ref"``).
+    """
+    if payload.project_id is not None:
+        project = runtime.known_projects.get(payload.project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail=f"Project {payload.project_id} not found")
+    else:
+        project = runtime.active_project
+        if project is None:
+            raise HTTPException(status_code=400, detail="No project is open and no project_id was given.")
+
+    project_root = Path(os.path.realpath(project.path))
+    raw = payload.path
+    candidate = os.path.realpath(raw if os.path.isabs(raw) else os.path.join(str(project_root), raw))
+    # CodeQL py/path-injection canonical sanitiser: realpath + commonpath
+    # (same pattern as api/routes/projects.py::_resolve_project_file).
+    try:
+        if os.path.commonpath([str(project_root), candidate]) != str(project_root):
+            raise HTTPException(status_code=403, detail="Path escapes project root")
+    except ValueError as exc:
+        # commonpath raises on different drives (Windows) — treat as escape.
+        raise HTTPException(status_code=403, detail="Path escapes project root") from exc
+
+    target = Path(candidate)
+    # ``exists`` rather than ``is_file``: directory-backed stores (``.zarr``)
+    # are registerable too.
+    if not target.exists():
+        raise HTTPException(status_code=404, detail=f"File not found: {payload.path}")
+
+    ref = StorageReference(
+        backend="filesystem",
+        path=str(target),
+        format=target.suffix.lower().lstrip(".") or None,
+    )
+    record = runtime.register_data_ref(ref)
+    display_name = resolve_display_name(record.metadata, fallback=target.name)
+    logger.info("POST /api/data/register-path: %s -> %s (%s)", target, record.id, record.type_name)
+    return DataRegisterPathResponse(
+        ref=record.id,
+        recorded_type=record.type_name,
+        type_chain=list(record.type_chain) or [record.type_name],
+        display_name=display_name or None,
+    )
 
 
 @router.get("/{data_ref}", response_model=DataMetadataResponse)

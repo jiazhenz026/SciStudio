@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2112] **Previews open as canvas tabs, and the Data tree opens files for
+  preview.** The DataPreview panel's maximize button used to float the preview
+  over the workspace as an overlay; it now opens the preview as a tab in the
+  canvas area, beside workflow and editor tabs, showing a frozen snapshot of
+  what was previewed. Preview tabs are transient: switch to any other tab and
+  the preview tab closes itself, since the right-hand panel keeps the live
+  preview anyway. Double-clicking a file in the left **Data** tree now opens it
+  the same way — a new `POST /api/data/register-path` endpoint registers the
+  file into the data catalog (with the same extension-based type inference
+  block outputs get), so parquet, zarr, images, and friends route to their
+  proper previewers instead of doing nothing.
+
 - [#2090] **The left sidebar is a VS Code-style icon rail, and it gained two
   sections.** The Blocks / Data types / Project text tabs are replaced by a 48px
   vertical rail of icons that sits outside the resizable area, so it stays put

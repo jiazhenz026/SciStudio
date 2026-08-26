@@ -8,7 +8,13 @@ import type { StoreApi } from "zustand";
 
 import type { VersionedWorkflowResponse } from "../../lib/api";
 import type { AppStore, TabSlice, WorkflowTab } from "../types";
-import { EMPTY_TAB_STATE, captureActiveTab, restoreTab, workflowStateVersion } from "./tabHelpers";
+import {
+  EMPTY_TAB_STATE,
+  captureActiveTab,
+  dropInactivePreviewTabs,
+  restoreTab,
+  workflowStateVersion,
+} from "./tabHelpers";
 import { normalizeLoadedNodes } from "../workflowSlice.parts/workflowHelpers";
 
 type StoreSetter = StoreApi<AppStore>["setState"];
@@ -81,7 +87,8 @@ export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["ope
     };
 
     set({
-      tabs: [...updatedTabs, newTab],
+      // #2112 — opening a workflow tab moves focus away from any preview tab.
+      tabs: dropInactivePreviewTabs([...updatedTabs, newTab], newTab.id),
       ...restoreTab(newTab),
     });
   };
@@ -101,7 +108,11 @@ export function createSwitchTab(set: StoreSetter, get: StoreGetter): TabSlice["s
       : state.tabs;
 
     set({
-      tabs: updatedTabs,
+      // #2112 — a preview tab lives only while it is active: switching to any
+      // other tab removes the one left behind. `restoreTab` is a no-op beyond
+      // setting `activeTabId` for a preview target, and `captureActiveTab`
+      // passes the one being dropped through unchanged.
+      tabs: dropInactivePreviewTabs(updatedTabs, tabId),
       ...restoreTab(target),
     });
   };
@@ -118,8 +129,12 @@ export function createCloseTab(set: StoreSetter, get: StoreGetter): TabSlice["cl
     if (tab.kind === "workflow") {
       isDirty = tabId === state.activeTabId ? state.workflowDirty : tab.workflowDirty;
       displayLabel = tab.workflowName;
-    } else {
+    } else if (tab.kind === "file") {
       isDirty = tab.dirty;
+      displayLabel = tab.displayName;
+    } else {
+      // #2112 — preview tabs are read-only snapshots: never dirty, never prompt.
+      isDirty = false;
       displayLabel = tab.displayName;
     }
 

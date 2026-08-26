@@ -8,6 +8,7 @@
 
 import type {
   DataMetadataResponse,
+  DataRegisterPathResponse,
   DataUploadResponse,
   PlotCreateRequest,
   PlotCreateResponse,
@@ -75,6 +76,16 @@ export const dataApi = {
   },
   getDataMetadata: (dataRef: string) =>
     apiFetch<DataMetadataResponse>(`/api/data/${encodeURIComponent(dataRef)}`),
+
+  /** Register a project-relative (or project-local absolute) file path with
+   *  the data catalog (`POST /api/data/register-path`). #2112: the Data tree
+   *  double-click feeds the response into a `data_ref` preview target. */
+  registerDataPath: (request: { projectId?: string; path: string }) =>
+    apiFetch<DataRegisterPathResponse>("/api/data/register-path", {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ project_id: request.projectId, path: request.path }),
+    }),
 
   // -- ADR-048 SPEC 1: routed previewer session API (additive, FR-007) ------
 

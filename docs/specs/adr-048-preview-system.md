@@ -19,6 +19,9 @@ scope:
     - Frontend PreviewHost, previewer manifest loading, routed fallback rendering, and preview cache state changes.
     - Package-owned previewer discovery through `scistudio.previewers`.
     - Project-local previewer discovery and explicit project default previewer selection.
+    - Registration of project data files by path (`POST /api/data/register-path`)
+      so the Data panel tree can open catalog-backed preview sessions, and the
+      canvas preview tab surface those sessions render in (#2112).
     - Migration of rich Image and Label preview behavior from core/frontend hardcoding into `scistudio-blocks-imaging`.
     - Session API coverage for current preview behavior after the removed `/api/data/{data_ref}/preview` route.
   out:
@@ -58,6 +61,7 @@ tests:
   - tests/previewers/test_preview_data_access.py
   - tests/api/test_previewers.py
   - tests/api/test_data.py
+  - tests/api/test_data_register_path.py
   - tests/api/test_runtime_import_surface.py
   - tests/ai/test_mcp_tools_inspection.py
   - frontend/src/components/DataPreview.test.tsx
@@ -382,6 +386,20 @@ Acceptance Scenarios:
   rather than raised, and must not cost the entries beside it — the
   forward-compatibility rule `projects.json` learned in #2073, for the same
   reason: this file outlives the build that wrote it.
+- FR-039 (#2112): A project data file on disk must be registrable into the data
+  catalog by path through `POST /api/data/register-path`, so that a file the
+  Data panel tree lists can become a `data_ref` preview target without a block
+  run. The endpoint must resolve relative paths against the project root, must
+  reject paths outside the project root, must register through the same
+  `register_data_ref` path as block outputs (so suffix-based type inference and
+  storage metadata describe apply unchanged), and must return a ref that
+  `POST /api/previews/sessions` accepts directly.
+- FR-040 (#2112): A preview must be openable as a canvas tab, beside workflow
+  and file tabs. A preview tab carries a frozen `PreviewTarget` (the target at
+  open time, not a live selection follower), is transient — switching to any
+  other tab discards it — is never persisted, and has no dirty state. The
+  right-hand DataPreview panel is unaffected and keeps following the selected
+  block.
 
 ### Key Entities
 

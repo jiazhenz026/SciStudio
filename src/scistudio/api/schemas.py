@@ -386,6 +386,26 @@ class DataMetadataResponse(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class DataRegisterPathRequest(BaseModel):
+    """Request body for ``POST /api/data/register-path``."""
+
+    project_id: str | None = Field(default=None, description="Project id; defaults to the active project.")
+    path: str = Field(description="Project-relative or absolute path of the file to register.")
+
+
+class DataRegisterPathResponse(BaseModel):
+    """Catalog registration result for ``POST /api/data/register-path``.
+
+    Field names mirror the frontend ``PreviewTarget``: the caller opens a
+    preview with ``{kind: "data_ref", ref, recorded_type, type_chain}``.
+    """
+
+    ref: str
+    recorded_type: str
+    type_chain: list[str] = Field(default_factory=list)
+    display_name: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # ADR-048 SPEC 1: routed previewer session API schemas.
 #

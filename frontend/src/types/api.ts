@@ -483,6 +483,17 @@ export interface DataMetadataResponse {
   metadata: Record<string, unknown>;
 }
 
+/** Response of `POST /api/data/register-path` (#2112). Field names mirror the
+ *  backend `DataRegisterPathResponse` and feed a `data_ref`
+ *  {@link PreviewTarget} directly (snake_case on the wire, like the other
+ *  data/preview types here). */
+export interface DataRegisterPathResponse {
+  ref: string;
+  recorded_type: string;
+  type_chain: string[];
+  display_name: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // ADR-048 SPEC 1 — routed previewer session API wire types (FR-020 .. FR-024).
 //
