@@ -8,7 +8,13 @@ import type { StoreApi } from "zustand";
 
 import type { VersionedWorkflowResponse } from "../../lib/api";
 import type { AppStore, TabSlice, WorkflowTab } from "../types";
-import { EMPTY_TAB_STATE, captureActiveTab, restoreTab, workflowStateVersion } from "./tabHelpers";
+import {
+  EMPTY_TAB_STATE,
+  captureActiveTab,
+  dropInactivePreviewTabs,
+  restoreTab,
+  workflowStateVersion,
+} from "./tabHelpers";
 import { normalizeLoadedNodes } from "../workflowSlice.parts/workflowHelpers";
 
 type StoreSetter = StoreApi<AppStore>["setState"];
@@ -81,7 +87,8 @@ export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["ope
     };
 
     set({
-      tabs: [...updatedTabs, newTab],
+      // #2112 — opening a workflow tab moves focus away from any preview tab.
+      tabs: dropInactivePreviewTabs([...updatedTabs, newTab], newTab.id),
       ...restoreTab(newTab),
     });
   };
@@ -101,7 +108,11 @@ export function createSwitchTab(set: StoreSetter, get: StoreGetter): TabSlice["s
       : state.tabs;
 
     set({
-      tabs: updatedTabs,
+      // #2112 — a preview tab lives only while it is active: switching to any
+      // other tab removes the one left behind. `restoreTab` is a no-op beyond
+      // setting `activeTabId` for a preview target, and `captureActiveTab`
+      // passes the one being dropped through unchanged.
+      tabs: dropInactivePreviewTabs(updatedTabs, tabId),
       ...restoreTab(target),
     });
   };
@@ -118,8 +129,12 @@ export function createCloseTab(set: StoreSetter, get: StoreGetter): TabSlice["cl
     if (tab.kind === "workflow") {
       isDirty = tabId === state.activeTabId ? state.workflowDirty : tab.workflowDirty;
       displayLabel = tab.workflowName;
-    } else {
+    } else if (tab.kind === "file") {
       isDirty = tab.dirty;
+      displayLabel = tab.displayName;
+    } else {
+      // #2112 — preview tabs are read-only snapshots: never dirty, never prompt.
+      isDirty = false;
       displayLabel = tab.displayName;
     }
 
@@ -152,6 +167,23 @@ export function createSyncActiveTab(set: StoreSetter, get: StoreGetter): TabSlic
   return () => {
     const state = get();
     if (!state.activeTabId) return;
+    const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
+    if (activeTab?.kind === "preview") {
+      // #2112 — while a preview tab owns focus, the live workflow slice still
+      // belongs to the backing workflow tab (restoreTab on a preview only sets
+      // activeTabId). Capture into that tab so autosave / WebSocket updates
+      // landing during the preview are not lost when switching back restores
+      // the snapshot. captureWorkflowTab derives `id` from activeTabId, so the
+      // tab's own id must be preserved explicitly.
+      set({
+        tabs: state.tabs.map((t) =>
+          t.kind === "workflow" && t.workflowId === state.workflowId
+            ? { ...captureActiveTab(state, t), id: t.id }
+            : t,
+        ),
+      });
+      return;
+    }
     set({
       tabs: state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t)),
     });

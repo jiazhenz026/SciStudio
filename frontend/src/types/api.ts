@@ -483,6 +483,57 @@ export interface DataMetadataResponse {
   metadata: Record<string, unknown>;
 }
 
+/** Response of `POST /api/data/register-path` (#2112). Field names mirror the
+ *  backend `DataRegisterPathResponse` and feed a `data_ref`
+ *  {@link PreviewTarget} directly (snake_case on the wire, like the other
+ *  data/preview types here). */
+export interface DataRegisterPathResponse {
+  ref: string;
+  recorded_type: string;
+  type_chain: string[];
+  display_name: string | null;
+  /** Normalized extension (".tif") the open-as choice is keyed on (#2112). */
+  extension: string;
+  /** Whether `recorded_type` is the project's remembered choice for it. */
+  remembered: boolean;
+}
+
+/** One type a file could be opened as (#2112). `origin` / `package_name` are
+ *  the same tier facts the Data types tab reports, so the picker can say where
+ *  a candidate came from instead of listing bare names. */
+export interface DataOpenAsCandidate {
+  name: string;
+  base_type: string;
+  description: string;
+  origin: string;
+  package_name: string | null;
+  /** False for `Artifact` offered as a plain-file fallback rather than a
+   *  declared loader for this extension. */
+  loadable: boolean;
+}
+
+/** `GET /api/data/open-as/candidates` (#2112). `candidates` is ordered
+ *  project -> package -> core, so the first entry is the picker's default;
+ *  `remembered` short-circuits the picker entirely. */
+export interface DataOpenAsCandidatesResponse {
+  path: string;
+  extension: string;
+  candidates: DataOpenAsCandidate[];
+  remembered: string | null;
+}
+
+/** One remembered extension -> type choice (#2112). */
+export interface DataOpenAsEntry {
+  extension: string;
+  type_name: string;
+  available: boolean;
+}
+
+/** `GET /api/data/open-as` — the open project's remembered choices (#2112). */
+export interface DataOpenAsListResponse {
+  entries: DataOpenAsEntry[];
+}
+
 // ---------------------------------------------------------------------------
 // ADR-048 SPEC 1 — routed previewer session API wire types (FR-020 .. FR-024).
 //

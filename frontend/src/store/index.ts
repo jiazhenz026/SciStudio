@@ -106,7 +106,9 @@ export const useAppStore = create<AppStore>()(
         // source of truth that survives a backend which has moved on.
         // ADR-036 §3.11: persist file-tab METADATA only (not content).
         // Workflow tabs are NOT persisted here because their canvas state
-        // re-derives from project open + workflow load.
+        // re-derives from project open + workflow load. #2112 preview tabs
+        // are excluded by the same kind filter: they are frozen, ephemeral
+        // snapshots with no rehydrate path.
         tabs: partializeTabs(state.tabs.filter((t) => t.kind === "file")),
         activeTabId: state.activeTabId,
       }),

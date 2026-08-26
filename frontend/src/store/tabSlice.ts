@@ -18,6 +18,7 @@ import {
   createSwitchTab,
   createSyncActiveTab,
 } from "./tabSlice.parts/workflowTabActions";
+import { createOpenPreviewTab } from "./tabSlice.parts/previewTabActions";
 
 export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, get) => ({
   tabs: [],
@@ -34,6 +35,8 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
   openTypeSourceTab: createOpenTypeSourceTab(set, get),
   // ADR-053 FR-032 — the user library's own editable tab.
   openUserLibraryFileTab: createOpenUserLibraryFileTab(set, get),
+  // #2112 — transient preview tab (frozen PreviewTarget, never persisted).
+  openPreviewTab: createOpenPreviewTab(set, get),
   saveFileTab: createSaveFileTab(set, get),
   updateFileTabContent: createUpdateFileTabContent(set, get),
   confirmFileVersion: createConfirmFileVersion(set, get),

@@ -20,6 +20,7 @@ import { invalidateTypeCatalog } from "../useTypeCatalog";
 import {
   basename,
   captureActiveTab,
+  dropInactivePreviewTabs,
   fileStateVersion,
   fileTabIdFor,
   languageForPath,
@@ -85,7 +86,8 @@ export function createOpenFileTab(set: StoreSetter, get: StoreGetter): TabSlice[
         : [...state.tabs];
 
       set({
-        tabs: [...updatedTabs, placeholder],
+        // #2112 — focusing the new tab retires any active preview tab.
+        tabs: dropInactivePreviewTabs([...updatedTabs, placeholder], id),
         activeTabId: id,
       });
     } else {
@@ -194,7 +196,8 @@ export function createOpenBlockSourceTab(
       const updatedTabs = currentActive
         ? state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t))
         : [...state.tabs];
-      set({ tabs: [...updatedTabs, placeholder], activeTabId: id });
+      // #2112 — focusing the new tab retires any active preview tab.
+      set({ tabs: dropInactivePreviewTabs([...updatedTabs, placeholder], id), activeTabId: id });
     } else {
       state.switchTab(id);
     }
@@ -284,7 +287,8 @@ export function createOpenTypeSourceTab(
       const updatedTabs = currentActive
         ? state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t))
         : [...state.tabs];
-      set({ tabs: [...updatedTabs, placeholder], activeTabId: id });
+      // #2112 — focusing the new tab retires any active preview tab.
+      set({ tabs: dropInactivePreviewTabs([...updatedTabs, placeholder], id), activeTabId: id });
     } else {
       state.switchTab(id);
     }
@@ -373,7 +377,8 @@ export function createOpenUserLibraryFileTab(
       const updatedTabs = currentActive
         ? state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t))
         : [...state.tabs];
-      set({ tabs: [...updatedTabs, placeholder], activeTabId: id });
+      // #2112 — focusing the new tab retires any active preview tab.
+      set({ tabs: dropInactivePreviewTabs([...updatedTabs, placeholder], id), activeTabId: id });
     } else {
       state.switchTab(id);
     }

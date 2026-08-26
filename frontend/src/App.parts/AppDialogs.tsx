@@ -6,6 +6,7 @@ import type {
 import type { ProjectResponse } from "../types/api";
 
 import { ProjectDialog } from "../components/ProjectDialog";
+import { OpenAsDialog } from "../components/OpenAsDialog";
 import { PromptDialog, type PromptRequest } from "../components/PromptDialog";
 import { UserLibraryDialogs } from "../components/promotion/UserLibraryDialogs";
 import { WorkflowConflictDialog } from "../components/WorkflowConflictDialog";
@@ -60,6 +61,9 @@ export function AppDialogs({
       />
 
       <PromptDialog request={promptRequest} onClose={onPromptClose} />
+
+      {/* #2112 — mounted once; the Data tree and the preview tab open it. */}
+      <OpenAsDialog />
 
       <WorkflowConflictDialog conflict={workflowConflict} onResolve={onResolveWorkflowConflict} />
 

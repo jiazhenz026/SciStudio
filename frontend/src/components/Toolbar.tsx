@@ -38,8 +38,11 @@ interface ToolbarProps {
    * ADR-036 §3.7 — discriminator that drives the toolbar's kind-swap.
    * "workflow" (default) → existing canvas-oriented buttons.
    * "file"              → file-tab toolbar (New / Import / Save only in v1).
+   * "preview" (#2112)   → transient preview tab; treated like "workflow" (the
+   *                       frozen snapshot has no file or canvas actions of its
+   *                       own, and the underlying workflow is still loaded).
    */
-  activeTabKind?: "workflow" | "file";
+  activeTabKind?: "workflow" | "file" | "preview";
   onNewProject: () => void;
   onOpenProject: () => void;
   onOpenRecent: (project: ProjectResponse) => void;

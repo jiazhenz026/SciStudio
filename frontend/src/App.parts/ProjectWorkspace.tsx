@@ -11,7 +11,9 @@ import type { PanelImperativeHandle } from "react-resizable-panels";
 import { useEffect, useRef, type RefObject } from "react";
 
 import { useAppStore } from "../store";
-import type { AnyTab, FileTab } from "../store/types";
+import { openDataFileAsPreview } from "../lib/openDataFile";
+import { buildPreviewCacheKey } from "../store/previewSlice";
+import type { AnyTab, FileTab, PreviewTab } from "../store/types";
 import type {
   BlockSchemaResponse,
   BlockSummary,
@@ -25,6 +27,7 @@ import { BlockPalette } from "../components/BlockPalette";
 import { BottomPanel } from "../components/BottomPanel";
 import { CodeEditor } from "../components/CodeEditor";
 import { DataPreview } from "../components/DataPreview";
+import { PreviewHost } from "../components/DataPreview.parts/PreviewHost";
 import { PaletteTipCard } from "../components/palette/tips/PaletteTipCard";
 import { PreviewerPalette } from "../components/PreviewerPalette";
 import { ProjectTree } from "../components/ProjectTree";
@@ -95,6 +98,8 @@ export interface ProjectWorkspaceProps {
   tabs: AnyTab[];
   activeTabId: string | null;
   activeFileTab: FileTab | null;
+  /** #2112 — the active transient preview tab, when one is focused. */
+  activePreviewTab: PreviewTab | null;
   switchTab: (id: string) => void;
   closeTab: (id: string) => void;
   onNewWorkflowTab: () => void;
@@ -213,11 +218,7 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
         // #2090 — the Data section: the same tree as Project, rooted at
         // data/ so the panel shows only the project's data folders
         // (raw / processed / zarr / parquet / artifacts / exchange).
-        //
-        // TODO(#2112): click-to-preview (option C from the live design
-        // discussion) — single-click a data file to show its content in the
-        // right DataPreview panel. Deferred per owner decision in the guided
-        // session. Followup: https://github.com/jiazhenz026/SciStudio/issues/2112
+        // Double-clicking a file opens it in a canvas preview tab (#2112).
         <ProjectTree
           projectId={currentProject.id}
           projectPath={currentProject.path}
@@ -266,9 +267,66 @@ function deriveRunScope(props: ProjectWorkspaceProps): {
   return { runScopePrefix, scopedBlockOutputs };
 }
 
+/**
+ * #2112 — the transient preview tab's content: the same `PreviewHost` the
+ * right-sidebar DataPreview mounts, fed the tab's frozen target and the
+ * shared envelope cache. The tab is dropped when focus moves elsewhere, so
+ * this pane unmounts with it and its session state goes away on its own.
+ */
+function PreviewTabPane({ tab, projectId }: { tab: PreviewTab; projectId: string }) {
+  const previewEnvelopeCache = useAppStore((s) => s.previewEnvelopeCache);
+  const cachePreviewEnvelope = useAppStore((s) => s.cachePreviewEnvelope);
+  // #2113 — a previewer choice change re-routes the open session here exactly
+  // as it does in the sidebar preview.
+  const previewerChoiceVersion = useAppStore((s) => s.previewerChoiceVersion);
+  const openAs = tab.openAs;
+  return (
+    <div
+      className="h-full min-h-0 overflow-y-auto bg-stone-50/60 px-6 py-6 scrollbar-thin sm:px-10 lg:px-16"
+      data-testid="preview-tab-pane"
+    >
+      <div className="mx-auto w-full max-w-6xl">
+        {openAs ? (
+          <div
+            className="mb-3 flex items-center gap-2 text-xs text-stone-500"
+            data-testid="preview-tab-open-as"
+          >
+            <span>
+              Opened as <span className="font-medium text-stone-700">{openAs.typeName}</span>
+              {openAs.remembered ? ` · remembered for ${openAs.extension}` : ""}
+            </span>
+            <button
+              className="rounded-full border border-stone-300 px-2 py-0.5 transition hover:border-ink hover:text-ink"
+              onClick={() => {
+                void openDataFileAsPreview(projectId, openAs.path, tab.displayName, {
+                  forceAsk: true,
+                }).catch((error) => {
+                  console.warn(`Failed to reopen ${openAs.path}:`, error);
+                });
+              }}
+              type="button"
+            >
+              Change
+            </button>
+          </div>
+        ) : null}
+        <PreviewHost
+          target={tab.target}
+          initialQuery={tab.initialQuery}
+          routingEpoch={previewerChoiceVersion}
+          getCachedEnvelope={(key) => previewEnvelopeCache[key]}
+          cacheEnvelope={cachePreviewEnvelope}
+          buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}
+        />
+      </div>
+    </div>
+  );
+}
+
 function CanvasOrEditor(props: ProjectWorkspaceProps) {
   const {
     activeFileTab,
+    activePreviewTab,
     updateFileTabContent,
     saveFileTab,
     blockStates,
@@ -298,6 +356,11 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
   } = props;
 
   const { runScopePrefix, scopedBlockOutputs } = deriveRunScope(props);
+
+  // #2112 — a focused preview tab takes the stage with its frozen snapshot.
+  if (activePreviewTab) {
+    return <PreviewTabPane tab={activePreviewTab} projectId={props.currentProject.id} />;
+  }
 
   if (activeFileTab) {
     return (

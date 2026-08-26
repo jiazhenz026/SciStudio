@@ -892,6 +892,59 @@ export interface FileTab {
 }
 
 /**
+ * #2112 — transient preview tab.
+ *
+ * Opened by the DataPreview panel's maximize button: instead of restyling the
+ * right-sidebar preview into a floating overlay, the frozen {@link PreviewTarget}
+ * (a snapshot taken at click time) opens as a tab beside the file/workflow tabs
+ * and renders through the same `PreviewHost`.
+ *
+ * The tab is deliberately ephemeral:
+ *   - it is removed from `tabs` the moment focus moves to any other tab
+ *     (see `dropInactivePreviewTabs` in `tabHelpers.ts`);
+ *   - it carries no dirty state, so `closeTab` never prompts;
+ *   - it is never persisted (the `partialize` whitelist keeps file tabs only).
+ *
+ * The id convention is `preview:<ref>` so re-maximizing the same target
+ * focuses the existing tab instead of piling up duplicates (mirrors
+ * `openFileTab`'s id-keyed dedup).
+ */
+/**
+ * How a data-tree file was opened, so the preview tab can say which type it
+ * chose and offer to change it (#2112). Absent on tabs opened by maximizing
+ * the sidebar preview, which have no file path behind them.
+ */
+export interface PreviewTabOpenAs {
+  /** Project-relative path the tab was opened from. */
+  path: string;
+  /** Normalized extension the remembered choice is keyed on (".tif"). */
+  extension: string;
+  /** The type the file was recorded as. */
+  typeName: string;
+  /** Whether that type is the project's remembered choice for the extension. */
+  remembered: boolean;
+}
+
+export interface PreviewTab {
+  /** Discriminator. Always "preview". */
+  kind: "preview";
+  id: string;
+  /** Frozen preview target captured when the tab was opened. */
+  target: PreviewTarget;
+  displayName: string;
+  /** Set when the tab came from a Data-tree double-click (#2112). */
+  openAs?: PreviewTabOpenAs;
+  /**
+   * Collection targets carry their item snapshot through the session query
+   * (see `refEntries.ts`), so the initial query must freeze alongside the
+   * target; a bare ref would resolve to an empty collection.
+   */
+  initialQuery?: Record<string, unknown>;
+  /** Epoch-ms open time; diagnostic only. */
+  openedAt?: number;
+}
+
+/**
  * ADR-036 §3.10 — discriminated union of all tab kinds.
  *
  * Phase 2A (I36a) migration: ``TabState`` is now ``WorkflowTab | FileTab``.
@@ -899,7 +952,7 @@ export interface FileTab {
  * code that imported it during the transition; new code should use
  * ``TabState`` directly.
  */
-export type TabState = WorkflowTab | FileTab;
+export type TabState = WorkflowTab | FileTab | PreviewTab;
 export type AnyTab = TabState;
 
 export interface TabSlice {
@@ -961,6 +1014,21 @@ export interface TabSlice {
    * would write a template the user could not then edit.
    */
   openUserLibraryFileTab: (target: UserLibraryTarget, filename: string) => void;
+  /**
+   * #2112 — open (or focus) a transient preview tab on a frozen
+   * {@link PreviewTarget}.
+   *
+   * Opened by the DataPreview maximize button. De-duplicates on the tab id
+   * (``preview:<ref>``): re-maximizing the same ref focuses the existing tab.
+   * The tab is removed as soon as any other tab becomes active, carries no
+   * dirty state, and is never persisted.
+   */
+  openPreviewTab: (
+    target: PreviewTarget,
+    displayName?: string,
+    initialQuery?: Record<string, unknown>,
+    openAs?: PreviewTabOpenAs,
+  ) => void;
   /**
    * ADR-036 §3.10 — save a file tab's content to disk.
    *

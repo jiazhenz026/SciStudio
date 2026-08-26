@@ -42,7 +42,20 @@ export function captureActiveTab(state: AppStore, tab: TabState): TabState {
     // not blank the tab's dedup identity or its expanded-view run prefix.
     return { ...captureWorkflowTab(state), tabKey: tab.tabKey, runPrefix: tab.runPrefix };
   }
+  // File and preview tabs hold no workflow-slice state, so there is nothing to
+  // capture; the tab passes through unchanged.
   return tab;
+}
+
+/**
+ * #2112 — drop every preview tab except the one staying active.
+ *
+ * Preview tabs are "gone once you look away": any action that moves focus to
+ * another tab (switch/open/close fallback) routes its resulting tab list
+ * through this filter so the rule holds no matter which path moved the focus.
+ */
+export function dropInactivePreviewTabs(tabs: TabState[], activeId: string | null): TabState[] {
+  return tabs.filter((t) => t.kind !== "preview" || t.id === activeId);
 }
 
 export function restoreTab(tab: TabState): Partial<AppStore> {

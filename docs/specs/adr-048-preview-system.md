@@ -19,6 +19,9 @@ scope:
     - Frontend PreviewHost, previewer manifest loading, routed fallback rendering, and preview cache state changes.
     - Package-owned previewer discovery through `scistudio.previewers`.
     - Project-local previewer discovery and explicit project default previewer selection.
+    - Registration of project data files by path (`POST /api/data/register-path`)
+      so the Data panel tree can open catalog-backed preview sessions, and the
+      canvas preview tab surface those sessions render in (#2112).
     - Migration of rich Image and Label preview behavior from core/frontend hardcoding into `scistudio-blocks-imaging`.
     - Session API coverage for current preview behavior after the removed `/api/data/{data_ref}/preview` route.
   out:
@@ -58,6 +61,7 @@ tests:
   - tests/previewers/test_preview_data_access.py
   - tests/api/test_previewers.py
   - tests/api/test_data.py
+  - tests/api/test_data_register_path.py
   - tests/api/test_runtime_import_surface.py
   - tests/ai/test_mcp_tools_inspection.py
   - frontend/src/components/DataPreview.test.tsx
@@ -382,6 +386,51 @@ Acceptance Scenarios:
   rather than raised, and must not cost the entries beside it — the
   forward-compatibility rule `projects.json` learned in #2073, for the same
   reason: this file outlives the build that wrote it.
+- FR-039 (#2112): A project data file on disk must be registrable into the data
+  catalog by path through `POST /api/data/register-path`, so that a file the
+  Data panel tree lists can become a `data_ref` preview target without a block
+  run. The endpoint must resolve relative paths against the project root, must
+  reject paths outside the project root, must register through the same
+  `register_data_ref` path as block outputs (so suffix-based type inference and
+  storage metadata describe apply unchanged), and must return a ref that
+  `POST /api/previews/sessions` accepts directly.
+- FR-040 (#2112): A preview must be openable as a canvas tab, beside workflow
+  and file tabs. A preview tab carries a frozen `PreviewTarget` (the target at
+  open time, not a live selection follower), is transient — switching to any
+  other tab discards it — is never persisted, and has no dirty state. The
+  right-hand DataPreview panel is unaffected and keeps following the selected
+  block.
+- FR-041 (#2112): A file registered by path must be recorded with a routable
+  type chain. A record whose storage metadata carries no `type_chain` must have
+  one derived from the type registry, ordered general -> specific and matching
+  what a block output records for the same class, because FR-003 resolves a
+  previewer by walking that chain: a single-entry chain can reach no ancestor's
+  previewer, so a `.tif` recorded as a project-local `SRSImage` would fall
+  through to the artifact fallback rather than the imaging package's `Image`
+  viewer. Derivation must read recorded type metadata rather than import the
+  class, so registering a file cannot execute a drop-in module.
+- FR-042 (#2112): When more than one registered type can load a file's
+  extension, the person must choose which one the file opens as, and the choice
+  must be offerable per extension for the open project. Ordering is
+  project -> user -> package -> core, so the default is the most specific
+  answer available. `Artifact` must always be offered — opening a file as a
+  plain file is always a real answer — and an explicit type that no candidate
+  matches must be rejected rather than recorded. A remembered choice opens the
+  file without asking; a single candidate is not a question. The remembered
+  choice must be clearable, from the same control that set it.
+- FR-043 (#2112): The remembered open-as choices must survive a build that does
+  not understand them, under the same forward-compatibility rule as FR-038, and
+  must be scoped to one project: the collision that makes the question worth
+  asking usually comes from a project-local drop-in type, so a global answer
+  would carry one project's convention into every other one.
+- FR-044 (#2112): A package previewer's provider must run with the installed
+  plugin import roots active. A package previewer module is importable at
+  render time only because discovery cached it under a scoped `sys.path` that
+  was then reverted, so a deferred third-party import inside the provider
+  (`tifffile` in the imaging image viewer) otherwise raises
+  `ModuleNotFoundError` and the preview fails as a provider exception. This is
+  the previewer-side counterpart of the activation delegated IO already
+  performs for package loaders and savers.
 
 ### Key Entities
 

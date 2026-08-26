@@ -21,6 +21,9 @@ vi.mock("../../lib/api", async () => {
     api: {
       ...actual.api,
       getProjectTree: vi.fn(),
+      registerDataPath: vi.fn(),
+      getOpenAsCandidates: vi.fn(),
+      clearOpenAsType: vi.fn(),
     },
   };
 });
@@ -30,6 +33,28 @@ import { useAppStore } from "../../store";
 import { ProjectTree } from "../ProjectTree";
 
 const getProjectTreeMock = vi.mocked(api.getProjectTree);
+const registerDataPathMock = vi.mocked(api.registerDataPath);
+const getOpenAsCandidatesMock = vi.mocked(api.getOpenAsCandidates);
+
+/** #2112 — the unambiguous answer: one candidate, nothing remembered, so the
+ *  double-click opens the file without raising the picker. */
+function singleCandidate(extension: string, name: string) {
+  return {
+    path: "",
+    extension,
+    candidates: [
+      {
+        name,
+        base_type: "DataObject",
+        description: "",
+        origin: "core",
+        package_name: null,
+        loadable: true,
+      },
+    ],
+    remembered: null,
+  };
+}
 
 beforeEach(() => {
   // Reset store + open-file action.
@@ -49,6 +74,9 @@ beforeEach(() => {
     projectTreeRefreshCounter: 0,
   });
   getProjectTreeMock.mockReset();
+  registerDataPathMock.mockReset();
+  getOpenAsCandidatesMock.mockReset();
+  getOpenAsCandidatesMock.mockResolvedValue(singleCandidate(".bin", "Artifact") as any);
 });
 
 afterEach(() => {
@@ -150,6 +178,178 @@ describe("ProjectTree — Data section rooting (#2090)", () => {
     await screen.findByText("raw");
     expect(getProjectTreeMock).toHaveBeenCalledWith("proj-1", "data");
     expect(screen.getByText("Data")).toBeInTheDocument();
+  });
+});
+
+describe("ProjectTree — Data tree double-click opens a preview tab (#2112)", () => {
+  async function renderDataTree(
+    entries: { name: string; type: "file" | "directory"; size?: number }[],
+  ) {
+    getProjectTreeMock.mockResolvedValue({ entries: entries as any });
+    render(
+      <ProjectTree
+        projectId="proj-1"
+        projectPath="/tmp/proj-1"
+        title="Data"
+        rootPath="data"
+        onLoadWorkflow={vi.fn()}
+        onReloadBlocks={vi.fn()}
+      />,
+    );
+    for (const e of entries) {
+      await screen.findByText(e.name);
+    }
+  }
+
+  it("double-click on a parquet file registers the path and opens a preview tab", async () => {
+    registerDataPathMock.mockResolvedValue({
+      ref: "data://abc123",
+      recorded_type: "DataFrame",
+      type_chain: ["DataObject", "DataFrame"],
+      display_name: "table.parquet",
+      extension: ".parquet",
+      remembered: false,
+    });
+    getOpenAsCandidatesMock.mockResolvedValue(singleCandidate(".parquet", "DataFrame") as any);
+    const openPreviewTab = vi.fn();
+    const openFileTab = vi.fn();
+    useAppStore.setState({ openPreviewTab, openFileTab });
+
+    await renderDataTree([{ name: "table.parquet", type: "file", size: 10 }]);
+    fireEvent.doubleClick(screen.getByText("table.parquet"));
+
+    await waitFor(() =>
+      expect(registerDataPathMock).toHaveBeenCalledWith({
+        projectId: "proj-1",
+        path: "data/table.parquet",
+        typeName: undefined,
+        remember: false,
+      }),
+    );
+    await waitFor(() =>
+      expect(openPreviewTab).toHaveBeenCalledWith(
+        {
+          kind: "data_ref",
+          ref: "data://abc123",
+          recorded_type: "DataFrame",
+          type_chain: ["DataObject", "DataFrame"],
+        },
+        "table.parquet",
+        undefined,
+        {
+          path: "data/table.parquet",
+          extension: ".parquet",
+          typeName: "DataFrame",
+          remembered: false,
+        },
+      ),
+    );
+    // Preview takes precedence: the editor must not open.
+    expect(openFileTab).not.toHaveBeenCalled();
+  });
+
+  it("double-click on a .zarr store directory opens a preview (directory-backed store)", async () => {
+    registerDataPathMock.mockResolvedValue({
+      ref: "data://zarr9",
+      recorded_type: "Array",
+      type_chain: ["DataObject", "Array"],
+      display_name: "stack.zarr",
+      extension: ".zarr",
+      remembered: false,
+    });
+    getOpenAsCandidatesMock.mockResolvedValue(singleCandidate(".zarr", "Array") as any);
+    const openPreviewTab = vi.fn();
+    useAppStore.setState({ openPreviewTab });
+
+    // The tree API reports .zarr stores as directories; they must still reach
+    // the preview branch instead of the directory early return.
+    await renderDataTree([{ name: "stack.zarr", type: "directory" }]);
+    fireEvent.doubleClick(screen.getByText("stack.zarr"));
+
+    await waitFor(() =>
+      expect(registerDataPathMock).toHaveBeenCalledWith({
+        projectId: "proj-1",
+        path: "data/stack.zarr",
+        typeName: undefined,
+        remember: false,
+      }),
+    );
+    await waitFor(() =>
+      expect(openPreviewTab).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "data_ref", ref: "data://zarr9" }),
+        "stack.zarr",
+        undefined,
+        expect.objectContaining({ path: "data/stack.zarr", typeName: "Array" }),
+      ),
+    );
+  });
+
+  it("double-click on a plain directory in the Data tree does nothing", async () => {
+    const openPreviewTab = vi.fn();
+    useAppStore.setState({ openPreviewTab });
+
+    await renderDataTree([{ name: "raw", type: "directory" }]);
+    fireEvent.doubleClick(screen.getByText("raw"));
+
+    // Let any pending async work settle, then assert nothing happened.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(registerDataPathMock).not.toHaveBeenCalled();
+    expect(openPreviewTab).not.toHaveBeenCalled();
+  });
+
+  it("double-click on a csv file in the Data tree opens a preview, not the editor", async () => {
+    registerDataPathMock.mockResolvedValue({
+      ref: "data://def456",
+      recorded_type: "DataFrame",
+      type_chain: ["DataObject", "DataFrame"],
+      display_name: null,
+      extension: ".csv",
+      remembered: false,
+    });
+    getOpenAsCandidatesMock.mockResolvedValue(singleCandidate(".csv", "DataFrame") as any);
+    const openPreviewTab = vi.fn();
+    const openFileTab = vi.fn();
+    useAppStore.setState({ openPreviewTab, openFileTab });
+
+    await renderDataTree([{ name: "table.csv", type: "file", size: 4 }]);
+    fireEvent.doubleClick(screen.getByText("table.csv"));
+
+    // csv is in EDITABLE_EXTENSIONS — the Data tree must still prefer preview.
+    await waitFor(() => expect(openPreviewTab).toHaveBeenCalled());
+    // display_name null -> the tab label falls back to the node name.
+    expect(openPreviewTab).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "data_ref", ref: "data://def456" }),
+      "table.csv",
+      undefined,
+      expect.objectContaining({ path: "data/table.csv", typeName: "DataFrame" }),
+    );
+    expect(openFileTab).not.toHaveBeenCalled();
+  });
+
+  it("double-click on a csv outside the Data tree still opens the editor (regression)", async () => {
+    const openFileTab = vi.fn();
+    useAppStore.setState({ openFileTab });
+    await renderTreeWith([{ name: "table.csv", type: "file", size: 4 }]);
+    fireEvent.doubleClick(screen.getByText("table.csv"));
+    await waitFor(() => expect(openFileTab).toHaveBeenCalledWith("table.csv"));
+    expect(registerDataPathMock).not.toHaveBeenCalled();
+  });
+
+  it("a failed register-path call logs and does not open a tab or crash", async () => {
+    registerDataPathMock.mockRejectedValue(new Error("404 not found"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const openPreviewTab = vi.fn();
+    const openFileTab = vi.fn();
+    useAppStore.setState({ openPreviewTab, openFileTab });
+
+    await renderDataTree([{ name: "missing.parquet", type: "file", size: 1 }]);
+    fireEvent.doubleClick(screen.getByText("missing.parquet"));
+
+    await waitFor(() => expect(registerDataPathMock).toHaveBeenCalled());
+    await waitFor(() => expect(consoleError).toHaveBeenCalled());
+    expect(openPreviewTab).not.toHaveBeenCalled();
+    expect(openFileTab).not.toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 });
 

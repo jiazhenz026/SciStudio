@@ -216,7 +216,7 @@ export default function App() {
   const updateFileTabContent = useAppStore((state) => state.updateFileTabContent);
   const openFileTab = useAppStore((state) => state.openFileTab);
   const openBlockSourceTab = useAppStore((state) => state.openBlockSourceTab);
-  const { activeFileTab, activeTabKind } = useActiveTab(tabs as AnyTab[], activeTabId);
+  const { activeFileTab, activePreviewTab, activeTabKind } = useActiveTab(tabs, activeTabId);
   const [busy, setBusy] = useState(false);
   const [leftTab, setLeftTab] = useState<LeftTab>("blocks");
   const paletteCollapsed = useAppStore((state) => state.paletteCollapsed);
@@ -500,6 +500,7 @@ export default function App() {
                 tabs={tabs as AnyTab[]}
                 activeTabId={activeTabId}
                 activeFileTab={activeFileTab}
+                activePreviewTab={activePreviewTab}
                 switchTab={switchTab}
                 closeTab={closeTab}
                 onNewWorkflowTab={newWorkflow}
