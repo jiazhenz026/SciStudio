@@ -143,7 +143,7 @@ hard fail, so the manager sequences it:
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A1` | `implementer` | `N/A` | `docs/planning/interactive-panel-quality-dispatch-prompts/a1-escape-hatch.md` | Host-owned escape hatch + no silent null | `fix/2195-panel-escape-hatch` | `.worktrees/fix-2195-panel-escape-hatch` | `frontend/src/App.parts/InteractiveModals.tsx`, `frontend/src/App.parts/InteractiveModals.parts/**` | all backend, all skills/docs, panel host API version | `#2195` | `[~]` |
+| `A1` | `implementer` | `N/A` | `docs/planning/interactive-panel-quality-dispatch-prompts/a1-escape-hatch.md` | Host-owned escape hatch + no silent null | `fix/2195-panel-escape-hatch` | `.worktrees/fix-2195-panel-escape-hatch` | `frontend/src/App.parts/InteractiveModals.tsx`, `frontend/src/App.parts/InteractiveModals.parts/**` | all backend, all skills/docs, panel host API version | `#2195` | `#2199` `[x]` |
 | `A2` | `implementer` | `N/A` | `docs/planning/interactive-panel-quality-dispatch-prompts/a2-contract-validation.md` | Shared contract validation at 3 surfaces | `feat/2196-interactive-contract-validation` | `.worktrees/feat-2196-interactive-validation` | `src/scistudio/blocks/registry/**`, `src/scistudio/ai/agent/mcp/tools_authoring.py`, `src/scistudio/ai/agent/mcp/_reload.py`, `src/scistudio/workflow/validator.py`, `src/scistudio/agent_provisioning/**`, `tests/**` | `frontend/**`, `src/scistudio/_skills/**`, `src/scistudio/_agent_reference/**`, `src/scistudio/cli/templates/**` | `#2196` | `[~]` |
 | `A3` | `implementer` | `N/A` | `docs/planning/interactive-panel-quality-dispatch-prompts/a3-authoring-skill.md` | Panel authoring skill + scaffold template + doc fixes | `docs/2197-panel-authoring-skill` | `.worktrees/docs-2197-panel-authoring-skill` | `src/scistudio/_skills/**`, `src/scistudio/_agent_reference/block-contract.md`, `src/scistudio/cli/templates/**`, new scaffold helper module, `frontend/src/App.parts/InteractiveModals.parts/panelModuleLoader.ts` (comment only), `tests/**` | `src/scistudio/ai/agent/mcp/tools_authoring.py` (§2.1), `src/scistudio/blocks/**`, all other frontend behavior | `#2197` | `[~]` |
 
@@ -188,10 +188,10 @@ amendment.
 
 ### 7.3 Implementation
 
-- [ ] Title-bar X + ESC escape hatch -> `<artifact>`
-- [ ] `return null` branch replaced with error surface + Cancel -> `<artifact>`
-- [ ] Tests -> `<artifact>`
-- [ ] Docs updated or N/A recorded -> `<artifact>`
+- [x] Title-bar X + ESC escape hatch -> PR #2199, commit `1d1e8d9ae`, `frontend/src/App.parts/InteractiveModals.parts/DynamicPanel.tsx`
+- [x] `return null` branch replaced with error surface + Cancel -> PR #2199, commit `1d1e8d9ae`, `frontend/src/App.parts/InteractiveModals.tsx`
+- [x] Tests -> `frontend/src/App.parts/InteractiveModals.test.tsx` (new, 6 tests), `frontend/src/App.parts/InteractiveModals.parts/DynamicPanel.test.tsx` (+7 tests)
+- [x] Docs updated or N/A recorded -> docs N/A in `.workflow/records/2195-fix-2195-panel-escape-hatch.json`; no ADR, spec, or guide documents the interactive modal's chrome, and ADR-051 US3/FR-012 already promise the affordance this restores
 
 ### 7.4 Audit
 
@@ -205,10 +205,24 @@ amendment.
 
 ### 7.5 Integration
 
-- [ ] Agent output reviewed by manager.
-- [ ] Scope compliance verified.
-- [ ] Conflicts resolved intentionally.
-- [ ] Track merged or integrated.
+- [x] Agent output reviewed by manager. -> manager read the full production diff of `InteractiveModals.tsx` and `DynamicPanel.tsx` on PR #2199, not the agent summary; verified `InteractivePrompt.blockType` is a required field (`frontend/src/store/types.ts:280`) so the title-bar name cannot be undefined
+- [x] Scope compliance verified. -> diff touches only `InteractiveModals.tsx`, `InteractiveModals.parts/**`, their tests, and the agent's own ledger; `panelModuleLoader.ts` untouched, so A3's comment fix is unaffected; `PANEL_HOST_API_VERSION`, `PanelHostApi`, and `PanelModule` unchanged
+- [x] Conflicts resolved intentionally. -> none; A2 and A3 own disjoint paths
+- [ ] Track merged or integrated. -> PR #2199 open against `main`, CI green, awaiting owner review and merge
+
+#### 7.5.1 Manager Review Findings
+
+- **Residual gap, not a regression.** A prompt carrying no `panel_manifest` at
+  all still renders nothing and leaves the block `PAUSED` with only the Toolbar
+  Stop control. That was true before this change too, and the registry refuses
+  to load an interactive block without a valid manifest, so it is not reachable
+  through the documented path. #2196's validation closes the upstream cause.
+- **New UX risk introduced by the fix.** ESC now cancels the block from
+  anywhere in the panel, discarding whatever the user had built up in it (a long
+  labelling pass, a region selection). Before this change ESC did nothing. The
+  X control is deliberate; ESC is easy to hit by accident. Raised with the owner
+  for a decision — options are to keep it, confirm before cancelling on ESC, or
+  drop ESC and keep X only. Recorded here so the decision is durable.
 
 ## 8. Track: A2 — Interactive Contract Validation (#2196)
 
