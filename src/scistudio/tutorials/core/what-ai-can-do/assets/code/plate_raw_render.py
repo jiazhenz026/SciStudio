@@ -21,7 +21,7 @@ done to it — which is the whole reason the reader asked for it.
 
 The x axis is the **group label**, because that is all the table knows. What
 each group was dosed with is in the file's name and nowhere else, and turning
-that into an axis is the job of a later block.
+that into an axis is the job of another block downstream.
 """
 
 

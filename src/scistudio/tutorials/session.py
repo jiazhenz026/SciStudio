@@ -1060,7 +1060,7 @@ class TutorialRuntime:
         """Forget writes a replay promised on a step the reader is leaving.
 
         The reader who walks away mid-reply does not return to a canvas that
-        rearranged itself behind them, and a later settle from the tab they left
+        rearranged itself behind them, and a settle arriving from the tab they left
         open cannot write into whatever step they are on now.
         """
         self._pending_replay = None
