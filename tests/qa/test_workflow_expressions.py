@@ -172,9 +172,7 @@ def _runs_on_labels(doc: dict) -> list[tuple[str, str]]:
 @pytest.mark.parametrize("path", _workflow_files(), ids=lambda p: p.name)
 def test_no_retired_runner_images(path: Path) -> None:
     offenders = [
-        f"{location}: {label}"
-        for location, label in _runs_on_labels(_load(path))
-        if label in RETIRED_RUNNER_LABELS
+        f"{location}: {label}" for location, label in _runs_on_labels(_load(path)) if label in RETIRED_RUNNER_LABELS
     ]
     assert not offenders, (
         f"{path.name}: these runner labels have been retired by GitHub. A job asking for "

@@ -171,12 +171,19 @@ def test_desktop_has_macos_dmg_builder() -> None:
     assert "push:" not in workflow_text
     # #2165: a matrix over architecture, each leg on a runner whose native arch
     # matches the artifact so build:python:mac bundles the right CPython off
-    # `uname -m` with no Rosetta — arm64 on macos-15, x64 on the Intel-native
-    # macos-13 runner.
+    # `uname -m` with no Rosetta — arm64 on macos-15, x64 on macos-15-intel.
+    #
+    # This originally pinned macos-13 and asserted macos-15-intel was *absent*.
+    # GitHub has since retired macos-13: a job asking for it is never scheduled
+    # and fails with no diagnostic, so the assertion was holding the Intel leg
+    # to a label that cannot build anything. tests/qa/test_workflow_expressions
+    # now guards the retired-label class directly.
     assert "runs-on: ${{ matrix.runner }}" in workflow_text
-    assert "runner: macos-15" in workflow_text
-    assert "runner: macos-13" in workflow_text
-    assert "macos-15-intel" not in workflow_text
+    assert "runner: macos-15\n" in workflow_text
+    assert "runner: macos-15-intel" in workflow_text
+    # No "macos-13 is absent" assertion here: it matched the comment explaining
+    # why the label was dropped. tests/qa/test_workflow_expressions.py guards
+    # retired labels by parsing the YAML, which cannot be fooled by prose.
     assert "npm --prefix desktop run build:python:mac" in workflow_text
     assert "npm --prefix desktop run dist:dmg:${{ matrix.arch }}" in workflow_text
     assert "desktop/dist/*.dmg" in workflow_text
