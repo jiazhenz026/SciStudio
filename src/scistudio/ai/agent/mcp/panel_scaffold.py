@@ -273,8 +273,9 @@ def scaffold_interactive_block(
         "panel with no exit strands the user on a paused run."
     )
     warnings.append(
-        f"Fill the three TODO(scaffold) markers: the payload reduction in prepare_prompt, "
-        f"the content area of {panel_dirname}/{PANEL_MODULE_FILENAME}, and the compute body of run()."
+        f"Three things are left for you, each marked in the generated files: the payload "
+        f"reduction in prepare_prompt, the content area of "
+        f"{panel_dirname}/{PANEL_MODULE_FILENAME}, and the compute body of run()."
     )
     warnings.append(
         "Then call reload_blocks and read its diagnostics: it is what tells you whether the "
