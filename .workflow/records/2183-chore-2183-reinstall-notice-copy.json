@@ -1,0 +1,79 @@
+{
+  "base_ref": null,
+  "branch": "chore/2183-reinstall-notice-copy",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "scripts/templates",
+      "tests/scripts"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-08-26T00:16:57.722204Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "The notice page's contract is unchanged -- same placeholders, same clipboard behaviour, same delivery as a mandatory patch. docs/specs/desktop-shell-ota-hot-update.md section 8.1 describes that contract, not the wording, and the template's own comment states the wording is expected to be edited per release.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2183,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Open a PR to land the reinstall notice copy that was actually shipped.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2183-chore-2183-reinstall-notice-copy",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-26T00:16:57.722166Z",
+      "pattern": "scripts/templates/reinstall-notice.html",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-26T00:16:57.722188Z",
+      "pattern": "tests/scripts/test_ota_publish.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "d0ea9d7a-32ba-4923-be1b-7206fc4935a3",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-08-26T00:16:57.722213Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/scripts/test_ota_publish.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

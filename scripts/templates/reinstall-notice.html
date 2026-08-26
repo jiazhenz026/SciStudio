@@ -41,9 +41,39 @@
         color: var(--fg);
         font: 16px/1.6 -apple-system, "Segoe UI", system-ui, sans-serif;
       }
-      .card { max-width: 34rem; text-align: center; }
+      .card { max-width: 42rem; text-align: center; }
       h1 { font-size: 1.5rem; margin: 0 0 0.75rem; }
       p { color: var(--muted); margin: 0 0 1.75rem; }
+      /* The release summary is a long list, so it reads left-aligned even
+         though the card as a whole is centred around the address field. */
+      section { text-align: left; margin: 0 0 1.25rem; }
+      h2 {
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--faint);
+        margin: 0 0 0.4rem;
+      }
+      ul { margin: 0; padding-left: 1.1rem; color: var(--muted); }
+      li { margin: 0 0 0.3rem; }
+      b { color: var(--fg); font-weight: 600; }
+      kbd {
+        font: inherit;
+        font-size: 0.85em;
+        padding: 0.05rem 0.35rem;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        background: var(--field);
+      }
+      .lede {
+        margin: 2rem 0 1.25rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--line);
+      }
+      /* `why` now introduces the page, so it carries no separator. The rule
+         moved onto `lede`, which is where the action block ends and the
+         release summary begins. */
+      .why { margin: 0 0 1.5rem; font-size: 0.95rem; }
       .row { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
       input {
         flex: 1 1 20rem;
@@ -66,23 +96,74 @@
         cursor: pointer;
       }
       button:hover { background: var(--accent-hover); }
+      /* Sits directly above the address field: the instruction and the thing it
+         refers to must not be separated by anything the eye has to cross. */
+      .how { margin: 0 0 0.75rem; color: var(--fg); font-size: 0.95rem; }
       .status { height: 1.5rem; margin-top: 0.75rem; font-size: 0.9rem; color: var(--ok); }
       .version { margin-top: 2rem; font-size: 0.8rem; color: var(--faint); }
     </style>
   </head>
   <body>
     <div class="card">
-      <h1>Please download the latest SciStudio</h1>
-      <p>
-        This release changes parts of the app that cannot be delivered as an
-        update, so it needs to be installed once. Updates after this one apply
-        automatically.
+      <h1>SciStudio 0.3.4 is here</h1>
+
+      <p class="why">
+        This release changes how the app starts, which is the one part an update
+        cannot replace, so it needs installing once.
       </p>
+
+      <p class="how">
+        Copy this address into a browser to download the latest SciStudio.
+      </p>
+
       <div class="row">
         <input id="url" value="__DOWNLOAD_URL__" readonly aria-label="Download address" />
         <button id="copy" type="button">Copy</button>
       </div>
       <div class="status" id="status" role="status"></div>
+
+      <p class="lede">A major update. Here is what is new since your last update.</p>
+
+      <section>
+        <h2>Learning</h2>
+        <ul>
+          <li><b>Learning Center</b> — six core tutorials that are real, runnable
+            projects: your first workflow, what a type is, multimodal analysis
+            with git branches, what AI can and cannot do, a tour of SciStudio,
+            and starting a project of your own</li>
+          <li><b>Mio</b>, the built-in assistant, now guides you through them in
+            dialogue</li>
+          <li>The <b>Reading</b> tab opens the shipped user guide and API
+            reference in the app, instead of sending you to a browser</li>
+          <li>Packages can ship their own tutorials</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Left sidebar</h2>
+        <ul>
+          <li>Rebuilt as a VS Code-style icon rail. Click the active icon or
+            press <kbd>Ctrl</kbd>+<kbd>B</kbd> to collapse it</li>
+          <li>New <b>Workflows</b> section — every workflow in the project, with
+            its description, one click to open</li>
+          <li>New <b>Previewers</b> section — every registered previewer grouped
+            by where it came from, and you can choose which one renders a type,
+            per project or everywhere</li>
+          <li><b>Data types</b> and <b>Blocks</b> reload when you switch to them</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Fixes</h2>
+        <ul>
+          <li>The Learning Center no longer reopens itself every launch</li>
+          <li>A project registry written by a newer build no longer blocks
+            startup</li>
+          <li>Re-running a block that writes an array no longer fails on
+            Windows</li>
+        </ul>
+      </section>
+
       <div class="version">__VERSION_LINE__</div>
     </div>
     <script>

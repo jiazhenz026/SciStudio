@@ -276,6 +276,42 @@ def test_reinstall_notice_page_can_be_copied_from(mod: ModuleType) -> None:
     assert "clipboard.writeText" in html
 
 
+def test_reinstall_notice_leads_with_the_address(mod: ModuleType) -> None:
+    """The address comes before the release summary, not after it (#2183).
+
+    This page exists to hand over one address. The summary was added during the
+    0.3.4 migration and initially sat above it, so the only action the user has
+    to take waited behind three sections of release notes. Ordering is a layout
+    choice with no runtime signal, which is exactly the kind that gets undone by
+    accident in a later copy edit.
+    """
+    html = mod.render_reinstall_notice("https://example.test/download", "x")
+    address_at = html.index('id="url"')
+    summary_at = html.index("<h2>")
+    assert address_at < summary_at, "the release summary was moved above the address"
+
+
+def test_reinstall_notice_says_what_to_do_with_the_address(mod: ModuleType) -> None:
+    # A bare field and a Copy button do not say where to paste it. The page is
+    # shown inside the app, so "open this in a browser" is not obvious.
+    html = mod.render_reinstall_notice("https://example.test/download", "x")
+    assert "browser" in html.lower()
+
+
+def test_reinstall_notice_does_not_promise_notarization(mod: ModuleType) -> None:
+    """A drafted section claimed macOS builds open without a right-click.
+
+    The 0.3.4 dmgs ship signed but not stapled, so that is false until the
+    staple workflow has run and the release assets have been replaced. A notice
+    page is the wrong place to make a claim about the build the user is being
+    sent to download, since the page outlives whatever was true when it was
+    written.
+    """
+    html = mod.render_reinstall_notice("https://example.test/download", "x").lower()
+    assert "notarized" not in html
+    assert "right-click" not in html
+
+
 def test_snapshot_replaces_the_spa_with_the_notice(mod: ModuleType, tmp_path: Path) -> None:
     src = tmp_path / "backend" / "src"
     static = src / "scistudio" / "api" / "static"
