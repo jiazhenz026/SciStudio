@@ -196,7 +196,7 @@ class DAGScheduler:
         if self._disposed:
             return
         # #2187: cancel any pending resource-retry timer so a disposed
-        # scheduler never fires a polling pass into a later run's event bus.
+        # scheduler never fires a polling pass into another run's event bus.
         if self._resource_retry_handle is not None:
             self._resource_retry_handle.cancel()
             self._resource_retry_handle = None
