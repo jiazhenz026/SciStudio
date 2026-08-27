@@ -114,7 +114,7 @@ describe("<InteractiveModals> panel resolution", () => {
   it("routes a package manifest with a module_url to the dynamic panel host", () => {
     seedPrompt({
       panel_id: "myproj.foo",
-      module_url: "/api/interactive/panels/myproj.foo/index.js",
+      module_url: "/api/blocks/panels/myproj.foo/index.js",
       api_version: "1",
     });
 

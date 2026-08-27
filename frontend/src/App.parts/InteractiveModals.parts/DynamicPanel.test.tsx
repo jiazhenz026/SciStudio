@@ -9,7 +9,7 @@ afterEach(cleanup);
 
 const MANIFEST: PanelManifestDescriptor = {
   panel_id: "pkg.panel",
-  module_url: "/api/interactive/panels/pkg.panel/index.js",
+  module_url: "/api/blocks/panels/pkg.panel/index.js",
   export_name: "default",
   api_version: "1",
 };

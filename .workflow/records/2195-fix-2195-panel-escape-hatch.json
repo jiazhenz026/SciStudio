@@ -101,6 +101,38 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-08-27T21:37:41.003787Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:aabcc09170ff97e9237d3381c1d3108e69d7effd809e9578a3e10d097a03289c",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-08-27T21:40:15.081317Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:96f2e507eff833ba8076bb24b09eacb2fcf691d36cd14ddf1ce8a35a3f0e7b72",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -636,6 +668,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-08-27T21:40:15.144558Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-27T21:40:15.159370Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-27T21:40:15.174420Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-27T21:40:15.189426Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-27T21:40:15.203484Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-27T21:40:15.218131Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-27T21:40:15.232041Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-27T21:40:15.245689Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-27T21:40:15.258847Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-27T21:40:15.271925Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-08-27T21:40:15.288308Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -648,29 +768,31 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "2543d2e901261d43774f83cfbcaaa4cd4151ce2c",
+    "base": "main",
     "base_sha": "2543d2e90",
     "changed_files": [
       ".workflow/records/2195-fix-2195-panel-escape-hatch.json",
       "frontend/src/App.parts/InteractiveModals.parts/DynamicPanel.test.tsx",
       "frontend/src/App.parts/InteractiveModals.parts/DynamicPanel.tsx",
+      "frontend/src/App.parts/InteractiveModals.parts/panelModuleLoader.test.ts",
+      "frontend/src/App.parts/InteractiveModals.parts/panelModuleLoader.ts",
       "frontend/src/App.parts/InteractiveModals.test.tsx",
       "frontend/src/App.parts/InteractiveModals.tsx"
     ],
-    "diff_fingerprint": "sha256:5d25abf9c84c54f1b8e8d493786b8ea2b8aa991c7a611d3f766f7f460803f1e7",
+    "diff_fingerprint": "sha256:163c3b3b62402436a3261a6c46e98ea4a3431f22a56f2769e11231a26921599e",
     "head": "HEAD",
-    "head_sha": "6541e032a",
+    "head_sha": "dbf9c5687",
     "surfaces": {
       "docs": 0,
-      "frontend": 4,
+      "frontend": 6,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 4,
+      "implementation": 6,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 4,
-      "test": 2,
+      "sentrux": 6,
+      "test": 3,
       "workflow_ci": 0
     }
   },
@@ -730,6 +852,14 @@
     {
       "at": "2026-08-26T21:02:52.114931Z",
       "diff_fingerprint": "sha256:5d25abf9c84c54f1b8e8d493786b8ea2b8aa991c7a611d3f766f7f460803f1e7",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-08-27T21:40:15.288340Z",
+      "diff_fingerprint": "sha256:163c3b3b62402436a3261a6c46e98ea4a3431f22a56f2769e11231a26921599e",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
