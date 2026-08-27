@@ -216,6 +216,7 @@ amendment.
 - [x] Title-bar X + ESC escape hatch -> PR #2199, commit `1d1e8d9ae`, `frontend/src/App.parts/InteractiveModals.parts/DynamicPanel.tsx`
 - [x] `return null` branch replaced with error surface + Cancel -> PR #2199, commit `1d1e8d9ae`, `frontend/src/App.parts/InteractiveModals.tsx`
 - [x] Tests -> `frontend/src/App.parts/InteractiveModals.test.tsx` (new, 6 tests), `frontend/src/App.parts/InteractiveModals.parts/DynamicPanel.test.tsx` (+7 tests)
+- [x] Stale asset-route comments and fixtures corrected (follow-up from A3's finding) -> PR #2199, commit `d3c1f1c93`, 5 lines across `panelModuleLoader.ts` (111, 126), `panelModuleLoader.test.ts:12`, `DynamicPanel.test.tsx:12`, `InteractiveModals.test.tsx:117`
 - [x] Docs updated or N/A recorded -> docs N/A in `.workflow/records/2195-fix-2195-panel-escape-hatch.json`; no ADR, spec, or guide documents the interactive modal's chrome, and ADR-051 US3/FR-012 already promise the affordance this restores
 
 ### 7.4 Audit
@@ -233,7 +234,7 @@ amendment.
 - [x] Agent output reviewed by manager. -> manager read the full production diff of `InteractiveModals.tsx` and `DynamicPanel.tsx` on PR #2199, not the agent summary; verified `InteractivePrompt.blockType` is a required field (`frontend/src/store/types.ts:280`) so the title-bar name cannot be undefined
 - [x] Scope compliance verified. -> diff touches only `InteractiveModals.tsx`, `InteractiveModals.parts/**`, their tests, and the agent's own ledger; `panelModuleLoader.ts` untouched, so A3's comment fix is unaffected; `PANEL_HOST_API_VERSION`, `PanelHostApi`, and `PanelModule` unchanged
 - [x] Conflicts resolved intentionally. -> none; A2 and A3 own disjoint paths
-- [ ] Track merged or integrated. -> PR #2199 open against `main`, CI green, awaiting owner review and merge
+- [ ] Track merged or integrated. -> PR #2199 open against `main`, CI 16/16 green including `Frontend`, awaiting owner review and merge; independent of the #2201 -> #2200 order in §2.2
 
 #### 7.5.1 Manager Review Findings
 
@@ -242,12 +243,20 @@ amendment.
   Stop control. That was true before this change too, and the registry refuses
   to load an interactive block without a valid manifest, so it is not reachable
   through the documented path. #2196's validation closes the upstream cause.
+- **Follow-up folded in, not split out.** A3 found three more instances of the
+  stale `/api/interactive/panels/...` route in A1's directory; A1 fixed those
+  plus a fourth in the test file it had authored this task, which A3 could not
+  have seen. Line 8 was deliberately left alone so #2200 keeps sole ownership of
+  it and the two PRs do not collide on that line. Comment and fixture strings
+  only; no assertion changed except the fixture URL text.
 - **New UX risk introduced by the fix.** ESC now cancels the block from
   anywhere in the panel, discarding whatever the user had built up in it (a long
   labelling pass, a region selection). Before this change ESC did nothing. The
   X control is deliberate; ESC is easy to hit by accident. Raised with the owner
-  for a decision — options are to keep it, confirm before cancelling on ESC, or
-  drop ESC and keep X only. Recorded here so the decision is durable.
+  for a decision — options were to keep it, confirm before cancelling on ESC, or
+  drop ESC and keep X only. **Owner reviewed the tradeoff and chose to keep the
+  current behaviour.** No change to #2199. Recorded here so the decision is
+  durable.
 
 ## 8. Track: A2 — Interactive Contract Validation (#2196)
 
