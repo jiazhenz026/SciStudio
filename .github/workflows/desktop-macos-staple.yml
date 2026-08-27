@@ -58,7 +58,7 @@ jobs:
           exit 1
 
       - name: Download the dmg from the build run
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: ${{ github.event.inputs.artifact }}
           run-id: ${{ github.event.inputs.run_id }}
