@@ -133,12 +133,25 @@ export function InteractiveModals() {
   // window via the ADR-048 same-origin dynamic-import path. `onConfirm`/`onCancel`
   // are passed exactly as the registry entries receive them, so the run-scoped
   // `interactive_complete` / `cancel_block` frames are sent unchanged.
-  const moduleUrl = manifest?.module_url;
-  if (manifest && typeof moduleUrl === "string" && moduleUrl !== "") {
+  //
+  // #2195 — a manifest that resolves to NEITHER a core panel nor a usable
+  // `module_url` still routes here. `PanelManifest.module_url` defaults to `""`
+  // and the registry only requires a non-empty `panel_id`, so a block that
+  // forgets `module_url` registers, runs, and pauses; the old code returned
+  // `null` and left the run sitting in PAUSED with no window and only a
+  // `console.warn`. `mountDynamicPanel` rejects an empty url as a typed
+  // `invalid_module_url` failure, so handing the manifest to <DynamicPanel>
+  // gives the misconfiguration the same visible error surface + Cancel every
+  // other load failure already gets.
+  if (manifest) {
+    if (!manifest.module_url) {
+      console.warn(`[InteractiveModals] no registered panel for manifest panel_id "${panelId}"`);
+    }
     return (
       <DynamicPanel
         manifest={manifest}
         blockId={interactivePrompt.blockId}
+        blockName={interactivePrompt.blockType}
         panelPayload={interactivePrompt.panelPayload}
         onConfirm={onConfirm}
         onCancel={onCancel}
@@ -146,10 +159,8 @@ export function InteractiveModals() {
     );
   }
 
-  // Neither a registered core panel nor a package `module_url`: nothing to
-  // render. Warn so a misconfigured manifest is visible in the console.
-  if (panelId) {
-    console.warn(`[InteractiveModals] no registered panel for manifest panel_id "${panelId}"`);
-  }
+  // No panel manifest at all: this prompt does not describe a window, so there
+  // is nothing for the host to draw and no overlay to trap the user behind —
+  // the Toolbar's Stop control stays reachable.
   return null;
 }

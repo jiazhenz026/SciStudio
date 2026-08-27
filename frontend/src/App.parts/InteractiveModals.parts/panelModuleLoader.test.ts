@@ -9,7 +9,7 @@ import {
   mountDynamicPanel,
 } from "./panelModuleLoader";
 
-const GOOD_URL = "/api/interactive/panels/pkg.panel/index.js";
+const GOOD_URL = "/api/blocks/panels/pkg.panel/index.js";
 
 function makeHost(overrides: Partial<PanelHostApi> = {}): PanelHostApi {
   return {
