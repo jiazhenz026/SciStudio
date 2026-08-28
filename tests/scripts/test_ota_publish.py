@@ -69,6 +69,46 @@ def test_next_build_never_below_baseline(mod: ModuleType) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# resolve_build_number (#2206)
+# --------------------------------------------------------------------------- #
+def test_build_number_follows_the_sequence_without_an_override(mod: ModuleType) -> None:
+    assert mod.resolve_build_number(None, 31, 30, None) == 32
+
+
+def test_override_names_the_build_outright(mod: ModuleType) -> None:
+    assert mod.resolve_build_number(40, 31, 30, None) == 40
+
+
+def test_override_may_publish_below_the_sequence_for_an_older_base(mod: ModuleType) -> None:
+    # The notice window: above what 0.3.3 clients applied (25), at or below the
+    # 0.3.4 installer baseline (30) so 0.3.4 clients still evaluate up-to-date.
+    assert mod.resolve_build_number(28, 31, 30, "0.3.3") == 28
+
+
+def test_override_below_the_sequence_is_refused_without_a_target_base(mod: ModuleType) -> None:
+    # Publishing backwards with no older population named would either reach
+    # nobody or replace a working SPA with the notice.
+    with pytest.raises(ValueError, match="--min-base"):
+        mod.resolve_build_number(28, 31, 30, None)
+
+
+def test_override_equal_to_the_sequence_is_refused_without_a_target_base(mod: ModuleType) -> None:
+    with pytest.raises(ValueError, match="at or below"):
+        mod.resolve_build_number(31, 31, 30, None)
+
+
+def test_override_below_the_sequence_counts_the_baseline_too(mod: ModuleType) -> None:
+    # No patch published yet, but a shipped installer already reports build 30.
+    with pytest.raises(ValueError, match=r"sequence \(30\)"):
+        mod.resolve_build_number(30, None, 30, None)
+
+
+def test_override_must_be_a_positive_build(mod: ModuleType) -> None:
+    with pytest.raises(ValueError, match="positive"):
+        mod.resolve_build_number(0, 31, 30, "0.3.3")
+
+
+# --------------------------------------------------------------------------- #
 # naming / urls
 # --------------------------------------------------------------------------- #
 def test_asset_and_url_and_tag(mod: ModuleType) -> None:
@@ -296,6 +336,15 @@ def test_reinstall_notice_says_what_to_do_with_the_address(mod: ModuleType) -> N
     # shown inside the app, so "open this in a browser" is not obvious.
     html = mod.render_reinstall_notice("https://example.test/download", "x")
     assert "browser" in html.lower()
+
+
+def test_notice_names_the_readers_base_not_the_builds(mod: ModuleType) -> None:
+    # The page reaches 0.3.3 clients; 0.3.4 is what it sends them to download.
+    assert mod.notice_version_line("0.3.3", "0.3.4", 28) == "Installed 0.3.3 · update 28"
+
+
+def test_notice_falls_back_to_the_builds_base_without_a_target(mod: ModuleType) -> None:
+    assert mod.notice_version_line(None, "0.3.4", 28) == "Installed 0.3.4 · update 28"
 
 
 def test_reinstall_notice_does_not_promise_notarization(mod: ModuleType) -> None:
