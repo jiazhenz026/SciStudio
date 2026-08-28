@@ -207,6 +207,40 @@ that branch never downloads anything. The notice page would be built,
 uploaded, and never fetched, leaving the user at the plain native dialog the
 notice exists to avoid.
 
+**The notice also has to land in a build window, not just any build.** It is
+one manifest for the whole channel, so the build number is what keeps the page
+away from clients that are fine: the new-base population evaluates
+`up-to-date` for any build at or below the number their installer reports, and
+that is the only thing stopping the notice replacing their working SPA. The
+number must therefore be
+
+* **above** the last build the old-base clients applied, and
+* **at or below** the new installer's baseline build (`build0030` in
+  `SciStudio-0.3.4-alpha-build0030.dmg` means 30).
+
+`--min-build` then makes it mandatory for the old-base clients without touching
+the new ones, because `evaluateUpdate` returns `up-to-date` before it ever looks
+at `requires.min_build`.
+
+**Publishing anything else on the channel closes that window (#2206).** An
+ordinary patch for the new base overwrites `manifest.json` wholesale — its own
+`build`, and a `requires.min_base` back at the new base — and from that moment
+the old-base clients are on the native dialog again. Either hold the channel
+until the old base is retired, or restore the notice with `--build`:
+
+```bash
+python scripts/ota_publish.py --channel alpha --build 28 --min-build 28 \
+  --min-base 0.3.3 \
+  --reinstall-notice "https://github.com/jiazhenz026/SciStudio/releases/tag/v0.3.4-alpha"
+```
+
+`--build` names the number outright instead of taking the next one in the
+sequence, which by then is above the new baseline. It refuses to go backwards
+unless `--min-base` says which older population the publish is for. The
+new-base clients keep the last build they were given; they will not receive
+another until a publish rises above their number again, which closes the window
+a second time.
+
 Check the decision before publishing rather than reasoning about it:
 
 ```bash
@@ -220,6 +254,10 @@ console.log(JSON.stringify(ota.evaluateUpdate(
 )));   // must read kind:'patch', mandatory:true
 "
 ```
+
+Run it a second time for a client you are **not** migrating — the new base, at
+the build it is actually on — and require `kind:'none'`. That is the assertion
+that the window holds.
 
 ### 5.2 Making an update mandatory
 
