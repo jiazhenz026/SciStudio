@@ -33,76 +33,91 @@
 import { Bot } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import {
-  fetchAgentAvailability,
-  type AgentAvailabilityResponse,
-  type ProviderAvailability,
-} from "../../lib/api/agentAvailability";
-
 export const PROVIDER_INTRO_TITLE = "Meet the real agents";
 
 export const PROVIDER_INTRO_BODY =
-  "The agent in the tutorial was a recording. These are the real ones — coding-agent " +
-  "CLIs from their vendors, and SciStudio drives any of them in the same terminal you " +
-  "just used, with the same tools. Set up one and everything you watched works live, " +
-  "on your own data.";
+  "SciStudio's workflows are AI heavy. These are the providers we support:";
 
-export const PROVIDER_INTRO_CHECKING = "Checking this machine for the supported agent CLIs…";
+export const PROVIDER_INTRO_CHECKING = "Checking this machine…";
 
 export const PROVIDER_INTRO_UNAVAILABLE =
-  "The provider check did not answer. The full list — with per-provider setup guidance — " +
-  "is always available from the AI Chat tab's setup screen and the Bring in my work dialog.";
+  "The provider check did not answer. The AI Chat tab's setup screen has the same list.";
 
-export const PROVIDER_INTRO_FOOTNOTE =
-  "Nothing here is hidden behind progress: providers you have not set up stay listed and " +
-  "grayed, and every SciStudio surface that starts an agent offers all of them.";
+export const PROVIDER_INTRO_FOOTNOTE = "Not installed yet?";
 
-export const PROVIDER_INTRO_READY_NOTE = "Set up and working — nothing to do.";
+export const PROVIDER_INTRO_READY_NOTE = "Installed and signed in.";
 
 export const PROVIDER_INTRO_CONTINUE_LABEL = "Continue";
 
-const STATE_LABELS: Record<ProviderAvailability["state"], string> = {
+type ProviderState = "ready" | "not_authenticated" | "not_installed";
+
+/**
+ * One provider as `GET /api/ai/status` reports it.
+ *
+ * Deliberately the cheap endpoint. `/api/ai/availability` grades each provider
+ * by making a live call through its CLI — fifteen seconds of timeout each —
+ * so a surface about to start a session can know whether a request will
+ * actually succeed. This page asks a smaller question, "have you got one
+ * installed?", and `/api/ai/status` answers it from a two-second probe with no
+ * network in it.
+ */
+interface ProviderStatusRow {
+  name: string;
+  label: string;
+  available: boolean;
+  logged_in: boolean;
+}
+
+function stateOf(row: ProviderStatusRow): ProviderState {
+  if (!row.available) return "not_installed";
+  return row.logged_in ? "ready" : "not_authenticated";
+}
+
+const STATE_LABELS: Record<ProviderState, string> = {
   ready: "ready",
   not_authenticated: "installed — needs sign-in",
   not_installed: "not installed",
-  call_failed: "signed in — last call failed",
 };
 
-const STATE_CHIP_CLASSES: Record<ProviderAvailability["state"], string> = {
+const STATE_CHIP_CLASSES: Record<ProviderState, string> = {
   ready: "bg-emerald-100 text-emerald-700",
   not_authenticated: "bg-amber-100 text-amber-700",
   not_installed: "bg-stone-100 text-stone-500",
-  call_failed: "bg-rose-100 text-rose-700",
 };
 
 /** The configure line for one provider — the backend's words wherever it has any. */
-function configureLine(provider: ProviderAvailability): string {
-  if (provider.state === "ready") return PROVIDER_INTRO_READY_NOTE;
-  if (provider.next_step) return provider.next_step;
-  if (provider.state === "call_failed" && provider.cause) return provider.cause;
-  return STATE_LABELS[provider.state];
+/** Label for the link out to the installation guide. */
+export const PROVIDER_INTRO_GUIDE_LABEL = "Read the installation guide.";
+
+function configureLine(state: ProviderState): string {
+  return state === "ready" ? PROVIDER_INTRO_READY_NOTE : STATE_LABELS[state];
 }
 
 export interface ProviderIntroProps {
   onContinue: () => void;
+  /** Open the user guide's AI assistant page — how to install a provider. */
+  onOpenInstallGuide: () => void;
 }
 
-export function ProviderIntro({ onContinue }: ProviderIntroProps) {
-  const [availability, setAvailability] = useState<AgentAvailabilityResponse | null>(null);
+export function ProviderIntro({ onContinue, onOpenInstallGuide }: ProviderIntroProps) {
+  const [providers, setProviders] = useState<ProviderStatusRow[] | null>(null);
   const [probeFailed, setProbeFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    fetchAgentAvailability()
-      .then((report) => {
-        if (!cancelled) setAvailability(report);
-      })
-      .catch(() => {
-        // The card still works: prose plus a pointer at the surfaces that
-        // carry the list permanently, rather than an error about a report
+    void (async () => {
+      try {
+        const response = await fetch("/api/ai/status");
+        if (!response.ok) throw new Error(String(response.status));
+        const body = (await response.json()) as { providers: ProviderStatusRow[] };
+        if (!cancelled) setProviders(body.providers);
+      } catch {
+        // The card still works: the line plus a pointer at the surface that
+        // carries the list permanently, rather than an error about a report
         // nobody asked for.
         if (!cancelled) setProbeFailed(true);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -117,41 +132,51 @@ export function ProviderIntro({ onContinue }: ProviderIntroProps) {
 
       <p className="mt-3 text-sm leading-6 text-stone-600">{PROVIDER_INTRO_BODY}</p>
 
-      {availability === null ? (
+      {providers === null ? (
         <p className="mt-4 text-xs leading-5 text-stone-500" data-testid="provider-intro-checking">
           {probeFailed ? PROVIDER_INTRO_UNAVAILABLE : PROVIDER_INTRO_CHECKING}
         </p>
       ) : (
         <ul className="mt-4 space-y-2">
-          {availability.providers.map((provider) => {
-            const usable = provider.state === "ready";
+          {providers.map((provider) => {
+            const state = stateOf(provider);
             return (
               <li
-                className={`rounded-2xl border border-stone-200 p-3 ${usable ? "" : "opacity-60"}`}
-                data-testid={`provider-intro-${provider.key}`}
-                key={provider.key}
+                className={`rounded-2xl border border-stone-200 p-3 ${state === "ready" ? "" : "opacity-60"}`}
+                data-testid={`provider-intro-${provider.name}`}
+                key={provider.name}
               >
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-medium text-ink">{provider.label}</span>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATE_CHIP_CLASSES[provider.state]}`}
+                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATE_CHIP_CLASSES[state]}`}
                   >
-                    {STATE_LABELS[provider.state]}
+                    {STATE_LABELS[state]}
                   </span>
                 </div>
-                <p className="mt-1 text-xs leading-5 text-stone-600">{configureLine(provider)}</p>
-                {provider.session_unsupported_reason ? (
-                  <p className="mt-0.5 text-xs leading-5 text-stone-400">
-                    {provider.session_unsupported_reason}
-                  </p>
-                ) : null}
+                <p className="mt-1 text-xs leading-5 text-stone-600">{configureLine(state)}</p>
               </li>
             );
           })}
         </ul>
       )}
 
-      <p className="mt-3 text-xs leading-5 text-stone-500">{PROVIDER_INTRO_FOOTNOTE}</p>
+      <p className="mt-3 text-xs leading-5 text-stone-500">
+        {PROVIDER_INTRO_FOOTNOTE}{" "}
+        {/*
+         * #2083 — the list above says which providers are missing; this is the
+         * page that says what to do about it. Without it the reader is told
+         * "not installed" and left to search for the answer.
+         */}
+        <button
+          className="font-medium text-pine underline decoration-pine/40 underline-offset-2 hover:decoration-pine"
+          data-testid="provider-intro-install-guide"
+          onClick={() => onOpenInstallGuide()}
+          type="button"
+        >
+          {PROVIDER_INTRO_GUIDE_LABEL}
+        </button>
+      </p>
 
       <div className="mt-5 flex justify-end">
         <button

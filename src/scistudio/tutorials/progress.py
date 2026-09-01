@@ -67,24 +67,20 @@ CONFIG_FILENAME = "learning-center.json"
 #: it selects rather than for this module, because it is a product setting.
 WORK_IMPORT_MILESTONE_ENV_VAR = "SCISTUDIO_WORK_IMPORT_MILESTONE"
 
-#: Unset while the level it belongs to is not shipped.
+#: The AI level, which ships in this branch (#2083).
 #:
 #: The scenarios doc's 关卡 4 结尾 places the one-time work-import offer
 #: immediately after the AI level — "AI can do all this; want it to bring your
-#: whole codebase across?" — so the milestone becomes ``what-ai-can-do`` once
-#: that level ships. It does not ship here, and naming an absent tutorial would
-#: be a milestone no reader can reach: the offer would never fire and nothing
-#: would say why.
-#:
-#: TODO(#2083): set this to ``"what-ai-can-do"`` when core tutorial 4 ships.
-#:   Out of scope per the owner's decision to land levels 1-2 on their own.
-#:   Followup: https://github.com/jiazhenz026/SciStudio/issues/2083
+#: whole codebase across?" — and this is where that lands. It was ``None``
+#: while the level did not exist, because naming an absent tutorial would be a
+#: milestone no reader can reach: the offer would never fire and nothing would
+#: say why.
 #:
 #: Still configuration, not a constant (FR-079, assumption A-005): the env
 #: var and the settings file both override it, and a future scenarios
 #: revision can move it without touching the unlock's logic. See
 #: :func:`work_import_milestone`.
-DEFAULT_WORK_IMPORT_MILESTONE: str | None = None
+DEFAULT_WORK_IMPORT_MILESTONE: str | None = "what-ai-can-do"
 
 _SCHEMA_VERSION = 1
 

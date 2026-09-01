@@ -14,7 +14,9 @@ Design (issue #1775):
 * The build number is the patch sequence. Its source of truth is the published
   manifest, not any local counter: the next build is
   ``max(latest_published_build, installer_baseline_build) + 1`` so it is always
-  strictly greater than what any shipped installer reports.
+  strictly greater than what any shipped installer reports. ``--build`` names a
+  number outright, for the one case the sequence cannot express (#2206): a
+  reinstall notice aimed at clients the sequence has already moved past.
 * ``base`` (the ``a.b.c`` from ``desktop/package.json``) is the installer
   baseline. The patch records ``requires.min_base = base``; a client whose
   installer base is older must reinstall instead of hot-patching.
@@ -61,6 +63,7 @@ REINSTALL_NOTICE_TEMPLATE = REPO_ROOT / "scripts" / "templates" / "reinstall-not
 # and a manifest inside the patch would be the patch describing itself.
 SHELL_FILES = (
     "main.js",
+    "menu.js",
     "ota.js",
     "runtime-port.js",
     "preload.js",
@@ -106,6 +109,42 @@ def next_build_number(latest_published_build: int | None, baseline_build: int) -
     if latest_published_build is not None:
         candidates.append(latest_published_build)
     return max(candidates) + 1
+
+
+def resolve_build_number(
+    override: int | None,
+    latest_published_build: int | None,
+    baseline_build: int,
+    min_base: str | None,
+) -> int:
+    """Pick the build number this publish will carry.
+
+    Without an override the sequence is monotonic (``next_build_number``).
+
+    #2206: the reinstall notice reaches old-base clients by sitting in a build
+    *window* -- strictly above the last build those clients applied, and at or
+    below the new installer's baseline, so the new-base population evaluates
+    ``up-to-date`` and keeps its working SPA. Once an ordinary patch for the new
+    base is published, the monotonic sequence has walked past that window and
+    the notice can only be restored by naming its number.
+
+    Going backwards is therefore legitimate, and only for that case: it is
+    refused unless ``--min-base`` names the older population the publish is
+    aimed at. A build at or below the sequence with no such target would land
+    on nobody at best, and replace a working SPA with a notice at worst.
+    """
+    if override is None:
+        return next_build_number(latest_published_build, baseline_build)
+    if override < 1:
+        raise ValueError(f"--build must be a positive build number; got {override}.")
+    sequence = max(baseline_build, latest_published_build or 0)
+    if override <= sequence and not min_base:
+        raise ValueError(
+            f"--build {override} is at or below the current sequence ({sequence}). "
+            "Only a migration notice aimed at an older base may publish backwards; "
+            "pass --min-base <that base> as well, or drop --build."
+        )
+    return override
 
 
 def asset_name(build: int) -> str:
@@ -193,6 +232,17 @@ def render_reinstall_notice(download_url: str, version_line: str) -> str:
         raise SystemExit(f"Missing template: {REINSTALL_NOTICE_TEMPLATE}")
     html = REINSTALL_NOTICE_TEMPLATE.read_text(encoding="utf-8")
     return html.replace("__DOWNLOAD_URL__", download_url).replace("__VERSION_LINE__", version_line)
+
+
+def notice_version_line(min_base: str | None, build_base: str, build: int) -> str:
+    """The "Installed X · update N" line at the foot of the reinstall notice.
+
+    #2206: it names what the *reader* is running, and the reader is the old-base
+    population ``--min-base`` selects -- not this build's own base, which is the
+    version they are being sent to download. Taking it from the publishing
+    checkout put "Installed 0.3.4" in front of every 0.3.3 user.
+    """
+    return f"Installed {min_base or build_base} · update {build}"
 
 
 def shell_sources(desktop_dir: Path = DESKTOP_DIR) -> list[Path]:
@@ -365,6 +415,19 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--build",
+        type=int,
+        default=None,
+        help=(
+            "#2206: publish this exact build number instead of the next one in the "
+            "monotonic sequence. Needed to restore a migration notice after an "
+            "ordinary patch has advanced the channel past the notice's build window: "
+            "pick a number above the last build the old-base clients applied and at or "
+            "below the new installer's baseline, so the new-base population still "
+            "evaluates up-to-date. Requires --min-base when it goes backwards."
+        ),
+    )
+    parser.add_argument(
         "--reinstall-notice",
         metavar="URL",
         default=None,
@@ -390,15 +453,24 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("Refusing to publish an OTA patch on the 'stable' channel; pass --channel.")
     tag = channel_tag(channel)
 
-    latest = None if args.dry_run else fetch_latest_build(args.repo, tag)
-    build = next_build_number(latest, baseline["build"])
+    # A dry run normally skips the network and reports a meaningless build. With
+    # an explicit --build the number is the thing under review, and the guard that
+    # accepts it reads the latest published build -- so fetch it either way, or the
+    # rehearsal would not exercise the check the real publish makes.
+    latest = fetch_latest_build(args.repo, tag) if args.build is not None or not args.dry_run else None
+    try:
+        build = resolve_build_number(args.build, latest, baseline["build"], args.min_base)
+    except ValueError as error:
+        parser.error(str(error))
     name = asset_name(build)
 
     workdir = Path(tempfile.mkdtemp(prefix="scistudio-ota-"))
     tarball = workdir / name
     notice = None
     if args.reinstall_notice:
-        notice = render_reinstall_notice(args.reinstall_notice, f"Installed {baseline['base']} · update {build}")
+        notice = render_reinstall_notice(
+            args.reinstall_notice, notice_version_line(args.min_base, baseline["base"], build)
+        )
         print(f"Snapshot SPA replaced with the reinstall notice -> {args.reinstall_notice}")
 
     print(f"Packing snapshot of {src_dir} -> {tarball.name} ...")

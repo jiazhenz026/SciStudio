@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 
 import { useReloadFlash } from "../hooks/useReloadFlash";
 import { api } from "../lib/api";
+import { openDataFileAsPreview } from "../lib/openDataFile";
 import { useAppStore } from "../store";
 import type { TreeEntry } from "../types/api";
 import { ContextMenu } from "./ProjectTree.parts/ContextMenu";
@@ -25,6 +26,20 @@ interface ProjectTreeProps {
   rootPath?: string;
   /** Panel title; defaults to "Project". The Data section passes "Data". */
   title?: string;
+  /**
+   * ADR-053 FR-011 — the name a tutorial's `highlight` addresses this panel
+   * by, stamped on the root element for the Learning Center to find. Only the
+   * Data section sets it: the Project tree is not somewhere a tutorial sends
+   * anyone, and an unset attribute is what keeps the two trees telling apart.
+   */
+  tutorialTarget?: string;
+  /**
+   * Directories to open on first load, project-relative. The Data section
+   * passes `data/raw`: a panel that opens on a single closed folder tells the
+   * reader nothing, and the file's *name* is the subject of core tutorial 3's
+   * opening. Must be a stable reference.
+   */
+  initiallyExpanded?: readonly string[];
 }
 
 function fileIcon(entry: TreeEntry): string {
@@ -48,7 +63,26 @@ function formatSize(size: number | null | undefined): string {
 
 // ADR-036 §3.5 (Phase 2C / I36c): file extensions the embedded Monaco editor
 // knows how to render. Anything outside this set is ignored on double-click.
+// NOTE: the Data tree (rootPath === "data") never reaches this list — #2112
+// routes every data-file double-click to a preview tab instead.
 const EDITABLE_EXTENSIONS: readonly string[] = ["py", "r", "txt", "md", "json", "csv"];
+// Directory-backed dataset stores the preview backend accepts (#2112).
+const STORE_DIRECTORY_EXTENSIONS: readonly string[] = ["zarr"];
+
+/**
+ * #2112 — Data-tree double-click: register the file with the data catalog and
+ * open the returned `data_ref` target in a preview tab, asking which type to
+ * open it as when the extension is ambiguous. Async because the catalog
+ * round-trip must complete before the tab can open; failures are logged and
+ * leave the UI untouched (no editor fallback).
+ */
+async function openDataFilePreview(projectId: string, node: TreeNodeData): Promise<void> {
+  try {
+    await openDataFileAsPreview(projectId, node.path, node.name);
+  } catch (err) {
+    console.error(`Failed to open data preview for ${node.path}:`, err);
+  }
+}
 
 function TreeNodeRow({
   node,
@@ -92,9 +126,25 @@ function handleDoubleClickRoute(
   node: TreeNodeData,
   onLoadWorkflow: (filePath: string, displayName: string) => void,
   onReloadBlocks: () => void,
+  rootPath: string,
+  projectId: string,
 ): void {
-  if (node.type === "directory") return;
+  // Directory-backed dataset stores (e.g. `.zarr`) are reported by the tree
+  // API as directories, but `POST /api/data/register-path` accepts them, so
+  // they must reach the preview branch before the directory early return.
   const ext = node.name.split(".").pop()?.toLowerCase() ?? "";
+  const isStoreDirectory = node.type === "directory" && STORE_DIRECTORY_EXTENSIONS.includes(ext);
+
+  // #2112 — in the Data tree every file double-click opens a preview tab.
+  // Preview takes precedence over the editor, so this branch runs before the
+  // workflows/blocks/EDITABLE_EXTENSIONS routing below (data/ paths would not
+  // match those prefixes anyway, but csv would hit the editable list).
+  if (rootPath === "data" && (node.type === "file" || isStoreDirectory)) {
+    void openDataFilePreview(projectId, node);
+    return;
+  }
+
+  if (node.type === "directory") return;
 
   // Double-click .yaml in workflows/ -> load workflow (#796).
   if ((ext === "yaml" || ext === "yml") && node.path.startsWith("workflows/")) {
@@ -126,8 +176,14 @@ export function ProjectTree({
   onReloadBlocks,
   rootPath = "",
   title = "Project",
+  tutorialTarget,
+  initiallyExpanded,
 }: ProjectTreeProps) {
-  const { rootNodes, loading, refresh, handleToggle } = useTreeNodes(projectId, rootPath);
+  const { rootNodes, loading, refresh, handleToggle } = useTreeNodes(
+    projectId,
+    rootPath,
+    initiallyExpanded,
+  );
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   // Blink the tree once a Reload actually lands (same feedback as the palette).
   const { ref: treeRef, trigger: triggerFlash } = useReloadFlash<HTMLDivElement, TreeNodeData[]>(
@@ -141,9 +197,9 @@ export function ProjectTree({
 
   const handleDoubleClick = useCallback(
     (node: TreeNodeData) => {
-      handleDoubleClickRoute(node, onLoadWorkflow, onReloadBlocks);
+      handleDoubleClickRoute(node, onLoadWorkflow, onReloadBlocks, rootPath, projectId);
     },
-    [onLoadWorkflow, onReloadBlocks],
+    [onLoadWorkflow, onReloadBlocks, rootPath, projectId],
   );
 
   const handleContextMenu = useCallback((event: React.MouseEvent, node: TreeNodeData) => {
@@ -181,7 +237,10 @@ export function ProjectTree({
   };
 
   return (
-    <aside className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-4">
+    <aside
+      className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-4"
+      data-tutorial-target={tutorialTarget}
+    >
       <div className="flex items-center justify-between gap-2">
         <p className="font-display text-xl text-ink">{title}</p>
         <button className="toolbar-button" disabled={loading} onClick={handleRefresh} type="button">

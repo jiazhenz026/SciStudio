@@ -101,16 +101,21 @@ test("the loader records the boot attempt before requiring the shell", () => {
   assert.ok(recordAt < startAt, "recordBootAttempt must precede startShell");
 });
 
-test("the shell clears the boot marker only once the runtime is up", () => {
-  // Clearing it any earlier would make the marker mean "we tried" rather than
+test("the shell clears the boot marker only from the known-good path", () => {
+  // Clearing it anywhere else would make the marker mean "we tried" rather than
   // "we succeeded", and a crash-looping shell would never be refused.
+  // #2179 moved *when* that path runs -- it now waits for the renderer to paint
+  // rather than for the backend to answer -- but the marker must still be
+  // cleared from recordKnownGood and nowhere else.
   const main = read("main.js");
   const clearAt = main.indexOf("host().clearBootAttempt()");
   assert.ok(clearAt > 0, "main.js must clear the marker");
-  assert.match(
-    main.slice(Math.max(0, clearAt - 400), clearAt),
-    /function recordKnownGood/,
-    "the marker must be cleared from recordKnownGood, which runs after HTTP readiness"
+  const declAt = main.lastIndexOf("function recordKnownGood", clearAt);
+  assert.ok(declAt > 0 && declAt < clearAt, "the marker must be cleared from recordKnownGood");
+  assert.equal(
+    main.slice(declAt, clearAt).indexOf("\nfunction "),
+    -1,
+    "another function declaration sits between recordKnownGood and the clear"
   );
 });
 
@@ -154,9 +159,11 @@ test("the loader persists its diagnostics instead of only writing stdout", () =>
 
 test("the app installs its own menu instead of inheriting Electron's default", () => {
   // The default menu is why macOS showed a stale version and Windows had no
-  // About item at all.
+  // About item at all. #2159 moved the template into the pure, unit-testable
+  // desktop/menu.js; main.js only has to install it.
   const main = read("main.js");
-  assert.match(main, /Menu\.setApplicationMenu\(buildAppMenu\(\)\)/);
+  assert.match(main, /require\("\.\/menu"\)/);
+  assert.match(main, /Menu\.setApplicationMenu\(Menu\.buildFromTemplate\(template\)\)/);
 });
 
 test("About reports the effective build, never app.getVersion()", () => {
@@ -199,19 +206,37 @@ test("About carries the licence and copyright, pinned to the repository", () => 
 
 test("every platform can reach About", () => {
   // macOS gets it in the application menu, Windows and Linux in File -- which
-  // previously held nothing but Quit.
-  const main = read("main.js");
-  const build = main.slice(main.indexOf("function buildAppMenu()"), main.indexOf("function createWindow(url)"));
-  assert.match(build, /label:\s*"About SciStudio"/);
-  assert.match(build, /isMac \? \[\{ role: "close" \}\] : \[about,/);
-  assert.match(build, /macAppMenu/);
+  // previously held nothing but Quit. The template lives in menu.js (#2159);
+  // unlike main.js it is pure, so assert on the built template directly.
+  const { buildMenuTemplate } = require("../menu");
+  const deps = {
+    appName: "SciStudio",
+    sendMenuAction: () => {},
+    checkForUpdates: () => {},
+    showAbout: () => {},
+  };
+  const hasAbout = (submenu) => submenu.some((item) => item.label === "About SciStudio");
+
+  const mac = buildMenuTemplate({ ...deps, platform: "darwin" });
+  assert.ok(hasAbout(mac[0].submenu), "macOS app menu must carry About");
+
+  const win = buildMenuTemplate({ ...deps, platform: "win32" });
+  const file = win.find((item) => item.label === "File");
+  assert.ok(hasAbout(file.submenu), "File menu must carry About on Windows/Linux");
 });
 
 test("replacing the default menu keeps the standard roles", () => {
   // Without these, copy/paste and the developer tools lose their accelerators.
-  const main = read("main.js");
-  const build = main.slice(main.indexOf("function buildAppMenu()"), main.indexOf("function createWindow(url)"));
+  const { buildMenuTemplate } = require("../menu");
+  const template = buildMenuTemplate({
+    platform: "win32",
+    appName: "SciStudio",
+    sendMenuAction: () => {},
+    checkForUpdates: () => {},
+    showAbout: () => {},
+  });
+  const roles = template.map((item) => item.role);
   for (const role of ["editMenu", "viewMenu", "windowMenu"]) {
-    assert.ok(build.includes(`{ role: "${role}" }`), `missing role ${role}`);
+    assert.ok(roles.includes(role), `missing role ${role}`);
   }
 });

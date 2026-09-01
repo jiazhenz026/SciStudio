@@ -19,6 +19,8 @@
     "dist:dir": "powershell -ExecutionPolicy Bypass -Command \"Remove-Item -LiteralPath dist\\win-unpacked -Recurse -Force -ErrorAction SilentlyContinue\" && electron-builder --dir",
     "dist:win": "powershell -ExecutionPolicy Bypass -Command \"if (Test-Path 'dist\\win-unpacked') { Remove-Item -LiteralPath 'dist\\win-unpacked' -Recurse -Force }; if (Test-Path 'dist') { Get-ChildItem -Path 'dist' -Filter '*.exe' -File -ErrorAction SilentlyContinue | Remove-Item -Force }\" && electron-builder --win nsis --x64",
     "dist:dmg": "electron-builder --mac dmg --arm64",
+    "dist:dmg:arm64": "electron-builder --mac dmg --arm64",
+    "dist:dmg:x64": "electron-builder --mac dmg --x64",
     "dist:linux": "electron-builder --linux AppImage"
   },
   "dependencies": {},
@@ -36,6 +38,7 @@
     "files": [
       "bootstrap.js",
       "main.js",
+      "menu.js",
       "ota.js",
       "runtime-port.js",
       "preload.js",
@@ -79,6 +82,9 @@
       "entitlements": "assets/entitlements.mac.plist",
       "entitlementsInherit": "assets/entitlements.mac.plist",
       "notarize": false
+    },
+    "dmg": {
+      "artifactName": "${productName}-${version}-${arch}.dmg"
     },
     "linux": {
       "target": [

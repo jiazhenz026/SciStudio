@@ -204,6 +204,7 @@ ROUTE_TARGETS: frozenset[str] = frozenset(
         "git",
         "canvas",
         "block_palette",
+        "data",
         "data_types",
         "workflows",
         "previewers",
@@ -251,10 +252,16 @@ HIGHLIGHT_SPECS: tuple[HighlightSpec, ...] = (
     HighlightSpec(name="block_palette", points_at="the block palette as a whole"),
     HighlightSpec(name="canvas", points_at="the workflow canvas as a whole"),
     HighlightSpec(name="data_preview", points_at="the data preview surface"),
+    HighlightSpec(name="data", points_at="the Data section of the left panel"),
     HighlightSpec(name="previewer_palette", points_at="the Previewers list in the left panel"),
     HighlightSpec(name="type_palette", points_at="the Data types list in the left panel"),
     HighlightSpec(name="config_panel", points_at="the selected block's settings panel"),
     HighlightSpec(name="workflow_list", points_at="the Workflows list in the left panel"),
+    # The AI Chat setup screen, which a terminal tab shows before a session is
+    # launched. Core tutorial 3 walks the reader through it before any agent is
+    # running, which is the only moment either of these is on screen (#2083).
+    HighlightSpec(name="ai_provider_picker", points_at="the provider chooser on the AI Chat setup screen"),
+    HighlightSpec(name="ai_permission_modes", points_at="the permission-mode choices on the AI Chat setup screen"),
     # Singleton controls. Exactly one of each exists on screen, so a name is
     # already an address.
     HighlightSpec(name="run_button", points_at="the toolbar's Run button"),

@@ -1,0 +1,23 @@
+[1m[36m> The run stopped at the fit.[0m
+
+[32m* get_run_status(run_id='run_7f3a1c')[0m
+[2m    load-plate: done - qc-filter: done - fit-curve: ERROR - save-summary: not reached[0m
+[32m* get_block_logs(run_id='run_7f3a1c', block_id='fit-curve')[0m
+[31m    ValueError: Fit IC50 needs its 'metadata' input connected. The plate names[0m
+[31m    groups, not doses - without the metadata table there is nothing to put on[0m
+[31m    the x axis.[0m
+
+It stopped for the reason it should have. I wrote a fit that needs two things - the
+wells, and what each group was dosed with - and only one of them exists.
+
+The doses are not missing, though. They are in the export's name:
+
+[2m    drug_A-J_1mM_500uM_200uM_100uM_50uM_20uM_10uM_5uM_2uM_1uM_plus_VEH_BLANK.csv[0m
+
+A-J, then ten concentrations, then the two controls. Somebody named that file
+carefully and wrote no documentation, which is the most common form documentation
+takes.
+
+Nothing in your palette reads a filename into data. Load reads files, Code runs
+your Python, Process reshapes what it is given - none of them looks at a name and
+works out what it means. That is the one thing an AI Block is for.

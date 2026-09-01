@@ -21,7 +21,7 @@ from typing import Any
 import pytest
 
 from scistudio.tutorials import discovery
-from scistudio.tutorials.actions import ActionExecutionError
+from scistudio.tutorials.actions import ActionExecutionError, ReplayAction, ReplaySegment
 from scistudio.tutorials.conditions import ExternalEventNames
 from scistudio.tutorials.discovery import DiscoveryEnvironment
 from scistudio.tutorials.progress import ProgressStore
@@ -902,8 +902,7 @@ def test_a_replay_step_drives_the_injected_byte_source(
     view = runtime.start(TutorialKey.core("replays"))
 
     assert delivered == [("s1", b"hello\n")]
-    assert view.replay is not None
-    assert (view.replay.surface, view.replay.tab_id) == ("ai_chat_terminal", "tab-1")
+    assert [(r.surface, r.tab_id) for r in view.replays] == [("ai_chat_terminal", "tab-1")]
 
     runtime.leave_active()
     assert closed == ["tab-1"]
@@ -1176,8 +1175,12 @@ def test_a_trigger_driven_replay_continues_the_open_tab(
 ) -> None:
     """#2089: the press appends to the tab on screen; nothing is torn down.
 
-    FR-061b holds per appended segment: s2's bound write is on disk at the
-    moment s2's bytes are delivered.
+    FR-061b's ordering moved with #2083. The scripted agent window reveals a
+    transcript at a speaking pace, so "the moment the claim becomes readable"
+    is the end of the reply — s2's bound write is deliberately NOT on disk when
+    s2's bytes are handed over, and lands on settle_replay_active instead.
+    What the rule protects is unchanged: the reader never reads a claim the
+    project has not made true.
     """
     handles: list[_AppendableHandle] = []
 
@@ -1207,7 +1210,7 @@ def test_a_trigger_driven_replay_continues_the_open_tab(
     assert started.step is not None and started.step.id == "talk"
     assert len(handles) == 1
     assert [entry[0] for entry in handles[0].delivered] == ["s1"]
-    assert started.replay is not None and started.replay.tab_id == "tab-1"
+    assert [r.tab_id for r in started.replays] == ["tab-1"]
 
     view = runtime.trigger_active()
 
@@ -1215,29 +1218,34 @@ def test_a_trigger_driven_replay_continues_the_open_tab(
     assert len(handles) == 1
     assert handles[0].closed is False
     assert [entry[0] for entry in handles[0].delivered] == ["s1", "s2"]
-    # FR-061b per appended segment: the bound write was on disk at delivery.
+    # #2083: the bytes go out first and the write is held, so the reply can be
+    # read arriving instead of arriving already true.
     _segment_id, payload, write_had_landed = handles[0].delivered[1]
     assert b"more" in payload
-    assert write_had_landed is True
-    assert view.replay is not None and view.replay.tab_id == "tab-1"
-    assert view.step is not None and view.step.satisfied is True
+    assert write_had_landed is False
+    assert [r.tab_id for r in view.replays] == ["tab-1"]
+    assert view.step is not None and view.step.satisfied is False
+
+    # The surface reports the reply is on screen; now the claim comes true.
+    settled = runtime.settle_replay_active()
+    assert settled.step is not None and settled.step.satisfied is True
 
 
-def test_continuing_with_no_open_tab_is_a_retryable_trigger_failure(
+def _conversation_runtime(
     home: Path,
     core_dir: Path,
     environment: DiscoveryEnvironment,
-    packages: list[Any],
     product: StubProductState,
     provisioner: _Provisioner,
-) -> None:
-    """#2089: continuing nothing errors; through a trigger it stays retryable."""
-    from scistudio.tutorials.session import TriggerFailedError
-
-    handles: list[_AppendableHandle] = []
+    handles: list[_AppendableHandle],
+) -> TutorialRuntime:
+    """The paced-conversation tutorial, wired to a handle factory the test can see."""
 
     def _open(surface: str) -> _AppendableHandle:
-        handle = _AppendableHandle(f"tab-{len(handles) + 1}", watched=home / "never")
+        project = product.project_dir
+        assert project is not None, "the test points project_dir at the planned location before starting"
+        handle = _AppendableHandle(f"tab-{len(handles) + 1}", watched=project / "data" / "claimed.txt")
+        handle.surface = surface
         handles.append(handle)
         return handle
 
@@ -1253,16 +1261,118 @@ def test_continuing_with_no_open_tab_is_a_retryable_trigger_failure(
         open_replay=_open,
     )
     product.project_dir = tutorial_project_path(TutorialKey.core("conversation"))
+    return runtime
+
+
+def test_a_continuation_whose_tab_has_gone_opens_another_and_plays_into_it(
+    home: Path,
+    core_dir: Path,
+    environment: DiscoveryEnvironment,
+    packages: list[Any],
+    product: StubProductState,
+    provisioner: _Provisioner,
+) -> None:
+    """#2083: losing the tab must not cost the reader the rest of the level.
+
+    ``continue_tab`` was specified as an error when there was nothing to
+    continue, on the reading that an open tab is a premise the manifest
+    declared. It is not a premise the manifest controls: the tab lives in the
+    reader's window and goes away when they close it, when its WebSocket drops,
+    or when the frontend reloads. Refusing made every later press fail the same
+    way — a level 3 press is two surfaces and two workflow runs away from the
+    tab it continues — so a dropped socket ended the tutorial.
+
+    What the recovery gives up is the scrollback: the earlier exchange is not
+    re-played into the new tab, so the conversation resumes rather than
+    continues. The step's own dialogue is what carries the thread.
+    """
+    handles: list[_AppendableHandle] = []
+    runtime = _conversation_runtime(home, core_dir, environment, product, provisioner, handles)
     runtime.start(TutorialKey.core("conversation"))
-    # The tab the entry replay opened goes away — a teardown outside the
-    # session's control, which is what is_open exists to notice.
+    assert [entry[0] for entry in handles[0].delivered] == ["s1"]
+
+    # The tab goes away for a reason nothing in the session can see or prevent.
     handles[0].closed = True
 
-    with pytest.raises(TriggerFailedError, match="closed"):
-        runtime.trigger_active()
+    view = runtime.trigger_active()
+
+    # A second tab, carrying the segment the press asked for.
+    assert len(handles) == 2
+    assert [entry[0] for entry in handles[1].delivered] == ["s2"]
+    assert [r.tab_id for r in view.replays] == ["tab-2"]
+
+    # And the step still finishes: the write s2 promised lands on settle, the
+    # same way it would have in the tab that was lost.
+    assert view.step is not None and view.step.satisfied is False
+    settled = runtime.settle_replay_active()
+    assert settled.step is not None and settled.step.satisfied is True
+
+
+def test_a_replay_on_one_surface_leaves_the_other_surface_open(
+    home: Path,
+    core_dir: Path,
+    environment: DiscoveryEnvironment,
+    packages: list[Any],
+    product: StubProductState,
+    provisioner: _Provisioner,
+) -> None:
+    """#2083: an AI Block's terminal does not end the chat that asked for it.
+
+    The runtime used to hold exactly one scripted session, so a replay into any
+    surface closed whatever was open — and core tutorial 3, where a block runs
+    in its own terminal partway through a conversation, had to start a third
+    conversation in an empty tab afterwards. Sessions are keyed by surface now,
+    and this is the property that replaces the old "wrong surface" refusal:
+    that failure cannot be reached any more, because a continuation is looked
+    up *by* the surface it names.
+    """
+    from scistudio.tutorials.actions import AI_BLOCK_TERMINAL_SURFACE, AI_CHAT_TERMINAL_SURFACE
+
+    handles: list[_AppendableHandle] = []
+    runtime = _conversation_runtime(home, core_dir, environment, product, provisioner, handles)
+    runtime.start(TutorialKey.core("conversation"))
+    chat = handles[0]
+    assert chat.surface == AI_CHAT_TERMINAL_SURFACE
+
+    # A block's terminal opens beside it, not instead of it.
+    delivery = runtime._delivery_for(
+        [
+            ReplayAction(
+                surface=AI_BLOCK_TERMINAL_SURFACE,
+                segments=(ReplaySegment(id="block", source="assets/replay/s1.txt"),),
+            )
+        ],
+        step_id="talk",
+    )
+
+    assert delivery is not None and delivery.surface == AI_BLOCK_TERMINAL_SURFACE
+    assert chat.closed is False, "opening a block's terminal must not end the conversation"
 
     view = runtime.active_session()
-    assert view is not None and view.status is SessionStatus.ACTIVE
+    assert view is not None
+    assert sorted(r.surface for r in view.replays) == [AI_BLOCK_TERMINAL_SURFACE, AI_CHAT_TERMINAL_SURFACE]
+
+    # Most recently written to first: with two terminals open, that ordering is
+    # the only thing telling the frontend which tab to select, and "open the AI
+    # panel" would otherwise land on whichever tab was last looked at.
+    assert view.replays[0].surface == AI_BLOCK_TERMINAL_SURFACE
+
+    # And continuing the chat makes the chat live again, without closing the
+    # block's terminal.
+    runtime._delivery_for(
+        [
+            ReplayAction(
+                surface=AI_CHAT_TERMINAL_SURFACE,
+                continue_tab=True,
+                segments=(ReplaySegment(id="more", source="assets/replay/s2.txt"),),
+            )
+        ],
+        step_id="talk",
+    )
+    view = runtime.active_session()
+    assert view is not None
+    assert view.replays[0].surface == AI_CHAT_TERMINAL_SURFACE
+    assert len(view.replays) == 2
 
 
 def test_the_default_provisioner_refuses_rather_than_making_an_unregistered_project(
@@ -1312,3 +1422,187 @@ def test_clearing_removes_progress_sessions_and_directories(
 def test_an_action_failure_is_the_action_error_type(core_dir: Path) -> None:
     """The type the route layer sees is the one ``actions`` declares, not a new one."""
     assert issubclass(ActionExecutionError, RuntimeError)
+
+
+def test_a_triggered_replay_holds_its_writes_until_the_surface_reports_it_finished(
+    home: Path,
+    core_dir: Path,
+    provisioner: _Provisioner,
+    environment: DiscoveryEnvironment,
+    packages: list[Any],
+    product: StubProductState,
+) -> None:
+    """#2083: the file lands when the reply is on screen, not when the button is pressed.
+
+    The scripted agent window reveals a transcript at a speaking pace. Landing
+    the block at press time put it on the canvas ten seconds before the agent
+    finished saying it had written one, which reads as the tutorial knowing the
+    future. So the press delivers the bytes, and ``settle_replay_active``
+    — posted when the terminal goes quiet — is what writes.
+    """
+    delivered: list[str] = []
+
+    class _Handle:
+        surface = "ai_chat_terminal"
+        tab_id = "tab-1"
+
+        def deliver(self, segment: Any, payload: bytes) -> None:
+            delivered.append(segment.id)
+
+        def close(self) -> None:
+            pass
+
+    write_tutorial(
+        core_dir / "deferred",
+        {
+            "manifest_version": 1,
+            "id": "deferred",
+            "title": "Deferred",
+            "summary": "Holds a replay's writes until it has finished playing.",
+            "bootstrap": {"project_name": "Deferred"},
+            "steps": [
+                {
+                    "id": "ask",
+                    "say": "Ask the agent for a block.",
+                    "trigger": {
+                        "label": "Ask",
+                        "do": [
+                            {
+                                "replay": {
+                                    "surface": "ai_chat_terminal",
+                                    "segments": [
+                                        {
+                                            "id": "s1",
+                                            "source": "assets/replay/s1.txt",
+                                            "do": [
+                                                {"write": {"source": "assets/code/w.py", "destination": "blocks/w.py"}}
+                                            ],
+                                        }
+                                    ],
+                                }
+                            }
+                        ],
+                    },
+                },
+                {"id": "done", "say": "Done."},
+            ],
+        },
+        files={"assets/replay/s1.txt": "I wrote it.\n", "assets/code/w.py": "# a block\n"},
+    )
+    runtime = TutorialRuntime(
+        product_state=lambda: product,
+        external_events=ExternalEventNames(blocks_reloaded="blocks.reloaded", file_changed="file.changed"),
+        provisioner=provisioner,
+        environment=environment,
+        progress=ProgressStore(home / ".scistudio"),
+        sessions=SessionStore(home / ".scistudio"),
+        project_dir=lambda: product.project_dir,
+        open_replay=lambda surface: _Handle(),
+    )
+
+    # The session only counts as live when the tutorial's project is the open
+    # one, which is what makes a trigger reachable.
+    product.project_dir = tutorial_project_path(TutorialKey.core("deferred"))
+    view = runtime.start(TutorialKey.core("deferred"))
+    project = Path(view.project_path or "")
+
+    runtime.trigger_active()
+    # The reply is playing...
+    assert delivered == ["s1"]
+    # ...and the project has not moved yet.
+    assert not (project / "blocks" / "w.py").exists()
+
+    runtime.settle_replay_active()
+    assert (project / "blocks" / "w.py").read_text(encoding="utf-8") == "# a block\n"
+
+    # Reporting twice is defined to be harmless: the surface does not know
+    # whether this reply bound anything.
+    runtime.settle_replay_active()
+    assert (project / "blocks" / "w.py").read_text(encoding="utf-8") == "# a block\n"
+
+
+def test_a_replay_promise_is_dropped_when_the_reader_leaves_the_step(
+    home: Path,
+    core_dir: Path,
+    provisioner: _Provisioner,
+    environment: DiscoveryEnvironment,
+    packages: list[Any],
+    product: StubProductState,
+) -> None:
+    """#2083: a settle that arrives after the reader moved on must not write.
+
+    The reader who walks off mid-reply does not come back to a project that
+    rearranged itself behind them, and the tab they left open must not be able
+    to write into whatever step they are on now.
+    """
+
+    class _Handle:
+        surface = "ai_chat_terminal"
+        tab_id = "tab-1"
+
+        def deliver(self, segment: Any, payload: bytes) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+    write_tutorial(
+        core_dir / "abandoned",
+        {
+            "manifest_version": 1,
+            "id": "abandoned",
+            "title": "Abandoned",
+            "summary": "The reader leaves before the reply finishes.",
+            "bootstrap": {"project_name": "Abandoned"},
+            "steps": [
+                {
+                    "id": "ask",
+                    "say": "Ask the agent for a block.",
+                    "trigger": {
+                        "label": "Ask",
+                        "do": [
+                            {
+                                "replay": {
+                                    "surface": "ai_chat_terminal",
+                                    "segments": [
+                                        {
+                                            "id": "s1",
+                                            "source": "assets/replay/s1.txt",
+                                            "do": [
+                                                {"write": {"source": "assets/code/w.py", "destination": "blocks/w.py"}}
+                                            ],
+                                        }
+                                    ],
+                                }
+                            }
+                        ],
+                    },
+                },
+                {"id": "next", "say": "Somewhere else."},
+            ],
+        },
+        files={"assets/replay/s1.txt": "I wrote it.\n", "assets/code/w.py": "# a block\n"},
+    )
+    runtime = TutorialRuntime(
+        product_state=lambda: product,
+        external_events=ExternalEventNames(blocks_reloaded="blocks.reloaded", file_changed="file.changed"),
+        provisioner=provisioner,
+        environment=environment,
+        progress=ProgressStore(home / ".scistudio"),
+        sessions=SessionStore(home / ".scistudio"),
+        project_dir=lambda: product.project_dir,
+        open_replay=lambda surface: _Handle(),
+    )
+
+    # The session only counts as live when the tutorial's project is the open
+    # one, which is what makes a trigger reachable.
+    product.project_dir = tutorial_project_path(TutorialKey.core("abandoned"))
+    view = runtime.start(TutorialKey.core("abandoned"))
+    project = Path(view.project_path or "")
+    runtime.trigger_active()
+    assert not (project / "blocks" / "w.py").exists()
+
+    runtime.continue_active()
+    runtime.settle_replay_active()
+
+    assert not (project / "blocks" / "w.py").exists(), "a step the reader left still wrote into the project"

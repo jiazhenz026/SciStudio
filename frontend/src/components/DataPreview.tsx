@@ -1,4 +1,4 @@
-import { Maximize2, X } from "lucide-react";
+import { Maximize2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAppStore } from "../store";
@@ -120,28 +120,9 @@ export function DataPreview({
   // pills turn it off; the "Plot artifact" pill turns it back on.
   const [showPlotResult, setShowPlotResult] = useState(false);
 
-  // #1795 — maximize the active preview into a floating window over the canvas
-  // so a cramped right-sidebar preview can be inspected at a larger size.
-  // PreviewHost adapts to its container, so the larger window renders a
-  // correspondingly larger preview with no host changes.
-  const [isMaximized, setIsMaximized] = useState(false);
-
   useEffect(() => {
     setPickedEntryId(null);
-    // A new selection retargets the preview; close any stale maximized window.
-    setIsMaximized(false);
   }, [selectedNodeId]);
-
-  // #1795 — close the maximized window on Escape. The listener is attached only
-  // while maximized so it never shadows canvas/editor shortcuts otherwise.
-  useEffect(() => {
-    if (!isMaximized) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsMaximized(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isMaximized]);
 
   // A fresh plot Run (new plotPreviewTarget) switches the view to the result.
   useEffect(() => {
@@ -169,9 +150,8 @@ export function DataPreview({
     />
   ) : null;
 
-  // #1795 — the output/plot pills are shared by the inline panel and the
-  // maximized window, so extract them once. ``hasPreviewContent`` also gates
-  // the maximize control: there is nothing to enlarge until an output exists.
+  // #1795 — the output/plot pills gate the maximize control too: there is
+  // nothing to enlarge until an output exists.
   const hasPreviewContent = outputEntryIds.length > 0 || plotBelongsToSelected;
   const pillsRow = hasPreviewContent ? (
     <div className="flex flex-wrap gap-2">
@@ -202,13 +182,11 @@ export function DataPreview({
     </div>
   ) : null;
 
-  // #1795 — a SINGLE PreviewHost instance backs both the inline panel and the
-  // maximized window. PreviewHost owns the query / drill-down state and creates
-  // the preview session on mount, so it is rendered exactly once at a stable
-  // position in the element tree. Maximizing only restyles its wrapper (inline
-  // flow ⇄ fixed overlay window); the host is never unmounted, so the active
-  // preview (table paging/sort, array slice, child-resource drill-down, dynamic
-  // previewer state, session) is preserved when popping out instead of reset.
+  // ADR-048 / #1592 — the single routed PreviewHost for the active output or
+  // the plot Run result. The host owns the query / drill-down state and
+  // creates its preview session on mount; it adapts to its container, which
+  // is also why the maximize action (#2112) can hand a frozen target to a
+  // second host in a main-stage tab without any host changes.
   const host = (
     <PreviewHost
       target={activePlot ?? target}
@@ -220,75 +198,10 @@ export function DataPreview({
     />
   );
 
-  // The preview surface keeps an identical element structure in both modes so
-  // React reconciles in place and never remounts the host. Only class names and
-  // the maximize chrome change. Stable keys keep the host's identity even if the
-  // pills row appears/disappears as outputs arrive. When maximized the surface
-  // itself becomes the fixed backdrop (reusing the DataRouterModal /
-  // PairEditorModal overlay pattern); backdrop click, the close control, and
-  // Escape all dismiss it. The aside ancestors are flexbox panels with no
-  // transform, so the fixed overlay positions against the viewport correctly.
   const previewSurface = (
-    <div
-      className={
-        isMaximized
-          ? "fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-6"
-          : "mt-4 flex min-h-0 flex-1 flex-col"
-      }
-      data-testid={isMaximized ? "preview-maximized-overlay" : undefined}
-      onClick={isMaximized ? () => setIsMaximized(false) : undefined}
-    >
-      <div
-        className={
-          isMaximized
-            ? "flex h-[88vh] w-[88vw] flex-col rounded-2xl border border-stone-200 bg-white shadow-2xl"
-            : "flex min-h-0 flex-1 flex-col"
-        }
-        onClick={isMaximized ? (event) => event.stopPropagation() : undefined}
-      >
-        <div
-          key="max-header"
-          className={
-            isMaximized
-              ? "flex items-center justify-between gap-3 border-b border-stone-100 px-5 py-3"
-              : "hidden"
-          }
-        >
-          <div className="flex min-w-0 flex-col">
-            <span className="text-xs uppercase tracking-[0.35em] text-stone-500">Preview</span>
-            <span className="truncate font-display text-lg text-ink">{selectedNodeLabel}</span>
-          </div>
-          <button
-            aria-label="Close preview window"
-            className="shrink-0 rounded-full p-1.5 text-stone-500 hover:bg-stone-100 hover:text-ink"
-            onClick={() => setIsMaximized(false)}
-            title="Close (Esc)"
-            type="button"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        {pillsRow ? (
-          <div
-            key="pills"
-            className={
-              isMaximized ? "shrink-0 border-b border-stone-100 px-5 py-3" : "mb-3 shrink-0"
-            }
-          >
-            {pillsRow}
-          </div>
-        ) : null}
-        <div
-          key="host"
-          className={
-            isMaximized
-              ? "min-h-0 flex-1 overflow-y-auto scrollbar-thin p-5"
-              : "min-h-0 flex-1 overflow-y-auto scrollbar-thin"
-          }
-        >
-          {host}
-        </div>
-      </div>
+    <div className="mt-4 flex min-h-0 flex-1 flex-col">
+      {pillsRow ? <div className="mb-3 shrink-0">{pillsRow}</div> : null}
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">{host}</div>
     </div>
   );
 
@@ -305,12 +218,26 @@ export function DataPreview({
             {selectedNodeId ? selectedNodeLabel : "Select a block"}
           </h2>
         </div>
-        {hasPreviewContent && !isMaximized ? (
+        {hasPreviewContent ? (
           <button
             aria-label="Maximize preview"
             className="mt-1 shrink-0 rounded-full p-1.5 text-stone-500 hover:bg-white hover:text-ink"
             onClick={() => {
-              setIsMaximized(true);
+              /*
+               * #2112 — maximizing opens the FROZEN active target as a
+               * transient preview tab on the main stage (beside the file and
+               * workflow tabs) instead of restyling this panel into an
+               * overlay. The tab is dropped as soon as focus moves elsewhere.
+               */
+              const expandTarget = activePlot ?? target;
+              if (!expandTarget) return;
+              useAppStore
+                .getState()
+                .openPreviewTab(
+                  expandTarget,
+                  activePlot ? "Plot artifact" : (activeEntry?.displayName ?? selectedNodeLabel),
+                  activePlot ? undefined : activeEntry?.initialQuery,
+                );
               /*
                * ADR-053 FR-052 (#2057) — `preview_expanded`, one of the two
                * names in the closed `UI_EVENT_NAMES` set. Enlarging the preview

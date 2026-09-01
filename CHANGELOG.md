@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2112] **Previews open as canvas tabs, and the Data tree opens files for
+  preview.** The DataPreview panel's maximize button used to float the preview
+  over the workspace as an overlay; it now opens the preview as a tab in the
+  canvas area, beside workflow and editor tabs, showing a frozen snapshot of
+  what was previewed. Preview tabs are transient: switch to any other tab and
+  the preview tab closes itself, since the right-hand panel keeps the live
+  preview anyway. Double-clicking a file in the left **Data** tree now opens it
+  the same way — a new `POST /api/data/register-path` endpoint registers the
+  file into the data catalog, so parquet, zarr, images, and friends route to
+  their proper previewers instead of doing nothing.
+
+  When more than one installed type can read the extension — a `.tif` is
+  loadable as the imaging package's `Image`, as a project's own `SRSImage`, or
+  as a plain `Artifact` — SciStudio asks which one to open it as instead of
+  guessing, and can remember the answer for that extension in the project. The
+  preview tab says which type it used and offers **Change**; clearing the
+  "remember" box there forgets the choice. A file registered this way now also
+  records its full type chain, so a type with no previewer of its own inherits
+  its parent's rather than falling back to the plain-file view.
+  file into the data catalog (with the same extension-based type inference
+  block outputs get), so parquet, zarr, images, and friends route to their
+  proper previewers instead of doing nothing.
+- [#2190] **Plot cards show how long a run has been going.** While a plot run
+  is in flight, the card shows a small elapsed-time pill next to the Run
+  button — the same `7s` / `2:05` / `1:04:09` counter a running canvas block
+  already had — and it disappears the moment the run finishes or fails,
+  leaving no final duration on the card. The timer's formatting and ticking
+  now live in one shared helper, so both surfaces always read identically.
+
 - [#2090] **The left sidebar is a VS Code-style icon rail, and it gained two
   sections.** The Blocks / Data types / Project text tabs are replaced by a 48px
   vertical rail of icons that sits outside the resizable area, so it stays put
@@ -274,6 +303,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   recorded-but-unavailable choices are shown rather than silent, because a
   drop-in refused at scan time or a choice outliving its package used to be
   indistinguishable from "never existed".
+- [#2159] **The desktop app has a real application menu.** The File menu grew
+  from a lone Exit into the actions the toolbar already had: Projects Home,
+  New Project…, Save / Save As… (with the same Ctrl/Cmd+S shortcuts), and Bring
+  In My Work…. A new Packages menu opens the in-app Package Manager, and a new
+  Help menu reaches the Learning Center and runs the update check on demand.
+  Menu clicks are forwarded to the renderer and dispatched onto the same
+  handlers the toolbar uses, so the menu and the buttons cannot drift apart.
 
 - [#2057 #2058] **SciStudio has a Learning Center**: a catalogue of tutorials
   that are real, runnable projects, reached from a permanent toolbar entry and
@@ -549,6 +585,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   from disk, so edited blocks appear, removed plugins disappear, and a plugin
   that fails to re-import surfaces in the palette diagnostics instead of
   silently going stale.
+- [#2112] **A package previewer's deferred imports resolve again.** A previewer
+  shipped by an installed package could route correctly and still fail to
+  render: opening a TIFF through the imaging package's image viewer reported
+  `No module named 'tifffile'`. The package module itself was importable only
+  because discovery had cached it while the plugin `site-packages` was
+  temporarily on `sys.path`, so an import written inside the render function ran
+  later, with that path gone. Package previewers now run with the installed
+  plugin import roots active, the same way package loaders and savers already
+  did.
 
 - [#2174] **A stalled notarization now leaves evidence behind.** Notarization is
   the one release step that depends on a third party, has no upper bound on how

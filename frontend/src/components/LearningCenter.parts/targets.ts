@@ -55,6 +55,7 @@ export const ROUTE_TARGETS = [
   "git",
   "canvas",
   "block_palette",
+  "data",
   "data_types",
   "workflows",
   "previewers",
@@ -86,9 +87,12 @@ export const HIGHLIGHT_TARGETS = [
   "history_restore_button",
   "history_runs_list",
   "bring_in_my_work_button",
+  "data",
   "data_preview",
   "config_panel",
   "workflow_list",
+  "ai_provider_picker",
+  "ai_permission_modes",
   "previewer_palette",
   "type_palette",
   "palette_block",
@@ -146,6 +150,7 @@ export const ROUTE_TARGET_BOTTOM_TABS: Record<RouteTarget, BottomTab | null> = {
   git: "git",
   canvas: null,
   block_palette: null,
+  data: null,
   data_types: null,
   workflows: null,
   previewers: null,
@@ -160,6 +165,11 @@ export const ROUTE_TARGET_BOTTOM_TABS: Record<RouteTarget, BottomTab | null> = {
  */
 export const ROUTE_TARGET_LEFT_TABS: Partial<Record<RouteTarget, LeftTab>> = {
   block_palette: "blocks",
+  // The Data section (#2090): the project's data/ tree, which is where a
+  // reader looks to find out what an experiment actually shipped with. Core
+  // tutorial 3 opens there, because the whole level turns on what is in the
+  // file — and on what is only in its name.
+  data: "data",
   // The Data types tab between Blocks and Project — the manifest name is the
   // user-facing label ("Data types"), the internal key stays `types`, on the
   // same rule as `history`/`lineage` above.
@@ -259,6 +269,24 @@ export interface StepRouteHandlers {
  * Both then scroll their element into view, which is also all a target does
  * when its surface is already the visible one.
  */
+/**
+ * Replay surface → the bottom-panel tab that shows it.
+ *
+ * A separate question from `route_to`: that says where the *step* wants the
+ * reader, this says where the *reply* is being typed. They are usually the
+ * same tab and occasionally not — a step ringing a palette entry routes the
+ * left panel and still has a reply arriving in AI Chat — and only one of them
+ * can be a property of the step.
+ */
+export const REPLAY_SURFACE_BOTTOM_TABS: Record<string, BottomTab> = {
+  ai_chat_terminal: "ai",
+};
+
+/** The tab a reply on *surface* lands in, or null for a surface with no tab. */
+export function bottomTabForReplaySurface(surface: string): BottomTab | null {
+  return REPLAY_SURFACE_BOTTOM_TABS[surface] ?? null;
+}
+
 export function applyStepRoute(route: string, handlers: StepRouteHandlers): void {
   if (!isRouteTarget(route)) return;
 

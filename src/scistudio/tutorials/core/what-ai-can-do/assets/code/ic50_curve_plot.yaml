@@ -1,0 +1,19 @@
+# The answer the whole level was working towards, drawn in core tutorial 3.
+#
+# Bound to the fit's `wells` output, not its `curve`: the picture box-plots the
+# replicates behind each dose, and a per-dose summary has no replicates in it.
+# `wells` carries every well that reached the fit *and* the fitted value and
+# IC50 for its dose, so the boxes and the line are drawn from one table and
+# cannot disagree.
+schema_version: 1
+id: ic50_curve
+title: "Dose response, and the IC50 it fits"
+target:
+  workflow_path: workflows/main.yaml
+  workflow_id: main
+  node_id: fit-curve
+  output_port: wells
+  display_label: Fit IC50
+script:
+  language: python
+  path: render.py

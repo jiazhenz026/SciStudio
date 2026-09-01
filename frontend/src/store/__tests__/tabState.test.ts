@@ -99,6 +99,9 @@ describe("TabState discriminated union (ADR-036 §3.10)", () => {
           return `wf:${tab.workflowName}`;
         case "file":
           return `file:${tab.filePath}`;
+        case "preview":
+          // #2112 — transient preview tab variant.
+          return `preview:${tab.target.ref}`;
         default: {
           // Compile-time exhaustiveness check.
           const _exhaustive: never = tab;

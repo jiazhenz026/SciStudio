@@ -52,7 +52,7 @@ function session(
     revisiting: revisiting ?? false,
     status,
     error: null,
-    replay: null,
+    replays: [],
   };
   useAppStore.setState({
     learningCenterSession: payload,

@@ -198,7 +198,7 @@ export interface TutorialStepView {
   satisfied: boolean;
 }
 
-/** §6.1.7 — the single declared replay surface and the tab carrying it. */
+/** §6.1.7 — one open scripted terminal: the surface, and the tab carrying it. */
 export interface TutorialReplayView {
   surface: string;
   tab_id: string;
@@ -244,7 +244,14 @@ export interface TutorialSessionResponse {
   revisiting?: boolean;
   status: "active" | "complete" | "error";
   error: string | null;
-  replay: TutorialReplayView | null;
+  /**
+   * Every scripted terminal that is open, one per surface (#2083).
+   *
+   * A list rather than a single value: an AI Block runs in a terminal of its
+   * own while the chat that asked for it stays open, so the frontend adopts a
+   * set of tabs rather than swapping one for another.
+   */
+  replays: TutorialReplayView[];
   /** The whole tutorial's read-only step outline; optional for older fixtures. */
   steps?: TutorialStepOutline[];
 }
@@ -349,6 +356,23 @@ export const learningCenterApi = {
    */
   triggerActiveTutorialStep: () =>
     apiFetch<TutorialSessionResponse>("/api/tutorials/sessions/active/trigger", {
+      method: "POST",
+    }),
+
+  /**
+   * #2083 — report that a scripted reply has finished playing.
+   *
+   * The scripted agent window reveals a transcript at a speaking pace, so the
+   * files its segments bind are held back at press time and land on this call
+   * instead: the block appears when the agent finishes saying it wrote one,
+   * not ten seconds before it got there. The response is the re-judged
+   * session.
+   *
+   * Safe to post when nothing is pending, which is what lets a surface fire it
+   * without knowing whether this particular reply bound anything.
+   */
+  settleActiveTutorialReplay: () =>
+    apiFetch<TutorialSessionResponse>("/api/tutorials/sessions/active/replay-settled", {
       method: "POST",
     }),
 

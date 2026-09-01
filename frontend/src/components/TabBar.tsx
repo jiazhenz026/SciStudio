@@ -1,3 +1,5 @@
+import { Eye } from "lucide-react";
+
 import type { TabState } from "../store/types";
 
 interface TabBarProps {
@@ -14,10 +16,12 @@ export function TabBar({ tabs, activeTabId, onSwitchTab, onCloseTab, onNewTab }:
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId;
         // ADR-036 §3.10: discriminated-union read site. Workflow tabs
-        // surface the workflow name + workflowDirty; file tabs surface
-        // displayName + their own dirty flag.
+        // surface the workflow name + workflowDirty; file and preview tabs
+        // surface displayName. #2112: preview tabs are read-only snapshots,
+        // so they never show a dirty marker.
         const label = tab.kind === "workflow" ? tab.workflowName : tab.displayName;
-        const isDirty = tab.kind === "workflow" ? tab.workflowDirty : tab.dirty;
+        const isDirty =
+          tab.kind === "workflow" ? tab.workflowDirty : tab.kind === "file" ? tab.dirty : false;
         return (
           <div
             key={tab.id}
@@ -30,6 +34,9 @@ export function TabBar({ tabs, activeTabId, onSwitchTab, onCloseTab, onNewTab }:
             role="tab"
             aria-selected={isActive}
           >
+            {tab.kind === "preview" ? (
+              <Eye className="h-3 w-3 shrink-0 text-stone-400" aria-label="Preview" />
+            ) : null}
             <span className="min-w-0 flex-1 truncate" title={label}>
               {label}
             </span>

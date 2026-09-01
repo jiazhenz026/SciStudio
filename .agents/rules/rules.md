@@ -9,6 +9,11 @@ This file is a pointer only. It is not an independent policy source.
 - Use `docs/ai-developer/rules.md#5-gate-cli-command-set` for the canonical
   AI-facing gate record and local receipt commands.
 
+- Use `docs/ai-developer/release-runbook.md` if you are cutting a desktop
+  release or publishing an OTA update. Two of its rules brick users when
+  broken: the installer must be downloadable before any mandatory manifest,
+  and it must carry a build number at or above the highest published patch.
+
 - Use `docs/ai-developer/gate-cli-command-set.md` for the full consolidated
   gate CLI reference (arguments, `--mode` family, exit codes, strictness tiers,
   per-task-kind and per-persona profiles, and a soft-routing decision guide).

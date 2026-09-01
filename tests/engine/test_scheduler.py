@@ -1197,3 +1197,83 @@ class TestSchedulerConfigPreCheck:
 
         assert scheduler._block_states["A"] == BlockState.DONE
         runner.run.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Resource-refusal polling retry (#2187)
+# ---------------------------------------------------------------------------
+
+
+class TestResourceRetryPolling:
+    """#2187: a block refused by ``can_dispatch`` stays READY and is retried
+    by a 1s polling timer, so a resource refusal can never stall a run
+    silently when no resource-freeing terminal events fire.
+    """
+
+    def test_refused_block_is_retried_until_dispatch_succeeds(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """can_dispatch refuses twice, then allows: the polling retry must
+        re-attempt dispatch without any terminal event and the run completes.
+        """
+        from scistudio.engine.scheduler import _dispatch as _dispatch_mod
+
+        monkeypatch.setattr(_dispatch_mod, "_RESOURCE_RETRY_INTERVAL_S", 0.01)
+
+        wf = _wf(nodes=[("A", "proc")])
+        scheduler, _event_bus, _runner = _make_scheduler(wf)
+
+        calls = {"n": 0}
+
+        def _gate(_request: object, active_count: int = 0) -> bool:
+            calls["n"] += 1
+            return calls["n"] > 2
+
+        scheduler._resource_manager.can_dispatch.side_effect = _gate
+
+        asyncio.run(asyncio.wait_for(scheduler.execute(), timeout=5.0))
+
+        assert scheduler._block_states["A"] == BlockState.DONE
+        assert calls["n"] >= 3
+
+    def test_retry_timer_dedupes_pending_handles(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Multiple refused dispatches share a single pending timer."""
+        from scistudio.engine.scheduler import _dispatch as _dispatch_mod
+
+        monkeypatch.setattr(_dispatch_mod, "_RESOURCE_RETRY_INTERVAL_S", 60.0)
+
+        wf = _wf(nodes=[("A", "proc"), ("B", "proc")])
+        scheduler, _event_bus, _runner = _make_scheduler(wf)
+        scheduler._resource_manager.can_dispatch.return_value = False
+
+        async def run() -> asyncio.TimerHandle | None:
+            await scheduler._dispatch("A")
+            first = scheduler._resource_retry_handle
+            await scheduler._dispatch("B")
+            assert scheduler._resource_retry_handle is first
+            return first
+
+        handle = asyncio.run(run())
+        assert handle is not None
+        handle.cancel()
+
+    def test_dispose_cancels_pending_retry_timer(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """dispose() cancels the pending retry so a torn-down scheduler
+        never fires a polling pass into a later run's event bus.
+        """
+        from scistudio.engine.scheduler import _dispatch as _dispatch_mod
+
+        monkeypatch.setattr(_dispatch_mod, "_RESOURCE_RETRY_INTERVAL_S", 60.0)
+
+        wf = _wf(nodes=[("A", "proc")])
+        scheduler, _event_bus, _runner = _make_scheduler(wf)
+        scheduler._resource_manager.can_dispatch.return_value = False
+
+        async def run() -> asyncio.TimerHandle | None:
+            await scheduler._dispatch("A")
+            handle = scheduler._resource_retry_handle
+            scheduler.dispose()
+            return handle
+
+        handle = asyncio.run(run())
+        assert handle is not None
+        assert handle.cancelled()
+        assert scheduler._resource_retry_handle is None

@@ -1,0 +1,24 @@
+> Infer a metadata table from the filename. Table should look like this: group, concentration_um.
+
+* read: data/raw/drug_A-J_1mM_500uM_200uM_100uM_50u...csv
+    96 rows - groups: A B C D E F G H I J VEH BLANK
+
+The name carries the doses in order, right after the group range: A-J, then ten
+concentrations from 1mM down to 1uM. Ten labels, ten numbers - so A is 1mM and J
+is 1uM, and the ninth group is 2uM.
+
+VEH and BLANK come after the doses rather than among them, and there are no numbers
+left for them. They are labels, not concentrations.
+
+* write: metadata
+    group  concentration_um
+    A               1000.0
+    B                500.0
+    ...                 ...
+    J                  1.0
+    VEH                  -
+    BLANK                -
+
+Twelve rows. The two controls have an empty concentration rather than a zero,
+because they were not dosed with nothing - they were not dosed. A zero would put
+two invented points on the curve.

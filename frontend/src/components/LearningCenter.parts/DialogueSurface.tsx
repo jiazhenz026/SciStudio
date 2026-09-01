@@ -17,7 +17,7 @@
  * **The character stands beside the panel, never over it.** They are one group
  * on one layer, and nothing in that group covers anything else in it, so a gap
  * does the work an overlap used to. The gap is measured to her outline rather
- * than to her image's edge, which is what `MIO_FACING_INSET` exists for. She is
+ * than to her image's edge, which is what `facingInset` exists for. She is
  * `pointer-events: none`, so the product underneath stays clickable through
  * every pixel of her, and the panel is opaque, so nothing of the application
  * shows through the text.
@@ -47,16 +47,9 @@
  * as a foreign object rather than as part of it.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import {
-  MIO_CANVAS,
-  MIO_COMPACT_AVATAR,
-  MIO_FACING_INSET,
-  MIO_POKE_CURIOUS,
-  spriteFor,
-  type MioMood,
-} from "./mio";
+import { MIO_CANVAS, MIO_COMPACT_AVATAR, facingInset, spriteFor, type MioMood } from "./mio";
 import { beatLength, beatSegments, type BeatSegment } from "./beatText";
 import { CARD_WIDTH, type CardPlacement } from "./placeCard";
 import { PANEL_GAP, PANEL_WIDTH, SPRITE_HEIGHT, type DialoguePlacement } from "./placeDialogue";
@@ -116,7 +109,15 @@ function usePoke(): { face: MioMood | null; poke: () => void } {
  * behavior worth having: a screen reader announces the sentence, not a
  * sentence being spelled.
  */
-function BeatLine({ segments, shown }: { segments: BeatSegment[]; shown: number }) {
+function BeatLine({
+  segments,
+  shown,
+  onOpenDoc,
+}: {
+  segments: BeatSegment[];
+  shown: number;
+  onOpenDoc: (path: string) => void;
+}) {
   let start = 0;
 
   return (
@@ -131,6 +132,34 @@ function BeatLine({ segments, shown }: { segments: BeatSegment[]; shown: number 
             {tail ? <span className="opacity-0">{tail}</span> : null}
           </>
         );
+
+        if (segment.doc !== null) {
+          const path = segment.doc;
+          /*
+           * Only clickable once it has finished typing. A half-revealed link
+           * is a target that moves while the reader is aiming at it, and the
+           * sentence it sits in has not finished making its case yet.
+           */
+          const ready = visible === segment.text.length;
+          return (
+            <button
+              className={[
+                "font-semibold underline decoration-pine/40 underline-offset-2",
+                ready ? "text-pine hover:decoration-pine" : "text-pine/60",
+              ].join(" ")}
+              data-testid="tutorial-beat-doc-link"
+              disabled={!ready}
+              key={index}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenDoc(path);
+              }}
+              type="button"
+            >
+              {body}
+            </button>
+          );
+        }
 
         return segment.strong ? (
           <strong className="font-semibold" key={index}>
@@ -197,6 +226,15 @@ export interface DialogueSurfaceProps {
   heading: React.ReactNode;
   /** Shown instead of the line when the session or the last trigger failed. */
   problem?: string | null;
+  /**
+   * Open a page of the user guide — what a `[text](doc:page)` run in a beat
+   * does when it is clicked (#2083).
+   *
+   * A prop rather than a store read, like everything else here: this component
+   * decides nothing and reads no store, so a test can drive the link without
+   * standing up the Learning Center.
+   */
+  onOpenDoc: (path: string) => void;
 }
 
 export function DialogueSurface({
@@ -207,6 +245,7 @@ export function DialogueSurface({
   mood,
   speaker,
   line,
+  onOpenDoc,
   remaining,
   onAdvance,
   controls,
@@ -227,10 +266,22 @@ export function DialogueSurface({
    * row, and keyed on the words the second one would arrive already typed. No
    * two beats of one step share a `remaining`.
    */
-  const typed = useTypewriter(
-    problem ? "" : `${remaining}\u0000${line}`,
-    problem ? 0 : beatLength(segments),
-  );
+  const beatKey = problem ? "" : `${remaining}\u0000${line}`;
+  const typed = useTypewriter(beatKey, problem ? 0 : beatLength(segments));
+  /*
+   * A beat long enough to overflow leaves the box scrolled where the reader
+   * left it, and the next beat then opens on its own last line with its first
+   * line above the fold — the reader meets the end of a sentence that never
+   * started. The box is one DOM node across beats, so nothing puts it back on
+   * its own; each new line has to.
+   *
+   * `useLayoutEffect` rather than `useEffect`: this has to land before the
+   * browser paints, or the new beat is visibly scrolled for a frame.
+   */
+  const lineBoxRef = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    if (lineBoxRef.current) lineBoxRef.current.scrollTop = 0;
+  }, [beatKey]);
   const onRight = placement.side === "right";
   const { face, poke } = usePoke();
   // Her authored expression, unless she has just been poked.
@@ -241,7 +292,9 @@ export function DialogueSurface({
    * band beside her is wider than the gap — which is a pull, not an overlap:
    * the pixels it pulls the panel across are empty ones.
    */
-  const inset = Math.round((MIO_FACING_INSET[shown] * SPRITE_HEIGHT) / MIO_CANVAS.height);
+  const inset = Math.round(
+    (facingInset(shown, placement.side) * SPRITE_HEIGHT) / MIO_CANVAS.height,
+  );
   const offset = PANEL_GAP - inset;
 
   const panel = (
@@ -275,13 +328,14 @@ export function DialogueSurface({
           "shrink-0 overflow-y-auto scrollbar-thin text-[0.95rem] leading-6",
         ].join(" ")}
         data-testid="tutorial-dialogue-line"
+        ref={lineBoxRef}
       >
         {problem ? (
           <span className="text-red-700" data-testid="tutorial-dialogue-problem">
             {problem}
           </span>
         ) : (
-          <BeatLine segments={segments} shown={typed.shown} />
+          <BeatLine onOpenDoc={onOpenDoc} segments={segments} shown={typed.shown} />
         )}
       </div>
 
@@ -478,7 +532,7 @@ export function DialogueSurface({
           data-mood={shown}
           data-side={placement.side}
           onClick={poke}
-          src={face === "curious" ? MIO_POKE_CURIOUS : spriteFor(shown, placement.side)}
+          src={spriteFor(shown, placement.side)}
           style={{ height: SPRITE_HEIGHT }}
         />
 

@@ -16,6 +16,13 @@
  * room for either side to be replaced later with art actually drawn for it
  * instead of reflected into it.
  *
+ * **`curious` is never mirrored.** Reflection is a fact about pixels, not about
+ * drawing: her pose survives it, but the purple question mark floating beside
+ * her head does not, and a backwards `?` is the one thing in the frame a reader
+ * is guaranteed to read. She keeps her own orientation in that expression on
+ * both sides, which costs her facing her dialogue and saves the glyph. Any
+ * expression that grows a letterform later belongs in `NEVER_MIRRORED` with it.
+ *
  * Keyed by **which side she stands on**, not by which way she faces, because
  * that is what the caller knows: `placeDialogue` decides a side, and this maps
  * it. A set named for the facing would make every call site do the inversion.
@@ -25,7 +32,6 @@
  */
 
 import avatarMirroredAngry from "../../assets/mio/avatar-mirrored/angry.webp";
-import avatarMirroredCurious from "../../assets/mio/avatar-mirrored/curious.webp";
 import avatarMirroredError from "../../assets/mio/avatar-mirrored/error.webp";
 import avatarMirroredExplain from "../../assets/mio/avatar-mirrored/explain.webp";
 import avatarMirroredFocus from "../../assets/mio/avatar-mirrored/focus.webp";
@@ -39,7 +45,6 @@ import avatarFocus from "../../assets/mio/avatar/focus.webp";
 import avatarIdle from "../../assets/mio/avatar/idle.webp";
 import avatarSuccess from "../../assets/mio/avatar/success.webp";
 import mirroredAngry from "../../assets/mio/mirrored/angry.webp";
-import mirroredCurious from "../../assets/mio/mirrored/curious.webp";
 import mirroredError from "../../assets/mio/mirrored/error.webp";
 import mirroredExplain from "../../assets/mio/mirrored/explain.webp";
 import mirroredFocus from "../../assets/mio/mirrored/focus.webp";
@@ -70,6 +75,15 @@ export const MIO_MOOD_NAMES = [
 
 export type MioMood = (typeof MIO_MOOD_NAMES)[number];
 
+/**
+ * Expressions whose art is shown in its own orientation on both sides.
+ *
+ * One member today. The module docstring has the reason; this is the single
+ * place the fact is written down, so the sprite maps, the avatar maps and the
+ * layout inset cannot disagree about it.
+ */
+const NEVER_MIRRORED: ReadonlySet<MioMood> = new Set<MioMood>(["curious"]);
+
 /** Drawn facing screen-left: the set for a character standing on the right. */
 const FACING_LEFT: Record<MioMood, string> = {
   idle,
@@ -85,7 +99,8 @@ const FACING_LEFT: Record<MioMood, string> = {
 const FACING_RIGHT: Record<MioMood, string> = {
   idle: mirroredIdle,
   explain: mirroredExplain,
-  curious: mirroredCurious,
+  // Her own orientation, on this side too: see NEVER_MIRRORED.
+  curious,
   focus: mirroredFocus,
   success: mirroredSuccess,
   error: mirroredError,
@@ -123,7 +138,8 @@ const AVATAR_FACING_LEFT: Record<MioMood, string> = {
 const AVATAR_FACING_RIGHT: Record<MioMood, string> = {
   idle: avatarMirroredIdle,
   explain: avatarMirroredExplain,
-  curious: avatarMirroredCurious,
+  // The crop keeps the question mark, so the crop keeps the rule.
+  curious: avatarCurious,
   focus: avatarMirroredFocus,
   success: avatarMirroredSuccess,
   error: avatarMirroredError,
@@ -139,16 +155,6 @@ export const MIO_AVATARS: Record<DialogueSide, Record<MioMood, string>> = {
 export function avatarFor(mood: MioMood, side: DialogueSide): string {
   return MIO_AVATARS[side][mood];
 }
-
-/**
- * The face a poke shows for `curious`, in the art's own orientation.
- *
- * Un-mirrored whichever side she is standing on. Mirrored she faces her own
- * dialogue, which is where she was already looking, and the poke reads as
- * nothing happening; turned the other way she is looking round at whoever just
- * prodded her, which is the whole joke.
- */
-export const MIO_POKE_CURIOUS = FACING_LEFT.curious;
 
 /**
  * The one face the compact form wears, whatever the beat declares.
@@ -167,32 +173,48 @@ export const MIO_COMPACT_AVATAR = MIO_AVATARS.left.idle;
 export const MIO_CANVAS = { width: 576, height: 494 } as const;
 
 /**
- * Transparent margin between the canvas edge and her silhouette, on the side
- * she faces, in canvas pixels.
+ * Transparent margin between each edge of the canvas and her silhouette, in
+ * canvas pixels, measured on the art as drawn.
  *
  * The aligned set fixes her *eye* in the canvas, not her outline: an arm raised
  * in one pose and folded in another reach different distances, so the empty
  * band beside her is not the same width twice. A panel placed a fixed distance
  * from the image edge would therefore sit against her cheek in one expression
  * and well clear of it in the next -- the gap would move every time her face
- * changed, which is the one moment it is being looked at. Subtracting this
+ * changed, which is the one moment it is being looked at. Subtracting the band
  * makes the gap the reader sees the gap the layout asked for.
  *
- * One number per mood rather than two, because the side that faces the panel is
- * always the same side of her body: she is mirrored precisely so that it is.
+ * Both edges are recorded rather than only the facing one. For a mirrored mood
+ * the two coincide -- reflection swaps the bands along with the pose, so the
+ * band against the panel is `left` on either side -- but `curious` is not
+ * mirrored, and on the left she meets her panel with the other side of her
+ * body. `facingInset` is what resolves which.
  *
  * Measured from the library, not guessed. Regenerate with `_source/realign.py`
  * in the asset library if the art is ever recut or rescaled.
  */
-export const MIO_FACING_INSET: Record<MioMood, number> = {
-  idle: 100,
-  explain: 102,
-  curious: 108,
-  focus: 53,
-  success: 88,
-  error: 100,
-  angry: 106,
+export const MIO_MARGINS: Record<MioMood, { readonly left: number; readonly right: number }> = {
+  idle: { left: 100, right: 106 },
+  explain: { left: 102, right: 51 },
+  curious: { left: 108, right: 119 },
+  focus: { left: 53, right: 96 },
+  success: { left: 88, right: 105 },
+  error: { left: 100, right: 128 },
+  angry: { left: 106, right: 88 },
 };
+
+/**
+ * The empty band between her silhouette and the panel, for *mood* on *side*.
+ *
+ * The panel sits on the side she faces. Mirrored, that is always the `left`
+ * band of the art as drawn -- reflection carries it to whichever edge now faces
+ * the panel. Un-mirrored on the left she is turned away from her own dialogue,
+ * so the band the panel actually meets is `right`.
+ */
+export function facingInset(mood: MioMood, side: DialogueSide): number {
+  const margins = MIO_MARGINS[mood];
+  return side === "left" && NEVER_MIRRORED.has(mood) ? margins.right : margins.left;
+}
 
 /** What a beat that names no expression is delivered with. Matches the backend. */
 export const DEFAULT_MIO_MOOD: MioMood = "idle";

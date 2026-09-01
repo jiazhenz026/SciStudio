@@ -108,7 +108,7 @@ const defaultImporter: ModuleImporter = (moduleUrl) =>
 
 /**
  * Reject any module URL that is not same-origin. The backend serves validated
- * panel assets under `/api/interactive/panels/...`, so a legitimate
+ * panel assets under `/api/blocks/panels/...`, so a legitimate
  * `module_url` is a site-relative path. Absolute http(s)/protocol-relative/
  * data/blob URLs are rejected — no remote or inline code is ever imported.
  *
@@ -123,7 +123,7 @@ export function isSameOriginModuleUrl(moduleUrl: string): boolean {
   if (url.startsWith("//")) return false;
   if (/^[a-z][a-z0-9+.-]*:/i.test(url)) return false;
   // Require a site-relative absolute path so it always resolves against the
-  // app origin (the backend always emits `/api/interactive/panels/...`).
+  // app origin (the backend always emits `/api/blocks/panels/...`).
   if (!url.startsWith("/")) return false;
   // Defensive: confirm it resolves to the current origin.
   try {

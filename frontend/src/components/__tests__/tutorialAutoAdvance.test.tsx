@@ -70,7 +70,7 @@ function session(stepId: string, say: string, index = 0): TutorialSessionRespons
     satisfied_step_ids: [],
     status: "active",
     error: null,
-    replay: null,
+    replays: [],
   };
 }
 

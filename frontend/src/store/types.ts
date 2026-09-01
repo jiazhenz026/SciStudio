@@ -153,6 +153,20 @@ export interface LearningCenterSlice {
   learningCenterStayOnFinish: boolean;
   setLearningCenterStayOnFinish: (stay: boolean) => void;
   openLearningCenter: () => void;
+  /**
+   * A page of the user guide the reader has asked for, or null (#2083).
+   *
+   * A field rather than a call because opening one is three things owned by
+   * three places: the project has to close (App owns that), the Learning
+   * Center has to show its reading tab (`LearningCenter` owns that), and the
+   * browser has to load the page (`DocsBrowser` owns that). Each watches this
+   * and does its own part; `DocsBrowser` clears it once the page is up.
+   */
+  pendingUserGuidePage: string | null;
+  /** Ask for a user-guide page — from a `[text](doc:page)` run in a beat. */
+  requestUserGuidePage: (path: string) => void;
+  /** Called by whoever finally showed the page. */
+  clearUserGuidePage: () => void;
   closeLearningCenter: () => void;
   setLearningCenterCatalogue: (catalogue: TutorialCatalogueResponse | null) => void;
   setLearningCenterSession: (session: TutorialSessionResponse | null) => void;
@@ -176,6 +190,11 @@ export interface LearningCenterSlice {
   backActiveTutorialStep: () => Promise<void>;
   /** #2061 — run the current step's user-triggered action. */
   triggerActiveTutorialStep: () => Promise<void>;
+  /**
+   * #2083 — report that a scripted reply has finished playing, landing the
+   * files the replay held back. A no-op when nothing is pending.
+   */
+  settleActiveTutorialReplay: () => Promise<void>;
   reportTutorialUiEvent: (name: string, target?: string) => Promise<void>;
   leaveActiveTutorial: () => Promise<void>;
   /** Resolves to the directories the backend reports it deleted. */
@@ -424,6 +443,17 @@ export interface UISlice {
   toggleMinimap: () => void;
   setPanelSize: (panel: "palette" | "preview" | "bottom", size: number) => void;
   setLastError: (message: string | null) => void;
+  /**
+   * Desktop application menu (desktop/menu.js) opens these dialogs from
+   * outside the toolbar, so the open state lives in the store instead of
+   * Toolbar-local useState. Not persisted: a reopened app never starts with a
+   * dialog already up.
+   */
+  packageManagerOpen: boolean;
+  /** See `packageManagerOpen`; the dialog mounts only while open. */
+  bringInMyWorkOpen: boolean;
+  setPackageManagerOpen: (open: boolean) => void;
+  setBringInMyWorkOpen: (open: boolean) => void;
 }
 
 export interface PreviewSlice {
@@ -862,6 +892,59 @@ export interface FileTab {
 }
 
 /**
+ * #2112 — transient preview tab.
+ *
+ * Opened by the DataPreview panel's maximize button: instead of restyling the
+ * right-sidebar preview into a floating overlay, the frozen {@link PreviewTarget}
+ * (a snapshot taken at click time) opens as a tab beside the file/workflow tabs
+ * and renders through the same `PreviewHost`.
+ *
+ * The tab is deliberately ephemeral:
+ *   - it is removed from `tabs` the moment focus moves to any other tab
+ *     (see `dropInactivePreviewTabs` in `tabHelpers.ts`);
+ *   - it carries no dirty state, so `closeTab` never prompts;
+ *   - it is never persisted (the `partialize` whitelist keeps file tabs only).
+ *
+ * The id convention is `preview:<ref>` so re-maximizing the same target
+ * focuses the existing tab instead of piling up duplicates (mirrors
+ * `openFileTab`'s id-keyed dedup).
+ */
+/**
+ * How a data-tree file was opened, so the preview tab can say which type it
+ * chose and offer to change it (#2112). Absent on tabs opened by maximizing
+ * the sidebar preview, which have no file path behind them.
+ */
+export interface PreviewTabOpenAs {
+  /** Project-relative path the tab was opened from. */
+  path: string;
+  /** Normalized extension the remembered choice is keyed on (".tif"). */
+  extension: string;
+  /** The type the file was recorded as. */
+  typeName: string;
+  /** Whether that type is the project's remembered choice for the extension. */
+  remembered: boolean;
+}
+
+export interface PreviewTab {
+  /** Discriminator. Always "preview". */
+  kind: "preview";
+  id: string;
+  /** Frozen preview target captured when the tab was opened. */
+  target: PreviewTarget;
+  displayName: string;
+  /** Set when the tab came from a Data-tree double-click (#2112). */
+  openAs?: PreviewTabOpenAs;
+  /**
+   * Collection targets carry their item snapshot through the session query
+   * (see `refEntries.ts`), so the initial query must freeze alongside the
+   * target; a bare ref would resolve to an empty collection.
+   */
+  initialQuery?: Record<string, unknown>;
+  /** Epoch-ms open time; diagnostic only. */
+  openedAt?: number;
+}
+
+/**
  * ADR-036 §3.10 — discriminated union of all tab kinds.
  *
  * Phase 2A (I36a) migration: ``TabState`` is now ``WorkflowTab | FileTab``.
@@ -869,7 +952,7 @@ export interface FileTab {
  * code that imported it during the transition; new code should use
  * ``TabState`` directly.
  */
-export type TabState = WorkflowTab | FileTab;
+export type TabState = WorkflowTab | FileTab | PreviewTab;
 export type AnyTab = TabState;
 
 export interface TabSlice {
@@ -931,6 +1014,21 @@ export interface TabSlice {
    * would write a template the user could not then edit.
    */
   openUserLibraryFileTab: (target: UserLibraryTarget, filename: string) => void;
+  /**
+   * #2112 — open (or focus) a transient preview tab on a frozen
+   * {@link PreviewTarget}.
+   *
+   * Opened by the DataPreview maximize button. De-duplicates on the tab id
+   * (``preview:<ref>``): re-maximizing the same ref focuses the existing tab.
+   * The tab is removed as soon as any other tab becomes active, carries no
+   * dirty state, and is never persisted.
+   */
+  openPreviewTab: (
+    target: PreviewTarget,
+    displayName?: string,
+    initialQuery?: Record<string, unknown>,
+    openAs?: PreviewTabOpenAs,
+  ) => void;
   /**
    * ADR-036 §3.10 — save a file tab's content to disk.
    *

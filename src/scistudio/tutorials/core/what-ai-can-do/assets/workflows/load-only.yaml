@@ -1,0 +1,27 @@
+# The first workflow the scripted agent writes in core tutorial 3: one node,
+# which loads the plate and nothing else.
+#
+# It exists because the reader asks to see their data before anything is done
+# to it, and a plot card renders a *node's* output — there has to be a node,
+# and it has to have run. So the agent lays down the smallest workflow that
+# can feed a picture, and the QC filter and the fit are added to this same
+# file later (`main.yaml`) rather than replacing it.
+#
+# Paths are project-relative on purpose: workflow runs execute in a worker
+# whose working directory is the project root (engine/runners/local.py), so
+# the same file works wherever the tutorial project lives.
+workflow:
+  id: main
+  version: 1.0.0
+  description: Load the plate, so there is something to look at.
+  nodes:
+    - id: load-plate
+      block_type: load_data
+      config:
+        params:
+          core_type: DataFrame
+          path: data/raw/drug_A-J_1mM_500uM_200uM_100uM_50uM_20uM_10uM_5uM_2uM_1uM_plus_VEH_BLANK.csv
+      layout:
+        x: 80
+        y: 180
+  edges: []

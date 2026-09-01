@@ -16,7 +16,9 @@ import { AlertTriangle, CheckCircle2, CircleDashed } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { TutorialCatalogueEntry } from "../../lib/api/learningCenter";
+import { useAppStore } from "../../store";
 import { tutorialEntryKey } from "../../store/learningCenterSlice";
+import { beatSegments } from "./beatText";
 
 const STATE_LABELS: Record<TutorialCatalogueEntry["state"], string> = {
   not_started: "Not started",
@@ -68,6 +70,7 @@ export function TutorialDetail({
   entry: TutorialCatalogueEntry | null;
   onStart: (entry: TutorialCatalogueEntry, restart: boolean) => void;
 }) {
+  const requestUserGuidePage = useAppStore((state) => state.requestUserGuidePage);
   /* FR-087 — a completed tutorial is never silently re-run. */
   const [confirmingRestart, setConfirmingRestart] = useState(false);
   const selectedKey = entry ? tutorialEntryKey(entry) : null;
@@ -101,7 +104,29 @@ export function TutorialDetail({
         <h3 className="mt-1 font-display text-xl leading-7 text-ink">{entry.title}</h3>
       </div>
 
-      <p className="text-sm leading-6 text-stone-600">{entry.summary}</p>
+      {/*
+       * The summary carries the same `[text](doc:page)` markup a beat may
+       * carry (#2083). Core tutorial 3 ends by pointing at the provider
+       * installation guide, and a reader who never reaches the last beat —
+       * most readers, on a first pass — should still be able to get there.
+       */}
+      <p className="text-sm leading-6 text-stone-600">
+        {beatSegments(entry.summary).map((segment, index) =>
+          segment.doc === null ? (
+            <span key={index}>{segment.text}</span>
+          ) : (
+            <button
+              className="font-medium text-pine underline decoration-pine/40 underline-offset-2 hover:decoration-pine"
+              data-testid="tutorial-summary-doc-link"
+              key={index}
+              onClick={() => requestUserGuidePage(segment.doc as string)}
+              type="button"
+            >
+              {segment.text}
+            </button>
+          ),
+        )}
+      </p>
 
       {/* FR-085 — unavailable always says why, or the user cannot act on it. */}
       {entry.state === "unavailable" && entry.unavailable_reason ? (

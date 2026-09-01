@@ -131,7 +131,13 @@ export function ProviderPicker({
   const selectId = `setup-provider-select-${tabId}`;
 
   return (
-    <div className="grid gap-2" data-testid="setup-provider-group">
+    // #2083: core tutorial 3 rings this while explaining that the AI needs a
+    // real client installed, not a browser chat.
+    <div
+      className="grid gap-2"
+      data-testid="setup-provider-group"
+      data-tutorial-target="ai_provider_picker"
+    >
       <label className="text-sm font-medium text-ink" htmlFor={selectId}>
         Provider
       </label>

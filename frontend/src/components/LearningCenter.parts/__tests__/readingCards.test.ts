@@ -48,7 +48,7 @@ function session(
     satisfied_step_ids: [],
     status: "active",
     error: null,
-    replay: null,
+    replays: [],
     ...(steps === undefined ? {} : { steps }),
   };
 }

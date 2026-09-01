@@ -25,7 +25,8 @@ import json
 import logging
 import threading
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -101,6 +102,43 @@ def _sibling_for_format(primary: Path, fmt: str) -> Path:
 
 ChildContextResolver = Callable[[PreviewTarget, dict[str, Any]], tuple[PreviewTarget, dict[str, Any]]]
 ProviderT = TypeVar("ProviderT", bound=Callable[..., Any])
+
+
+@contextmanager
+def _activated_package_import_roots(owner_kind: OwnerKind) -> Iterator[None]:
+    """Activate installed package import roots around a package previewer call.
+
+    #2112: the same deferred-import gap
+    :func:`scistudio.blocks.io._unified_dispatch._activated_package_import_roots`
+    closes for delegated IO. A package previewer module is importable at render
+    time only because discovery cached it in ``sys.modules`` under a scoped
+    ``prepended_sys_paths`` that was then reverted, so a *lazy* third-party
+    import inside the provider (the ``tifffile`` import in the imaging image
+    viewer) runs a fresh import with the plugin ``site-packages`` off
+    ``sys.path`` and raises ``ModuleNotFoundError``. Re-activate each installed
+    plugin's ``src`` + ``site-packages`` for the duration of the call.
+
+    Package tier only: core providers import from the base installation, and a
+    drop-in provider is already resolved under its own tier roots in
+    :meth:`PreviewSessionManager._provider_from_decl_scoped`. Best-effort and a
+    no-op outside the desktop/bundled layout, where plugin deps are already
+    importable.
+    """
+    if owner_kind is not OwnerKind.PACKAGE:
+        yield
+        return
+    try:
+        from scistudio.desktop.paths import installed_package_import_roots, prepended_sys_paths
+
+        roots = list(installed_package_import_roots())
+    except Exception:  # pragma: no cover - defensive; never fail a render
+        yield
+        return
+    if not roots:
+        yield
+        return
+    with prepended_sys_paths(roots):
+        yield
 
 
 @internal()
@@ -273,7 +311,8 @@ class PreviewSessionManager:
                 record_metadata=_record_metadata_from_query(merged),
             )
             try:
-                return resource_provider(request, resource_id, _public_resource_params(params or {}))
+                with _activated_package_import_roots(spec.owner_kind):
+                    return resource_provider(request, resource_id, _public_resource_params(params or {}))
             except ProviderError:
                 raise
             except Exception as exc:
@@ -361,7 +400,8 @@ class PreviewSessionManager:
             record_metadata=_record_metadata_from_query(query),
         )
         try:
-            envelope = provider(request)
+            with _activated_package_import_roots(spec.owner_kind):
+                envelope = provider(request)
         except PreviewError as exc:
             envelope = self._error_envelope(
                 target, exc.code, exc.message, previewer_id=spec.previewer_id, detail=exc.detail
