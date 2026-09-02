@@ -225,6 +225,38 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-02T17:48:46.738537Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2f7d0bb500e078d0dcd02b9e20e7b040dc03ba90ce2092caec61c01e34545945",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-02T17:48:51.809029Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cb60a9b018208a78f8e017db72c191ef67e8adae44f1456997ac67fee00f9f51",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -303,6 +335,14 @@
     },
     {
       "at": "2026-09-02T17:48:31.309269Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-054.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-02T17:48:45.594726Z",
       "class": null,
       "kind": "path",
       "path": "docs/adr/ADR-054.md",
@@ -1103,6 +1143,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-02T17:48:51.835373Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-02T17:48:51.847491Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-02T17:48:51.858095Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-02T17:48:51.868223Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-02T17:48:51.878842Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-02T17:48:51.889568Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-02T17:48:51.899957Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-02T17:48:51.909826Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-02T17:48:51.919932Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-02T17:48:51.929690Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-02T17:48:51.945126Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1121,9 +1249,9 @@
       ".workflow/records/2204-explore-session-adr.json",
       "docs/adr/ADR-054.md"
     ],
-    "diff_fingerprint": "sha256:6c2a8aa795b32764a2a9a3c1b57f376fa58150e3a801576f63a7c95c5c5bb135",
+    "diff_fingerprint": "sha256:b4f38db0a271fbde11d58b80778416aa20afbd8e1d1af6129d0723537ed0d413",
     "head": "HEAD",
-    "head_sha": "b9b3c342",
+    "head_sha": "6b46219c",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -1215,6 +1343,14 @@
     {
       "at": "2026-09-02T17:48:31.763687Z",
       "diff_fingerprint": "sha256:6c2a8aa795b32764a2a9a3c1b57f376fa58150e3a801576f63a7c95c5c5bb135",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-02T17:48:51.945161Z",
+      "diff_fingerprint": "sha256:b4f38db0a271fbde11d58b80778416aa20afbd8e1d1af6129d0723537ed0d413",
       "mode": "local",
       "result": "pass",
       "tier": 3,
@@ -1318,6 +1454,14 @@
     },
     {
       "at": "2026-09-02T17:48:31.309411Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR is planning-phase documentation; no code surface changes in this diff",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-02T17:48:45.594873Z",
       "class": "implementation",
       "kind": "na",
       "path": null,
