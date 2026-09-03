@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Router &mdash; SciStudio panel</title>
+<!--
+  ADR-054 spec 1, T-009 (#2229) — the built-in Data Router panel.
+
+  Replaces frontend/src/components/DataRouterModal.tsx and its
+  DataRouterModal.parts/, plus the `core.interactive.data_router` entry in the
+  retired PANEL_REGISTRY of frontend/src/App.parts/InteractiveModals.tsx. It is
+  bound to the DataRouter block's prompt (input ports, the items on each, and
+  the output port names) and lets the person drag each item onto the output port
+  it should leave by.
+
+  This is a *producing* panel (FR-006). Its only outbound path is `emit`, and
+  what it emits is code (ADR-054 3.6):
+
+      assignments = {"port_1": ["input_1:0"], "port_2": []}
+      scistudio.output(assignments=assignments)
+
+  Both statement forms — an assignment whose target is a plain name, and a call
+  to `scistudio.output` — are what the emission check admits. That check is NOT
+  implemented here and must not be: FR-012 says the panel loading machinery must
+  not interpret what a panel emits, and ADR-054 3.6 puts the whitelist where an
+  emission is queued, which is the explore session.
+
+  Confirm and cancel are host chrome (ADR-054 4.2), not this panel's, so the
+  panel re-emits its decision each time the routing changes. Every emission is
+  the same rebinding assignment, so the newest one is simply the decision.
+
+  FR-034 / A-004: strictly self-contained. Markup, styles and script in one
+  file — no <script src>, no <link rel=stylesheet>, no shared runtime import, no
+  CDN. The envelope plumbing and colour tokens repeat the other built-in
+  panels' on purpose.
+-->
+<style>
+  :root {
+    --ink: #1c211b;
+    --ember: #f06a44;
+    --periwinkle: #aec5eb;
+    --amber-text: #92400e;
+    --danger: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--ink);
+    font: 12px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  body { padding: 8px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .lede { font-size: 11px; color: rgba(28, 33, 27, 0.6); }
+  .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+  .group { display: flex; flex-direction: column; gap: 8px; }
+  .port {
+    border: 1px solid rgba(28, 33, 27, 0.12);
+    border-radius: 1rem;
+    background: #fff;
+    padding: 8px 10px;
+  }
+  .port.output { border-color: rgba(174, 197, 235, 0.9); }
+  .port.dropping { border-color: var(--ember); background: rgba(240, 106, 68, 0.06); }
+  .port h2 {
+    margin: 0 0 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(28, 33, 27, 0.6);
+  }
+  .items { display: flex; flex-direction: column; gap: 4px; min-height: 28px; }
+  .item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    border: 1px solid rgba(28, 33, 27, 0.1);
+    border-radius: 8px;
+    background: #fff;
+    padding: 4px 8px;
+    font-size: 11px;
+    cursor: grab;
+  }
+  .item.routed { background: rgba(174, 197, 235, 0.18); }
+  .item .type { font-size: 10px; color: rgba(28, 33, 27, 0.45); }
+  .item button {
+    font: inherit;
+    font-size: 10px;
+    border: 0;
+    background: transparent;
+    color: rgba(28, 33, 27, 0.5);
+    cursor: pointer;
+    padding: 0 2px;
+  }
+  .item button:hover { color: var(--danger); }
+  .empty { font-size: 10px; color: rgba(28, 33, 27, 0.4); padding: 4px 2px; }
+  .error {
+    border: 1px solid rgba(179, 38, 30, 0.3);
+    background: rgba(179, 38, 30, 0.08);
+    color: var(--danger);
+    border-radius: 1rem;
+    padding: 12px;
+  }
+  .muted { color: rgba(28, 33, 27, 0.6); }
+</style>
+</head>
+<body>
+<div class="stack" id="root">
+  <p class="muted">Waiting for the host&hellip;</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------------- */
+  /* The D-011 envelope. Duplicated per FR-034; do not factor it out.        */
+  /* ---------------------------------------------------------------------- */
+
+  var PANEL_MESSAGE_MARKER = 1;
+  var PANEL_API_VERSION = "1";
+
+  var token = null;
+  var context = null;
+  var capability = "displaying";
+  var torndown = false;
+
+  function post(type, payload) {
+    if (token === null || torndown) return false;
+    try {
+      window.parent.postMessage(
+        { scistudio_panel: PANEL_MESSAGE_MARKER, token: token, type: type, payload: payload },
+        "*"
+      );
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function reportError(message, detail) {
+    post("error", { message: String(message), detail: detail || null });
+  }
+
+  function asString(value, fallback) {
+    return typeof value === "string" ? value : fallback === undefined ? "" : fallback;
+  }
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The routing decision                                                    */
+  /* ---------------------------------------------------------------------- */
+
+  var prompt = { input_ports: [], items_per_port: {}, output_ports: [] };
+  var assignments = {};
+  var dragging = null;
+  var dropTarget = null;
+  var fatal = null;
+
+  /** Which output port an item ref is currently routed to, or null. */
+  function routedTo(ref) {
+    var ports = Object.keys(assignments);
+    for (var i = 0; i < ports.length; i += 1) {
+      if (assignments[ports[i]].indexOf(ref) >= 0) return ports[i];
+    }
+    return null;
+  }
+
+  function assign(ref, outputPort) {
+    Object.keys(assignments).forEach(function (port) {
+      assignments[port] = assignments[port].filter(function (entry) { return entry !== ref; });
+    });
+    if (outputPort && assignments[outputPort]) assignments[outputPort].push(ref);
+    emitDecision();
+    render();
+  }
+
+  /**
+   * A JSON value as a Python literal. The decision is strings, numbers, lists
+   * and objects, whose JSON spelling is already valid Python except for the
+   * three keywords.
+   */
+  function pythonLiteral(value) {
+    if (value === null || value === undefined) return "None";
+    if (value === true) return "True";
+    if (value === false) return "False";
+    if (typeof value === "number") return String(value);
+    if (typeof value === "string") return JSON.stringify(value);
+    if (Array.isArray(value)) {
+      return "[" + value.map(pythonLiteral).join(", ") + "]";
+    }
+    return (
+      "{" +
+      Object.keys(value)
+        .map(function (key) { return JSON.stringify(key) + ": " + pythonLiteral(value[key]); })
+        .join(", ") +
+      "}"
+    );
+  }
+
+  /**
+   * The one outbound path. The host enforces the capability grant (FR-011): an
+   * `emit` from a displaying mount is dropped and reported by the host, not
+   * withheld by the panel's restraint. The guard here is honesty about what
+   * this mount was given, not the enforcement.
+   */
+  function emitDecision() {
+    if (capability !== "producing") return;
+    var code =
+      "assignments = " + pythonLiteral(assignments) + "\n" +
+      "scistudio.output(assignments=assignments)";
+    post("emit", { code: code });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Rendering                                                               */
+  /* ---------------------------------------------------------------------- */
+
+  function itemCard(item, port) {
+    var ref = asString(item.ref, port + ":" + item.index);
+    var target = routedTo(ref);
+    var card = el("div", "item" + (target ? " routed" : ""));
+    card.setAttribute("draggable", "true");
+    card.setAttribute("data-ref", ref);
+    card.addEventListener("dragstart", function (event) {
+      dragging = ref;
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", ref);
+      }
+    });
+    card.addEventListener("dragend", function () { dragging = null; });
+
+    var label = el("span", null, asString(item.name, ref));
+    label.setAttribute("title", ref);
+    card.appendChild(label);
+    var right = el("span", null);
+    right.appendChild(el("span", "type", asString(item.type, "")));
+    if (target) {
+      var remove = el("button", null, "✕");
+      remove.type = "button";
+      remove.setAttribute("aria-label", "Unroute " + asString(item.name, ref));
+      remove.addEventListener("click", function () { assign(ref, null); });
+      right.appendChild(remove);
+    }
+    card.appendChild(right);
+    return card;
+  }
+
+  function outputPortBox(port) {
+    var box = el("div", "port output" + (dropTarget === port ? " dropping" : ""));
+    box.appendChild(el("h2", null, port));
+    var list = el("div", "items");
+    var refs = assignments[port] || [];
+    if (refs.length === 0) {
+      list.appendChild(el("p", "empty", "Drop items here"));
+    } else {
+      refs.forEach(function (ref) {
+        var item = itemByRef(ref);
+        list.appendChild(itemCard(item || { ref: ref, name: ref, type: "" }, port));
+      });
+    }
+    box.appendChild(list);
+
+    box.addEventListener("dragover", function (event) {
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      if (dropTarget !== port) {
+        dropTarget = port;
+        render();
+      }
+    });
+    box.addEventListener("dragleave", function () {
+      if (dropTarget === port) {
+        dropTarget = null;
+        render();
+      }
+    });
+    box.addEventListener("drop", function (event) {
+      event.preventDefault();
+      var ref = dragging;
+      if (!ref && event.dataTransfer) ref = event.dataTransfer.getData("text/plain");
+      dropTarget = null;
+      dragging = null;
+      if (ref) assign(ref, port);
+      else render();
+    });
+    return box;
+  }
+
+  function itemByRef(ref) {
+    var ports = Object.keys(prompt.items_per_port);
+    for (var i = 0; i < ports.length; i += 1) {
+      var items = prompt.items_per_port[ports[i]] || [];
+      for (var j = 0; j < items.length; j += 1) {
+        var candidate = asString(items[j].ref, ports[i] + ":" + items[j].index);
+        if (candidate === ref) return items[j];
+      }
+    }
+    return null;
+  }
+
+  function render() {
+    var root = document.getElementById("root");
+    root.textContent = "";
+
+    if (fatal) {
+      var box = el("div", "error");
+      box.setAttribute("role", "alert");
+      box.appendChild(el("p", null, fatal));
+      root.appendChild(box);
+      return;
+    }
+
+    root.appendChild(
+      el("p", "lede", "Drag each item from an input port onto the output port it should leave by.")
+    );
+
+    var columns = el("div", "columns");
+
+    var inputs = el("div", "group");
+    prompt.input_ports.forEach(function (port) {
+      var portBox = el("div", "port");
+      portBox.appendChild(el("h2", null, port));
+      var list = el("div", "items");
+      var items = prompt.items_per_port[port] || [];
+      if (items.length === 0) list.appendChild(el("p", "empty", "No items"));
+      items.forEach(function (item) { list.appendChild(itemCard(item, port)); });
+      portBox.appendChild(list);
+      inputs.appendChild(portBox);
+    });
+    columns.appendChild(inputs);
+
+    var outputs = el("div", "group");
+    prompt.output_ports.forEach(function (port) { outputs.appendChild(outputPortBox(port)); });
+    columns.appendChild(outputs);
+
+    root.appendChild(columns);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The handshake                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  /** The prompt rides `init.bindings` for a producing mount, `target` otherwise. */
+  function promptFrom(payload) {
+    var candidates = [];
+    if (payload.bindings && typeof payload.bindings === "object") {
+      Object.keys(payload.bindings).forEach(function (name) {
+        var binding = payload.bindings[name];
+        if (binding && typeof binding === "object") candidates.push(binding.snapshot);
+      });
+    }
+    candidates.push(payload.target);
+    for (var i = 0; i < candidates.length; i += 1) {
+      var value = candidates[i];
+      if (!value || typeof value !== "object") continue;
+      var body = value.panel_payload && typeof value.panel_payload === "object"
+        ? value.panel_payload
+        : value;
+      if (Array.isArray(body.output_ports) || Array.isArray(body.input_ports)) {
+        return {
+          input_ports: Array.isArray(body.input_ports) ? body.input_ports : [],
+          items_per_port:
+            body.items_per_port && typeof body.items_per_port === "object" ? body.items_per_port : {},
+          output_ports: Array.isArray(body.output_ports) ? body.output_ports : []
+        };
+      }
+    }
+    return null;
+  }
+
+  function onMessage(event) {
+    var data = event.data;
+    if (!data || typeof data !== "object") return;
+    if (data.scistudio_panel !== PANEL_MESSAGE_MARKER) return;
+    if (typeof data.type !== "string") return;
+    var payload = data.payload && typeof data.payload === "object" ? data.payload : {};
+
+    if (token === null) {
+      if (data.type !== "init" || typeof data.token !== "string" || data.token === "") return;
+      token = data.token;
+      context = payload;
+      capability = payload.capability === "producing" ? "producing" : "displaying";
+      var resolved = promptFrom(payload);
+      if (resolved === null) {
+        fatal = "This panel was mounted without a Data Router prompt to route.";
+      } else {
+        prompt = resolved;
+        prompt.output_ports.forEach(function (port) { assignments[port] = []; });
+        var restored = payload.restored_state;
+        if (restored && typeof restored === "object" && restored.assignments) {
+          Object.keys(assignments).forEach(function (port) {
+            if (Array.isArray(restored.assignments[port])) {
+              assignments[port] = restored.assignments[port].slice();
+            }
+          });
+        }
+      }
+      post("ready", { api_version: PANEL_API_VERSION });
+      if (fatal) reportError(fatal, null);
+      render();
+      return;
+    }
+
+    if (data.token !== token) return;
+
+    switch (data.type) {
+      case "update": {
+        if (!payload.changed || typeof payload.changed !== "object") break;
+        var next = promptFrom({ bindings: payload.changed.bindings, target: payload.changed.target });
+        if (next) {
+          prompt = next;
+          var kept = assignments;
+          assignments = {};
+          prompt.output_ports.forEach(function (port) {
+            assignments[port] = Array.isArray(kept[port]) ? kept[port] : [];
+          });
+          render();
+        }
+        break;
+      }
+      case "error":
+        fatal = asString(payload.message, "The host reported an error.");
+        render();
+        break;
+      case "state_request":
+        post("state", { state: { assignments: assignments } });
+        break;
+      case "teardown":
+        torndown = true;
+        window.removeEventListener("message", onMessage);
+        break;
+      default:
+        break;
+    }
+  }
+
+  window.addEventListener("message", onMessage);
+})();
+</script>
+</body>
+</html>

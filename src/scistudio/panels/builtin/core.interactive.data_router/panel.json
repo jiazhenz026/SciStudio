@@ -1,0 +1,11 @@
+{
+  "panel_id": "core.interactive.data_router",
+  "display_name": "Data Router",
+  "target_types": [],
+  "capability": "producing",
+  "entry": "index.html",
+  "api_version": "1",
+  "features": ["routing", "drag_and_drop"],
+  "priority": 0,
+  "supports_collection": false
+}
