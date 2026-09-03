@@ -779,3 +779,43 @@ implement them are named.
   `data-tutorial-target="preview_item"` on its own chrome around the frame.
   `tests/tutorials/test_core_tutorial_what_is_a_type.py` must still pass
   unchanged. Implemented by `W3-fe`.
+
+---
+
+## Manager contract sheet: D-020
+
+Added before wave 4 so `W3-api` and `W3-fe` can work in parallel and meet at the
+wire rather than one waiting on the other.
+
+- **D-020 - The panel API surface.** `W3-api` produces it, `W3-fe` consumes it,
+  and neither bends the other's shape without telling the manager.
+
+  | Method and path | Purpose | Requirement |
+  |---|---|---|
+  | `GET /api/panels/assets/{panel_id}/{asset_path:path}` | The one merged asset route, four tier roots, one confinement check, one suffix allowlist, read-only cross-origin | FR-021, D-008 |
+  | `GET /api/panels` | List registered panels and discovery diagnostics | FR-023 |
+  | `POST /api/panels/reload` | Rebuild the registry; the one way a directory added, changed or removed takes effect | FR-023, FR-046 |
+  | `GET /api/panels/choices` | The effective per-type, per-capability choices | FR-023, FR-049 |
+  | `PUT /api/panels/choices/{target_type}` | Record a choice at a scope, for a stated capability | FR-049 |
+  | `DELETE /api/panels/choices/{target_type}` | Clear a choice at a scope, for a stated capability | FR-049 |
+  | `GET /api/panels/{panel_id}/source` | Read the source of any resolved panel, whichever tier it came from | FR-024 |
+  | `PUT /api/panels/{panel_id}/source` | Save an edit, writing back to the tier the panel resolved from; a core or package panel is copied into the open project under the same id | FR-025, FR-026, FR-027 |
+  | `DELETE /api/panels/{panel_id}/override` | Revert by deleting the shadowing copy, restoring whatever it shadowed | FR-029 |
+
+  The route prefix constant already exists:
+  `scistudio.panels.descriptor.PANEL_ASSET_ROUTE_PREFIX`. `W3-api` imports it
+  rather than respelling it, so the route and the descriptor cannot disagree.
+
+  `scistudio.panels.descriptor.panel_descriptor()` already produces what the
+  frontend host consumes, including `accepted_api_version` and `read_limits`
+  (D-016.3). The API layer carries it; it does not rebuild it.
+
+  Two additions to the response the host already reads: the id of the fallback
+  panel to mount when the chosen panel fails (FR-015, D-013), and the panel
+  descriptor for the panel that was chosen. **The frontend keeps no mapping from
+  a response kind to a panel** (FR-036, SC-010); the backend names both.
+
+  `/api/previews/assets/...` and `/api/blocks/panels/...` keep serving their
+  existing clients for the duration of the migration (FR-022). The list,
+  rebuild and choice endpoints move under the panel naming and keep their
+  current behaviour (FR-023); the frontend follows them in the same change.
