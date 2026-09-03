@@ -116,6 +116,10 @@ function ScalarField({
   onUpdateConfig: (patch: Record<string, unknown>) => void;
 }) {
   const [browseOpen, setBrowseOpen] = useState(false);
+  // #2220 — the native dialog blocks until the user dismisses it, so the button
+  // has to say that one is already open. Without this the only feedback was the
+  // whole app freezing, which is exactly what #2220 removed.
+  const [browsePending, setBrowsePending] = useState(false);
   if (field.type === "boolean") {
     const checked = Boolean(currentValue);
     return (
@@ -164,7 +168,8 @@ function ScalarField({
     });
   };
   const handleBrowseClick = async () => {
-    if (!browseMode) return;
+    if (!browseMode || browsePending) return;
+    setBrowsePending(true);
     try {
       const result = await api.openNativeDialog(
         browseMode,
@@ -175,6 +180,8 @@ function ScalarField({
       if (shouldFallbackToInAppModal(err)) {
         setBrowseOpen(true);
       }
+    } finally {
+      setBrowsePending(false);
     }
   };
   return (
@@ -195,8 +202,9 @@ function ScalarField({
         {browseMode && (
           <button
             type="button"
-            className="shrink-0 rounded-2xl border border-stone-300 bg-white px-3 text-sm text-stone-600 hover:bg-stone-50"
-            title="Browse filesystem"
+            className="shrink-0 rounded-2xl border border-stone-300 bg-white px-3 text-sm text-stone-600 hover:bg-stone-50 disabled:cursor-default disabled:opacity-50"
+            disabled={browsePending}
+            title={browsePending ? "File dialog open" : "Browse filesystem"}
             onClick={() => void handleBrowseClick()}
           >
             ...

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -253,6 +254,174 @@ class TestNativeDialog:
                 json={"mode": "directory"},
             )
             assert resp.status_code == 500
+        finally:
+            fs_mod.subprocess.run = original_run  # type: ignore[assignment]
+
+
+class TestNativeDialogDoesNotBlockTheEventLoop:
+    """Regression tests for #2220.
+
+    The dialog helpers block for as long as the OS panel stays on screen. When
+    the route was ``async def`` that wait happened on the event loop, so the
+    single worker served nothing else until the user dismissed the panel — a
+    100-second browse froze the whole app for 100 seconds.
+    """
+
+    def test_handler_is_not_a_coroutine_function(self) -> None:
+        """The route must stay a plain ``def`` so FastAPI offloads it.
+
+        Restoring ``async def`` would silently reintroduce the freeze: nothing
+        in the body is awaited, so the code would still look correct.
+        """
+        import inspect
+
+        import scistudio.api.routes.filesystem as fs_mod
+
+        assert not inspect.iscoroutinefunction(fs_mod.native_file_dialog)
+
+    @pytest.mark.serial
+    def test_the_loop_keeps_ticking_while_a_dialog_is_open(self, client: TestClient) -> None:
+        """The event loop stays responsive while the dialog subprocess blocks.
+
+        Measured directly, by timing a heartbeat coroutine's own sleep interval
+        while the dialog is open. That is the defect itself: a blocked loop
+        cannot run any coroutine, so the heartbeat's 50ms sleep stretches to the
+        full length of the block.
+
+        Two weaker shapes were tried first and both pass with the bug in place,
+        so neither is worth reaching for again. ``TestClient`` gives every
+        request its own event loop, so it cannot observe loop blocking at all.
+        And a second request issued *after* the block starts is not evidence
+        either: its timeout only starts counting when it is awaited, which the
+        blocked loop defers until the block is already over.
+        """
+        import asyncio
+        import threading
+
+        import httpx
+
+        import scistudio.api.routes.filesystem as fs_mod
+
+        # Long enough to dwarf ordinary scheduling noise, short enough that the
+        # buggy version fails fast rather than hanging the suite.
+        block_seconds = 4.0
+        max_tolerated_lag_seconds = 1.5
+
+        dialog_entered = threading.Event()
+        release_dialog = threading.Event()
+
+        def blocking_run(*_args: object, **_kwargs: object) -> object:
+            dialog_entered.set()
+            # Stands in for the user leaving the OS panel open.
+            release_dialog.wait(timeout=block_seconds)
+
+            class Completed:
+                stdout = ""
+                stderr = ""
+                returncode = 0
+
+            return Completed()
+
+        async def scenario() -> tuple[float, int]:
+            loop = asyncio.get_running_loop()
+            lags: list[float] = []
+            stop = asyncio.Event()
+
+            async def heartbeat() -> None:
+                last = loop.time()
+                while not stop.is_set():
+                    await asyncio.sleep(0.05)
+                    now = loop.time()
+                    lags.append(now - last)
+                    last = now
+
+            heartbeat_task = asyncio.create_task(heartbeat())
+            transport = httpx.ASGITransport(app=client.app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as async_client:
+                dialog = asyncio.create_task(
+                    async_client.post("/api/filesystem/native-dialog", json={"mode": "directory"})
+                )
+                await loop.run_in_executor(None, dialog_entered.wait, 10)
+                release_dialog.set()
+                response = await dialog
+            stop.set()
+            await heartbeat_task
+            return max(lags, default=0.0), response.status_code
+
+        original_run = fs_mod.subprocess.run
+        fs_mod.subprocess.run = blocking_run  # type: ignore[assignment]
+        try:
+            worst_lag, status_code = asyncio.run(scenario())
+        finally:
+            release_dialog.set()
+            fs_mod.subprocess.run = original_run  # type: ignore[assignment]
+
+        assert status_code == 200
+        assert worst_lag < max_tolerated_lag_seconds, (
+            f"the event loop stalled for {worst_lag:.1f}s while the dialog was open; "
+            "the handler is blocking the loop again"
+        )
+
+    @pytest.mark.serial
+    def test_second_dialog_request_is_refused_while_one_is_open(self, client: TestClient) -> None:
+        """Single-flight: a concurrent dialog request gets 409, not a second panel.
+
+        Two panels would compete for focus and both write the module-global
+        last-used directory. Before #2220 this was impossible only because the
+        blocked loop could not accept the second request at all.
+        """
+        import threading
+
+        import scistudio.api.routes.filesystem as fs_mod
+
+        dialog_entered = threading.Event()
+        release_dialog = threading.Event()
+
+        def blocking_run(*_args: object, **_kwargs: object) -> object:
+            dialog_entered.set()
+            release_dialog.wait(timeout=10)
+
+            class Completed:
+                stdout = ""
+                stderr = ""
+                returncode = 0
+
+            return Completed()
+
+        original_run = fs_mod.subprocess.run
+        fs_mod.subprocess.run = blocking_run  # type: ignore[assignment]
+
+        def open_dialog() -> None:
+            client.post("/api/filesystem/native-dialog", json={"mode": "directory"})
+
+        dialog_thread = threading.Thread(target=open_dialog, daemon=True)
+        try:
+            dialog_thread.start()
+            assert dialog_entered.wait(timeout=10), "dialog subprocess never started"
+
+            resp = client.post("/api/filesystem/native-dialog", json={"mode": "directory"})
+            assert resp.status_code == 409
+        finally:
+            release_dialog.set()
+            dialog_thread.join(timeout=10)
+            fs_mod.subprocess.run = original_run  # type: ignore[assignment]
+
+    def test_the_guard_is_released_after_a_failed_dialog(self, client: TestClient) -> None:
+        """A dialog that raises must not leave the single-flight guard held."""
+        import scistudio.api.routes.filesystem as fs_mod
+
+        def not_found_run(*_args: object, **_kwargs: object) -> None:
+            raise FileNotFoundError("no dialog binary")
+
+        original_run = fs_mod.subprocess.run
+        fs_mod.subprocess.run = not_found_run  # type: ignore[assignment]
+        try:
+            first = client.post("/api/filesystem/native-dialog", json={"mode": "directory"})
+            assert first.status_code == 500
+            # A held guard would turn this into a 409 and wedge Browse for the
+            # rest of the session.
+            second = client.post("/api/filesystem/native-dialog", json={"mode": "directory"})
+            assert second.status_code == 500
         finally:
             fs_mod.subprocess.run = original_run  # type: ignore[assignment]
 

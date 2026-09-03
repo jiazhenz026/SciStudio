@@ -7,6 +7,7 @@ import platform
 import string
 import subprocess
 import tempfile
+import threading
 from pathlib import Path
 from typing import Annotated
 
@@ -379,6 +380,16 @@ class NativeDialogResponse(BaseModel):
 # Per-session last-used directory (in-memory, resets on restart).
 _last_used_directory: str | None = None
 
+# Single-flight guard for the native dialog (#2220).
+#
+# The handler blocks a worker thread for as long as the OS panel stays on
+# screen, so two Browse clicks would otherwise open two competing panels that
+# both race to write ``_last_used_directory``. Concurrency here used to be
+# impossible for the wrong reason: the handler blocked the whole event loop, so
+# a second request could not reach it. With the handler running off the loop,
+# the mutual exclusion has to be stated.
+_dialog_lock = threading.Lock()
+
 
 def _resolve_dialog_start_dir(
     initial_dir: str | None,
@@ -696,12 +707,35 @@ def _native_dialog_linux(
 
 
 @router.post("/api/filesystem/native-dialog", response_model=NativeDialogResponse)
-async def native_file_dialog(body: NativeDialogRequest, runtime: RuntimeDep) -> NativeDialogResponse:
+def native_file_dialog(body: NativeDialogRequest, runtime: RuntimeDep) -> NativeDialogResponse:
     """Open a native OS file or directory dialog and return the selected path.
 
     Uses platform-specific subprocess calls (PowerShell on Windows, osascript
     on macOS, zenity on Linux). Returns ``{"path": null}`` if the user cancels.
+
+    Deliberately a plain ``def`` (#2220). The platform helpers block for as long
+    as the user leaves the panel open — by design, since ``timeout=None`` (#678)
+    lets browsing take arbitrarily long. As an ``async def`` that blocking ran
+    on the event loop, so the single uvicorn worker served nothing else at all
+    in the meantime: every API call, the SPA's own assets, and ``/ws`` stalled,
+    the frontend heartbeat gave up and reconnected, and a 100-second browse
+    froze the whole app for 100 seconds. FastAPI runs a plain ``def`` handler in
+    its threadpool instead, which is where an unbounded blocking wait belongs.
+    Nothing in the body is awaited, so no other change is needed.
     """
+    # One panel at a time (#2220) — see ``_dialog_lock``. Refusing beats
+    # queueing: a queued request would raise its panel only once the first one
+    # closes, long after the click that asked for it.
+    if not _dialog_lock.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="A native file dialog is already open.")
+    try:
+        return _run_native_dialog(body, runtime)
+    finally:
+        _dialog_lock.release()
+
+
+def _run_native_dialog(body: NativeDialogRequest, runtime: ApiRuntime) -> NativeDialogResponse:
+    """Resolve the start directory, run the platform dialog, and record the result."""
     global _last_used_directory
 
     # Determine starting directory. Project-scope dialogs default to the active

@@ -585,6 +585,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   from disk, so edited blocks appear, removed plugins disappear, and a plugin
   that fails to re-import surfaces in the palette diagnostics instead of
   silently going stale.
+- [#2220] **Opening a file dialog no longer freezes the whole app.** Pressing
+  Browse anywhere — a block's path field, Open Project, Bring In My Work, the
+  Package Manager, a subworkflow file, the diagnostics export — stalled every
+  other part of SciStudio for as long as the OS panel stayed on screen. The
+  canvas stopped saving, the run status stopped updating, and the connection to
+  the backend dropped and reconnected behind the panel, losing whatever
+  happened in between; a browse that took a hundred seconds froze the app for a
+  hundred seconds. The dialog is opened by a helper process that only returns
+  once a file is picked, and that wait was being done on the thread that serves
+  every request. It now waits off to the side, so the rest of the app keeps
+  running while the panel is open. Browse also disables itself while its dialog
+  is open, and a request for a second dialog is refused rather than opening a
+  competing panel.
+
 - [#2112] **A package previewer's deferred imports resolve again.** A previewer
   shipped by an installed package could route correctly and still fail to
   render: opening a TIFF through the imaging package's image viewer reported
