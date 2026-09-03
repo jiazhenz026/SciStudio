@@ -576,7 +576,7 @@ async def _run_interactive(
             manifest = block.get_panel_manifest() if hasattr(block, "get_panel_manifest") else None
             panel_manifest = manifest.to_dict() if manifest is not None else None
             block_name = config.get("block_type", type(block).__name__)
-            panel_id = getattr(manifest, "panel_id", "") if manifest is not None else ""
+            panel_id = getattr(manifest, "panel_id", "") or "(no panel declared)"
 
             # Announce the prompt only if the decision has not already arrived
             # (the common case — nothing resolves the future before this point;
