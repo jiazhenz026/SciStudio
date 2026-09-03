@@ -1,9 +1,48 @@
 {
   "base_ref": null,
   "branch": "docs/adr-054-specs",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-03T01:14:40.768750Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ed158c8d301d1254518639d4713ebcc287b89b0e2b981f731ac2328b1a68eb75",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T01:14:46.593677Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:88fae4c85beb0660d459e201df8c99db3555074b3de9d5e463872e14e116fd6c",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "7abe3249169e32f1700e2ea3343cf723eae6364e",
+    "shas": [
+      "7abe3249169e32f1700e2ea3343cf723eae6364e"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -17,9 +56,251 @@
     ]
   },
   "directive_events": [],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-03T01:14:24.619043Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-054.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T01:14:24.619199Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-panel-contract.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T01:14:24.619201Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-notebook-dependency-analysis.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T01:14:24.619202Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-explore-session.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T01:14:24.619203Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-explore-frontend.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T01:14:24.619204Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-agent-enablement.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T01:14:24.619205Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-documentation.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T01:14:24.816177Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-054.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-03T01:14:46.623030Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:14:46.633968Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:14:46.646528Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:14:46.658479Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:14:46.670689Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:14:46.682284Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:14:46.693878Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:14:46.705072Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:14:46.717316Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:14:46.727678Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:14:46.752683Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:15:24.545829Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:15:24.555838Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:15:24.566264Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:15:24.576487Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:15:24.587461Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:15:24.597908Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:15:24.608445Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:15:24.618929Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:15:24.630539Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:15:24.641431Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T01:15:24.668045Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -65,25 +346,116 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "07c1e50f",
+    "base_sha": "07c1e50f",
+    "changed_files": [
+      ".workflow/records/2219-docs-adr-054-specs.json",
+      "docs/adr/ADR-054.md",
+      "docs/specs/adr-054-agent-enablement.md",
+      "docs/specs/adr-054-documentation.md",
+      "docs/specs/adr-054-explore-frontend.md",
+      "docs/specs/adr-054-explore-session.md",
+      "docs/specs/adr-054-notebook-dependency-analysis.md",
+      "docs/specs/adr-054-panel-contract.md"
+    ],
+    "diff_fingerprint": "sha256:b03371e72791c66ca48e5049acc9b62cd9e8acecb69b1518d89a9830513270d2",
+    "head": "HEAD",
+    "head_sha": "7abe3249",
+    "surfaces": {
+      "docs": 7,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 7,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Owner-directed session 2026-09-02: revise ADR-054 in place to the settled explore-session model and land its six implementation specs (panel contract, dependency analysis, explore session, explore frontend, agent enablement, documentation) in one PR, as the owner asked.",
   "persona": "adr_author",
-  "pull_request": null,
-  "reconcile_events": [],
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2219,
+      2211,
+      2213,
+      2215,
+      2222,
+      2225,
+      2226
+    ],
+    "number": null,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-09-03T01:14:46.752729Z",
+      "diff_fingerprint": "sha256:b03371e72791c66ca48e5049acc9b62cd9e8acecb69b1518d89a9830513270d2",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-03T01:15:24.668091Z",
+      "diff_fingerprint": "sha256:b03371e72791c66ca48e5049acc9b62cd9e8acecb69b1518d89a9830513270d2",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "2219-docs-adr-054-specs",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
+    "checks": [
+      "commit_hygiene",
+      "full_audit"
+    ],
     "docs": [],
-    "guards": [],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
     "tests": []
   },
   "runtime": "claude",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "e2ea4a2e-ef05-4aac-9234-3dbfd40681a9",
-  "strictness_tier": null,
+  "strictness_tier": 3,
   "task_kind": "docs",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-09-03T01:14:24.619216Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only ADR revision and specs; no runtime behaviour changes",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T01:14:24.816312Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only ADR revision and specs; no runtime behaviour changes",
+      "verified_in_diff": null
+    }
+  ]
 }
