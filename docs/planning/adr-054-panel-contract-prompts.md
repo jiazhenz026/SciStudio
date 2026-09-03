@@ -243,3 +243,88 @@ Stop and report back if:
 - The task conflicts with AGENTS.md, the ADR, the spec, or the gate record.
 - CI or local checks fail for unclear reasons.
 ```
+
+---
+
+## Manager contract sheet: D-007 to D-013
+
+Added before wave 2. These fix the cross-agent interfaces so that agents working
+in parallel converge instead of inventing incompatible shapes. They are derived
+from ADR-054 sections 3.2 to 3.6 and 9.2 and from the spec's FR list; where the
+spec is silent the manager has chosen, and the choice is recorded here so the
+audit can check it rather than rediscover it.
+
+- **D-007 - The on-disk panel form.** A panel is a directory holding
+  `panel.json` and its entry document, `index.html` by default (ADR-054 3.3).
+  `panel.json` fields:
+  `panel_id` (str, required), `display_name` (str, required),
+  `target_types` (list[str], required, may be empty only for a
+  block-addressed panel), `capability` (`"displaying"` or `"producing"`,
+  required), `entry` (str, required, a file name inside the directory),
+  `api_version` (str, required), and optional `features` (list[str], the
+  FR-051 free-form tags), `priority` (int, default 0),
+  `supports_collection` (bool, default false), `provider` (str, a dotted
+  reference to a Python provider, FR-047). A declaration missing a required
+  field is refused at discovery with a diagnostic naming the directory and the
+  field (FR-003).
+- **D-008 - The merged asset route.**
+  `GET /api/panels/assets/{panel_id}/{asset_path:path}`. One path-confinement
+  check and one suffix allowlist for all four tiers, differing only in the root
+  each tier resolves to (FR-021). The allowlist is today's previewer set plus
+  `.html`: `.html .js .mjs .css .map .json .svg .png .jpg .jpeg .woff .woff2`.
+  The route answers read-only cross-origin requests, because a panel runs at an
+  opaque origin; no other route gains cross-origin headers. An oversized
+  document is a load failure with a readable diagnostic. The two existing routes
+  (`/api/previews/assets/...` and `/api/blocks/panels/...`) keep serving their
+  existing clients for the duration of the migration (FR-022).
+- **D-009 - The core contract module.** `src/scistudio/core/panels.py` owns
+  `PANEL_API_VERSION`, `PanelCapability` (exactly two members, `displaying` and
+  `producing`, FR-006), `PanelManifest`, `PanelTier`, and the declaration
+  validation errors. `src/scistudio/blocks/base/interactive.py` imports
+  `PanelManifest` from there rather than defining its own (FR-001, ADR-054 9.2).
+- **D-010 - Exactly one API version constant, and it is the backend's.**
+  FR-004 and SC-001 require one definition shared by host and panels. It is
+  `PANEL_API_VERSION` in `src/scistudio/core/panels.py`. The frontend host MUST
+  NOT define or hard-code a version of its own; it receives the accepted version
+  from the backend in the panel descriptor it is already reading and compares
+  the panel's declared version against that. Any frontend constant spelling a
+  version literal is a defect against SC-001.
+- **D-011 - The message contract.** Every message in both directions is
+  `{ scistudio_panel: 1, token: <per-mount token>, type: <string>, payload: <object> }`.
+  The host issues the token at mount; a message without the matching token is
+  ignored (FR-008), and the host additionally requires
+  `event.source === frame.contentWindow`. The frame is mounted with
+  `sandbox="allow-scripts"` and nothing else.
+  Host to panel: `init` (the accepted api version, the panel id, the granted
+  capability, the opening snapshot or the variable bindings, the read limits,
+  and the asset base URL), `update` (a reason and what changed, FR-010),
+  `read_result` (a request id and the window read), `error`, `state_request`,
+  `teardown`.
+  Panel to host: `ready` (the panel's declared api version) which completes the
+  handshake, `read` (a request id and a query), `emit` (the code a producing
+  panel emits, FR-012), `error`, `state` (the optional serialisable snapshot,
+  FR-031).
+  The host sends `init` once the frame has loaded and treats a panel that has
+  not answered `ready` within a bounded wait as a load failure (FR-009). The
+  bounded wait is a named constant, not a scattered literal.
+  The host grants `emit` only to a panel mounted with the producing capability;
+  an `emit` from a displaying mount is dropped and reported, and the grant is
+  enforced by the host rather than by the panel's restraint (FR-011, SC-007).
+- **D-012 - Where the frontend host lives.** `frontend/src/panels/`, with
+  `PanelHost.tsx` and `PanelHost.test.tsx` — ADR-054's `tests:` list names both
+  paths, so they are fixed. Alongside them: `panelMessages.ts` (the D-011
+  envelope and its type guards), `panelFrame.ts` (frame creation, token issue,
+  handshake, bounded wait), `panelCapability.ts` (the outbound grant), and the
+  reload hook. One loader and one host API; the two retired loader modules and
+  the retired host API module are deleted, not wrapped (SC-002).
+- **D-013 - The backend names the fallback.** The response the host already
+  reads gains the id of the fallback panel to mount when the chosen panel fails
+  (FR-015). The frontend's `CoreFallbackRenderer` switch on envelope kind in
+  `coreViewers.tsx` is deleted (FR-036, SC-010); its error surface and
+  diagnostics banner survive as host chrome and must still render when the frame
+  mechanism itself is unavailable (FR-035).
+- **Out of scope, stated so no agent adds it:** the AST whitelist that admits
+  only rebinding assignments, imports, and `scistudio.output` calls
+  (ADR-054 3.6) sits where an emission is queued, which is the explore session.
+  FR-012 says the panel loading machinery MUST NOT interpret what a panel emits.
+  Do not implement the whitelist in this spec.
