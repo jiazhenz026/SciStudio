@@ -20,15 +20,15 @@
   a person can open in a browser and fork whole.
 
   Outbound: a *displaying* panel emits nothing (ADR-054 3.6). Opening an item
-  leaves as `read` with { action: "open_resource", resource_id, params }.
+  leaves as `resource` (D-017), the bounded follow-up read of one resource the
+  envelope named. The host answers `resource_result`.
 
-  TODO(#2229): the tutorial highlight target and the `preview_item_opened`
-    UI event the retired React viewer reported are not reproduced here — a
-    `data-tutorial-target` attribute inside a sandboxed frame is unreachable
-    from the application's tutorial highlighter, and the store is not importable
-    from a panel document. Reproducing them is host-side work on the panel host
-    rather than something a panel document can carry.
-    Followup: https://github.com/jiazhenz026/SciStudio/issues/2229
+  D-019: the `preview_item_opened` tutorial event and the `preview_item`
+  highlight target live in the host by design, not by omission here. The host
+  fires the event when it services this panel's `resource` message for an item,
+  and carries the highlight target on its own chrome — a `data-tutorial-target`
+  attribute inside a sandboxed frame is unreachable from the tutorial
+  highlighter, so it could not work anywhere else.
 -->
 <style>
   :root {
@@ -126,8 +126,8 @@
 
   var token = null;
   var context = null;
-  var readSeq = 0;
-  var pendingReads = Object.create(null);
+  var requestSeq = 0;
+  var pending = Object.create(null);
   var torndown = false;
 
   function post(type, payload) {
@@ -147,16 +147,50 @@
     post("error", { message: String(message), detail: detail || null });
   }
 
-  function read(query) {
+  /**
+   * One bounded request/response round trip. The three outbound request types
+   * differ in what they ask for, not in how they are answered (D-017): each
+   * carries a request id, and the host answers with the matching `*_result` or
+   * with an `error` carrying the same id (D-016), so a failed request ends here
+   * rather than waiting out a timeout of its own.
+   */
+  function request(type, body) {
     return new Promise(function (resolve, reject) {
-      readSeq += 1;
-      var id = "r" + readSeq;
-      pendingReads[id] = { resolve: resolve, reject: reject };
-      if (!post("read", { request_id: id, query: query })) {
-        delete pendingReads[id];
+      requestSeq += 1;
+      var id = "r" + requestSeq;
+      pending[id] = { resolve: resolve, reject: reject };
+      var payload = { request_id: id };
+      Object.keys(body).forEach(function (key) { payload[key] = body[key]; });
+      if (!post(type, payload)) {
+        delete pending[id];
         reject(new Error("the host could not be reached"));
       }
     });
+  }
+
+  function settle(id, value) {
+    var waiting = pending[id];
+    if (!waiting) return false;
+    delete pending[id];
+    waiting.resolve(value);
+    return true;
+  }
+
+  function failRequest(id, message) {
+    var waiting = pending[id];
+    if (!waiting) return false;
+    delete pending[id];
+    waiting.reject(new Error(message));
+    return true;
+  }
+
+  /**
+   * `resource` — a bounded follow-up read of one resource the envelope named
+   * (D-017). Child routing goes out this way: resolving a panel for the child
+   * is the host's to do, not something reachable from inside this frame.
+   */
+  function resource(resourceId, params) {
+    return request("resource", { resource_id: resourceId, params: params });
   }
 
   function envelopeOf(value) {
@@ -265,22 +299,15 @@
     return basename(ref);
   }
 
-  function openItem(index, resource) {
-    read({
-      action: "open_resource",
-      resource_id: resource ? resource.resource_id : "item:" + index,
-      params: resource && resource.params ? resource.params : { index: index }
-    }).then(
-      function (window_) {
-        if (window_ && typeof window_ === "object") {
-          current = envelopeOf(window_);
-          render();
-        }
-      },
-      function (err) {
-        reportError("the collection item could not be opened: " + err.message, { index: index });
-      }
-    );
+  function openItem(index, descriptor) {
+    resource(
+      descriptor ? descriptor.resource_id : "item:" + index,
+      descriptor && descriptor.params ? descriptor.params : { index: index }
+    ).catch(function (err) {
+      // The host routes the child into its own panel and fires the tutorial
+      // event (D-019); there is nothing for this panel to do on success.
+      reportError("the collection item could not be opened: " + err.message, { index: index });
+    });
   }
 
   function render() {
@@ -357,19 +384,12 @@
           render();
         }
         break;
-      case "read_result": {
-        var pending = pendingReads[payload.request_id];
-        if (!pending) break;
-        delete pendingReads[payload.request_id];
-        pending.resolve(payload.window);
+      case "resource_result":
+        settle(payload.request_id, payload.resource);
         break;
-      }
       case "error": {
         var id = payload.request_id;
-        if (typeof id === "string" && pendingReads[id]) {
-          var failed = pendingReads[id];
-          delete pendingReads[id];
-          failed.reject(new Error(asString(payload.message, "the read failed")));
+        if (typeof id === "string" && failRequest(id, asString(payload.message, "the request failed"))) {
           break;
         }
         current = {

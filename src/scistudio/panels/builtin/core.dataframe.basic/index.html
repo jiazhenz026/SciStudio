@@ -20,9 +20,10 @@
   forking it gets in the file they opened.
 
   Outbound: a *displaying* panel emits nothing (ADR-054 3.6). Pagination and
-  sorting go out as `read` queries; the host re-runs the provider and answers
-  `read_result` with the new page, which is rendered exactly like `init.target`.
-    { action: "query", page, page_size, sort_by, sort_dir }
+  sorting go out as `read`, whose payload is a patch of this panel's own query
+  state and nothing else (D-017): { page, page_size, sort_by, sort_dir }. The
+  host re-runs the provider and answers `read_result` with the new page, which is
+  rendered exactly like `init.target`.
 -->
 <style>
   :root {
@@ -160,8 +161,8 @@
 
   var token = null;
   var context = null;
-  var readSeq = 0;
-  var pendingReads = Object.create(null);
+  var requestSeq = 0;
+  var pending = Object.create(null);
   var torndown = false;
 
   function post(type, payload) {
@@ -181,16 +182,51 @@
     post("error", { message: String(message), detail: detail || null });
   }
 
-  function read(query) {
+  /**
+   * One bounded request/response round trip. The three outbound request types
+   * differ in what they ask for, not in how they are answered (D-017): each
+   * carries a request id, and the host answers with the matching `*_result` or
+   * with an `error` carrying the same id (D-016), so a failed request ends here
+   * rather than waiting out a timeout of its own.
+   */
+  function request(type, body) {
     return new Promise(function (resolve, reject) {
-      readSeq += 1;
-      var id = "r" + readSeq;
-      pendingReads[id] = { resolve: resolve, reject: reject };
-      if (!post("read", { request_id: id, query: query })) {
-        delete pendingReads[id];
+      requestSeq += 1;
+      var id = "r" + requestSeq;
+      pending[id] = { resolve: resolve, reject: reject };
+      var payload = { request_id: id };
+      Object.keys(body).forEach(function (key) { payload[key] = body[key]; });
+      if (!post(type, payload)) {
+        delete pending[id];
         reject(new Error("the host could not be reached"));
       }
     });
+  }
+
+  function settle(id, value) {
+    var waiting = pending[id];
+    if (!waiting) return false;
+    delete pending[id];
+    waiting.resolve(value);
+    return true;
+  }
+
+  function failRequest(id, message) {
+    var waiting = pending[id];
+    if (!waiting) return false;
+    delete pending[id];
+    waiting.reject(new Error(message));
+    return true;
+  }
+
+  /**
+   * `read` — a patch of this panel's *own query state* and nothing else
+   * (D-017): the page, the sort, the slice indices. It carries no action; what
+   * the host does with a read is settled by the message type, not by a field
+   * inside it.
+   */
+  function read(query) {
+    return request("read", { query: query });
   }
 
   function envelopeOf(value) {
@@ -307,7 +343,6 @@
     view.loading = true;
     render();
     read({
-      action: "query",
       page: page,
       page_size: table.pageSize,
       sort_by: sortBy,
@@ -513,19 +548,12 @@
           render();
         }
         break;
-      case "read_result": {
-        var pending = pendingReads[payload.request_id];
-        if (!pending) break;
-        delete pendingReads[payload.request_id];
-        pending.resolve(payload.window);
+      case "read_result":
+        settle(payload.request_id, payload.window);
         break;
-      }
       case "error": {
         var id = payload.request_id;
-        if (typeof id === "string" && pendingReads[id]) {
-          var failed = pendingReads[id];
-          delete pendingReads[id];
-          failed.reject(new Error(asString(payload.message, "the read failed")));
+        if (typeof id === "string" && failRequest(id, asString(payload.message, "the request failed"))) {
           break;
         }
         current = {

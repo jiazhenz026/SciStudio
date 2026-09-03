@@ -48,6 +48,30 @@ PRODUCING_PANELS: tuple[str, ...] = (
 
 ALL_PANEL_IDS: tuple[str, ...] = tuple(DISPLAYING_PANELS) + PRODUCING_PANELS
 
+#: The D-017 message contract, panel to host. `read` carries a patch of the
+#: panel's own query state, `resource` a bounded follow-up read of one named
+#: resource, and `host_action` the chrome the frame cannot perform for itself.
+#: Five meanings behind one type is what D-017 refused, so this list is the
+#: shape of the wire and a document that sends anything else is a defect.
+PANEL_TO_HOST_TYPES = frozenset({"ready", "read", "resource", "host_action", "emit", "error", "state"})
+
+#: The mirror list, host to panel.
+HOST_TO_PANEL_TYPES = frozenset(
+    {
+        "init",
+        "update",
+        "read_result",
+        "resource_result",
+        "host_action_result",
+        "error",
+        "state_request",
+        "teardown",
+    }
+)
+
+#: The three actions `host_action` names (D-017).
+HOST_ACTIONS = frozenset({"export", "download", "editor_handoff"})
+
 #: The D-007 declaration shape. Required fields first, then the optional ones
 #: with the type each must have when present.
 REQUIRED_FIELDS: dict[str, type | tuple[type, ...]] = {
@@ -221,6 +245,126 @@ def test_a_producing_panel_emits_through_the_one_outbound_path(panel_id: str) ->
     document = entry_document(panel_id)
     assert 'post("emit"' in document
     assert "scistudio.output(" in document
+
+
+# ---------------------------------------------------------------------------
+# The message contract on the wire (D-017)
+#
+# The host half of this contract is written from the same text, in
+# frontend/src/panels/. These assertions are the panel half. If the two ever
+# disagree, that is meant to surface here as a failure rather than as one side
+# quietly bending to the other's shape.
+# ---------------------------------------------------------------------------
+
+#: A message send. Every outbound type is either spelled as a literal at a
+#: `post("...")` / `request("...")` call, or forwarded through the single
+#: `post(type, payload)` inside the `request` helper. The lookbehind skips the
+#: two function *definitions*, which name a parameter rather than sending
+#: anything.
+OUTBOUND_CALL = re.compile(r"(?<!function )\b(?:post|request)\(\s*(?:\"([a-z_]+)\"|([A-Za-z_$][\w$]*))")
+
+#: The literal action passed to the `hostAction` wrapper.
+HOST_ACTION_CALL = re.compile(r"\bhostAction\(\s*\"([a-z_]+)\"")
+
+#: An inbound message the document handles, as a `case` of its message switch.
+INBOUND_CASE = re.compile(r"case\s+\"([a-z_]+)\"\s*:")
+
+
+def outbound_message_types(panel_id: str) -> set[str]:
+    """Every message type a document can send, read off its send sites."""
+    document = executable_document(panel_id)
+    types: set[str] = set()
+    for literal, identifier in OUTBOUND_CALL.findall(document):
+        if literal:
+            types.add(literal)
+            continue
+        # The one send whose type is not a literal is `request`'s own forward to
+        # `post`. Anything else would be a type this file cannot account for.
+        assert identifier == "type", f"{panel_id}: a message is sent with a computed type {identifier!r}"
+        assert "function request(type, body)" in document, f"{panel_id}: unexplained computed send"
+    return types
+
+
+def read_call_arguments(panel_id: str) -> list[str]:
+    """The argument text of every `read(...)` call in a document."""
+    document = executable_document(panel_id)
+    arguments: list[str] = []
+    for match in re.finditer(r"\bread\(", document):
+        depth = 1
+        index = match.end()
+        while index < len(document) and depth:
+            if document[index] == "(":
+                depth += 1
+            elif document[index] == ")":
+                depth -= 1
+            index += 1
+        arguments.append(document[match.end() : index - 1])
+    return arguments
+
+
+@pytest.mark.parametrize("panel_id", ALL_PANEL_IDS)
+def test_document_sends_no_message_type_outside_the_contract(panel_id: str) -> None:
+    """D-017: the panel-to-host types are a closed list."""
+    sent = outbound_message_types(panel_id)
+    assert sent, f"{panel_id}: no outbound message type found at all"
+    unknown = sent - PANEL_TO_HOST_TYPES
+    assert unknown == set(), f"{panel_id}: sends message type(s) outside the contract: {sorted(unknown)}"
+
+
+@pytest.mark.parametrize("panel_id", ALL_PANEL_IDS)
+def test_read_payload_carries_no_action_key(panel_id: str) -> None:
+    """The regression guard for what D-017 refused.
+
+    A `read` is a patch of the panel's own query state. An `action` key inside
+    it would be five meanings behind one type again, and the export, the
+    download, the editor handoff and the child routing would stop being legible
+    on the wire.
+    """
+    for argument in read_call_arguments(panel_id):
+        assert "action" not in argument, f"{panel_id}: a read payload names an action: {argument.strip()!r}"
+
+
+@pytest.mark.parametrize("panel_id", ALL_PANEL_IDS)
+def test_document_handles_no_inbound_type_outside_the_contract(panel_id: str) -> None:
+    """The mirror: a document answers only host-to-panel types it could be sent."""
+    handled = set(INBOUND_CASE.findall(executable_document(panel_id)))
+    unknown = handled - HOST_TO_PANEL_TYPES
+    assert unknown == set(), f"{panel_id}: handles inbound type(s) outside the contract: {sorted(unknown)}"
+
+
+@pytest.mark.parametrize("panel_id", ALL_PANEL_IDS)
+def test_host_action_names_only_the_three_actions(panel_id: str) -> None:
+    """D-017: `host_action` carries export, download or editor_handoff."""
+    named = set(HOST_ACTION_CALL.findall(executable_document(panel_id)))
+    unknown = named - HOST_ACTIONS
+    assert unknown == set(), f"{panel_id}: unknown host action(s) {sorted(unknown)}"
+
+
+@pytest.mark.parametrize("panel_id", ALL_PANEL_IDS)
+def test_a_request_is_answered_by_its_own_result_type(panel_id: str) -> None:
+    """Each request type a document sends has its answer handled, and no
+    document handles an answer to a request it never sends.
+    """
+    document = executable_document(panel_id)
+    sent = outbound_message_types(panel_id)
+    handled = set(INBOUND_CASE.findall(document))
+    for request_type in ("read", "resource", "host_action"):
+        result_type = f"{request_type}_result"
+        assert (request_type in sent) == (result_type in handled), (
+            f"{panel_id}: sends {request_type}={request_type in sent} but handles "
+            f"{result_type}={result_type in handled}"
+        )
+
+
+@pytest.mark.parametrize("panel_id", sorted(DISPLAYING_PANELS))
+def test_a_displaying_panel_still_gets_the_bounded_read_channels(panel_id: str) -> None:
+    """FR-011 withholds the emission path from a displaying panel, not the
+    bounded read FR-010 requires the host to supply. Only `emit` is gated, so a
+    displaying panel sending `read`, `resource` or `host_action` is correct.
+    """
+    sent = outbound_message_types(panel_id)
+    assert "emit" not in sent
+    assert "ready" in sent
 
 
 @pytest.mark.parametrize("panel_id", ALL_PANEL_IDS)
