@@ -94,7 +94,7 @@ Evidence below is what I opened, not what a checklist row claimed.
 | T-007 one loader, retired modules deleted | **delivered** | `panelModuleLoader.ts`, `dynamicPreviewer.ts`, `previewerHostApi.ts`, `coreViewers.tsx`, `PlotViewer.tsx`, `TableViewer.tsx`, `DynamicPanel.tsx`, `previewerCatalogSlice.ts` all deleted in the diff. |
 | T-008 backend names the fallback | **delivered** | `schemas.py:567` `fallback_panel_id`, `:570` `fallback_panel` as a full descriptor. `CoreFallbackRenderer` gone. |
 | T-009 eleven built-in panels | **delivered** | 11 directories under `src/scistudio/panels/builtin/`, each exactly `panel.json` + `index.html`; ids match D-015; 9 displaying, 2 producing. 35 tests. |
-| T-010 read, write, copy-on-write, revert | **PARTIAL — backend only** | `editing.py` and the four routes are real and tested (22 tests). **No frontend consumes any of them**: `grep -rn "panels/.*source\|/override" frontend/src` returns nothing, there is no `frontend/src/lib/api/panels.ts`, and `PanelErrorSurface.tsx` offers no revert. FR-028's *"offer to revert"* is a host obligation and is unimplemented. See A-2. |
+| T-010 read, write, copy-on-write, revert | **PARTIAL — backend only** | `editing.py` and the routes are real and tested (22 tests). But of D-020's nine endpoints the frontend consumes five — assets, `GET /api/panels`, `POST /reload`, and the choice endpoints (`PanelPalette.tsx:9-14`, `lib/api/data.ts:73,183`) — and **none of the three editing ones**. `grep -rn "panels/.*source\|/override" frontend/src` returns nothing; `PanelErrorSurface.tsx` offers no revert. FR-028's *"offer to revert"* is a host obligation and is unimplemented. See A-2. |
 | T-011 hot reload + state hook | **delivered** | `usePanelReload.ts`, `handleFileChanged.ts:172`. A-007 is not assumed — `panelReload.test.ts:71` drives a `file_changed` event with source `"agent"` and asserts the reload fires. |
 | T-012 compatibility shim | **delivered** | `compat.py` wraps on the *backend* into a real panel directory, so no second frontend mount path exists. 19 python tests + 6 host-side tests in `panelCompat.test.tsx`. |
 | T-013 layer enumeration, frozen inventory | **delivered, one clause of FR-041 unmet** | `tests/architecture/test_layer_deps.py:176,218,271` name the renamed subsystem; `expected_surface.json` gains `scistudio.core.panels`. But FR-041's second clause — *"the spec MUST state how the renamed symbols' stability markers are derived"* — is nowhere in the spec. See F-5. |
@@ -264,9 +264,14 @@ FR-028: *"When an edited panel fails to load, **the host** MUST report the
 failure explicitly **and offer to revert**."* The host reports (the error
 surface names the panel, the reason code and the message — FR-014 is
 satisfied). It offers nothing. `grep -rni "revert" frontend/src` returns four
-hits, none of them about panels. There is no `frontend/src/lib/api/panels.ts`,
-and nothing anywhere in `frontend/src` calls
-`GET/PUT /api/panels/{id}/source` or `DELETE /api/panels/{id}/override`.
+hits, none of them about panels.
+
+The split is clean and easy to check. Of D-020's nine endpoints the frontend
+consumes five: the asset route (`lib/api/data.ts:73`), `GET /api/panels`
+(`data.ts:183`), `POST /api/panels/reload`, and the two choice endpoints — all
+cited in `PanelPalette.tsx:9-14`. It consumes **none** of the three editing
+endpoints: `grep -rn "panels/.*source\|/override" frontend/src` returns nothing
+and there is no `frontend/src/lib/api/panels.ts`.
 
 The consequence for the success criteria: **SC-004 cannot be manually verified
 against the product.** Its "edit, save, redraw" half works through the ordinary
