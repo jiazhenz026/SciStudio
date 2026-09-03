@@ -130,6 +130,65 @@ describe("ConfigPanel", () => {
     expect(apiMocks.browseFilesystem).not.toHaveBeenCalled();
   });
 
+  it("disables the Browse button while a native dialog is already open (#2220)", async () => {
+    // The dialog blocks until the user dismisses it. Until #2220 the only
+    // feedback that one was open was the whole app freezing; with the freeze
+    // gone the button has to say so itself, and a second click must not open a
+    // competing OS panel (the backend answers those with 409).
+    const onUpdateConfig = vi.fn();
+    let resolveDialog: (value: { paths: string[] }) => void = () => {};
+    apiMocks.openNativeDialog.mockReturnValueOnce(
+      new Promise<{ paths: string[] }>((resolve) => {
+        resolveDialog = resolve;
+      }),
+    );
+
+    render(
+      <ConfigPanel
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{
+          id: "load-1",
+          block_type: "load_data",
+          config: { params: { path: "/data/old.tif" } },
+        }}
+        schema={{
+          name: "Load",
+          type_name: "load_data",
+          base_category: "io",
+          subcategory: "",
+          description: "",
+          version: "0.1.0",
+          input_ports: [],
+          output_ports: [],
+          direction: "input",
+          config_schema: {
+            properties: {
+              path: {
+                type: "string",
+                title: "Path",
+                ui_priority: 0,
+                ui_widget: "file_browser",
+              },
+            },
+          },
+          type_hierarchy: [],
+        }}
+      />,
+    );
+
+    const browseButton = screen.getByTitle("Browse filesystem");
+    fireEvent.click(browseButton);
+
+    await waitFor(() => expect(screen.getByTitle("File dialog open")).toBeDisabled());
+    fireEvent.click(screen.getByTitle("File dialog open"));
+    expect(apiMocks.openNativeDialog).toHaveBeenCalledTimes(1);
+
+    resolveDialog({ paths: ["/data/new.tif"] });
+
+    await waitFor(() => expect(onUpdateConfig).toHaveBeenCalledWith({ path: "/data/new.tif" }));
+    await waitFor(() => expect(screen.getByTitle("Browse filesystem")).not.toBeDisabled());
+  });
+
   it("seeds browse from the first path when a multi-file field holds an array (#1753)", async () => {
     // A multi-select file field stores an array. Re-browsing must start from the
     // first file's directory, NOT String(array) — a comma-joined concatenation

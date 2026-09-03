@@ -1,0 +1,124 @@
+{
+  "base_ref": null,
+  "branch": "fix/2220-native-dialog-blocks-event-loop",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-03T00:39:04.271427Z",
+      "owner_directive": "PR1 scope only: (1) native_file_dialog becomes a plain def so FastAPI offloads it to the threadpool, (2) explicit single-flight guard returning 409 when a dialog is already open, (3) Browse button pending/disabled state. The rest of the event-loop audit stays with #2053.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-03T00:39:04.271599Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T00:39:04.271620Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "no architectural decision changes; the endpoint contract and its callers stay the same apart from an added 409 on a concurrent dialog request",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T00:39:04.271625Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "no spec governs the native-dialog endpoint; behavior change is recorded in the changelog",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2220,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix PR1 only: native file dialog blocks the event loop. Backend def + single-flight guard, frontend Browse pending state. Submit a PR at the end.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2220-fix-2220-native-dialog-blocks-event-loop",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-03T00:39:04.271576Z",
+      "pattern": "src/scistudio/api/routes/filesystem.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T00:39:04.271586Z",
+      "pattern": "tests/api/test_filesystem.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T00:39:04.271589Z",
+      "pattern": "frontend/src/components/BottomPanel.parts/ConfigField.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T00:39:04.271591Z",
+      "pattern": "frontend/src/components/BottomPanel.parts/ConfigPanel.test.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T00:39:04.271592Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "7a33b082-6470-4d13-a2cd-a319052c8695",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-03T00:39:04.271628Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_filesystem.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T00:39:04.271630Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/BottomPanel.parts/ConfigPanel.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
