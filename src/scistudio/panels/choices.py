@@ -194,21 +194,31 @@ def load_choices(
     project_dir: str | Path | None,
     capability: PanelCapability | str = PanelCapability.DISPLAYING,
 ) -> dict[str, str]:
-    """Return the effective choices for *project_dir*, project layer winning.
+    """Return the effective choices for *project_dir* and *capability*.
 
-    The user layer loads unconditionally — it is defined by the person, not by
-    which project happens to be open — and the project layer, when there is a
-    project, overrides it per type.
+    One capability's slice of :func:`load_choice_layers`, and deliberately not a
+    second implementation of the same precedence rule. It used to merge the two
+    layers itself, which made the ladder true twice in one module: the tests
+    naming project-over-user all reached this function while the runtime went
+    through :func:`load_choice_layers`, so breaking the rule where the runtime
+    reads it left every test that names the rule green (#2229). Delegating
+    leaves one place where project beats user, and the tests that were pointed
+    at this function now bite the code the runtime runs. It costs no extra read:
+    :func:`read_choice_layer` already loaded every capability's layer to return
+    one of them.
     """
-    effective = read_choice_layer(user_choices_path(project_dir), capability)
-    if project_dir is not None:
-        effective.update(read_choice_layer(project_choices_path(project_dir), capability))
-    return effective
+    key = capability.value if isinstance(capability, PanelCapability) else str(capability)
+    return load_choice_layers(project_dir).get(key, {})
 
 
 @internal()
 def load_choice_layers(project_dir: str | Path | None) -> dict[str, dict[str, str]]:
     """Return every capability's effective choices for *project_dir*.
+
+    The one place the choice ladder is applied: the user layer loads
+    unconditionally — it is defined by the person, not by which project happens
+    to be open — and the project layer, when there is a project, overrides it
+    per type within each capability.
 
     What :meth:`scistudio.panels.registry.PanelRegistry.set_panel_choices` is
     given, so that one read covers both capabilities rather than one read each.
