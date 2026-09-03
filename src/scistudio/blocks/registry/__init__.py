@@ -560,15 +560,25 @@ class BlockRegistry:
         return cls(config=config)
 
     def hot_reload(self) -> None:
-        """Re-scan the drop-in block directories and apply any changes.
+        """Re-scan every reloadable block source and apply any changes.
 
-        Detects edited files by their last-modified time: new drop-in files
-        are added, changed ones are re-read, and files that were deleted are
-        removed from the registry. Built-in and installed blocks are left
-        untouched. Use this to pick up edits to file-based blocks without
-        rebuilding the whole catalogue.
+        Detects edited Tier 1 drop-in files by their last-modified time: new
+        files are added, changed ones are re-read, and files that were deleted
+        are removed from the registry. Tier 2 (installed entry-point plugins)
+        and Tier 3 (packaged source directories) are re-scanned too (#1791):
+        their existing specs are dropped first so the re-scan registers the
+        current on-disk classes rather than skipping them as already
+        registered, and the scan evicts each plugin's cached ``sys.modules``
+        entries so edits to an installed or packaged plugin no longer require
+        a process restart. A plugin that no longer resolves (uninstalled,
+        deleted, or failing to import) disappears from the registry, as does
+        its :meth:`packages` entry. Built-in blocks are left untouched.
         """
-        from scistudio.blocks.registry._scan import _scan_tier1
+        from scistudio.blocks.registry._scan import (
+            _scan_package_src_dirs,
+            _scan_tier1,
+            _scan_tier2,
+        )
 
         # Remove stale Tier 1 entries.
         stale = [
@@ -579,8 +589,22 @@ class BlockRegistry:
         for name in stale:
             del self._registry[name]
 
-        # Re-scan Tier 1 only.
+        # #1791: drop Tier 2/3 entries so the re-scan below registers the
+        # edited classes instead of skipping them as already registered.
+        installed = {name for name, spec in self._registry.items() if spec.source in ("entry_point", "package_src")}
+        for name in installed:
+            del self._registry[name]
+        if installed:
+            self._aliases = {alias: name for alias, name in self._aliases.items() if name not in installed}
+            referenced = {spec.package_name for spec in self._registry.values()}
+            for pkg_name in [pkg for pkg in self._packages if pkg not in referenced]:
+                del self._packages[pkg_name]
+
+        # Re-scan every reloadable source: Tier 1 drop-in dirs, Tier 2
+        # entry-point plugins, and Tier 3 packaged source dirs.
         _scan_tier1(self)
+        _scan_tier2(self)
+        _scan_package_src_dirs(self)
 
     def packages(self) -> dict[str, PackageInfo]:
         """Return metadata for the plugin packages that provided blocks.

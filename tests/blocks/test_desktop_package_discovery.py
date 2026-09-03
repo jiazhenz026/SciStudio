@@ -358,3 +358,67 @@ def test_scan_reloads_reinstalled_package_from_same_source_path(tmp_path: Path) 
 
     assert registry.get_spec("ReloadProbeBlockV1") is None
     assert registry.get_spec("ReloadProbeBlockV2") is not None
+
+
+def test_hot_reload_picks_up_edited_source_package(tmp_path: Path) -> None:
+    """#1791: hot_reload() re-scans Tier 3 and re-imports the edited package.
+
+    Before the fix, hot_reload() re-scanned Tier 1 only, so an in-place edit
+    to a packaged ``scistudio_blocks_*`` plugin stayed invisible until the
+    process restarted.
+    """
+    packages_dir = tmp_path / "installed-packages"
+    dist_name = "scistudio-blocks-hotreloadedit"
+    module_name = "scistudio_blocks_hotreloadedit"
+    _write_source_package(
+        packages_dir,
+        dist_name=dist_name,
+        module_name=module_name,
+        block_name="HotReloadEditBlockV1",
+        package_name="Hot Reload Edit",
+    )
+    registry = BlockRegistry()
+    registry.add_package_src_dir(packages_dir)
+    registry.scan()
+    assert registry.get_spec("HotReloadEditBlockV1") is not None
+
+    # Edit the installed package in place: V1 renamed to V2. The extra
+    # comment line changes the file size so a stale .pyc cannot survive.
+    init_file = packages_dir / dist_name / "src" / module_name / "__init__.py"
+    init_file.write_text(
+        init_file.read_text(encoding="utf-8").replace("V1", "V2") + "# edited\n",
+        encoding="utf-8",
+    )
+
+    registry.hot_reload()
+
+    assert registry.get_spec("HotReloadEditBlockV1") is None
+    spec = registry.get_spec("HotReloadEditBlockV2")
+    assert spec is not None
+    assert spec.source == "package_src"
+    assert "Hot Reload Edit" in registry.packages()
+
+
+def test_hot_reload_drops_removed_source_package(tmp_path: Path) -> None:
+    """#1791: hot_reload() removes a Tier 3 package that was deleted on disk."""
+    packages_dir = tmp_path / "installed-packages"
+    dist_name = "scistudio-blocks-hotreloadgone"
+    _write_source_package(
+        packages_dir,
+        dist_name=dist_name,
+        module_name="scistudio_blocks_hotreloadgone",
+        block_name="HotReloadGoneBlock",
+        package_name="Hot Reload Gone",
+    )
+    registry = BlockRegistry()
+    registry.add_package_src_dir(packages_dir)
+    registry.scan()
+    assert registry.get_spec("HotReloadGoneBlock") is not None
+    assert "Hot Reload Gone" in registry.packages()
+
+    shutil.rmtree(packages_dir / dist_name)
+
+    registry.hot_reload()
+
+    assert registry.get_spec("HotReloadGoneBlock") is None
+    assert "Hot Reload Gone" not in registry.packages()

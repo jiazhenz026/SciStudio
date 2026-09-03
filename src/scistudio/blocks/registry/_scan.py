@@ -14,7 +14,8 @@ Owns:
   adapter over ``scistudio.core.dropins.guard_dropin_type_roots``, which owns
   the rule and the mitigation for every process.
 - ``_scan_tier2`` — discover blocks via ``scistudio.blocks`` entry points
-  (ADR-025 callable protocol).
+  (ADR-025 callable protocol), evicting each plugin's cached modules first
+  so edited installed plugins re-import (#1791).
 - ``_scan_package_src_dirs`` — Tier 3 scan of hard-installed/bundled
   ``packages/*/src`` source packages (desktop runtime).
 - ``_register_spec`` — apply per-spec validation and write into the
@@ -45,6 +46,7 @@ from scistudio.core.entry_points import (
     BLOCKS_ENTRY_POINT_GROUP,
     STAGE_REGISTER,
     EntryPointDiagnostic,
+    entry_point_module,
     entry_point_name,
     enumerate_group,
     load_entry_point,
@@ -70,6 +72,48 @@ def _register_spec(registry: BlockRegistry, spec: BlockSpec) -> None:
     registry._registry[spec.name] = spec
     if spec.type_name:
         registry._aliases[spec.type_name] = spec.name
+
+
+def _evict_cached_package_modules(module_name: str) -> None:
+    """Drop *module_name* and its submodules from ``sys.modules``.
+
+    Issue #1791: a re-scan that reuses the cached module object re-registers
+    the classes from the *first* import, so edits to an installed or packaged
+    plugin stay invisible until the process restarts. Evicting the package's
+    modules forces the next import to run the source on disk. Objects the
+    process already holds (running block instances) keep their old class
+    object; only new imports see the new code.
+
+    ``*.types`` modules stay cached: they carry :class:`DataObject` classes
+    whose identity must remain stable across block-package refreshes.
+    """
+    stale = [name for name in sys.modules if name == module_name or name.startswith(f"{module_name}.")]
+    for name in stale:
+        if name.endswith(".types"):
+            continue
+        sys.modules.pop(name, None)
+    importlib.invalidate_caches()
+
+
+def _evict_entry_point_package(ep: Any) -> None:
+    """Drop the cached modules of the package an entry point belongs to.
+
+    Issue #1791: ``EntryPoint.load()`` reuses ``sys.modules``, so a Tier 2
+    re-scan of an already-imported plugin re-registered the classes from the
+    first import and edits were invisible until restart. Tier 3's
+    source-package scan already evicts this way; Tier 2 now matches it.
+
+    Core's own package is never evicted: the ``scistudio.blocks`` group is
+    reserved for third-party plugins (#1779), and dropping core modules
+    mid-process would orphan every core object the process already holds.
+    """
+    module = entry_point_module(ep)
+    if not module:
+        return
+    top_level = module.split(".", 1)[0]
+    if top_level == "scistudio":
+        return
+    _evict_cached_package_modules(top_level)
 
 
 def _validate_capability_registration(registry: BlockRegistry, spec: BlockSpec) -> None:
@@ -371,6 +415,10 @@ def _scan_tier2(registry: BlockRegistry) -> None:
     with prepared_plugin_import_roots():
         block_eps = enumerate_group(BLOCKS_ENTRY_POINT_GROUP, diagnostics=diagnostics)
         for ep in block_eps:
+            # #1791: evict the plugin's cached modules before loading so an
+            # edited installed plugin re-imports instead of re-registering the
+            # classes from the process's first import.
+            _evict_entry_point_package(ep)
             _register_entry_point_blocks(registry, ep, diagnostics=diagnostics)
     _record_entry_point_diagnostics(registry, diagnostics)
 
@@ -589,13 +637,7 @@ def _scan_source_package_module(
     try:
         runtime_import_roots = tuple(import_roots)
         with prepended_sys_paths(runtime_import_roots):
-            stale_modules = [name for name in sys.modules if name == module_name or name.startswith(f"{module_name}.")]
-            for name in stale_modules:
-                # Keep DataObject type modules stable across block-package refreshes.
-                if name.endswith(".types"):
-                    continue
-                sys.modules.pop(name, None)
-            importlib.invalidate_caches()
+            _evict_cached_package_modules(module_name)
             module = importlib.import_module(module_name)
             result: Any | None = None
             if hasattr(module, "get_block_package") and callable(module.get_block_package):
