@@ -483,3 +483,86 @@ describe("teardown", () => {
     expect(onDiagnostic).not.toHaveBeenCalled();
   });
 });
+
+describe("the two request types D-017 named (FR-010, FR-011)", () => {
+  /*
+   * D-017 replaced the draft in which five operations were folded into `read`
+   * with an `action` key. `resource` and `host_action` are types of their own,
+   * and both are granted to a *displaying* mount: FR-011 withholds the emission
+   * path from a displaying panel (FR-012), not the bounded read FR-010 requires
+   * the host to supply. A download is not an emission — it is the host saving a
+   * file the panel is already showing.
+   */
+  // The shared DESCRIPTOR declares `displaying`, so every mount below is one.
+  it("answers a displaying panel's `resource` with `resource_result`", async () => {
+    const onResource = vi.fn(async () => ({ slot: "mask" }));
+    const { seam, token } = await mountHost({ onResource });
+
+    await act(async () => {
+      seam.fromPanel(token, "resource", {
+        request_id: "q1",
+        resource_id: "slot:mask",
+        params: { slot: "mask" },
+      });
+      await flush();
+    });
+
+    expect(onResource).toHaveBeenCalledWith("slot:mask", { slot: "mask" });
+    const answers = receivedOfType(seam, "resource_result");
+    expect(answers).toHaveLength(1);
+    expect(answers[0].payload).toEqual({ request_id: "q1", resource: { slot: "mask" } });
+  });
+
+  it("answers a displaying panel's `host_action` with `host_action_result`", async () => {
+    const onHostAction = vi.fn(async () => ({ ok: true, detail: { status: "saved" } }));
+    const { seam, token } = await mountHost({ onHostAction });
+
+    await act(async () => {
+      seam.fromPanel(token, "host_action", {
+        request_id: "q2",
+        action: "download",
+        params: { path: "cells.tif" },
+      });
+      await flush();
+    });
+
+    expect(onHostAction).toHaveBeenCalledWith("download", { path: "cells.tif" });
+    const answers = receivedOfType(seam, "host_action_result");
+    expect(answers[0].payload).toEqual({
+      request_id: "q2",
+      ok: true,
+      detail: { status: "saved" },
+    });
+  });
+
+  it("ends a request the host cannot answer with an error carrying its id", async () => {
+    // D-016.2: the error carries the request id, so the panel can fail one
+    // request without waiting out its own timeout.
+    const { seam, token } = await mountHost();
+
+    await act(async () => {
+      seam.fromPanel(token, "resource", { request_id: "q3", resource_id: "item:0", params: null });
+      await flush();
+    });
+
+    const errors = receivedOfType(seam, "error");
+    expect(errors).toHaveLength(1);
+    expect(errors[0].payload).toMatchObject({ request_id: "q3", code: "resource_failed" });
+  });
+
+  it("still refuses `emit` from that same displaying mount (SC-007)", async () => {
+    const onEmit = vi.fn();
+    const onResource = vi.fn(async () => ({}));
+    const { seam, token } = await mountHost({ onEmit, onResource });
+
+    await act(async () => {
+      seam.fromPanel(token, "resource", { request_id: "q4", resource_id: "x", params: null });
+      seam.fromPanel(token, "emit", { code: "x = 1" });
+      await flush();
+    });
+
+    // The bounded read went through; the emission did not.
+    expect(onResource).toHaveBeenCalled();
+    expect(onEmit).not.toHaveBeenCalled();
+  });
+});
