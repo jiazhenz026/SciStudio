@@ -146,6 +146,85 @@ class TestTheNamespaceIsABoundary:
         with pytest.raises(InteractiveEmissionError, match="refused"):
             settle(code)
 
+    @pytest.mark.parametrize(
+        "code",
+        [
+            pytest.param(
+                'scistudio.output(a="{0.__class__}".format(()))',
+                id="a dunder spelled in a format string",
+            ),
+            pytest.param(
+                'scistudio.output(a="{0.__class__.__base__.__subclasses__}".format(()))',
+                id="the classic escape walk, spelled in a format string",
+            ),
+            pytest.param(
+                'scistudio.output(a="{0.output.__globals__}".format(scistudio))',
+                id="the sink's own globals, spelled in a format string",
+            ),
+            pytest.param(
+                'scistudio.output(a="{0.output.__globals__[__name__]}".format(scistudio))',
+                id="one global read out by name",
+            ),
+            pytest.param(
+                'f = "{0.__class__}"\nscistudio.output(a=f.format(()))',
+                id="the format string bound to a name first",
+            ),
+            pytest.param(
+                'scistudio.output(a="{x.__class__}".format_map({"x": ()}))',
+                id="format_map rather than format",
+            ),
+        ],
+    )
+    def test_no_dunder_is_reachable_through_a_runtime_format_string(self, code: str) -> None:
+        """The AST pass walks identifiers, and ``str.format`` traverses
+        attributes named by the *runtime string* — an ``ast.Constant``, which
+        carries no identifier node to walk (#2229).
+
+        It hands back text rather than a live object, so it is a read of the
+        type graph and of module globals rather than an escape; but the read is
+        exfiltratable through ``scistudio.output``, which is persisted into the
+        workflow, and a documented mitigation with an undocumented hole is
+        worth closing.
+        """
+        with pytest.raises(InteractiveEmissionError, match="refused"):
+            settle(code)
+
+    def test_an_ordinary_string_still_settles(self) -> None:
+        """The refusal is on the traversal and on the template, not on strings."""
+        assert settle('scistudio.output(a="left-right", b="{0} is a placeholder")') == {
+            "a": "left-right",
+            "b": "{0} is a placeholder",
+        }
+
+    def test_the_workflows_own_strings_may_carry_a_double_underscore(self) -> None:
+        """The emitted decision embeds the workflow's names, so the refusal is
+        on a format template that walks into a dunder — not on any string that
+        happens to contain ``__``.
+
+        Spelled as ``data_router``'s own emission, because that is the shape a
+        port named with a double underscore would actually arrive in.
+        """
+        code = 'assignments = {"my__port": ["input_1:0"]}\nscistudio.output(assignments=assignments)'
+        assert settle(code) == {"assignments": {"my__port": ["input_1:0"]}}
+
+    @pytest.mark.parametrize(
+        "code",
+        [
+            pytest.param('scistudio.output(a="{0}".format("x"))', id="format on a literal"),
+            pytest.param('scistudio.output(a="{x}".format_map({"x": 1}))', id="format_map on a literal"),
+        ],
+    )
+    def test_the_one_runtime_string_traversal_is_refused_outright(self, code: str) -> None:
+        """``format`` is refused whatever it is asked to format.
+
+        Refusing only the dunder payload would leave the mechanism, and the
+        mechanism is what makes an attribute reachable without an identifier
+        for the AST pass to see. Both halves are refused so neither has to be
+        the only one that holds.
+        """
+        with pytest.raises(InteractiveEmissionError, match="refused"):
+            settle(code)
+
     def test_the_sink_has_no_attribute_but_output(self) -> None:
         with pytest.raises(InteractiveEmissionError, match="has no attribute 'read'"):
             settle("scistudio.read()")
