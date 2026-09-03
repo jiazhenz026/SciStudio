@@ -1,0 +1,11 @@
+{
+  "panel_id": "core.interactive.pair_editor",
+  "display_name": "Pair Editor",
+  "target_types": [],
+  "capability": "producing",
+  "entry": "index.html",
+  "api_version": "1",
+  "features": ["reorder", "pairing", "drag_and_drop"],
+  "priority": 0,
+  "supports_collection": false
+}

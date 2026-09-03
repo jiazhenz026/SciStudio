@@ -1,0 +1,12 @@
+{
+  "panel_id": "core.plot.basic",
+  "display_name": "Plot",
+  "target_types": ["PlotArtifact"],
+  "capability": "displaying",
+  "entry": "index.html",
+  "api_version": "1",
+  "features": ["png", "jpeg", "svg", "pdf", "export"],
+  "priority": 0,
+  "supports_collection": false,
+  "provider": "scistudio.panels.fallbacks:plot_panel"
+}

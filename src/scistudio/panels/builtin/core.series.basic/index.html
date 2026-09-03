@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Series &mdash; SciStudio panel</title>
+<!--
+  ADR-054 spec 1, T-009 (#2229) — the built-in Series panel.
+
+  Replaces the SeriesViewer in
+  frontend/src/components/DataPreview.parts/coreViewers.tsx. Renders the
+  `core.series.basic` provider's SERIES envelope: the chart/table toggle, the
+  complete point trace, and the index/value table.
+
+  FR-034 / A-004: strictly self-contained. Markup, styles and script in one
+  file — no <script src>, no <link rel=stylesheet>, no shared runtime import, no
+  CDN. The chart is inline SVG rather than the React viewer's plotly component,
+  because a self-contained document may not pull a charting library from
+  anywhere. Its envelope plumbing, colour tokens and table markup repeat the
+  other built-in panels' on purpose (A-004).
+
+  Outbound: a *displaying* panel emits nothing (ADR-054 3.6). This panel makes
+  no read of its own — the provider sends the complete trace.
+-->
+<style>
+  :root {
+    --ink: #1c211b;
+    --ember: #f06a44;
+    --amber-border: #fcd34d;
+    --amber-bg: #fffbeb;
+    --amber-text: #92400e;
+    --danger: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--ink);
+    font: 12px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  body { padding: 8px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .modes { display: flex; gap: 4px; font-size: 11px; }
+  .modes button {
+    font: inherit;
+    border: 0;
+    border-radius: 999px;
+    padding: 2px 12px;
+    background: #fff;
+    color: rgba(28, 33, 27, 0.7);
+    cursor: pointer;
+  }
+  .modes button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .banner {
+    border: 1px solid var(--amber-border);
+    background: var(--amber-bg);
+    color: var(--amber-text);
+    border-radius: 1rem;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+  .banner p { margin: 0 0 4px; }
+  .banner p:last-child { margin-bottom: 0; }
+  .error {
+    border: 1px solid rgba(179, 38, 30, 0.3);
+    background: rgba(179, 38, 30, 0.08);
+    color: var(--danger);
+    border-radius: 1rem;
+    padding: 12px;
+  }
+  .chart-card {
+    border: 1px solid rgba(28, 33, 27, 0.1);
+    border-radius: 1rem;
+    background: #fff;
+    padding: 8px;
+  }
+  .chart { width: 100%; height: 260px; display: block; }
+  .table-scroll {
+    max-height: 288px;
+    overflow: auto;
+    border: 1px solid rgba(28, 33, 27, 0.1);
+    border-radius: 1rem;
+    background: #fff;
+  }
+  table { min-width: 100%; text-align: left; font-size: 11px; border-collapse: collapse; }
+  th { border-bottom: 1px solid rgba(28, 33, 27, 0.1); padding: 4px 12px; font-weight: 600; }
+  td { border-bottom: 1px solid rgba(28, 33, 27, 0.05); padding: 4px 12px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 4px; }
+  .badge {
+    border-radius: 999px;
+    background: #fef3c7;
+    color: var(--amber-text);
+    padding: 1px 8px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .muted { color: rgba(28, 33, 27, 0.6); }
+</style>
+</head>
+<body>
+<div class="stack" id="root">
+  <p class="muted">Waiting for the host&hellip;</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------------- */
+  /* The D-011 envelope. Duplicated per FR-034; do not factor it out.        */
+  /* ---------------------------------------------------------------------- */
+
+  var PANEL_MESSAGE_MARKER = 1;
+  var PANEL_API_VERSION = "1";
+
+  var token = null;
+  var context = null;
+  var torndown = false;
+
+  function post(type, payload) {
+    if (token === null || torndown) return false;
+    try {
+      window.parent.postMessage(
+        { scistudio_panel: PANEL_MESSAGE_MARKER, token: token, type: type, payload: payload },
+        "*"
+      );
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function envelopeOf(value) {
+    var empty = { payload: {}, metadata: {}, resources: [], diagnostics: [], error: null };
+    if (!value || typeof value !== "object") return empty;
+    if (value.payload && typeof value.payload === "object") {
+      return {
+        payload: value.payload,
+        metadata: value.metadata && typeof value.metadata === "object" ? value.metadata : {},
+        resources: Array.isArray(value.resources) ? value.resources : [],
+        diagnostics: Array.isArray(value.diagnostics) ? value.diagnostics : [],
+        error: value.error && typeof value.error === "object" ? value.error : null
+      };
+    }
+    return {
+      payload: value,
+      metadata: {},
+      resources: [],
+      diagnostics: [],
+      error: value.error && typeof value.error === "object" ? value.error : null
+    };
+  }
+
+  function asString(value, fallback) {
+    return typeof value === "string" ? value : fallback === undefined ? "" : fallback;
+  }
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  function badges(metadata) {
+    var flags = [
+      ["sampled", metadata.sampled],
+      ["truncated", metadata.truncated],
+      ["cached", metadata.cached],
+      ["derived", metadata.derived],
+      ["incomplete", metadata.complete === false]
+    ];
+    var active = flags.filter(function (entry) { return entry[1] === true; });
+    if (active.length === 0) return null;
+    var box = el("div", "badges");
+    active.forEach(function (entry) { box.appendChild(el("span", "badge", entry[0])); });
+    return box;
+  }
+
+  function diagnosticsBanner(diagnostics) {
+    if (!diagnostics || diagnostics.length === 0) return null;
+    var box = el("div", "banner");
+    box.setAttribute("role", "status");
+    diagnostics.forEach(function (line) { box.appendChild(el("p", null, line)); });
+    return box;
+  }
+
+  function errorCard(error) {
+    var box = el("div", "error");
+    box.setAttribute("role", "alert");
+    box.appendChild(el("p", null, "Series preview failed"));
+    if (error && error.code) box.appendChild(el("p", "muted", String(error.code)));
+    box.appendChild(el("p", null, error && error.message ? String(error.message) : "An unknown error occurred."));
+    return box;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The series                                                              */
+  /* ---------------------------------------------------------------------- */
+
+  var current = envelopeOf(null);
+  var view = { mode: "chart" };
+
+  /** Points-and-markers trace, drawn as inline SVG: no charting library. */
+  function chart(points) {
+    var svgNs = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(svgNs, "svg");
+    svg.setAttribute("class", "chart");
+    svg.setAttribute("viewBox", "0 0 600 260");
+    svg.setAttribute("preserveAspectRatio", "none");
+
+    var xs = points.map(function (p) { return typeof p.x === "number" ? p.x : 0; });
+    var ys = points.map(function (p) { return typeof p.y === "number" ? p.y : NaN; });
+    var finite = ys.filter(function (v) { return isFinite(v); });
+    var xMin = xs.length ? Math.min.apply(null, xs) : 0;
+    var xMax = xs.length ? Math.max.apply(null, xs) : 1;
+    var yMin = finite.length ? Math.min.apply(null, finite) : 0;
+    var yMax = finite.length ? Math.max.apply(null, finite) : 1;
+    var xSpan = xMax - xMin || 1;
+    var ySpan = yMax - yMin || 1;
+
+    function px(x) { return 12 + ((x - xMin) / xSpan) * 576; }
+    function py(y) { return 244 - ((y - yMin) / ySpan) * 228; }
+
+    var axis = document.createElementNS(svgNs, "line");
+    axis.setAttribute("x1", "12");
+    axis.setAttribute("y1", "244");
+    axis.setAttribute("x2", "588");
+    axis.setAttribute("y2", "244");
+    axis.setAttribute("stroke", "rgba(28,33,27,0.15)");
+    svg.appendChild(axis);
+
+    var coords = [];
+    points.forEach(function (point, index) {
+      if (!isFinite(ys[index])) return;
+      coords.push(px(xs[index]).toFixed(2) + "," + py(ys[index]).toFixed(2));
+    });
+    var line = document.createElementNS(svgNs, "polyline");
+    line.setAttribute("fill", "none");
+    line.setAttribute("stroke", "#f06a44");
+    line.setAttribute("stroke-width", "1.5");
+    line.setAttribute("points", coords.join(" "));
+    svg.appendChild(line);
+
+    // Markers, capped so a long trace does not put thousands of circles in the
+    // document. The line above always shows every point.
+    var stride = Math.max(1, Math.ceil(points.length / 200));
+    points.forEach(function (point, index) {
+      if (index % stride !== 0 || !isFinite(ys[index])) return;
+      var dot = document.createElementNS(svgNs, "circle");
+      dot.setAttribute("cx", px(xs[index]).toFixed(2));
+      dot.setAttribute("cy", py(ys[index]).toFixed(2));
+      dot.setAttribute("r", "2");
+      dot.setAttribute("fill", "#f06a44");
+      var tip = document.createElementNS(svgNs, "title");
+      tip.textContent = xs[index] + ", " + ys[index];
+      dot.appendChild(tip);
+      svg.appendChild(dot);
+    });
+
+    var caption = document.createElementNS(svgNs, "title");
+    caption.textContent = points.length + " points, y " + yMin + " .. " + yMax;
+    svg.appendChild(caption);
+    return svg;
+  }
+
+  function modeButton(label, mode) {
+    var button = el("button", null, label);
+    button.type = "button";
+    button.setAttribute("aria-pressed", view.mode === mode ? "true" : "false");
+    button.addEventListener("click", function () {
+      view.mode = mode;
+      render();
+    });
+    return button;
+  }
+
+  function render() {
+    var root = document.getElementById("root");
+    root.textContent = "";
+
+    if (current.error) {
+      root.appendChild(errorCard(current.error));
+      return;
+    }
+
+    var diag = diagnosticsBanner(current.diagnostics);
+    if (diag) root.appendChild(diag);
+
+    var payload = current.payload;
+    var points = Array.isArray(payload.points) ? payload.points : [];
+    var table = payload.table && typeof payload.table === "object" ? payload.table : {};
+    var tableRows = Array.isArray(table.rows) ? table.rows : [];
+
+    var modes = el("div", "modes");
+    modes.appendChild(modeButton("Chart", "chart"));
+    modes.appendChild(modeButton("Table", "table"));
+    root.appendChild(modes);
+
+    if (view.mode === "chart") {
+      var card = el("div", "chart-card");
+      card.appendChild(chart(points));
+      root.appendChild(card);
+    } else {
+      var scroll = el("div", "table-scroll");
+      var grid = document.createElement("table");
+      var thead = document.createElement("thead");
+      var headRow = document.createElement("tr");
+      headRow.appendChild(el("th", null, "index"));
+      headRow.appendChild(el("th", null, "value"));
+      thead.appendChild(headRow);
+      grid.appendChild(thead);
+      var tbody = document.createElement("tbody");
+      tableRows.forEach(function (row) {
+        var tr = document.createElement("tr");
+        tr.appendChild(el("td", null, row && row.index !== undefined && row.index !== null ? row.index : ""));
+        tr.appendChild(el("td", null, row && row.value !== undefined && row.value !== null ? row.value : ""));
+        tbody.appendChild(tr);
+      });
+      grid.appendChild(tbody);
+      scroll.appendChild(grid);
+      root.appendChild(scroll);
+    }
+
+    var chips = badges(current.metadata);
+    if (chips) root.appendChild(chips);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The handshake                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  function onMessage(event) {
+    var data = event.data;
+    if (!data || typeof data !== "object") return;
+    if (data.scistudio_panel !== PANEL_MESSAGE_MARKER) return;
+    if (typeof data.type !== "string") return;
+    var payload = data.payload && typeof data.payload === "object" ? data.payload : {};
+
+    if (token === null) {
+      if (data.type !== "init" || typeof data.token !== "string" || data.token === "") return;
+      token = data.token;
+      context = payload;
+      current = envelopeOf(payload.target);
+      if (
+        payload.restored_state &&
+        typeof payload.restored_state === "object" &&
+        (payload.restored_state.mode === "chart" || payload.restored_state.mode === "table")
+      ) {
+        view.mode = payload.restored_state.mode;
+      }
+      post("ready", { api_version: PANEL_API_VERSION });
+      render();
+      return;
+    }
+
+    if (data.token !== token) return;
+
+    switch (data.type) {
+      case "update":
+        if (payload.changed && typeof payload.changed === "object" && "target" in payload.changed) {
+          current = envelopeOf(payload.changed.target);
+          render();
+        }
+        break;
+      case "error":
+        current = {
+          payload: current.payload,
+          metadata: current.metadata,
+          resources: current.resources,
+          diagnostics: current.diagnostics,
+          error: { code: asString(payload.code, "host_error"), message: asString(payload.message) }
+        };
+        render();
+        break;
+      case "state_request":
+        post("state", { state: { mode: view.mode } });
+        break;
+      case "teardown":
+        torndown = true;
+        window.removeEventListener("message", onMessage);
+        break;
+      default:
+        break;
+    }
+  }
+
+  window.addEventListener("message", onMessage);
+})();
+</script>
+</body>
+</html>

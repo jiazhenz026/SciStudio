@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pair Editor &mdash; SciStudio panel</title>
+<!--
+  ADR-054 spec 1, T-009 (#2229) — the built-in Pair Editor panel.
+
+  Replaces frontend/src/components/PairEditorModal.tsx and the
+  `core.interactive.pair_editor` entry in the retired PANEL_REGISTRY of
+  frontend/src/App.parts/InteractiveModals.tsx. It is bound to the PairEditor
+  block's prompt (the input ports, the items on each, and their shared length)
+  and shows one sortable list per port side by side; items on the same row are
+  paired, and the row colour is what makes a pairing visible while it is dragged
+  into place.
+
+  This is a *producing* panel (FR-006). Its only outbound path is `emit`, and
+  what it emits is code (ADR-054 3.6):
+
+      reorder = {"input_1": [2, 0, 1], "input_2": [0, 1, 2]}
+      scistudio.output(reorder=reorder)
+
+  Both statement forms — an assignment whose target is a plain name, and a call
+  to `scistudio.output` — are what the emission check admits. That check is NOT
+  implemented here and must not be: FR-012 says the panel loading machinery must
+  not interpret what a panel emits, and ADR-054 3.6 puts the whitelist where an
+  emission is queued, which is the explore session.
+
+  Confirm and cancel are host chrome (ADR-054 4.2), not this panel's, so the
+  panel re-emits its decision each time the order changes. Every emission is the
+  same rebinding assignment, so the newest one is simply the decision.
+
+  FR-034 / A-004: strictly self-contained. Markup, styles and script in one
+  file — no <script src>, no <link rel=stylesheet>, no shared runtime import, no
+  CDN. The envelope plumbing and colour tokens repeat the other built-in
+  panels' on purpose.
+-->
+<style>
+  :root {
+    --ink: #1c211b;
+    --ember: #f06a44;
+    --apricot: #f6cba0;
+    --danger: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--ink);
+    font: 12px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  body { padding: 8px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .lede { font-size: 11px; color: rgba(28, 33, 27, 0.6); }
+  .columns { display: grid; gap: 12px; align-items: start; }
+  .port {
+    border: 1px solid rgba(28, 33, 27, 0.12);
+    border-radius: 1rem;
+    background: #fff;
+    padding: 8px 10px;
+  }
+  .port h2 {
+    margin: 0 0 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(28, 33, 27, 0.6);
+  }
+  .items { display: flex; flex-direction: column; gap: 4px; }
+  .item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    border: 1px solid;
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 11px;
+    cursor: grab;
+  }
+  .item.over { outline: 2px solid var(--ember); }
+  .item .row-index { font-size: 10px; opacity: 0.7; }
+  .item .type { font-size: 10px; color: rgba(28, 33, 27, 0.45); }
+  .empty { font-size: 10px; color: rgba(28, 33, 27, 0.4); padding: 4px 2px; }
+  .error {
+    border: 1px solid rgba(179, 38, 30, 0.3);
+    background: rgba(179, 38, 30, 0.08);
+    color: var(--danger);
+    border-radius: 1rem;
+    padding: 12px;
+  }
+  .muted { color: rgba(28, 33, 27, 0.6); }
+</style>
+</head>
+<body>
+<div class="stack" id="root">
+  <p class="muted">Waiting for the host&hellip;</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------------- */
+  /* The D-011 envelope. Duplicated per FR-034; do not factor it out.        */
+  /* ---------------------------------------------------------------------- */
+
+  var PANEL_MESSAGE_MARKER = 1;
+  var PANEL_API_VERSION = "1";
+
+  var token = null;
+  var context = null;
+  var capability = "displaying";
+  var torndown = false;
+
+  function post(type, payload) {
+    if (token === null || torndown) return false;
+    try {
+      window.parent.postMessage(
+        { scistudio_panel: PANEL_MESSAGE_MARKER, token: token, type: type, payload: payload },
+        "*"
+      );
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function reportError(message, detail) {
+    post("error", { message: String(message), detail: detail || null });
+  }
+
+  function asString(value, fallback) {
+    return typeof value === "string" ? value : fallback === undefined ? "" : fallback;
+  }
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The pairing decision                                                    */
+  /* ---------------------------------------------------------------------- */
+
+  /** Row colours, so a pairing is visible as it is dragged into place. */
+  var PAIR_COLORS = [
+    { bg: "#eff6ff", border: "#93c5fd", text: "#1d4ed8" },
+    { bg: "#f0fdf4", border: "#86efac", text: "#15803d" },
+    { bg: "#faf5ff", border: "#d8b4fe", text: "#7e22ce" },
+    { bg: "#fffbeb", border: "#fcd34d", text: "#b45309" },
+    { bg: "#fff1f2", border: "#fda4af", text: "#be123c" },
+    { bg: "#ecfeff", border: "#67e8f9", text: "#0e7490" },
+    { bg: "#eef2ff", border: "#a5b4fc", text: "#4338ca" },
+    { bg: "#f7fee7", border: "#bef264", text: "#4d7c0f" },
+    { bg: "#f0fdfa", border: "#5eead4", text: "#0f766e" },
+    { bg: "#fff7ed", border: "#fdba74", text: "#c2410c" }
+  ];
+
+  var prompt = { ports: [], items_per_port: {}, collection_length: 0 };
+  var orders = {};
+  var drag = { port: null, position: -1 };
+  var over = { port: null, position: -1 };
+  var fatal = null;
+
+  function move(port, from, to) {
+    var order = orders[port];
+    if (!order || from === to || from < 0 || to < 0) return;
+    var next = order.slice();
+    var moved = next.splice(from, 1)[0];
+    next.splice(to, 0, moved);
+    orders[port] = next;
+    emitDecision();
+    render();
+  }
+
+  /**
+   * A JSON value as a Python literal. The decision is objects of lists of
+   * integers, whose JSON spelling is already valid Python except for the three
+   * keywords.
+   */
+  function pythonLiteral(value) {
+    if (value === null || value === undefined) return "None";
+    if (value === true) return "True";
+    if (value === false) return "False";
+    if (typeof value === "number") return String(value);
+    if (typeof value === "string") return JSON.stringify(value);
+    if (Array.isArray(value)) {
+      return "[" + value.map(pythonLiteral).join(", ") + "]";
+    }
+    return (
+      "{" +
+      Object.keys(value)
+        .map(function (key) { return JSON.stringify(key) + ": " + pythonLiteral(value[key]); })
+        .join(", ") +
+      "}"
+    );
+  }
+
+  /**
+   * The one outbound path. The host enforces the capability grant (FR-011): an
+   * `emit` from a displaying mount is dropped and reported by the host, not
+   * withheld by the panel's restraint. The guard here is honesty about what
+   * this mount was given, not the enforcement.
+   */
+  function emitDecision() {
+    if (capability !== "producing") return;
+    var code =
+      "reorder = " + pythonLiteral(orders) + "\n" +
+      "scistudio.output(reorder=reorder)";
+    post("emit", { code: code });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Rendering                                                               */
+  /* ---------------------------------------------------------------------- */
+
+  function itemByIndex(port, index) {
+    var items = prompt.items_per_port[port] || [];
+    for (var i = 0; i < items.length; i += 1) {
+      if (items[i] && items[i].index === index) return items[i];
+    }
+    return null;
+  }
+
+  function itemCard(port, position, originalIndex) {
+    var item = itemByIndex(port, originalIndex) || { name: String(originalIndex), type: "" };
+    var color = PAIR_COLORS[position % PAIR_COLORS.length];
+    var card = el(
+      "div",
+      "item" + (over.port === port && over.position === position ? " over" : "")
+    );
+    card.setAttribute("draggable", "true");
+    card.style.background = color.bg;
+    card.style.borderColor = color.border;
+    card.style.color = color.text;
+
+    var label = el("span", null, asString(item.name, String(originalIndex)));
+    card.appendChild(label);
+    var right = el("span", null);
+    right.appendChild(el("span", "row-index", "row " + (position + 1) + " "));
+    right.appendChild(el("span", "type", asString(item.type, "")));
+    card.appendChild(right);
+
+    card.addEventListener("dragstart", function (event) {
+      drag = { port: port, position: position };
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", port + ":" + position);
+      }
+    });
+    card.addEventListener("dragend", function () {
+      drag = { port: null, position: -1 };
+      over = { port: null, position: -1 };
+      render();
+    });
+    card.addEventListener("dragover", function (event) {
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      if (over.port !== port || over.position !== position) {
+        over = { port: port, position: position };
+        render();
+      }
+    });
+    card.addEventListener("drop", function (event) {
+      event.preventDefault();
+      var source = drag;
+      over = { port: null, position: -1 };
+      drag = { port: null, position: -1 };
+      // Reordering is within one port: a pairing is defined by row position,
+      // so an item cannot cross into another port's list.
+      if (source.port !== port || source.position < 0) {
+        render();
+        return;
+      }
+      move(port, source.position, position);
+    });
+    return card;
+  }
+
+  function render() {
+    var root = document.getElementById("root");
+    root.textContent = "";
+
+    if (fatal) {
+      var box = el("div", "error");
+      box.setAttribute("role", "alert");
+      box.appendChild(el("p", null, fatal));
+      root.appendChild(box);
+      return;
+    }
+
+    root.appendChild(
+      el(
+        "p",
+        "lede",
+        "Drag to reorder within each port. Items sharing a row, and a colour, are paired."
+      )
+    );
+
+    var columns = el("div", "columns");
+    columns.style.gridTemplateColumns =
+      "repeat(" + Math.max(1, Math.min(prompt.ports.length, 4)) + ", minmax(0, 1fr))";
+
+    prompt.ports.forEach(function (port) {
+      var portBox = el("div", "port");
+      portBox.appendChild(el("h2", null, port));
+      var list = el("div", "items");
+      var order = orders[port] || [];
+      if (order.length === 0) list.appendChild(el("p", "empty", "No items"));
+      order.forEach(function (originalIndex, position) {
+        list.appendChild(itemCard(port, position, originalIndex));
+      });
+      portBox.appendChild(list);
+      columns.appendChild(portBox);
+    });
+
+    root.appendChild(columns);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The handshake                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  /** The prompt rides `init.bindings` for a producing mount, `target` otherwise. */
+  function promptFrom(payload) {
+    var candidates = [];
+    if (payload.bindings && typeof payload.bindings === "object") {
+      Object.keys(payload.bindings).forEach(function (name) {
+        var binding = payload.bindings[name];
+        if (binding && typeof binding === "object") candidates.push(binding.snapshot);
+      });
+    }
+    candidates.push(payload.target);
+    for (var i = 0; i < candidates.length; i += 1) {
+      var value = candidates[i];
+      if (!value || typeof value !== "object") continue;
+      var body = value.panel_payload && typeof value.panel_payload === "object"
+        ? value.panel_payload
+        : value;
+      if (Array.isArray(body.ports)) {
+        return {
+          ports: body.ports,
+          items_per_port:
+            body.items_per_port && typeof body.items_per_port === "object" ? body.items_per_port : {},
+          collection_length: typeof body.collection_length === "number" ? body.collection_length : 0
+        };
+      }
+    }
+    return null;
+  }
+
+  function seedOrders() {
+    orders = {};
+    prompt.ports.forEach(function (port) {
+      var items = prompt.items_per_port[port] || [];
+      orders[port] = items.map(function (item, position) {
+        return item && typeof item.index === "number" ? item.index : position;
+      });
+    });
+  }
+
+  function onMessage(event) {
+    var data = event.data;
+    if (!data || typeof data !== "object") return;
+    if (data.scistudio_panel !== PANEL_MESSAGE_MARKER) return;
+    if (typeof data.type !== "string") return;
+    var payload = data.payload && typeof data.payload === "object" ? data.payload : {};
+
+    if (token === null) {
+      if (data.type !== "init" || typeof data.token !== "string" || data.token === "") return;
+      token = data.token;
+      context = payload;
+      capability = payload.capability === "producing" ? "producing" : "displaying";
+      var resolved = promptFrom(payload);
+      if (resolved === null) {
+        fatal = "This panel was mounted without a Pair Editor prompt to reorder.";
+      } else {
+        prompt = resolved;
+        seedOrders();
+        var restored = payload.restored_state;
+        if (restored && typeof restored === "object" && restored.orders) {
+          Object.keys(orders).forEach(function (port) {
+            var kept = restored.orders[port];
+            if (Array.isArray(kept) && kept.length === orders[port].length) {
+              orders[port] = kept.slice();
+            }
+          });
+        }
+      }
+      post("ready", { api_version: PANEL_API_VERSION });
+      if (fatal) reportError(fatal, null);
+      render();
+      return;
+    }
+
+    if (data.token !== token) return;
+
+    switch (data.type) {
+      case "update": {
+        if (!payload.changed || typeof payload.changed !== "object") break;
+        var next = promptFrom({ bindings: payload.changed.bindings, target: payload.changed.target });
+        if (next) {
+          prompt = next;
+          seedOrders();
+          render();
+        }
+        break;
+      }
+      case "error":
+        fatal = asString(payload.message, "The host reported an error.");
+        render();
+        break;
+      case "state_request":
+        post("state", { state: { orders: orders } });
+        break;
+      case "teardown":
+        torndown = true;
+        window.removeEventListener("message", onMessage);
+        break;
+      default:
+        break;
+    }
+  }
+
+  window.addEventListener("message", onMessage);
+})();
+</script>
+</body>
+</html>
