@@ -388,6 +388,16 @@ def settle_panel_emission(code: str, *, block_name: str, panel_id: str) -> dict[
     assignment to a plain name and one ``scistudio.output`` call — but this
     function admits any statement the namespace can execute.
 
+    **What the namespace does not bound: time.** An emission that does not
+    terminate — ``while True: pass`` — is not refused, and this runs on the
+    scheduler's event loop, so it would wedge the whole engine rather than one
+    block. Nothing here can interrupt it: a bound would need a worker thread or
+    a subprocess, and how long to wait and what to do with the thread that
+    outlives the wait are decisions this function is not the place to take. The
+    exposure is the same one an installed block already has (a panel document is
+    installed the way a block is), which is why it is recorded here rather than
+    guessed at.
+
     Args:
         code: The snippet the panel emitted.
         block_name: The block whose pause this settles, for the diagnostic.
