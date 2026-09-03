@@ -76,6 +76,8 @@ governs:
     - src/scistudio/previewers/**
     - src/scistudio/blocks/base/interactive.py
     - src/scistudio/engine/scheduler/_dispatch.py
+    - src/scistudio/tutorials/actions.py
+    - src/scistudio/api/routes/tutorials.py
     - src/scistudio/api/routes/panels.py
     - src/scistudio/api/routes/data.py
     - src/scistudio/api/routes/blocks.py

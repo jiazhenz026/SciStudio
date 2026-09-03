@@ -116,6 +116,8 @@ EXECUTED_PROJECT_PATHS: frozenset[str] = frozenset(
         "blocks",  # drop-in scan imports every *.py; also joins sys.path
         "types",  # drop-in scan imports every *.py; <project>/types joins sys.path
         "previewers",  # sys.path insert, then every *.py is exec_module'd
+        "panels",  # a panel.json may name a Python provider that is imported,
+        # and every document under it is served into a frame the product mounts
         "plots",  # plots/<id>/plot.yaml names a render script that is executed
         # -- Configuration the product itself acts on to execute something -----
         "workflows",  # a workflow YAML names a code block's script_path and cwd

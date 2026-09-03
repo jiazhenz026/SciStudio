@@ -139,7 +139,7 @@ def test_a_replay_action_is_accepted_for_core_and_packages(kind: TutorialSourceK
 # EXECUTED_PROJECT_PATHS later fails loudly here instead of quietly shrinking
 # what is enforced.
 
-REGISTRY_PATHS = ["blocks", "types", "previewers", "plots"]
+REGISTRY_PATHS = ["blocks", "types", "panels", "previewers", "plots"]
 PRODUCT_CONFIG_PATHS = ["workflows", "tutorials"]
 AGENT_SURFACE_PATHS = [".claude", ".codex", ".agents", ".qoder", ".kimi-code", ".scistudio", ".git"]
 AGENT_ROOT_FILES = [".mcp.json", "CLAUDE.md", "AGENTS.md"]
