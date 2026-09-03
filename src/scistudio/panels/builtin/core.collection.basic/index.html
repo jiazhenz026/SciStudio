@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Collection &mdash; SciStudio panel</title>
+<!--
+  ADR-054 spec 1, T-009 (#2229) — the built-in Collection panel.
+
+  Replaces the CollectionViewer in
+  frontend/src/components/DataPreview.parts/coreViewers.tsx. Renders the
+  `core.collection.basic` provider's COLLECTION envelope: the count and item
+  type, the bounded sample of item cards with the backend's resolved display
+  name, and child routing into one item.
+
+  FR-034 / A-004: strictly self-contained. Markup, styles and script in one
+  file — no <script src>, no <link rel=stylesheet>, no shared runtime import, no
+  CDN. `displayNameOf` below is this document's own copy of the display-name
+  precedence in refEntries.ts; that duplication is the accepted cost of a panel
+  a person can open in a browser and fork whole.
+
+  Outbound: a *displaying* panel emits nothing (ADR-054 3.6). Opening an item
+  leaves as `read` with { action: "open_resource", resource_id, params }.
+
+  TODO(#2229): the tutorial highlight target and the `preview_item_opened`
+    UI event the retired React viewer reported are not reproduced here — a
+    `data-tutorial-target` attribute inside a sandboxed frame is unreachable
+    from the application's tutorial highlighter, and the store is not importable
+    from a panel document. Reproducing them is host-side work on the panel host
+    rather than something a panel document can carry.
+    Followup: https://github.com/jiazhenz026/SciStudio/issues/2229
+-->
+<style>
+  :root {
+    --ink: #1c211b;
+    --ember: #f06a44;
+    --amber-border: #fcd34d;
+    --amber-bg: #fffbeb;
+    --amber-text: #92400e;
+    --danger: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--ink);
+    font: 12px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  body { padding: 8px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .summary {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(28, 33, 27, 0.6);
+  }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    border: 1px solid rgba(28, 33, 27, 0.1);
+    border-radius: 1rem;
+    background: #fff;
+    padding: 8px 12px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .item:hover { background: rgba(28, 33, 27, 0.05); }
+  .item .name {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink);
+  }
+  .item .type { color: rgba(28, 33, 27, 0.45); }
+  .banner {
+    border: 1px solid var(--amber-border);
+    background: var(--amber-bg);
+    color: var(--amber-text);
+    border-radius: 1rem;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+  .banner p { margin: 0 0 4px; }
+  .banner p:last-child { margin-bottom: 0; }
+  .error {
+    border: 1px solid rgba(179, 38, 30, 0.3);
+    background: rgba(179, 38, 30, 0.08);
+    color: var(--danger);
+    border-radius: 1rem;
+    padding: 12px;
+  }
+  .badges { display: flex; flex-wrap: wrap; gap: 4px; }
+  .badge {
+    border-radius: 999px;
+    background: #fef3c7;
+    color: var(--amber-text);
+    padding: 1px 8px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .muted { color: rgba(28, 33, 27, 0.6); }
+</style>
+</head>
+<body>
+<div class="stack" id="root">
+  <p class="muted">Waiting for the host&hellip;</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------------- */
+  /* The D-011 envelope. Duplicated per FR-034; do not factor it out.        */
+  /* ---------------------------------------------------------------------- */
+
+  var PANEL_MESSAGE_MARKER = 1;
+  var PANEL_API_VERSION = "1";
+
+  var token = null;
+  var context = null;
+  var readSeq = 0;
+  var pendingReads = Object.create(null);
+  var torndown = false;
+
+  function post(type, payload) {
+    if (token === null || torndown) return false;
+    try {
+      window.parent.postMessage(
+        { scistudio_panel: PANEL_MESSAGE_MARKER, token: token, type: type, payload: payload },
+        "*"
+      );
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function reportError(message, detail) {
+    post("error", { message: String(message), detail: detail || null });
+  }
+
+  function read(query) {
+    return new Promise(function (resolve, reject) {
+      readSeq += 1;
+      var id = "r" + readSeq;
+      pendingReads[id] = { resolve: resolve, reject: reject };
+      if (!post("read", { request_id: id, query: query })) {
+        delete pendingReads[id];
+        reject(new Error("the host could not be reached"));
+      }
+    });
+  }
+
+  function envelopeOf(value) {
+    var empty = { payload: {}, metadata: {}, resources: [], diagnostics: [], error: null };
+    if (!value || typeof value !== "object") return empty;
+    if (value.payload && typeof value.payload === "object") {
+      return {
+        payload: value.payload,
+        metadata: value.metadata && typeof value.metadata === "object" ? value.metadata : {},
+        resources: Array.isArray(value.resources) ? value.resources : [],
+        diagnostics: Array.isArray(value.diagnostics) ? value.diagnostics : [],
+        error: value.error && typeof value.error === "object" ? value.error : null
+      };
+    }
+    return {
+      payload: value,
+      metadata: {},
+      resources: [],
+      diagnostics: [],
+      error: value.error && typeof value.error === "object" ? value.error : null
+    };
+  }
+
+  function asString(value, fallback) {
+    return typeof value === "string" ? value : fallback === undefined ? "" : fallback;
+  }
+
+  function asNumber(value, fallback) {
+    return typeof value === "number" && isFinite(value) ? value : fallback;
+  }
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  function badges(metadata) {
+    var flags = [
+      ["sampled", metadata.sampled],
+      ["truncated", metadata.truncated],
+      ["cached", metadata.cached],
+      ["derived", metadata.derived],
+      ["incomplete", metadata.complete === false]
+    ];
+    var active = flags.filter(function (entry) { return entry[1] === true; });
+    if (active.length === 0) return null;
+    var box = el("div", "badges");
+    active.forEach(function (entry) { box.appendChild(el("span", "badge", entry[0])); });
+    return box;
+  }
+
+  function diagnosticsBanner(diagnostics) {
+    if (!diagnostics || diagnostics.length === 0) return null;
+    var box = el("div", "banner");
+    box.setAttribute("role", "status");
+    diagnostics.forEach(function (line) { box.appendChild(el("p", null, line)); });
+    return box;
+  }
+
+  function errorCard(error) {
+    var box = el("div", "error");
+    box.setAttribute("role", "alert");
+    box.appendChild(el("p", null, "Collection preview failed"));
+    if (error && error.code) box.appendChild(el("p", "muted", String(error.code)));
+    box.appendChild(el("p", null, error && error.message ? String(error.message) : "An unknown error occurred."));
+    return box;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The sample                                                              */
+  /* ---------------------------------------------------------------------- */
+
+  var current = envelopeOf(null);
+
+  function basename(path) {
+    var parts = String(path).split(/[\\/]/);
+    return parts[parts.length - 1] || String(path);
+  }
+
+  /**
+   * The display-name precedence, in this document's own copy: the backend's
+   * stamped `display_name` first, then a user-set name, then a source file
+   * name, then the ref's basename. New origins are added in the backend
+   * resolver, never here.
+   */
+  function displayNameOf(ref, item) {
+    if (!item || typeof item !== "object") return basename(ref);
+    if (typeof item.display_name === "string" && item.display_name) return item.display_name;
+    var metadata = item.metadata && typeof item.metadata === "object" ? item.metadata : null;
+    if (metadata) {
+      var user = metadata.user && typeof metadata.user === "object" ? metadata.user : null;
+      if (user && typeof user.display_name === "string" && user.display_name) return user.display_name;
+      if (typeof metadata.source_file === "string" && metadata.source_file) {
+        return basename(metadata.source_file);
+      }
+      if (typeof metadata.file_path === "string" && metadata.file_path) {
+        return basename(metadata.file_path);
+      }
+      var meta = metadata.meta && typeof metadata.meta === "object" ? metadata.meta : null;
+      if (meta && typeof meta.source_file === "string" && meta.source_file) {
+        return basename(meta.source_file);
+      }
+    }
+    return basename(ref);
+  }
+
+  function openItem(index, resource) {
+    read({
+      action: "open_resource",
+      resource_id: resource ? resource.resource_id : "item:" + index,
+      params: resource && resource.params ? resource.params : { index: index }
+    }).then(
+      function (window_) {
+        if (window_ && typeof window_ === "object") {
+          current = envelopeOf(window_);
+          render();
+        }
+      },
+      function (err) {
+        reportError("the collection item could not be opened: " + err.message, { index: index });
+      }
+    );
+  }
+
+  function render() {
+    var root = document.getElementById("root");
+    root.textContent = "";
+
+    if (current.error) {
+      root.appendChild(errorCard(current.error));
+      return;
+    }
+
+    var diag = diagnosticsBanner(current.diagnostics);
+    if (diag) root.appendChild(diag);
+
+    var payload = current.payload;
+    var count = asNumber(payload.count, 0);
+    var itemType = asString(payload.item_type, "items");
+    var items = Array.isArray(payload.items) ? payload.items : [];
+    var itemResources = current.resources.filter(function (resource) {
+      return resource && typeof resource.resource_id === "string" &&
+        resource.resource_id.indexOf("item:") === 0;
+    });
+
+    root.appendChild(
+      el("p", "summary", count + " " + itemType + " (showing " + items.length + ")")
+    );
+
+    var grid = el("div", "grid");
+    items.forEach(function (item, index) {
+      var record = item && typeof item === "object" ? item : {};
+      var ref = asString(record.data_ref !== undefined ? record.data_ref : record.ref, "item " + index);
+      var button = el("button", "item");
+      button.type = "button";
+      var name = el("span", "name", displayNameOf(ref, record));
+      name.setAttribute("title", ref);
+      button.appendChild(name);
+      button.appendChild(el("span", "type", asString(record.type_name, itemType)));
+      button.addEventListener("click", function () { openItem(index, itemResources[index]); });
+      grid.appendChild(button);
+    });
+    root.appendChild(grid);
+
+    var chips = badges(current.metadata);
+    if (chips) root.appendChild(chips);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The handshake                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  function onMessage(event) {
+    var data = event.data;
+    if (!data || typeof data !== "object") return;
+    if (data.scistudio_panel !== PANEL_MESSAGE_MARKER) return;
+    if (typeof data.type !== "string") return;
+    var payload = data.payload && typeof data.payload === "object" ? data.payload : {};
+
+    if (token === null) {
+      if (data.type !== "init" || typeof data.token !== "string" || data.token === "") return;
+      token = data.token;
+      context = payload;
+      current = envelopeOf(payload.target);
+      post("ready", { api_version: PANEL_API_VERSION });
+      render();
+      return;
+    }
+
+    if (data.token !== token) return;
+
+    switch (data.type) {
+      case "update":
+        if (payload.changed && typeof payload.changed === "object" && "target" in payload.changed) {
+          current = envelopeOf(payload.changed.target);
+          render();
+        }
+        break;
+      case "read_result": {
+        var pending = pendingReads[payload.request_id];
+        if (!pending) break;
+        delete pendingReads[payload.request_id];
+        pending.resolve(payload.window);
+        break;
+      }
+      case "error": {
+        var id = payload.request_id;
+        if (typeof id === "string" && pendingReads[id]) {
+          var failed = pendingReads[id];
+          delete pendingReads[id];
+          failed.reject(new Error(asString(payload.message, "the read failed")));
+          break;
+        }
+        current = {
+          payload: current.payload,
+          metadata: current.metadata,
+          resources: current.resources,
+          diagnostics: current.diagnostics,
+          error: { code: asString(payload.code, "host_error"), message: asString(payload.message) }
+        };
+        render();
+        break;
+      }
+      case "state_request":
+        post("state", { state: null });
+        break;
+      case "teardown":
+        torndown = true;
+        window.removeEventListener("message", onMessage);
+        break;
+      default:
+        break;
+    }
+  }
+
+  window.addEventListener("message", onMessage);
+})();
+</script>
+</body>
+</html>

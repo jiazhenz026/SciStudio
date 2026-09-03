@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data &mdash; SciStudio panel</title>
+<!--
+  ADR-054 spec 1, T-009 (#2229) — the universal base fallback panel.
+
+  Two jobs, and the second is what shapes it. It is the tier-8 catch-all for a
+  target no other panel claims, and under D-013 it is the panel the backend
+  names as *the fallback*: what gets mounted when the chosen panel fails to
+  load, so the person's data stays visible while they fix the panel that broke.
+
+  That second job is why this document renders from the least information of the
+  eleven. It assumes nothing about the payload's shape: it shows a name, a MIME
+  type and a size when they are there, inlines a `data:` image when there is
+  one, and otherwise lists whatever scalar fields the payload actually carries.
+  A payload it has never seen renders as a readable field list rather than an
+  empty rectangle. It replaces both the ArtifactViewer's default branch and the
+  `default:` arm of the retired CoreFallbackRenderer switch (FR-036).
+
+  It also renders a typed error envelope, taking over the ErrorViewer's job for
+  a provider that failed. The *host's* error surface and diagnostics banner are
+  host chrome and stay in the host (FR-035): they must render when the frame
+  mechanism itself is unavailable, which is precisely when this document cannot.
+
+  FR-034 / A-004: strictly self-contained. Markup, styles and script in one
+  file — no <script src>, no <link rel=stylesheet>, no shared runtime import, no
+  CDN.
+
+  Outbound: a *displaying* panel emits nothing (ADR-054 3.6). Downloading leaves
+  as `read` with { action: "download" }; saving a file is host chrome.
+-->
+<style>
+  :root {
+    --ink: #1c211b;
+    --ember: #f06a44;
+    --amber-border: #fcd34d;
+    --amber-bg: #fffbeb;
+    --amber-text: #92400e;
+    --danger: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--ink);
+    font: 12px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  body { padding: 8px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border: 1px solid rgba(28, 33, 27, 0.1);
+    border-radius: 1rem;
+    background: #fff;
+    padding: 16px;
+    font-size: 12px;
+    color: rgba(28, 33, 27, 0.7);
+  }
+  .card .title { font-weight: 500; color: var(--ink); }
+  .card .path { word-break: break-all; font-size: 11px; }
+  .card img { margin-top: 8px; max-height: 288px; border-radius: 6px; align-self: flex-start; }
+  .fields { border-collapse: collapse; font-size: 11px; }
+  .fields th {
+    text-align: left;
+    padding: 2px 12px 2px 0;
+    font-weight: 500;
+    color: rgba(28, 33, 27, 0.5);
+    vertical-align: top;
+    white-space: nowrap;
+  }
+  .fields td { padding: 2px 0; word-break: break-word; color: var(--ink); }
+  .actions { display: flex; align-items: center; gap: 8px; }
+  button {
+    font: inherit;
+    color: inherit;
+    background: #fff;
+    border: 1px solid rgba(28, 33, 27, 0.2);
+    border-radius: 6px;
+    padding: 3px 10px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--ember); }
+  .banner {
+    border: 1px solid var(--amber-border);
+    background: var(--amber-bg);
+    color: var(--amber-text);
+    border-radius: 1rem;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+  .banner p { margin: 0 0 4px; }
+  .banner p:last-child { margin-bottom: 0; }
+  .error {
+    border: 1px solid rgba(179, 38, 30, 0.3);
+    background: rgba(179, 38, 30, 0.08);
+    color: var(--danger);
+    border-radius: 1rem;
+    padding: 12px;
+  }
+  .error p { margin: 0 0 4px; }
+  .error .code { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; }
+  .badges { display: flex; flex-wrap: wrap; gap: 4px; }
+  .badge {
+    border-radius: 999px;
+    background: #fef3c7;
+    color: var(--amber-text);
+    padding: 1px 8px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .muted { color: rgba(28, 33, 27, 0.6); }
+</style>
+</head>
+<body>
+<div class="stack" id="root">
+  <p class="muted">Waiting for the host&hellip;</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------------- */
+  /* The D-011 envelope. Duplicated per FR-034; do not factor it out.        */
+  /* ---------------------------------------------------------------------- */
+
+  var PANEL_MESSAGE_MARKER = 1;
+  var PANEL_API_VERSION = "1";
+
+  var token = null;
+  var context = null;
+  var readSeq = 0;
+  var pendingReads = Object.create(null);
+  var torndown = false;
+
+  function post(type, payload) {
+    if (token === null || torndown) return false;
+    try {
+      window.parent.postMessage(
+        { scistudio_panel: PANEL_MESSAGE_MARKER, token: token, type: type, payload: payload },
+        "*"
+      );
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function reportError(message, detail) {
+    post("error", { message: String(message), detail: detail || null });
+  }
+
+  function read(query) {
+    return new Promise(function (resolve, reject) {
+      readSeq += 1;
+      var id = "r" + readSeq;
+      pendingReads[id] = { resolve: resolve, reject: reject };
+      if (!post("read", { request_id: id, query: query })) {
+        delete pendingReads[id];
+        reject(new Error("the host could not be reached"));
+      }
+    });
+  }
+
+  function envelopeOf(value) {
+    var empty = { payload: {}, metadata: {}, resources: [], diagnostics: [], error: null };
+    if (!value || typeof value !== "object") return empty;
+    if (value.payload && typeof value.payload === "object") {
+      return {
+        payload: value.payload,
+        metadata: value.metadata && typeof value.metadata === "object" ? value.metadata : {},
+        resources: Array.isArray(value.resources) ? value.resources : [],
+        diagnostics: Array.isArray(value.diagnostics) ? value.diagnostics : [],
+        error: value.error && typeof value.error === "object" ? value.error : null
+      };
+    }
+    return {
+      payload: value,
+      metadata: {},
+      resources: [],
+      diagnostics: [],
+      error: value.error && typeof value.error === "object" ? value.error : null
+    };
+  }
+
+  function asString(value, fallback) {
+    return typeof value === "string" ? value : fallback === undefined ? "" : fallback;
+  }
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  function badges(metadata) {
+    var flags = [
+      ["sampled", metadata.sampled],
+      ["truncated", metadata.truncated],
+      ["cached", metadata.cached],
+      ["derived", metadata.derived],
+      ["incomplete", metadata.complete === false]
+    ];
+    var active = flags.filter(function (entry) { return entry[1] === true; });
+    if (active.length === 0) return null;
+    var box = el("div", "badges");
+    active.forEach(function (entry) { box.appendChild(el("span", "badge", entry[0])); });
+    return box;
+  }
+
+  function diagnosticsBanner(diagnostics) {
+    if (!diagnostics || diagnostics.length === 0) return null;
+    var box = el("div", "banner");
+    box.setAttribute("role", "status");
+    diagnostics.forEach(function (line) { box.appendChild(el("p", null, line)); });
+    return box;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The least information                                                   */
+  /* ---------------------------------------------------------------------- */
+
+  var current = envelopeOf(null);
+
+  /** One line per scalar field, so an unfamiliar payload is still readable. */
+  function fieldTable(payload, skip) {
+    var table = document.createElement("table");
+    table.className = "fields";
+    var body = document.createElement("tbody");
+    var shown = 0;
+    Object.keys(payload).forEach(function (key) {
+      if (skip.indexOf(key) >= 0) return;
+      var value = payload[key];
+      var text;
+      if (value === null || value === undefined) return;
+      if (typeof value === "string") {
+        text = value.length > 240 ? value.slice(0, 240) + "…" : value;
+      } else if (typeof value === "number" || typeof value === "boolean") {
+        text = String(value);
+      } else if (Array.isArray(value)) {
+        text = value.length + " item" + (value.length === 1 ? "" : "s");
+      } else if (typeof value === "object") {
+        var keys = Object.keys(value);
+        text = "{" + keys.slice(0, 6).join(", ") + (keys.length > 6 ? ", …" : "") + "}";
+      } else {
+        return;
+      }
+      var row = document.createElement("tr");
+      row.appendChild(el("th", null, key));
+      row.appendChild(el("td", null, text));
+      body.appendChild(row);
+      shown += 1;
+    });
+    table.appendChild(body);
+    return shown > 0 ? table : null;
+  }
+
+  function render() {
+    var root = document.getElementById("root");
+    root.textContent = "";
+
+    // A typed error envelope: the provider failed, and this fallback is what is
+    // showing. Say so plainly rather than showing an empty card.
+    if (current.error) {
+      var box = el("div", "error");
+      box.setAttribute("role", "alert");
+      box.appendChild(el("p", null, "Preview failed"));
+      if (current.error.code) box.appendChild(el("p", "code", String(current.error.code)));
+      box.appendChild(
+        el("p", null, asString(current.error.message, "An unknown preview error occurred."))
+      );
+      root.appendChild(box);
+      var errDiag = diagnosticsBanner(current.diagnostics);
+      if (errDiag) root.appendChild(errDiag);
+      return;
+    }
+
+    var diag = diagnosticsBanner(current.diagnostics);
+    if (diag) root.appendChild(diag);
+
+    var payload = current.payload;
+    var path = asString(payload.path);
+    var mime = asString(payload.mime_type);
+    var src = asString(payload.src);
+
+    var card = el("div", "card");
+    card.appendChild(el("p", "title", "Data"));
+    if (path) card.appendChild(el("p", "path", path));
+    if (mime) card.appendChild(el("p", null, mime));
+    if (typeof payload.size_bytes === "number") {
+      card.appendChild(el("p", null, payload.size_bytes + " bytes"));
+    }
+    if (src.indexOf("data:image/") === 0) {
+      var img = document.createElement("img");
+      img.setAttribute("alt", "Preview");
+      img.setAttribute("src", src);
+      card.appendChild(img);
+    }
+
+    // Anything else the payload happens to carry. This is what makes the panel
+    // useful for a target it has never seen.
+    var extra = fieldTable(payload, ["path", "mime_type", "size_bytes", "src"]);
+    if (extra) card.appendChild(extra);
+    if (!path && !mime && typeof payload.size_bytes !== "number" && !extra) {
+      card.appendChild(el("p", "muted", "No preview information was provided for this object."));
+    }
+    root.appendChild(card);
+
+    if (path) {
+      var actions = el("div", "actions");
+      var download = el("button", null, "Download");
+      download.type = "button";
+      download.setAttribute("aria-label", "Download this object");
+      download.addEventListener("click", function () {
+        read({ action: "download", path: path }).catch(function (err) {
+          reportError("the object could not be downloaded: " + err.message, { path: path });
+        });
+      });
+      actions.appendChild(download);
+      root.appendChild(actions);
+    }
+
+    var chips = badges(current.metadata);
+    if (chips) root.appendChild(chips);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The handshake                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  function onMessage(event) {
+    var data = event.data;
+    if (!data || typeof data !== "object") return;
+    if (data.scistudio_panel !== PANEL_MESSAGE_MARKER) return;
+    if (typeof data.type !== "string") return;
+    var payload = data.payload && typeof data.payload === "object" ? data.payload : {};
+
+    if (token === null) {
+      if (data.type !== "init" || typeof data.token !== "string" || data.token === "") return;
+      token = data.token;
+      context = payload;
+      current = envelopeOf(payload.target);
+      post("ready", { api_version: PANEL_API_VERSION });
+      render();
+      return;
+    }
+
+    if (data.token !== token) return;
+
+    switch (data.type) {
+      case "update":
+        if (payload.changed && typeof payload.changed === "object" && "target" in payload.changed) {
+          current = envelopeOf(payload.changed.target);
+          render();
+        }
+        break;
+      case "read_result": {
+        var pending = pendingReads[payload.request_id];
+        if (!pending) break;
+        delete pendingReads[payload.request_id];
+        pending.resolve(payload.window);
+        break;
+      }
+      case "error": {
+        var id = payload.request_id;
+        if (typeof id === "string" && pendingReads[id]) {
+          var failed = pendingReads[id];
+          delete pendingReads[id];
+          failed.reject(new Error(asString(payload.message, "the read failed")));
+          break;
+        }
+        current = {
+          payload: current.payload,
+          metadata: current.metadata,
+          resources: current.resources,
+          diagnostics: current.diagnostics,
+          error: { code: asString(payload.code, "host_error"), message: asString(payload.message) }
+        };
+        render();
+        break;
+      }
+      case "state_request":
+        post("state", { state: null });
+        break;
+      case "teardown":
+        torndown = true;
+        window.removeEventListener("message", onMessage);
+        break;
+      default:
+        break;
+    }
+  }
+
+  window.addEventListener("message", onMessage);
+})();
+</script>
+</body>
+</html>

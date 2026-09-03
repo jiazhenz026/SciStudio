@@ -1,0 +1,12 @@
+{
+  "panel_id": "core.composite.basic",
+  "display_name": "Composite",
+  "target_types": ["CompositeData"],
+  "capability": "displaying",
+  "entry": "index.html",
+  "api_version": "1",
+  "features": ["slots", "child_routing"],
+  "priority": 0,
+  "supports_collection": false,
+  "provider": "scistudio.panels.fallbacks:composite_panel"
+}
