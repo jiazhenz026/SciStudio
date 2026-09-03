@@ -1,16 +1,17 @@
 /**
  * ADR-054 spec 1 — the panel host's public surface.
  *
- * One import site for everything outside `frontend/src/panels/`. Nothing under
- * this directory imports from the two retired loaders
- * (`DataPreview.parts/dynamicPreviewer.ts`,
- * `InteractiveModals.parts/panelModuleLoader.ts`) or from anything else in
- * `App.parts/`: the mounting mechanism is new, not merged.
+ * One import site for everything outside `frontend/src/panels/`. The two
+ * retired ES-module loaders (`DataPreview.parts/dynamicPanel.ts`,
+ * `InteractiveModals.parts/panelModuleLoader.ts`) and the retired host API
+ * (`DataPreview.parts/panelHostApi.ts`) no longer exist: T-007 deleted them
+ * rather than wrapping them, and `mountPanelFrame` below is the one loader that
+ * replaced both (SC-001, SC-002).
  *
- * TODO(#2229): wiring this host into the preview surface and the
- *   interactive-modal surface, and deleting the two retired loaders, is spec
- *   task T-007 of docs/specs/adr-054-panel-contract.md, owned by a later agent
- *   in this same issue.
+ * Nothing under this directory imports from `App.parts/`, from the store, or
+ * from the API client. That is what lets the same host mount a panel over a
+ * preview session and over a paused interactive block without either surface
+ * knowing about the other.
  */
 
 export { PanelHost } from "./PanelHost";
@@ -46,10 +47,14 @@ export type {
   PanelFrameHandle,
   PanelFrameMountOptions,
   PanelFrameSpec,
+  PanelHostActionOutcome,
+  PanelHostActionPerformer,
   PanelMountInit,
   PanelMountResult,
   PanelReadOutcome,
   PanelReadResolver,
+  PanelRequestOutcome,
+  PanelResourceResolver,
 } from "./panelFrame";
 
 export {
@@ -70,12 +75,16 @@ export type {
 
 export {
   HOST_TO_PANEL_TYPES,
+  PANEL_HOST_ACTIONS,
   PANEL_MESSAGE_MARKER,
+  PANEL_REQUEST_RESULT_TYPES,
+  PANEL_REQUEST_TYPES,
   PANEL_TO_HOST_TYPES,
   hostToPanelMessage,
   isAcceptedApiVersion,
   isHostToPanelMessage,
   isPanelEnvelope,
+  isPanelHostAction,
   isPanelToHostMessage,
   panelToHostMessage,
   parseHostToPanelMessage,
@@ -91,12 +100,18 @@ export type {
   PanelEmitPayload,
   PanelEnvelope,
   PanelErrorPayload,
+  PanelHostAction,
+  PanelHostActionPayload,
+  PanelHostActionResultPayload,
   PanelHostErrorPayload,
   PanelInitPayload,
   PanelReadLimits,
   PanelReadPayload,
   PanelReadResultPayload,
   PanelReadyPayload,
+  PanelRequestType,
+  PanelResourcePayload,
+  PanelResourceResultPayload,
   PanelStatePayload,
   PanelStateSnapshot,
   PanelToHostMessage,

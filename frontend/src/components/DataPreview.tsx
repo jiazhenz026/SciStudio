@@ -19,26 +19,18 @@ import { extractRefEntries, type RefEntry } from "./DataPreview.parts/refEntries
 export { extractRefEntries } from "./DataPreview.parts/refEntries";
 export type { RefEntry } from "./DataPreview.parts/refEntries";
 
-// ADR-048 SPEC 1 — the routed PreviewHost container and core fallback viewers.
-// As of #1592 the live DataPreview mounts PreviewHost directly: every selected
-// output ref creates a routed preview session (POST /api/previews/sessions) and
-// renders either a validated dynamic panel (package/project) or the core
-// fallback viewer for the envelope kind. The legacy one-shot `previewCache`
-// path is gone.
+// ADR-054 spec 1 — the routed PreviewHost container, merged with the panel
+// host. Every selected output ref creates a routed preview session
+// (POST /api/previews/sessions) and mounts the panel the backend named for it
+// inside a sandboxed frame; there is no kind-to-viewer dispatch left to fall
+// back to (FR-015, FR-036, SC-010).
+//
+// The ADR-048 host-API re-exports that used to sit here are gone with the
+// module loader they described (SC-002), and with them the frontend's second
+// panel API version constant: the one definition is `PANEL_API_VERSION` in
+// `scistudio.core.panels` and it reaches the host on the descriptor (D-010).
 export { PreviewHost } from "./DataPreview.parts/PreviewHost";
 export type { PreviewHostProps } from "./DataPreview.parts/PreviewHost";
-export {
-  PANEL_HOST_API_VERSION,
-  isApiVersionCompatible,
-  isPanelModule,
-} from "./DataPreview.parts/panelHostApi";
-export type {
-  PreviewHostApi,
-  PreviewProviderIdentity,
-  PreviewExportRequest,
-  PanelInstance,
-  PanelModule,
-} from "./DataPreview.parts/panelHostApi";
 
 interface DataPreviewProps {
   selectedNodeId: string | null;

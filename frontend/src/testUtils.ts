@@ -57,5 +57,8 @@ export function resetAppStore() {
     panelChoices: [],
     panelChoicesLoaded: false,
     panelChoiceVersion: 0,
+    // ADR-054 FR-030 — no panel document has changed under a mount yet.
+    panelDocumentEpoch: 0,
+    panelDocumentVersions: {},
   });
 }

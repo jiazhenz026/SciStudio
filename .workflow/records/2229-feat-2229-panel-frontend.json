@@ -1,0 +1,128 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "feat/2229-panel-frontend",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-03T06:59:08.768452Z",
+      "class": null,
+      "kind": "path",
+      "path": "N/A",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Replace both frontend loaders with one, delete the kind-to-panel dispatch in favour of the backend-named fallback, and add hot reload and the state hook: tasks T-007, T-008 frontend half, and T-011 of docs/specs/adr-054-panel-contract.md.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-feat-2229-panel-frontend",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:59:08.768410Z",
+      "pattern": "frontend/src/panels/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:59:08.768432Z",
+      "pattern": "frontend/src/components/DataPreview.parts/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:59:08.768435Z",
+      "pattern": "frontend/src/components/DataPreview.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:59:08.768437Z",
+      "pattern": "frontend/src/App.parts/InteractiveModals.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:59:08.768439Z",
+      "pattern": "frontend/src/App.parts/InteractiveModals.parts/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:59:08.768440Z",
+      "pattern": "frontend/src/store/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:59:08.768442Z",
+      "pattern": "frontend/src/lib/api/data.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:59:08.768443Z",
+      "pattern": "frontend/src/types/api.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:59:08.768445Z",
+      "pattern": "frontend/src/hooks/**",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "dfcf6196-56bf-4a21-a0aa-7986018bfcc2",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-03T06:59:08.768459Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/**",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T06:59:08.768464Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/DataPreview.parts/**",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

@@ -15,6 +15,19 @@
  * mounted, and the same check runs again against what the document declares in
  * its `ready` message.
  *
+ * **Hot reload and the state hook (FR-030, FR-031).** Changing `remountToken`
+ * tears the frame down and builds a new one from the document as it now is on
+ * disk. The frame boundary is what makes that clean: discarding a frame leaves
+ * no cached module behind, which is precisely what neither retired ES-module
+ * loader could promise. Across that remount the host carries the panel's own
+ * snapshot: it sends `state_request` before the teardown, waits a bounded time
+ * for the answer, and hands whatever came back to the new mount as
+ * `init.restored_state`. A panel that does not implement the hook never answers
+ * and remounts clean; a snapshot that will not serialise is discarded by
+ * `sanitizePanelState` and the panel remounts clean too. Neither is a failed
+ * reload — losing an in-progress selection is recoverable, failing to reload
+ * after a save is not.
+ *
  * **The fallback is the caller's decision (FR-015, FR-036).** When a mount
  * fails, `PanelHost` renders its own error surface and hands the failure to
  * `renderFallback`. It does not choose a panel, and it holds no mapping from a
@@ -36,7 +49,9 @@ import type {
   PanelFailure,
   PanelFrameConnection,
   PanelFrameFactory,
+  PanelHostActionPerformer,
   PanelReadResolver,
+  PanelResourceResolver,
 } from "./panelFrame";
 import { mountPanelFrame, panelFailure } from "./panelFrame";
 import type {
@@ -73,6 +88,17 @@ export interface PanelHostProps {
   readonly update?: PanelUpdatePayload | null;
   /** Answers one bounded windowed read. Absent means the panel gets no reads. */
   readonly onRead?: PanelReadResolver;
+  /**
+   * Answers one `resource` — a bounded follow-up read addressed by id (D-017).
+   * Composite slot navigation and collection item opening go through it.
+   */
+  readonly onResource?: PanelResourceResolver;
+  /**
+   * Performs one `host_action` — export, download, editor handoff (D-017).
+   * Chrome the frame cannot draw for itself, because it is granted
+   * `allow-scripts` and nothing else.
+   */
+  readonly onHostAction?: PanelHostActionPerformer;
   /** Where a producing panel's emitted code goes (FR-012). */
   readonly onEmit?: PanelEmitConsumer;
   /** Called once when the mount fails (FR-014). */
@@ -103,6 +129,8 @@ interface LatestProps {
   bindings: Readonly<Record<string, PanelBindingSnapshot>> | null;
   restoredState: unknown;
   onRead?: PanelReadResolver;
+  onResource?: PanelResourceResolver;
+  onHostAction?: PanelHostActionPerformer;
   onEmit?: PanelEmitConsumer;
   onFailure?: (failure: PanelFailure) => void;
   onDiagnostic?: (diagnostic: PanelDiagnostic) => void;
@@ -122,6 +150,17 @@ function mountIdentity(descriptor: PanelDescriptor, remountToken?: string | numb
   ].join("\u0000");
 }
 
+/** One line for anything thrown while asking for a snapshot. Never throws. */
+function describeStateError(error: unknown): string {
+  try {
+    return error instanceof Error
+      ? `the state request failed: ${error.message}`
+      : `the state request failed: ${String(error)}`;
+  } catch {
+    return "the state request failed";
+  }
+}
+
 export const PanelHost = forwardRef<PanelHostHandle, PanelHostProps>(
   function PanelHost(props, ref) {
     const {
@@ -139,6 +178,16 @@ export const PanelHost = forwardRef<PanelHostHandle, PanelHostProps>(
     const containerRef = useRef<HTMLDivElement | null>(null);
     const connectionRef = useRef<PanelFrameConnection | null>(null);
     const diagnosticSeq = useRef(0);
+    /**
+     * The snapshot in transit across one remount (FR-031). Written by the mount
+     * effect's cleanup when it can tell the mount is being *replaced* rather
+     * than unmounted, read once by the mount that replaces it. Carries the
+     * panel id so a snapshot can never be handed to a different panel.
+     */
+    const carriedState = useRef<{
+      readonly panelId: string;
+      readonly snapshot: Promise<PanelStateSnapshot>;
+    } | null>(null);
     const latest = useRef<LatestProps>({
       descriptor,
       target: props.target,
@@ -159,6 +208,8 @@ export const PanelHost = forwardRef<PanelHostHandle, PanelHostProps>(
         bindings: props.bindings ?? null,
         restoredState: props.restoredState,
         onRead: props.onRead,
+        onResource: props.onResource,
+        onHostAction: props.onHostAction,
         onEmit: props.onEmit,
         onFailure: props.onFailure,
         onDiagnostic: props.onDiagnostic,
@@ -179,6 +230,23 @@ export const PanelHost = forwardRef<PanelHostHandle, PanelHostProps>(
     }, []);
 
     const identity = mountIdentity(descriptor, remountToken);
+
+    /*
+     * Is the next cleanup a *replacement* or an unmount?
+     *
+     * Only a replacement is worth a `state_request`: on an unmount there is
+     * nothing to restore into, and waiting on an answer would hold a dead frame
+     * in the document for the length of the bounded wait. React renders before
+     * it runs the old effect's cleanup, so comparing the identity here — in the
+     * render pass — is what lets the cleanup tell the two apart. Assigning to a
+     * ref during render is idempotent and survives a double render.
+     */
+    const lastIdentity = useRef(identity);
+    const replacing = useRef(false);
+    if (lastIdentity.current !== identity) {
+      lastIdentity.current = identity;
+      replacing.current = true;
+    }
 
     useEffect(() => {
       const container = containerRef.current;
@@ -241,6 +309,28 @@ export const PanelHost = forwardRef<PanelHostHandle, PanelHostProps>(
             );
             return;
           }
+          case "resource": {
+            const resolver = latest.current.onResource;
+            void connection.answerResource(
+              message.payload,
+              resolver ??
+                (() =>
+                  Promise.reject(new Error("this mount was given no way to open a resource"))),
+            );
+            return;
+          }
+          case "host_action": {
+            const perform = latest.current.onHostAction;
+            void connection.answerHostAction(
+              message.payload,
+              perform ??
+                (() =>
+                  Promise.reject(
+                    new Error(`this host does not perform "${message.payload.action}"`),
+                  )),
+            );
+            return;
+          }
           case "emit": {
             gate.deliverEmit(message.payload);
             return;
@@ -259,26 +349,50 @@ export const PanelHost = forwardRef<PanelHostHandle, PanelHostProps>(
         }
       };
 
-      void mountPanelFrame({
-        container,
-        panelId,
-        documentUrl: current.document_url,
-        acceptedApiVersion: current.accepted_api_version,
-        title: current.display_name ?? panelId,
-        init: {
-          capability,
-          target: latest.current.target,
-          bindings: latest.current.bindings,
-          readLimits: current.read_limits,
-          assetBaseUrl: current.asset_base_url,
-          restoredState: latest.current.restoredState,
-        },
-        frameFactory,
-        loadTimeoutMs,
-        handshakeTimeoutMs,
-        readTimeoutMs,
-        onMessage: handleMessage,
-      }).then((result) => {
+      /*
+       * FR-031's remount half. A snapshot the previous mount handed back wins
+       * over the `restoredState` prop, because it is this panel's own more
+       * recent state; the prop is the opening value a caller supplies for a
+       * first mount. `carriedState` is consumed here whether or not it is used,
+       * so a stale snapshot can never reach a third mount.
+       */
+      const carried = carriedState.current;
+      carriedState.current = null;
+
+      void (async () => {
+        let restoredState = latest.current.restoredState;
+        if (carried && carried.panelId === panelId) {
+          const snapshot = await carried.snapshot;
+          if (snapshot.kept) {
+            restoredState = snapshot.state;
+          } else {
+            // Not a failure: the panel implements no hook, or its snapshot
+            // would not serialise. Either way it remounts clean (FR-031).
+            restoredState = latest.current.restoredState;
+          }
+        }
+        if (cancelled) return;
+
+        const result = await mountPanelFrame({
+          container,
+          panelId,
+          documentUrl: current.document_url,
+          acceptedApiVersion: current.accepted_api_version,
+          title: current.display_name ?? panelId,
+          init: {
+            capability,
+            target: latest.current.target,
+            bindings: latest.current.bindings,
+            readLimits: current.read_limits,
+            assetBaseUrl: current.asset_base_url,
+            restoredState,
+          },
+          frameFactory,
+          loadTimeoutMs,
+          handshakeTimeoutMs,
+          readTimeoutMs,
+          onMessage: handleMessage,
+        });
         if (!result.ok) {
           fail(result.failure);
           return;
@@ -290,12 +404,36 @@ export const PanelHost = forwardRef<PanelHostHandle, PanelHostProps>(
         live = result.connection;
         connectionRef.current = result.connection;
         setStatus("ready");
-      });
+      })();
 
       return () => {
         cancelled = true;
-        live?.teardown();
-        if (connectionRef.current === live) connectionRef.current = null;
+        const going = live;
+        const isReplacement = replacing.current;
+        replacing.current = false;
+        if (going && isReplacement) {
+          // FR-030 + FR-031: ask for the snapshot, then tear down whatever the
+          // answer was. The teardown is chained rather than raced so the frame
+          // is still there to answer, and the next mount awaits this same
+          // promise, so it never appends into a container the old frame is
+          // still leaving.
+          carriedState.current = {
+            panelId: going.panelId,
+            snapshot: going
+              .requestState()
+              .catch(
+                (error: unknown) =>
+                  ({ kept: false, reason: describeStateError(error) }) as PanelStateSnapshot,
+              )
+              .then((snapshot) => {
+                going.teardown();
+                return snapshot;
+              }),
+          };
+        } else {
+          going?.teardown();
+        }
+        if (connectionRef.current === going) connectionRef.current = null;
       };
     }, [identity, frameFactory, loadTimeoutMs, handshakeTimeoutMs, readTimeoutMs, record]);
 

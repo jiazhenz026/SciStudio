@@ -1,47 +1,74 @@
 /**
- * ADR-048 SPEC 1 — PreviewHost (FR-020 .. FR-023).
+ * ADR-054 spec 1, T-007 and T-008 — the routed preview surface, merged with the
+ * panel host.
  *
- * The routed preview container. For a selected {@link PreviewTarget} it:
- *   1. Creates a session via `POST /api/previews/sessions` and reads the
- *      {@link PreviewEnvelope}.
- *   2. If the resolved panel surfaces a `frontend_manifest` (first-class on
- *      `envelope.frontend_manifest`, with a legacy `envelope.metadata.frontend_manifest`
- *      fallback) → validates it (same-origin only,
- *      FR-022), dynamically `import()`s it, and mounts the named export with a
- *      constrained {@link PreviewHostApi} (FR-023). On ANY validation / import /
- *      mount failure → renders diagnostics AND the core fallback viewer for
- *      `envelope.kind` (FR-029, US2.3).
- *   3. Else → renders the core fallback viewer for `envelope.kind`.
+ * This component owns the *session*: it creates one for the selected target,
+ * patches its query, fetches its bounded resources, saves what it exports, and
+ * keeps the drill-down stack of child envelopes. What it no longer owns is any
+ * decision about what renders the data.
  *
- * Child routing (composite slots, collection items, US4.3) re-uses the same
- * precedence by fetching the resource — which the backend renders as a freshly
- * routed child envelope — and pushing it onto a small drill-down stack.
+ * **Three things went away here, and the reasons are different.**
  *
- * The host keeps only UI-level state (active envelope, drill-down stack); the
- * backend remains authoritative for routing, sessions, and data. Cache keying
- * lives in the Zustand preview slice (FR-021); this component reads/writes it
- * through the injected callbacks.
+ * 1. *The ES-module loader.* A panel is now a document in a sandboxed frame
+ *    (FR-007), mounted by the single `mountPanelFrame` in `frontend/src/panels/`.
+ *    `dynamicPanel.ts` and its host API are deleted rather than wrapped
+ *    (SC-002), and with them the second panel API version constant: the one
+ *    definition lives in `scistudio.core.panels` and reaches the host as
+ *    `accepted_api_version` on the descriptor (D-010, SC-001).
+ * 2. *The kind-to-viewer dispatch.* `CoreFallbackRenderer` switched on
+ *    `envelope.kind` to pick a compiled React viewer. The backend has already
+ *    chosen a panel and named the fallback, so the host mounts what it was told
+ *    (FR-015, FR-036, SC-010). The nine viewers are panel documents now.
+ * 3. *The diagnostics banner and the error surface.* Not gone — moved. They are
+ *    host chrome (FR-035) and live in `frontend/src/panels/PanelErrorSurface.tsx`,
+ *    where they render as ordinary React markup with no frame and no message
+ *    contract, so they still work when the frame mechanism itself does not.
+ *
+ * **What the host does across the boundary** (D-017). A panel speaks three
+ * request types and this component answers all three, for displaying and
+ * producing mounts alike — FR-011 withholds the *emission* path from a
+ * displaying panel, not the bounded read FR-010 requires the host to supply:
+ *
+ *   - `read` — a patch of the panel's own query state, answered by patching the
+ *     session and handing back the new envelope.
+ *   - `resource` — a bounded follow-up read by id. A composite slot or a
+ *     collection item resolves to a child envelope, and the host routes that
+ *     child into its own panel through the drill-down stack rather than pushing
+ *     a second object's payload into a panel that was never bound to it.
+ *   - `host_action` — export, download, editor handoff: chrome the frame cannot
+ *     perform for itself because it holds `allow-scripts` and nothing else.
+ *
+ * **The tutorial surface a frame cannot carry** (D-019). The shipped
+ * `what-is-a-type` tutorial depends on the `preview_item_opened` UI event and
+ * on two highlight targets that used to sit on components inside what is now an
+ * opaque frame. Neither can survive the boundary, so the host keeps both: it
+ * fires `preview_item_opened` when it services a collection item's `resource`,
+ * and it carries the highlight targets on its own chrome around the frame. See
+ * `PanelTutorialChrome` for why each one is attached where it is.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "../../lib/api";
 import type {
+  PanelDescriptor,
+  PanelDiagnostic,
+  PanelFailure,
+  PanelFrameFactory,
+  PanelHostActionOutcome,
+} from "../../panels";
+import { PanelDiagnosticsBanner, PanelErrorSurface, PanelHost } from "../../panels";
+import { useAppStore } from "../../store";
+import { usePanelReloadToken } from "../../store/usePanelReload";
+import type {
+  PanelDescriptorResponse,
   PreviewEnvelope,
   PreviewResource,
   PreviewResourceResponse,
   PreviewTarget,
-  PanelFrontendManifest,
 } from "../../types/api";
 
-import { CoreFallbackRenderer, DiagnosticsBanner } from "./coreViewers";
-import { type LoadResult, mountDynamicPanel } from "./dynamicPanel";
-import {
-  PANEL_HOST_API_VERSION,
-  type PreviewHostApi,
-  type PreviewProviderIdentity,
-  type PanelInstance,
-} from "./panelHostApi";
+import { COLLECTION_ITEM_PREFIX, PanelTutorialChrome } from "./PanelTutorialChrome";
 
 export interface PreviewHostProps {
   /** The target to preview. A `null` target renders the empty state. */
@@ -53,13 +80,12 @@ export interface PreviewHostProps {
    * choice changes (#2049); the session-creation effect re-runs, so an open
    * preview re-creates its session and the backend routes it through the new
    * choice instead of sitting on the envelope the old choice produced.
-   * Omitting it keeps the host's pre-#2113 behaviour exactly.
    */
   routingEpoch?: number;
   /**
-   * Optional session-keyed cache hooks (FR-021). The host writes rendered
-   * envelopes only after the backend has resolved preview identity, so cache
-   * keys include target + panel + session + query + data version.
+   * Optional session-keyed cache hooks (ADR-048 FR-021). The host writes
+   * rendered envelopes only after the backend has resolved panel identity, so
+   * cache keys include target + panel + session + query + data version.
    */
   getCachedEnvelope?: (key: string) => PreviewEnvelope | undefined;
   cacheEnvelope?: (key: string, envelope: PreviewEnvelope) => void;
@@ -68,8 +94,8 @@ export interface PreviewHostProps {
     query: Record<string, unknown>,
     opts?: PreviewCacheKeyOptions,
   ) => string;
-  /** Test seam: inject a fake dynamic-module importer. */
-  importer?: Parameters<typeof mountDynamicPanel>[3];
+  /** Test seam: the frame-creation seam `mountPanelFrame` builds through. */
+  frameFactory?: PanelFrameFactory;
 }
 
 type Status = "idle" | "loading" | "ready" | "error";
@@ -79,27 +105,6 @@ type PreviewCacheKeyOptions = {
   dataVersion?: string | number | null;
 };
 const RESOURCE_PARAMS_MAX_CHARS = 8192;
-
-function readManifest(envelope: PreviewEnvelope | null): PanelFrontendManifest | undefined {
-  if (!envelope) return undefined;
-  // Prefer the first-class field the session manager stamps (#1579); fall back
-  // to the legacy flattened `metadata.frontend_manifest` for un-migrated providers.
-  const manifest = envelope.frontend_manifest ?? envelope.metadata?.frontend_manifest;
-  if (manifest && typeof manifest === "object" && typeof manifest.module_url === "string") {
-    return manifest;
-  }
-  return undefined;
-}
-
-function manifestIdentityKey(manifest: PanelFrontendManifest | undefined): string | null {
-  if (!manifest) return null;
-  return [
-    manifest.previewer_id,
-    manifest.module_url,
-    manifest.export_name,
-    manifest.api_version ?? "",
-  ].join("|");
-}
 
 function cacheDataVersionFromEnvelope(envelope: PreviewEnvelope): string | number | null {
   const candidates = [
@@ -133,30 +138,54 @@ function cacheEnvelopeForQuery(
   cacheEnvelope(buildCacheKey(target, query, cacheIdentityFromEnvelope(envelope)), envelope);
 }
 
+/**
+ * The descriptor the backend named, or `null`.
+ *
+ * `null` is not a routing decision the host then makes for itself: it means the
+ * response did not name a panel, which the error surface reports as such. There
+ * is deliberately no local table to fall back to (FR-036, SC-010).
+ */
+function descriptorOf(
+  descriptor: PanelDescriptorResponse | null | undefined,
+): PanelDescriptor | null {
+  if (!descriptor || typeof descriptor.panel_id !== "string") return null;
+  return descriptor as PanelDescriptor;
+}
+
 export function PreviewHost({
   target,
   initialQuery,
   routingEpoch,
   cacheEnvelope,
   buildCacheKey,
-  importer,
+  frameFactory,
 }: PreviewHostProps) {
   const [status, setStatus] = useState<Status>("idle");
   const [envelope, setEnvelope] = useState<PreviewEnvelope | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
-  // Diagnostics raised by the host itself (dynamic-load failures etc).
-  const [hostDiagnostics, setHostDiagnostics] = useState<string[]>([]);
+  // Diagnostics raised by the host itself (a failed resource, a failed export).
+  const [hostDiagnostics, setHostDiagnostics] = useState<PanelDiagnostic[]>([]);
   // Drill-down stack of child envelopes (composite slot / collection item).
   const [childStack, setChildStack] = useState<PreviewEnvelope[]>([]);
+  // FR-014: the chosen panel failed, so the named fallback is what mounts.
+  const [chosenFailed, setChosenFailed] = useState<PanelFailure | null>(null);
 
   const queryRef = useRef<Record<string, unknown>>(initialQuery ?? {});
+  const diagnosticSeq = useRef(0);
   const initialQueryKey = useMemo(() => JSON.stringify(initialQuery ?? {}), [initialQuery]);
+
+  const note = useCallback((panelId: string, code: string, message: string) => {
+    diagnosticSeq.current += 1;
+    const id = `${panelId}:${diagnosticSeq.current}`;
+    setHostDiagnostics((current) => [...current, { id, panelId, code, message }]);
+  }, []);
 
   // -- session creation ----------------------------------------------------
   useEffect(() => {
     let cancelled = false;
     setChildStack([]);
     setHostDiagnostics([]);
+    setChosenFailed(null);
     if (!target) {
       setStatus("idle");
       setEnvelope(null);
@@ -183,70 +212,96 @@ export function PreviewHost({
     return () => {
       cancelled = true;
     };
-    // initialQuery is captured intentionally on target change only; later
-    // query updates go through patchQuery below. routingEpoch (#2113) is a
+    // initialQuery is captured intentionally on target change only; later query
+    // updates arrive through the `read` channel. routingEpoch (#2113) is a
     // deliberate dep: a choice change must re-create the session so the new
     // routing applies to the preview already open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target?.ref, target?.kind, initialQueryKey, routingEpoch]);
 
-  // -- patch query (slice/page/sort/slot) ----------------------------------
+  // The envelope currently in focus (top of the drill-down stack, else root).
+  const activeEnvelope = childStack[childStack.length - 1] ?? envelope;
+  const activeRef = useRef<PreviewEnvelope | null>(activeEnvelope);
+  activeRef.current = activeEnvelope;
+  const rootSessionId = envelope?.session_id ?? null;
+
+  // -- `read`: patch the session's query and hand back the new envelope ----
   const patchQuery = useCallback(
-    async (patch: Record<string, unknown>): Promise<PreviewEnvelope> => {
-      const current = childStack[childStack.length - 1] ?? envelope;
+    async (patch: Readonly<Record<string, unknown>>): Promise<PreviewEnvelope> => {
+      const current = activeRef.current;
       if (!current?.session_id) {
-        return current ?? Promise.reject(new Error("no session"));
+        throw new Error("this preview has no session to read from");
       }
-      queryRef.current = { ...queryRef.current, ...patch };
-      const next = await api.patchPreviewSession(current.session_id, patch);
-      if (current.session_id === envelope?.session_id) {
+      const isRoot = current.session_id === rootSessionId;
+      if (isRoot) queryRef.current = { ...queryRef.current, ...patch };
+      const next = await api.patchPreviewSession(current.session_id, { ...patch });
+      if (isRoot) {
         setEnvelope(next);
+        if (target) {
+          cacheEnvelopeForQuery(cacheEnvelope, buildCacheKey, target, queryRef.current, next);
+        }
       } else {
         setChildStack((stack) => (stack.length > 0 ? [...stack.slice(0, -1), next] : stack));
       }
-      if (target && current.session_id === envelope?.session_id)
-        cacheEnvelopeForQuery(cacheEnvelope, buildCacheKey, target, queryRef.current, next);
       return next;
     },
-    [childStack, envelope, buildCacheKey, cacheEnvelope, target],
+    [rootSessionId, buildCacheKey, cacheEnvelope, target],
   );
 
-  // -- child routing (composite slot / collection item) --------------------
+  // -- `resource`: a tile comes back whole, a child is routed into a panel --
   const openResource = useCallback(
-    async (resource: PreviewResource) => {
-      const active = childStack[childStack.length - 1] ?? envelope;
-      if (!active?.session_id) return;
-      try {
-        const result = await fetchPreviewResource(
-          active.session_id,
-          resource.resource_id,
-          resource.params,
-        );
-        // A child resource resolves to a full child envelope.
-        const childEnvelope = result.data as unknown as PreviewEnvelope;
-        if (childEnvelope && typeof childEnvelope.kind === "string") {
-          setChildStack((stack) => [...stack, childEnvelope]);
-        }
-      } catch (err) {
-        setHostDiagnostics((d) => [
-          ...d,
-          `failed to open ${resource.resource_id}: ${err instanceof Error ? err.message : String(err)}`,
-        ]);
+    async (resourceId: string, params: Readonly<Record<string, unknown>> | null) => {
+      const active = activeRef.current;
+      if (!active?.session_id) {
+        throw new Error("this preview has no session to read from");
       }
+      const declared = active.resources.find((r) => r.resource_id === resourceId);
+      const result = await fetchPreviewResource(
+        active.session_id,
+        resourceId,
+        mergeResourceParams(declared, params ?? undefined),
+      );
+      const child = result.data as unknown as PreviewEnvelope;
+      if (!child || typeof child.kind !== "string") {
+        // A bounded slice of the same object (an array tile). It is the panel's
+        // own data, so it crosses whole.
+        return result.data;
+      }
+      setChildStack((stack) => [...stack, child]);
+      if (resourceId.startsWith(COLLECTION_ITEM_PREFIX)) {
+        /*
+         * ADR-053 FR-052 / ADR-054 D-019 — `preview_item_opened`, one of the
+         * closed `UI_EVENT_NAMES` set, which five steps of the shipped
+         * `what-is-a-type` tutorial wait on. It used to be reported by the
+         * collection viewer's own card; that card is inside a frame at an
+         * opaque origin now and can reach neither the store nor this event, so
+         * the host reports it at the one place it can still observe the act —
+         * servicing the item's `resource`.
+         */
+        void useAppStore.getState().reportTutorialUiEvent("preview_item_opened");
+      }
+      /*
+       * D-017: the child was routed into its own panel, so this answer is the
+       * acknowledgement rather than the child's payload. Neither built-in panel
+       * that sends `resource` reads it for content, and pushing a second
+       * object's data into a panel that was never bound to it would widen what
+       * FR-010 asks the host to supply.
+       */
+      return { routed: true, resource_id: resourceId, panel_id: child.previewer_id };
     },
-    [childStack, envelope],
+    [],
   );
 
   const popChild = useCallback(() => setChildStack((stack) => stack.slice(0, -1)), []);
 
-  // -- export / save -------------------------------------------------------
+  // -- `host_action`: what the frame cannot do for itself ------------------
   const saveEnvelopeResource = useCallback(
     async (
       active: PreviewEnvelope,
       resourceId: string,
       params?: Record<string, unknown>,
       filename?: string,
-    ) => {
+    ): Promise<"saved" | "declined"> => {
       if (!active.session_id) {
         throw new Error("no preview session");
       }
@@ -263,220 +318,106 @@ export function PreviewHost({
           destination_path: destinationPath,
           params: params ?? {},
         });
-        return;
+        return "saved";
       }
       // No path returned. Only fall back to a browser download when the native
       // save dialog was unavailable (the route raised → `available === false`).
-      // When the native dialog DID run, an empty result means the user
-      // cancelled — respect that and do NOT open a second (browser) save dialog.
-      // Fixes the double save-dialog bug for every panel, since they all
-      // export through this shared path.
+      // When the native dialog DID run, an empty result means the person
+      // cancelled — respect that and do NOT open a second (browser) save
+      // dialog. That cancel is a decision rather than a failure, which is why
+      // it comes back as `declined` and reaches the panel as `ok: true`.
       if (dialog.available === false) {
         const result = await fetchPreviewResource(active.session_id, resourceId, params);
         downloadDataUri(result.data, defaultFilename);
+        return "saved";
       }
+      return "declined";
     },
     [],
   );
 
-  const exportResource = useCallback(
-    async (resource: PreviewResource) => {
-      const active = childStack[childStack.length - 1] ?? envelope;
-      if (!active) return;
-      try {
-        await saveEnvelopeResource(
-          active,
-          resource.resource_id,
-          resource.params,
-          defaultResourceFilename(active, resource.params),
-        );
-        /*
-         * ADR-053 FR-052 — `plot_exported`, in the closed `UI_EVENT_NAMES`
-         * set. Reported only after the save resolved, so a step that asks the
-         * reader to keep the figure waits for the file rather than for the
-         * dialog. A step cannot judge that on the file itself: the reader
-         * names it in a native dialog, and image extensions are outside the
-         * watcher's allowlist, so nothing would re-evaluate the condition even
-         * once the file existed. Scoped to a plot's own artifact — other
-         * panels export too, and this event is about the figure.
-         */
-        if (active.target.kind === "plot_artifact") {
-          // Imported here rather than at the top of the file: the store pulls
-          // in every slice, and this module is mounted by tests that mock a
-          // narrow slice of the API surface. The report is a side effect of a
-          // rare action, so paying for the module then costs nothing.
-          const { useAppStore } = await import("../../store");
-          void useAppStore.getState().reportTutorialUiEvent("plot_exported");
+  const performHostAction = useCallback(
+    async (
+      action: "export" | "download" | "editor_handoff",
+      params: Readonly<Record<string, unknown>> | null,
+    ): Promise<PanelHostActionOutcome> => {
+      const active = activeRef.current;
+      if (!active) return { ok: false, detail: "there is nothing on screen to act on" };
+
+      if (action === "editor_handoff") {
+        const path = editorHandoffPath(active, params);
+        if (!path) {
+          return { ok: false, detail: "this preview does not name a file the editor can open" };
         }
-      } catch (err) {
-        setHostDiagnostics((d) => [
-          ...d,
-          `export failed: ${err instanceof Error ? err.message : String(err)}`,
-        ]);
+        useAppStore.getState().openFileTab(path);
+        return { ok: true, detail: { opened: path } };
       }
+
+      const resourceId = exportResourceId(active, action);
+      if (!resourceId) {
+        return { ok: false, detail: `this preview declares nothing to ${action}` };
+      }
+      const declared = active.resources.find((r) => r.resource_id === resourceId);
+      const merged = mergeResourceParams(declared, { ...(params ?? {}) });
+      const outcome = await saveEnvelopeResource(
+        active,
+        resourceId,
+        merged,
+        defaultResourceFilename(active, merged),
+      );
+      if (outcome === "declined") {
+        // D-017: a person who dismissed the dialog concluded the action. The
+        // panel is told so, without being told it failed.
+        return { ok: true, detail: { status: "declined" } };
+      }
+      /*
+       * ADR-053 FR-052 — `plot_exported`, reported only after the save
+       * resolved, so a step that asks the reader to keep the figure waits for
+       * the file rather than for the dialog. Scoped to a plot's own artifact by
+       * the predicate this has always used: other panels export too, and the
+       * event is about the figure.
+       */
+      if (active.target.kind === "plot_artifact") {
+        void useAppStore.getState().reportTutorialUiEvent("plot_exported");
+      }
+      return { ok: true, detail: { status: "saved" } };
     },
-    [childStack, envelope, saveEnvelopeResource],
+    [saveEnvelopeResource],
   );
 
-  // The envelope currently in focus (top of the drill-down stack, else root).
-  const activeEnvelope = childStack[childStack.length - 1] ?? envelope;
-  const manifest = useMemo(() => readManifest(activeEnvelope), [activeEnvelope]);
-  const manifestKey = useMemo(() => manifestIdentityKey(manifest), [manifest]);
-  const dynamicMountKey =
-    manifestKey && activeEnvelope
-      ? `${manifestKey}|${activeEnvelope.session_id ?? activeEnvelope.target.ref}`
-      : null;
-  const activeEnvelopeRef = useRef<PreviewEnvelope | null>(activeEnvelope);
-  const manifestRef = useRef<PanelFrontendManifest | undefined>(manifest);
-  const patchQueryRef = useRef(patchQuery);
-  activeEnvelopeRef.current = activeEnvelope;
-  manifestRef.current = manifest;
-  patchQueryRef.current = patchQuery;
+  // -- the mount -----------------------------------------------------------
+  const chosen = descriptorOf(activeEnvelope?.panel);
+  const fallback = descriptorOf(activeEnvelope?.fallback_panel);
+  const fallbackId = activeEnvelope?.fallback_panel_id ?? null;
+  const mounted = chosenFailed ? fallback : chosen;
+  const reloadToken = usePanelReloadToken(mounted?.panel_id ?? null);
+  const update = useMemo(
+    () => (activeEnvelope ? { reason: "envelope", changed: { target: activeEnvelope } } : null),
+    [activeEnvelope],
+  );
 
-  // -- dynamic panel mount ---------------------------------------------
-  const mountRef = useRef<HTMLDivElement | null>(null);
-  const instanceRef = useRef<PanelInstance | null>(null);
-  const [dynamicFailed, setDynamicFailed] = useState(false);
+  const onChosenFailure = useCallback(
+    (failure: PanelFailure) => {
+      // FR-014: one behaviour for every load failure — the host's own error
+      // surface naming the panel and the failure, and the fallback the backend
+      // named, so the data stays visible.
+      note(failure.panelId, failure.reason, failure.message);
+      setChosenFailed(failure);
+    },
+    [note],
+  );
 
-  const hostApi: PreviewHostApi | null = useMemo(() => {
-    const initialEnvelope = activeEnvelopeRef.current;
-    if (!initialEnvelope || !dynamicMountKey) return null;
-    const currentEnvelope = () => activeEnvelopeRef.current ?? initialEnvelope;
-    const provider: PreviewProviderIdentity = {
-      panelId: initialEnvelope.previewer_id,
-      features: [],
-      source: initialEnvelope.target.source ?? null,
-    };
-    return {
-      apiVersion: PANEL_HOST_API_VERSION,
-      get previewSessionId() {
-        return currentEnvelope().session_id;
-      },
-      get envelope() {
-        return currentEnvelope();
-      },
-      get kind() {
-        return currentEnvelope().kind;
-      },
-      get provider() {
-        const current = currentEnvelope();
-        return {
-          ...provider,
-          panelId: current.previewer_id,
-          source: current.target.source ?? null,
-        };
-      },
-      session: {
-        refresh: async () => {
-          const sessionId = currentEnvelope().session_id;
-          return sessionId ? api.getPreviewSession(sessionId) : null;
-        },
-        patchQuery: async (q) => {
-          const current = currentEnvelope();
-          if (!current.session_id) return current;
-          return patchQueryRef.current(q);
-        },
-        getResource: async (resourceId, params) => {
-          const current = currentEnvelope();
-          if (!current.session_id) return null;
-          const resource = current.resources.find((r) => r.resource_id === resourceId);
-          return (
-            await fetchPreviewResource(
-              current.session_id,
-              resourceId,
-              mergeResourceParams(resource, params),
-            )
-          ).data;
-        },
-        get resources() {
-          return currentEnvelope().resources;
-        },
-      },
-      assetUrl: (assetPath: string) =>
-        `/api/previews/assets/${encodeURIComponent(currentEnvelope().previewer_id)}/${assetPath.replace(/^\/+/, "")}`,
-      exportArtifact: async (request) => {
-        const current = currentEnvelope();
-        const resourceId = request?.resourceId ?? "export";
-        const resource = current.resources.find((r) => r.resource_id === resourceId);
-        const params = mergeResourceParams(resource, {
-          ...(request?.params ?? {}),
-          ...(request?.format ? { format: request.format } : {}),
-        });
-        await saveEnvelopeResource(
-          current,
-          resourceId,
-          params,
-          request?.filename ?? defaultResourceFilename(current, params),
-        );
-      },
-      saveArtifact: async (request) => {
-        const current = currentEnvelope();
-        const resourceId = request?.resourceId ?? "export";
-        const resource = current.resources.find((r) => r.resource_id === resourceId);
-        const params = mergeResourceParams(resource, {
-          ...(request?.params ?? {}),
-          ...(request?.format ? { format: request.format } : {}),
-        });
-        await saveEnvelopeResource(
-          current,
-          resourceId,
-          params,
-          request?.filename ?? defaultResourceFilename(current, params),
-        );
-      },
-      reportError: (message: string) => {
-        setHostDiagnostics((d) => [...d, message]);
-      },
-    };
-  }, [dynamicMountKey, saveEnvelopeResource]);
-
+  const chosenId = chosen?.panel_id ?? null;
+  const chosenDocument = chosen?.document_url ?? null;
+  // A new panel, or a reloaded document, is a fresh chance for the chosen one:
+  // a panel that failed against this object may be fine once it is rewritten.
   useEffect(() => {
-    // Tear down any prior instance whenever the focus changes.
-    if (instanceRef.current) {
-      try {
-        instanceRef.current.unmount();
-      } catch {
-        /* ignore unmount errors */
-      }
-      instanceRef.current = null;
-    }
-    setDynamicFailed(false);
+    setChosenFailed(null);
+  }, [chosenId, chosenDocument, reloadToken]);
 
-    const currentManifest = manifestRef.current;
-    if (!currentManifest || !hostApi || !mountRef.current) return;
-    let disposed = false;
-    const container = mountRef.current;
-    void mountDynamicPanel(currentManifest, container, hostApi, importer).then(
-      (result: LoadResult) => {
-        if (disposed) return;
-        if (result.ok) {
-          instanceRef.current = result.instance;
-        } else {
-          // FR-029 / US2.3 — diagnostics + clean fallback to the core viewer.
-          setDynamicFailed(true);
-          setHostDiagnostics((d) => [...d, result.message]);
-        }
-      },
-    );
-    return () => {
-      disposed = true;
-      if (instanceRef.current) {
-        try {
-          instanceRef.current.unmount();
-        } catch {
-          /* ignore */
-        }
-        instanceRef.current = null;
-      }
-    };
-  }, [dynamicMountKey, hostApi, importer]);
-
-  // Push new envelopes into a live dynamic instance.
-  useEffect(() => {
-    if (instanceRef.current?.update && activeEnvelope) {
-      instanceRef.current.update(activeEnvelope);
-    }
-  }, [activeEnvelope]);
+  const onDiagnostic = useCallback((diagnostic: PanelDiagnostic) => {
+    setHostDiagnostics((current) => [...current, diagnostic]);
+  }, []);
 
   // -- render --------------------------------------------------------------
   if (!target || status === "idle") {
@@ -509,8 +450,6 @@ export function PreviewHost({
   }
   if (!activeEnvelope) return null;
 
-  const useDynamic = !!manifest && !dynamicFailed;
-
   return (
     <div data-testid="preview-host">
       {childStack.length > 0 ? (
@@ -524,27 +463,86 @@ export function PreviewHost({
         </button>
       ) : null}
 
-      <DiagnosticsBanner diagnostics={hostDiagnostics} />
+      <PanelDiagnosticsBanner diagnostics={hostDiagnostics} />
 
-      {/* Mount point for the dynamic panel. Always present in the DOM so the
-          mount effect has a stable container; hidden when we fall back. */}
-      <div
-        ref={mountRef}
-        data-testid="preview-host-dynamic-mount"
-        style={{ display: useDynamic ? "block" : "none" }}
-      />
-
-      {/* Core fallback path: no manifest, or the dynamic panel failed. */}
-      {!useDynamic ? (
-        <CoreFallbackRenderer
-          envelope={activeEnvelope}
-          onPatchQuery={(q) => void patchQuery(q)}
-          onOpenResource={(r) => void openResource(r)}
-          onExport={(r) => void exportResource(r)}
-        />
-      ) : null}
+      {/* D-019 — the host's own markup around the frame, carrying the two
+          highlight targets a boundary at an opaque origin cannot. */}
+      <PanelTutorialChrome envelope={activeEnvelope}>
+        {mounted ? (
+          <PanelHost
+            key={chosenFailed ? "fallback" : "chosen"}
+            descriptor={mounted}
+            target={activeEnvelope}
+            update={update}
+            remountToken={reloadToken}
+            onRead={(query) => patchQuery(query)}
+            onResource={openResource}
+            onHostAction={performHostAction}
+            onFailure={chosenFailed ? undefined : onChosenFailure}
+            onDiagnostic={onDiagnostic}
+            frameFactory={frameFactory}
+          />
+        ) : (
+          <PanelErrorSurface
+            failure={{
+              panelId: activeEnvelope.previewer_id || "(unnamed)",
+              reason: "invalid_descriptor",
+              message: describeMissingPanel(activeEnvelope, chosenFailed, fallbackId),
+            }}
+          />
+        )}
+      </PanelTutorialChrome>
     </div>
   );
+}
+
+/**
+ * Why nothing is mounted, said in terms of what the *backend* did or did not
+ * name — never in terms of a panel this host would have picked for itself.
+ */
+function describeMissingPanel(
+  envelope: PreviewEnvelope,
+  chosenFailed: PanelFailure | null,
+  fallbackId: string | null,
+): string {
+  if (chosenFailed) {
+    return fallbackId
+      ? `the fallback panel "${fallbackId}" was named for this preview but its descriptor was ` +
+          "not sent, so there is no document to mount"
+      : "the chosen panel failed and this response named no fallback panel";
+  }
+  return `this response named no panel to mount for ${envelope.kind} data`;
+}
+
+/**
+ * Which declared resource an `export` or a `download` saves.
+ *
+ * The panel names the action, not the resource: an artifact document asks to
+ * download the thing it is showing and does not know what the provider called
+ * it. Preferring the action's own name, then `export`, then the single declared
+ * resource keeps that promise without the host guessing between several.
+ */
+function exportResourceId(envelope: PreviewEnvelope, action: string): string | null {
+  const ids = envelope.resources.map((resource) => resource.resource_id);
+  if (ids.includes(action)) return action;
+  if (ids.includes("export")) return "export";
+  return ids.length === 1 ? ids[0] : null;
+}
+
+/** A project-relative path the editor can open, from whatever names one. */
+function editorHandoffPath(
+  envelope: PreviewEnvelope,
+  params: Readonly<Record<string, unknown>> | null,
+): string | null {
+  const handoff =
+    envelope.payload?.editor_handoff && typeof envelope.payload.editor_handoff === "object"
+      ? (envelope.payload.editor_handoff as Record<string, unknown>)
+      : {};
+  const candidates = [params?.path, handoff.path, envelope.payload?.path, envelope.metadata?.path];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate !== "") return candidate;
+  }
+  return null;
 }
 
 async function fetchPreviewResource(

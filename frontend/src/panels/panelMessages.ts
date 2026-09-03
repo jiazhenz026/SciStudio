@@ -109,6 +109,51 @@ export interface PanelReadResultPayload {
 }
 
 /**
+ * `resource_result` — the answer to one `resource` (D-017).
+ *
+ * **What `resource` carries back, and why it is often thin.** A resource id is
+ * either a bounded slice of the same object (an array tile), which the host
+ * hands back whole, or a *child object* — a composite slot, a collection item.
+ * A child resolves to a fully routed child envelope, and the host mounts that
+ * child in its own panel rather than pushing a second object's payload into a
+ * panel that was never bound to it. In that case this field is the
+ * acknowledgement that the child was routed, not the child's data. Neither
+ * built-in panel that sends `resource` reads it for content: the composite uses
+ * only the fact of the answer to clear its pending state, and the collection
+ * ignores it entirely. Typed `unknown` so a provider resource that genuinely is
+ * data still crosses whole.
+ */
+export interface PanelResourceResultPayload {
+  readonly request_id: string;
+  readonly resource: unknown;
+}
+
+/**
+ * `host_action_result` — the answer to one `host_action` (D-017).
+ *
+ * **`ok` is binary, and a declined action is not a failure.** `ok` answers
+ * "did the host carry this action to a conclusion the panel need not act on",
+ * not "did a file appear on disk". A person who dismisses the native save
+ * dialog has concluded the action; reporting that as `ok: false` would make
+ * every document draw an error banner over a deliberate cancel, which is a
+ * regression against what the host does today. So a decline is `ok: true` with
+ * `detail` carrying `{ status: "declined" }`, and `ok: false` is reserved for
+ * an action that was attempted and went wrong — the state a panel can actually
+ * tell its reader something useful about. A third value on `ok` was considered
+ * and rejected: it would force a branch into every panel document for a state
+ * none of them can act on.
+ *
+ * `detail` is a string when the host has one line to say (the documents read it
+ * as the failure message), an object when it has structure, `null` when it has
+ * nothing.
+ */
+export interface PanelHostActionResultPayload {
+  readonly request_id: string;
+  readonly ok: boolean;
+  readonly detail: string | Readonly<Record<string, unknown>> | null;
+}
+
+/**
  * `error` — the host's error channel. `request_id` is set when the error ends a
  * specific `read`, which is what lets a panel fail one read without waiting out
  * its bounded timeout.
@@ -127,6 +172,8 @@ export interface HostToPanelPayloads {
   init: PanelInitPayload;
   update: PanelUpdatePayload;
   read_result: PanelReadResultPayload;
+  resource_result: PanelResourceResultPayload;
+  host_action_result: PanelHostActionResultPayload;
   error: PanelHostErrorPayload;
   state_request: PanelEmptyPayload;
   teardown: PanelEmptyPayload;
@@ -147,10 +194,55 @@ export interface PanelReadyPayload {
   readonly api_version: string;
 }
 
-/** `read` — one bounded windowed read (FR-010). */
+/**
+ * `read` — one bounded windowed read (FR-010).
+ *
+ * D-017: `read` carries a *query patch* and nothing else. It has no `action`
+ * key. The five operations an earlier draft folded into this one type are named
+ * types of their own below, because an export is not a read, and one type
+ * carrying five meanings is exactly the illegible single mechanism ADR-054 §9
+ * exists to prevent.
+ */
 export interface PanelReadPayload {
   readonly request_id: string;
+  /** A patch of the panel's query state: page, page_size, sort_by, slice. */
   readonly query: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * `resource` — one bounded follow-up read addressed by resource id (D-017).
+ *
+ * Composite slot navigation and collection item opening. Answered by
+ * `resource_result`.
+ */
+export interface PanelResourcePayload {
+  readonly request_id: string;
+  readonly resource_id: string;
+  readonly params: Readonly<Record<string, unknown>> | null;
+}
+
+/**
+ * The closed set of actions a panel may ask the host to perform (D-017).
+ *
+ * Each is chrome the frame cannot perform for itself: it is granted
+ * `allow-scripts` and nothing else, so it has neither `allow-downloads` nor any
+ * reach into the application. Adding a member here is a contract change, not a
+ * convenience — the host must be able to *do* the thing.
+ */
+export const PANEL_HOST_ACTIONS = ["export", "download", "editor_handoff"] as const;
+
+export type PanelHostAction = (typeof PANEL_HOST_ACTIONS)[number];
+
+/** Is `value` one of the three actions the host services? */
+export function isPanelHostAction(value: unknown): value is PanelHostAction {
+  return (PANEL_HOST_ACTIONS as readonly unknown[]).includes(value);
+}
+
+/** `host_action` — ask the host to do one of {@link PANEL_HOST_ACTIONS}. */
+export interface PanelHostActionPayload {
+  readonly request_id: string;
+  readonly action: PanelHostAction;
+  readonly params: Readonly<Record<string, unknown>> | null;
 }
 
 /**
@@ -177,6 +269,8 @@ export interface PanelStatePayload {
 export interface PanelToHostPayloads {
   ready: PanelReadyPayload;
   read: PanelReadPayload;
+  resource: PanelResourcePayload;
+  host_action: PanelHostActionPayload;
   emit: PanelEmitPayload;
   error: PanelErrorPayload;
   state: PanelStatePayload;
@@ -193,6 +287,8 @@ export const HOST_TO_PANEL_TYPES: readonly HostToPanelType[] = [
   "init",
   "update",
   "read_result",
+  "resource_result",
+  "host_action_result",
   "error",
   "state_request",
   "teardown",
@@ -201,10 +297,28 @@ export const HOST_TO_PANEL_TYPES: readonly HostToPanelType[] = [
 export const PANEL_TO_HOST_TYPES: readonly PanelToHostType[] = [
   "ready",
   "read",
+  "resource",
+  "host_action",
   "emit",
   "error",
   "state",
 ];
+
+/**
+ * The three request types, each answered by exactly one result type (D-017).
+ *
+ * Named as a pair rather than by string concatenation at the call sites, so a
+ * fourth request type cannot be added without deciding what answers it.
+ */
+export const PANEL_REQUEST_TYPES = ["read", "resource", "host_action"] as const;
+
+export type PanelRequestType = (typeof PANEL_REQUEST_TYPES)[number];
+
+export const PANEL_REQUEST_RESULT_TYPES: Readonly<Record<PanelRequestType, HostToPanelType>> = {
+  read: "read_result",
+  resource: "resource_result",
+  host_action: "host_action_result",
+};
 
 /* -------------------------------------------------------------------------- */
 /* Construction                                                                */
@@ -275,6 +389,18 @@ function isPanelToHostPayload(type: string, payload: Record<string, unknown>): b
       return stringField(payload, "api_version") !== null;
     case "read":
       return stringField(payload, "request_id") !== null && isRecord(payload.query);
+    case "resource":
+      return (
+        stringField(payload, "request_id") !== null &&
+        stringField(payload, "resource_id") !== null &&
+        (payload.params === null || payload.params === undefined || isRecord(payload.params))
+      );
+    case "host_action":
+      return (
+        stringField(payload, "request_id") !== null &&
+        isPanelHostAction(payload.action) &&
+        (payload.params === null || payload.params === undefined || isRecord(payload.params))
+      );
     case "emit":
       return stringField(payload, "code") !== null;
     case "error":
@@ -304,6 +430,17 @@ function isHostToPanelPayload(type: string, payload: Record<string, unknown>): b
       return stringField(payload, "reason") !== null && isRecord(payload.changed);
     case "read_result":
       return stringField(payload, "request_id") !== null;
+    case "resource_result":
+      return stringField(payload, "request_id") !== null && "resource" in payload;
+    case "host_action_result":
+      return (
+        stringField(payload, "request_id") !== null &&
+        typeof payload.ok === "boolean" &&
+        (payload.detail === null ||
+          payload.detail === undefined ||
+          typeof payload.detail === "string" ||
+          isRecord(payload.detail))
+      );
     case "error":
       return (
         stringField(payload, "code") !== null &&

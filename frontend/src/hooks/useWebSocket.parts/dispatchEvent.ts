@@ -90,6 +90,15 @@ export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: Dispa
     // registry too (#2021), so the Panels tab's listing and choices get
     // the same treatment; without it the tab sat on its first-ever listing.
     invalidatePanelCatalog();
+    /*
+     * ADR-054 FR-030 — and remount every panel on screen, not just re-read
+     * the catalogue. A rebuilt registry is a panel whose document may have
+     * been replaced under a mounted frame; re-listing the Panels tab would
+     * leave the reader looking at the old rendering of the panel they just
+     * changed. This event names no panel, so it bumps the epoch every mount
+     * reads rather than one panel's counter.
+     */
+    useAppStore.getState().notePanelDocumentChanged(null);
     return true;
   }
   if (payload.type === "git.head_changed") {

@@ -1,6 +1,7 @@
 import type {
   BlockSchemaResponse,
   BlockSummary,
+  PanelDescriptorResponse,
   PreviewEnvelope,
   GitBranch,
   GitCommit,
@@ -285,8 +286,24 @@ export interface InteractivePrompt {
    * the prompt is open.
    */
   workflowId: string;
-  /** ADR-051: panel manifest used to resolve the window component (FR-007). */
+  /**
+   * ADR-051: the block's panel manifest. Kept because it names the panel and
+   * because the ADR-048 compatibility shim still reads its `module_url`; the
+   * host no longer mounts from it (ADR-054 FR-007, FR-037).
+   */
   panelManifest: PanelManifestDescriptor | null;
+  /**
+   * ADR-054 D-020 — the descriptor for the panel the *backend* resolved for
+   * this block, carried on the `interactive_prompt` event as
+   * `panel_descriptor`. A paused interactive block is mounted from this, on
+   * exactly the terms a preview panel is: the frontend keeps no registry
+   * mapping a panel id to a compiled React component (FR-037).
+   *
+   * `null` when the event did not carry one, which the host reports as the
+   * backend defect it is — with Cancel still reachable, because a person must
+   * never be stuck on a paused block with no exit (#2195).
+   */
+  panelDescriptor: PanelDescriptorResponse | null;
   /** ADR-051: the block-built, window-sized JSON view (nested, not spread). */
   panelPayload: Record<string, unknown>;
   /**
@@ -533,9 +550,30 @@ export interface PanelCatalogSlice {
    * old choice produced.
    */
   panelChoiceVersion: number;
+  /**
+   * ADR-054 FR-030 — bumped when *some* panel's document changed but nothing
+   * said which one: a registry rebuild, a package install, a branch switch.
+   * Every mounted panel remounts, because any of them may be the one that
+   * moved.
+   */
+  panelDocumentEpoch: number;
+  /**
+   * ADR-054 FR-030/FR-032 — per-panel-id reload counter, bumped when a file
+   * inside one panel's directory changed and the event named it. Only that
+   * panel's mounts remount, so saving one panel does not blink every other one
+   * on screen.
+   */
+  panelDocumentVersions: Record<string, number>;
   setPanels: (panels: PanelSpecSummary[], diagnostics: string[]) => void;
   setPanelChoices: (choices: PanelChoice[]) => void;
   bumpPanelChoiceVersion: () => void;
+  /**
+   * Record that a panel's document changed on disk. `null` means "some panel
+   * did"; a panel id means that one. Both are ordinary events rather than
+   * derived state, which is why they are counters: a mount needs exactly one
+   * new value per event, not a recomputed identity per render.
+   */
+  notePanelDocumentChanged: (panelId: string | null) => void;
 }
 
 /**

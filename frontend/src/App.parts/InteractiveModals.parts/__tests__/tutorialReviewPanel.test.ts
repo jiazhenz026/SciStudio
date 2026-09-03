@@ -15,11 +15,31 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// The shipped panel, from the tutorial's assets — not a fixture of it. The
-// asset is plain ES with no types beside it, so the contract it implements is
-// named here; that contract is `PanelModule` from the loader, and asserting
-// against a narrower local copy is what keeps this test honest if it drifts.
-import type { PanelHostApi, PanelInstance } from "../panelModuleLoader";
+/*
+ * The shipped panel, from the tutorial's assets — not a fixture of it.
+ *
+ * TODO(#2229): this asset is still written in the ADR-051 interactive-panel
+ *   *module* form, and ADR-054 T-007 deleted the loader that mounted it. A-009
+ *   says no shim is provided for that form because "its only consumers are in
+ *   this repository", and this asset is the consumer it means: it must become
+ *   a panel directory under the new contract. That lives in
+ *   `src/scistudio/tutorials/**`, outside this change's scope, so the two
+ *   ex-loader types are declared here to keep this coverage of a *shipped*
+ *   tutorial panel running rather than deleting it.
+ *   Followup: https://github.com/jiazhenz026/SciStudio/issues/2229
+ */
+interface PanelHostApi {
+  apiVersion: string;
+  blockId: string;
+  panelPayload: Record<string, unknown>;
+  confirm: (response: Record<string, unknown>) => void;
+  cancel: () => void;
+}
+
+interface PanelInstance {
+  unmount(): void;
+  update?(payload: Record<string, unknown>): void;
+}
 
 const panel = (await import(
   // @ts-expect-error -- a .mjs asset outside src/ ships no declaration file

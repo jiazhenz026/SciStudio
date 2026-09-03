@@ -19,12 +19,20 @@
  * no outbound message type and FR-012 says a producing panel's only outbound
  * path is the emission of code; D-011 settles what that means for the wire:
  * `emit` is granted only to a producing mount. The remaining panel-to-host
- * types — `ready`, `read`, `error`, `state` — are the host's own protocol
- * rather than an outbound path out of the panel: a displaying panel must
- * complete the handshake (FR-009), must be able to make a bounded windowed read
- * (FR-010), must be able to report an error, and may implement the optional
- * state hook (FR-031). None of them carries anything out of the panel into the
- * session; `emit` is the only type that does.
+ * types — `ready`, `read`, `resource`, `host_action`, `error`, `state` — are
+ * the host's own protocol rather than an outbound path out of the panel: a
+ * displaying panel must complete the handshake (FR-009), must be able to make a
+ * bounded windowed read and a bounded follow-up read (FR-010), must be able to
+ * ask the host for chrome it cannot draw for itself, must be able to report an
+ * error, and may implement the optional state hook (FR-031). None of them
+ * carries anything out of the panel into the session; `emit` is the only type
+ * that does.
+ *
+ * D-017 settles the two that were once folded into `read`: `resource` and
+ * `host_action` are granted to displaying and producing mounts alike. FR-011
+ * withholds the *emission* path from a displaying panel (FR-012), not the
+ * bounded read FR-010 requires the host to supply — and a download is not an
+ * emission, it is the host saving a file the panel is already showing.
  */
 
 import type { PanelCapability, PanelEmitPayload, PanelToHostType } from "./panelMessages";
@@ -36,7 +44,14 @@ export const PANEL_CAPABILITIES: readonly PanelCapability[] = ["displaying", "pr
  * The panel-to-host types that are the host's own protocol and are therefore
  * available to any mount, whatever its capability.
  */
-export const PANEL_PROTOCOL_TYPES: readonly PanelToHostType[] = ["ready", "read", "error", "state"];
+export const PANEL_PROTOCOL_TYPES: readonly PanelToHostType[] = [
+  "ready",
+  "read",
+  "resource",
+  "host_action",
+  "error",
+  "state",
+];
 
 /** The panel-to-host types that only a producing mount is granted (FR-012). */
 export const PANEL_PRODUCING_TYPES: readonly PanelToHostType[] = ["emit"];

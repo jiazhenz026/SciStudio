@@ -35,6 +35,11 @@ export interface PanelDescriptor {
   readonly asset_base_url: string;
   /** The bounds on one windowed read. The host does not invent them. */
   readonly read_limits: PanelReadLimits;
+  /** Which of the four tiers this panel resolved from. Diagnostics only. */
+  readonly tier?: string;
+  /** What the declaration says this panel can do. Diagnostics only. */
+  readonly features?: readonly string[];
+  readonly supports_collection?: boolean;
 }
 
 /**

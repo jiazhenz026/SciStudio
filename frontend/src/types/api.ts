@@ -595,9 +595,40 @@ export interface PanelFrontendManifest {
   css?: string[];
   /** Panel bundle version (fingerprint or semver). */
   version?: string;
-  /** Panel API compatibility version; must match the host
-   *  {@link PANEL_HOST_API_VERSION} to mount without a diagnostic. */
+  /** Panel API compatibility version. The host compares it against the
+   *  `accepted_api_version` the backend sends; nothing in the frontend spells
+   *  a version literal of its own (ADR-054 FR-004, D-010, SC-001). */
   api_version?: string;
+}
+
+/**
+ * ADR-054 D-016.3 / D-020 — everything the host needs to mount one panel,
+ * exactly as `scistudio.panels.descriptor.PanelDescriptor.to_dict()` emits it.
+ *
+ * The frontend invents none of it. The accepted API version, the granted
+ * capability, the entry document, the asset base and the read limits are the
+ * backend's answers, carried on the response the caller is already reading; a
+ * descriptor missing `accepted_api_version` or `read_limits` is a backend
+ * defect and the host refuses to mount rather than inventing a bound or a
+ * version.
+ */
+export interface PanelDescriptorResponse {
+  panel_id: string;
+  display_name: string;
+  /** The version this panel's declaration states. */
+  api_version: string;
+  /** The backend's `PANEL_API_VERSION` — the one definition in the tree. */
+  accepted_api_version: string;
+  capability: "displaying" | "producing";
+  /** Same-origin path of the entry document on the merged asset route. */
+  document_url: string;
+  /** Same-origin base the panel fetches its own bulk assets from. */
+  asset_base_url: string;
+  read_limits: { max_rows: number; max_bytes: number; [key: string]: number };
+  /** Which of the four tiers this panel resolved from. Diagnostics only. */
+  tier?: string;
+  features?: string[];
+  supports_collection?: boolean;
 }
 
 /** Descriptor for a bounded follow-up resource read (backend `PreviewResource`). */
@@ -659,8 +690,35 @@ export interface PreviewEnvelope {
   error: PreviewErrorInfo | null;
   /** First-class same-origin panel manifest, framework-stamped by the
    *  session manager from the resolved PanelSpec (ADR-048 §4 / #1579).
-   *  Absent for core fallbacks. Prefer this over `metadata.frontend_manifest`. */
+   *  Absent for core fallbacks. Prefer this over `metadata.frontend_manifest`.
+   *
+   *  ADR-054 FR-036: the host no longer mounts from this. It is the ADR-048
+   *  module form, kept on the wire for the compatibility shim (FR-044). */
   frontend_manifest?: PanelFrontendManifest | null;
+  /**
+   * ADR-054 D-020 — the descriptor for the panel the *backend* chose for this
+   * target. The host mounts what it was told; it holds no mapping from a
+   * response's kind to a panel (FR-036, SC-010).
+   */
+  panel?: PanelDescriptorResponse | null;
+  /**
+   * ADR-054 FR-015, D-013 — the id of the panel to mount when the chosen one
+   * fails. Named by the backend, never chosen here.
+   */
+  fallback_panel_id?: string | null;
+  /**
+   * The fallback panel's own descriptor.
+   *
+   * FR-015 names the fallback by id, but an id alone cannot be mounted: a mount
+   * needs the entry document, the asset base, the granted capability and the
+   * read limits, and every one of those is the backend's to state (D-016.3).
+   * Deriving them here from the id would be the frontend re-deciding what the
+   * backend already decided, which is the thing SC-010 measures the absence of.
+   * So the host mounts the fallback when the response carries its descriptor
+   * and, when it carries only the id, says which panel it could not reach
+   * instead of guessing at a URL.
+   */
+  fallback_panel?: PanelDescriptorResponse | null;
 }
 
 /** Request body for `POST /api/previews/sessions`. */
