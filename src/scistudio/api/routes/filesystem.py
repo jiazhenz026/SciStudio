@@ -723,9 +723,9 @@ def native_file_dialog(body: NativeDialogRequest, runtime: RuntimeDep) -> Native
     its threadpool instead, which is where an unbounded blocking wait belongs.
     Nothing in the body is awaited, so no other change is needed.
     """
-    # One panel at a time (#2220) — see ``_dialog_lock``. Refusing is better
-    # than queueing: a queued request would open its panel at some arbitrary
-    # later moment, after the click that asked for it is long forgotten.
+    # One panel at a time (#2220) — see ``_dialog_lock``. Refusing beats
+    # queueing: a queued request would raise its panel only once the first one
+    # closes, long after the click that asked for it.
     if not _dialog_lock.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="A native file dialog is already open.")
     try:
