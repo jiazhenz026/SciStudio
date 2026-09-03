@@ -209,6 +209,12 @@ def test_the_host_api_maps_onto_the_named_message_types(legacy_spec: PanelSpec, 
     assert 'action: "export"' in document
     assert 'action: "download"' in document
 
+    # The three the adapter answers without a message at all, from `init` and
+    # the envelope it was handed.
+    assert "context.asset_base_url" in document, "assetUrl comes from the init payload"
+    assert "envelope.session_id" in document, "previewSessionId is the envelope's own field"
+    assert "context.api_version" in document, "apiVersion is the backend's, echoed (D-010)"
+
 
 # ---------------------------------------------------------------------------
 # FR-014: a shim that cannot wrap is the ordinary load failure, never a crash

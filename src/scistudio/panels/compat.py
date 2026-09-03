@@ -256,7 +256,7 @@ _COMPAT_DOCUMENT_TEMPLATE = """<!doctype html>
    * The retired ADR-048 `PreviewHostApi`, expressed in the D-017 contract.
    *
    *   apiVersion        <- init.api_version (the backend's, D-010)
-   *   previewSessionId  <- the snapshot's session id when it carries one
+   *   previewSessionId  <- the envelope's own `session_id`, or null
    *   envelope / kind   <- init.target, then update.changed.target
    *   provider          <- init.panel_id and the descriptor's feature tags
    *   session.refresh   -> `read` with an empty query patch
@@ -273,8 +273,7 @@ _COMPAT_DOCUMENT_TEMPLATE = """<!doctype html>
   function hostApi() {
     return {
       apiVersion: context.api_version,
-      previewSessionId:
-        envelope && typeof envelope.preview_session_id === "string" ? envelope.preview_session_id : null,
+      previewSessionId: envelope && typeof envelope.session_id === "string" ? envelope.session_id : null,
       get envelope() { return envelope; },
       get kind() { return envelope && envelope.kind ? envelope.kind : ""; },
       provider: {
