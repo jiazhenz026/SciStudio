@@ -1,0 +1,135 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "feat/2229-panel-core-contract",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [
+      "src/scistudio/panels/builtin/**",
+      "tests/panels/test_builtin_panels.py"
+    ],
+    "include": [
+      "src/scistudio/core/panels.py",
+      "src/scistudio/core/dropins.py",
+      "src/scistudio/core/entry_points.py",
+      "src/scistudio/panels/**",
+      "src/scistudio/blocks/base/interactive.py",
+      "src/scistudio/blocks/registry/_capability.py",
+      "src/scistudio/blocks/process/builtins/data_router.py",
+      "src/scistudio/blocks/process/builtins/pair_editor.py",
+      "tests/panels/**",
+      "tests/architecture/test_layer_deps.py",
+      "tests/adr052_contract/**",
+      "tests/fixtures/**",
+      "tests/packages/test_entry_point_symmetry.py"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-03T05:55:44.550330Z",
+      "class": "docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the ADR-054 spec and ADR are the docs of record for this change and are owner/manager-owned (D-014); no doc under this agent's scope describes the panel contract",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Move the panel contract into the core layer, define the on-disk panel form, discover it across four tiers, add the entry-point group and directory registration, and make resolution capability-aware: tasks T-002, T-003, T-013, T-015 and T-016 of docs/specs/adr-054-panel-contract.md.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-feat-2229-panel-core-contract",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "14a7cdf4-a7dc-457c-a7f8-26f363a367e1",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-03T05:55:44.550353Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_contract.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T05:55:44.550360Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_capability_gate.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T05:55:44.550363Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_tiers.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T05:55:44.550364Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_registration.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T05:55:44.550366Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_resolution.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T05:55:44.550368Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/architecture/test_layer_deps.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T05:55:44.550369Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/adr052_contract/test_surface_inventory.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
