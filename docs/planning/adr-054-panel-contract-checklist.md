@@ -201,17 +201,17 @@ amendment.
 | T-001 | Rename the subsystem and its vocabulary | `W1-rename` | `[x]` | branch `refactor/2229-panel-rename`; gate ledger `.workflow/records/2229-refactor-2229-panel-rename.json`; `pytest tests/panels tests/api/test_panels.py tests/api/test_panel_discovery.py tests/api/test_panel_choice_routes.py tests/api/test_interactive_panels.py tests/architecture tests/adr052_contract tests/blocks` 2312 tests, 40 pre-existing `openpyxl` env failures (baseline 2304/41); `npm test` 1884 tests; `lint-imports` 13 kept 0 broken |
 | T-002 | Move the contract into the core layer | `W2-core` | `[ ]` | |
 | T-003 | The on-disk panel form and four-tier discovery | `W2-core` | `[ ]` | |
-| T-004 | Merge the asset route | `W3-api` | `[ ]` | |
+| T-004 | Merge the asset route | `W3-api` | `[x]` | `feat/2229-panel-api`; one confinement check across four tier roots; traversal, encoded traversal, symlink, oversized and traversal-shaped-id cases per root |
 | T-005 | The frame host and the message contract | `W2-host` | `[x]` | `c4cf38715`; `frontend/src/panels/{panelMessages,panelFrame,panelDescriptor,PanelHost,PanelErrorSurface}`; 112 tests in `vitest run src/panels` |
 | T-006 | The capability gate in the host | `W2-host` | `[x]` | `c4cf38715`; `frontend/src/panels/panelCapability.ts` + `panelCapability.test.ts`; SC-007 asserted from the host's side |
-| T-007 | One loader; delete the retired modules | `W3-fe` | `[ ]` | |
-| T-008 | The backend names the fallback; delete the dispatch | `W3-api`, `W3-fe` | `[ ]` | |
+| T-007 | One loader; delete the retired modules | `W3-fe` | `[x]` | `feat/2229-panel-frontend`; both loaders, both host APIs, coreViewers, PlotViewer and TableViewer deleted; zero frontend version literals (manager-verified post-merge) |
+| T-008 | The backend names the fallback; delete the dispatch | `W3-api`, `W3-fe` | `[x]` | envelope carries `panel` and `fallback_panel` as full descriptors; `CoreFallbackRenderer` deleted |
 | T-009 | Rewrite the eleven built-in panels | `W4-builtin` | `[x]` | `feat/2229-builtin-panels` merged; 11 panel directories under `src/scistudio/panels/builtin/`; `tests/panels/test_builtin_panels.py` 225 tests; all eleven proven to answer the handshake and render inside real headless Chromium under `sandbox="allow-scripts"`; wheel verified to ship all 22 files |
-| T-010 | Read, write, copy-on-write, revert | `W3-api` | `[ ]` | |
-| T-011 | Hot reload and the optional state hook | `W3-fe` | `[ ]` | |
-| T-012 | The compatibility shim | `W4-compat` | `[ ]` | |
+| T-010 | Read, write, copy-on-write, revert | `W3-api` | `[x]` | `feat/2229-panel-api`; write path confined and tested against a forged manifest discovery would have rejected |
+| T-011 | Hot reload and the optional state hook | `W3-fe` | `[x]` | `feat/2229-panel-frontend` + the `.html` allowlist entry from `W3-api`, without which a panel document's change emitted no event at all |
+| T-012 | The compatibility shim | `W4-compat` | `[x]` | `feat/2229-panel-compat-shim`; wrapped on the backend so no second frontend mount path exists; SC-009 proven from the host's side with a real `emit` from the frame's own window |
 | T-013 | Layer enumeration and frozen symbol inventory | `W2-core` | `[ ]` | |
-| T-014 | The ADR-048 and ADR-051 addenda | `W4-compat` | `[~]` | dispatched on `docs/2229-panel-addenda` |
+| T-014 | The ADR-048 and ADR-051 addenda | `W4-compat` | `[x]` | `docs/2229-panel-addenda` merged; removal condition stated in three inspectable clauses |
 | T-015 | Entry-point group, directory registration, provider | `W2-core` | `[ ]` | |
 | T-016 | Capability-aware resolution and the user choice | `W2-core` | `[ ]` | |
 
@@ -272,6 +272,9 @@ Append only.
 | `2026-09-03` | `W4-builtin` | `resource_result.resource` is not read by either panel that sends `resource` - the composite uses only the fact of the answer, the collection ignores it - so the host is free to make it thin | recorded for `W3-fe`: decide what `resource_result` carries; nothing in the documents constrains it | `W3-fe` |
 | `2026-09-03` | `W4-builtin` | `host_action_result.ok === false` is treated by the documents as a failure whose `detail` becomes the message; a host that wants to signal a *declined* action differently has no way to say so | recorded for `W3-fe`: either adopt the documents' reading or propose a third state and the documents follow | `W3-fe` |
 | `2026-09-03` | `W4-builtin` | while testing that the guards bite, the agent left one document in a mixed state after uneven `git checkout --` reverts | self-caught: it reverted all eight documents to the last commit and re-ran the patch scripts from scratch, each asserting on every replacement; the committed diff is from the clean re-apply. Manager confirmed the merged tree's guard tests are present and passing | `N/A` |
+| `2026-09-03` | `manager` | my own scope-expansion commit `b85e7001e` put an unquoted `2026-09-03:` inside a plain YAML scalar, so the spec's frontmatter stopped parsing entirely and every frontmatter-driven audit on it went blind rather than failing loudly | found by `W4-compat`, which noticed the *expected* `planned_governs` finding had vanished rather than appeared. Quoted the note; `full_audit` back to pass with zero error findings, and the last `planned_governs` entry migrated now that `api/routes/panels.py` exists | `N/A` |
+| `2026-09-03` | `W4-compat` | the tutorial `review_labels` panel cannot be migrated yet: three assertions in `test_core_tutorial_what_is_a_type.py` pin the retired `.mjs` form, and a block-declared panel directory is not reachable through the merged asset route until the paused-block descriptor lands | agent correctly stopped rather than forcing it. Manager correction: my instruction that the tutorial test pass *unchanged* was right for D-019's behaviour and wrong for those three assertions, which pin an asset form the spec's section 4.2 explicitly retires. Sequenced after the emission-consumer branch | `N/A` |
+| `2026-09-03` | `W4-compat` | `POST /api/panels/{id}/copy` would copy a shim-generated directory into a project, freezing a wrapped previewer as a permanent snapshot | degrades gracefully and carries the `adr048-compat-shim` feature tag; `is_compat_panel()` exists if a refusal is wanted. Left for the audit to judge rather than fixed outside the agent's scope | audit finding candidate |
 
 ## 10. Final Readiness
 
