@@ -149,7 +149,7 @@ language_source: en
 | `W3-api` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w3-api` | T-004, T-008 backend half, T-010 | `feat/2229-panel-api` | `.worktrees/w3-panel-api` | `src/scistudio/api/routes/panels.py`, `routes/data.py`, `routes/blocks.py`, `api/schemas.py`, `tests/api/**` | frontend, panel discovery internals | `#2229` | `[ ]` |
 | `W3-fe` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w3-fe` | T-007, T-008 frontend half, T-011 | `feat/2229-panel-frontend` | `.worktrees/w3-panel-frontend` | the panel surfaces under `frontend/src/**` | backend | `#2229` | `[ ]` |
 | `W4-builtin` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w4-builtin` | T-009 | `feat/2229-builtin-panels` | `.worktrees/w4-builtin-panels` | the built-in panel directories and their tests | the Python providers, the host | `#2229` | `[x]` merged |
-| `W4-compat` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w4-compat` | T-012, T-014 | `feat/2229-panel-compat-shim` | `.worktrees/w4-panel-compat` | the shim module, `docs/adr/ADR-048-addendum*.md`, `docs/adr/ADR-051-addendum2.md`, the shim tests | everything else | `#2229` | `[ ]` |
+| `W4-compat` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w4-compat` | T-012, T-014 | `feat/2229-panel-compat-shim` | `.worktrees/w4-panel-compat` | the shim module, `docs/adr/ADR-048-addendum*.md`, `docs/adr/ADR-051-addendum2.md`, the shim tests | everything else | `#2229` | `[~]` T-014 dispatched on `docs/2229-panel-addenda`; T-012 waits on T-007 |
 | `W5-test` | `test_engineer` | `N/A` | `adr-054-panel-contract-prompts.md#w5-test` | adversarial migration-regression suite | `test/2229-panel-migration-regression` | `.worktrees/w5-panel-tests` | tests, fixtures, e2e evidence only | all production code | `#2229` | `[ ]` |
 | `W5-audit-nc` | `audit_reviewer` | `no-context` | `adr-054-panel-contract-prompts.md#w5-audit-nc` | independent conformance audit | `audit/2229-panel-no-context` | `.worktrees/w5-audit-no-context` | `docs/audit/2026-09-02-panel-contract-no-context.md` | all implementation files | `#2229` | `[ ]` |
 | `W5-audit-wc` | `audit_reviewer` | `with-context` | `adr-054-panel-contract-prompts.md#w5-audit-wc` | spec conformance audit | `audit/2229-panel-with-context` | `.worktrees/w5-audit-with-context` | `docs/audit/2026-09-02-panel-contract-with-context.md` | all implementation files | `#2229` | `[ ]` |
@@ -211,7 +211,7 @@ amendment.
 | T-011 | Hot reload and the optional state hook | `W3-fe` | `[ ]` | |
 | T-012 | The compatibility shim | `W4-compat` | `[ ]` | |
 | T-013 | Layer enumeration and frozen symbol inventory | `W2-core` | `[ ]` | |
-| T-014 | The ADR-048 and ADR-051 addenda | `W4-compat` | `[ ]` | |
+| T-014 | The ADR-048 and ADR-051 addenda | `W4-compat` | `[~]` | dispatched on `docs/2229-panel-addenda` |
 | T-015 | Entry-point group, directory registration, provider | `W2-core` | `[ ]` | |
 | T-016 | Capability-aware resolution and the user choice | `W2-core` | `[ ]` | |
 
@@ -268,6 +268,10 @@ Append only.
 | `2026-09-03` | `W4-builtin` | `pyproject.toml` package-data needed one pattern so the panel directories ship in the wheel; `guard.mod_guard` fired and the agent declared `governance_touch: true` | accepted: the dispatch instructed the packaging change, the wheel was built and all 22 files verified present, and the gate's `wheel_release_smoke` passed | owner review at PR |
 | `2026-09-03` | `W4-builtin` | the browser-driven proof harness is not committed: it needed a new path and a playwright dependency outside the agent's one-test-file scope, so the committed tests are static and structural only | accepted for this branch; the adversarial no-context test engineer in wave 5 is the right owner for reproducible browser evidence | `W5-test` |
 | `2026-09-03` | `W4-builtin` | one unidentified `python_tests` failure in the first gate run, clean on re-run, not in `tests/panels`; the gate does not persist the failing node id | logged as a suspected known flake; the manager re-runs the full suite at integration and will identify it if it recurs | `N/A` |
+| `2026-09-03` | `W4-builtin` | D-017 sent the eleven documents back for a second pass; the agent verified both new guards actually bite by injecting an `action` key and an off-contract message type and confirming exactly two failures | accepted and merged; `tests/panels` is at 422 tests | `N/A` |
+| `2026-09-03` | `W4-builtin` | `resource_result.resource` is not read by either panel that sends `resource` - the composite uses only the fact of the answer, the collection ignores it - so the host is free to make it thin | recorded for `W3-fe`: decide what `resource_result` carries; nothing in the documents constrains it | `W3-fe` |
+| `2026-09-03` | `W4-builtin` | `host_action_result.ok === false` is treated by the documents as a failure whose `detail` becomes the message; a host that wants to signal a *declined* action differently has no way to say so | recorded for `W3-fe`: either adopt the documents' reading or propose a third state and the documents follow | `W3-fe` |
+| `2026-09-03` | `W4-builtin` | while testing that the guards bite, the agent left one document in a mixed state after uneven `git checkout --` reverts | self-caught: it reverted all eight documents to the last commit and re-ran the patch scripts from scratch, each asserting on every replacement; the committed diff is from the clean re-apply. Manager confirmed the merged tree's guard tests are present and passing | `N/A` |
 
 ## 10. Final Readiness
 
