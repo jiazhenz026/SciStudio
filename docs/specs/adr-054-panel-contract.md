@@ -42,14 +42,14 @@ scope:
     - Human documentation revision, which is specified separately in adr-054-documentation.
     - Giving a plot panel the producing capability, deferred to issue 2212.
     - Any change to plot rendering, the preview cache, or plot artifact registration.
-    - What a *session* does with a produced value - appending it as a notebook cell,
-      the execution queue, and the statement whitelist of ADR-054 section 3.6 that
-      admits only rebinding assignments, imports and scistudio.output calls. Owner
-      directive 2026-09-03: settling a produced value in the *interactive block*
-      context is in scope, because FR-033 and FR-050 make the two built-in
-      interactive panels producing panels and FR-012 makes their only outbound path
-      the emission of code, so excluding it would ship DataRouter and PairEditor
-      unable to be confirmed.
+    - "What a *session* does with a produced value - appending it as a notebook
+      cell, the execution queue, and the statement whitelist of ADR-054 section
+      3.6 that admits only rebinding assignments, imports and scistudio.output
+      calls. Owner directive of 2026-09-03 - settling a produced value in the
+      *interactive block* context is in scope, because FR-033 and FR-050 make the
+      two built-in interactive panels producing panels and FR-012 makes their only
+      outbound path the emission of code, so excluding it would ship DataRouter
+      and PairEditor unable to be confirmed."
 governs:
   modules:
     - scistudio.core.panels
@@ -76,6 +76,7 @@ governs:
     - src/scistudio/previewers/**
     - src/scistudio/blocks/base/interactive.py
     - src/scistudio/engine/scheduler/_dispatch.py
+    - src/scistudio/api/routes/panels.py
     - src/scistudio/api/routes/data.py
     - src/scistudio/api/routes/blocks.py
     - src/scistudio/api/schemas.py
@@ -109,8 +110,7 @@ planned_governs:
   modules: []
   contracts: []
   entry_points: []
-  files:
-    - src/scistudio/api/routes/panels.py
+  files: []
   excludes: []
 tests:
   - tests/panels/test_preview_routing.py
