@@ -60,6 +60,7 @@ import type {
 import { PanelDiagnosticsBanner, PanelErrorSurface, PanelHost } from "../../panels";
 import { useAppStore } from "../../store";
 import { usePanelReloadToken } from "../../store/usePanelReload";
+import { usePanelRevertOffer } from "../../store/usePanelRevert";
 import type {
   PanelDescriptorResponse,
   PreviewEnvelope,
@@ -423,6 +424,12 @@ export function PreviewHost({
 
   const mounted = chosenFailed ? fallback : chosen;
   const reloadToken = chosenFailed ? fallbackReload : chosenReload;
+  // FR-028 — the offer to revert an edited panel, read for both panels for the
+  // same reason both reload tokens are. `undefined` unless that panel is a copy
+  // shadowing another, which is the only case FR-028 is about.
+  const chosenRevert = usePanelRevertOffer(chosen?.panel_id ?? null);
+  const fallbackRevert = usePanelRevertOffer(fallback?.panel_id ?? null);
+  const mountedRevert = chosenFailed ? fallbackRevert : chosenRevert;
   const update = useMemo(
     () => (activeEnvelope ? { reason: "envelope", changed: { target: activeEnvelope } } : null),
     [activeEnvelope],
@@ -491,6 +498,22 @@ export function PreviewHost({
 
       <PanelDiagnosticsBanner diagnostics={hostDiagnostics} />
 
+      {/* FR-028 — an *edited* panel that fails to load is the one case where
+          the fallback alone is not enough. FR-015 still mounts it below so the
+          data stays visible, but the host must also say what failed and offer
+          to revert, "because a silent fallback reads as an edit that was never
+          saved". Rendered only when the failed panel actually shadows another;
+          every other failure keeps the diagnostics banner it always had. */}
+      {chosenFailed && chosenRevert ? (
+        <div className="mb-2">
+          <PanelErrorSurface
+            failure={chosenFailed}
+            panelName={chosen?.display_name}
+            revert={chosenRevert}
+          />
+        </div>
+      ) : null}
+
       {/* D-019 — the host's own markup around the frame, carrying the two
           highlight targets a boundary at an opaque origin cannot. */}
       <PanelTutorialChrome envelope={activeEnvelope}>
@@ -498,6 +521,7 @@ export function PreviewHost({
           <PanelHost
             key={chosenFailed ? "fallback" : "chosen"}
             descriptor={mounted}
+            revert={mountedRevert}
             target={activeEnvelope}
             update={update}
             remountToken={reloadToken}
@@ -510,6 +534,7 @@ export function PreviewHost({
           />
         ) : (
           <PanelErrorSurface
+            revert={mountedRevert}
             failure={{
               panelId: activeEnvelope.previewer_id || "(unnamed)",
               reason: "invalid_descriptor",

@@ -100,7 +100,7 @@ export function ownerKindLabel(kind: PanelSpecSummary["owner_kind"]): string {
 
 /** Text a panel is searched by: id, target type, owner, features. */
 function panelHaystack(panel: PanelSpecSummary): string {
-  return `${panel.previewer_id} ${panel.target_type} ${panel.owner_name} ${panel.features.join(" ")}`;
+  return `${panel.panel_id} ${panel.target_type} ${panel.owner_name} ${panel.features.join(" ")}`;
 }
 
 /** Text-search filter. Panels have no facet chips (the tier sections
@@ -118,7 +118,7 @@ export function isFilteringPanels(search: string): boolean {
 }
 
 const byId = (a: PanelSpecSummary, b: PanelSpecSummary): number =>
-  a.previewer_id.localeCompare(b.previewer_id);
+  a.panel_id.localeCompare(b.panel_id);
 
 /**
  * Build the ordered Panels sections from the visible panels. Under an

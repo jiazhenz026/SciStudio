@@ -890,7 +890,7 @@ export interface FileTab {
   id: string;
   filePath: string;
   displayName: string;
-  language: "python" | "r" | "yaml" | "json" | "text" | "markdown";
+  language: "python" | "r" | "yaml" | "json" | "text" | "markdown" | "html";
   content: string;
   contentLoadedAt: number;
   baseVersion?: number | null;
@@ -927,6 +927,24 @@ export interface FileTab {
    * the project-file rehydrate path cannot restore it.
    */
   userLibraryTarget?: UserLibraryTarget;
+  /**
+   * ADR-054 T-010 — set when this tab edits a *panel's* entry document
+   * (FR-024, FR-025). Holds the panel id, which is the only address the
+   * editing routes take.
+   *
+   * Editable for every tier, and that is the point rather than an oversight:
+   * FR-025 says the system is never asked where a save goes, and FR-026 says a
+   * save to a core or package panel copies it into the open project under the
+   * same id. Making a core panel's tab read-only would remove the one action
+   * that performs the copy — SC-004's "copy a built-in panel into a project,
+   * edit, save" would have no affordance at all.
+   *
+   * Not persisted across reload (see ``partializeTabs``): a panel directory is
+   * addressed by panel id rather than by project path, so the project-file
+   * rehydrate path cannot restore it — the same reason a block-source tab and
+   * a library tab are excluded.
+   */
+  panelSourceId?: string;
 }
 
 /**
@@ -1052,6 +1070,16 @@ export interface TabSlice {
    * would write a template the user could not then edit.
    */
   openUserLibraryFileTab: (target: UserLibraryTarget, filename: string) => void;
+  /**
+   * ADR-054 FR-024, FR-025 — open (or focus) an editable tab on a panel's
+   * entry document, whichever tier the panel resolved from.
+   *
+   * Reads ``GET /api/panels/{panel_id}/source`` and saves through the matching
+   * PUT. Editable for every tier because that is what FR-026 asks of a save on
+   * a read-only panel: it copies the panel into the open project under the same
+   * id and writes the copy. Nothing here asks the person where it should go.
+   */
+  openPanelSourceTab: (panelId: string) => void;
   /**
    * #2112 — open (or focus) a transient preview tab on a frozen
    * {@link PreviewTarget}.

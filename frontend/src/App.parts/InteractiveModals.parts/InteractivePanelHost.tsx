@@ -36,6 +36,7 @@ import { PanelDiagnosticsBanner, PanelErrorSurface, PanelHost } from "../../pane
 import type { PanelFrameFactory } from "../../panels";
 import { Button } from "../../components/ui/button";
 import { usePanelReloadToken } from "../../store/usePanelReload";
+import { usePanelRevertOffer } from "../../store/usePanelRevert";
 import type { PanelDescriptorResponse } from "../../types/api";
 
 export interface InteractivePanelHostProps {
@@ -92,6 +93,11 @@ export function InteractivePanelHost({
   onCancelRef.current = onCancel;
 
   const reloadToken = usePanelReloadToken(descriptor?.panel_id ?? null);
+  // FR-028 — `undefined` unless this panel is a project copy shadowing
+  // another, which is the only case the offer applies to. Read from the
+  // declared id as well as the resolved one, so a block whose panel is
+  // missing entirely can still be reverted back to the one it shadowed.
+  const revertOffer = usePanelRevertOffer(descriptor?.panel_id ?? panelId ?? null);
 
   /*
    * FR-013 — the panel is *bound* to what the block is asking about, rather
@@ -181,6 +187,10 @@ export function InteractivePanelHost({
             <PanelHost
               className="h-[60vh]"
               descriptor={descriptor as PanelDescriptor}
+              /* FR-028 — a block's panel can be an edited project copy too, and
+                 a paused block is the worst place to discover that the only way
+                 back is a file manager. */
+              revert={revertOffer}
               bindings={bindings}
               target={panelPayload}
               remountToken={reloadToken}
@@ -191,7 +201,7 @@ export function InteractivePanelHost({
             />
           ) : (
             <div className="p-5">
-              <PanelErrorSurface failure={missing} />
+              <PanelErrorSurface failure={missing} revert={revertOffer} />
             </div>
           )}
         </div>

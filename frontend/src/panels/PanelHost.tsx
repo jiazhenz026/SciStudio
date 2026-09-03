@@ -39,7 +39,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
-import type { PanelDiagnostic } from "./PanelErrorSurface";
+import type { PanelDiagnostic, PanelRevertOffer } from "./PanelErrorSurface";
 import { PanelDiagnosticsBanner, PanelErrorSurface } from "./PanelErrorSurface";
 import type { PanelCapabilityDenial, PanelEmitConsumer } from "./panelCapability";
 import { createPanelCapabilityGate } from "./panelCapability";
@@ -112,6 +112,13 @@ export interface PanelHostProps {
    * whether that is the fallback panel the backend named (FR-015, FR-036).
    */
   readonly renderFallback?: (failure: PanelFailure) => ReactNode;
+  /**
+   * FR-028 — the revert offer the error surface carries when this panel is an
+   * edited copy that will not load. Passed through rather than resolved here:
+   * whether a panel shadows another is registry truth, which lives in the
+   * store, and nothing under this directory reads the store.
+   */
+  readonly revert?: PanelRevertOffer;
   /** Change this to force a remount of the same panel (hot reload, FR-030). */
   readonly remountToken?: string | number;
   /** The frame-creation seam. Production leaves it alone. */
@@ -166,6 +173,7 @@ export const PanelHost = forwardRef<PanelHostHandle, PanelHostProps>(
     const {
       descriptor,
       renderFallback,
+      revert,
       frameFactory,
       loadTimeoutMs,
       handshakeTimeoutMs,
@@ -466,7 +474,11 @@ export const PanelHost = forwardRef<PanelHostHandle, PanelHostProps>(
         <PanelDiagnosticsBanner diagnostics={diagnostics} />
         {failure ? (
           <>
-            <PanelErrorSurface failure={failure} panelName={descriptor?.display_name} />
+            <PanelErrorSurface
+              failure={failure}
+              panelName={descriptor?.display_name}
+              revert={revert}
+            />
             {renderFallback ? renderFallback(failure) : null}
           </>
         ) : null}

@@ -6,6 +6,7 @@ import {
   createConfirmFileVersion,
   createMarkFileRemoteConflict,
   createOpenBlockSourceTab,
+  createOpenPanelSourceTab,
   createOpenTypeSourceTab,
   createOpenFileTab,
   createOpenUserLibraryFileTab,
@@ -35,6 +36,8 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
   openTypeSourceTab: createOpenTypeSourceTab(set, get),
   // ADR-053 FR-032 — the user library's own editable tab.
   openUserLibraryFileTab: createOpenUserLibraryFileTab(set, get),
+  // ADR-054 FR-024/FR-025 — a panel's entry document, editable in every tier.
+  openPanelSourceTab: createOpenPanelSourceTab(set, get),
   // #2112 — transient preview tab (frozen PreviewTarget, never persisted).
   openPreviewTab: createOpenPreviewTab(set, get),
   saveFileTab: createSaveFileTab(set, get),

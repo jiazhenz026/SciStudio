@@ -80,8 +80,8 @@ function SectionView({ section, forceOpen, choices }: SectionViewProps) {
           {section.items.map((panel) => (
             <PanelCard
               choice={choiceForType(choices, panel.target_type)}
-              key={panel.previewer_id}
-              onChoose={(p, scope) => choosePanel(p.target_type, p.previewer_id, scope)}
+              key={panel.panel_id}
+              onChoose={(p, scope) => choosePanel(p.target_type, p.panel_id, scope)}
               onClearEverywhere={clearPanelChoiceEverywhere}
               panel={panel}
             />
@@ -112,10 +112,10 @@ function StaleChoicesStrip({ choices }: { choices: PanelChoice[] }) {
       {stale.map((choice) => (
         <div
           className="mt-1 flex items-center justify-between gap-2 px-1"
-          key={`${choice.target_type}-${choice.previewer_id}`}
+          key={`${choice.target_type}-${choice.panel_id}`}
         >
           <p className="text-[11px] text-amber-900">
-            {choice.target_type} → {choice.previewer_id} ({choice.scope}) — not registered
+            {choice.target_type} → {choice.panel_id} ({choice.scope}) — not registered
           </p>
           <button
             className="shrink-0 rounded-full border border-amber-300 bg-white px-2 py-0.5 text-[11px] text-amber-900 hover:bg-amber-100"

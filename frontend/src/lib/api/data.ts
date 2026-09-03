@@ -28,7 +28,10 @@ import type {
   PanelChoiceListResponse,
   PanelChoiceScope,
   PanelListResponse,
+  PanelOverrideRevertResponse,
   PanelReloadResponse,
+  PanelSourceResponse,
+  PanelSourceSaveResponse,
 } from "../../types/api";
 import { JSON_HEADERS, apiFetch } from "./core";
 
@@ -199,7 +202,10 @@ export const dataApi = {
     apiFetch<PanelChoiceListResponse>(`/api/panels/choices/${encodeURIComponent(targetType)}`, {
       method: "PUT",
       headers: JSON_HEADERS,
-      body: JSON.stringify({ previewer_id: panelId, scope }),
+      // `panel_id`, not `previewer_id`: `PanelChoiceRequest` was renamed with
+      // the subsystem, so the old key leaves the required field missing and
+      // the route rejects the body outright.
+      body: JSON.stringify({ panel_id: panelId, scope }),
     }),
 
   /** Clear the choice for `targetType` at `scope`; clearing a type that was
@@ -209,6 +215,37 @@ export const dataApi = {
       `/api/panels/choices/${encodeURIComponent(targetType)}?scope=${encodeURIComponent(scope)}`,
       { method: "DELETE" },
     ),
+
+  // -- ADR-054 T-010: reading a panel, saving it, reverting (FR-024..FR-029) --
+  //
+  // The three editing routes. Nothing asks *where* a save goes: FR-025 says the
+  // system decides from the tier the panel resolved from, and the response's
+  // `copied` says what it decided.
+
+  /** Read any resolved panel's entry document and declaration, whichever tier
+   *  it came from (`GET /api/panels/{panel_id}/source`, FR-024). */
+  readPanelSource: (panelId: string) =>
+    apiFetch<PanelSourceResponse>(`/api/panels/${encodeURIComponent(panelId)}/source`),
+
+  /** Save an edit. A project or user-library panel is written back in place; a
+   *  core or package panel is copied into the open project under the same id
+   *  and `copied` comes back `true` (`PUT /api/panels/{panel_id}/source`,
+   *  FR-025 to FR-027). */
+  savePanelSource: (panelId: string, source: string, declaration?: string | null) =>
+    apiFetch<PanelSourceSaveResponse>(`/api/panels/${encodeURIComponent(panelId)}/source`, {
+      method: "PUT",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ source, declaration: declaration ?? null }),
+    }),
+
+  /** Delete the shadowing copy, restoring whatever it shadowed. A panel that
+   *  shadows nothing is refused with 409 rather than deleted — that would be a
+   *  delete, a different request (`DELETE /api/panels/{panel_id}/override`,
+   *  FR-029). */
+  revertPanelOverride: (panelId: string) =>
+    apiFetch<PanelOverrideRevertResponse>(`/api/panels/${encodeURIComponent(panelId)}/override`, {
+      method: "DELETE",
+    }),
 
   /** Save a bounded provider resource to a user-selected absolute file path
    *  (`POST /api/previews/sessions/{id}/resources/{resource_id}/save`). */
