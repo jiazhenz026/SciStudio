@@ -314,8 +314,7 @@ export const PanelHost = forwardRef<PanelHostHandle, PanelHostProps>(
             void connection.answerResource(
               message.payload,
               resolver ??
-                (() =>
-                  Promise.reject(new Error("this mount was given no way to open a resource"))),
+                (() => Promise.reject(new Error("this mount was given no way to open a resource"))),
             );
             return;
           }

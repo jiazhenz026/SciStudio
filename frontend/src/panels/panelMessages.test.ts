@@ -12,12 +12,16 @@ import { describe, expect, it } from "vitest";
 
 import {
   HOST_TO_PANEL_TYPES,
+  PANEL_HOST_ACTIONS,
   PANEL_MESSAGE_MARKER,
+  PANEL_REQUEST_RESULT_TYPES,
+  PANEL_REQUEST_TYPES,
   PANEL_TO_HOST_TYPES,
   hostToPanelMessage,
   isAcceptedApiVersion,
   isHostToPanelMessage,
   isPanelEnvelope,
+  isPanelHostAction,
   isPanelToHostMessage,
   panelToHostMessage,
   parseHostToPanelMessage,
@@ -27,7 +31,7 @@ import {
 
 const TOKEN = "mount-token-1";
 
-describe("the D-011 envelope", () => {
+describe("the D-011 envelope and the D-017 type set", () => {
   it("is the same shape in both directions", () => {
     const outbound = hostToPanelMessage(TOKEN, "state_request", {});
     const inbound = panelToHostMessage(TOKEN, "ready", { api_version: "1" });
@@ -47,16 +51,117 @@ describe("the D-011 envelope", () => {
     expect(PANEL_MESSAGE_MARKER).toBe(1);
   });
 
-  it("names six host-to-panel types and five panel-to-host types", () => {
+  it("names the eight host-to-panel types and the seven panel-to-host types", () => {
+    // D-017: the five operations an earlier draft folded into `read` are named
+    // types of their own. An export is not a read, and one type carrying five
+    // meanings is the illegible single mechanism ADR-054 §9 rules out.
     expect([...HOST_TO_PANEL_TYPES]).toEqual([
       "init",
       "update",
       "read_result",
+      "resource_result",
+      "host_action_result",
       "error",
       "state_request",
       "teardown",
     ]);
-    expect([...PANEL_TO_HOST_TYPES]).toEqual(["ready", "read", "emit", "error", "state"]);
+    expect([...PANEL_TO_HOST_TYPES]).toEqual([
+      "ready",
+      "read",
+      "resource",
+      "host_action",
+      "emit",
+      "error",
+      "state",
+    ]);
+  });
+
+  it("answers each request type with its own result type, and only its own", () => {
+    expect(PANEL_REQUEST_TYPES.map((type) => PANEL_REQUEST_RESULT_TYPES[type])).toEqual([
+      "read_result",
+      "resource_result",
+      "host_action_result",
+    ]);
+    // Every request type is a real outbound type and every answer a real
+    // inbound one, so the pairing cannot name something the wire does not
+    // carry.
+    for (const request of PANEL_REQUEST_TYPES) {
+      expect(PANEL_TO_HOST_TYPES).toContain(request);
+      expect(HOST_TO_PANEL_TYPES).toContain(PANEL_REQUEST_RESULT_TYPES[request]);
+    }
+  });
+
+  it("closes the host-action set at the three the host can actually perform", () => {
+    expect([...PANEL_HOST_ACTIONS]).toEqual(["export", "download", "editor_handoff"]);
+    expect(isPanelHostAction("export")).toBe(true);
+    expect(isPanelHostAction("delete")).toBe(false);
+    expect(isPanelHostAction(null)).toBe(false);
+  });
+
+  it("accepts the three request types and refuses an unnamed host action", () => {
+    const token = TOKEN;
+    expect(
+      isPanelToHostMessage(
+        panelToHostMessage(token, "resource", {
+          request_id: "r1",
+          resource_id: "item:0",
+          params: null,
+        }),
+        token,
+      ),
+    ).toBe(true);
+    expect(
+      isPanelToHostMessage(
+        panelToHostMessage(token, "host_action", {
+          request_id: "r2",
+          action: "export",
+          params: { format: "png" },
+        }),
+        token,
+      ),
+    ).toBe(true);
+    expect(
+      isPanelToHostMessage(
+        {
+          scistudio_panel: 1,
+          token,
+          type: "host_action",
+          payload: { request_id: "r3", action: "rm -rf", params: null },
+        },
+        token,
+      ),
+    ).toBe(false);
+  });
+
+  it("accepts both new answers and refuses a host-action result with no verdict", () => {
+    const token = TOKEN;
+    expect(
+      isHostToPanelMessage(
+        hostToPanelMessage(token, "resource_result", { request_id: "r1", resource: null }),
+        token,
+      ),
+    ).toBe(true);
+    expect(
+      isHostToPanelMessage(
+        hostToPanelMessage(token, "host_action_result", {
+          request_id: "r2",
+          ok: true,
+          detail: { status: "declined" },
+        }),
+        token,
+      ),
+    ).toBe(true);
+    expect(
+      isHostToPanelMessage(
+        {
+          scistudio_panel: 1,
+          token,
+          type: "host_action_result",
+          payload: { request_id: "r3", detail: null },
+        },
+        token,
+      ),
+    ).toBe(false);
   });
 });
 

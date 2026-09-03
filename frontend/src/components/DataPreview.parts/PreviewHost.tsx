@@ -167,8 +167,21 @@ export function PreviewHost({
   const [hostDiagnostics, setHostDiagnostics] = useState<PanelDiagnostic[]>([]);
   // Drill-down stack of child envelopes (composite slot / collection item).
   const [childStack, setChildStack] = useState<PreviewEnvelope[]>([]);
-  // FR-014: the chosen panel failed, so the named fallback is what mounts.
-  const [chosenFailed, setChosenFailed] = useState<PanelFailure | null>(null);
+  /*
+   * FR-014: the chosen panel failed, so the named fallback is what mounts.
+   *
+   * The failure is stored *with the mount it belongs to* rather than cleared by
+   * an effect when the panel changes. An effect cannot do this correctly: a
+   * child's effects run before its parent's in the same commit, so the mount
+   * that fails during the commit where the envelope first arrives would have
+   * its failure wiped by a reset effect running immediately afterwards — and
+   * the reader would sit forever on a panel that had already given up. Keying
+   * the record means a stale failure simply stops matching.
+   */
+  const [chosenFailure, setChosenFailure] = useState<{
+    readonly key: string;
+    readonly failure: PanelFailure;
+  } | null>(null);
 
   const queryRef = useRef<Record<string, unknown>>(initialQuery ?? {});
   const diagnosticSeq = useRef(0);
@@ -185,7 +198,7 @@ export function PreviewHost({
     let cancelled = false;
     setChildStack([]);
     setHostDiagnostics([]);
-    setChosenFailed(null);
+    setChosenFailure(null);
     if (!target) {
       setStatus("idle");
       setEnvelope(null);
@@ -389,31 +402,44 @@ export function PreviewHost({
   const chosen = descriptorOf(activeEnvelope?.panel);
   const fallback = descriptorOf(activeEnvelope?.fallback_panel);
   const fallbackId = activeEnvelope?.fallback_panel_id ?? null;
+
+  // Both reload tokens are read unconditionally: hooks cannot be called
+  // conditionally, and reading the mounted panel's token would make the token
+  // depend on the failure that depends on the token.
+  const chosenReload = usePanelReloadToken(chosen?.panel_id ?? null);
+  const fallbackReload = usePanelReloadToken(fallback?.panel_id ?? null);
+
+  /*
+   * What identifies "this attempt at the chosen panel". A new panel, a new
+   * document, or a reloaded one is a fresh attempt: a panel that failed against
+   * this object may be fine once it has been rewritten, which is the whole
+   * point of FR-030.
+   */
+  const chosenKey = [chosen?.panel_id ?? "", chosen?.document_url ?? "", chosenReload].join(
+    "\u0000",
+  );
+  const chosenFailed =
+    chosenFailure !== null && chosenFailure.key === chosenKey ? chosenFailure.failure : null;
+
   const mounted = chosenFailed ? fallback : chosen;
-  const reloadToken = usePanelReloadToken(mounted?.panel_id ?? null);
+  const reloadToken = chosenFailed ? fallbackReload : chosenReload;
   const update = useMemo(
     () => (activeEnvelope ? { reason: "envelope", changed: { target: activeEnvelope } } : null),
     [activeEnvelope],
   );
 
+  const chosenKeyRef = useRef(chosenKey);
+  chosenKeyRef.current = chosenKey;
   const onChosenFailure = useCallback(
     (failure: PanelFailure) => {
       // FR-014: one behaviour for every load failure — the host's own error
       // surface naming the panel and the failure, and the fallback the backend
       // named, so the data stays visible.
       note(failure.panelId, failure.reason, failure.message);
-      setChosenFailed(failure);
+      setChosenFailure({ key: chosenKeyRef.current, failure });
     },
     [note],
   );
-
-  const chosenId = chosen?.panel_id ?? null;
-  const chosenDocument = chosen?.document_url ?? null;
-  // A new panel, or a reloaded document, is a fresh chance for the chosen one:
-  // a panel that failed against this object may be fine once it is rewritten.
-  useEffect(() => {
-    setChosenFailed(null);
-  }, [chosenId, chosenDocument, reloadToken]);
 
   const onDiagnostic = useCallback((diagnostic: PanelDiagnostic) => {
     setHostDiagnostics((current) => [...current, diagnostic]);

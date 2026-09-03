@@ -590,8 +590,11 @@ export async function mountPanelFrame(options: PanelFrameMountOptions): Promise<
     },
     send: post,
     answerRead(request, resolve) {
-      return answerRequest("read", request.request_id, () => resolve(request.query), (value) =>
-        post("read_result", { request_id: request.request_id, window: value }),
+      return answerRequest(
+        "read",
+        request.request_id,
+        () => resolve(request.query),
+        (value) => post("read_result", { request_id: request.request_id, window: value }),
       );
     },
     answerResource(request, resolve) {

@@ -38,16 +38,27 @@ const openNativeSaveDialog = vi.fn();
 const savePreviewResource = vi.fn();
 const fetchMock = vi.fn();
 
-vi.mock("../../lib/api", () => ({
-  api: {
-    createPreviewSession: (...a: unknown[]) => createPreviewSession(...a),
-    patchPreviewSession: (...a: unknown[]) => patchPreviewSession(...a),
-    getPreviewResource: (...a: unknown[]) => getPreviewResource(...a),
-    getPreviewSession: (...a: unknown[]) => getPreviewSession(...a),
-    openNativeSaveDialog: (...a: unknown[]) => openNativeSaveDialog(...a),
-    savePreviewResource: (...a: unknown[]) => savePreviewResource(...a),
-  },
-}));
+/*
+ * Only the six calls this host makes are replaced. The rest of the module is
+ * kept: the store imports from it at module scope, and a wholesale mock left
+ * the store unable to initialise — a failure that looks nothing like the thing
+ * being tested.
+ */
+vi.mock("../../lib/api", async (importOriginal) => {
+  const actual = (await importOriginal()) as { api: Record<string, unknown> };
+  return {
+    ...actual,
+    api: {
+      ...actual.api,
+      createPreviewSession: (...a: unknown[]) => createPreviewSession(...a),
+      patchPreviewSession: (...a: unknown[]) => patchPreviewSession(...a),
+      getPreviewResource: (...a: unknown[]) => getPreviewResource(...a),
+      getPreviewSession: (...a: unknown[]) => getPreviewSession(...a),
+      openNativeSaveDialog: (...a: unknown[]) => openNativeSaveDialog(...a),
+      savePreviewResource: (...a: unknown[]) => savePreviewResource(...a),
+    },
+  };
+});
 
 import type { PanelFrameFactory, PanelFrameHandle, PanelFrameSpec } from "../../panels";
 import { createSandboxedPanelFrame, panelToHostMessage } from "../../panels";
@@ -81,15 +92,14 @@ function createSeam(): Seam {
   const received: Record<string, unknown>[] = [];
   let handle: PanelFrameHandle | null = null;
   let resolveLoaded: (() => void) | null = null;
+  const observed = new Set<Window>();
+  let token: string | null = null;
 
   const factory: PanelFrameFactory = (spec) => {
     specs.push(spec);
     const real = createSandboxedPanelFrame(spec);
     const loaded = new Promise<void>((resolve) => {
       resolveLoaded = resolve;
-    });
-    real.contentWindow?.addEventListener("message", (event) => {
-      received.push((event as MessageEvent).data as Record<string, unknown>);
     });
     handle = {
       element: real.element,
@@ -111,12 +121,32 @@ function createSeam(): Seam {
   return {
     factory,
     specs: () => specs,
-    loadLatest: () => resolveLoaded?.(),
+    loadLatest() {
+      /*
+       * The listener is attached here, not in the factory: a frame that has not
+       * been inserted into the document yet has no `contentWindow` to listen
+       * on. The host appends the element before it awaits the load, so by the
+       * time a test reports the document loaded the window exists — and the
+       * host has not posted `init` yet, which is what makes this the right
+       * moment to start recording.
+       */
+      const contentWindow = handle?.contentWindow;
+      if (contentWindow && !observed.has(contentWindow)) {
+        observed.add(contentWindow);
+        contentWindow.addEventListener("message", (event) => {
+          const data = (event as MessageEvent).data as Record<string, unknown>;
+          // Held outside `received`, which tests clear between phases: the
+          // token belongs to the mount, not to the traffic.
+          if (data?.type === "init" && typeof data.token === "string") token = data.token;
+          received.push(data);
+        });
+      }
+      resolveLoaded?.();
+    },
     contentWindow: requireWindow,
     token() {
-      const init = received.find((entry) => entry?.type === "init");
-      if (!init) throw new Error("no init was posted");
-      return init.token as string;
+      if (token === null) throw new Error("no init was posted");
+      return token;
     },
     fromPanel(type, payload) {
       window.dispatchEvent(
@@ -261,9 +291,7 @@ describe("the backend names the panel (FR-015, FR-036, SC-010)", () => {
       "data-panel-id",
       "core.dataframe.basic",
     );
-    expect(seam.specs()[0].documentUrl).toBe(
-      "/api/panels/assets/core.dataframe.basic/index.html",
-    );
+    expect(seam.specs()[0].documentUrl).toBe("/api/panels/assets/core.dataframe.basic/index.html");
   });
 
   it("mounts whatever the response named, whatever the envelope's kind says", async () => {
@@ -300,9 +328,7 @@ describe("a failed panel still shows the data (FR-014, SC-006)", () => {
     // A version the backend does not accept fails before a frame is created,
     // which is the earliest of the three SC-006 failure paths.
     const seam = createSeam();
-    createPreviewSession.mockResolvedValue(
-      envelope({ panel: descriptor({ api_version: "9" }) }),
-    );
+    createPreviewSession.mockResolvedValue(envelope({ panel: descriptor({ api_version: "9" }) }));
     render(<PreviewHost target={TARGET} frameFactory={seam.factory} />);
 
     await waitFor(() =>
@@ -355,7 +381,11 @@ describe("the three request types the host answers (D-017)", () => {
     fetchMock.mockResolvedValue(
       okJson({
         resource_id: "item:0",
-        data: envelope({ session_id: "pv-child", kind: "artifact", previewer_id: "core.artifact.basic" }),
+        data: envelope({
+          session_id: "pv-child",
+          kind: "artifact",
+          previewer_id: "core.artifact.basic",
+        }),
       }),
     );
     seam.clearReceived();
@@ -523,9 +553,7 @@ describe("the tutorial surface a frame cannot carry (D-019)", () => {
     const chrome = screen.getByTestId("preview-host-panel");
     expect(chrome).toHaveAttribute("data-tutorial-target", "preview_item");
     expect(chrome).toHaveAttribute("data-tutorial-target-key", "0");
-    expect(
-      chrome.querySelector('[data-tutorial-target="plot_export_button"]'),
-    ).toBeInTheDocument();
+    expect(chrome.querySelector('[data-tutorial-target="plot_export_button"]')).toBeInTheDocument();
     // Both are the host's markup: neither is inside the frame.
     const frame = document.querySelector("iframe");
     expect(frame?.querySelector("[data-tutorial-target]")).toBeFalsy();
