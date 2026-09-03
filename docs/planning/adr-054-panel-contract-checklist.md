@@ -34,7 +34,7 @@ language_source: en
   integration.
 - Protected branch: `main`
 - Umbrella branch: `track/adr-054-spec1-panel-contract`
-- Umbrella PR: `#PENDING`
+- Umbrella PR: `#2230`
 - Umbrella PR title: `[DO NOT MERGE] ADR-054 spec 1: the unified panel contract`
 - Final PR target: `main`
 - Governing spec: `docs/specs/adr-054-panel-contract.md`
@@ -99,15 +99,15 @@ language_source: en
       was created for this stage.
 - [x] Gate record started.
       -> `.workflow/records/2229-track-adr-054-spec1-panel-contract.json`
-- [ ] Scope include/exclude recorded in the gate record.
+- [x] Scope include/exclude recorded in the gate record.
 - [x] Umbrella branch created.
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella PR opened. -> `#2230`
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch and umbrella PR number recorded in this checklist.
 - [x] No `pip install -e .` environment pollution found.
       -> no agent is permitted to run it; every prompt restates the prohibition.
 - [x] Dispatch checklist copied from the template and committed.
-- [ ] Dispatch prompts created from the correct prompt template and linked
+- [x] Dispatch prompts created from the correct prompt template and linked
       below.
 - [ ] Sentrux baseline recorded, or N/A reason recorded.
 
