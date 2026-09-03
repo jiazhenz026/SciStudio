@@ -211,6 +211,30 @@
       "at": "2026-09-03T04:00:56.109360Z",
       "pattern": "docs/specs/adr-054-panel-contract.md",
       "reason": "The rename moved symbols out from under governance claims in ADR-049, ADR-052, ADR-053 and the ADR-049 spec, producing 28 error-severity full_audit findings. Retargeting those claims is the governance transfer this spec's scope names, and it must land with the rename. The spec's own governs block is migrated to the post-rename reality; the three planned_governs entries that now resolve move to governs, and core/panels.py and api/routes/panels.py stay planned until they exist."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:51:08.927241Z",
+      "pattern": "docs/adr/ADR-048.md",
+      "reason": "Complete the governance transfer the addenda record: ADR-048 and its spec give up the previewer entry-point group and the two frontend paths; ADR-051 and its spec retarget the PanelManifest contract at scistudio.core.panels now that FR-001 moved it; and the three ADR-054 planned_governs entries that landed with T-002 move into governs. full_audit is back to pass with zero error-severity findings."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:51:08.927260Z",
+      "pattern": "docs/adr/ADR-051.md",
+      "reason": "Complete the governance transfer the addenda record: ADR-048 and its spec give up the previewer entry-point group and the two frontend paths; ADR-051 and its spec retarget the PanelManifest contract at scistudio.core.panels now that FR-001 moved it; and the three ADR-054 planned_governs entries that landed with T-002 move into governs. full_audit is back to pass with zero error-severity findings."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:51:08.927262Z",
+      "pattern": "docs/specs/adr-048-preview-system.md",
+      "reason": "Complete the governance transfer the addenda record: ADR-048 and its spec give up the previewer entry-point group and the two frontend paths; ADR-051 and its spec retarget the PanelManifest contract at scistudio.core.panels now that FR-001 moved it; and the three ADR-054 planned_governs entries that landed with T-002 move into governs. full_audit is back to pass with zero error-severity findings."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:51:08.927264Z",
+      "pattern": "docs/specs/adr-051-interactive-blocks.md",
+      "reason": "Complete the governance transfer the addenda record: ADR-048 and its spec give up the previewer entry-point group and the two frontend paths; ADR-051 and its spec retarget the PanelManifest contract at scistudio.core.panels now that FR-001 moved it; and the three ADR-054 planned_governs entries that landed with T-002 move into governs. full_audit is back to pass with zero error-severity findings."
     }
   ],
   "session_id": "c235ce21-b19f-4ddf-9ec1-d0f9af6fe751",

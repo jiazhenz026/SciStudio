@@ -40,8 +40,7 @@ governs:
     # no-compat (#1604). The routed session API is the live contract surface.
     - scistudio.api.routes.data.create_preview_session
     - scistudio.api.schemas.PreviewEnvelopeModel
-  entry_points:
-    - scistudio.previewers
+  entry_points: []
   files:
     - docs/adr/ADR-048.md
     - docs/specs/adr-048-preview-system.md
@@ -50,8 +49,10 @@ governs:
     - src/scistudio/api/schemas.py
     - src/scistudio/ai/agent/mcp/tools_inspection/**
     - frontend/src/components/DataPreview.tsx
-    - frontend/src/components/DataPreview.parts/**
-    - frontend/src/store/previewSlice.ts
+    # The previewer entry-point group, DataPreview.parts/** and
+    # store/previewSlice.ts transferred to ADR-054 and
+    # docs/specs/adr-054-panel-contract.md with the panel contract
+    # (ADR-048 addendum 1 section 6).
     - frontend/src/store/types.ts
     - frontend/src/types/api.ts
     - frontend/src/lib/api/data.ts

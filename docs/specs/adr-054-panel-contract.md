@@ -45,6 +45,7 @@ scope:
     - Any change to what a block does with a produced value; that belongs to the session.
 governs:
   modules:
+    - scistudio.core.panels
     - scistudio.panels
     - scistudio.previewers
     - scistudio.blocks.base.interactive
@@ -53,14 +54,17 @@ governs:
     - scistudio.core.dropins
     - scistudio.core.entry_points
   contracts:
+    - scistudio.core.panels.PanelManifest
+    - scistudio.core.panels.PanelCapability
     - scistudio.panels.models.PanelSpec
     - scistudio.panels.models.FrontendManifest
     - scistudio.panels.models.PreviewEnvelope
-    - scistudio.blocks.base.interactive.PanelManifest
   entry_points:
+    - scistudio.panels
     - scistudio.previewers
   files:
     - docs/specs/adr-054-panel-contract.md
+    - src/scistudio/core/panels.py
     - src/scistudio/panels/**
     - src/scistudio/previewers/**
     - src/scistudio/blocks/base/interactive.py
@@ -94,15 +98,10 @@ governs:
     - docs/audit/**
     - docs/planning/**
 planned_governs:
-  modules:
-    - scistudio.core.panels
-  contracts:
-    - scistudio.core.panels.PanelManifest
-    - scistudio.core.panels.PanelCapability
-  entry_points:
-    - scistudio.panels
+  modules: []
+  contracts: []
+  entry_points: []
   files:
-    - src/scistudio/core/panels.py
     - src/scistudio/api/routes/panels.py
   excludes: []
 tests:
