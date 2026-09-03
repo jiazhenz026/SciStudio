@@ -18,6 +18,7 @@ creeping in trips it.
 
 from __future__ import annotations
 
+import json
 import sys
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -35,7 +36,13 @@ from scistudio.core.entry_points import (
 )
 from scistudio.core.panels import PanelTier
 from scistudio.panels.discovery import discover_panels, discover_tier, package_panel_roots
+from scistudio.panels.project import (
+    LEGACY_PROJECT_PANELS_MANIFEST,
+    PROJECT_PANELS_MANIFEST,
+    load_project_panels,
+)
 from scistudio.panels.providers import resolve_declared_provider
+from scistudio.panels.registry import PanelRegistry
 from tests.panels.conftest import write_panel
 
 FIXTURE_PACKAGE_PANELS = (
@@ -344,3 +351,69 @@ def test_provider_resolution_can_be_turned_off_for_a_listing(tmp_path: Path) -> 
     assert diagnostics == []
     assert panels[0].provider is None
     assert panels[0].manifest.provider == "no_such_module_at_all:render"
+
+
+# ---------------------------------------------------------------------------
+# FR-046 / FR-020 — the project's default-panel declaration, carried over
+# ---------------------------------------------------------------------------
+
+
+def _project_with(tmp_path: Path, filename: str, defaults: dict[str, str]) -> Path:
+    project = tmp_path / "project"
+    (project / ".scistudio").mkdir(parents=True, exist_ok=True)
+    (project / filename).write_text(json.dumps({"default_panels": defaults}), encoding="utf-8")
+    return project
+
+
+def test_the_panel_named_declaration_sets_the_project_defaults(tmp_path: Path) -> None:
+    """FR-046: carried over under the panel naming, behaviour unchanged."""
+    project = _project_with(tmp_path, PROJECT_PANELS_MANIFEST, {"DataFrame": "project.table"})
+    registry = PanelRegistry()
+
+    load_project_panels(registry, project)
+
+    assert registry.project_default_for("DataFrame") == "project.table"
+    assert registry.diagnostics == []
+
+
+def test_a_project_that_still_has_the_old_file_keeps_working(tmp_path: Path) -> None:
+    """FR-020: a project on disk predates the build that opens it."""
+    project = _project_with(tmp_path, LEGACY_PROJECT_PANELS_MANIFEST, {"DataFrame": "legacy.table"})
+    registry = PanelRegistry()
+
+    load_project_panels(registry, project)
+
+    assert registry.project_default_for("DataFrame") == "legacy.table"
+    assert registry.diagnostics == []
+
+
+def test_when_both_declarations_exist_the_panel_named_one_is_used_entire(tmp_path: Path) -> None:
+    """Not merged. Two files declaring the same defaults produce a state neither
+    of them describes, and "which file am I editing" then has no answer. The
+    diagnostic says which one won, because a person who copied one to the other
+    has to be able to find that out."""
+    project = _project_with(
+        tmp_path, LEGACY_PROJECT_PANELS_MANIFEST, {"DataFrame": "legacy.table", "Series": "legacy.line"}
+    )
+    (project / PROJECT_PANELS_MANIFEST).write_text(
+        json.dumps({"default_panels": {"DataFrame": "current.table"}}), encoding="utf-8"
+    )
+    registry = PanelRegistry()
+
+    load_project_panels(registry, project)
+
+    assert registry.project_default_for("DataFrame") == "current.table"
+    assert registry.project_default_for("Series") is None, "the ignored file contributes nothing at all"
+    assert any(PROJECT_PANELS_MANIFEST in message for message in registry.diagnostics)
+    assert any(LEGACY_PROJECT_PANELS_MANIFEST in message for message in registry.diagnostics)
+
+
+def test_the_older_declaration_is_never_rewritten_or_deleted(tmp_path: Path) -> None:
+    """Reverting to an earlier build must find the file exactly as it was."""
+    project = _project_with(tmp_path, LEGACY_PROJECT_PANELS_MANIFEST, {"DataFrame": "legacy.table"})
+    (project / PROJECT_PANELS_MANIFEST).write_text(json.dumps({"default_panels": {}}), encoding="utf-8")
+    before = (project / LEGACY_PROJECT_PANELS_MANIFEST).read_bytes()
+
+    load_project_panels(PanelRegistry(), project)
+
+    assert (project / LEGACY_PROJECT_PANELS_MANIFEST).read_bytes() == before
