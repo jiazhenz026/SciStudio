@@ -276,6 +276,12 @@
       "at": "2026-09-03T20:14:59.198713Z",
       "pattern": "src/scistudio/panels/registry.py",
       "reason": "Close the sixth silent break the compat agent found but did not own: PanelRegistry.set_previewer_choices and .previewer_choices were renamed, and the alias package re-exports the class, so an unmigrated caller got a bare AttributeError naming neither spelling."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T20:45:43.391023Z",
+      "pattern": "docs/audit/**",
+      "reason": "Bring the three review reports into the final PR's evidence path, as the dispatch rules require: an audit report that exists only on its own branch is not evidence the PR carries."
     }
   ],
   "session_id": "c235ce21-b19f-4ddf-9ec1-d0f9af6fe751",
