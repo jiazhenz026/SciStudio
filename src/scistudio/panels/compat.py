@@ -524,7 +524,7 @@ def is_compat_panel(panel: DiscoveredPanel | PanelManifest) -> bool:
 def compat_shim_root() -> Path:
     """Return the process's shim output root, creating it on first use.
 
-    A temporary directory rather than a place in the user library, and the
+    A scratch directory rather than a place in the user library, and the
     choice is deliberate: everything under it is *derived* from a package's
     bundle and is rewritten on every registry rebuild, so it must not look like
     something a person edits, must not survive an uninstall, and must not need a
@@ -681,7 +681,7 @@ def build_compat_panel(spec: PanelSpec, *, root: Path | None = None) -> Discover
         # a user-library or project drop-in previewer as tier `user` or
         # `project` — the two tiers `save_panel_source` writes back *in place*.
         # In place, here, means inside `compat_shim_root()`, which is a process
-        # temporary directory regenerated on every registry build: the save
+        # scratch directory regenerated on every registry build: the save
         # reported success, the frame remounted from the just-written file, and
         # the edit was gone at the next `POST /api/panels/reload`. FR-028 exists
         # to make a failed edit explicit, and a silent discard that reads as a

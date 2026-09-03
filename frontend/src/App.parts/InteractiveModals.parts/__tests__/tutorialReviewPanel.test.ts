@@ -45,9 +45,9 @@ const DOCUMENT = readFileSync(
 );
 
 /** Everything between `<body>` and the document's own `<script>`. */
-const BODY_MARKUP = (/<body>([\s\S]*?)<script>/.exec(DOCUMENT) ?? [])[1] ?? "";
+const BODY_MARKUP = (/<body>([\s\S]*?)<script>/i.exec(DOCUMENT) ?? [])[1] ?? "";
 /** The document's script, which is the whole panel. */
-const PANEL_SCRIPT = (/<script>([\s\S]*?)<\/script>/.exec(DOCUMENT) ?? [])[1] ?? "";
+const PANEL_SCRIPT = (/<script>([\s\S]*?)<\/script>/i.exec(DOCUMENT) ?? [])[1] ?? "";
 
 interface PanelMessage {
   readonly type: string;

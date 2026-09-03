@@ -426,7 +426,7 @@ def manifest_from_declaration(raw: object, directory: Path | str) -> PanelManife
     read from, which is what every refusal names. The six fields in
     :data:`REQUIRED_DECLARATION_FIELDS` must be present and non-empty; the rest
     take the D-007 defaults. Anything else in the body is ignored, so a
-    declaration written against a later version of the form still loads rather
+    declaration written against a newer version of the form still loads rather
     than being refused for a field this build has never heard of.
 
     Raises:
