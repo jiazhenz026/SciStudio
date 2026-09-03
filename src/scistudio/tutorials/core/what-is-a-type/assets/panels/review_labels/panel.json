@@ -1,0 +1,11 @@
+{
+  "panel_id": "tutorial.review_labels",
+  "display_name": "Review Labels",
+  "target_types": [],
+  "capability": "producing",
+  "entry": "index.html",
+  "api_version": "1",
+  "features": ["label_review", "batch"],
+  "priority": 0,
+  "supports_collection": false
+}

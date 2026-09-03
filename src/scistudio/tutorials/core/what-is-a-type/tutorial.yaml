@@ -593,9 +593,14 @@ steps:
         - write:
             source: assets/code/review_labels.py
             destination: blocks/review_labels.py
+        # ADR-054 spec 1 (#2229): a panel is a directory holding a declaration
+        # and one self-contained document, discovered from the project's own
+        # ``panels/`` root under the id its declaration carries. The destination
+        # is therefore the panel id, not a name beside the block: that is what
+        # the merged asset route resolves when the block pauses.
         - copy:
             source: assets/panels/review_labels
-            destination: blocks/review_labels_panel
+            destination: panels/tutorial.review_labels
     say:
       - "curious: If only we could delete that little dot by hand..."
       - "success: Actually, SciStudio lets a block be interactive!! We can absolutely add a block for editing by hand after it!!"

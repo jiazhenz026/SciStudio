@@ -1,0 +1,77 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "feat/2229-tutorial-panel-migration",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/tutorials/core/what-is-a-type/assets/panels/review_labels/**",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/code/review_labels.py",
+      "src/scistudio/tutorials/core/what-is-a-type/tutorial.yaml",
+      "tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "frontend/src/App.parts/InteractiveModals.parts/__tests__/tutorialReviewPanel.test.ts"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-03T17:35:21.857352Z",
+      "class": "docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the spec (docs/specs/adr-054-panel-contract.md section 4.2, A-009) already documents this migration and is out of this agent's scope; the tutorial's own reader-facing prose is unchanged, and the block/panel documentation lives in the migrated files' own docstrings and header comment.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Migrate the what-is-a-type tutorial's review_labels panel from the retired ADR-051 module form to the on-disk panel directory form, per section 4.2 and assumption A-009 of docs/specs/adr-054-panel-contract.md.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-feat-2229-tutorial-panel-migration",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "154d9a63-3cf9-4447-90d5-9ebb33f6198d",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-03T17:35:21.857376Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T17:35:21.857383Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/InteractiveModals.parts/__tests__/tutorialReviewPanel.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
