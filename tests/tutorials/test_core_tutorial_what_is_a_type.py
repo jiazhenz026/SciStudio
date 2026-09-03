@@ -844,6 +844,7 @@ def test_the_panel_manifest_names_the_panel_by_id_alone(assets: dict[str, Module
     directory it addresses must exist, in the on-disk form, in this tutorial's
     assets.
     """
+    from scistudio.core.panels import PANEL_API_VERSION
     from scistudio.panels.descriptor import panel_descriptor
 
     panel = assets["review"].ReviewLabelsBlock.interactive_panel
@@ -851,7 +852,7 @@ def test_the_panel_manifest_names_the_panel_by_id_alone(assets: dict[str, Module
     assert panel.module_url == ""
     assert panel.css == ()
     assert panel.entry == "index.html"
-    assert panel.api_version == "1"
+    assert panel.api_version == PANEL_API_VERSION
 
     # The descriptor the paused block hands the host: the merged route, this
     # panel's id, this manifest's entry.
@@ -875,19 +876,21 @@ def test_the_panel_declaration_is_the_on_disk_form() -> None:
     point is not that the file parses but that the discovery walk which will
     find it in the reader's project accepts it, with every field FR-003 requires.
     """
-    from scistudio.core.panels import PanelCapability, read_panel_declaration
+    from scistudio.core.panels import PANEL_API_VERSION, PanelCapability, read_panel_declaration
 
     manifest = read_panel_declaration(ASSETS / "panels" / "review_labels")
     assert manifest.panel_id == "tutorial.review_labels"
     assert manifest.display_name == "Review Labels"
     assert manifest.capability is PanelCapability.PRODUCING
     assert manifest.entry == "index.html"
-    assert manifest.api_version == "1"
+    assert manifest.api_version == PANEL_API_VERSION
     # Addressed by the block that opens it, never by a data type (FR-017).
     assert manifest.target_types == ()
 
 
 def test_the_panel_document_implements_the_panel_contract() -> None:
+    from scistudio.core.panels import PANEL_API_VERSION
+
     """A strictly self-contained producing document: the envelope, and one emission.
 
     The replacement for the assertions that pinned the ES-module form
@@ -922,7 +925,11 @@ def test_the_panel_document_implements_the_panel_contract() -> None:
 
     # D-011: the envelope, the one API version, and the per-mount token check.
     assert "var PANEL_MESSAGE_MARKER = 1;" in executable
-    assert 'var PANEL_API_VERSION = "1";' in executable
+    # #2229: the constant, not the value spelled again. FR-034 forbids the
+    # shared import that would let this document read it, so this assertion is
+    # the whole coupling between the twelfth panel document and SC-001's one
+    # constant -- a literal here would have survived a version bump green.
+    assert f'var PANEL_API_VERSION = "{PANEL_API_VERSION}";' in executable
     assert "if (data.scistudio_panel !== PANEL_MESSAGE_MARKER) return;" in executable
     assert "if (data.token !== token) return;" in executable
     # D-017: it answers `init` with `ready` and honours `teardown`.

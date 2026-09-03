@@ -9,6 +9,13 @@ the discovery walk, or the declaration model. Those are in flight in a sibling
 task; a test that imported them would fail for reasons that have nothing to do
 with whether the eleven documents are correct, and would stop being a check on
 the documents at all. Everything here reads the tree.
+
+The one exception is :data:`~scistudio.core.panels.PANEL_API_VERSION`, and it
+is an exception for the reason the rest of the rule exists. SC-001 permits one
+version constant in the tree while FR-034 forbids the shared import that would
+let the shipped documents read it, so the documents restate it — and this suite
+is the only thing coupling them back. Restating it here too would have made
+that coupling a coincidence rather than a check (#2229).
 """
 
 from __future__ import annotations
@@ -20,12 +27,23 @@ from pathlib import Path
 
 import pytest
 
+from scistudio.core.panels import PANEL_API_VERSION
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BUILTIN_ROOT = REPO_ROOT / "src" / "scistudio" / "panels" / "builtin"
 
 #: The API version every built-in document declares. One constant, and the
-#: backend owns it (D-010); this is the value the documents were written to.
-EXPECTED_API_VERSION = "1"
+#: backend owns it (D-010) — so this *is* that constant, imported, rather than
+#: the value spelled a thirteenth time (#2229).
+#:
+#: SC-001 allows exactly one panel API version constant in the tree, and
+#: FR-034/A-004 forbid the shared runtime import that would let the twelve
+#: shipped documents read it, so the duplication is **forced** and this coupling
+#: is the only thing holding it. A literal here made the test pass for the wrong
+#: reason: bumping ``PANEL_API_VERSION`` left this suite green while every
+#: built-in failed ``isAcceptedApiVersion`` at mount and the whole preview
+#: surface fell to the fallback path.
+EXPECTED_API_VERSION = PANEL_API_VERSION
 
 #: The nine displaying panels: id -> (target types, provider attribute).
 DISPLAYING_PANELS: dict[str, tuple[tuple[str, ...], str]] = {
