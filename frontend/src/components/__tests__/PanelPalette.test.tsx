@@ -91,7 +91,7 @@ function makeChoice(overrides: Partial<PanelChoice> = {}): PanelChoice {
  *  a test that sets choices afterwards must not have them overwritten by a
  *  late fetch landing mid-assertion. */
 async function renderPalette(panels: PanelSpecSummary[] = CATALOGUE) {
-  listPanels.mockResolvedValue({ previewers: panels, diagnostics: [] });
+  listPanels.mockResolvedValue({ panels: panels, diagnostics: [] });
   act(() => {
     useAppStore.getState().setPanels(panels, []);
     useAppStore.getState().setPanelChoices([]);
@@ -108,7 +108,7 @@ function card(id: string): HTMLElement {
 beforeEach(() => {
   resetAppStore();
   resetPanelCatalogLoader();
-  listPanels.mockResolvedValue({ previewers: [], diagnostics: [] });
+  listPanels.mockResolvedValue({ panels: [], diagnostics: [] });
   listPanelChoices.mockResolvedValue({ choices: [] });
   reloadPanels.mockResolvedValue({ reloaded: 0, added: [], removed: [], diagnostics: [] });
   setPanelChoice.mockResolvedValue({ choices: [] });
@@ -172,7 +172,7 @@ describe("Panels tab — reload (#2095)", () => {
     });
     listPanels.mockImplementation(() => {
       calls.push("list");
-      return Promise.resolve({ previewers: CATALOGUE, diagnostics: [] });
+      return Promise.resolve({ panels: CATALOGUE, diagnostics: [] });
     });
     // A preloaded store makes the mount an auto-rescan revisit (#2151) — that
     // settle is the baseline the click adds to. (Not `renderPalette`: its
@@ -208,7 +208,7 @@ describe("Panels tab — auto-reload on section switch (#2151)", () => {
       useAppStore.getState().setPanels(CATALOGUE, []);
       useAppStore.getState().setPanelChoices([]);
     });
-    listPanels.mockResolvedValue({ previewers: CATALOGUE, diagnostics: [] });
+    listPanels.mockResolvedValue({ panels: CATALOGUE, diagnostics: [] });
     render(<PanelPalette />);
     await act(async () => {});
     expect(reloadPanels).toHaveBeenCalledTimes(1);
@@ -227,7 +227,7 @@ describe("Panels tab — auto-reload on section switch (#2151)", () => {
       useAppStore.getState().setPanels(CATALOGUE, []);
       useAppStore.getState().setPanelChoices([]);
     });
-    listPanels.mockResolvedValue({ previewers: CATALOGUE, diagnostics: [] });
+    listPanels.mockResolvedValue({ panels: CATALOGUE, diagnostics: [] });
     render(
       <StrictMode>
         <PanelPalette />

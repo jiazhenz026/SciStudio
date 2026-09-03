@@ -54,7 +54,7 @@ beforeEach(() => {
   resetAppStore();
   resetPanelCatalogLoader();
   listPanels.mockReset();
-  listPanels.mockResolvedValue({ previewers: [], diagnostics: [] });
+  listPanels.mockResolvedValue({ panels: [], diagnostics: [] });
   listPanelChoices.mockReset();
   listPanelChoices.mockResolvedValue({ choices: [] });
   reloadPanels.mockReset();
@@ -114,7 +114,7 @@ describe("rescanPanels — the Reload button", () => {
     });
     listPanels.mockImplementation(() => {
       calls.push("list");
-      return Promise.resolve({ previewers: [], diagnostics: [] });
+      return Promise.resolve({ panels: [], diagnostics: [] });
     });
 
     await rescanPanels();
