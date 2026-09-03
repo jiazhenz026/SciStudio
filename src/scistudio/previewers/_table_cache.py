@@ -2,8 +2,8 @@
 
 Private core machinery that resolved under ``scistudio.previewers`` before the
 rename. It carries no promise at all — the leading underscore says so — but it
-imported, and the alias package's job is that no path that used to import
-silently stops (FR-020). Recorded here so the retired module list is complete
+imported, and this alias package exists so that no path which used to import
+silently stops resolving (FR-020). Recorded here so the retired module list is complete
 rather than judged one module at a time.
 
 The cache dict and its lock are re-exported by reference, not copied, so there
