@@ -56,11 +56,13 @@ recorded as unverified.
 ## Inventory
 
 Every test under `tests/previewers/**` and the four pre-migration API test files
-on `origin/main`: **165 test functions across 18 files**.
+on `origin/main`: **204 test functions across 18 files**.
 
 Mechanical check, with `previewer`→`panel` normalised away: **every one has a
-same-named counterpart in the new tree. Nothing was dropped.** Fifteen of the
-eighteen files are byte-identical modulo the rename.
+same-named counterpart in the new tree. Nothing was dropped.** Eleven of the
+eighteen files are byte-identical modulo the rename and four more differ only
+in trailing whitespace, leaving three with real content changes — which is
+where every finding below came from.
 
 | Pre-migration file | → now | Tests | Status |
 |---|---|---|---|
@@ -164,8 +166,46 @@ and then its factory raises.
 Wire shape changed with it: `spec.to_dict()` and the listing endpoint now emit
 `features` where they emitted `capabilities`.
 
+This is not only a legacy-disk concern. `docs/package-development/previewers.md`
+— the shipped package-authoring guide, byte-identical to `origin/main` — still
+teaches the broken call at line 43:
+
+```python
+PreviewerSpec(
+    ...
+    capabilities=("plot", "navigate", "diagnostics", "export"),
+)
+```
+
+A package author following the in-repo guide today writes code that raises.
+Replacing that guide is tracked (`docs/specs/adr-054-documentation.md` FR-012
+marks it for deletion), so the stale doc itself is scheduled work rather than an
+oversight — but replacing the guide does not translate `capabilities=` for the
+drop-ins and packages already written against it, which is what the alias
+package exists to protect and what this finding is about.
+
 Left red: `tests/panels/test_unmigrated_author_surface.py::test_a_pre_rename_spec_still_accepts_the_capabilities_keyword`
 and `::test_a_pre_rename_dropin_on_disk_still_registers`.
+
+**What this finding is not.** The whole preview subsystem is declared
+*provisional* — `models.py` says so in its own module docstring, and the
+ADR-052 surface snapshot records `PanelSpec` at `tier: provisional` on both
+trees. A breaking field rename is therefore *permitted* by the stability
+policy, and this is not a contract violation. The finding is narrower and,
+I think, still worth acting on: the alias package exists specifically so that
+"an unmigrated package or an on-disk drop-in still loads", and for any spec
+that declares features it does not achieve that; the break is silent from the
+person's side (a diagnostic in a log, an absent entry in the palette); and
+`PANEL_API_VERSION` stayed `1`, so there is no version signal a package could
+have keyed on. Whether to add a keyword shim, bump the API version, or accept
+the break and say so is a design call, not mine — but it should be a call
+someone makes rather than a thing that happens.
+
+Note also that `scistudio.previewers` no longer appears in
+`tests/adr052_contract/expected_surface.json` at all, so the contract suite
+does not cover the alias package in either direction. The two green tests in
+the new file are the only automated statement that the entry-point group name
+and the drop-in directory name are compatibility surfaces.
 
 ### P1 — positional construction is silently mis-bound
 
@@ -219,6 +259,12 @@ Left red: `::test_the_alias_package_still_exposes_load_choices`.
   end-to-end on both trees. Behaviour is correct; only its defence was thin.
 - **`previewer_id` was *not* renamed** on the spec or on the wire, so that half
   of the authoring surface is untouched.
+- **The failure surface is byte-identical on the wire.** `PreviewErrorCode` has
+  the same eight members with the same values on both trees, including
+  `unknown_previewer` and `duplicate_previewer_id`, which were deliberately left
+  un-renamed. A frontend or a log reader keying on those codes is unaffected.
+  Covered by the migrated suite; not mutation-verified, because the codes are
+  data rather than behaviour.
 
 ## Tests added
 

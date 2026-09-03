@@ -1,5 +1,13 @@
 """What a panel author's *already written* code sees after the rename (#2229).
 
+FIVE OF THESE TESTS ARE RED ON PURPOSE. They are not broken tests and they are
+not waiting to be fixed by editing them. Each one reproduces a behaviour that
+``origin/main`` had and this branch does not, measured on both trees; the fix
+is a decision about the product, recorded in
+``docs/audit/2026-09-03-panel-migration-regression.md``. Softening one to green
+would certify the difference rather than report it. If the decision is that the
+break is accepted, delete the test and say so in the ADR — do not weaken it.
+
 ``scistudio.previewers`` survives as an alias package whose own docstring states
 its purpose: the ``scistudio.previewers`` entry-point group and its
 ``get_previewers()`` factory must keep being discovered, and "the user-library
