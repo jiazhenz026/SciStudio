@@ -113,23 +113,30 @@ def test_the_asset_route_is_the_only_one_that_answers_cross_origin(client: TestC
 @pytest.mark.parametrize(
     "asset_path",
     [
-        "../../../../etc/passwd",
         "..%2f..%2fpanel.json",
         "%2e%2e%2f%2e%2e%2fpanel.json",
-        "assets/../../../panel.json",
+        "%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd",
+        "assets%2f..%2f..%2f..%2fpanel.json",
         "..\\..\\panel.json",
     ],
 )
-def test_a_traversal_through_the_route_is_refused(client: TestClient, asset_path: str) -> None:
-    """The check the route delegates to, exercised through the wire it sits on.
+def test_an_encoded_traversal_through_the_route_is_refused(client: TestClient, asset_path: str) -> None:
+    """The escape as it actually arrives: percent-encoded.
 
-    Percent-encoded forms are decoded by the ASGI layer before the check sees
-    them, so these are the same escape wearing different spellings — which is
-    exactly why they are asserted here and not only against the function.
+    A literal ``../..`` never reaches the server — every HTTP client, this one
+    included, resolves it against the base URL before the request is sent, so
+    asserting it here would assert the client's behaviour rather than the
+    route's. The encoded spellings survive the client intact and are decoded by
+    the ASGI layer into ``..`` just before the confinement check sees them,
+    which is exactly the case worth pinning at this level. The unencoded forms
+    are covered against the check itself in
+    ``tests/panels/test_panel_asset_route.py``.
     """
     response = client.get(f"/api/panels/assets/core.base.fallback/{asset_path}")
     assert response.status_code in {400, 404}
-    assert "passwd" not in response.text or response.status_code != 200
+    # A refusal, not a file: the body is the route's diagnostic rather than
+    # whatever the traversal was reaching for.
+    assert response.headers["content-type"].startswith("application/json")
 
 
 def test_a_panel_id_that_is_a_traversal_is_refused(client: TestClient) -> None:
