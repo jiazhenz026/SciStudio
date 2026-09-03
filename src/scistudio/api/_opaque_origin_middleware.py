@@ -40,6 +40,7 @@ code for a case the routes know nothing about.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -113,7 +114,8 @@ class OpaqueOriginGuardMiddleware:
 
 def _header(scope: Scope, name: bytes) -> str | None:
     """Return one request header from *scope*, decoded, or ``None``."""
-    for key, value in scope.get("headers", []):
+    headers: Iterable[tuple[bytes, bytes]] = scope.get("headers", [])
+    for key, value in headers:
         if key.lower() == name:
             return value.decode("latin-1")
     return None
