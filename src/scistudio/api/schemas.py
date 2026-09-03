@@ -467,7 +467,7 @@ class DataOpenAsListResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# ADR-048 SPEC 1: routed previewer session API schemas.
+# ADR-048 SPEC 1: routed panel session API schemas.
 #
 # These mirror the canonical ``scistudio.previewers`` models on the wire. The
 # legacy one-shot ``DataPreviewResponse`` REST-preview body and its
@@ -477,7 +477,7 @@ class DataOpenAsListResponse(BaseModel):
 
 
 class PreviewTargetModel(BaseModel):
-    """Wire shape of a previewer :class:`PreviewTarget`."""
+    """Wire shape of a panel :class:`PreviewTarget`."""
 
     kind: str = Field(description="data_ref / collection_ref / artifact / plot_artifact.")
     ref: str = Field(description="Data, collection, or artifact reference (catalog id or path).")
@@ -501,7 +501,7 @@ class PreviewSessionPatch(BaseModel):
 
 
 class PreviewFrontendManifestModel(BaseModel):
-    """Wire shape of a previewer :class:`FrontendManifest` (same-origin only)."""
+    """Wire shape of a panel :class:`FrontendManifest` (same-origin only)."""
 
     previewer_id: str
     module_url: str
@@ -526,31 +526,31 @@ class PreviewEnvelopeModel(BaseModel):
     frontend_manifest: PreviewFrontendManifestModel | None = None
 
 
-class PreviewerChoiceModel(BaseModel):
-    """One recorded per-type previewer choice (#2049)."""
+class PanelChoiceModel(BaseModel):
+    """One recorded per-type panel choice (#2049)."""
 
     target_type: str
     """Type name the choice applies to. Exact: a choice on a type does not
     govern types that merely descend from it."""
     previewer_id: str
-    """Previewer the person picked for that type."""
+    """Panel the person picked for that type."""
     scope: str
     """``user`` or ``project`` -- which layer this effective choice came from.
     A project-layer choice overrides the user-layer choice for the same type."""
     available: bool
     """Whether ``previewer_id`` is registered right now. A choice whose
-    previewer was uninstalled stays recorded and reads ``false``; routing falls
+    panel was uninstalled stays recorded and reads ``false``; routing falls
     back to the ordinary precedence ladder until it returns."""
 
 
-class PreviewerChoiceListResponse(BaseModel):
+class PanelChoiceListResponse(BaseModel):
     """Response body for ``GET /api/previews/choices`` (#2049)."""
 
-    choices: list[PreviewerChoiceModel] = Field(default_factory=list)
+    choices: list[PanelChoiceModel] = Field(default_factory=list)
     """Effective choices after the project layer overrides the user layer."""
 
 
-class PreviewerChoiceRequest(BaseModel):
+class PanelChoiceRequest(BaseModel):
     """Request body for ``PUT /api/previews/choices/{target_type}`` (#2049)."""
 
     previewer_id: str
@@ -558,8 +558,8 @@ class PreviewerChoiceRequest(BaseModel):
     """``user`` (default, every project) or ``project`` (this project only)."""
 
 
-class PreviewerSpecModel(BaseModel):
-    """Wire shape of a :class:`PreviewerSpec` for capability discovery."""
+class PanelSpecModel(BaseModel):
+    """Wire shape of a :class:`PanelSpec` for capability discovery."""
 
     previewer_id: str
     owner_kind: str
@@ -567,33 +567,36 @@ class PreviewerSpecModel(BaseModel):
     target_type: str
     supports_collection: bool = False
     priority: int = 0
-    capabilities: list[str] = Field(default_factory=list)
+    features: list[str] = Field(default_factory=list)
     backend_provider: str | None = None
     frontend_manifest: PreviewFrontendManifestModel | None = None
     api_version: str = "1"
 
 
-class PreviewerListResponse(BaseModel):
+class PanelListResponse(BaseModel):
     """Response body for ``GET /api/previews/previewers`` (#2095).
 
-    ``PreviewerSpecModel`` was declared when the preview system landed and
-    never served; this is the route that makes previewer provenance answerable
+    ``PanelSpecModel`` was declared when the preview system landed and
+    never served; this is the route that makes panel provenance answerable
     the way the Data types tab answers it for types.
     """
 
-    previewers: list[PreviewerSpecModel] = Field(default_factory=list)
+    # ADR-054 spec 1 T-001: the wire field keeps its ``previewers`` spelling.
+    # Bringing the endpoints under the panel naming is FR-023 behaviour work,
+    # not part of the rename commit.
+    previewers: list[PanelSpecModel] = Field(default_factory=list)
     """Registered specs, ordered project -> user -> package -> core, then by id."""
     diagnostics: list[str] = Field(default_factory=list)
-    """Discovery problems recorded during the scan: a duplicate previewer id, a
+    """Discovery problems recorded during the scan: a duplicate panel id, a
     drop-in refused for a module-name collision, an entry point that failed to
     import. Nothing surfaced these before, so a refused drop-in was silent."""
 
 
-class PreviewerReloadResponse(BaseModel):
+class PanelReloadResponse(BaseModel):
     """Response body for ``POST /api/previews/reload`` (#2095)."""
 
     reloaded: int
-    """Number of previewer specs registered after the rebuild."""
+    """Number of panel specs registered after the rebuild."""
     added: list[str] = Field(default_factory=list)
     removed: list[str] = Field(default_factory=list)
     diagnostics: list[str] = Field(default_factory=list)
@@ -625,7 +628,7 @@ class PreviewResourceSaveResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # ADR-048 SPEC 2 / #1606: plot-job run + preview wiring.
 #
-# These wire the producer (run_plot_job) to the consumer (PlotPreviewer): the
+# These wire the producer (run_plot_job) to the consumer (PlotPanel): the
 # run route executes the plot job and, on success, registers the produced
 # artifact as a previewable catalog record so the frontend can open a routed
 # ``plot_artifact`` preview session through the existing previews API.
@@ -720,7 +723,7 @@ class PlotRunResponse(BaseModel):
 
     On success ``data_ref`` is the catalog id the frontend passes to
     ``POST /api/previews/sessions`` (with ``target.kind="plot_artifact"``) to
-    render the produced artifact through the core ``PlotPreviewer``. It is
+    render the produced artifact through the core ``PlotPanel``. It is
     ``None`` when the plot run failed / produced no artifact, in which case
     ``status`` plus ``errors`` explain why.
     """
@@ -839,9 +842,9 @@ class ErrorResponse(BaseModel):
 
 #: FR-006: the three user-library targets, chosen by the caller and never
 #: inferred. The values are the drop-in child directory names from
-#: :mod:`scistudio.core.dropins`. ``previewers`` joined when the
-#: tutorial-scoped library grew its previewer tier (Learning Center FR-070,
-#: #2086), so promoting a project previewer resolves through the same route —
+#: :mod:`scistudio.core.dropins`. ``panels`` joined when the
+#: tutorial-scoped library grew its panel tier (Learning Center FR-070,
+#: #2086), so promoting a project panel resolves through the same route —
 #: and the same library-root swap — as blocks and types.
 UserLibraryTarget = Literal["blocks", "types", "previewers"]
 

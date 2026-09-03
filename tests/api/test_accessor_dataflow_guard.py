@@ -3,7 +3,7 @@
 ADR-052 §3.1 adds ``to_pandas()`` / ``to_numpy()`` for *author* convenience
 only. The core data-flow path — loaders, savers, auto-flush, worker
 serialization/reconstruction, checkpointing, the scheduler/engine, and the
-previewer bounded reads — must operate on the canonical form via ``to_memory()``
+panel bounded reads — must operate on the canonical form via ``to_memory()``
 (Arrow / ndarray), never through the ergonomic accessors. The single sanctioned
 pandas-using exception is the Excel (``.xlsx``) reader/writer (#1810, PR #1815),
 which must use pandas/openpyxl at the format boundary because ``pyarrow`` cannot
@@ -35,7 +35,7 @@ _DATA_FLOW_TARGETS: tuple[str, ...] = (
     "engine/runners/local.py",
     "engine/checkpoint.py",
     "engine/scheduler",
-    "previewers/data_access.py",  # bounded reads
+    "panels/data_access.py",  # bounded reads
 )
 
 # Locations allowed to contain an accessor-name token, with the reason. Keys are
@@ -75,7 +75,7 @@ def test_data_flow_target_layout_is_present() -> None:
         "blocks/io/savers",
         "blocks/base/block.py",
         "core/types/serialization.py",
-        "previewers/data_access.py",
+        "panels/data_access.py",
     )
     missing = [t for t in required if not (_SRC / t).exists()]
     assert not missing, f"expected core data-flow modules are missing (scan would be hollow): {missing}"

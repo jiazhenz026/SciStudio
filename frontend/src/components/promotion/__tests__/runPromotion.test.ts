@@ -100,21 +100,21 @@ describe("runPromotion — which outcomes the user is told about", () => {
     expect(revealInLibrary).toHaveBeenCalledWith("blocks");
   });
 
-  it("confirms a promoted previewer without a reveal — it has no palette tab", async () => {
-    // Learning Center #2086: previewers have no left-panel section, and
+  it("confirms a promoted panel without a reveal — it has no palette tab", async () => {
+    // Learning Center #2086: panels have no left-panel section, and
     // switching to the Blocks tab would teach the wrong location. The inline
     // confirmation still runs.
     const { runPromotion } = await import("../runPromotion");
-    const previewerItem: PromotableItem = {
+    const panelItem: PromotableItem = {
       target: "previewers",
       kind: "previewer",
       label: "image_viewer",
       origin: "project",
       source: { from: "projectFile", path: "previewers/image_viewer.py" },
     };
-    promote.mockResolvedValue({ ...outcome("promoted"), item: previewerItem });
+    promote.mockResolvedValue({ ...outcome("promoted"), item: panelItem });
 
-    await runPromotion(previewerItem);
+    await runPromotion(panelItem);
 
     expect(revealInLibrary).not.toHaveBeenCalled();
     expect(showPromotionResult).toHaveBeenCalledTimes(1);

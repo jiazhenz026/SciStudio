@@ -1,8 +1,8 @@
 /**
  * ADR-051 — same-origin dynamic *interactive panel* module loading.
  *
- * This mirrors the ADR-048 previewer loader
- * ({@link ../../components/DataPreview.parts/dynamicPreviewer.ts}) but for the
+ * This mirrors the ADR-048 panel loader
+ * ({@link ../../components/DataPreview.parts/dynamicPanel.ts}) but for the
  * interactive-block panel host. A package-provided interactive block ships its
  * window as an ESM module served by the backend under a same-origin, backend-
  * relative `module_url` (e.g. `/api/interactive/panels/<panel_id>/<file>.js`).
@@ -112,7 +112,7 @@ const defaultImporter: ModuleImporter = (moduleUrl) =>
  * `module_url` is a site-relative path. Absolute http(s)/protocol-relative/
  * data/blob URLs are rejected — no remote or inline code is ever imported.
  *
- * Duplicated from the ADR-048 previewer loader so the panel host stays
+ * Duplicated from the ADR-048 panel loader so the panel host stays
  * self-contained (no cross-feature import).
  */
 export function isSameOriginModuleUrl(moduleUrl: string): boolean {

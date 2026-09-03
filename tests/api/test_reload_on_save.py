@@ -11,7 +11,7 @@ Covers the contract:
 ADR-053 FR-062 / #2022 widened the hook twice: ``{project}/types`` is a
 drop-in tier exactly as ``{project}/blocks`` is, so a save there now reaches
 the hook at all; and the reload is the unified ``refresh_all_registries()``
-rather than ``block_registry.hot_reload()``, so a type or previewer change is
+rather than ``block_registry.hot_reload()``, so a type or panel change is
 picked up the way a block change is. The behavioural half of that is pinned in
 ``tests/api/test_registry_reload_symmetry.py``; these tests pin the hook's own
 gating, which is why they moved from spying on ``hot_reload`` to spying on the

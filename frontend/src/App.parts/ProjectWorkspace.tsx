@@ -29,7 +29,7 @@ import { CodeEditor } from "../components/CodeEditor";
 import { DataPreview } from "../components/DataPreview";
 import { PreviewHost } from "../components/DataPreview.parts/PreviewHost";
 import { PaletteTipCard } from "../components/palette/tips/PaletteTipCard";
-import { PreviewerPalette } from "../components/PreviewerPalette";
+import { PanelPalette } from "../components/PanelPalette";
 import { ProjectTree } from "../components/ProjectTree";
 import { useLibraryReveal } from "../components/promotion/revealInLibrary";
 import { TabBar } from "../components/TabBar";
@@ -198,7 +198,7 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
       {leftTab === "types" ? (
         <TypePalette />
       ) : leftTab === "previewers" ? (
-        <PreviewerPalette />
+        <PanelPalette />
       ) : leftTab === "blocks" ? (
         <BlockPalette
           blocks={blocks}
@@ -276,9 +276,9 @@ function deriveRunScope(props: ProjectWorkspaceProps): {
 function PreviewTabPane({ tab, projectId }: { tab: PreviewTab; projectId: string }) {
   const previewEnvelopeCache = useAppStore((s) => s.previewEnvelopeCache);
   const cachePreviewEnvelope = useAppStore((s) => s.cachePreviewEnvelope);
-  // #2113 — a previewer choice change re-routes the open session here exactly
+  // #2113 — a panel choice change re-routes the open session here exactly
   // as it does in the sidebar preview.
-  const previewerChoiceVersion = useAppStore((s) => s.previewerChoiceVersion);
+  const panelChoiceVersion = useAppStore((s) => s.panelChoiceVersion);
   const openAs = tab.openAs;
   return (
     <div
@@ -313,7 +313,7 @@ function PreviewTabPane({ tab, projectId }: { tab: PreviewTab; projectId: string
         <PreviewHost
           target={tab.target}
           initialQuery={tab.initialQuery}
-          routingEpoch={previewerChoiceVersion}
+          routingEpoch={panelChoiceVersion}
           getCachedEnvelope={(key) => previewEnvelopeCache[key]}
           cacheEnvelope={cachePreviewEnvelope}
           buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}

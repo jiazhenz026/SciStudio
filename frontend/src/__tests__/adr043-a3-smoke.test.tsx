@@ -16,7 +16,7 @@
 //      source OME has fields the target capability cannot persist.
 //
 // The legacy "OME metadata panel" click-path was removed under ADR-048
-// (#1604); the rich OME surface is now the imaging package previewer's job.
+// (#1604); the rich OME surface is now the imaging package panel's job.
 //
 // The manual in-app browser checklist (vite preview against a running
 // backend) lives next to this file at
@@ -159,7 +159,7 @@ describe("ADR-043 Phase A3 smoke — capability dropdown ambiguity (FR-012)", ()
 // NOTE(#1604): the "OME metadata panel toggle" smoke scenario that lived here
 // covered the legacy `OMEMetadataPanel` + `useOmeMetadata` surface. That panel
 // is removed under ADR-048 (no-compat, #1594): the rich image-domain OME
-// surface is now owned by the imaging package previewer (`imaging.image.viewer`
+// surface is now owned by the imaging package panel (`imaging.image.viewer`
 // → `image_metadata` / `has_ome` rendered by the packaged `viewer.js` through
 // the mounted PreviewHost). The SaveImage lossy-OME-write surface below is a
 // distinct, still-live path (`extractOMEFromMetadata` in `api/capabilities`).

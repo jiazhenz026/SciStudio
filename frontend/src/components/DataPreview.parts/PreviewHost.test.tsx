@@ -40,7 +40,7 @@ vi.mock("../../lib/api", () => ({
 
 import { PreviewHost } from "./PreviewHost";
 import { buildPreviewCacheKey } from "../../store/previewSlice";
-import { isSameOriginModuleUrl } from "./dynamicPreviewer";
+import { isSameOriginModuleUrl } from "./dynamicPanel";
 
 function envelope(partial: Partial<PreviewEnvelope>): PreviewEnvelope {
   return {
@@ -131,12 +131,12 @@ describe("PreviewHost — session creation + core fallback", () => {
     createPreviewSession.mockResolvedValue(
       envelope({
         kind: "error",
-        error: { code: "unknown_target", message: "no previewer matched" },
+        error: { code: "unknown_target", message: "no panel matched" },
       }),
     );
     render(<PreviewHost target={TARGET} />);
     expect(await screen.findByTestId("core-error-viewer")).toBeInTheDocument();
-    expect(screen.getByText(/no previewer matched/)).toBeInTheDocument();
+    expect(screen.getByText(/no panel matched/)).toBeInTheDocument();
     expect(screen.getByText(/unknown_target/)).toBeInTheDocument();
   });
 
@@ -421,11 +421,11 @@ describe("PreviewHost — DataFrame pagination/sort through the routed session (
 });
 
 describe("FR-021 cache key + FR-022 same-origin validation", () => {
-  it("buildPreviewCacheKey includes ref, kind, previewer, session, query, version", () => {
+  it("buildPreviewCacheKey includes ref, kind, panel, session, query, version", () => {
     const key = buildPreviewCacheKey(
       { kind: "data_ref", ref: "data-1" },
       { slice_index: 3, page: 2, axis_indices: { "0": 1, "1": 4 }, _storage: { x: 1 } },
-      { previewerId: "core.array.basic", sessionId: "pv-9", dataVersion: "v7" },
+      { panelId: "core.array.basic", sessionId: "pv-9", dataVersion: "v7" },
     );
     expect(key).toContain("data-1");
     expect(key).toContain("data_ref");
@@ -484,7 +484,7 @@ describe("PreviewHost — session-envelope cache (FR-021)", () => {
     expect(getCachedEnvelope).not.toHaveBeenCalled();
     expect(cacheEnvelope).toHaveBeenCalledTimes(1);
     const [key] = cacheEnvelope.mock.calls[0];
-    expect(String(key)).toContain("previewer=core.text.basic");
+    expect(String(key)).toContain("panel=core.text.basic");
     expect(String(key)).toContain("session=pv-1");
   });
 
@@ -541,7 +541,7 @@ describe("PreviewHost — session-envelope cache (FR-021)", () => {
     expect(await screen.findByTestId("core-array-viewer")).toBeInTheDocument();
     let keys = cacheEnvelope.mock.calls.map(([key]) => String(key));
     expect(keys).toHaveLength(1);
-    expect(keys[0]).toContain("previewer=core.array.basic");
+    expect(keys[0]).toContain("panel=core.array.basic");
     expect(keys[0]).toContain("session=pv-1");
     expect(keys[0]).toContain("version=v7");
     expect(keys[0]).not.toBe(buildPreviewCacheKey({ ...TARGET, recorded_type: "Array" }, {}));
@@ -558,7 +558,7 @@ describe("PreviewHost — session-envelope cache (FR-021)", () => {
     expect(
       keys.some(
         (key) =>
-          key.includes("previewer=core.array.basic") &&
+          key.includes("panel=core.array.basic") &&
           key.includes("session=pv-1") &&
           key.includes("version=v7") &&
           key.includes('axis_indices={"0":1,"1":4}'),

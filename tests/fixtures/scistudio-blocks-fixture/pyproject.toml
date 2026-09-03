@@ -33,5 +33,5 @@ fixture = "scistudio_blocks_fixture.previewers:get_previewers"
 [tool.hatch.build.targets.wheel]
 packages = ["src/scistudio_blocks_fixture"]
 artifacts = [
-    "src/scistudio_blocks_fixture/previewers/assets/*.js",
+    "src/scistudio_blocks_fixture/panels/assets/*.js",
 ]

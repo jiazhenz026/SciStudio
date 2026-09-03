@@ -494,14 +494,14 @@
       }
     }
   },
-  "scistudio.previewers.models": {
+  "scistudio.panels.models": {
     "mode": "subset",
     "spec_refs": [
       "spec \u00a78.1"
     ],
     "ambiguity": "Spec \u00a78.1 prose states the current __all__ declares 29 symbols and #1817 drops the 7 Internal rows; the enumerated table rows total 28 (21 Public + 7 Internal), an off-by-one vs the stated 29. The 21 Public rows below are explicitly enumerated; subset mode plus the no-internal-leak test (which forbids the 7 named Internal symbols) is the honest guard given the unreconciled count.",
     "symbols": {
-      "PREVIEWER_API_VERSION": {
+      "PANEL_API_VERSION": {
         "tier": "provisional",
         "since": "0.3.1"
       },
@@ -521,7 +521,7 @@
         "tier": "provisional",
         "since": "0.3.1"
       },
-      "PreviewerSpec": {
+      "PanelSpec": {
         "tier": "provisional",
         "since": "0.3.1"
       },
@@ -569,11 +569,11 @@
         "tier": "provisional",
         "since": "0.3.1"
       },
-      "PreviewerEntryPoint": {
+      "PanelEntryPoint": {
         "tier": "provisional",
         "since": "0.3.1"
       },
-      "PreviewerSpecList": {
+      "PanelSpecList": {
         "tier": "provisional",
         "since": "0.3.1"
       },
@@ -587,7 +587,7 @@
       }
     }
   },
-  "scistudio.previewers.data_access": {
+  "scistudio.panels.data_access": {
     "mode": "exact",
     "spec_refs": [
       "spec \u00a78.2"

@@ -313,7 +313,7 @@ def interactive_item_label(item: Any, index: int) -> str:
     the user to route or reorder. A generic ``item_<index>`` is meaningless when
     the user is matching items by which file they came from, so this delegates
     to :func:`scistudio.core.meta._display_name.resolve_display_name` — the
-    single canonical precedence authority shared with the previewer/API path
+    single canonical precedence authority shared with the panel/API path
     (#1812) — and supplies ``item_<index>`` as the last-resort fallback.
     """
     return resolve_display_name(item, fallback=f"item_{index}")

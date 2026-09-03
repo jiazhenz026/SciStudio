@@ -92,7 +92,7 @@ class CompositeStore:
         A read-only manifest lookup that returns one slot's recorded
         ``backend`` / ``path`` / ``format`` — the same per-slot reference that
         :meth:`read` and :meth:`slice` reconstruct. This is the authoritative
-        slot resolver, exposed so a bounded reader (e.g. a previewer) can read a
+        slot resolver, exposed so a bounded reader (e.g. a panel) can read a
         single slot without reconstructing the on-disk layout itself.
 
         Args:

@@ -2,7 +2,7 @@
 
 The standalone ``docs/block-development/**`` page set was removed in the ADR-052
 public-API landing (#1833). The checks that asserted on those deleted pages /
-examples (the previewer-and-plot page, the publishing page, the example sources)
+examples (the panel-and-plot page, the publishing page, the example sources)
 were removed with them. What remains here still has live targets:
 
 1. **Stale-phrase checks** over the surviving surface — the package scaffold
@@ -78,7 +78,7 @@ _FORBIDDEN_EDITABLE_INSTALL = re.compile(
     re.IGNORECASE,
 )
 _ENTRY_POINT_BLOCK = re.compile(
-    r'\[project\.entry-points\."(?P<group>scistudio\.(?:blocks|types|previewers))"\]\s*\n'
+    r'\[project\.entry-points\."(?P<group>scistudio\.(?:blocks|types|panels))"\]\s*\n'
     r"(?P<body>(?:\s*[A-Za-z0-9_.-]+\s*=\s*\"[^\"]+\"\s*\n?)+)",
     re.MULTILINE,
 )

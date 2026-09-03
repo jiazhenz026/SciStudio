@@ -35,8 +35,8 @@ from scistudio.api.schemas import (
 )
 from scistudio.blocks.base.ports import InputPort, OutputPort, validate_connection
 from scistudio.blocks.io._config_enrichment import enrich_io_config_schema, io_capable_type_names
-from scistudio.previewers.assets import resolve_asset
-from scistudio.previewers.models import MissingBundleError
+from scistudio.panels.assets import resolve_asset
+from scistudio.panels.models import MissingBundleError
 
 logger = logging.getLogger(__name__)
 

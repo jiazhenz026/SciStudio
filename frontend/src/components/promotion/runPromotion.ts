@@ -37,7 +37,7 @@ export async function runPromotion(item: PromotableItem): Promise<PromotionOutco
     // FR-020 — land the user looking at `My Library`, the section this whole
     // feature exists to teach. It brings that section into view; it does not
     // filter the palette down to the item, which read as the palette breaking.
-    // A previewer has no palette tab to reveal (#2086): the inline
+    // A panel has no palette tab to reveal (#2086): the inline
     // confirmation below still names it, and pretending the Blocks tab is its
     // section would teach the wrong location.
     revealInLibrary(item.target === "types" ? "types" : "blocks");

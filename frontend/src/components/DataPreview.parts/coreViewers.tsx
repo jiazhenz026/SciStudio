@@ -3,7 +3,7 @@
  *
  * One viewer per {@link EnvelopeKind} plus the {@link CoreFallbackRenderer}
  * dispatcher the {@link PreviewHost} mounts when an envelope carries no
- * validated previewer manifest (or a dynamic previewer failed to load).
+ * validated panel manifest (or a dynamic panel failed to load).
  *
  * These viewers read ONLY the bounded payload/metadata already on the
  * envelope (and, where interactive, the session helpers passed in). They are

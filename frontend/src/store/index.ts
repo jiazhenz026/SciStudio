@@ -9,7 +9,7 @@ import { createLearningCenterSlice } from "./learningCenterSlice";
 import { createLineageSlice } from "./lineageSlice";
 import { createPaletteSlice } from "./paletteSlice";
 import { createPreviewSlice } from "./previewSlice";
-import { createPreviewerCatalogSlice } from "./previewerCatalogSlice";
+import { createPanelCatalogSlice } from "./panelCatalogSlice";
 import { createProjectSlice } from "./projectSlice";
 import { createTabSlice } from "./tabSlice";
 import { createTerminalTabsSlice, rehydrateTerminalTabs } from "./terminalTabsSlice";
@@ -78,8 +78,8 @@ export const useAppStore = create<AppStore>()(
       ...createPaletteSlice(...args),
       // ADR-053 §7 — registered data type catalogue (FR-026 / FR-027).
       ...createTypesSlice(...args),
-      // #2113 — registered previewer catalogue + per-type choices.
-      ...createPreviewerCatalogSlice(...args),
+      // #2113 — registered panel catalogue + per-type choices.
+      ...createPanelCatalogSlice(...args),
       ...createTabSlice(...args),
       ...createTerminalTabsSlice(...args),
       // ADR-038 §3.8 — Lineage tab state.

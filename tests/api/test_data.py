@@ -2,8 +2,8 @@
 
 ADR-048 no-compat (#1604): the legacy ``GET /api/data/{ref}/preview`` route and
 its per-kind legacy-shape tests were removed. Preview behavior is covered
-through the routed session API in ``tests/api/test_previewers.py`` and the
-provider unit tests in ``tests/previewers/``.
+through the routed session API in ``tests/api/test_panels.py`` and the
+provider unit tests in ``tests/panels/``.
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ def test_upload_metadata_and_preview_for_csv_and_text(client: TestClient, opened
     ADR-048 no-compat (#1604): the legacy ``GET /api/data/{ref}/preview`` route
     was removed; this asserts upload + metadata registration. Preview behavior
     for each kind is covered through the routed session API in
-    ``tests/api/test_previewers.py``.
+    ``tests/api/test_panels.py``.
     """
     csv_response = client.post(
         "/api/data/upload",
@@ -246,8 +246,8 @@ def test_upload_streams_and_aborts_without_buffering_whole_body(
 # ADR-048 no-compat (#1604): the per-type legacy-preview-shape tests that lived
 # here (image/chart/composite/artifact via GET /api/data/{ref}/preview) were
 # removed with the route. Per-kind preview dispatch is covered through the
-# routed session API in ``tests/api/test_previewers.py`` and the provider unit
-# tests in ``tests/previewers/``.
+# routed session API in ``tests/api/test_panels.py`` and the provider unit
+# tests in ``tests/panels/``.
 
 
 # ---------------------------------------------------------------------------

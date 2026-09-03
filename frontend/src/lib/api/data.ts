@@ -1,5 +1,5 @@
 /**
- * Data-artifact REST endpoints (uploads, metadata) and the routed previewer
+ * Data-artifact REST endpoints (uploads, metadata) and the routed panel
  * session API. The legacy one-shot `getDataPreview` was removed under ADR-048
  * no-compat (#1604); previews flow through the session helpers below.
  *
@@ -25,10 +25,10 @@ import type {
   PreviewResourceSaveRequest,
   PreviewResourceSaveResponse,
   PreviewTarget,
-  PreviewerChoiceListResponse,
-  PreviewerChoiceScope,
-  PreviewerListResponse,
-  PreviewerReloadResponse,
+  PanelChoiceListResponse,
+  PanelChoiceScope,
+  PanelListResponse,
+  PanelReloadResponse,
 } from "../../types/api";
 import { JSON_HEADERS, apiFetch } from "./core";
 
@@ -40,9 +40,9 @@ import { JSON_HEADERS, apiFetch } from "./core";
  * after {@link dataApi.runPlotJob} registers the produced artifact and returns
  * its catalog `data_ref`, a caller passes the target this helper builds to
  * {@link PreviewHost}, which opens a routed preview session that resolves the
- * core PlotPreviewer (`core.plot.basic`) and renders the figure. The end-to-end
+ * core PlotPanel (`core.plot.basic`) and renders the figure. The end-to-end
  * runtime chain (run route -> catalog registration -> routed preview session ->
- * PlotPreviewer) is proven by `tests/api/test_plot_preview_wiring.py`.
+ * PlotPanel) is proven by `tests/api/test_plot_preview_wiring.py`.
  *
  * Returns `null` when the run did not produce a previewable artifact (failed /
  * cancelled / timed-out, or no `data_ref`) so callers render the failure state
@@ -59,12 +59,12 @@ export function plotTargetFromRunResponse(result: PlotRunResponse): PreviewTarge
   };
 }
 
-/** Build the same-origin URL for a validated previewer asset
+/** Build the same-origin URL for a validated panel asset
  *  (`GET /api/previews/assets/{previewer_id}/{asset_path}`). This is the ONLY
- *  origin a dynamic previewer module is permitted to load from (FR-022). */
-export function buildPreviewAssetUrl(previewerId: string, assetPath: string): string {
+ *  origin a dynamic panel module is permitted to load from (FR-022). */
+export function buildPreviewAssetUrl(panelId: string, assetPath: string): string {
   const cleaned = assetPath.replace(/^\/+/, "");
-  return `/api/previews/assets/${encodeURIComponent(previewerId)}/${cleaned}`;
+  return `/api/previews/assets/${encodeURIComponent(panelId)}/${cleaned}`;
 }
 
 export const dataApi = {
@@ -127,7 +127,7 @@ export const dataApi = {
     );
   },
 
-  // -- ADR-048 SPEC 1: routed previewer session API (additive, FR-007) ------
+  // -- ADR-048 SPEC 1: routed panel session API (additive, FR-007) ------
 
   /** Create a routed preview session for a target and return the first
    *  envelope (`POST /api/previews/sessions`). */
@@ -161,44 +161,40 @@ export const dataApi = {
       )}`,
     ),
 
-  // -- #2095: previewer discovery + reload; #2049: per-type choice -----------
+  // -- #2095: panel discovery + reload; #2049: per-type choice -----------
 
-  /** List registered previewers with the tier each was discovered from,
+  /** List registered panels with the tier each was discovered from,
    *  ordered in FR-003 routing precedence (`GET /api/previews/previewers`).
    *  `targetType` is an exact-match filter, not the router's specificity
    *  walk. */
-  listPreviewers: (targetType?: string) =>
-    apiFetch<PreviewerListResponse>(
+  listPanels: (targetType?: string) =>
+    apiFetch<PanelListResponse>(
       `/api/previews/previewers${targetType ? `?target_type=${encodeURIComponent(targetType)}` : ""}`,
     ),
 
-  /** Re-scan the drop-in previewer directories and rebuild the registries
+  /** Re-scan the drop-in panel directories and rebuild the registries
    *  (`POST /api/previews/reload`). */
-  reloadPreviewers: () =>
-    apiFetch<PreviewerReloadResponse>("/api/previews/reload", { method: "POST" }),
+  reloadPanels: () => apiFetch<PanelReloadResponse>("/api/previews/reload", { method: "POST" }),
 
-  /** List the effective per-type previewer choices, each with the layer it
-   *  came from and whether its previewer is still registered
+  /** List the effective per-type panel choices, each with the layer it
+   *  came from and whether its panel is still registered
    *  (`GET /api/previews/choices`). */
-  listPreviewerChoices: () => apiFetch<PreviewerChoiceListResponse>("/api/previews/choices"),
+  listPanelChoices: () => apiFetch<PanelChoiceListResponse>("/api/previews/choices"),
 
-  /** Record `targetType -> previewerId` at `scope` — `project` (this project
+  /** Record `targetType -> panelId` at `scope` — `project` (this project
    *  only) or `user` (every project). Returns the resulting effective choices
    *  (`PUT /api/previews/choices/{target_type}`). */
-  setPreviewerChoice: (targetType: string, previewerId: string, scope: PreviewerChoiceScope) =>
-    apiFetch<PreviewerChoiceListResponse>(
-      `/api/previews/choices/${encodeURIComponent(targetType)}`,
-      {
-        method: "PUT",
-        headers: JSON_HEADERS,
-        body: JSON.stringify({ previewer_id: previewerId, scope }),
-      },
-    ),
+  setPanelChoice: (targetType: string, panelId: string, scope: PanelChoiceScope) =>
+    apiFetch<PanelChoiceListResponse>(`/api/previews/choices/${encodeURIComponent(targetType)}`, {
+      method: "PUT",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ previewer_id: panelId, scope }),
+    }),
 
   /** Clear the choice for `targetType` at `scope`; clearing a type that was
    *  never chosen succeeds (`DELETE /api/previews/choices/{target_type}`). */
-  clearPreviewerChoice: (targetType: string, scope: PreviewerChoiceScope) =>
-    apiFetch<PreviewerChoiceListResponse>(
+  clearPanelChoice: (targetType: string, scope: PanelChoiceScope) =>
+    apiFetch<PanelChoiceListResponse>(
       `/api/previews/choices/${encodeURIComponent(targetType)}?scope=${encodeURIComponent(scope)}`,
       { method: "DELETE" },
     ),
@@ -270,7 +266,7 @@ export const dataApi = {
    *  (`POST /api/plots/run`). On success the response's `data_ref` opens a
    *  `plot_artifact` preview session via {@link plotTargetFromRunResponse} +
    *  {@link createPreviewSession}; the produced figure then renders through the
-   *  core PlotPreviewer. */
+   *  core PlotPanel. */
   runPlotJob: (request: PlotRunRequest) =>
     apiFetch<PlotRunResponse>("/api/plots/run", {
       method: "POST",

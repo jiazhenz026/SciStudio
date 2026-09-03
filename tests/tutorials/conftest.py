@@ -100,7 +100,7 @@ class StubProductState:
     workflow_definition: WorkflowDefinition | None = None
     block_types: frozenset[str] = frozenset()
     data_types: frozenset[str] = frozenset()
-    previewer_types: frozenset[str] = frozenset()
+    panel_types: frozenset[str] = frozenset()
     plots: tuple[tuple[str, str, str], ...] = ()
     rendered: tuple[tuple[str, str, str, str], ...] = ()
     runs: tuple[RunSummary, ...] = ()
@@ -128,7 +128,7 @@ class StubProductState:
 
     def previewer_type_ids(self) -> frozenset[str]:
         self.reads.append("previewer_type_ids")
-        return self.previewer_types
+        return self.panel_types
 
     def plot_bindings(self) -> tuple[tuple[str, str, str], ...]:
         self.reads.append("plot_bindings")

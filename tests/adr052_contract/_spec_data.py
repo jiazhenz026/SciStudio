@@ -63,10 +63,10 @@ NON_MARKABLE_PUBLIC_SYMBOLS: frozenset[tuple[str, str]] = frozenset(
         ("scistudio.blocks.io", "CapabilityDirection"),
         ("scistudio.blocks.io", "MetadataFidelityLevel"),
         ("scistudio.blocks.code", "InterpreterFamily"),
-        ("scistudio.previewers.models", "PREVIEWER_API_VERSION"),
-        ("scistudio.previewers.models", "PreviewProvider"),
-        ("scistudio.previewers.models", "PreviewResourceProvider"),
-        ("scistudio.previewers.models", "PreviewerSpecList"),
+        ("scistudio.panels.models", "PANEL_API_VERSION"),
+        ("scistudio.panels.models", "PreviewProvider"),
+        ("scistudio.panels.models", "PreviewResourceProvider"),
+        ("scistudio.panels.models", "PanelSpecList"),
     }
 )
 
@@ -116,17 +116,17 @@ DEMOTIONS: dict[str, tuple[str, ...]] = {
         "normalize_extensions",
     ),
     # spec §8.1: the 7 runtime-owned model internals dropped from models.__all__.
-    "scistudio.previewers.models": (
+    "scistudio.panels.models": (
         "PreviewSession",
         "RoutingAmbiguityError",
-        "UnknownPreviewerError",
+        "UnknownPanelError",
         "UnknownTargetError",
         "MissingBundleError",
         "InvalidSpecError",
-        "DuplicatePreviewerIdError",
+        "DuplicatePanelIdError",
     ),
     # spec §8.2: legacy method + runtime budget constants are not public exports.
-    "scistudio.previewers.data_access": (
+    "scistudio.panels.data_access": (
         "png_data_uri",
         "DEFAULT_MAX_ROWS",
         "DEFAULT_MAX_BYTES",

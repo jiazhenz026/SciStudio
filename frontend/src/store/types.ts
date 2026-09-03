@@ -8,8 +8,8 @@ import type {
   GitStatus,
   LogEntry,
   PreviewTarget,
-  PreviewerChoice,
-  PreviewerSpecSummary,
+  PanelChoice,
+  PanelSpecSummary,
   ProjectResponse,
   ResolvedSubworkflowPorts,
   TypeSummary,
@@ -458,7 +458,7 @@ export interface UISlice {
 
 export interface PreviewSlice {
   // ADR-048 SPEC 1 — routed session-envelope cache (FR-021). Keyed by the
-  // composite key built from data/collection ref + previewer id + session id +
+  // composite key built from data/collection ref + panel id + session id +
   // query (slice/page/sort/slot/item) + data version when available. Values
   // are UI-only; the backend stays authoritative for routing/sessions.
   previewEnvelopeCache: Record<string, PreviewEnvelope>;
@@ -509,33 +509,33 @@ export interface TypesSlice {
 }
 
 /**
- * #2113 — the registered previewer catalogue and the person's per-type
- * previewer choices, one store-held copy each so the Previewers tab, the
+ * #2113 — the registered panel catalogue and the person's per-type
+ * panel choices, one store-held copy each so the Panels tab, the
  * websocket invalidation, and the preview re-route all read the same answer.
  *
  * Same independence argument as {@link TypesSlice} (ADR-053 FR-027, applied
- * one tier over by #2095): the Previewers tab must not have to fetch blocks
- * to draw previewers. Loading is driven by `store/usePreviewerCatalog.ts`.
+ * one tier over by #2095): the Panels tab must not have to fetch blocks
+ * to draw panels. Loading is driven by `store/usePanelCatalog.ts`.
  */
-export interface PreviewerCatalogSlice {
-  previewers: PreviewerSpecSummary[];
+export interface PanelCatalogSlice {
+  panels: PanelSpecSummary[];
   /** True once `GET /api/previews/previewers` has landed at least once. */
-  previewersLoaded: boolean;
+  panelsLoaded: boolean;
   /** Registry discovery diagnostics reported alongside the listing (#2095). */
-  previewerDiagnostics: string[];
-  previewerChoices: PreviewerChoice[];
+  panelDiagnostics: string[];
+  panelChoices: PanelChoice[];
   /** True once `GET /api/previews/choices` has landed at least once. */
-  previewerChoicesLoaded: boolean;
+  panelChoicesLoaded: boolean;
   /**
    * Bumped on every choice mutation. `DataPreview` feeds it to `PreviewHost`
    * as the routing epoch so an open preview re-creates its session — and thus
    * re-routes through the new choice — instead of sitting on the envelope the
    * old choice produced.
    */
-  previewerChoiceVersion: number;
-  setPreviewers: (previewers: PreviewerSpecSummary[], diagnostics: string[]) => void;
-  setPreviewerChoices: (choices: PreviewerChoice[]) => void;
-  bumpPreviewerChoiceVersion: () => void;
+  panelChoiceVersion: number;
+  setPanels: (panels: PanelSpecSummary[], diagnostics: string[]) => void;
+  setPanelChoices: (choices: PanelChoice[]) => void;
+  bumpPanelChoiceVersion: () => void;
 }
 
 /**
@@ -1193,8 +1193,8 @@ export type AppStore = ProjectSlice &
   PaletteSlice &
   // ADR-053 §7 — the registered data type catalogue.
   TypesSlice &
-  // #2113 — the registered previewer catalogue + per-type choices.
-  PreviewerCatalogSlice &
+  // #2113 — the registered panel catalogue + per-type choices.
+  PanelCatalogSlice &
   TabSlice &
   TerminalTabsSlice &
   // ADR-038 §3.8 — Lineage tab client state.

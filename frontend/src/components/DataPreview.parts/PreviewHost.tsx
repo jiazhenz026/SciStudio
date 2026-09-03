@@ -4,7 +4,7 @@
  * The routed preview container. For a selected {@link PreviewTarget} it:
  *   1. Creates a session via `POST /api/previews/sessions` and reads the
  *      {@link PreviewEnvelope}.
- *   2. If the resolved previewer surfaces a `frontend_manifest` (first-class on
+ *   2. If the resolved panel surfaces a `frontend_manifest` (first-class on
  *      `envelope.frontend_manifest`, with a legacy `envelope.metadata.frontend_manifest`
  *      fallback) → validates it (same-origin only,
  *      FR-022), dynamically `import()`s it, and mounts the named export with a
@@ -31,17 +31,17 @@ import type {
   PreviewResource,
   PreviewResourceResponse,
   PreviewTarget,
-  PreviewerManifest,
+  PanelFrontendManifest,
 } from "../../types/api";
 
 import { CoreFallbackRenderer, DiagnosticsBanner } from "./coreViewers";
-import { type LoadResult, mountDynamicPreviewer } from "./dynamicPreviewer";
+import { type LoadResult, mountDynamicPanel } from "./dynamicPanel";
 import {
-  PREVIEWER_HOST_API_VERSION,
+  PANEL_HOST_API_VERSION,
   type PreviewHostApi,
   type PreviewProviderIdentity,
-  type PreviewerInstance,
-} from "./previewerHostApi";
+  type PanelInstance,
+} from "./panelHostApi";
 
 export interface PreviewHostProps {
   /** The target to preview. A `null` target renders the empty state. */
@@ -49,7 +49,7 @@ export interface PreviewHostProps {
   /** Optional initial query state (slice/page/sort). */
   initialQuery?: Record<string, unknown>;
   /**
-   * #2113 — routing epoch. Bumped by the store whenever a per-type previewer
+   * #2113 — routing epoch. Bumped by the store whenever a per-type panel
    * choice changes (#2049); the session-creation effect re-runs, so an open
    * preview re-creates its session and the backend routes it through the new
    * choice instead of sitting on the envelope the old choice produced.
@@ -59,7 +59,7 @@ export interface PreviewHostProps {
   /**
    * Optional session-keyed cache hooks (FR-021). The host writes rendered
    * envelopes only after the backend has resolved preview identity, so cache
-   * keys include target + previewer + session + query + data version.
+   * keys include target + panel + session + query + data version.
    */
   getCachedEnvelope?: (key: string) => PreviewEnvelope | undefined;
   cacheEnvelope?: (key: string, envelope: PreviewEnvelope) => void;
@@ -69,18 +69,18 @@ export interface PreviewHostProps {
     opts?: PreviewCacheKeyOptions,
   ) => string;
   /** Test seam: inject a fake dynamic-module importer. */
-  importer?: Parameters<typeof mountDynamicPreviewer>[3];
+  importer?: Parameters<typeof mountDynamicPanel>[3];
 }
 
 type Status = "idle" | "loading" | "ready" | "error";
 type PreviewCacheKeyOptions = {
-  previewerId?: string | null;
+  panelId?: string | null;
   sessionId?: string | null;
   dataVersion?: string | number | null;
 };
 const RESOURCE_PARAMS_MAX_CHARS = 8192;
 
-function readManifest(envelope: PreviewEnvelope | null): PreviewerManifest | undefined {
+function readManifest(envelope: PreviewEnvelope | null): PanelFrontendManifest | undefined {
   if (!envelope) return undefined;
   // Prefer the first-class field the session manager stamps (#1579); fall back
   // to the legacy flattened `metadata.frontend_manifest` for un-migrated providers.
@@ -91,7 +91,7 @@ function readManifest(envelope: PreviewEnvelope | null): PreviewerManifest | und
   return undefined;
 }
 
-function manifestIdentityKey(manifest: PreviewerManifest | undefined): string | null {
+function manifestIdentityKey(manifest: PanelFrontendManifest | undefined): string | null {
   if (!manifest) return null;
   return [
     manifest.previewer_id,
@@ -116,7 +116,7 @@ function cacheDataVersionFromEnvelope(envelope: PreviewEnvelope): string | numbe
 
 function cacheIdentityFromEnvelope(envelope: PreviewEnvelope): PreviewCacheKeyOptions {
   return {
-    previewerId: envelope.previewer_id,
+    panelId: envelope.previewer_id,
     sessionId: envelope.session_id,
     dataVersion: cacheDataVersionFromEnvelope(envelope),
   };
@@ -269,7 +269,7 @@ export function PreviewHost({
       // save dialog was unavailable (the route raised → `available === false`).
       // When the native dialog DID run, an empty result means the user
       // cancelled — respect that and do NOT open a second (browser) save dialog.
-      // Fixes the double save-dialog bug for every previewer, since they all
+      // Fixes the double save-dialog bug for every panel, since they all
       // export through this shared path.
       if (dialog.available === false) {
         const result = await fetchPreviewResource(active.session_id, resourceId, params);
@@ -298,7 +298,7 @@ export function PreviewHost({
          * names it in a native dialog, and image extensions are outside the
          * watcher's allowlist, so nothing would re-evaluate the condition even
          * once the file existed. Scoped to a plot's own artifact — other
-         * previewers export too, and this event is about the figure.
+         * panels export too, and this event is about the figure.
          */
         if (active.target.kind === "plot_artifact") {
           // Imported here rather than at the top of the file: the store pulls
@@ -327,15 +327,15 @@ export function PreviewHost({
       ? `${manifestKey}|${activeEnvelope.session_id ?? activeEnvelope.target.ref}`
       : null;
   const activeEnvelopeRef = useRef<PreviewEnvelope | null>(activeEnvelope);
-  const manifestRef = useRef<PreviewerManifest | undefined>(manifest);
+  const manifestRef = useRef<PanelFrontendManifest | undefined>(manifest);
   const patchQueryRef = useRef(patchQuery);
   activeEnvelopeRef.current = activeEnvelope;
   manifestRef.current = manifest;
   patchQueryRef.current = patchQuery;
 
-  // -- dynamic previewer mount ---------------------------------------------
+  // -- dynamic panel mount ---------------------------------------------
   const mountRef = useRef<HTMLDivElement | null>(null);
-  const instanceRef = useRef<PreviewerInstance | null>(null);
+  const instanceRef = useRef<PanelInstance | null>(null);
   const [dynamicFailed, setDynamicFailed] = useState(false);
 
   const hostApi: PreviewHostApi | null = useMemo(() => {
@@ -343,12 +343,12 @@ export function PreviewHost({
     if (!initialEnvelope || !dynamicMountKey) return null;
     const currentEnvelope = () => activeEnvelopeRef.current ?? initialEnvelope;
     const provider: PreviewProviderIdentity = {
-      previewerId: initialEnvelope.previewer_id,
-      capabilities: [],
+      panelId: initialEnvelope.previewer_id,
+      features: [],
       source: initialEnvelope.target.source ?? null,
     };
     return {
-      apiVersion: PREVIEWER_HOST_API_VERSION,
+      apiVersion: PANEL_HOST_API_VERSION,
       get previewSessionId() {
         return currentEnvelope().session_id;
       },
@@ -362,7 +362,7 @@ export function PreviewHost({
         const current = currentEnvelope();
         return {
           ...provider,
-          previewerId: current.previewer_id,
+          panelId: current.previewer_id,
           source: current.target.source ?? null,
         };
       },
@@ -446,7 +446,7 @@ export function PreviewHost({
     if (!currentManifest || !hostApi || !mountRef.current) return;
     let disposed = false;
     const container = mountRef.current;
-    void mountDynamicPreviewer(currentManifest, container, hostApi, importer).then(
+    void mountDynamicPanel(currentManifest, container, hostApi, importer).then(
       (result: LoadResult) => {
         if (disposed) return;
         if (result.ok) {
@@ -526,7 +526,7 @@ export function PreviewHost({
 
       <DiagnosticsBanner diagnostics={hostDiagnostics} />
 
-      {/* Mount point for the dynamic previewer. Always present in the DOM so the
+      {/* Mount point for the dynamic panel. Always present in the DOM so the
           mount effect has a stable container; hidden when we fall back. */}
       <div
         ref={mountRef}
@@ -534,7 +534,7 @@ export function PreviewHost({
         style={{ display: useDynamic ? "block" : "none" }}
       />
 
-      {/* Core fallback path: no manifest, or the dynamic previewer failed. */}
+      {/* Core fallback path: no manifest, or the dynamic panel failed. */}
       {!useDynamic ? (
         <CoreFallbackRenderer
           envelope={activeEnvelope}

@@ -407,11 +407,11 @@ def test_dropin_type_cannot_shadow_a_core_type(tmp_path: Path) -> None:
 #
 # The drop-in half above answers "which directories does this process see?".
 # The same question has a second half — "which import roots does an
-# entry-point scan see?" — that was answered by the previewer registry alone.
+# entry-point scan see?" — that was answered by the panel registry alone.
 # A package's ``site-packages`` carries the ``dist-info`` that makes its entry
 # points visible at all, so a group scanned without those roots reports the
 # package as absent. The observable consequence was a package that resolved
-# for previewers and vanished for blocks (#1752).
+# for panels and vanished for blocks (#1752).
 # ---------------------------------------------------------------------------
 
 
@@ -484,7 +484,7 @@ def test_every_entry_point_scan_activates_the_plugin_import_roots(
     group, scan = {
         "blocks": (shared.BLOCKS_ENTRY_POINT_GROUP, lambda: _run_block_entry_point_scan()),
         "types": (shared.TYPES_ENTRY_POINT_GROUP, lambda: _run_type_entry_point_scan()),
-        "previewers": (shared.PREVIEWERS_ENTRY_POINT_GROUP, lambda: _run_previewer_entry_point_scan()),
+        "previewers": (shared.PREVIEWERS_ENTRY_POINT_GROUP, lambda: _run_panel_entry_point_scan()),
         "tutorials": (shared.TUTORIALS_ENTRY_POINT_GROUP, lambda: _run_tutorial_entry_point_scan()),
     }[kind]
 
@@ -531,10 +531,10 @@ def _run_type_entry_point_scan() -> None:
     TypeRegistry()._scan_entrypoint_types()
 
 
-def _run_previewer_entry_point_scan() -> None:
-    from scistudio.previewers.registry import PreviewerRegistry
+def _run_panel_entry_point_scan() -> None:
+    from scistudio.panels.registry import PanelRegistry
 
-    PreviewerRegistry().load_packages()
+    PanelRegistry().load_packages()
 
 
 def _run_tutorial_entry_point_scan() -> None:
@@ -652,7 +652,7 @@ def test_a_tutorial_project_swaps_its_user_tier_at_every_registration_point(
     library = dropins.tutorial_library_dir()
     expected_blocks = [tutorial_project / "blocks", library / "blocks"]
     expected_types = [tutorial_project / "types", library / "types"]
-    expected_previewers = [tutorial_project / "previewers", library / "previewers"]
+    expected_panels = [tutorial_project / "previewers", library / "previewers"]
 
     assert list(dropins.block_scan_dirs(tutorial_project)) == expected_blocks
     assert _api_block_dirs(tutorial_project) == expected_blocks
@@ -665,38 +665,38 @@ def test_a_tutorial_project_swaps_its_user_tier_at_every_registration_point(
     assert _worker_type_dirs(tutorial_project, monkeypatch) == expected_types
     assert _dispatch_type_dirs(tutorial_project, monkeypatch) == expected_types
 
-    # The previewer tier joined the swap with #2086. Its one registration
+    # The panel tier joined the swap with #2086. Its one registration
     # point is ``build_preview_service``, and both of that function's inputs —
     # the session manager's owning-root tuple and the user-tier load below —
     # read this same tier definition.
-    assert list(dropins.previewer_scan_dirs(tutorial_project)) == expected_previewers
+    assert list(dropins.panel_scan_dirs(tutorial_project)) == expected_panels
 
 
-def test_the_previewer_user_tier_load_follows_the_scan_dirs(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """FR-070/FR-071 for the previewer loader (#2086).
+def test_the_panel_user_tier_load_follows_the_scan_dirs(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """FR-070/FR-071 for the panel loader (#2086).
 
-    ``load_user_previewers`` must scan exactly the directory
-    ``previewer_scan_dirs`` names as the user tier — recomputing
+    ``load_user_panels`` must scan exactly the directory
+    ``panel_scan_dirs`` names as the user tier — recomputing
     ``~/.scistudio/previewers`` there is how the write path and the scan
-    drifted apart for blocks once, and this pins the previewer half to the
+    drifted apart for blocks once, and this pins the panel half to the
     shared definition instead.
     """
-    from scistudio.previewers import project as previewer_project
+    from scistudio.panels import project as panel_project
 
     recorded: list[tuple[Path, object]] = []
     monkeypatch.setattr(
-        previewer_project,
-        "_scan_previewer_dropins",
+        panel_project,
+        "_scan_panel_dropins",
         lambda registry, directory, *, expected_owner: recorded.append((directory, expected_owner)),
     )
     tutorial_project = dropins.tutorial_parent_dir() / "welcome"
 
-    previewer_project.load_user_previewers(object(), tutorial_project)  # type: ignore[arg-type]
-    previewer_project.load_user_previewers(object(), None)  # type: ignore[arg-type]
+    panel_project.load_user_panels(object(), tutorial_project)  # type: ignore[arg-type]
+    panel_project.load_user_panels(object(), None)  # type: ignore[arg-type]
 
     assert recorded[0][0] == dropins.tutorial_library_dir() / dropins.PREVIEWERS_DIR_NAME
     assert recorded[1][0] == home / ".scistudio" / dropins.PREVIEWERS_DIR_NAME
     assert [directory for directory, _ in recorded] == [
-        dropins.previewer_scan_dirs(tutorial_project)[-1],
-        dropins.previewer_scan_dirs(None)[-1],
+        dropins.panel_scan_dirs(tutorial_project)[-1],
+        dropins.panel_scan_dirs(None)[-1],
     ]
