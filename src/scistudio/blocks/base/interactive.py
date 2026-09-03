@@ -14,9 +14,9 @@ The capability gives a block three things:
 * :attr:`InteractiveMixin.interactive_panel` — a
   :class:`~scistudio.core.panels.PanelManifest` naming the panel the block
   opens. A block-declared panel must declare the producing capability
-  (:class:`~scistudio.core.panels.PanelCapability`), which is what the manifest
-  defaults to and what the registry checks when the block is discovered
-  (ADR-054 spec 1 FR-050).
+  (:class:`~scistudio.core.panels.PanelCapability`, imported from the contract
+  module), which is what the manifest defaults to and what the registry
+  checks when the block is discovered (ADR-054 spec 1 FR-050).
 * :meth:`InteractiveMixin.prepare_prompt` — turns the real input data into the
   JSON-safe, window-sized view the panel renders, plus optional heavy
   intermediate work carried forward as storage references (never in memory).
@@ -49,7 +49,7 @@ from scistudio.core.meta._display_name import resolve_display_name
 # core may be imported by the others — so a manifest defined here would force
 # the panel subsystem to import upward, and the pressure to relieve that is what
 # produced two manifest types and two version constants in the first place.
-from scistudio.core.panels import PANEL_API_VERSION, PanelCapability, PanelManifest
+from scistudio.core.panels import PANEL_API_VERSION, PanelManifest
 from scistudio.core.storage.ref import StorageReference
 from scistudio.stability import provisional
 
@@ -347,7 +347,6 @@ __all__ = [
     "PANEL_API_VERSION",
     "InteractiveMixin",
     "InteractivePrompt",
-    "PanelCapability",
     "PanelManifest",
     "load_intermediate",
 ]

@@ -17,7 +17,6 @@ from scistudio.blocks.base.interactive import (
     PANEL_API_VERSION,
     InteractiveMixin,
     InteractivePrompt,
-    PanelCapability,
     PanelManifest,
     load_intermediate,
 )
@@ -37,7 +36,6 @@ __all__ = [
     "OutputPort",
     "PackageInfo",
     "PackageOtaSource",
-    "PanelCapability",
     "PanelManifest",
     "load_intermediate",
 ]

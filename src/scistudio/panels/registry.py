@@ -29,6 +29,7 @@ from __future__ import annotations
 import importlib
 import importlib.metadata
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 from scistudio.core.entry_points import (
@@ -109,7 +110,7 @@ class PanelRegistry:
         """Declare a project default panel for *target_type* (FR-005)."""
         self._project_default_panels[target_type] = previewer_id
 
-    def set_panel_choices(self, choices: dict[str, object]) -> None:
+    def set_panel_choices(self, choices: Mapping[str, object]) -> None:
         """Install the person's per-type, per-capability panel choices (#2049).
 
         Replaces the set wholesale, because the caller loads both layers and

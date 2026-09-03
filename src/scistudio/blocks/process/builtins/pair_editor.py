@@ -16,12 +16,12 @@ from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.base.interactive import (
     InteractiveMixin,
     InteractivePrompt,
-    PanelCapability,
     PanelManifest,
     interactive_item_label,
 )
 from scistudio.blocks.base.state import ExecutionMode
 from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.panels import PanelCapability
 
 logger = logging.getLogger(__name__)
 

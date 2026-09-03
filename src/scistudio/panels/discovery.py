@@ -56,6 +56,7 @@ from scistudio.core.entry_points import (
 from scistudio.core.panels import (
     PANEL_DECLARATION_FILENAME,
     PANEL_TIER_ORDER,
+    DuplicatePanelDeclarationError,
     PanelDeclarationError,
     PanelManifest,
     PanelTier,
@@ -205,10 +206,14 @@ def discover_tier(
 
             existing = found.get(manifest.panel_id)
             if existing is not None:
-                diagnostics.append(
+                collision = DuplicatePanelDeclarationError(
                     f"duplicate panel id {manifest.panel_id!r} in the {tier.value} tier: "
-                    f"{directory} collides with {existing.directory}; keeping the first"
+                    f"{directory} collides with {existing.directory}; keeping the first",
+                    directory=directory,
+                    field="panel_id",
+                    panel_id=manifest.panel_id,
                 )
+                diagnostics.append(collision.message)
                 continue
 
             provider: Any = None
@@ -328,8 +333,14 @@ def discover_panels(
         for panel in panels:
             if any(existing.panel_id == panel.panel_id for existing in package_panels):
                 discovery.diagnostics.append(
-                    f"duplicate panel id {panel.panel_id!r} in the package tier: "
-                    f"{panel.directory} collides with an already-registered package panel; keeping the first"
+                    DuplicatePanelDeclarationError(
+                        f"duplicate panel id {panel.panel_id!r} in the package tier: "
+                        f"{panel.directory} collides with an already-registered package panel; "
+                        f"keeping the first",
+                        directory=panel.directory,
+                        field="panel_id",
+                        panel_id=panel.panel_id,
+                    ).message
                 )
                 continue
             package_panels.append(panel)

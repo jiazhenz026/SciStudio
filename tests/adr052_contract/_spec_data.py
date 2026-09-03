@@ -154,7 +154,6 @@ DEMOTIONS: dict[str, tuple[str, ...]] = {
 INTERACTIVE_REEXPORTS: tuple[str, ...] = (
     "InteractiveMixin",
     "InteractivePrompt",
-    "PanelCapability",
     "PanelManifest",
     "load_intermediate",
     "PANEL_API_VERSION",

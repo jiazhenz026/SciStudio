@@ -151,8 +151,7 @@
     "mode": "exact",
     "spec_refs": [
       "spec §4",
-      "spec §4.8 Net blocks.base.__all__ change",
-      "ADR-054 spec 1 FR-006 (PanelCapability joins the interactive re-export set)"
+      "spec §4.8 Net blocks.base.__all__ change"
     ],
     "symbols": {
       "Block": {
@@ -206,10 +205,6 @@
       "INTERACTIVE_RESPONSE_KEY": {
         "tier": "provisional",
         "since": "0.3.1"
-      },
-      "PanelCapability": {
-        "tier": "provisional",
-        "since": "0.3.4"
       }
     }
   },
@@ -572,8 +567,7 @@
   "scistudio.panels.models": {
     "mode": "subset",
     "spec_refs": [
-      "spec §8.1",
-      "ADR-054 spec 1 FR-005/FR-048 (PanelSpec.capability and its enum)"
+      "spec §8.1"
     ],
     "ambiguity": "Spec §8.1 prose states the current __all__ declares 29 symbols and #1817 drops the 7 Internal rows; the enumerated table rows total 28 (21 Public + 7 Internal), an off-by-one vs the stated 29. The 21 Public rows below are explicitly enumerated; subset mode plus the no-internal-leak test (which forbids the 7 named Internal symbols) is the honest guard given the unreconciled count.",
     "symbols": {
@@ -660,10 +654,6 @@
       "ProviderError": {
         "tier": "provisional",
         "since": "0.3.1"
-      },
-      "PanelCapability": {
-        "tier": "provisional",
-        "since": "0.3.4"
       }
     }
   },

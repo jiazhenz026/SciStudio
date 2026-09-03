@@ -907,7 +907,6 @@ __all__ = [
     "EnvelopeKind",
     "FrontendManifest",
     "OwnerKind",
-    "PanelCapability",
     "PanelEntryPoint",
     "PanelSpec",
     "PanelSpecList",
