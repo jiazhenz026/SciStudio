@@ -36,8 +36,8 @@ governs:
     - scistudio.blocks.registry.BlockRegistry
     - scistudio.blocks.io.capabilities.FormatCapability
     - scistudio.core.types.registry.TypeRegistry
-    - scistudio.previewers.registry.PreviewerRegistry
-    - scistudio.previewers.models.PreviewerSpec
+    - scistudio.panels.registry.PanelRegistry
+    - scistudio.panels.models.PanelSpec
   entry_points:
     - scistudio.blocks
     - scistudio.types

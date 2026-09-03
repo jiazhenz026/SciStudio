@@ -45,6 +45,7 @@ scope:
     - Any change to what a block does with a produced value; that belongs to the session.
 governs:
   modules:
+    - scistudio.panels
     - scistudio.previewers
     - scistudio.blocks.base.interactive
     - scistudio.api.routes.data
@@ -52,14 +53,15 @@ governs:
     - scistudio.core.dropins
     - scistudio.core.entry_points
   contracts:
-    - scistudio.previewers.models.PreviewerSpec
-    - scistudio.previewers.models.FrontendManifest
-    - scistudio.previewers.models.PreviewEnvelope
+    - scistudio.panels.models.PanelSpec
+    - scistudio.panels.models.FrontendManifest
+    - scistudio.panels.models.PreviewEnvelope
     - scistudio.blocks.base.interactive.PanelManifest
   entry_points:
     - scistudio.previewers
   files:
     - docs/specs/adr-054-panel-contract.md
+    - src/scistudio/panels/**
     - src/scistudio/previewers/**
     - src/scistudio/blocks/base/interactive.py
     - src/scistudio/api/routes/data.py
@@ -67,16 +69,17 @@ governs:
     - src/scistudio/api/schemas.py
     - src/scistudio/core/dropins.py
     - src/scistudio/core/entry_points.py
+    - frontend/src/panels/**
     - frontend/src/components/DataPreview.parts/**
     - frontend/src/App.parts/InteractiveModals.parts/**
     - frontend/src/App.parts/InteractiveModals.tsx
-    - frontend/src/components/PreviewerPalette.parts/**
-    - frontend/src/components/PreviewerPalette.tsx
+    - frontend/src/components/PanelPalette.parts/**
+    - frontend/src/components/PanelPalette.tsx
     - frontend/src/components/promotion/**
     - frontend/src/store/previewSlice.ts
-    - frontend/src/store/previewerCatalogSlice.ts
-    - frontend/src/store/usePreviewerCatalog.ts
-    - tests/previewers/**
+    - frontend/src/store/panelCatalogSlice.ts
+    - frontend/src/store/usePanelCatalog.ts
+    - tests/panels/**
     - tests/architecture/test_layer_deps.py
     - tests/adr052_contract/**
     - docs/adr/ADR-048.md
@@ -93,7 +96,6 @@ governs:
 planned_governs:
   modules:
     - scistudio.core.panels
-    - scistudio.panels
   contracts:
     - scistudio.core.panels.PanelManifest
     - scistudio.core.panels.PanelCapability
@@ -101,17 +103,15 @@ planned_governs:
     - scistudio.panels
   files:
     - src/scistudio/core/panels.py
-    - src/scistudio/panels/**
     - src/scistudio/api/routes/panels.py
-    - frontend/src/panels/**
   excludes: []
 tests:
-  - tests/previewers/test_preview_routing.py
-  - tests/previewers/test_preview_security.py
-  - tests/previewers/test_previewer_dropins.py
-  - tests/previewers/test_previewer_choice.py
-  - tests/api/test_previewers.py
-  - tests/api/test_previewer_discovery.py
+  - tests/panels/test_preview_routing.py
+  - tests/panels/test_preview_security.py
+  - tests/panels/test_panel_dropins.py
+  - tests/panels/test_panel_choice.py
+  - tests/api/test_panels.py
+  - tests/api/test_panel_discovery.py
   - tests/api/test_interactive_panels.py
   - tests/architecture/test_layer_deps.py
   - tests/adr052_contract/test_surface_inventory.py

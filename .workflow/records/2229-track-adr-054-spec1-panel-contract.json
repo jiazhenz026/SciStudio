@@ -28,7 +28,7 @@
       "verified_in_diff": null
     }
   ],
-  "governance_touch": false,
+  "governance_touch": true,
   "guard_events": [],
   "issues": [
     {
@@ -181,6 +181,36 @@
       "at": "2026-09-03T02:35:08.291059Z",
       "pattern": "src/scistudio/**",
       "reason": "The rename's real blast radius includes two surfaces the initial plan missed: the generated API reference under src/scistudio/_user_guide/api-reference (regenerated, never hand-edited) and the import-linter contracts in pyproject.toml that CI's Import Contracts job runs."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T04:00:56.109249Z",
+      "pattern": "docs/adr/ADR-049.md",
+      "reason": "The rename moved symbols out from under governance claims in ADR-049, ADR-052, ADR-053 and the ADR-049 spec, producing 28 error-severity full_audit findings. Retargeting those claims is the governance transfer this spec's scope names, and it must land with the rename. The spec's own governs block is migrated to the post-rename reality; the three planned_governs entries that now resolve move to governs, and core/panels.py and api/routes/panels.py stay planned until they exist."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T04:00:56.109354Z",
+      "pattern": "docs/adr/ADR-052.md",
+      "reason": "The rename moved symbols out from under governance claims in ADR-049, ADR-052, ADR-053 and the ADR-049 spec, producing 28 error-severity full_audit findings. Retargeting those claims is the governance transfer this spec's scope names, and it must land with the rename. The spec's own governs block is migrated to the post-rename reality; the three planned_governs entries that now resolve move to governs, and core/panels.py and api/routes/panels.py stay planned until they exist."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T04:00:56.109357Z",
+      "pattern": "docs/adr/ADR-053.md",
+      "reason": "The rename moved symbols out from under governance claims in ADR-049, ADR-052, ADR-053 and the ADR-049 spec, producing 28 error-severity full_audit findings. Retargeting those claims is the governance transfer this spec's scope names, and it must land with the rename. The spec's own governs block is migrated to the post-rename reality; the three planned_governs entries that now resolve move to governs, and core/panels.py and api/routes/panels.py stay planned until they exist."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T04:00:56.109359Z",
+      "pattern": "docs/specs/adr-049-package-validator-implementation.md",
+      "reason": "The rename moved symbols out from under governance claims in ADR-049, ADR-052, ADR-053 and the ADR-049 spec, producing 28 error-severity full_audit findings. Retargeting those claims is the governance transfer this spec's scope names, and it must land with the rename. The spec's own governs block is migrated to the post-rename reality; the three planned_governs entries that now resolve move to governs, and core/panels.py and api/routes/panels.py stay planned until they exist."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T04:00:56.109360Z",
+      "pattern": "docs/specs/adr-054-panel-contract.md",
+      "reason": "The rename moved symbols out from under governance claims in ADR-049, ADR-052, ADR-053 and the ADR-049 spec, producing 28 error-severity full_audit findings. Retargeting those claims is the governance transfer this spec's scope names, and it must land with the rename. The spec's own governs block is migrated to the post-rename reality; the three planned_governs entries that now resolve move to governs, and core/panels.py and api/routes/panels.py stay planned until they exist."
     }
   ],
   "session_id": "c235ce21-b19f-4ddf-9ec1-d0f9af6fe751",
