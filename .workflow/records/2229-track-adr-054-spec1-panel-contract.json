@@ -16,6 +16,11 @@
       "at": "2026-09-03T02:26:36.843705Z",
       "owner_directive": "Manager plan: deliver spec tasks T-001..T-016 through five dispatch waves on branches cut from the track branch, integrate into the track branch, then close the [DO NOT MERGE] umbrella PR and open the final PR through the wrapper.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-09-03T15:25:20.563448Z",
+      "owner_directive": "Expand scope, let the block consume the emission.",
+      "reason": "Owner directive 2026-09-03: expand scope so the interactive-block context can settle a produced value. FR-033 and FR-050 make the two built-in interactive panels producing panels and FR-012 makes their only outbound path the emission of code, so the spec's original exclusion would have shipped DataRouter and PairEditor unable to be confirmed. The session-side consumption and the section 3.6 statement whitelist stay out of scope."
     }
   ],
   "docs_events": [
@@ -235,6 +240,18 @@
       "at": "2026-09-03T06:51:08.927264Z",
       "pattern": "docs/specs/adr-051-interactive-blocks.md",
       "reason": "Complete the governance transfer the addenda record: ADR-048 and its spec give up the previewer entry-point group and the two frontend paths; ADR-051 and its spec retarget the PanelManifest contract at scistudio.core.panels now that FR-001 moved it; and the three ADR-054 planned_governs entries that landed with T-002 move into governs. full_audit is back to pass with zero error-severity findings."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T15:25:20.563464Z",
+      "pattern": "src/scistudio/engine/scheduler/_dispatch.py",
+      "reason": "Owner directive 2026-09-03: expand scope so the interactive-block context can settle a produced value. FR-033 and FR-050 make the two built-in interactive panels producing panels and FR-012 makes their only outbound path the emission of code, so the spec's original exclusion would have shipped DataRouter and PairEditor unable to be confirmed. The session-side consumption and the section 3.6 statement whitelist stay out of scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T15:25:20.563470Z",
+      "pattern": "tests/blocks/**",
+      "reason": "Owner directive 2026-09-03: expand scope so the interactive-block context can settle a produced value. FR-033 and FR-050 make the two built-in interactive panels producing panels and FR-012 makes their only outbound path the emission of code, so the spec's original exclusion would have shipped DataRouter and PairEditor unable to be confirmed. The session-side consumption and the section 3.6 statement whitelist stay out of scope."
     }
   ],
   "session_id": "c235ce21-b19f-4ddf-9ec1-d0f9af6fe751",
