@@ -1,22 +1,23 @@
 """An interactive block: look at the label map and delete what is not a cell.
 
 Core tutorial 2 writes this block into the tutorial project, together with the
-small JavaScript window it opens (``blocks/review_labels_panel/``). It is a
-real interactive block, the same machinery the built-in Data Router uses: it
-declares ``execution_mode = INTERACTIVE``, the run pauses when it is reached,
+small window it opens (``panels/tutorial.review_labels/``). It is a real
+interactive block, the same machinery the built-in Data Router uses: it declares
+``execution_mode = INTERACTIVE``, the run pauses when it is reached,
 :meth:`ReviewLabelsBlock.prepare_prompt` reduces the real input to a
 window-sized JSON view, the panel collects your decision, and ``run`` computes
 the outputs from it.
 
-The panel is deliberately ordinary code. ``interactive_panel`` names a plain
-ES module served from this project (``module_url``), confined to the directory
-beside this file (``asset_root``); no framework, no build step. A block's
-window is just a file it carries with it.
+The panel is deliberately ordinary. ``interactive_panel`` names it by id and
+nothing else: a panel is a directory holding a declaration and one
+self-contained document (ADR-054 spec 1 FR-002), and this project carries one at
+``panels/tutorial.review_labels/`` that the four-tier discovery finds the way it
+finds any other. No framework, no build step, and no URL written by hand. A
+block's window is still just a file it carries with it.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
@@ -33,6 +34,7 @@ from scistudio.blocks.base import (
     PanelManifest,
 )
 from scistudio.blocks.process import ProcessBlock
+from scistudio.core.panels import PanelCapability
 from scistudio.core.types import Collection, DataFrame, DataObject
 
 # Keep the JSON view the panel renders at or under this many cells per side;
@@ -94,14 +96,15 @@ class ReviewLabelsBlock(InteractiveMixin, ProcessBlock):
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
 
-    # The block-owned window: a hand-written, dependency-free ES module that
-    # travels beside this file. The backend serves it, path-confined under
-    # ``asset_root``, at the ``module_url`` below.
+    # The block-owned window (ADR-054 spec 1 FR-017, FR-050): an id, the
+    # producing capability, and nothing else. The panel directory this names
+    # travels into the project beside this block, and the merged asset route
+    # serves it from wherever discovery found it -- so there is no hand-written
+    # URL here to go stale, and no asset root for this block to confine.
     interactive_panel: ClassVar[PanelManifest] = PanelManifest(
         panel_id="tutorial.review_labels",
-        module_url="/api/blocks/panels/tutorial.review_labels/panel.mjs",
+        capability=PanelCapability.PRODUCING,
         version="1",
-        asset_root=str(Path(__file__).resolve().parent / "review_labels_panel"),
     )
 
     input_ports: ClassVar[list[InputPort]] = [
@@ -164,9 +167,12 @@ class ReviewLabelsBlock(InteractiveMixin, ProcessBlock):
             inputs: The block's input collections; ``labels`` holds the maps.
             config: Carries ``interactive_response`` — ``{"removed": [[ids],
                 [ids], ...]}``, one list per slide in input order — injected by
-                the engine after you confirm the panel. A flat list is also
-                accepted and read as the decision for a single slide, which is
-                what a one-image run sends.
+                the engine after you confirm the panel. The panel's outbound
+                path is an emission of code (ADR-054 spec 1 FR-012); the
+                keyword arguments of the ``scistudio.output(removed=...)`` call
+                it emits are what land here. A flat list is also accepted and
+                read as the decision for a single slide, which is what a
+                one-image run sends.
 
         Returns:
             One area table per slide on ``areas``, in the order the slides
