@@ -1,0 +1,48 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "docs/2229-panel-addenda",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/adr/ADR-048-addendum1.md",
+      "docs/adr/ADR-051-addendum2.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Write the ADR-048 and ADR-051 addenda carrying the panel contract change, its governance transfer, and the compatibility shim's removal condition: task T-014 of docs/specs/adr-054-panel-contract.md.",
+  "persona": "adr_author",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-docs-2229-panel-addenda",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "bdf54ee3-5429-4cc7-a5f4-9087ed5ad550",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": []
+}
