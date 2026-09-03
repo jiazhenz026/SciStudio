@@ -220,3 +220,34 @@ def test_the_previewer_entry_point_group_is_still_the_group_scanned() -> None:
     from scistudio.panels.registry import PREVIEWER_ENTRY_POINT_GROUP
 
     assert PREVIEWER_ENTRY_POINT_GROUP == "scistudio.previewers"
+
+
+def test_the_registry_keeps_its_retired_choice_method_spellings() -> None:
+    """``set_previewer_choices`` / ``previewer_choices`` still resolve (D-001).
+
+    Both are ``@internal()``, so no author was promised them -- but the alias
+    package re-exports :class:`PanelRegistry` itself, so an unmigrated caller
+    reaching a renamed method gets a bare ``AttributeError`` naming neither the
+    retired spelling nor the new one. That is the silent shape FR-042 and
+    FR-043 exist to prevent, which is why the aliases are kept and why they say
+    what happened.
+    """
+    import warnings
+
+    from scistudio.panels.registry import PanelRegistry
+
+    registry = PanelRegistry()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        registry.set_previewer_choices({"displaying": {"DataFrame": "core.dataframe.basic"}})
+        chosen = registry.previewer_choices()
+
+    assert chosen == {"DataFrame": "core.dataframe.basic"}
+    assert registry.panel_choices() == chosen
+    messages = [str(w.message) for w in caught if issubclass(w.category, DeprecationWarning)]
+    assert len(messages) == 2
+    for message in messages:
+        assert "retired spelling" in message
+        assert "ADR-048 addendum 1" in message
+    assert any("set_panel_choices()" in m for m in messages)
+    assert any("panel_choices()" in m for m in messages)

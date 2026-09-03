@@ -29,6 +29,7 @@ from __future__ import annotations
 import importlib
 import importlib.metadata
 import logging
+import warnings
 from collections.abc import Mapping
 from typing import Any
 
@@ -172,6 +173,42 @@ class PanelRegistry:
     ) -> dict[str, str]:
         """Return a copy of one capability's installed per-type choices."""
         return dict(self._panel_choices.get(capability.value, {}))
+
+    # -- Retired spellings (ADR-054 spec 1, D-001) --------------------------
+    #
+    # These two were ``set_previewer_choices`` and ``previewer_choices`` before
+    # the rename. Both are ``@internal()``, so no author was promised them --
+    # but the alias package re-exports this class, and an unmigrated caller
+    # reaching a renamed method gets a bare ``AttributeError`` naming neither
+    # the old spelling nor the new one. That is the same silent shape FR-042
+    # and FR-043 exist to prevent, so they are kept and they say what happened.
+    # They go with the rest of the shim, under the condition in ADR-048
+    # addendum 1 section 5.
+
+    def set_previewer_choices(self, choices: Mapping[str, object]) -> None:
+        """Deprecated spelling of :meth:`set_panel_choices`."""
+        warnings.warn(
+            "PanelRegistry.set_previewer_choices() is the retired spelling of "
+            "set_panel_choices() (ADR-054 spec 1, D-001). Rename the call; this "
+            "alias is removed under the condition in ADR-048 addendum 1 section 5.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.set_panel_choices(choices)
+
+    def previewer_choices(
+        self,
+        capability: PanelCapability = PanelCapability.DISPLAYING,
+    ) -> dict[str, str]:
+        """Deprecated spelling of :meth:`panel_choices`."""
+        warnings.warn(
+            "PanelRegistry.previewer_choices() is the retired spelling of "
+            "panel_choices() (ADR-054 spec 1, D-001). Rename the call; this "
+            "alias is removed under the condition in ADR-048 addendum 1 section 5.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.panel_choices(capability)
 
     def panel_choice_layers(self) -> dict[str, dict[str, str]]:
         """Return a copy of every capability's installed per-type choices."""

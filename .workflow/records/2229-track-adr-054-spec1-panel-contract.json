@@ -270,6 +270,12 @@
       "at": "2026-09-03T17:46:34.980301Z",
       "pattern": "tests/tutorials/**",
       "reason": "The rename introduced a new project tier root, <project>/panels, but both tutorial tier guards still named only previewers. A user- or project-level tutorial could write a panels/ directory whose documents the product serves into a frame and whose panel.json may name a Python provider that is imported. Found by the tutorial-migration agent; closing it needs src/scistudio/tutorials/actions.py and src/scistudio/api/routes/tutorials.py, neither of which the spec listed."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T20:14:59.198713Z",
+      "pattern": "src/scistudio/panels/registry.py",
+      "reason": "Close the sixth silent break the compat agent found but did not own: PanelRegistry.set_previewer_choices and .previewer_choices were renamed, and the alias package re-exports the class, so an unmigrated caller got a bare AttributeError naming neither spelling."
     }
   ],
   "session_id": "c235ce21-b19f-4ddf-9ec1-d0f9af6fe751",
