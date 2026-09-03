@@ -427,9 +427,22 @@ outside historical documents and the compatibility shim; it returns nothing.
   confinement check and one suffix allowlist, differing only in the root
   directory each tier resolves to. The route MUST answer read-only
   cross-origin requests, because a panel at an opaque origin fetches bulk
-  assets from it directly, and no other route MUST answer such requests,
-  which is what keeps the asset route the only thing a panel can reach
-  without the host.
+  assets from it directly. **No other route MUST answer a request from an
+  opaque origin**, which is what keeps the asset route the only thing a panel
+  can reach without the host.
+
+  The requester this clause is about is a panel, and nothing else: the frame
+  carries `sandbox="allow-scripts"` without `allow-same-origin` (FR-008), so it
+  runs at an opaque origin and its requests arrive as `Origin: null`. An
+  earlier wording said *no other route may answer a cross-origin request at
+  all*, which no implementation can deliver and which this one never did — the
+  development frontend and the API are served from different ports, so
+  satisfying it literally would stop the product being developable, and the
+  default configuration met it only by the accident of `null` not appearing in
+  an allow-list. The requirement is therefore stated against the origin it was
+  written for, and is enforced for **every** configuration rather than for the
+  default one: a guard outside the CORS layer strips cross-origin grant headers
+  from every route but the asset route when the request's origin is opaque.
 - **FR-022**: The two existing asset routes MUST continue to serve their
   existing clients for the duration of the migration.
 - **FR-023**: The endpoints that list panels, rebuild the registry, and record
