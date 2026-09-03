@@ -1,0 +1,96 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "feat/2229-panel-frame-host",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/panels/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-03T03:05:25.760553Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "The behaviour this task implements is already specified in docs/specs/adr-054-panel-contract.md (T-005, T-006) and ADR-054 sections 3.2 to 3.6; the dispatch places docs/specs/**, docs/adr/** and docs/architecture/** out of this agent's scope, and every module carries its FR and decision references inline.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Build the sandboxed-frame panel host, the message contract, and the capability gate: tasks T-005 and T-006 of docs/specs/adr-054-panel-contract.md.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-feat-2229-panel-frame-host",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-03T03:05:25.760413Z",
+      "pattern": "frontend/src/panels/**",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "17c3be2b-6408-4296-8a41-40117ac16ebe",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-03T03:05:25.760565Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/PanelHost.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T03:05:25.760571Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/panelFrame.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T03:05:25.760573Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/panelCapability.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T03:05:25.760575Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/panelMessages.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
