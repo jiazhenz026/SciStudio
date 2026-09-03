@@ -22,6 +22,7 @@ from scistudio.api.routes import (
     filesystem,
     lint,
     packages,
+    panels,
     plots,
     projects,
     runs,
@@ -278,6 +279,10 @@ def create_app() -> FastAPI:
     app.include_router(data.router)
     # ADR-048 SPEC 1: routed panel session API (additive to data.router).
     app.include_router(data.previews_router)
+    # ADR-054 spec 1 D-020: the panel API surface — the one merged asset route
+    # (FR-021), the catalogue and rebuild and per-capability choice FR-023 moved
+    # here from ``/api/previews``, and the editing endpoints (FR-024 to FR-029).
+    app.include_router(panels.router)
     # ADR-048 SPEC 2 / #1606: plot-job run + preview-wiring endpoint. Runs a
     # plot job and registers the produced artifact so the frontend can open a
     # routed plot_artifact preview session (producer -> PlotPanel link).

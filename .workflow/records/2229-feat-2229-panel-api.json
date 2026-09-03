@@ -1,0 +1,106 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "feat/2229-panel-api",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/routes/panels.py",
+      "src/scistudio/api/routes/data.py",
+      "src/scistudio/api/routes/blocks.py",
+      "src/scistudio/api/schemas.py",
+      "src/scistudio/api/app.py",
+      "src/scistudio/panels/assets.py",
+      "src/scistudio/panels/editing.py",
+      "tests/api/**",
+      "tests/panels/test_panel_asset_route.py",
+      "tests/panels/test_panel_editing.py"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-03T06:58:18.323465Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs/specs/adr-054-panel-contract.md already specifies T-004, T-008 and T-010; docs/specs/** and docs/planning/** are the manager's per D-014 and the dispatch scope, so this agent lands no doc change.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Merge the panel asset route, name the fallback panel in the backend response, and add the panel editing endpoints: tasks T-004, T-008 backend half, and T-010 of docs/specs/adr-054-panel-contract.md.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-feat-2229-panel-api",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "89bf7b44-2dde-4451-bb5d-a298bf31c59f",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-03T06:58:18.323492Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_asset_route.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T06:58:18.323498Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_editing.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T06:58:18.323501Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_discovery.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T06:58:18.323503Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_choice_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T06:58:18.323505Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_source_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
