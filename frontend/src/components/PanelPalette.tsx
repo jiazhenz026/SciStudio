@@ -80,8 +80,8 @@ function SectionView({ section, forceOpen, choices }: SectionViewProps) {
           {section.items.map((panel) => (
             <PanelCard
               choice={choiceForType(choices, panel.target_type)}
-              key={panel.previewer_id}
-              onChoose={(p, scope) => choosePanel(p.target_type, p.previewer_id, scope)}
+              key={panel.panel_id}
+              onChoose={(p, scope) => choosePanel(p.target_type, p.panel_id, scope)}
               onClearEverywhere={clearPanelChoiceEverywhere}
               panel={panel}
             />
@@ -112,10 +112,10 @@ function StaleChoicesStrip({ choices }: { choices: PanelChoice[] }) {
       {stale.map((choice) => (
         <div
           className="mt-1 flex items-center justify-between gap-2 px-1"
-          key={`${choice.target_type}-${choice.previewer_id}`}
+          key={`${choice.target_type}-${choice.panel_id}`}
         >
           <p className="text-[11px] text-amber-900">
-            {choice.target_type} → {choice.previewer_id} ({choice.scope}) — not registered
+            {choice.target_type} → {choice.panel_id} ({choice.scope}) — not registered
           </p>
           <button
             className="shrink-0 rounded-full border border-amber-300 bg-white px-2 py-0.5 text-[11px] text-amber-900 hover:bg-amber-100"
@@ -171,12 +171,13 @@ export function PanelPalette() {
       <div className="flex items-center justify-between gap-2">
         {/* The panel names itself after its tab, so `Previewers` reads as a
             peer of `Blocks` and `Data types` (FR-034/FR-039).
-            TODO(#2211): the interface copy on this surface — this heading, the
+            TODO(#2236): the interface copy on this surface — this heading, the
             activity-bar label, the search placeholder, the empty-state hints —
             still says previewer. ADR-054 spec 1 T-001 renamed the code only
             (manager decision D-003); revising the words a person reads is the
-            human documentation spec's scope.
-            Followup: https://github.com/jiazhenz026/SciStudio/issues/2211 */}
+            human documentation spec's scope. #2211 specified that revision and
+            is closed; #2236 is the issue that performs it.
+            Followup: https://github.com/jiazhenz026/SciStudio/issues/2236 */}
         <p className="font-display text-xl text-ink">Previewers</p>
         <button className="toolbar-button" onClick={handleReload} type="button">
           Reload

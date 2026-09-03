@@ -25,6 +25,7 @@ export type {
   PanelDiagnostic,
   PanelDiagnosticsBannerProps,
   PanelErrorSurfaceProps,
+  PanelRevertOffer,
 } from "./PanelErrorSurface";
 
 export {

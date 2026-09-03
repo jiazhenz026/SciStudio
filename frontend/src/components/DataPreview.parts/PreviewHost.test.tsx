@@ -342,6 +342,50 @@ describe("a failed panel still shows the data (FR-014, SC-006)", () => {
     expect(banner.textContent).toContain("version_mismatch");
   });
 
+  it("offers to revert when the panel that failed is an edited copy (FR-028)", async () => {
+    // FR-028's second half. FR-015 still mounts the fallback below so the data
+    // stays visible, but an *edited* panel that will not load must not simply
+    // be replaced by the thing it shadows: "a silent fallback reads as an edit
+    // that was never saved". The catalogue is what says this panel shadows one.
+    useAppStore.getState().setPanels(
+      [
+        {
+          panel_id: "core.dataframe.basic",
+          display_name: "core.dataframe.basic",
+          owner_kind: "project",
+          owner_name: "demo",
+          target_type: "DataFrame",
+          target_types: ["DataFrame"],
+          supports_collection: false,
+          priority: 0,
+          features: [],
+          capability: "displaying",
+          backend_provider: null,
+          frontend_manifest: null,
+          api_version: "1",
+          tier: "project",
+          shadows: "core",
+        },
+      ],
+      [],
+    );
+    createPreviewSession.mockResolvedValue(envelope({ panel: descriptor({ api_version: "9" }) }));
+    render(<PreviewHost target={TARGET} frameFactory={createSeam().factory} />);
+
+    const revert = await screen.findByTestId("panel-error-revert");
+    expect(revert).toHaveTextContent("Revert to the core panel");
+    // ...and the data is still on screen underneath it.
+    expect(screen.getByTestId("panel-host")).toHaveAttribute("data-panel-id", "core.base.fallback");
+  });
+
+  it("offers nothing to revert for a panel that shadows none", async () => {
+    createPreviewSession.mockResolvedValue(envelope({ panel: descriptor({ api_version: "9" }) }));
+    render(<PreviewHost target={TARGET} frameFactory={createSeam().factory} />);
+
+    await screen.findByTestId("panel-diagnostics");
+    expect(screen.queryByTestId("panel-error-revert")).toBeNull();
+  });
+
   it("names the fallback it could not reach when only its id was sent", async () => {
     createPreviewSession.mockResolvedValue(
       envelope({ panel: descriptor({ api_version: "9" }), fallback_panel: null }),

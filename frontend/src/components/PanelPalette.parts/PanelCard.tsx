@@ -1,5 +1,13 @@
 // One panel card in the Panels tab (#2113).
 //
+// ADR-054 T-010 adds the two editing controls the card is the natural home for:
+// Edit opens the panel's entry document in a tab (FR-024), and Revert deletes a
+// project copy so the panel it shadows resolves again (FR-029). Edit is offered
+// on every tier and that is the whole point of FR-025/FR-026 -- nobody is asked
+// where a save goes, and saving a core or package panel copies it into the open
+// project under the same id. Revert is offered only where there is something to
+// revert to, because deleting the only copy of a panel is a different request.
+//
 // The card answers three questions at a glance: what is this panel (id,
 // target type, features), where did it come from (tier section + owner),
 // and is it the one rendering its type right now. The choice control is a
@@ -16,6 +24,8 @@
 
 import { useState } from "react";
 
+import { useAppStore } from "../../store";
+import { panelRevertTarget, revertPanelOverride } from "../../store/usePanelRevert";
 import type { PanelChoice, PanelSpecSummary } from "../../types/api";
 
 import { ownerKindLabel } from "./panelModel";
@@ -53,8 +63,12 @@ export interface PanelCardProps {
 export function PanelCard({ panel, choice, onChoose, onClearEverywhere }: PanelCardProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const openPanelSourceTab = useAppStore((state) => state.openPanelSourceTab);
+  // FR-029 -- the tier this card's panel would fall back to, or `null` when it
+  // shadows nothing and there is therefore no override to remove.
+  const restoresTier = panelRevertTarget(panel);
 
-  const isChosen = choice !== null && choice.previewer_id === panel.previewer_id;
+  const isChosen = choice !== null && choice.panel_id === panel.panel_id;
   // Another panel holds the choice for this type — say so on this card, or
   // its Auto highlight would read as "no preference exists for this type".
   const choiceHeldElsewhere = choice !== null && !isChosen;
@@ -86,9 +100,9 @@ export function PanelCard({ panel, choice, onChoose, onClearEverywhere }: PanelC
   return (
     <div
       className="rounded-xl border border-stone-200 bg-white p-3 shadow-sm"
-      data-testid={`panel-card-${panel.previewer_id}`}
+      data-testid={`panel-card-${panel.panel_id}`}
     >
-      <p className="break-all text-sm font-medium text-ink">{panel.previewer_id}</p>
+      <p className="break-all text-sm font-medium text-ink">{panel.panel_id}</p>
 
       <p className="mt-1 text-[11px] text-stone-500">
         renders <span className="font-medium text-stone-700">{panel.target_type}</span>
@@ -102,7 +116,7 @@ export function PanelCard({ panel, choice, onChoose, onClearEverywhere }: PanelC
 
       {choiceHeldElsewhere ? (
         <p className="mt-1 text-[11px] text-stone-500" data-testid="panel-current-choice">
-          Current choice: <span className="font-medium text-stone-700">{choice.previewer_id}</span>
+          Current choice: <span className="font-medium text-stone-700">{choice.panel_id}</span>
           {choice.available ? "" : " (not registered)"}
         </p>
       ) : null}
@@ -136,6 +150,39 @@ export function PanelCard({ panel, choice, onChoose, onClearEverywhere }: PanelC
             </button>
           );
         })}
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <button
+          className="rounded-full border border-stone-300 bg-white px-2.5 py-1 text-[11px] text-stone-600 transition hover:bg-stone-50 hover:text-stone-800 disabled:opacity-50"
+          data-testid="panel-edit"
+          disabled={busy}
+          onClick={() => openPanelSourceTab(panel.panel_id)}
+          title={
+            panel.tier === "project" || panel.tier === "user"
+              ? "Open this panel's document and edit it in place"
+              : "Open this panel's document. Saving copies it into this project."
+          }
+          type="button"
+        >
+          Edit
+        </button>
+        {restoresTier ? (
+          <button
+            className="rounded-full border border-stone-300 bg-white px-2.5 py-1 text-[11px] text-stone-600 transition hover:bg-stone-50 hover:text-stone-800 disabled:opacity-50"
+            data-testid="panel-revert"
+            disabled={busy}
+            onClick={() =>
+              run(async () => {
+                await revertPanelOverride(panel.panel_id);
+              })
+            }
+            title={`Delete this copy and go back to the ${restoresTier} panel it replaced`}
+            type="button"
+          >
+            Revert to {restoresTier}
+          </button>
+        ) : null}
       </div>
 
       {error ? (

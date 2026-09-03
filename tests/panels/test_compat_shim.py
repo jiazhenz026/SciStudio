@@ -45,6 +45,12 @@ from scistudio.panels.compat import (
 )
 from scistudio.panels.descriptor import panel_descriptor
 from scistudio.panels.discovery import PanelDiscovery, discover_panels
+from scistudio.panels.editing import (
+    EDITABLE_TIERS,
+    PanelNotEditableError,
+    read_panel_source,
+    save_panel_source,
+)
 from scistudio.panels.models import FrontendManifest, OwnerKind, PanelSpec
 from scistudio.panels.registry import PanelRegistry
 from tests.panels.conftest import write_panel
@@ -315,13 +321,114 @@ def test_a_directory_registered_panel_is_never_wrapped(tmp_path: Path) -> None:
     assert install_compat_panels(registry, discovery, root=tmp_path / "out") == []
 
 
-def test_the_wrapped_panel_keeps_the_tier_its_package_registered_from(tmp_path: Path) -> None:
-    """A shim does not promote a package panel into the core tier or out of it."""
+def test_the_wrapped_panel_is_a_package_tier_panel_and_says_who_supplied_it(tmp_path: Path) -> None:
+    """A shim does not promote a package panel into the core tier or out of it.
+
+    The tier is the package tier for every wrapped previewer, whoever registered
+    it (see the read-only section below); `owner_name` is what still answers
+    "where did this come from".
+    """
     spec = _bundle_spec(tmp_path)
     panel = build_compat_panel(spec, root=tmp_path / "out")
     assert panel.tier is PanelTier.PACKAGE
     assert panel.owner_name == "pkg"
     assert is_compat_panel(panel)
+
+
+# ---------------------------------------------------------------------------
+# A-1: a wrapped previewer is read-only, whoever supplied it
+# ---------------------------------------------------------------------------
+#
+# The audit's probe, as a test. A previewer supplied by a user library or a
+# project drop-in is still discovered (FR-020) and still wrapped, but its
+# generated directory lives under `compat_shim_root()`, which is a process
+# temporary directory rebuilt on every registry build. Describing that panel
+# with the tier its *previewer* was registered from made `save_panel_source`
+# take the editable-tier branch and write in place — into a directory that is
+# regenerated on the next `POST /api/panels/reload`. The person saw a save, the
+# reload token bumped, the frame remounted from the just-written file, and the
+# edit was gone at the next rebuild.
+#
+# So a shimmed panel is described the way core and package panels are: as a
+# read-only tier. Editing one copies it into the open project under the same id
+# (FR-026, FR-027), which both survives the rebuild and *is* the migration —
+# the copy is a real panel directory in the new form, and FR-019 then makes it
+# shadow the shim, which stops being generated at all.
+
+
+def _dropin_spec(tmp_path: Path, owner_kind: OwnerKind) -> PanelSpec:
+    """The retired form, registered from a user library or a project drop-in."""
+    spec = _bundle_spec(tmp_path, previewer_id="dropin.legacy.viewer")
+    return PanelSpec(
+        previewer_id=spec.previewer_id,
+        owner_kind=owner_kind,
+        owner_name="dropin",
+        target_type=spec.target_type,
+        features=spec.features,
+        frontend_manifest=spec.frontend_manifest,
+    )
+
+
+@pytest.mark.parametrize("owner_kind", [OwnerKind.USER, OwnerKind.PROJECT])
+def test_a_wrapped_previewer_is_never_described_as_editable_in_place(owner_kind: OwnerKind, tmp_path: Path) -> None:
+    """Whoever registered it, the panel the shim generates is read-only.
+
+    `compat_shim_root()` is disposable by design — its own docstring says it
+    "must not look like something a person edits" — so no tier that writes in
+    place may describe a directory inside it.
+    """
+    panel = build_compat_panel(_dropin_spec(tmp_path, owner_kind), root=tmp_path / "shim")
+
+    assert is_compat_panel(panel)
+    assert panel.tier not in EDITABLE_TIERS
+    assert panel.owner_name == "dropin", "the owner is still reported; only the writability changed"
+
+    source = read_panel_source(panel, PanelDiscovery(panels={panel.panel_id: panel}))
+    assert source.editable is False
+
+
+@pytest.mark.parametrize("owner_kind", [OwnerKind.USER, OwnerKind.PROJECT])
+def test_an_edit_to_a_wrapped_previewer_survives_a_registry_rebuild(owner_kind: OwnerKind, tmp_path: Path) -> None:
+    """The audit's probe, asserted: save, rebuild, and the edit is what loads.
+
+    Before the fix this recorded `SAVE -> tier=user copied=False`, `wrote into
+    the disposable shim dir? True`, `EDIT SURVIVES A REGISTRY REBUILD? False`.
+    """
+    spec = _dropin_spec(tmp_path, owner_kind)
+    shim_root = tmp_path / "shim"
+    project_root = tmp_path / "project" / "panels"
+    panel = build_compat_panel(spec, root=shim_root)
+
+    saved = save_panel_source(panel, "<!doctype html><title>edited</title>\n", project_panels_root=project_root)
+
+    assert saved.copied is True, "a read-only panel is copied, never written in place"
+    assert saved.tier is PanelTier.PROJECT
+    assert shim_root.resolve() not in saved.directory.resolve().parents, "not into the disposable shim root"
+
+    # The rebuild: discover the project tier afresh, then offer the same spec to
+    # the shim. FR-019 shadowing means the copy is found and no shim is built.
+    rebuilt = discover_panels(core_root=tmp_path / "empty-core", project_roots=[project_root])
+    registry = PanelRegistry()
+    registry.register(spec)
+    assert install_compat_panels(registry, rebuilt, root=tmp_path / "shim-2") == []
+
+    resolved = rebuilt.get(spec.previewer_id)
+    assert resolved is not None
+    assert resolved.tier is PanelTier.PROJECT
+    assert resolved.entry_path.read_text(encoding="utf-8") == "<!doctype html><title>edited</title>\n"
+
+
+@pytest.mark.parametrize("owner_kind", [OwnerKind.USER, OwnerKind.PROJECT])
+def test_editing_a_wrapped_previewer_with_no_project_open_is_refused(owner_kind: OwnerKind, tmp_path: Path) -> None:
+    """The one case with nowhere to put the copy fails loudly (FR-026, FR-028).
+
+    A refusal the caller surfaces, never a write into the disposable root that
+    reads as a save.
+    """
+    panel = build_compat_panel(_dropin_spec(tmp_path, owner_kind), root=tmp_path / "shim")
+
+    with pytest.raises(PanelNotEditableError, match="read-only"):
+        save_panel_source(panel, "<!doctype html>\n", project_panels_root=None)
 
 
 # ---------------------------------------------------------------------------

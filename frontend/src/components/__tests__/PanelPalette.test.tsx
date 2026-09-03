@@ -35,34 +35,39 @@ vi.mock("../../lib/api/data", async (importOriginal) => {
 
 function makePanel(overrides: Partial<PanelSpecSummary> = {}): PanelSpecSummary {
   return {
-    previewer_id: "core.table",
+    panel_id: "core.table",
+    display_name: "core.table",
     owner_kind: "core",
     owner_name: "scistudio",
     target_type: "DataObject",
+    target_types: ["DataObject"],
     supports_collection: false,
     priority: 0,
     features: [],
+    capability: "displaying",
     backend_provider: null,
     frontend_manifest: null,
     api_version: "1",
+    tier: "core",
+    shadows: null,
     ...overrides,
   };
 }
 
 const projectViewer = makePanel({
-  previewer_id: "project.spectrum.view",
+  panel_id: "project.spectrum.view",
   owner_kind: "project",
   owner_name: "demo",
   target_type: "Spectrum",
 });
 const userViewer = makePanel({
-  previewer_id: "user.spectrum.view",
+  panel_id: "user.spectrum.view",
   owner_kind: "user",
   owner_name: "library",
   target_type: "Spectrum",
 });
 const packageViewer = makePanel({
-  previewer_id: "pkg.image.view",
+  panel_id: "pkg.image.view",
   owner_kind: "package",
   owner_name: "scistudio-blocks-imaging",
   target_type: "Image",
@@ -74,7 +79,8 @@ const CATALOGUE = [projectViewer, userViewer, packageViewer, coreViewer];
 function makeChoice(overrides: Partial<PanelChoice> = {}): PanelChoice {
   return {
     target_type: "Spectrum",
-    previewer_id: "user.spectrum.view",
+    panel_id: "user.spectrum.view",
+    capability: "displaying",
     scope: "user",
     available: true,
     ...overrides,
@@ -281,7 +287,7 @@ describe("Panels tab — per-type choice (#2049, segmented control)", () => {
       expect(setPanelChoice).toHaveBeenCalledWith("Spectrum", "user.spectrum.view", "user"),
     );
     await waitFor(() =>
-      expect(useAppStore.getState().panelChoices[0]?.previewer_id).toBe("user.spectrum.view"),
+      expect(useAppStore.getState().panelChoices[0]?.panel_id).toBe("user.spectrum.view"),
     );
     // The routing epoch bumped so an open preview re-creates its session
     // through the new choice instead of sitting on the old envelope.
@@ -291,7 +297,7 @@ describe("Panels tab — per-type choice (#2049, segmented control)", () => {
   it("writes a project-scope choice from the This project segment", async () => {
     await renderPalette();
     setPanelChoice.mockResolvedValue({
-      choices: [makeChoice({ scope: "project", previewer_id: "project.spectrum.view" })],
+      choices: [makeChoice({ scope: "project", panel_id: "project.spectrum.view" })],
     });
 
     fireEvent.click(within(card("project.spectrum.view")).getByTestId("panel-seg-project"));
@@ -316,7 +322,7 @@ describe("Panels tab — per-type choice (#2049, segmented control)", () => {
     act(() => {
       useAppStore
         .getState()
-        .setPanelChoices([makeChoice({ scope: "project", previewer_id: "user.spectrum.view" })]);
+        .setPanelChoices([makeChoice({ scope: "project", panel_id: "user.spectrum.view" })]);
     });
 
     fireEvent.click(within(card("user.spectrum.view")).getByTestId("panel-seg-auto"));
@@ -378,7 +384,7 @@ describe("Panels tab — stale choices", () => {
     act(() => {
       useAppStore
         .getState()
-        .setPanelChoices([makeChoice({ previewer_id: "gone.view", available: false })]);
+        .setPanelChoices([makeChoice({ panel_id: "gone.view", available: false })]);
     });
 
     const strip = screen.getByTestId("panel-stale-choices");
@@ -386,5 +392,53 @@ describe("Panels tab — stale choices", () => {
 
     fireEvent.click(within(strip).getByTestId("panel-stale-clear-Spectrum"));
     await waitFor(() => expect(clearPanelChoice).toHaveBeenCalledWith("Spectrum", "user"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ADR-054 T-010's host half — the card is where a panel is opened and reverted
+// ---------------------------------------------------------------------------
+//
+// The audit found `PUT /api/panels/{id}/source` reachable only from `curl`,
+// which left SC-004 -- "copy a built-in panel into a project, edit, save, and
+// see the mounted panel redraw" -- with no affordance in the product. The Edit
+// button is that affordance, and it is on every tier deliberately: FR-025
+// forbids asking where a save goes, and FR-026 makes a save on a core panel the
+// copy itself.
+
+describe("Panels tab — editing a panel (FR-024, FR-029)", () => {
+  it("opens a panel's source from its card, whichever tier it is in", async () => {
+    const openPanelSourceTab = vi.fn();
+    await renderPalette();
+    act(() => {
+      useAppStore.setState({ openPanelSourceTab });
+    });
+
+    fireEvent.click(within(card("core.table")).getByTestId("panel-edit"));
+
+    expect(openPanelSourceTab).toHaveBeenCalledWith("core.table");
+  });
+
+  it("offers Edit on a core panel, because saving it is what copies it (SC-004)", async () => {
+    await renderPalette();
+    expect(within(card("core.table")).getByTestId("panel-edit")).toBeInTheDocument();
+  });
+
+  it("offers Revert only on a copy that shadows something (FR-029)", async () => {
+    const shadowing = makePanel({
+      panel_id: "shadow.view",
+      owner_kind: "project",
+      owner_name: "demo",
+      target_type: "Image",
+      tier: "project",
+      shadows: "core",
+    });
+    await renderPalette([...CATALOGUE, shadowing]);
+
+    expect(within(card("shadow.view")).getByTestId("panel-revert")).toHaveTextContent(
+      "Revert to core",
+    );
+    expect(within(card("core.table")).queryByTestId("panel-revert")).toBeNull();
+    expect(within(card("project.spectrum.view")).queryByTestId("panel-revert")).toBeNull();
   });
 });

@@ -763,18 +763,33 @@ export interface PreviewResourceSaveResponse {
  *  FR-003 routing precedence project → user → package → core). */
 export type PanelOwnerKind = "project" | "user" | "package" | "core";
 
-/** One registered panel (backend `PanelSpecModel`). */
+/** One registered panel (backend `PanelSpecModel`).
+ *
+ *  The id field is `panel_id`. It was `previewer_id` until ADR-054 renamed the
+ *  subsystem, and the backend model was renamed with it (`schemas.py`
+ *  `PanelSpecModel`) — this shape follows the wire, not the history. */
 export interface PanelSpecSummary {
-  previewer_id: string;
+  panel_id: string;
+  display_name: string;
   owner_kind: PanelOwnerKind;
   owner_name: string;
   target_type: string;
+  target_types: string[];
   supports_collection: boolean;
   priority: number;
   features: string[];
+  /** `displaying` or `producing`, as the panel declares it (FR-005). */
+  capability: string;
   backend_provider: string | null;
   frontend_manifest: PanelFrontendManifest | null;
   api_version: string;
+  /** The tier the panel's directory was found in, or `null` for a routing
+   *  entry with no on-disk document. */
+  tier: PanelOwnerKind | null;
+  /** The tier of the panel this one shadows, or `null`. What tells a caller
+   *  whether `DELETE /api/panels/{panel_id}/override` has anything to
+   *  restore (FR-029). */
+  shadows: PanelOwnerKind | null;
 }
 
 /** `GET /api/panels` response (#2095, moved under the panel naming by
@@ -803,7 +818,12 @@ export type PanelChoiceScope = "user" | "project";
 /** One effective per-type panel choice (backend `PanelChoiceModel`). */
 export interface PanelChoice {
   target_type: string;
-  previewer_id: string;
+  /** Renamed from `previewer_id` with the subsystem; the request body of
+   *  `PUT /api/panels/choices/{target_type}` takes the same key. */
+  panel_id: string;
+  /** Which of the two preferences this records — `displaying` or
+   *  `producing` (FR-049). */
+  capability: string;
   /** Which layer this effective choice came from; a project-layer choice
    *  overrides the user-layer choice for the same type. */
   scope: PanelChoiceScope;
@@ -815,6 +835,62 @@ export interface PanelChoice {
 /** `GET /api/panels/choices` response (#2049, ADR-054 D-020). */
 export interface PanelChoiceListResponse {
   choices: PanelChoice[];
+}
+
+// ---------------------------------------------------------------------------
+// ADR-054 T-010 / D-020 — reading a panel, saving it, and reverting (FR-024
+// to FR-030). The host consumes all three; `PanelPalette` opens a panel's
+// source and `PanelErrorSurface` offers the revert FR-028 requires.
+// ---------------------------------------------------------------------------
+
+/** `GET /api/panels/{panel_id}/source` response (FR-024). */
+export interface PanelSourceResponse {
+  panel_id: string;
+  /** The tier the panel resolved from, which is also where a save lands
+   *  (FR-025) — unless it is read-only, in which case a save copies it into
+   *  the open project (FR-026). */
+  tier: PanelOwnerKind;
+  /** The entry document's file name inside the panel directory. */
+  entry: string;
+  /** The entry document's text. */
+  source: string;
+  /** The `panel.json` text. */
+  declaration: string;
+  /** Whether a save writes in place. `false` means a save copies the panel
+   *  into the project first. Reported so the interface can *say* what a save
+   *  will do — not so it can offer a choice; FR-025 forbids asking. */
+  editable: boolean;
+  /** The tier of the panel this one shadows, or `null`. */
+  shadows: PanelOwnerKind | null;
+  descriptor: PanelDescriptorResponse | null;
+}
+
+/** `PUT /api/panels/{panel_id}/source` request body (FR-025). */
+export interface PanelSourceSaveRequest {
+  source: string;
+  /** An optional replacement `panel.json`. It must parse and must keep the
+   *  panel's id (FR-027). */
+  declaration?: string | null;
+}
+
+/** `PUT /api/panels/{panel_id}/source` response (FR-025 to FR-027, FR-030). */
+export interface PanelSourceSaveResponse {
+  panel_id: string;
+  /** The tier that was written. */
+  tier: PanelOwnerKind;
+  /** `true` when the save copied a read-only panel into the project. */
+  copied: boolean;
+  descriptor: PanelDescriptorResponse | null;
+}
+
+/** `DELETE /api/panels/{panel_id}/override` response (FR-029). */
+export interface PanelOverrideRevertResponse {
+  panel_id: string;
+  /** The tier the deleted copy lived in. */
+  removed_tier: PanelOwnerKind;
+  /** The tier of the panel the copy was shadowing, now resolving again. */
+  restored_tier: PanelOwnerKind;
+  descriptor: PanelDescriptorResponse | null;
 }
 
 // ---------------------------------------------------------------------------

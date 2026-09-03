@@ -24,16 +24,21 @@ import {
 
 function makePanel(overrides: Partial<PanelSpecSummary> = {}): PanelSpecSummary {
   return {
-    previewer_id: "test.panel",
+    panel_id: "test.panel",
+    display_name: "test.panel",
     owner_kind: "core",
     owner_name: "scistudio",
     target_type: "DataObject",
+    target_types: ["DataObject"],
     supports_collection: false,
     priority: 0,
     features: [],
+    capability: "displaying",
     backend_provider: null,
     frontend_manifest: null,
     api_version: "1",
+    tier: "core",
+    shadows: null,
     ...overrides,
   };
 }
@@ -41,7 +46,8 @@ function makePanel(overrides: Partial<PanelSpecSummary> = {}): PanelSpecSummary 
 function makeChoice(overrides: Partial<PanelChoice> = {}): PanelChoice {
   return {
     target_type: "Spectrum",
-    previewer_id: "pkg.spectrum.plot",
+    panel_id: "pkg.spectrum.plot",
+    capability: "displaying",
     scope: "user",
     available: true,
     ...overrides,
@@ -49,33 +55,33 @@ function makeChoice(overrides: Partial<PanelChoice> = {}): PanelChoice {
 }
 
 const project = makePanel({
-  previewer_id: "project.my.view",
+  panel_id: "project.my.view",
   owner_kind: "project",
   owner_name: "demo",
   target_type: "Spectrum",
 });
 const user = makePanel({
-  previewer_id: "user.my.view",
+  panel_id: "user.my.view",
   owner_kind: "user",
   owner_name: "library",
   target_type: "Spectrum",
 });
 const pkgB = makePanel({
-  previewer_id: "pkgb.view",
+  panel_id: "pkgb.view",
   owner_kind: "package",
   owner_name: "scistudio-blocks-b",
 });
 const pkgA = makePanel({
-  previewer_id: "pkga.view",
+  panel_id: "pkga.view",
   owner_kind: "package",
   owner_name: "scistudio-blocks-a",
 });
 const unnamed = makePanel({
-  previewer_id: "orphan.view",
+  panel_id: "orphan.view",
   owner_kind: "package",
   owner_name: "",
 });
-const core = makePanel({ previewer_id: "core.table" });
+const core = makePanel({ panel_id: "core.table" });
 
 describe("panelSectionIdFor", () => {
   it("groups by tier, and by package name inside the package tier", () => {
@@ -115,14 +121,11 @@ describe("buildPanelSections", () => {
   });
 
   it("sorts cards inside a section by panel id", () => {
-    const a = makePanel({ previewer_id: "core.alpha" });
-    const z = makePanel({ previewer_id: "core.zulu" });
+    const a = makePanel({ panel_id: "core.alpha" });
+    const z = makePanel({ panel_id: "core.zulu" });
     const sections = buildPanelSections([z, a], "");
     const coreSection = sections.find((s) => s.id === CORE_SECTION_ID);
-    expect(coreSection?.items.map((item) => item.previewer_id)).toEqual([
-      "core.alpha",
-      "core.zulu",
-    ]);
+    expect(coreSection?.items.map((item) => item.panel_id)).toEqual(["core.alpha", "core.zulu"]);
   });
 
   it("drops the teaching empty hints while a search is active", () => {
@@ -134,7 +137,7 @@ describe("buildPanelSections", () => {
 
 describe("filterPanels / isFilteringPanels", () => {
   it("matches on id, target type, owner, and features", () => {
-    const cap = makePanel({ previewer_id: "core.plot", features: ["interactive"] });
+    const cap = makePanel({ panel_id: "core.plot", features: ["interactive"] });
     expect(filterPanels([project, cap], "spectrum")).toEqual([project]);
     expect(filterPanels([project, cap], "interactive")).toEqual([cap]);
     expect(filterPanels([project, pkgA], "blocks-a")).toEqual([pkgA]);
@@ -158,7 +161,7 @@ describe("ownerKindLabel", () => {
 describe("choiceForType / staleChoices", () => {
   it("returns the effective choice for a type, or null when unchosen", () => {
     const choices = [makeChoice()];
-    expect(choiceForType(choices, "Spectrum")?.previewer_id).toBe("pkg.spectrum.plot");
+    expect(choiceForType(choices, "Spectrum")?.panel_id).toBe("pkg.spectrum.plot");
     expect(choiceForType(choices, "Image")).toBeNull();
   });
 
