@@ -57,7 +57,7 @@ let choiceWriteEpoch = 0;
 async function fetchPanelCatalog(): Promise<void> {
   try {
     const listing = await dataApi.listPanels();
-    useAppStore.getState().setPanels(listing.previewers ?? [], listing.diagnostics ?? []);
+    useAppStore.getState().setPanels(listing.panels ?? [], listing.diagnostics ?? []);
   } catch (error) {
     console.warn("[panels] panel catalogue unavailable; keeping the empty state", error);
   }

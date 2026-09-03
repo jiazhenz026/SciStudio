@@ -780,7 +780,10 @@ export interface PanelSpecSummary {
 /** `GET /api/panels` response (#2095, moved under the panel naming by
  *  ADR-054 D-020). */
 export interface PanelListResponse {
-  previewers: PanelSpecSummary[];
+  /** Registered panels, ordered project -> user -> package -> core. The
+   *  backend field is `panels` (ADR-054 FR-023); it was `previewers` before
+   *  the endpoint moved under the panel naming. */
+  panels: PanelSpecSummary[];
   /** Discovery problems recorded during the scan (duplicate ids, refused
    *  drop-ins, broken entry points). */
   diagnostics: string[];
