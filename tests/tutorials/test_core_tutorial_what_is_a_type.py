@@ -19,7 +19,7 @@ shipped tutorial gets. This file checks what only tutorial 2 promises
   mode, panel manifest with a served module URL and a path-confined
   ``asset_root`` beside the block — and its panel is the shipped, hand-written
   ES module implementing the ADR-051 PanelModule contract;
-* the previewer registers for ``Image`` and paints the pixels as an
+* the panel registers for ``Image`` and paints the pixels as an
   indexed-color PNG, and it derives its tier from where it sits, so the same
   file works in the project and, after "Move to My Library", in the library's
   user-tier slot;
@@ -234,7 +234,7 @@ def _label_plane(image: Any) -> np.ndarray:
     """The label channel of a Segment Cells output.
 
     The block emits two channels on one grid — the micrograph it read on
-    ``c=0``, the labels on ``c=1`` — so the previewer can draw one over the
+    ``c=0``, the labels on ``c=1`` — so the panel can draw one over the
     other. Anything counting objects wants the second. Counting the array whole
     would count grey levels as label ids.
     """
@@ -464,15 +464,15 @@ def test_the_promotion_bridge_judges_the_type_and_the_block(manifest: TutorialMa
     """The ending judges two of the three promotions, and says why the third is not judged.
 
     Tutorial 3 stands on all three — its fresh project finds Image, Segment
-    Cells, and the Image previewer already in the library — but only two of the
-    three moves are things ``library_contains`` can see. The Previewers tab's
+    Cells, and the Image panel already in the library — but only two of the
+    three moves are things ``library_contains`` can see. The Panels tab's
     card offers Auto / This project / All projects, which records *scope*
-    rather than moving the file, so the previewer step asks for something the
+    rather than moving the file, so the panel step asks for something the
     term cannot judge and is deliberately left unjudged with a TODO explaining
     the gap.
 
     This test exists so that stays a decision rather than an accident. Dropping
-    the previewer step's condition without the TODO, or quietly re-judging it
+    the panel step's condition without the TODO, or quietly re-judging it
     on a term the step does not ask for, both fail here.
     """
     judged: list[tuple[str, str]] = []
@@ -484,10 +484,10 @@ def test_the_promotion_bridge_judges_the_type_and_the_block(manifest: TutorialMa
         judged.append((str(condition.args["kind"]), str(condition.args["name"])))
     assert judged == [("type", "Image"), ("block", "segment_cells")]
 
-    previewer_step = manifest.step_by_id("save-the-previewer")
-    assert previewer_step is not None
-    assert previewer_step.done_when is None, "the previewer promotion is unjudged on purpose; see the TODO"
-    assert "All projects" in say_text(previewer_step), "the step still asks for the Previewers tab's own control"
+    panel_step = manifest.step_by_id("save-the-previewer")
+    assert panel_step is not None
+    assert panel_step.done_when is None, "the panel promotion is unjudged on purpose; see the TODO"
+    assert "All projects" in say_text(panel_step), "the step still asks for the Previewers tab's own control"
 
     source = (TUTORIAL_DIR / "tutorial.yaml").read_text(encoding="utf-8")
     assert "TODO(#2135)" in source, "an unjudged step must carry the tracked reason it is unjudged"
@@ -561,7 +561,7 @@ def test_the_image_type_is_the_array_subclass_the_step_describes(
 
     That claim is checked against the mechanism that produces it. Subclassing
     is what makes an Image acceptable anywhere an Array is, which is the whole
-    reason the core Array previewer can render one at all.
+    reason the core Array panel can render one at all.
     """
     from scistudio.core.types import Array
 
@@ -915,7 +915,7 @@ def test_an_unreviewed_run_keeps_every_label(assets: dict[str, ModuleType]) -> N
 
 
 # ---------------------------------------------------------------------------
-# The previewer
+# The panel
 # ---------------------------------------------------------------------------
 
 
@@ -939,7 +939,7 @@ class _StubRequest:
 def _png_chunks(png: bytes) -> list[tuple[bytes, bytes]]:
     """Every chunk of a PNG as ``(tag, body)``, in file order.
 
-    Written out rather than pulled from a library because the previewer encodes
+    Written out rather than pulled from a library because the panel encodes
     its PNG by hand, and a test that decoded with Pillow would be checking that
     Pillow is forgiving rather than that the bytes are right.
     """
@@ -967,14 +967,14 @@ def _png_indices(width: int, height: int, idat: bytes) -> np.ndarray:
     return np.array(rows, dtype=np.uint8)
 
 
-def test_the_previewer_claims_image_and_paints_the_pixels_in_color(assets: dict[str, ModuleType]) -> None:
+def test_the_panel_claims_image_and_paints_the_pixels_in_color(assets: dict[str, ModuleType]) -> None:
     """The payoff beat shows a fluorescence image, so the PNG must actually be one.
 
-    "There they are!" is the line that opens the step after this previewer
+    "There they are!" is the line that opens the step after this panel
     lands, and it is only earned if the reader is looking at something that
     reads as cells at a glance. A grayscale ramp would satisfy "renders a real
     PNG" and would still leave the reader squinting at a gray smear, so this
-    test checks the encoding the previewer chose and what that encoding does to
+    test checks the encoding the panel chose and what that encoding does to
     the two pixels that matter.
 
     Indexed color (IHDR color type 3) is the choice: one byte per pixel plus a
@@ -988,7 +988,7 @@ def test_the_previewer_claims_image_and_paints_the_pixels_in_color(assets: dict[
     """
     import base64
 
-    from scistudio.previewers.models import EnvelopeKind
+    from scistudio.panels.models import EnvelopeKind
 
     specs = assets["preview"].get_previewers()
     assert len(specs) == 1 and specs[0].target_type == "Image"
@@ -1043,24 +1043,24 @@ def test_the_previewer_claims_image_and_paints_the_pixels_in_color(assets: dict[
     assert len(green_forward) > 64, "a fluorescence LUT, not a gray ramp: green leads over most of the range"
 
 
-def test_the_previewer_reports_failure_as_an_envelope(assets: dict[str, ModuleType]) -> None:
-    from scistudio.previewers.models import EnvelopeKind
+def test_the_panel_reports_failure_as_an_envelope(assets: dict[str, ModuleType]) -> None:
+    from scistudio.panels.models import EnvelopeKind
 
     envelope = assets["preview"].render_image(_StubRequest(None))
     assert envelope.kind is EnvelopeKind.ERROR
     assert envelope.error is not None
 
 
-def test_the_previewer_derives_its_tier_from_where_it_sits(tmp_path: Path) -> None:
+def test_the_panel_derives_its_tier_from_where_it_sits(tmp_path: Path) -> None:
     """The same bytes answer PROJECT beside a project.yaml and USER in a library.
 
     "Move to My Library" relocates the file verbatim, and the drop-in scans
     refuse a spec whose declared tier disagrees with the directory being
-    scanned — so a previewer that hard-coded either tier would break on one
+    scanned — so a panel that hard-coded either tier would break on one
     side of the move. Deriving the tier from the location is what makes the
     promotion the tutorial teaches actually work.
     """
-    from scistudio.previewers.models import OwnerKind
+    from scistudio.panels.models import OwnerKind
 
     source = (ASSETS / "code" / "image_preview.py").read_text(encoding="utf-8")
 
@@ -1152,7 +1152,7 @@ def _rescan(product: Any, written: Any) -> None:
 
     blocks = set(product.block_types)
     types = set(product.data_types)
-    previewers = set(product.previewer_types)
+    panels = set(product.panel_types)
     for raw in written:
         path = Path(raw)
         if path.suffix != ".py":
@@ -1165,10 +1165,10 @@ def _rescan(product: Any, written: Any) -> None:
         elif path.parent.name == "previewers":
             match = re.search(r'target_type="([^"]+)"', source)
             if match:
-                previewers.add(match.group(1))
+                panels.add(match.group(1))
     product.block_types = frozenset(blocks)
     product.data_types = frozenset(types)
-    product.previewer_types = frozenset(previewers)
+    product.panel_types = frozenset(panels)
 
 
 def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1177,7 +1177,7 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     The runtime, session store, and progress store are the real ones; the
     product-state port is stood in exactly as the API layer stands it in. The
     walk asserts what the level exists for: the wall is met before the loader
-    exists, the number table is met before the previewer exists, the judged
+    exists, the number table is met before the panel exists, the judged
     conditions demand the reader's own clicks and runs, and the promotions land
     before the tutorial completes — without firing the work-import milestone,
     which belongs to tutorial 4.
@@ -1368,7 +1368,7 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     _run(succeeded=True)
     assert _live_step(runtime.evaluate_active()).satisfied is True
 
-    # Why the micrograph came out as numbers, and the previewer that fixes it,
+    # Why the micrograph came out as numbers, and the panel that fixes it,
     # are one step: the explanation carries the button that writes the file.
     # The instruction to open a file is judged; the verdict on what it shows is
     # the step after it.
@@ -1380,7 +1380,7 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     assert _live_step(runtime.active_session()).satisfied is False
     view = runtime.trigger_active()
     assert (project / "previewers" / "image_preview.py").is_file()
-    assert "Image" in product.previewer_types, "the previewers/ re-scan registered the previewer live (#2086)"
+    assert "Image" in product.panel_types, "the previewers/ re-scan registered the panel live (#2086)"
     assert _live_step(view).satisfied is True, "registration is all this step asks for"
 
     _advance("look-again")
@@ -1503,7 +1503,7 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     product.library = product.library | {("block", "segment_cells")}
     assert _live_step(runtime.evaluate_active()).satisfied is True
 
-    # The previewer promotion judges nothing (TODO(#2135) on the step): the
+    # The panel promotion judges nothing (TODO(#2135) on the step): the
     # control it asks for records a scope rather than moving the file, so the
     # reader continues by hand and the walk does too.
     _advance("save-the-previewer")

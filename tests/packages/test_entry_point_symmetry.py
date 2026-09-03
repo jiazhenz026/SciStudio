@@ -556,11 +556,11 @@ def _scan_registry(kind: str) -> list[str]:
         return type_registry.diagnostics
     if kind == "tutorials":
         return _scan_tutorials()
-    from scistudio.previewers.registry import PreviewerRegistry
+    from scistudio.panels.registry import PanelRegistry
 
-    previewer_registry = PreviewerRegistry()
-    previewer_registry._scan_entry_points()
-    return previewer_registry.diagnostics
+    panel_registry = PanelRegistry()
+    panel_registry._scan_entry_points()
+    return panel_registry.diagnostics
 
 
 def _scan_tutorials() -> list[str]:
@@ -614,7 +614,7 @@ def test_every_registry_records_a_load_failure_as_a_diagnostic(
 ) -> None:
     """FR-028 at the registry level, in the one shape all three expose.
 
-    Before this, only the previewer registry kept a diagnostic list, so a
+    Before this, only the panel registry kept a diagnostic list, so a
     package whose ``scistudio.blocks`` or ``scistudio.types`` hook failed to
     import installed cleanly and contributed nothing, with no way for the user
     to tell that apart from a package that had nothing to contribute.

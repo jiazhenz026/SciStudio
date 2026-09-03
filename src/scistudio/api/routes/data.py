@@ -1,7 +1,7 @@
 """Data upload, metadata, and preview endpoints.
 
 ADR-048 SPEC 1 (no-compat, #1604): previews are served exclusively through the
-routed previewer *session* API (``/api/previews/...``), delegating to the
+routed panel *session* API (``/api/previews/...``), delegating to the
 ``scistudio.previewers`` subsystem owned by the runtime. The legacy one-shot
 ``GET /api/data/{data_ref}/preview`` adapter (FR-008) was removed under #1604;
 the frontend ``TableViewer`` paginates/sorts through the session PATCH like the
@@ -33,13 +33,13 @@ from scistudio.api.schemas import (
     DataRegisterPathRequest,
     DataRegisterPathResponse,
     DataUploadResponse,
+    PanelChoiceListResponse,
+    PanelChoiceModel,
+    PanelChoiceRequest,
+    PanelListResponse,
+    PanelReloadResponse,
+    PanelSpecModel,
     PreviewEnvelopeModel,
-    PreviewerChoiceListResponse,
-    PreviewerChoiceModel,
-    PreviewerChoiceRequest,
-    PreviewerListResponse,
-    PreviewerReloadResponse,
-    PreviewerSpecModel,
     PreviewResourceResponse,
     PreviewResourceSaveRequest,
     PreviewResourceSaveResponse,
@@ -50,15 +50,15 @@ from scistudio.core.meta._display_name import resolve_display_name
 from scistudio.core.origins import CUSTOM_ORIGIN, PACKAGE_ORIGIN, PROJECT_ORIGIN, USER_ORIGIN
 from scistudio.core.storage.ref import StorageReference
 from scistudio.core.types.artifact import Artifact
-from scistudio.previewers import (
+from scistudio.panels import (
     PreviewSource,
     PreviewTarget,
     TargetKind,
-    UnknownPreviewerError,
+    UnknownPanelError,
     UnknownTargetError,
 )
-from scistudio.previewers.assets import resolve_asset, validate_manifest
-from scistudio.previewers.choices import (
+from scistudio.panels.assets import resolve_asset, validate_manifest
+from scistudio.panels.choices import (
     clear_choice,
     load_choices,
     project_choices_path,
@@ -66,8 +66,8 @@ from scistudio.previewers.choices import (
     user_choices_path,
     write_choice,
 )
-from scistudio.previewers.models import MissingBundleError, OwnerKind, PreviewError
-from scistudio.previewers.open_as import (
+from scistudio.panels.models import MissingBundleError, OwnerKind, PreviewError
+from scistudio.panels.open_as import (
     clear_open_as,
     normalize_extension,
     read_open_as,
@@ -167,7 +167,7 @@ def _open_as_candidates(runtime: ApiRuntime, project: Any, extension: str) -> li
     read which extension, so the candidate set is a query against it rather
     than a second mapping to keep in step. ``Artifact`` is appended when no
     loader claims it, because "open it as a plain file" is always a real answer
-    — the artifact previewer reports any file — and a picker that could not
+    — the artifact panel reports any file — and a picker that could not
     offer it would strand every extension no type declares.
     """
     block_registry = runtime.block_registry
@@ -338,7 +338,7 @@ async def get_data_metadata(data_ref: str, runtime: RuntimeDep) -> DataMetadataR
 
 
 # ---------------------------------------------------------------------------
-# ADR-048 SPEC 1: routed previewer session API (additive).
+# ADR-048 SPEC 1: routed panel session API (additive).
 # ---------------------------------------------------------------------------
 
 
@@ -433,12 +433,12 @@ def _validate_resource_param_value(value: Any, *, depth: int = 0) -> int:
 
 
 # ---------------------------------------------------------------------------
-# #2095: previewer discovery + reload.
+# #2095: panel discovery + reload.
 #
-# The previewer tier gained a project and a user tier in #2017/#2044 but not the
+# The panel tier gained a project and a user tier in #2017/#2044 but not the
 # surface blocks and types already had around theirs. These two routes close
-# that: one answers which previewers exist and where each came from, the other
-# lets the previewer surface trigger a registry rebuild without reaching for the
+# that: one answers which panels exist and where each came from, the other
+# lets the panel surface trigger a registry rebuild without reaching for the
 # block endpoint to do it.
 # ---------------------------------------------------------------------------
 
@@ -452,44 +452,44 @@ _TIER_ORDER = {
 }
 
 
-def _spec_model(spec: Any) -> PreviewerSpecModel:
-    """Adapt a :class:`PreviewerSpec` to its wire shape."""
+def _spec_model(spec: Any) -> PanelSpecModel:
+    """Adapt a :class:`PanelSpec` to its wire shape."""
     data = spec.to_dict()
     # ``to_dict`` also carries ``resource_provider``, which the wire model does
     # not declare; naming the fields explicitly keeps the two from drifting
     # silently if either side gains a key.
-    return PreviewerSpecModel(
+    return PanelSpecModel(
         previewer_id=data["previewer_id"],
         owner_kind=data["owner_kind"],
         owner_name=data["owner_name"],
         target_type=data["target_type"],
         supports_collection=data["supports_collection"],
         priority=data["priority"],
-        capabilities=data["capabilities"],
+        features=data["features"],
         backend_provider=data["backend_provider"],
         frontend_manifest=data["frontend_manifest"],
         api_version=data["api_version"],
     )
 
 
-@previews_router.get("/previewers", response_model=PreviewerListResponse)
-async def list_previewers(
+@previews_router.get("/previewers", response_model=PanelListResponse)
+async def list_panels(
     runtime: RuntimeDep,
     target_type: str | None = None,
-) -> PreviewerListResponse:
-    """List registered previewers, with the tier each was discovered from.
+) -> PanelListResponse:
+    """List registered panels, with the tier each was discovered from.
 
     ``target_type`` filters to specs claiming exactly that type name. It is an
     exact match, not the router's specificity walk: a caller asking "what claims
-    ``Spectrum``" wants the previewers written for ``Spectrum``, not every
-    ancestor previewer that would also render one. To learn what would actually
+    ``Spectrum``" wants the panels written for ``Spectrum``, not every
+    ancestor panel that would also render one. To learn what would actually
     be picked for a concrete target, open a preview session and read the
     ``previewer_id`` the router returned.
 
     Registry diagnostics ride along because nothing else surfaces them. A
-    drop-in refused for a module-name collision, a duplicate previewer id, a
+    drop-in refused for a module-name collision, a duplicate panel id, a
     broken entry point -- all were recorded and then only logged, so from the
-    product they looked like a previewer that simply never appeared.
+    product they looked like a panel that simply never appeared.
     """
     service = runtime.get_preview_service()
     registry = service.registry
@@ -497,27 +497,27 @@ async def list_previewers(
     if target_type is not None:
         specs = [s for s in specs if s.target_type == target_type]
     specs = sorted(specs, key=lambda s: (_TIER_ORDER.get(s.owner_kind, 99), -s.priority, s.previewer_id))
-    return PreviewerListResponse(
+    return PanelListResponse(
         previewers=[_spec_model(s) for s in specs],
         diagnostics=list(registry.diagnostics),
     )
 
 
-@previews_router.post("/reload", response_model=PreviewerReloadResponse)
-async def reload_previewers(runtime: RuntimeDep) -> PreviewerReloadResponse:
-    """Re-scan the drop-in previewer directories and broadcast the change.
+@previews_router.post("/reload", response_model=PanelReloadResponse)
+async def reload_panels(runtime: RuntimeDep) -> PanelReloadResponse:
+    """Re-scan the drop-in panel directories and broadcast the change.
 
     This is a second surface onto one implementation, not a second reload.
-    ``refresh_all_registries()`` has rebuilt the previewer registry alongside
+    ``refresh_all_registries()`` has rebuilt the panel registry alongside
     types and blocks since #2021, and ``POST /api/blocks/reload`` and
     ``POST /api/types/reload`` both already reach it -- verified directly:
-    editing a drop-in previewer and calling the *blocks* endpoint does pick the
+    editing a drop-in panel and calling the *blocks* endpoint does pick the
     edit up.
 
-    What was missing is the previewer surface's own way in. FR-027's argument on
-    the type side applies unchanged here: a previewer view must not have to
+    What was missing is the panel surface's own way in. FR-027's argument on
+    the type side applies unchanged here: a panel view must not have to
     speak to the block endpoints to do its own job, while all three endpoints
-    still rebuild the same world. Inventing a previewer-only rebuild instead
+    still rebuild the same world. Inventing a panel-only rebuild instead
     would be the drift ADR-053 §10.3/§10.4 exists to remove.
 
     The broadcast is ``blocks.reloaded`` for the same reason ``reload_types``
@@ -561,7 +561,7 @@ async def reload_previewers(runtime: RuntimeDep) -> PreviewerReloadResponse:
         except Exception:
             logger.exception("POST /api/previews/reload: blocks.reloaded broadcast failed")
 
-    return PreviewerReloadResponse(
+    return PanelReloadResponse(
         reloaded=len(after),
         added=added,
         removed=removed,
@@ -570,9 +570,9 @@ async def reload_previewers(runtime: RuntimeDep) -> PreviewerReloadResponse:
 
 
 # ---------------------------------------------------------------------------
-# #2049: the person's chosen previewer per type.
+# #2049: the person's chosen panel per type.
 #
-# ADR-048 FR-003 answers "which previewer is best" without asking the person
+# ADR-048 FR-003 answers "which panel is best" without asking the person
 # looking at the data. These routes record what they asked for instead. Two
 # layers -- this project, or every project -- with the project layer winning,
 # and a choice that cannot be honoured falls back to the ladder rather than
@@ -607,7 +607,7 @@ def _choices_path_for_scope(runtime: ApiRuntime, scope: str) -> Path:
     )
 
 
-def _effective_choices(runtime: ApiRuntime) -> PreviewerChoiceListResponse:
+def _effective_choices(runtime: ApiRuntime) -> PanelChoiceListResponse:
     """Build the effective-choices response.
 
     A plain function rather than the route handler, so the write routes can
@@ -619,9 +619,9 @@ def _effective_choices(runtime: ApiRuntime) -> PreviewerChoiceListResponse:
     effective = load_choices(project_dir)
     registry = runtime.get_preview_service().registry
 
-    return PreviewerChoiceListResponse(
+    return PanelChoiceListResponse(
         choices=[
-            PreviewerChoiceModel(
+            PanelChoiceModel(
                 target_type=target_type,
                 previewer_id=previewer_id,
                 scope=_PROJECT_SCOPE if target_type in project_layer else _USER_SCOPE,
@@ -632,32 +632,32 @@ def _effective_choices(runtime: ApiRuntime) -> PreviewerChoiceListResponse:
     )
 
 
-@previews_router.get("/choices", response_model=PreviewerChoiceListResponse)
-async def list_previewer_choices(runtime: RuntimeDep) -> PreviewerChoiceListResponse:
-    """Return the effective per-type previewer choices, with their layer.
+@previews_router.get("/choices", response_model=PanelChoiceListResponse)
+async def list_panel_choices(runtime: RuntimeDep) -> PanelChoiceListResponse:
+    """Return the effective per-type panel choices, with their layer.
 
     ``scope`` reports where each effective choice came from, so a reader can
     tell a project-only preference from a global one without diffing two files.
-    ``available`` reports whether the chosen previewer is registered right now:
+    ``available`` reports whether the chosen panel is registered right now:
     a choice outlives the package that provided it, and a stale one should read
     as stale rather than as missing.
     """
     return _effective_choices(runtime)
 
 
-@previews_router.put("/choices/{target_type}", response_model=PreviewerChoiceListResponse)
-async def set_previewer_choice(
-    target_type: str, payload: PreviewerChoiceRequest, runtime: RuntimeDep
-) -> PreviewerChoiceListResponse:
+@previews_router.put("/choices/{target_type}", response_model=PanelChoiceListResponse)
+async def set_panel_choice(
+    target_type: str, payload: PanelChoiceRequest, runtime: RuntimeDep
+) -> PanelChoiceListResponse:
     """Record *target_type* -> ``previewer_id`` at the requested scope.
 
-    The previewer must be registered. Routing tolerates a choice whose
-    previewer has since disappeared -- that is the realistic case, an uninstall
+    The panel must be registered. Routing tolerates a choice whose
+    panel has since disappeared -- that is the realistic case, an uninstall
     -- but accepting one that never existed would store a preference that can
     never apply and give no clue why.
 
-    Whether the previewer can actually render this type is decided at routing
-    time against the target's type chain, not here: this layer knows previewer
+    Whether the panel can actually render this type is decided at routing
+    time against the target's type chain, not here: this layer knows panel
     specs, and the type hierarchy belongs to the type registry.
     """
     path = _choices_path_for_scope(runtime, payload.scope)
@@ -665,7 +665,7 @@ async def set_previewer_choice(
     if registry.get(payload.previewer_id) is None:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown previewer {payload.previewer_id!r}. See GET /api/previews/previewers.",
+            detail=f"Unknown panel {payload.previewer_id!r}. See GET /api/previews/previewers.",
         )
 
     write_choice(path, target_type, payload.previewer_id)
@@ -674,10 +674,10 @@ async def set_previewer_choice(
     return _effective_choices(runtime)
 
 
-@previews_router.delete("/choices/{target_type}", response_model=PreviewerChoiceListResponse)
-async def clear_previewer_choice(
+@previews_router.delete("/choices/{target_type}", response_model=PanelChoiceListResponse)
+async def clear_panel_choice(
     target_type: str, runtime: RuntimeDep, scope: str = _USER_SCOPE
-) -> PreviewerChoiceListResponse:
+) -> PanelChoiceListResponse:
     """Remove the choice for *target_type* at *scope*.
 
     Clearing a type that was never chosen succeeds: the caller's intent -- no
@@ -710,7 +710,7 @@ async def read_preview_session(session_id: str, runtime: RuntimeDep) -> PreviewE
     service = runtime.get_preview_service()
     try:
         envelope = service.sessions.read_session(session_id)
-    except UnknownPreviewerError as exc:
+    except UnknownPanelError as exc:
         raise HTTPException(status_code=404, detail=exc.message) from exc
     return PreviewEnvelopeModel(**envelope.to_dict())
 
@@ -723,7 +723,7 @@ async def patch_preview_session(
     service = runtime.get_preview_service()
     try:
         envelope = service.sessions.patch_session(session_id, payload.query)
-    except UnknownPreviewerError as exc:
+    except UnknownPanelError as exc:
         raise HTTPException(status_code=404, detail=exc.message) from exc
     return PreviewEnvelopeModel(**envelope.to_dict())
 
@@ -742,7 +742,7 @@ async def read_preview_resource(
     service = runtime.get_preview_service()
     try:
         data = service.sessions.read_resource(session_id, resource_id, _parse_resource_params(params))
-    except UnknownPreviewerError as exc:
+    except UnknownPanelError as exc:
         raise HTTPException(status_code=404, detail=exc.message) from exc
     except (UnknownTargetError, PreviewError) as exc:
         raise HTTPException(status_code=400, detail=getattr(exc, "message", str(exc))) from exc
@@ -775,7 +775,7 @@ async def save_preview_resource(
     service = runtime.get_preview_service()
     try:
         result = service.sessions.save_resource(session_id, resource_id, destination, payload.params)
-    except UnknownPreviewerError as exc:
+    except UnknownPanelError as exc:
         raise HTTPException(status_code=404, detail=exc.message) from exc
     except (UnknownTargetError, PreviewError) as exc:
         raise HTTPException(status_code=400, detail=getattr(exc, "message", str(exc))) from exc
@@ -784,16 +784,16 @@ async def save_preview_resource(
 
 @previews_router.get("/assets/{previewer_id}/{asset_path:path}")
 async def serve_preview_asset(previewer_id: str, asset_path: str, runtime: RuntimeDep) -> FileResponse:
-    """Serve a validated, path-confined same-origin previewer asset (FR-022/FR-024).
+    """Serve a validated, path-confined same-origin panel asset (FR-022/FR-024).
 
-    Only previewers with a validated frontend manifest and a declared
+    Only panels with a validated frontend manifest and a declared
     ``asset_root`` may serve assets; remote URLs and out-of-root paths are
     rejected with a 404 so the server never leaks arbitrary filesystem reads.
     """
     service = runtime.get_preview_service()
     spec = service.registry.get(previewer_id)
     if spec is None or spec.frontend_manifest is None:
-        raise HTTPException(status_code=404, detail=f"no servable manifest for previewer {previewer_id!r}")
+        raise HTTPException(status_code=404, detail=f"no servable manifest for panel {previewer_id!r}")
     validation = validate_manifest(spec.frontend_manifest)
     if not validation.valid:
         raise HTTPException(status_code=404, detail="; ".join(validation.diagnostics) or "invalid manifest")

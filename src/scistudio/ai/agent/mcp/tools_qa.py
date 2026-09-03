@@ -6,7 +6,7 @@ The 5 tools (all read-class) are:
 
 ``search_docs``, ``get_doc``, ``list_data``, ``get_project_info``,
 ``open_gui`` (the last added for #1947 so the agent can open the running
-GUI in a browser and self-debug plots / previewers / interactive blocks).
+GUI in a browser and self-debug plots / panels / interactive blocks).
 """
 
 from __future__ import annotations
@@ -412,7 +412,7 @@ async def open_gui() -> OpenGuiResult:
     """Return the URL of the running SciStudio GUI so you can open it in a browser.
 
     Use when:
-      - You need to SEE the live rendered frontend — a plot, a previewer,
+      - You need to SEE the live rendered frontend — a plot, a panel,
         or an interactive block panel — to debug how it renders or behaves.
       - You want to drive the GUI yourself with your own browser tooling.
 
@@ -442,7 +442,7 @@ async def open_gui() -> OpenGuiResult:
         url=url.rstrip("/"),
         hint=(
             "Open this URL in a browser tab and use your own browser tools to "
-            "inspect plots, previewers, and interactive block panels. "
+            "inspect plots, panels, and interactive block panels. "
             "SciStudio does not control the browser for you."
         ),
     )

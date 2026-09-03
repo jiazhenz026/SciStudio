@@ -6,7 +6,7 @@ Ensures that lower layers never import from higher layers.  The hierarchy is:
     Layer 2  blocks/
     Layer 3  engine/
     Layer 4  ai/           (the scistudio.ai services package, NOT blocks/ai/)
-    Layer 4  previewers/   (the ADR-048 preview subsystem, consumed by api/)
+    Layer 4  panels/   (the ADR-048 preview subsystem, consumed by api/)
     Layer 4  plot/         (the first-class plot engine, #1824; consumed by api/ AND ai/)
     Layer 5  api/
 
@@ -15,7 +15,7 @@ is a first-class feature consumed by both the REST route and the MCP plot tools,
 so it must import NEITHER ``scistudio.api`` NOR ``scistudio.ai``; callers inject a
 ``PlotRuntimeContext`` instead.
 
-``previewers/`` is a subsystem the API layer mounts; it may depend on core but
+``panels/`` is a subsystem the API layer mounts; it may depend on core but
 must never import up into ``scistudio.api`` (ADR-048 / #1598).
 
 Cross-cutting packages (workflow/, utils/, cli/) are exempt from layer ordering
@@ -164,7 +164,7 @@ LAYER_RULES: list[tuple[str, list[str]]] = [
         ],
     ),
     (
-        "previewers",
+        "panels",
         [
             "scistudio.api",
         ],
@@ -207,5 +207,5 @@ def test_layer_does_not_import_forbidden(layer: str, forbidden: list[str]) -> No
 def test_layer_rules_cover_all_source_layers() -> None:
     """Sanity check: every non-cross-cutting source directory appears in at least one rule."""
     checked_layers = {rule[0] for rule in LAYER_RULES}
-    expected = {"core", "blocks", "engine", "ai", "previewers", "plot"}
+    expected = {"core", "blocks", "engine", "ai", "panels", "plot"}
     assert expected.issubset(checked_layers), f"Missing layer rules for: {expected - checked_layers}"

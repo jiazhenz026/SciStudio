@@ -276,11 +276,11 @@ def create_app() -> FastAPI:
     # ``/api/blocks`` would contradict that in the URL if not in the code.
     app.include_router(types.router)
     app.include_router(data.router)
-    # ADR-048 SPEC 1: routed previewer session API (additive to data.router).
+    # ADR-048 SPEC 1: routed panel session API (additive to data.router).
     app.include_router(data.previews_router)
     # ADR-048 SPEC 2 / #1606: plot-job run + preview-wiring endpoint. Runs a
     # plot job and registers the produced artifact so the frontend can open a
-    # routed plot_artifact preview session (producer -> PlotPreviewer link).
+    # routed plot_artifact preview session (producer -> PlotPanel link).
     app.include_router(plots.router)
     app.include_router(tutorials.router)
     app.include_router(packages.router)

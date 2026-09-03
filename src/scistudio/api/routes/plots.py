@@ -3,8 +3,8 @@
 This route is the producer -> consumer link the original SPEC 2 implementation
 left dead-wired (#1606). ``run_plot_job`` writes a display-only artifact to the
 preview cache, but nothing registered that artifact so the routed
-:class:`~scistudio.previewers.PreviewService` could reach the core
-``PlotPreviewer`` (``core.plot.basic``) at runtime, and no API surface let the
+:class:`~scistudio.panels.PreviewService` could reach the core
+``PlotPanel`` (``core.plot.basic``) at runtime, and no API surface let the
 GUI trigger a plot run and open the preview.
 
 ``POST /api/plots/run``:
@@ -19,7 +19,7 @@ GUI trigger a plot run and open the preview.
 3. Returns the catalog ``data_ref`` (+ cache key + display source) so the
    frontend opens a routed ``plot_artifact`` preview session through the
    existing ``POST /api/previews/sessions`` API — rendering the produced figure
-   in the preview panel through the core ``PlotPreviewer``.
+   in the preview panel through the core ``PlotPanel``.
 
 A plot job remains PREVIEW-ONLY: this route never registers a workflow node,
 edits workflow YAML, creates a downstream collection, or claims lineage
@@ -319,7 +319,7 @@ async def run_plot(payload: PlotRunRequest, runtime: RuntimeDep) -> PlotRunRespo
 
     The response's ``data_ref`` is the catalog id the frontend passes to
     ``POST /api/previews/sessions`` with ``target.kind="plot_artifact"`` to
-    render the produced plot through the core ``PlotPreviewer``.
+    render the produced plot through the core ``PlotPanel``.
     """
     # Import inside the handler so the ``api`` import surface stays light and the
     # allowed ``api -> ai`` dependency edge is exercised lazily.

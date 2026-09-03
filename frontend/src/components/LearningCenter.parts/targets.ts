@@ -178,7 +178,7 @@ export const ROUTE_TARGET_LEFT_TABS: Partial<Record<RouteTarget, LeftTab>> = {
   // showing the reader where this project's workflows are kept, which only
   // works if the panel is showing them.
   workflows: "workflows",
-  // The Previewers section (#2113): the cards that say which previewer renders
+  // The Previewers section (#2113): the cards that say which panel renders
   // which kind of data. A step pointing at them has to have the panel showing
   // them first.
   previewers: "previewers",

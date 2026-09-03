@@ -24,7 +24,7 @@ vi.mock("../../lib/api", () => ({
 }));
 
 import { PreviewHost } from "./PreviewHost";
-import type { PreviewHostApi } from "./previewerHostApi";
+import type { PreviewHostApi } from "./panelHostApi";
 
 const TARGET: PreviewTarget = { kind: "data_ref", ref: "data-1", recorded_type: "Spectrum" };
 

@@ -3,11 +3,11 @@
 Issue #1606 (P0): the original SPEC 2 implementation left the plot-preview path
 DEAD-WIRED. ``run_plot_job`` wrote a display artifact to the preview cache, but
 NOTHING registered that artifact so the routed
-:class:`~scistudio.previewers.PreviewService` could reach the core
-``PlotPreviewer`` (``core.plot.basic``) at runtime — there was no API route, no
+:class:`~scistudio.panels.PreviewService` could reach the core
+``PlotPanel`` (``core.plot.basic``) at runtime — there was no API route, no
 catalog registration, and no UI trigger. The pre-existing unit test
-(``test_preview_plot_jobs.test_artifact_consumable_by_plot_previewer``) called
-``plot_previewer`` DIRECTLY with a hand-built request, proving only that the
+(``test_preview_plot_jobs.test_artifact_consumable_by_plot_panel``) called
+``plot_panel`` DIRECTLY with a hand-built request, proving only that the
 viewer *can* render a file — exactly the gap that let the dead-wire ship.
 
 These tests exercise the REAL wiring with NO mocks of the wiring itself:
@@ -17,11 +17,11 @@ These tests exercise the REAL wiring with NO mocks of the wiring itself:
         -> ApiRuntime.register_plot_artifact  (catalog registration)
           -> POST /api/previews/sessions  (routed PreviewService)
             -> PreviewRouter resolves core.plot.basic
-              -> plot_previewer renders a PLOT envelope  (the consumer)
+              -> plot_panel renders a PLOT envelope  (the consumer)
 
 If any link in that chain is missing or mis-wired, these tests fail. They are
 the mandatory end-to-end proof that a produced plot artifact actually reaches
-the PlotPreviewer at runtime (FR-031 / SC-010).
+the PlotPanel at runtime (FR-031 / SC-010).
 """
 
 from __future__ import annotations
@@ -150,7 +150,7 @@ def test_plot_run_route_registers_artifact_and_preview_session_renders_plot(
     This is the regression guard for the #1606 dead-wire: it fails if the run
     route does not exist, does not register the artifact, the record is not
     classified as a plot_artifact target, the router does not resolve
-    core.plot.basic, or the PlotPreviewer does not render the produced SVG.
+    core.plot.basic, or the PlotPanel does not render the produced SVG.
     """
     _seed_block_output(runtime, opened_project)
     _write_workflow_and_plot(client, opened_project)
@@ -176,7 +176,7 @@ def test_plot_run_route_registers_artifact_and_preview_session_renders_plot(
 
     # 2. Consumer: open a routed preview session with the returned data_ref.
     #    This is the exact call the frontend PreviewHost makes; it must resolve
-    #    the core PlotPreviewer and render a PLOT envelope.
+    #    the core PlotPanel and render a PLOT envelope.
     session = client.post(
         "/api/previews/sessions",
         json={
@@ -192,11 +192,11 @@ def test_plot_run_route_registers_artifact_and_preview_session_renders_plot(
     )
     assert session.status_code == 200, session.text
     env = session.json()
-    # The produced artifact reaches the PlotPreviewer at runtime (FR-031/SC-010).
+    # The produced artifact reaches the PlotPanel at runtime (FR-031/SC-010).
     assert env["previewer_id"] == "core.plot.basic", env
     assert env["kind"] == "plot", env
     assert env["payload"]["format"] == "svg"
-    # SVG is sanitized + embedded inline by the previewer (sandboxed).
+    # SVG is sanitized + embedded inline by the panel (sandboxed).
     assert env["payload"]["sandboxed"] is True
     assert "svg" in env["payload"]
     # Export resource is offered so the user can save the figure.
@@ -713,7 +713,7 @@ def test_registered_plot_artifact_classifies_as_plot_target(
     routed query is enriched with the artifact's ``_storage``.
     """
     from scistudio.api.runtime._data import _target_kind_for_record
-    from scistudio.previewers import TargetKind
+    from scistudio.panels import TargetKind
 
     svg = opened_project / "out.svg"
     svg.write_text("<svg><rect width='1' height='1'/></svg>", encoding="utf-8")
@@ -730,7 +730,7 @@ def test_registered_plot_artifact_classifies_as_plot_target(
     assert record.metadata["source"]["node_id"] == "node_a"
     assert _target_kind_for_record(record, None) is TargetKind.PLOT_ARTIFACT
 
-    # enrich_preview_query supplies the artifact storage the previewer reads.
+    # enrich_preview_query supplies the artifact storage the panel reads.
     enriched = runtime.enrich_preview_query(record.id, {})
     # StorageReference normalizes path separators; compare resolved paths.
     assert Path(enriched["_storage"]["path"]) == svg

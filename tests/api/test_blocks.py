@@ -603,7 +603,7 @@ def test_reload_blocks_endpoint_triggers_backend_rescan(client: TestClient, tmp_
     scan never saw becomes visible only after the POST.
 
     ADR-053 FR-062 / #2022: the re-scan is now ``refresh_all_registries()``, so
-    types and previewers are refreshed alongside blocks. That builds a fresh
+    types and panels are refreshed alongside blocks. That builds a fresh
     ``BlockRegistry`` from the drop-in tiers rather than re-scanning the
     existing object, so the probe goes into the user-library tier
     (``~/.scistudio/blocks``, isolated by the ``client`` fixture) instead of an

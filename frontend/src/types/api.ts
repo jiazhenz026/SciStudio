@@ -321,7 +321,7 @@ export interface TypeSourceResponse {
  * ADR-053 FR-006 — which user library directory a write or read addresses.
  *
  * Named by the caller and never inferred from file content: `blocks` is
- * `~/.scistudio/blocks/`, `types` is `~/.scistudio/types/`, and `previewers`
+ * `~/.scistudio/blocks/`, `types` is `~/.scistudio/types/`, and `panels`
  * is `~/.scistudio/previewers/` (Learning Center #2086). Inside a tutorial
  * project the backend swaps the library root for the tutorial-scoped one; the
  * target names the tier, never the root.
@@ -535,10 +535,10 @@ export interface DataOpenAsListResponse {
 }
 
 // ---------------------------------------------------------------------------
-// ADR-048 SPEC 1 — routed previewer session API wire types (FR-020 .. FR-024).
+// ADR-048 SPEC 1 — routed panel session API wire types (FR-020 .. FR-024).
 //
 // These mirror `scistudio.api.schemas` Pydantic models / the canonical
-// `scistudio.previewers.models` dataclasses on the wire. The legacy
+// `scistudio.panels.models` dataclasses on the wire. The legacy
 // `DataPreviewResponse` / `DataPreviewQuery` REST-preview wire types and the
 // `GET /api/data/{ref}/preview` adapter were removed under ADR-048 no-compat
 // (#1604); pagination/sort now flows through the routed session API below.
@@ -546,7 +546,7 @@ export interface DataOpenAsListResponse {
 
 /** Canonical fallback kinds carried by a {@link PreviewEnvelope} (backend
  *  `EnvelopeKind`). The frontend routes core fallback viewers by this value
- *  when no validated previewer manifest is present. */
+ *  when no validated panel manifest is present. */
 export type EnvelopeKind =
   | "dataframe"
   | "array"
@@ -579,11 +579,11 @@ export interface PreviewTarget {
   source?: PreviewSource | null;
 }
 
-/** Same-origin descriptor for a dynamically loaded previewer ESM module
+/** Same-origin descriptor for a dynamically loaded panel ESM module
  *  (backend `FrontendManifest.to_dict()` — note: NO `asset_root`). A package
- *  or project previewer surfaces this in `envelope.metadata.frontend_manifest`
+ *  or project panel surfaces this in `envelope.metadata.frontend_manifest`
  *  so {@link PreviewHost} can validate + import + mount it (FR-022/FR-024). */
-export interface PreviewerManifest {
+export interface PanelFrontendManifest {
   previewer_id: string;
   /** Backend-relative URL the host imports the ESM module from, e.g.
    *  `/api/previews/assets/<previewer_id>/<path>`. Remote (http/https/`//`)
@@ -593,10 +593,10 @@ export interface PreviewerManifest {
   export_name: string;
   /** Optional backend-relative CSS asset URLs. */
   css?: string[];
-  /** Previewer bundle version (fingerprint or semver). */
+  /** Panel bundle version (fingerprint or semver). */
   version?: string;
-  /** Previewer API compatibility version; must match the host
-   *  {@link PREVIEWER_HOST_API_VERSION} to mount without a diagnostic. */
+  /** Panel API compatibility version; must match the host
+   *  {@link PANEL_HOST_API_VERSION} to mount without a diagnostic. */
   api_version?: string;
 }
 
@@ -610,7 +610,7 @@ export interface PreviewResource {
 }
 
 /** Display + state metadata on every envelope (backend `PreviewMetadata`).
- *  The six boolean flags are mandatory (FR-011); previewer-owned shape/type/
+ *  The six boolean flags are mandatory (FR-011); panel-owned shape/type/
  *  axis metadata and the optional `frontend_manifest` ride alongside them
  *  (the backend spreads `extra` into this object on the wire). */
 export interface PreviewMetadata {
@@ -620,10 +620,10 @@ export interface PreviewMetadata {
   derived?: boolean;
   complete?: boolean;
   failed?: boolean;
-  /** Same-origin manifest a package/project previewer asks the host to mount.
+  /** Same-origin manifest a package/project panel asks the host to mount.
    *  Absent for core fallbacks → the host renders the core viewer for `kind`. */
-  frontend_manifest?: PreviewerManifest;
-  /** Previewer-owned extra metadata (shape, dtype, axes, total_rows, ...). */
+  frontend_manifest?: PanelFrontendManifest;
+  /** Panel-owned extra metadata (shape, dtype, axes, total_rows, ...). */
   [key: string]: unknown;
 }
 
@@ -657,10 +657,10 @@ export interface PreviewEnvelope {
   metadata: PreviewMetadata;
   diagnostics: string[];
   error: PreviewErrorInfo | null;
-  /** First-class same-origin previewer manifest, framework-stamped by the
-   *  session manager from the resolved PreviewerSpec (ADR-048 §4 / #1579).
+  /** First-class same-origin panel manifest, framework-stamped by the
+   *  session manager from the resolved PanelSpec (ADR-048 §4 / #1579).
    *  Absent for core fallbacks. Prefer this over `metadata.frontend_manifest`. */
-  frontend_manifest?: PreviewerManifest | null;
+  frontend_manifest?: PanelFrontendManifest | null;
 }
 
 /** Request body for `POST /api/previews/sessions`. */
@@ -697,62 +697,62 @@ export interface PreviewResourceSaveResponse {
 }
 
 // ---------------------------------------------------------------------------
-// #2095 / #2049 — previewer discovery, reload, and per-type choice (#2113
-// surfaces all three in the left-panel Previewers tab).
+// #2095 / #2049 — panel discovery, reload, and per-type choice (#2113
+// surfaces all three in the left-panel Panels tab).
 // ---------------------------------------------------------------------------
 
-/** Where a previewer was discovered from (backend `OwnerKind`; sets the
+/** Where a panel was discovered from (backend `OwnerKind`; sets the
  *  FR-003 routing precedence project → user → package → core). */
-export type PreviewerOwnerKind = "project" | "user" | "package" | "core";
+export type PanelOwnerKind = "project" | "user" | "package" | "core";
 
-/** One registered previewer (backend `PreviewerSpecModel`). */
-export interface PreviewerSpecSummary {
+/** One registered panel (backend `PanelSpecModel`). */
+export interface PanelSpecSummary {
   previewer_id: string;
-  owner_kind: PreviewerOwnerKind;
+  owner_kind: PanelOwnerKind;
   owner_name: string;
   target_type: string;
   supports_collection: boolean;
   priority: number;
-  capabilities: string[];
+  features: string[];
   backend_provider: string | null;
-  frontend_manifest: PreviewerManifest | null;
+  frontend_manifest: PanelFrontendManifest | null;
   api_version: string;
 }
 
 /** `GET /api/previews/previewers` response (#2095). */
-export interface PreviewerListResponse {
-  previewers: PreviewerSpecSummary[];
+export interface PanelListResponse {
+  previewers: PanelSpecSummary[];
   /** Discovery problems recorded during the scan (duplicate ids, refused
    *  drop-ins, broken entry points). */
   diagnostics: string[];
 }
 
 /** `POST /api/previews/reload` response (#2095). */
-export interface PreviewerReloadResponse {
+export interface PanelReloadResponse {
   reloaded: number;
   added: string[];
   removed: string[];
   diagnostics: string[];
 }
 
-/** Which layer a per-type previewer choice lives at (#2049). */
-export type PreviewerChoiceScope = "user" | "project";
+/** Which layer a per-type panel choice lives at (#2049). */
+export type PanelChoiceScope = "user" | "project";
 
-/** One effective per-type previewer choice (backend `PreviewerChoiceModel`). */
-export interface PreviewerChoice {
+/** One effective per-type panel choice (backend `PanelChoiceModel`). */
+export interface PanelChoice {
   target_type: string;
   previewer_id: string;
   /** Which layer this effective choice came from; a project-layer choice
    *  overrides the user-layer choice for the same type. */
-  scope: PreviewerChoiceScope;
-  /** False when the chosen previewer is not registered right now — the choice
+  scope: PanelChoiceScope;
+  /** False when the chosen panel is not registered right now — the choice
    *  stays recorded and routing falls back to the FR-003 ladder. */
   available: boolean;
 }
 
 /** `GET /api/previews/choices` response (#2049). */
-export interface PreviewerChoiceListResponse {
-  choices: PreviewerChoice[];
+export interface PanelChoiceListResponse {
+  choices: PanelChoice[];
 }
 
 // ---------------------------------------------------------------------------
@@ -835,7 +835,7 @@ export interface PlotRunRequest {
  *
  *  On success, `data_ref` is the catalog id passed to
  *  {@link PreviewTarget.ref} (with `kind: "plot_artifact"`) to render the
- *  produced figure through the core PlotPreviewer. It is `null` when the run
+ *  produced figure through the core PlotPanel. It is `null` when the run
  *  failed / produced no artifact — `status` + `errors` then explain why. */
 export interface PlotRunResponse {
   status: "succeeded" | "failed" | "cancelled" | "timed_out";

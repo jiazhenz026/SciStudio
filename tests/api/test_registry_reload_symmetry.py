@@ -1,12 +1,12 @@
 """Reload symmetry — every invalidating event refreshes every registry.
 
 ADR-053 ``docs/specs/adr-053-personal-tool-library.md`` §10.4 (FR-062 to FR-065),
-issue #2021, plus issue #2009 for the previewer half.
+issue #2021, plus issue #2009 for the panel half.
 
 ``refresh_block_registry`` used to be called alone from five sites — the
 branch-switch route and the four package install/update/rollback/delete routes —
-while the type registry and the previewer registry were rebuilt only on project
-switch and at startup. A package that shipped types or previewers, and a branch
+while the type registry and the panel registry were rebuilt only on project
+switch and at startup. A package that shipped types or panels, and a branch
 that changed ``<project>/types/`` or ``<project>/previewers/``, produced no
 error and no hint: the new items simply were not there until the user happened
 to switch projects.
@@ -44,11 +44,11 @@ from scistudio.api.routes import packages as package_routes
 from scistudio.api.runtime import ApiRuntime
 from scistudio.core.types.base import DataObject
 from scistudio.desktop.package_installer import LocalPackageInstallResult
-from scistudio.previewers.models import OwnerKind, PreviewerSpec
+from scistudio.panels.models import OwnerKind, PanelSpec
 
 PROBE_MODULE = "scistudio_reload_probe"
-PROBE_PREVIEWER_ID = "probe.package.viewer"
-PROJECT_PREVIEWER_ID = "probe.project.viewer"
+PROBE_PANEL_ID = "probe.package.viewer"
+PROJECT_PANEL_ID = "probe.project.viewer"
 
 _PROJECT_TYPE_MODULE = '''
 from scistudio.core.types.base import DataObject
@@ -58,14 +58,14 @@ class BranchOnlyType(DataObject):
     """Project-tier drop-in type that exists only on the feature branch."""
 '''
 
-_PROJECT_PREVIEWER_MODULE = f'''
-from scistudio.previewers.models import OwnerKind, PreviewerSpec
+_PROJECT_PANEL_MODULE = f'''
+from scistudio.panels.models import OwnerKind, PanelSpec
 
 
 def get_previewers():
     return [
-        PreviewerSpec(
-            previewer_id="{PROJECT_PREVIEWER_ID}",
+        PanelSpec(
+            previewer_id="{PROJECT_PANEL_ID}",
             owner_kind=OwnerKind.PROJECT,
             owner_name="probe-project",
             target_type="BranchOnlyType",
@@ -87,7 +87,7 @@ def _previewer_ids(runtime: ApiRuntime) -> set[str]:
 
 
 def _install_package_entry_points(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Publish a fake installed package shipping one type and one previewer.
+    """Publish a fake installed package shipping one type and one panel.
 
     Entry points are how a package ships both, so injecting them is the
     package tier as the registries actually see it. The injection happens
@@ -97,8 +97,8 @@ def _install_package_entry_points(monkeypatch: pytest.MonkeyPatch) -> None:
     module = types.ModuleType(PROBE_MODULE)
     module.get_types = lambda: [PackageProbeType]  # type: ignore[attr-defined]
     module.get_previewers = lambda: [  # type: ignore[attr-defined]
-        PreviewerSpec(
-            previewer_id=PROBE_PREVIEWER_ID,
+        PanelSpec(
+            previewer_id=PROBE_PANEL_ID,
             owner_kind=OwnerKind.PACKAGE,
             owner_name=PROBE_MODULE,
             target_type=PackageProbeType.__name__,
@@ -139,7 +139,7 @@ def _fake_local_install(monkeypatch: pytest.MonkeyPatch, install_path: Path) -> 
 def _write_project_dropins(project_dir: Path) -> None:
     for child, name, body in (
         ("types", "branch_only_type.py", _PROJECT_TYPE_MODULE),
-        ("previewers", "branch_only_previewer.py", _PROJECT_PREVIEWER_MODULE),
+        ("previewers", "branch_only_panel.py", _PROJECT_PANEL_MODULE),
     ):
         target = project_dir / child
         target.mkdir(parents=True, exist_ok=True)
@@ -298,16 +298,16 @@ def test_mcp_reload_blocks_refreshes_the_type_registry(
 # ---------------------------------------------------------------------------
 
 
-def test_package_install_refreshes_type_and_previewer_registries(
+def test_package_install_refreshes_type_and_panel_registries(
     client: TestClient,
     runtime: ApiRuntime,
     opened_project: Path,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """Installing a package makes its types and previewers usable at once.
+    """Installing a package makes its types and panels usable at once.
 
-    FR-063 for the type half and #2009 for the previewer half: before the fix
+    FR-063 for the type half and #2009 for the panel half: before the fix
     the install route rebuilt only the block registry, so both stayed
     undiscovered until the next project switch.
     """
@@ -316,13 +316,13 @@ def test_package_install_refreshes_type_and_previewer_registries(
     _install_package_entry_points(monkeypatch)
 
     assert PackageProbeType.__name__ not in _type_names(runtime)
-    assert PROBE_PREVIEWER_ID not in _previewer_ids(runtime)
+    assert PROBE_PANEL_ID not in _previewer_ids(runtime)
 
     response = client.post("/api/packages/local", json={"path": str(tmp_path / "probe.whl")})
     assert response.status_code == 200, response.text
 
     assert PackageProbeType.__name__ in _type_names(runtime)
-    assert PROBE_PREVIEWER_ID in _previewer_ids(runtime)
+    assert PROBE_PANEL_ID in _previewer_ids(runtime)
 
 
 @pytest.mark.parametrize(
@@ -342,7 +342,7 @@ def test_package_lifecycle_routes_refresh_every_registry(
     url: str,
     manager_attr: str,
 ) -> None:
-    """Update, rollback, and uninstall re-discover types and previewers too.
+    """Update, rollback, and uninstall re-discover types and panels too.
 
     All three move package code on disk exactly as an install does, so all
     three are FR-063 sites; uninstall is named in the FR explicitly.
@@ -360,12 +360,12 @@ def test_package_lifecycle_routes_refresh_every_registry(
     _install_package_entry_points(monkeypatch)
 
     assert PackageProbeType.__name__ not in _type_names(runtime)
-    assert PROBE_PREVIEWER_ID not in _previewer_ids(runtime)
+    assert PROBE_PANEL_ID not in _previewer_ids(runtime)
 
     assert getattr(client, method)(url).status_code == 200
 
     assert PackageProbeType.__name__ in _type_names(runtime)
-    assert PROBE_PREVIEWER_ID in _previewer_ids(runtime)
+    assert PROBE_PANEL_ID in _previewer_ids(runtime)
 
 
 # ---------------------------------------------------------------------------
@@ -373,7 +373,7 @@ def test_package_lifecycle_routes_refresh_every_registry(
 # ---------------------------------------------------------------------------
 
 
-def test_branch_switch_refreshes_project_types_and_previewers(
+def test_branch_switch_refreshes_project_types_and_panels(
     client: TestClient,
     runtime: ApiRuntime,
     opened_project: Path,
@@ -387,27 +387,27 @@ def test_branch_switch_refreshes_project_types_and_previewers(
     assert client.post("/api/git/branch/create", json={"name": "feature"}).status_code == 200
     _switch(client, "feature")
     _write_project_dropins(opened_project)
-    _commit(client, "add project type and previewer")
+    _commit(client, "add project type and panel")
 
     _switch(client, "main")
     assert "BranchOnlyType" not in _type_names(runtime)
-    assert PROJECT_PREVIEWER_ID not in _previewer_ids(runtime)
+    assert PROJECT_PANEL_ID not in _previewer_ids(runtime)
 
     _switch(client, "feature")
     assert "BranchOnlyType" in _type_names(runtime)
-    assert PROJECT_PREVIEWER_ID in _previewer_ids(runtime)
+    assert PROJECT_PANEL_ID in _previewer_ids(runtime)
 
 
-SCOPED_PREVIEWER_ID = "probe.scoped.viewer"
+SCOPED_PANEL_ID = "probe.scoped.viewer"
 
-_SCOPED_PREVIEWER_MODULE = f'''
-from scistudio.previewers.models import OwnerKind, PreviewerSpec
+_SCOPED_PANEL_MODULE = f'''
+from scistudio.panels.models import OwnerKind, PanelSpec
 
 
 def get_previewers():
     return [
-        PreviewerSpec(
-            previewer_id="{SCOPED_PREVIEWER_ID}",
+        PanelSpec(
+            previewer_id="{SCOPED_PANEL_ID}",
             owner_kind=OwnerKind.USER,
             owner_name="tutorial-library",
             target_type="TeachingType",
@@ -416,16 +416,16 @@ def get_previewers():
 '''
 
 
-def test_project_switch_swaps_the_scoped_library_previewer_tier(
+def test_project_switch_swaps_the_scoped_library_panel_tier(
     client: TestClient,
     runtime: ApiRuntime,
     project_parent: Path,
 ) -> None:
     """Learning Center FR-070/FR-071 through the refresh path (#2086).
 
-    The previewer registry is rebuilt on project switch, and *which* library
+    The panel registry is rebuilt on project switch, and *which* library
     answers as its user tier follows the project being opened: a scoped-library
-    previewer is registered while a tutorial project is open and gone the
+    panel is registered while a tutorial project is open and gone the
     moment a real project is — the isolation blocks and types already hold,
     now symmetric for the third registry.
     """
@@ -433,9 +433,9 @@ def test_project_switch_swaps_the_scoped_library_previewer_tier(
     from scistudio.tutorials import projects as tutorial_projects
     from scistudio.tutorials.projects import TutorialKey
 
-    scoped_previewers = dropins.tutorial_library_dir() / "previewers"
-    scoped_previewers.mkdir(parents=True, exist_ok=True)
-    (scoped_previewers / "scoped_viewer.py").write_text(_SCOPED_PREVIEWER_MODULE, encoding="utf-8")
+    scoped_panels = dropins.tutorial_library_dir() / "previewers"
+    scoped_panels.mkdir(parents=True, exist_ok=True)
+    (scoped_panels / "scoped_viewer.py").write_text(_SCOPED_PANEL_MODULE, encoding="utf-8")
 
     key = TutorialKey.core("welcome-to-scistudio")
     plan = tutorial_projects.plan_tutorial_project(key, "Welcome To SciStudio")
@@ -449,14 +449,14 @@ def test_project_switch_swaps_the_scoped_library_previewer_tier(
         tutorial_source_id=key.source_id,
         tutorial_id=key.tutorial_id,
     )
-    assert SCOPED_PREVIEWER_ID in _previewer_ids(runtime)
+    assert SCOPED_PANEL_ID in _previewer_ids(runtime)
 
     response = client.post(
         "/api/projects/",
         json={"name": "My Analysis", "description": "real work", "path": str(project_parent)},
     )
     assert response.status_code == 200
-    assert SCOPED_PREVIEWER_ID not in _previewer_ids(runtime)
+    assert SCOPED_PANEL_ID not in _previewer_ids(runtime)
 
 
 # ---------------------------------------------------------------------------
@@ -571,7 +571,7 @@ def test_refresh_all_registries_rebuilds_the_registry_behind_every_group(
 ) -> None:
     """Every mapped group's registry is a different object after a refresh.
 
-    The behavioural tests above pin the user-visible half — a type or previewer
+    The behavioural tests above pin the user-visible half — a type or panel
     that was not there before the event is there afterwards. This pins the
     structural half for every group at once, so a registry that
     ``refresh_all_registries`` stopped rebuilding is caught even when no test

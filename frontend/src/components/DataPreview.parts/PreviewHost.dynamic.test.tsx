@@ -23,7 +23,7 @@ vi.mock("../../lib/api", () => ({
 }));
 
 import { PreviewHost } from "./PreviewHost";
-import type { PreviewHostApi } from "./previewerHostApi";
+import type { PreviewHostApi } from "./panelHostApi";
 
 const TARGET: PreviewTarget = { kind: "data_ref", ref: "data-1", recorded_type: "DataFrame" };
 
@@ -143,7 +143,7 @@ describe("PreviewHost — dynamic manifest fallback (US2.3 / FR-022 / FR-029)", 
     );
   });
 
-  it("mounts a valid same-origin previewer module via the injected importer", async () => {
+  it("mounts a valid same-origin panel module via the injected importer", async () => {
     createPreviewSession.mockResolvedValue(
       envelope({
         previewer_id: "imaging.image.viewer",

@@ -26,7 +26,7 @@ import { PlotViewer } from "../DataPreview.parts/PlotViewer";
 import { DataPreview } from "../DataPreview";
 import { PermissionModePicker } from "../AIChat/SetupScreen.parts/PermissionModePicker";
 import { ProviderPicker } from "../AIChat/SetupScreen.parts/ProviderPicker";
-import { PreviewerPalette } from "../PreviewerPalette";
+import { PanelPalette } from "../PanelPalette";
 import { ProjectTree } from "../ProjectTree";
 import { TypePalette } from "../TypePalette";
 import { WorkflowPanel } from "../WorkflowPanel";
@@ -325,7 +325,7 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
           }),
         ),
       );
-      render(<PreviewerPalette />);
+      render(<PanelPalette />);
     },
   },
 
@@ -383,7 +383,7 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
   plot_export_button: {
     args: {},
     render: () => {
-      // The Save button lives in the plot previewer, so the target only exists
+      // The Save button lives in the plot panel, so the target only exists
       // once a figure is on screen — which is the only state a step pointing at
       // it can be reached in.
       render(

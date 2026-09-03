@@ -5,7 +5,7 @@
  * the produced artifact and returns its catalog `data_ref`, the GUI builds a
  * `plot_artifact` {@link PreviewTarget} from the run response and hands it to
  * `PreviewHost`, which opens a routed preview session that renders the figure
- * through the core PlotPreviewer. A successful run MUST yield a routable target;
+ * through the core PlotPanel. A successful run MUST yield a routable target;
  * a failed/empty run MUST yield `null` so the UI shows the failure instead of an
  * empty preview.
  */

@@ -22,23 +22,23 @@ export type { RefEntry } from "./DataPreview.parts/refEntries";
 // ADR-048 SPEC 1 — the routed PreviewHost container and core fallback viewers.
 // As of #1592 the live DataPreview mounts PreviewHost directly: every selected
 // output ref creates a routed preview session (POST /api/previews/sessions) and
-// renders either a validated dynamic previewer (package/project) or the core
+// renders either a validated dynamic panel (package/project) or the core
 // fallback viewer for the envelope kind. The legacy one-shot `previewCache`
 // path is gone.
 export { PreviewHost } from "./DataPreview.parts/PreviewHost";
 export type { PreviewHostProps } from "./DataPreview.parts/PreviewHost";
 export {
-  PREVIEWER_HOST_API_VERSION,
+  PANEL_HOST_API_VERSION,
   isApiVersionCompatible,
-  isPreviewerModule,
-} from "./DataPreview.parts/previewerHostApi";
+  isPanelModule,
+} from "./DataPreview.parts/panelHostApi";
 export type {
   PreviewHostApi,
   PreviewProviderIdentity,
   PreviewExportRequest,
-  PreviewerInstance,
-  PreviewerModule,
-} from "./DataPreview.parts/previewerHostApi";
+  PanelInstance,
+  PanelModule,
+} from "./DataPreview.parts/panelHostApi";
 
 interface DataPreviewProps {
   selectedNodeId: string | null;
@@ -95,10 +95,10 @@ export function DataPreview({
   const previewEnvelopeCache = useAppStore((s) => s.previewEnvelopeCache);
   const cachePreviewEnvelope = useAppStore((s) => s.cachePreviewEnvelope);
   const workflowId = useAppStore((s) => s.workflowId);
-  // #2113 — the routing epoch: a per-type previewer choice change bumps it,
+  // #2113 — the routing epoch: a per-type panel choice change bumps it,
   // and PreviewHost re-creates the open session so the new choice applies to
   // the preview already on screen rather than only to the next one.
-  const previewerChoiceVersion = useAppStore((s) => s.previewerChoiceVersion);
+  const panelChoiceVersion = useAppStore((s) => s.panelChoiceVersion);
 
   const target: PreviewTarget | null = activeEntry
     ? {
@@ -191,7 +191,7 @@ export function DataPreview({
     <PreviewHost
       target={activePlot ?? target}
       initialQuery={activePlot ? undefined : activeEntry?.initialQuery}
-      routingEpoch={previewerChoiceVersion}
+      routingEpoch={panelChoiceVersion}
       getCachedEnvelope={(key) => previewEnvelopeCache[key]}
       cacheEnvelope={cachePreviewEnvelope}
       buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}

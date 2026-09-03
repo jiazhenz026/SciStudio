@@ -143,7 +143,7 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `W1-rename` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w1-rename` | T-001 and FR-051 | `refactor/2229-panel-rename` | `.worktrees/w1-panel-rename` | the whole tree, mechanical rename only | any behaviour change | `#2229` | `[ ]` |
+| `W1-rename` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w1-rename` | T-001 and FR-051 | `refactor/2229-panel-rename` | `.worktrees/w1-panel-rename` | the whole tree, mechanical rename only | any behaviour change | `#2229` | `[x]` |
 | `W2-core` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w2-core` | T-002, T-003, T-013, T-015, T-016 | `feat/2229-panel-core-contract` | `.worktrees/w2-panel-core` | `src/scistudio/core/panels.py`, `src/scistudio/panels/**`, `src/scistudio/core/dropins.py`, `src/scistudio/core/entry_points.py`, `src/scistudio/blocks/base/interactive.py`, `tests/panels/**`, `tests/architecture/**`, `tests/adr052_contract/**` | frontend, API routes | `#2229` | `[ ]` |
 | `W2-host` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w2-host` | T-005, T-006 | `feat/2229-panel-frame-host` | `.worktrees/w2-panel-host` | `frontend/src/panels/**` | backend, the existing previewer frontend | `#2229` | `[x]` `c4cf38715` |
 | `W3-api` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w3-api` | T-004, T-008 backend half, T-010 | `feat/2229-panel-api` | `.worktrees/w3-panel-api` | `src/scistudio/api/routes/panels.py`, `routes/data.py`, `routes/blocks.py`, `api/schemas.py`, `tests/api/**` | frontend, panel discovery internals | `#2229` | `[ ]` |
@@ -198,7 +198,7 @@ amendment.
 
 | Task | Title | Agent | Status | Artifact |
 |---|---|---|---|---|
-| T-001 | Rename the subsystem and its vocabulary | `W1-rename` | `[ ]` | |
+| T-001 | Rename the subsystem and its vocabulary | `W1-rename` | `[x]` | branch `refactor/2229-panel-rename`; gate ledger `.workflow/records/2229-refactor-2229-panel-rename.json`; `pytest tests/panels tests/api/test_panels.py tests/api/test_panel_discovery.py tests/api/test_panel_choice_routes.py tests/api/test_interactive_panels.py tests/architecture tests/adr052_contract tests/blocks` 2312 tests, 40 pre-existing `openpyxl` env failures (baseline 2304/41); `npm test` 1884 tests; `lint-imports` 13 kept 0 broken |
 | T-002 | Move the contract into the core layer | `W2-core` | `[ ]` | |
 | T-003 | The on-disk panel form and four-tier discovery | `W2-core` | `[ ]` | |
 | T-004 | Merge the asset route | `W3-api` | `[ ]` | |
