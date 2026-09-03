@@ -10,6 +10,12 @@ Ensures that lower layers never import from higher layers.  The hierarchy is:
     Layer 4  plot/         (the first-class plot engine, #1824; consumed by api/ AND ai/)
     Layer 5  api/
 
+``explore/`` is the ADR-054 notebook dependency-analysis subsystem (#2231). It
+sits outside the layer ordering: it imports nothing from SciStudio beyond
+``scistudio.stability`` and nothing third-party at module level (numpy/pandas
+are lazy, inside the fingerprint only) — the FR-035 constraint asserted by
+``test_explore_import_constraint`` below.
+
 ``plot/`` is the relocated ``render(collection)`` engine (#1824, ADR-052 §9). It
 is a first-class feature consumed by both the REST route and the MCP plot tools,
 so it must import NEITHER ``scistudio.api`` NOR ``scistudio.ai``; callers inject a
@@ -179,6 +185,31 @@ LAYER_RULES: list[tuple[str, list[str]]] = [
             "scistudio.ai",
         ],
     ),
+    (
+        # The ADR-054 notebook dependency-analysis subsystem (#2231, FR-035):
+        # stdlib-only analysis that imports nothing from SciStudio beyond the
+        # stability markers (scistudio.stability) and its own package. The full
+        # constraint (including lazy-only numpy/pandas) is asserted by
+        # test_explore_import_constraint below.
+        "explore",
+        [
+            "scistudio.core",
+            "scistudio.blocks",
+            "scistudio.engine",
+            "scistudio.api",
+            "scistudio.ai",
+            "scistudio.workflow",
+            "scistudio.previewers",
+            "scistudio.plot",
+            "scistudio.utils",
+            "scistudio.cli",
+            "scistudio.qa",
+            "scistudio.agent_provisioning",
+            "scistudio.tutorials",
+            "scistudio.desktop",
+            "scistudio.testing",
+        ],
+    ),
 ]
 
 
@@ -207,5 +238,75 @@ def test_layer_does_not_import_forbidden(layer: str, forbidden: list[str]) -> No
 def test_layer_rules_cover_all_source_layers() -> None:
     """Sanity check: every non-cross-cutting source directory appears in at least one rule."""
     checked_layers = {rule[0] for rule in LAYER_RULES}
-    expected = {"core", "blocks", "engine", "ai", "previewers", "plot"}
+    expected = {"core", "blocks", "engine", "ai", "previewers", "plot", "explore"}
     assert expected.issubset(checked_layers), f"Missing layer rules for: {expected - checked_layers}"
+
+
+# ---------------------------------------------------------------------------
+# FR-035: the explore subsystem's import constraint
+# ---------------------------------------------------------------------------
+
+
+def _collect_module_level_imports(nodes: list[ast.stmt]) -> list[tuple[str, int]]:
+    """Collect ``(module, level)`` for imports at module level of a source tree.
+
+    Mirrors ``_collect_imports`` (``if TYPE_CHECKING:`` bodies are skipped,
+    plain ``if`` and ``try`` bodies are recursed) but keeps the relative-import
+    level and does not descend into function or class bodies, so *lazy* imports
+    inside functions are deliberately not seen here.
+    """
+    results: list[tuple[str, int]] = []
+    for node in nodes:
+        if isinstance(node, ast.If):
+            if _is_type_checking_guard(node):
+                results.extend(_collect_module_level_imports(node.orelse))
+                continue
+            results.extend(_collect_module_level_imports(node.body))
+            results.extend(_collect_module_level_imports(node.orelse))
+            continue
+        if isinstance(node, ast.Try):
+            results.extend(_collect_module_level_imports(node.body))
+            for handler in node.handlers:
+                results.extend(_collect_module_level_imports(handler.body))
+            results.extend(_collect_module_level_imports(node.orelse))
+            results.extend(_collect_module_level_imports(node.finalbody))
+            continue
+        if isinstance(node, ast.Import):
+            results.extend((alias.name, 0) for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            results.append((node.module or "", node.level))
+    return results
+
+
+def test_explore_import_constraint() -> None:
+    """FR-035: ``explore`` imports the standard library only at module level.
+
+    Allowed beyond the standard library: relative (intra-package) imports and
+    ``scistudio.stability`` (the stability markers). numpy and pandas are
+    permitted only lazily inside the fingerprint, so any module-level
+    third-party import is a violation.
+    """
+    import sys
+
+    files = _collect_py_files("explore")
+    assert files, f"No .py files found under {SRC_ROOT / 'explore'}"
+
+    allowed_first_party = ("scistudio.stability", "scistudio.explore")
+    violations: list[str] = []
+    for filepath in files:
+        tree = ast.parse(filepath.read_text(encoding="utf-8"), filename=str(filepath))
+        for module, level in _collect_module_level_imports(tree.body):
+            if level > 0:
+                continue  # intra-package relative import
+            root = module.split(".", 1)[0]
+            if root in sys.stdlib_module_names:
+                continue
+            if any(module == allowed or module.startswith(allowed + ".") for allowed in allowed_first_party):
+                continue
+            relative = filepath.relative_to(SRC_ROOT)
+            violations.append(f"  {relative}: imports {module}")
+
+    assert not violations, (
+        "explore/ has module-level imports beyond the standard library, "
+        "scistudio.stability, and itself (FR-035):\n" + "\n".join(violations)
+    )
