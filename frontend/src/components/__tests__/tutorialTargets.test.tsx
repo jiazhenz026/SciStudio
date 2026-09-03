@@ -21,8 +21,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BlockPalette } from "../BlockPalette";
 import { BottomPanel } from "../BottomPanel";
 import { PlotsTab } from "../BottomPanel.parts/PlotsTab";
-import { CollectionViewer } from "../DataPreview.parts/coreViewers";
-import { PlotViewer } from "../DataPreview.parts/PlotViewer";
+import { PanelTutorialChrome } from "../DataPreview.parts/PanelTutorialChrome";
 import { DataPreview } from "../DataPreview";
 import { PermissionModePicker } from "../AIChat/SetupScreen.parts/PermissionModePicker";
 import { ProviderPicker } from "../AIChat/SetupScreen.parts/ProviderPicker";
@@ -352,29 +351,28 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
     args: { index: "0" },
     render: () => {
       // One card per item of a collection preview, keyed by position.
+      /*
+       * ADR-054 D-019: the collection's item cards are inside a sandboxed frame
+       * now, at an opaque origin, so neither a `querySelector` nor a ring can
+       * reach them. The host carries the target on its own chrome immediately
+       * around the frame instead — that chrome is what this renders, and what a
+       * step naming `preview_item` is now shown.
+       */
       render(
-        <CollectionViewer
+        <PanelTutorialChrome
           envelope={
             {
-              previewer_id: "core.collection",
+              previewer_id: "core.collection.basic",
               target: { kind: "block_output", ref: "out://x" },
               kind: "collection",
-              payload: {
-                count: 2,
-                item_type: "Image",
-                items: [
-                  { data_ref: "a", display_name: "cells_01.tif", type_name: "Image" },
-                  { data_ref: "b", display_name: "cells_02.tif", type_name: "Image" },
-                ],
-              },
+              payload: { count: 2, item_type: "Image" },
               metadata: {},
               resources: [
-                { resource_id: "item:0", params: {} },
-                { resource_id: "item:1", params: {} },
+                { resource_id: "item:0", params: { index: 0 } },
+                { resource_id: "item:1", params: { index: 1 } },
               ],
             } as never
           }
-          onOpenResource={vi.fn()}
         />,
       );
     },
@@ -383,14 +381,18 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
   plot_export_button: {
     args: {},
     render: () => {
-      // The Save button lives in the plot panel, so the target only exists
-      // once a figure is on screen — which is the only state a step pointing at
-      // it can be reached in.
+      /*
+       * ADR-054 D-019: the Save button is inside the plot panel's document now,
+       * so the ring cannot be drawn around the button itself. The host chrome
+       * around the plot's frame carries the target, which is the closest thing
+       * to it a step can still be shown. It appears when the target is a plot
+       * artifact — the same predicate that has always gated `plot_exported`.
+       */
       render(
-        <PlotViewer
+        <PanelTutorialChrome
           envelope={
             {
-              previewer_id: "core.plot",
+              previewer_id: "core.plot.basic",
               target: { kind: "plot_artifact", ref: "plot://x" },
               kind: "plot",
               payload: { src: "data:image/png;base64,AA==", path: "figure.png" },
@@ -398,7 +400,6 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
               resources: [{ resource_id: "export", params: { format: "png" } }],
             } as never
           }
-          onExport={vi.fn()}
         />,
       );
     },

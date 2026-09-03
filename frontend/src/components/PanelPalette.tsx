@@ -6,12 +6,12 @@
 // `TypePalette.parts/typeModel` does for the Data types tab).
 //
 // Three backend surfaces meet here:
-//   - `GET /api/previews/previewers` (#2095) — the listing and the registry
+//   - `GET /api/panels` (ADR-054 D-020) — the listing and the registry
 //     diagnostics, which nothing else surfaces.
-//   - `POST /api/previews/reload` (#2095) — the Reload button, the panel
+//   - `POST /api/panels/reload` (ADR-054 D-020) — the Reload button, the panel
 //     surface's own way to rebuild the registries without calling the block
 //     endpoint.
-//   - `GET/PUT/DELETE /api/previews/choices` (#2049) — the per-type choice
+//   - `GET/PUT/DELETE /api/panels/choices` (ADR-054 D-020) — the per-type choice
 //     controls on each card, at both scopes (this project / all projects).
 //
 // Like the Data types tab (FR-027), the pane takes no props: it reads the

@@ -6,7 +6,7 @@
 import { api } from "../../lib/api";
 import { useAppStore } from "../../store";
 import type { InteractivePrompt, PanelManifestDescriptor } from "../../store/types";
-import type { WorkflowEventMessage } from "../../types/api";
+import type { PanelDescriptorResponse, WorkflowEventMessage } from "../../types/api";
 
 export interface LifecycleDeps {
   setInteractivePrompt: (prompt: InteractivePrompt | null) => void;
@@ -25,6 +25,10 @@ export function handleInteractivePrompt(payload: WorkflowEventMessage, deps: Lif
     // this so the response is scoped to the right run regardless of the active tab.
     workflowId: payload.workflow_id ?? (data.workflow_id as string | undefined) ?? "",
     panelManifest: (data.panel_manifest as PanelManifestDescriptor | null) ?? null,
+    // ADR-054 D-020: the descriptor the backend resolved for this block's
+    // panel. The host mounts from this; the manifest above no longer mounts
+    // anything (FR-007, FR-037).
+    panelDescriptor: (data.panel_descriptor as PanelDescriptorResponse | null) ?? null,
     panelPayload: (data.panel_payload as Record<string, unknown>) ?? {},
     // ADR-051 interaction memory: the engine's input fingerprint for this run.
     inputSignature: (data.input_signature as Record<string, string[]>) ?? {},

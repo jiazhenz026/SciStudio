@@ -59,12 +59,18 @@ export function plotTargetFromRunResponse(result: PlotRunResponse): PreviewTarge
   };
 }
 
-/** Build the same-origin URL for a validated panel asset
- *  (`GET /api/previews/assets/{previewer_id}/{asset_path}`). This is the ONLY
- *  origin a dynamic panel module is permitted to load from (FR-022). */
-export function buildPreviewAssetUrl(panelId: string, assetPath: string): string {
+/**
+ * Build the same-origin URL for a panel asset on the merged asset route
+ * (`GET /api/panels/assets/{panel_id}/{asset_path}`, ADR-054 FR-021, D-008).
+ *
+ * This mirrors `scistudio.panels.descriptor.PANEL_ASSET_ROUTE_PREFIX`, which is
+ * where the one definition lives; a panel's own entry document and asset base
+ * arrive on the descriptor rather than being built here, so this exists only
+ * for a caller that has an id and a path and no descriptor.
+ */
+export function buildPanelAssetUrl(panelId: string, assetPath: string): string {
   const cleaned = assetPath.replace(/^\/+/, "");
-  return `/api/previews/assets/${encodeURIComponent(panelId)}/${cleaned}`;
+  return `/api/panels/assets/${encodeURIComponent(panelId)}/${cleaned}`;
 }
 
 export const dataApi = {
@@ -161,41 +167,46 @@ export const dataApi = {
       )}`,
     ),
 
-  // -- #2095: panel discovery + reload; #2049: per-type choice -----------
+  // -- ADR-054 D-020: the panel API surface -------------------------------
+  //
+  // The listing, the rebuild and the choices moved under the panel naming with
+  // their behaviour unchanged (FR-023), and the frontend follows them in the
+  // same change. The *session* routes deliberately stay where they are:
+  // FR-022 keeps `/api/previews/...` serving its existing clients for the
+  // duration of the migration.
 
-  /** List registered panels with the tier each was discovered from,
-   *  ordered in FR-003 routing precedence (`GET /api/previews/previewers`).
-   *  `targetType` is an exact-match filter, not the router's specificity
-   *  walk. */
+  /** List registered panels with the tier each was discovered from, ordered in
+   *  routing precedence (`GET /api/panels`). `targetType` is an exact-match
+   *  filter, not the router's specificity walk. */
   listPanels: (targetType?: string) =>
     apiFetch<PanelListResponse>(
-      `/api/previews/previewers${targetType ? `?target_type=${encodeURIComponent(targetType)}` : ""}`,
+      `/api/panels${targetType ? `?target_type=${encodeURIComponent(targetType)}` : ""}`,
     ),
 
-  /** Re-scan the drop-in panel directories and rebuild the registries
-   *  (`POST /api/previews/reload`). */
-  reloadPanels: () => apiFetch<PanelReloadResponse>("/api/previews/reload", { method: "POST" }),
+  /** Rebuild the panel registry — the one way a panel directory that was
+   *  added, changed or removed takes effect (`POST /api/panels/reload`,
+   *  FR-023, FR-046). */
+  reloadPanels: () => apiFetch<PanelReloadResponse>("/api/panels/reload", { method: "POST" }),
 
-  /** List the effective per-type panel choices, each with the layer it
-   *  came from and whether its panel is still registered
-   *  (`GET /api/previews/choices`). */
-  listPanelChoices: () => apiFetch<PanelChoiceListResponse>("/api/previews/choices"),
+  /** List the effective panel choices, each with the layer it came from and
+   *  whether its panel is still registered (`GET /api/panels/choices`). */
+  listPanelChoices: () => apiFetch<PanelChoiceListResponse>("/api/panels/choices"),
 
   /** Record `targetType -> panelId` at `scope` — `project` (this project
    *  only) or `user` (every project). Returns the resulting effective choices
-   *  (`PUT /api/previews/choices/{target_type}`). */
+   *  (`PUT /api/panels/choices/{target_type}`). */
   setPanelChoice: (targetType: string, panelId: string, scope: PanelChoiceScope) =>
-    apiFetch<PanelChoiceListResponse>(`/api/previews/choices/${encodeURIComponent(targetType)}`, {
+    apiFetch<PanelChoiceListResponse>(`/api/panels/choices/${encodeURIComponent(targetType)}`, {
       method: "PUT",
       headers: JSON_HEADERS,
       body: JSON.stringify({ previewer_id: panelId, scope }),
     }),
 
   /** Clear the choice for `targetType` at `scope`; clearing a type that was
-   *  never chosen succeeds (`DELETE /api/previews/choices/{target_type}`). */
+   *  never chosen succeeds (`DELETE /api/panels/choices/{target_type}`). */
   clearPanelChoice: (targetType: string, scope: PanelChoiceScope) =>
     apiFetch<PanelChoiceListResponse>(
-      `/api/previews/choices/${encodeURIComponent(targetType)}?scope=${encodeURIComponent(scope)}`,
+      `/api/panels/choices/${encodeURIComponent(targetType)}?scope=${encodeURIComponent(scope)}`,
       { method: "DELETE" },
     ),
 

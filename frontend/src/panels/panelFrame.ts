@@ -41,8 +41,10 @@ import type {
   HostToPanelType,
   PanelBindingSnapshot,
   PanelCapability,
+  PanelHostActionPayload,
   PanelReadLimits,
   PanelReadPayload,
+  PanelResourcePayload,
   PanelStateSnapshot,
   PanelToHostMessage,
 } from "./panelMessages";
@@ -235,11 +237,43 @@ export function issuePanelToken(): string {
 /** What the host answers a `read` with. Rejecting fails that one read. */
 export type PanelReadResolver = (query: Readonly<Record<string, unknown>>) => Promise<unknown>;
 
-export type PanelReadOutcome =
+/**
+ * What the host answers a `resource` with (D-017). Rejecting fails that one
+ * request; the panel is told through `error` carrying the request id.
+ */
+export type PanelResourceResolver = (
+  resourceId: string,
+  params: Readonly<Record<string, unknown>> | null,
+) => Promise<unknown>;
+
+/**
+ * The result of performing one `host_action` (D-017).
+ *
+ * `ok: true` means the host carried the action to a conclusion the panel need
+ * not act on — including a person who dismissed the save dialog, which is a
+ * decision rather than a failure. `ok: false` is an action that was attempted
+ * and went wrong. See `PanelHostActionResultPayload` for why `ok` is binary.
+ */
+export interface PanelHostActionOutcome {
+  readonly ok: boolean;
+  readonly detail?: string | Readonly<Record<string, unknown>> | null;
+}
+
+/** What the host does when a panel asks for chrome it cannot draw itself. */
+export type PanelHostActionPerformer = (
+  action: PanelHostActionPayload["action"],
+  params: Readonly<Record<string, unknown>> | null,
+) => Promise<PanelHostActionOutcome | void>;
+
+/** How one bounded request round trip ended. */
+export type PanelRequestOutcome =
   | { readonly status: "answered" }
   | { readonly status: "failed"; readonly message: string }
   | { readonly status: "timed_out" }
   | { readonly status: "cancelled" };
+
+/** The name this outcome had when `read` was the only request type. */
+export type PanelReadOutcome = PanelRequestOutcome;
 
 /** A live mount. Every method is safe to call after teardown; none throws. */
 export interface PanelFrameConnection {
@@ -257,7 +291,23 @@ export interface PanelFrameConnection {
    * carrying the request id so the panel need not wait its own timeout out. A
    * teardown while it is in flight resolves it `cancelled` and posts nothing.
    */
-  answerRead(request: PanelReadPayload, resolve: PanelReadResolver): Promise<PanelReadOutcome>;
+  answerRead(request: PanelReadPayload, resolve: PanelReadResolver): Promise<PanelRequestOutcome>;
+  /**
+   * The same round trip for `resource` (D-017), answered by `resource_result`.
+   */
+  answerResource(
+    request: PanelResourcePayload,
+    resolve: PanelResourceResolver,
+  ): Promise<PanelRequestOutcome>;
+  /**
+   * The same round trip for `host_action` (D-017), answered by
+   * `host_action_result`. A performer that resolves without an outcome is
+   * read as `{ ok: true }`: it did the thing and has nothing to add.
+   */
+  answerHostAction(
+    request: PanelHostActionPayload,
+    perform: PanelHostActionPerformer,
+  ): Promise<PanelRequestOutcome>;
   /**
    * Ask the panel for its snapshot (FR-031). A panel that does not implement
    * the hook simply never answers, so the wait is bounded and its elapsing is
@@ -341,13 +391,13 @@ function settleWithin<T>(promise: Promise<T>, timeoutMs: number): Promise<Settle
   });
 }
 
-interface PendingRead {
+interface PendingRequest {
   cancel(): void;
 }
 
-/** The internal race outcome; the public one does not carry the window. */
-type ReadRaceOutcome =
-  | { readonly status: "answered"; readonly window: unknown }
+/** The internal race outcome; the public one does not carry the answer. */
+type RequestRaceOutcome =
+  | { readonly status: "answered"; readonly value: unknown }
   | { readonly status: "failed"; readonly message: string }
   | { readonly status: "timed_out" }
   | { readonly status: "cancelled" };
@@ -407,7 +457,7 @@ export async function mountPanelFrame(options: PanelFrameMountOptions): Promise<
 
   let disposed = false;
   let handshakeDone = false;
-  const pendingReads = new Map<string, PendingRead>();
+  const pendingRequests = new Map<string, PendingRequest>();
   let pendingState: ((state: unknown) => void) | null = null;
   let resolveHandshake: ((message: PanelToHostMessage) => void) | null = null;
 
@@ -467,8 +517,8 @@ export async function mountPanelFrame(options: PanelFrameMountOptions): Promise<
     if (disposed) return;
     disposed = true;
     window.removeEventListener("message", listener);
-    for (const pending of pendingReads.values()) pending.cancel();
-    pendingReads.clear();
+    for (const pending of pendingRequests.values()) pending.cancel();
+    pendingRequests.clear();
     const settleState = pendingState;
     pendingState = null;
     settleState?.(undefined);
@@ -477,6 +527,57 @@ export async function mountPanelFrame(options: PanelFrameMountOptions): Promise<
     } else {
       detachFrame();
     }
+  };
+
+  /**
+   * One bounded request round trip, shared by all three request types (D-017).
+   *
+   * Register the request as in flight, race the resolver against the read
+   * timeout and against teardown, then either post the request's own result
+   * type or post an `error` carrying the request id — which is what lets the
+   * panel fail one request without waiting out its own timeout (D-016.2). A
+   * teardown while it is in flight resolves it `cancelled` and posts nothing,
+   * because the window it would post into is going away.
+   */
+  const answerRequest = async (
+    kind: "read" | "resource" | "host_action",
+    requestId: string,
+    resolve: () => Promise<unknown>,
+    deliver: (value: unknown) => void,
+  ): Promise<PanelRequestOutcome> => {
+    if (disposed) return { status: "cancelled" };
+    const cancelled = new Promise<RequestRaceOutcome>((settle) => {
+      pendingRequests.set(requestId, { cancel: () => settle({ status: "cancelled" }) });
+    });
+    const timedOut = new Promise<RequestRaceOutcome>((settle) => {
+      setTimeout(() => settle({ status: "timed_out" }), readTimeoutMs);
+    });
+    const answered = (async (): Promise<RequestRaceOutcome> => {
+      try {
+        return { status: "answered", value: await resolve() };
+      } catch (error) {
+        return { status: "failed", message: describeError(error) };
+      }
+    })();
+
+    const outcome = await Promise.race([cancelled, timedOut, answered]);
+    pendingRequests.delete(requestId);
+    if (outcome.status === "cancelled" || disposed) {
+      return { status: "cancelled" };
+    }
+    if (outcome.status === "answered") {
+      deliver(outcome.value);
+      return { status: "answered" };
+    }
+    post("error", {
+      code: outcome.status === "timed_out" ? `${kind}_timeout` : `${kind}_failed`,
+      message:
+        outcome.status === "timed_out"
+          ? `the host did not answer ${kind} ${requestId} within ${readTimeoutMs}ms`
+          : outcome.message,
+      request_id: requestId,
+    });
+    return outcome;
   };
 
   const connection: PanelFrameConnection = {
@@ -488,40 +589,38 @@ export async function mountPanelFrame(options: PanelFrameMountOptions): Promise<
       return disposed;
     },
     send: post,
-    async answerRead(request, resolve) {
-      if (disposed) return { status: "cancelled" };
-      const cancelled = new Promise<ReadRaceOutcome>((settle) => {
-        pendingReads.set(request.request_id, { cancel: () => settle({ status: "cancelled" }) });
-      });
-      const timedOut = new Promise<ReadRaceOutcome>((settle) => {
-        setTimeout(() => settle({ status: "timed_out" }), readTimeoutMs);
-      });
-      const answered = (async (): Promise<ReadRaceOutcome> => {
-        try {
-          return { status: "answered", window: await resolve(request.query) };
-        } catch (error) {
-          return { status: "failed", message: describeError(error) };
-        }
-      })();
-
-      const outcome = await Promise.race([cancelled, timedOut, answered]);
-      pendingReads.delete(request.request_id);
-      if (outcome.status === "cancelled" || disposed) {
-        return { status: "cancelled" };
-      }
-      if (outcome.status === "answered") {
-        post("read_result", { request_id: request.request_id, window: outcome.window });
-        return { status: "answered" };
-      }
-      post("error", {
-        code: outcome.status === "timed_out" ? "read_timeout" : "read_failed",
-        message:
-          outcome.status === "timed_out"
-            ? `the host did not answer read ${request.request_id} within ${readTimeoutMs}ms`
-            : outcome.message,
-        request_id: request.request_id,
-      });
-      return outcome;
+    answerRead(request, resolve) {
+      return answerRequest(
+        "read",
+        request.request_id,
+        () => resolve(request.query),
+        (value) => post("read_result", { request_id: request.request_id, window: value }),
+      );
+    },
+    answerResource(request, resolve) {
+      return answerRequest(
+        "resource",
+        request.request_id,
+        () => resolve(request.resource_id, request.params ?? null),
+        (value) => post("resource_result", { request_id: request.request_id, resource: value }),
+      );
+    },
+    answerHostAction(request, perform) {
+      return answerRequest(
+        "host_action",
+        request.request_id,
+        () => perform(request.action, request.params ?? null),
+        (value) => {
+          // A performer that resolves without an outcome did the thing and has
+          // nothing to add; that is `ok: true` with no detail.
+          const outcome = (value ?? { ok: true }) as PanelHostActionOutcome;
+          post("host_action_result", {
+            request_id: request.request_id,
+            ok: outcome.ok !== false,
+            detail: outcome.detail ?? null,
+          });
+        },
+      );
     },
     async requestState(timeoutMs = PANEL_STATE_REQUEST_TIMEOUT_MS) {
       if (disposed) return { kept: false, reason: "the mount was torn down" };

@@ -8,6 +8,7 @@
  */
 import { api } from "../../lib/api";
 import type { ProjectFileResponse } from "../../lib/api";
+import { panelIdForProjectPath } from "../../panels/panelPaths";
 import { useAppStore } from "../../store";
 import type { FileTab, VersionConflictState } from "../../store/types";
 import type { LogEntry, WorkflowEventMessage } from "../../types/api";
@@ -160,6 +161,25 @@ export function handleFileChanged(payload: WorkflowEventMessage, deps: FileChang
   const kind = (data.kind as string | undefined) ?? "modified";
   if (isStructuralTreeChange(kind)) {
     useAppStore.getState().bumpProjectTreeRefresh();
+  }
+
+  /*
+   * ADR-054 FR-030/FR-032 — a change inside a panel's directory reloads that
+   * panel, wherever the change came from.
+   *
+   * Before the open-tab reconcile below and outside its early return, because
+   * the whole point is that nobody has the panel open in an editor: the person
+   * saved it from the panel editor, or the agent wrote it on their behalf. A
+   * reload that only fired for files someone happened to have open would be
+   * exactly the half-working trigger FR-032 exists to rule out.
+   *
+   * The event's own `source` is deliberately not consulted. A first-party save
+   * is suppressed by the backend before it ever reaches here, so anything that
+   * arrives is a change the mounted panel has not seen.
+   */
+  const changedPanelId = panelIdForProjectPath(path);
+  if (changedPanelId !== null) {
+    useAppStore.getState().notePanelDocumentChanged(changedPanelId);
   }
   const state = useAppStore.getState();
   const projectId = state.currentProject?.id;
