@@ -35,7 +35,7 @@ from scistudio.api.schemas import (
 )
 from scistudio.blocks.base.ports import InputPort, OutputPort, validate_connection
 from scistudio.blocks.io._config_enrichment import enrich_io_config_schema, io_capable_type_names
-from scistudio.panels.assets import resolve_asset
+from scistudio.panels.assets import panel_asset_security_headers, resolve_asset
 from scistudio.panels.models import MissingBundleError
 
 logger = logging.getLogger(__name__)
@@ -532,7 +532,15 @@ async def serve_panel_asset(
         )
     except MissingBundleError as exc:
         raise HTTPException(status_code=404, detail=exc.message) from exc
-    return FileResponse(path=Path(served.path), media_type=served.media_type)
+    # #2229: the same boundary the merged route carries. This route answers
+    # same-origin only, so it gains no cross-origin grant -- but it serves the
+    # same `text/html` documents, and a boundary that held on one of the three
+    # routes would be one a document reaches around by being asked for here.
+    return FileResponse(
+        path=Path(served.path),
+        media_type=served.media_type,
+        headers=panel_asset_security_headers(served.media_type),
+    )
 
 
 def _resolve_effective_port(

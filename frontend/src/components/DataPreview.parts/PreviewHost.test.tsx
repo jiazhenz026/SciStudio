@@ -500,6 +500,113 @@ describe("the three request types the host answers (D-017)", () => {
     expect(savePreviewResource).not.toHaveBeenCalled();
   });
 
+  /*
+   * FR-011 / D-017 (#2229). `host_action` is granted to a *displaying* mount
+   * on the argument that it is chrome the frame cannot perform for itself --
+   * "a download is not an emission, it is the host saving a file the panel is
+   * already showing." `export` and `download` honour that: the resource id
+   * must be one the envelope declares and the destination comes from a native
+   * save dialog. `editor_handoff` did not: `params.path` is the panel's own
+   * payload, it was taken first and unvalidated, and it went straight to
+   * `openFileTab`.
+   *
+   * The impact was bounded -- the project file route confines with
+   * `relative_to(project_root)` -- so the worst case was a panel opening an
+   * editor tab on a project file the person did not ask for. But "open this
+   * arbitrary path in the editor" is not the thing D-017 argues a displaying
+   * panel needs, and FR-011 forbids it outright.
+   */
+  describe("editor_handoff opens what the envelope names, never what the panel names", () => {
+    const handoffEnvelope = (path: string | null) =>
+      envelope({
+        kind: "text",
+        payload: path === null ? {} : { editor_handoff: { path } },
+        resources: [],
+      });
+
+    async function requestHandoff(
+      env: PreviewEnvelope,
+      params: Record<string, unknown> | null,
+    ): Promise<{ ok: boolean; detail: unknown }> {
+      const { seam } = await mount(env);
+      seam.clearReceived();
+      await act(async () => {
+        seam.fromPanel("host_action", { request_id: "h1", action: "editor_handoff", params });
+        await flush();
+      });
+      const answers = ofType(seam, "host_action_result");
+      return answers[0].payload as { ok: boolean; detail: unknown };
+    }
+
+    it("opens the path the envelope declared", async () => {
+      const openFileTab = vi.fn();
+      useAppStore.setState({ openFileTab });
+
+      const payload = await requestHandoff(handoffEnvelope("data/table.csv"), null);
+
+      expect(payload.ok).toBe(true);
+      expect(openFileTab).toHaveBeenCalledWith("data/table.csv");
+    });
+
+    it("opens a path the panel asked for when the envelope declared that same path", async () => {
+      // The panel may *choose* among what the host is already showing, the way
+      // `export` may choose among the declared resource ids. It may not invent.
+      const openFileTab = vi.fn();
+      useAppStore.setState({ openFileTab });
+
+      const payload = await requestHandoff(handoffEnvelope("data/table.csv"), {
+        path: "data/table.csv",
+      });
+
+      expect(payload.ok).toBe(true);
+      expect(openFileTab).toHaveBeenCalledWith("data/table.csv");
+    });
+
+    it("refuses a path the panel named that the envelope did not", async () => {
+      const openFileTab = vi.fn();
+      useAppStore.setState({ openFileTab });
+
+      const payload = await requestHandoff(handoffEnvelope("data/table.csv"), {
+        path: "workflows/secret.json",
+      });
+
+      expect(payload.ok).toBe(false);
+      expect(openFileTab).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["a parent traversal", "../../../etc/passwd"],
+      ["a traversal in the middle", "data/../../secrets.json"],
+      ["a posix absolute path", "/etc/passwd"],
+      ["a windows drive absolute path", "C:/Windows/win.ini"],
+      ["a backslash traversal", "..\\..\\secrets.json"],
+      ["a unc path", "//server/share/secret"],
+      ["a url", "file:///etc/passwd"],
+      ["an empty path", ""],
+    ])("refuses %s the panel named", async (_label, path) => {
+      const openFileTab = vi.fn();
+      useAppStore.setState({ openFileTab });
+
+      const payload = await requestHandoff(handoffEnvelope("data/table.csv"), { path });
+
+      expect(payload.ok).toBe(false);
+      expect(openFileTab).not.toHaveBeenCalled();
+    });
+
+    it("refuses an envelope-declared path that is not project-relative", async () => {
+      // The envelope comes from the backend and is trusted, but the shape check
+      // is on the path rather than on who supplied it -- a confinement that
+      // trusts a source is a confinement waiting for that source to change.
+      const openFileTab = vi.fn();
+      useAppStore.setState({ openFileTab });
+
+      const payload = await requestHandoff(handoffEnvelope("../../etc/passwd"), null);
+
+      expect(payload.ok).toBe(false);
+      expect(openFileTab).not.toHaveBeenCalled();
+    });
+  });
+
   it("answers an action it cannot perform with ok:false", async () => {
     const { seam } = await mount(envelope({ kind: "text", payload: {}, resources: [] }));
     seam.clearReceived();

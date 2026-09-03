@@ -46,6 +46,7 @@ lives in the engine scheduler and runners.
 from __future__ import annotations
 
 import ast
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
@@ -321,6 +322,26 @@ def _emission_namespace(
     return _Scistudio()
 
 
+#: Attribute names that traverse further attributes from a runtime string
+#: rather than from an identifier, which is what puts them past an AST pass
+#: over identifiers (#2229). ``str.format`` and ``str.format_map`` are the
+#: whole list in a namespace with no builtins: ``getattr`` is not bound,
+#: ``string.Formatter`` cannot be imported, and an f-string is parsed into real
+#: nodes the walk below already sees.
+_REFUSED_ATTRIBUTE_REACH = frozenset({"format", "format_map"})
+
+#: A replacement field whose field name walks into a dunder — the shape
+#: ``"{0.__class__}"``, ``"{x.__class__.__base__}"``, ``"{0.f.__globals__[__name__]}"``.
+#:
+#: Deliberately *not* "any string containing ``__``". The emitted decision
+#: embeds the workflow's own strings — a port named ``my__port`` arrives as a
+#: dict key in ``assignments = {"my__port": [...]}`` — and refusing those would
+#: break legitimate decisions to close a hole the ``format`` refusal above
+#: already closes. This is the second layer: it catches the payload's shape,
+#: which is what a future mechanism would still have to spell.
+_DUNDER_FORMAT_FIELD = re.compile(r"\{[^{}]*__")
+
+
 def _refuse_dunder_reach(tree: ast.AST, *, block_name: str, panel_id: str) -> None:
     """Refuse any identifier beginning with ``__`` anywhere in the emission.
 
@@ -337,13 +358,60 @@ def _refuse_dunder_reach(tree: ast.AST, *, block_name: str, panel_id: str) -> No
     whitelist belongs where an emission is *queued* (the explore session), and
     the spec's ``scope.out`` keeps it out of this one. Statement forms are
     unrestricted here; reachable names are not.
+
+    **Identifiers are not the only way to name an attribute** (#2229). ``str``
+    formatting traverses attributes named by the *runtime string*, which the
+    parser hands over as an ``ast.Constant`` carrying no identifier node to
+    walk: ``"{0.__class__.__base__.__subclasses__}".format(())`` reached the
+    whole type graph, and ``"{0.output.__globals__}".format(scistudio)`` reached
+    this module's globals, past a pass whose entire purpose was to refuse both.
+    Neither yields a live object — ``format`` returns text — so it was a read
+    rather than an escape; but the read leaves through ``scistudio.output`` into
+    the persisted workflow, so it is closed here, in two layers that cover each
+    other rather than one that has to be perfect:
+
+    * **the mechanism.** ``format`` and ``format_map`` are refused as attribute
+      reaches. They are the whole list of ways a name in this namespace
+      traverses attributes from a runtime string: ``getattr`` is not bound,
+      ``string.Formatter`` cannot be imported, and an f-string is parsed into
+      real nodes the walk already sees. Remove them and a string constant is
+      inert data.
+    * **the payload.** A string constant whose replacement field walks into a
+      dunder — ``"{0.__class__}"`` — is refused, so the shape a future
+      mechanism would still have to spell does not survive either.
+
+    The payload layer is deliberately not "any string containing ``__``". The
+    emitted decision embeds the workflow's own strings, so a port named
+    ``my__port`` arrives as a dict key in the emission; refusing that would
+    break legitimate decisions to close a hole the mechanism layer has already
+    closed. An attacker who splits the template across concatenated constants
+    defeats the payload layer and finds no mechanism; one who finds a mechanism
+    this list does not name finds no template. Neither layer is load-bearing
+    alone, which is the point.
     """
     for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and _DUNDER_FORMAT_FIELD.search(node.value):
+            raise InteractiveEmissionError(
+                f"emitted code carries {node.value[:60]!r}, a format template whose replacement "
+                "field walks into a dunder; string formatting traverses attributes named by the "
+                "string rather than by an identifier, so the template is refused for the same "
+                "reason the name would be",
+                block_name=block_name,
+                panel_id=panel_id,
+            )
         name: str | None = None
         if isinstance(node, ast.Name):
             name = node.id
         elif isinstance(node, ast.Attribute):
             name = node.attr
+            if name in _REFUSED_ATTRIBUTE_REACH:
+                raise InteractiveEmissionError(
+                    f"emitted code reaches {name!r}; it is the one way a name in this namespace "
+                    "reaches an attribute chosen by a runtime string rather than by an "
+                    "identifier, so it is refused with the dunder walk it would otherwise spell",
+                    block_name=block_name,
+                    panel_id=panel_id,
+                )
         elif isinstance(node, ast.keyword | ast.arg):
             name = node.arg
         elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
@@ -391,12 +459,17 @@ def settle_panel_emission(code: str, *, block_name: str, panel_id: str) -> dict[
     **What the namespace does not bound: time.** An emission that does not
     terminate — ``while True: pass`` — is not refused, and this runs on the
     scheduler's event loop, so it would wedge the whole engine rather than one
-    block. Nothing here can interrupt it: a bound would need a worker thread or
-    a subprocess, and how long to wait and what to do with the thread that
-    outlives the wait are decisions this function is not the place to take. The
-    exposure is the same one an installed block already has (a panel document is
-    installed the way a block is), which is why it is recorded here rather than
-    guessed at.
+    block. Nothing here can interrupt it. The exposure is the same one an
+    installed block already has (a panel document is installed the way a block
+    is), which is why it is recorded rather than guessed at.
+
+    .. TODO(#2233): bound the time an emission may run.
+       Out of scope per the ADR-054 spec 1 no-context audit §3.1 and #2229,
+       which fixed the namespace half of this docstring's claims and left the
+       time half tracked rather than guessed: a bound needs a worker thread or
+       a subprocess, and how long to wait and what to do with the thread that
+       outlives the wait are decisions this function is not the place to take.
+       Followup: https://github.com/jiazhenz026/SciStudio/issues/2233
 
     Args:
         code: The snippet the panel emitted.

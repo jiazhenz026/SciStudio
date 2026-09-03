@@ -361,7 +361,15 @@ export function PreviewHost({
       if (action === "editor_handoff") {
         const path = editorHandoffPath(active, params);
         if (!path) {
-          return { ok: false, detail: "this preview does not name a file the editor can open" };
+          // One message for both refusals, deliberately: telling a panel which
+          // of the paths it guessed at the host is willing to open would make
+          // the refusal a probe. The person sees the preview unchanged.
+          return {
+            ok: false,
+            detail:
+              "this preview does not name a file the editor can open, or names a different one " +
+              "than the panel asked for",
+          };
         }
         useAppStore.getState().openFileTab(path);
         return { ok: true, detail: { opened: path } };
@@ -580,7 +588,45 @@ function exportResourceId(envelope: PreviewEnvelope, action: string): string | n
   return ids.length === 1 ? ids[0] : null;
 }
 
-/** A project-relative path the editor can open, from whatever names one. */
+/**
+ * Whether `candidate` is a path inside the open project, by its shape alone.
+ *
+ * The shape check, not a source check: a confinement that trusts a source is a
+ * confinement waiting for that source to change, so it is applied to the
+ * envelope's own paths as well as to the panel's. Refused are the empty path,
+ * anything absolute (POSIX root, a Windows drive, a UNC prefix), any `..`
+ * segment however it is spelled, a backslash separator, a URL scheme, and a
+ * NUL. It mirrors `is_safe_panel_id` and `resolve_confined_asset` on the
+ * backend: a path that escapes is refused, not clamped.
+ */
+function isProjectRelativePath(candidate: unknown): candidate is string {
+  if (typeof candidate !== "string" || candidate === "") return false;
+  if (candidate.includes("\0") || candidate.includes("\\")) return false;
+  if (candidate.startsWith("/") || /^[A-Za-z]:/.test(candidate)) return false;
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(candidate)) return false;
+  return !candidate.split("/").includes("..");
+}
+
+/**
+ * Which file the editor opens, from what **the envelope** names (FR-011, #2229).
+ *
+ * D-017 grants `host_action` to a displaying mount on the argument that it is
+ * chrome the frame cannot perform for itself — "a download is not an emission,
+ * it is the host saving a file the panel is already showing". `export` and
+ * `download` honour that: `exportResourceId` requires the id to be one the
+ * envelope declares, and the destination comes from a native save dialog.
+ *
+ * This used to take `params.path` — the panel's own payload — first and
+ * unvalidated, and hand it to `openFileTab`. Impact was bounded, because the
+ * project file route confines with `relative_to(project_root)`, so the worst
+ * case was a panel opening an editor tab on a project file the person did not
+ * ask for. But "open this arbitrary path in the editor" is not the thing D-017
+ * argues a displaying panel needs, and FR-011 forbids it outright.
+ *
+ * So the panel may *choose among* what the host is already showing, exactly as
+ * it may choose among the declared resource ids — and it may not name a path of
+ * its own.
+ */
 function editorHandoffPath(
   envelope: PreviewEnvelope,
   params: Readonly<Record<string, unknown>> | null,
@@ -589,11 +635,15 @@ function editorHandoffPath(
     envelope.payload?.editor_handoff && typeof envelope.payload.editor_handoff === "object"
       ? (envelope.payload.editor_handoff as Record<string, unknown>)
       : {};
-  const candidates = [params?.path, handoff.path, envelope.payload?.path, envelope.metadata?.path];
-  for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate !== "") return candidate;
+  const declared = [handoff.path, envelope.payload?.path, envelope.metadata?.path].filter(
+    isProjectRelativePath,
+  );
+
+  const asked = params?.path;
+  if (asked !== undefined && asked !== null) {
+    return isProjectRelativePath(asked) && declared.includes(asked) ? asked : null;
   }
-  return null;
+  return declared[0] ?? null;
 }
 
 async function fetchPreviewResource(

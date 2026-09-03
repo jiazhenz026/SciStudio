@@ -47,7 +47,7 @@ from scistudio.panels.project import (
     PROJECT_PANELS_MANIFEST,
     load_project_panels,
 )
-from scistudio.panels.providers import resolve_declared_provider
+from scistudio.panels.providers import dropin_module_path, resolve_declared_provider
 from scistudio.panels.registry import PanelRegistry
 from tests.panels.conftest import write_panel
 
@@ -312,6 +312,61 @@ def test_a_provider_that_is_not_callable_is_a_diagnostic() -> None:
     assert "callable" in resolution.error
 
 
+#: Provider module parts that are not dotted Python module names, each one a
+#: shape the old ``root.joinpath(*module_name.split("."))`` turned into a path
+#: outside the tier root — or would have, given a file there (FR-047).
+#:
+#: The mechanism is ``pathlib``'s, not ``..``'s: a dot-separated name whose
+#: components include an *absolute* one makes ``joinpath`` discard everything
+#: to its left, so ``"../escape"`` splits to ``["", "", "/escape"]`` and lands
+#: at the drive root rather than at the root's parent. Empty components on
+#: their own are dropped, which is why the refusal is on the *shape* of the
+#: reference rather than on the path it would produce.
+REFUSED_PROVIDER_MODULE_PARTS = (
+    "../escape",
+    "./escape",
+    "sub/../../escape",
+    "/escape",
+    "\\escape",
+    "renderer/sub",
+    "renderer\\sub",
+    "..",
+    ".renderer",
+    "renderer.",
+    "renderer..sub",
+    "1renderer",
+)
+
+#: References refused before the module part is ever isolated, by the
+#: ``module:attribute`` split itself. A drive letter is here rather than above
+#: because the colon that spells it is the reference's own separator, so
+#: ``"C:/escape:render"`` never presents ``C:`` as a module part at all — it
+#: presents ``C``, which stays under the root, and an attribute half that only
+#: ever reaches ``getattr``.
+REFUSED_PROVIDER_REFERENCES = (
+    " :render",
+    ":render",
+    "renderer:",
+    "C:/escape:render",
+)
+
+
+def _absolute_escape_module_part(target: Path) -> str | None:
+    """Spell *target* as a provider module part that leaves any tier root.
+
+    ``Path.joinpath`` resets on an absolute segment, so a dotted name whose
+    first component is empty and whose second is an absolute path abandons the
+    root it was joined to entirely. The spelling exists only when *target*
+    carries no literal dot, because a dot would split the path into two
+    segments and stop naming the file.
+    """
+    resolved = target.resolve()
+    without_anchor = resolved.relative_to(resolved.anchor).as_posix()
+    if "." in without_anchor:
+        return None
+    return "./" + without_anchor
+
+
 def test_a_drop_in_provider_resolves_from_the_tier_the_panel_was_found_in(tmp_path: Path) -> None:
     """FR-047: a user-library panel never resolves its provider out of the
     project's directory, and vice versa."""
@@ -330,6 +385,80 @@ def test_a_drop_in_provider_resolves_from_the_tier_the_panel_was_found_in(tmp_pa
     assert project_diagnostics == [] and user_diagnostics == []
     assert project_panels[0].provider(None) == "project"
     assert user_panels[0].provider(None) == "user"
+
+    # The other half of the same sentence, and the half the name promises:
+    # neither tier can be talked into resolving a provider it did not contain.
+    escaping = resolve_declared_provider(
+        "../renderer:render",
+        panel_id="shared.table",
+        owning_root=project_root,
+    )
+    assert escaping.provider is None
+    assert "shared.table" in escaping.error
+
+
+@pytest.mark.parametrize("module_part", REFUSED_PROVIDER_MODULE_PARTS)
+def test_a_provider_module_part_that_is_not_a_module_name_is_refused(tmp_path: Path, module_part: str) -> None:
+    """FR-047: the reference's shape is checked before any path is built.
+
+    A provider is a dotted Python module path plus an attribute. A component
+    that is empty, ``..``, absolute, a drive letter, or carrying a path
+    separator is not a module name, so it never reaches a join — and the
+    refusal names the panel, the way every other discovery diagnostic does.
+    """
+    root = tmp_path / "user"
+    root.mkdir()
+
+    resolution = resolve_declared_provider(f"{module_part}:render", panel_id="acme.escape", owning_root=root)
+
+    assert resolution.provider is None
+    assert "acme.escape" in resolution.error
+    # Not "could not be imported": the reference is refused for its shape,
+    # before a path is built or an import is attempted. Spelled out in full
+    # because "module name" is a substring of "No module named", which is what
+    # the unrefused reference happens to fail with.
+    assert "is not a dotted Python module name" in resolution.error
+    assert dropin_module_path(root, module_part) is None
+
+
+@pytest.mark.parametrize("reference", REFUSED_PROVIDER_REFERENCES)
+def test_a_provider_reference_that_names_no_module_and_attribute_is_refused(tmp_path: Path, reference: str) -> None:
+    """Whichever half is missing, the refusal names the panel and no path is
+    built from it (FR-047)."""
+    root = tmp_path / "user"
+    root.mkdir()
+
+    resolution = resolve_declared_provider(reference, panel_id="acme.escape", owning_root=root)
+
+    assert resolution.provider is None
+    assert "acme.escape" in resolution.error
+
+
+def test_a_provider_reference_cannot_reach_a_module_outside_the_tier_root(tmp_path: Path) -> None:
+    """FR-047, the property the module's docstring asserts: a reference that
+    resolves outside the tier root is refused, and nothing there is executed."""
+    root = tmp_path / "user"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    marker = tmp_path / "provider-executed-outside-the-tier-root.txt"
+    (outside / "escape.py").write_text(
+        "from pathlib import Path\n"
+        f"Path({str(marker)!r}).write_text('executed', encoding='utf-8')\n"
+        "def render(request):\n"
+        "    return 'escaped'\n",
+        encoding="utf-8",
+    )
+    module_part = _absolute_escape_module_part(outside / "escape")
+    if module_part is None:
+        pytest.skip("the temporary directory carries a literal '.', which no dotted name can spell")
+
+    resolution = resolve_declared_provider(f"{module_part}:render", panel_id="acme.escape", owning_root=root)
+
+    assert dropin_module_path(root, module_part) is None
+    assert resolution.provider is None
+    assert "acme.escape" in resolution.error
+    assert not marker.exists(), "the module outside the tier root was imported and ran"
 
 
 def test_a_drop_in_provider_that_raises_on_import_names_the_panel(tmp_path: Path) -> None:

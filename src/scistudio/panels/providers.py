@@ -17,6 +17,26 @@ sites that used to hold a copy each:
   same-named module could win the import or be poisoned by it, and an edit is
   picked up on the next load.
 
+  **That confinement is checked, not assumed** (#2229). The reference arrives
+  in a ``panel.json`` a project may have brought with it from anywhere, and it
+  ends in ``exec_module``, so it is the same class of surface
+  :mod:`scistudio.panels.editing` describes — the one this repository has been
+  bitten on three times (#2038, #2037, #2039). Two checks, in this order:
+
+  1. **The shape.** A provider names a dotted Python module path, so every
+     component must be a Python identifier. A component that is empty, ``..``,
+     absolute, a drive letter, or carrying a path separator is not a module
+     name and is refused before any path is built. This is the check that
+     matters, because ``Path.joinpath`` *resets on an absolute segment*: split
+     on ``.``, ``"../escape"`` becomes ``["", "", "/escape"]`` and the join
+     lands at the filesystem anchor rather than under the root.
+  2. **The result.** The file the name resolves to must still be inside the
+     resolved root, by the same ``relative_to`` comparison
+     :func:`scistudio.panels.editing.confined_panel_directory` uses. Resolving
+     first means a symlink pointing out of the tier is refused by the same
+     comparison that refuses a traversal. A path that escapes is refused, not
+     clamped, and the refusal names the panel.
+
 * **A provider that fails to import is a discovery diagnostic naming the
   panel**, not a load failure at mount. That is why
   :func:`resolve_declared_provider` returns the failure rather than logging it
@@ -47,9 +67,36 @@ __all__ = [
     "ProviderResolution",
     "dropin_module_path",
     "import_callable",
+    "is_importable_module_name",
     "resolve_declared_provider",
     "split_provider_reference",
 ]
+
+#: The sentence every shape refusal carries, so the two call sites and the
+#: tests defending them agree on one wording rather than three.
+UNUSABLE_MODULE_NAME_REASON = (
+    "is not a dotted Python module name; a component that is empty, '..', "
+    "absolute, a drive letter, or carrying a path separator is refused before "
+    "any path is built"
+)
+
+
+@internal()
+def is_importable_module_name(module_name: str) -> bool:
+    """Return whether *module_name* is a dotted sequence of Python identifiers.
+
+    The one shape check, and the reason it is a *shape* check rather than a
+    path check: ``Path.joinpath`` discards everything left of an absolute
+    segment, so ``root.joinpath(*"../escape".split("."))`` is not
+    ``root/../escape`` but the filesystem anchor. Asking whether each component
+    is an identifier refuses every spelling of that — ``..`` (empty
+    components), ``/escape`` and ``escape\\sub`` (separators), ``C:`` (a drive
+    letter, which is also how the colon would be read) — without having to
+    enumerate them.
+    """
+    if not isinstance(module_name, str) or not module_name:
+        return False
+    return all(part.isidentifier() for part in module_name.split("."))
 
 
 @internal()
@@ -103,20 +150,46 @@ def import_callable(dotted: str) -> Callable[..., Any] | None:
 
 @internal()
 def dropin_module_path(root: Path, module_name: str) -> Path | None:
-    """Return the file *module_name* resolves to under *root*, else ``None``.
+    """Return the file *module_name* resolves to **under** *root*, else ``None``.
 
     Both importable shapes are covered: ``<name>.py`` and a
     ``<name>/__init__.py`` package (mirroring
     :func:`scistudio.core.dropins._importable_entries`).
+
+    "Under" is enforced rather than assumed (#2229): a name that is not a
+    dotted sequence of identifiers never reaches the join, and a file that
+    resolves outside the resolved root is not returned. ``None`` therefore
+    means "this tier holds no such module" for a well-shaped name, and "no"
+    for everything else — :func:`resolve_declared_provider` refuses the
+    ill-shaped name itself, before calling this, so a refusal is never mistaken
+    for an ordinary miss.
     """
-    candidate = root.joinpath(*module_name.split("."))
+    if not is_importable_module_name(module_name):
+        return None
+    resolved_root = Path(root).resolve()
+    candidate = resolved_root.joinpath(*module_name.split("."))
     init_file = candidate / "__init__.py"
     if candidate.is_dir() and init_file.is_file():
-        return init_file
+        return _confined(resolved_root, init_file)
     py_file = candidate.with_suffix(".py")
     if py_file.is_file():
-        return py_file
+        return _confined(resolved_root, py_file)
     return None
+
+
+def _confined(resolved_root: Path, path: Path) -> Path | None:
+    """Return *path* if it resolves inside *resolved_root*, else ``None``.
+
+    The same comparison :func:`scistudio.panels.editing.confined_panel_directory`
+    makes, for the same reason: resolving before comparing is what makes a
+    symlink out of the tier refused by the check that refuses a traversal.
+    """
+    try:
+        path.resolve().relative_to(resolved_root)
+    except ValueError:
+        logger.warning("panel provider module %s resolves outside its tier root %s", path, resolved_root)
+        return None
+    return path
 
 
 @internal()
@@ -145,6 +218,17 @@ def resolve_declared_provider(
         module_name, attribute = split_provider_reference(dotted)
     except ValueError as exc:
         return ProviderResolution(None, f"panel {panel_id!r} declares provider {dotted!r}, which {exc}")
+
+    # FR-047, #2229: the shape first, before a path is built or an import is
+    # attempted. An ill-shaped module part is refused for being ill-shaped —
+    # never allowed to fall through to `importlib.import_module`, whose
+    # "No module named" would read as a typo rather than as a refusal.
+    if not is_importable_module_name(module_name):
+        return ProviderResolution(
+            None,
+            f"panel {panel_id!r} declares provider {dotted!r}, whose module part "
+            f"{module_name!r} {UNUSABLE_MODULE_NAME_REASON}",
+        )
 
     path = dropin_module_path(owning_root, module_name) if owning_root is not None else None
 

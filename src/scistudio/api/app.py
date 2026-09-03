@@ -262,6 +262,18 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # ADR-054 spec 1 FR-021 (#2229): the merged panel asset route answers the
+    # opaque origin a sandboxed panel presents, and no other route does. The
+    # global CORS middleware above cannot express that — with
+    # `SCISTUDIO_CORS_ORIGINS=*` it answers every origin including `null`, and
+    # even the default satisfies the invariant only by the accident of `null`
+    # not being in the list. Added after CORS so it sits outside it and sees the
+    # headers CORS has set (Starlette runs middleware in reverse add order).
+    from scistudio.api._opaque_origin_middleware import OpaqueOriginGuardMiddleware
+    from scistudio.panels.descriptor import PANEL_ASSET_ROUTE_PREFIX
+
+    app.add_middleware(OpaqueOriginGuardMiddleware, asset_route_prefix=PANEL_ASSET_ROUTE_PREFIX)
+
     # #1741: request/exception logging with correlation ids. Added after CORS so
     # it sits OUTERMOST (Starlette runs middleware in reverse add order), seeing
     # every request and any exception that escapes the routes.
