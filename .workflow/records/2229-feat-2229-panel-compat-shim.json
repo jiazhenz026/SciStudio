@@ -1,0 +1,93 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "feat/2229-panel-compat-shim",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/panels/compat.py",
+      "src/scistudio/panels/__init__.py",
+      "tests/panels/test_compat_shim.py",
+      "tests/fixtures/scistudio-blocks-fixture/**",
+      "frontend/src/panels/panelCompat.test.ts"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Add the compatibility shim so an ADR-048-form previewer keeps rendering while granting it nothing new, and migrate the one tutorial panel still in the retired interactive-panel form: task T-012 of docs/specs/adr-054-panel-contract.md.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-feat-2229-panel-compat-shim",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-03T15:38:52.551864Z",
+      "pattern": "src/scistudio/panels/compat.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T15:38:52.551890Z",
+      "pattern": "src/scistudio/panels/__init__.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T15:38:52.551893Z",
+      "pattern": "tests/fixtures/scistudio-blocks-fixture/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T15:46:44.647198Z",
+      "pattern": "frontend/src/panels/panelCompat.test.tsx",
+      "reason": "the host-side SC-009 proof renders PanelHost, so it is a .tsx test file rather than the .ts named at plan time"
+    }
+  ],
+  "session_id": "c270baeb-ae21-4385-8eec-ec6dd250ef2e",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-03T15:38:52.551903Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_compat_shim.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T15:38:52.551909Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/panelCompat.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

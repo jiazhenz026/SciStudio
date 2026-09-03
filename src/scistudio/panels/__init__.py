@@ -38,6 +38,9 @@ from typing import Any
 
 from scistudio.core.dropins import panel_roots
 from scistudio.panels.choices import load_choice_layers
+
+# ADR-048 compatibility shim (FR-042). Deleted with the module it names.
+from scistudio.panels.compat import install_compat_panels
 from scistudio.panels.data_access import PreviewDataAccess
 from scistudio.panels.discovery import PanelDiscovery, discover_panels, register_discovered_panels
 
@@ -155,6 +158,12 @@ def build_preview_service(
         project_roots=project_roots[:-1],
     )
     register_discovered_panels(registry, discovery)
+
+    # ADR-048 compatibility shim (FR-042, FR-043). Last, and only for an id no
+    # directory claimed, so a package that has migrated shadows its own shim
+    # without anybody withdrawing anything. Removed as a unit with
+    # ``scistudio.panels.compat``; that module's docstring lists every piece.
+    install_compat_panels(registry, discovery)
 
     registry.set_panel_choices(load_choice_layers(project_dir))
 

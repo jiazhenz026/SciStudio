@@ -1,0 +1,12 @@
+/*
+ * A non-JavaScript asset in the fixture previewer's bundle.
+ *
+ * An ADR-048 previewer reached its own files through the host API's
+ * `assetUrl()`, which the compatibility shim maps onto the merged asset route's
+ * base for the panel it generates (FR-021, FR-042). This file is here so a test
+ * can observe that a stylesheet beside the module is carried across too, rather
+ * than only the module the manifest names.
+ */
+.fixture-panel {
+  color: #1c211b;
+}
