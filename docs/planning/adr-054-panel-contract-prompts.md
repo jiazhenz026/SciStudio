@@ -378,3 +378,340 @@ Added after `W2-host` landed the frame host and reported back.
   Python package; only `.sentrux/rules.toml` is present. Recorded once here for
   every agent in this dispatch; state it in your report rather than rediscovering
   it.
+
+---
+
+## W2-core
+
+Filled from `docs/ai-developer/templates/agent-dispatch-prompt-template.md`.
+Dispatched after T-001 and T-005/T-006 were integrated into the track branch.
+
+```markdown
+[DISPATCH-TEMPLATE-V1: implementer]
+
+## Task Identity
+
+- Repository: SciStudio
+- Owner request: Implement ADR-054 spec 1, the unified panel contract; you
+  deliver its backend core — the shared contract in the core layer, the on-disk
+  panel form, four-tier discovery, registration, and capability-aware
+  resolution.
+- Task kind: feature
+- Persona: implementer
+- Issue: #2229
+- Umbrella PR: #2230 `[DO NOT MERGE]`
+- Protected branch: main
+- Umbrella branch: track/adr-054-spec1-panel-contract
+- Agent branch: feat/2229-panel-core-contract
+- Agent worktree: .worktrees/w2-panel-core
+- Gate record: created by the agent with `gate_record init`
+- Checklist: docs/planning/adr-054-panel-contract-checklist.md
+
+## Required Rules
+
+AGENTS.md; docs/ai-developer/rules.md; specific_rules/agent-dispatch.md;
+specific_rules/gated-workflow.md; personas/implementer.md;
+docs/specs/adr-054-panel-contract.md tasks T-002, T-003, T-013, T-015, T-016
+(FR-001 to FR-006, FR-016 to FR-020, FR-040, FR-041, FR-045 to FR-050, SC-012,
+SC-014, SC-015, SC-016); docs/adr/ADR-054.md sections 3.3 and 9.2; and the
+manager decisions D-001 to D-016 in this file, of which D-005, D-007, D-009,
+D-010, D-014 and D-015 govern the work directly.
+
+## What already landed on the branch point
+
+T-001 is done: `src/scistudio/panels/`, `PanelSpec`, `PanelRegistry`,
+`features` in place of the free-form `capabilities`, and four alias modules at
+`src/scistudio/previewers/{__init__,models,data_access,helpers}.py` that are
+imports and aliases only. T-005/T-006 are done: `frontend/src/panels/` holds
+the sandboxed-frame host, the message contract, and the capability gate; the
+agent must read `panelMessages.ts` and `panelDescriptor.ts` before designing
+the backend descriptor, because the host refuses a descriptor without
+`accepted_api_version` and `read_limits` (D-016). `PanelSpec.previewer_id`
+keeps its name deliberately (D-004); `W3-api` renames it with the endpoints.
+
+## Scope
+
+Owns: `src/scistudio/core/panels.py` (create); `src/scistudio/panels/**` except
+`builtin/**`; `core/dropins.py`; `core/entry_points.py`;
+`blocks/base/interactive.py` and the block-registry discovery check FR-050
+needs; `tests/panels/**` except `test_builtin_panels.py`;
+`tests/architecture/test_layer_deps.py`; `tests/adr052_contract/**`; fixtures
+under `tests/fixtures/**`.
+
+Must not touch: `src/scistudio/panels/builtin/**` and
+`tests/panels/test_builtin_panels.py` (a parallel agent owns them);
+`src/scistudio/api/**` (read only); `frontend/**` (read only); `docs/specs/**`
+and `docs/adr/**` (D-014); `docs/architecture/**`, `docs/user/**`,
+`docs/package-development/**`; `src/scistudio/previewers/**`; `docs/planning/**`.
+
+## Coordination
+
+Not alone in the codebase: `W4-builtin` works in parallel on
+`src/scistudio/panels/builtin/**` from the same branch point. Own branch, own
+worktree, no `pip install -e .`, no PR, no merge; push the branch and the
+manager integrates.
+
+## TODO And Deferral Rule
+
+`TODO(#NNN): <reason>` citing an issue, ADR, spec, or ticket. Known deferrals:
+`TODO(#2212)` the plot panel's producing capability; `TODO(#2211)` interface
+copy still says previewer.
+
+## Work To Do
+
+**T-002** — create `src/scistudio/core/panels.py` owning `PANEL_API_VERSION`,
+`PanelCapability` (exactly two members, FR-006), `PanelManifest`, `PanelTier`
+and the declaration-validation errors, per D-009; the placement is a layering
+constraint, not taste (ADR-054 9.2). `blocks/base/interactive.py` imports
+`PanelManifest` from core rather than defining its own. Collapse the two
+`PANEL_API_VERSION` definitions T-001 deliberately left onto the core one —
+FR-004 and SC-001 require exactly one in the tree.
+
+**T-003** — implement the D-007 on-disk form; validate every required field at
+discovery and refuse a declaration missing one with a diagnostic naming the
+directory and the field (FR-003). Discover from four tiers with project over
+user library over package over core shadowing (FR-018, FR-019); a collision
+within one tier is a discovery error. Per D-005 and FR-020 the existing
+`previewers/` drop-in directories and `.scistudio/previewers.json` keep
+working; carry the project default-panel declaration over under the panel
+naming (FR-046), decide the precedence when both exist, test it, and state the
+decision. The core tier is a directory on disk (D-015) whose contents arrive
+from a parallel agent; test core-tier discovery against an owned fixture.
+
+**T-015** — add the `scistudio.panels` entry-point group resolving to panel
+*directories*, with no Python object required to register a panel (FR-045),
+keeping `scistudio.previewers` and `get_previewers()` discovered. The user
+library and the project register by containing a directory (FR-046), taking
+effect after a registry rebuild. A declaration may name a Python provider
+(FR-047), resolved from its own tier, and a provider that fails to import is a
+discovery diagnostic naming the panel rather than a mount-time load failure.
+SC-014 wants a fixture package registering a panel with a directory and no
+Python object, and a fixture project registering one by containing a directory.
+
+**T-016** — every request states its required capability and candidates are
+filtered before the ladder and the choice apply (FR-048); a producing panel
+satisfies a displaying request (FR-006). Record the choice per type *and per
+capability* (FR-049), migrating the existing `previewer-choices.json` shape and
+stating what an existing file does on first read. A producing request with no
+producing panel falls back to the displaying resolution mounted with no
+outbound path. FR-050: a block-declared panel must declare producing, checked
+at block discovery with a diagnostic naming the block (SC-016). The ladder and
+the per-type choice are otherwise carried over without redesign (FR-016,
+A-006).
+
+**T-013** — extend the layer enumeration for `scistudio.core.panels` (FR-040);
+update `tests/adr052_contract/expected_surface.json` and the stability markers
+for every symbol added or moved, and state how each new symbol's tier and
+`since` were derived (FR-041). T-001 carried the renamed symbols across at
+`tier: provisional`, `since: 0.3.1`, unchanged.
+
+## Required Tests And Checks
+
+Create `tests/panels/test_panel_contract.py`,
+`test_panel_capability_gate.py` (backend half), `test_panel_tiers.py`,
+`test_panel_registration.py`, `test_panel_resolution.py`.
+
+`pytest tests/panels tests/api tests/architecture tests/adr052_contract
+tests/blocks`; `ruff check` and `ruff format --check`; `lint-imports` must stay
+13 kept / 0 broken. Known environment failures, not the agent's: ~40
+`tests/blocks/io/**` tests fail on a missing `openpyxl` in this machine's
+ambient python. `gate_record init --task-kind feature --persona implementer
+--base-ref track/adr-054-spec1-panel-contract` (mandatory: the branch is
+stacked) then `gate_record check --mode local --base
+track/adr-054-spec1-panel-contract`. Two known non-blockers in that check: the
+D-014 `planned_governs` finding once `core/panels.py` exists, and
+`core_change_guard`, which the manager handles at PR time. No `finalize`, no
+PR. Sentrux is not installed in this environment.
+
+Commit trailers: `Gate-Record`, `Task-Kind: feature`, `Issue: #2229`,
+`Assisted-by`.
+
+## Output Required
+
+Changed and created paths; the exact `panel.json` schema validated field by
+field and what a missing field's diagnostic says; the backend panel descriptor
+field by field for checking against `panelDescriptor.ts`; the
+`previewers.json` precedence decision and what an existing
+`previewer-choices.json` does on first read; how each new symbol's ADR-052 tier
+and `since` were derived; where the single `PANEL_API_VERSION` lives and proof
+no second definition survives; tests and results with counts plus the openpyxl
+baseline; the pushed commit sha; any blocker.
+
+## Stop Conditions
+
+An out-of-scope file is needed, in particular if T-016 seems to need an API
+route change; a D-00x decision conflicts with the spec; carrying the on-disk
+choice file across the per-capability shape would silently lose a person's
+setting; the ADR-052 stability derivation is genuinely ambiguous; the task
+conflicts with AGENTS.md, the ADR, the spec, or the gate record.
+```
+
+---
+
+## W4-builtin
+
+Filled from `docs/ai-developer/templates/agent-dispatch-prompt-template.md`.
+Dispatched in parallel with `W2-core` from the same branch point; the two
+agents' write sets are disjoint by directory.
+
+```markdown
+[DISPATCH-TEMPLATE-V1: implementer]
+
+## Task Identity
+
+- Repository: SciStudio
+- Owner request: Implement ADR-054 spec 1, the unified panel contract; you
+  deliver its eleven built-in panels, rewritten as self-contained documents on
+  disk.
+- Task kind: feature
+- Persona: implementer
+- Issue: #2229
+- Umbrella PR: #2230 `[DO NOT MERGE]`
+- Protected branch: main
+- Umbrella branch: track/adr-054-spec1-panel-contract
+- Agent branch: feat/2229-builtin-panels
+- Agent worktree: .worktrees/w4-builtin-panels
+- Gate record: created by the agent with `gate_record init`
+- Checklist: docs/planning/adr-054-panel-contract-checklist.md
+
+## Required Rules
+
+AGENTS.md; docs/ai-developer/rules.md; specific_rules/agent-dispatch.md;
+specific_rules/gated-workflow.md; personas/implementer.md;
+docs/specs/adr-054-panel-contract.md task T-009 (FR-002, FR-033, FR-034,
+FR-035, FR-037, SC-003, and assumption A-004, which explains why the
+duplication between these documents is accepted and must not be resolved by a
+shared runtime import); docs/adr/ADR-054.md section 3.2; and the manager
+decisions D-001 to D-016 in this file, of which D-007, D-010, D-011, D-015 and
+D-016 define the work exactly.
+
+## Scope
+
+Owns, and creates: `src/scistudio/panels/builtin/**` — eleven panel
+directories, each `panel.json` + `index.html`;
+`tests/panels/test_builtin_panels.py` and only that test file; the packaging
+declaration needed so these non-Python files ship in the wheel (CI has a
+`Wheel Release Smoke` job, so a missing declaration is a real CI failure),
+touching only the lines that add these files.
+
+Must not touch: anything else under `src/scistudio/panels/**`, and
+`fallbacks.py` in particular — **the Python providers are unchanged (FR-033)**;
+`src/scistudio/core/**`, `api/**`, `blocks/**`; `frontend/**` (read only, and
+reading it is required); any other test file; `docs/specs/**`, `docs/adr/**`,
+`docs/architecture/**`, `docs/user/**`; `docs/planning/**`.
+
+## Coordination
+
+Not alone in the codebase: `W2-core` works in parallel from the same branch
+point on everything under `src/scistudio/panels/` except `builtin/`. Own
+branch, own worktree, no `pip install -e .`, no PR, no merge; push the branch
+and the manager integrates.
+
+## TODO And Deferral Rule
+
+`TODO(#NNN): <reason>` citing an issue, ADR, spec, or ticket. Known deferral:
+`TODO(#2212)` the plot panel gains the producing capability later; this one
+declares `displaying` only.
+
+## The eleven panels
+
+Nine displaying panels, whose ids, target types, providers and features are
+already in `src/scistudio/panels/fallbacks.py::core_panel_specs()`:
+`core.dataframe.basic` (DataFrame, `dataframe_panel`),
+`core.array.basic` (Array, `array_panel`),
+`core.series.basic` (Series, `series_panel`),
+`core.text.basic` (Text, `text_panel`),
+`core.artifact.basic` (Artifact, `artifact_panel`),
+`core.composite.basic` (CompositeData, `composite_panel`),
+`core.collection.basic` (Collection sentinel, `supports_collection=True`,
+`collection_panel`), `core.plot.basic` (PlotArtifact, `plot_panel`), and
+`core.base.fallback` (DataObject sentinel, `priority=-100`,
+`base_fallback_panel`).
+
+Two producing panels declared on their block classes:
+`core.interactive.data_router` (`blocks/process/builtins/data_router.py`) and
+`core.interactive.pair_editor` (`blocks/process/builtins/pair_editor.py`).
+
+## Work To Do
+
+1. Read the host first: `frontend/src/panels/panelMessages.ts` is the contract
+   the documents speak, `panelFrame.ts` shows the handshake, the token and the
+   bounded wait, `PanelHost.tsx` shows what `init` carries. Every message is
+   `{ scistudio_panel: 1, token, type, payload }`; the panel answers `init`
+   with `ready` carrying its declared api version, within the bounded wait or
+   it is a load failure.
+2. Read what each panel must render: `coreViewers.tsx`, `TableViewer.tsx`,
+   `PlotViewer.tsx`, and for the producing pair
+   `App.parts/InteractiveModals.parts/`. Port pagination, sorting, the array
+   slice controls and colormap, the plot format menu, composite slot
+   navigation, and collection sampling. Do not delete or edit those React
+   components; a later agent retires them.
+3. Write each panel as `src/scistudio/panels/builtin/<panel_id>/` holding
+   `panel.json` in the D-007 schema exactly and `index.html`. The ids are fixed
+   by D-015. Nine declare `capability: "displaying"`, two declare
+   `"producing"`. Each names its `provider` where one exists.
+4. Strictly self-contained (FR-034, A-004): markup, styles and script in one
+   document; no `<script src>`, no `<link rel=stylesheet>`, no shared runtime
+   import, no CDN. Several render similar tables and that duplication is
+   accepted — the property being protected is that a document can be opened
+   directly in a browser to see whether it works, and that a person forking one
+   gets everything in the file they opened. Report what was knowingly
+   duplicated.
+5. A displaying panel emits nothing. The two producing panels emit code through
+   the single outbound path and must not interpret it. **Do not implement any
+   AST or statement whitelist** — ADR-054 3.6 puts that where an emission is
+   queued, which is the explore session and out of scope (FR-012).
+6. The plot panel moves across unchanged in kind (A-005): displaying only,
+   Python side untouched, `TODO(#2212)` for the rest.
+7. Bulk data comes from the asset route (D-008) via the `asset_base_url` the
+   host hands the panel in `init`, not through the message channel; windowed
+   reads go through `read` / `read_result`.
+8. Write `tests/panels/test_builtin_panels.py`: each of the eleven has a
+   directory; each `panel.json` validates against D-007 with the right id,
+   target types and capability; self-containment asserted mechanically (no
+   `<script src=`, no `<link rel="stylesheet"`, no external `import(`); the two
+   interactive panels declare producing and the nine others displaying; the
+   packaging declaration actually includes the files. Do not import the panel
+   registry — a parallel agent is changing it — test the files on disk.
+9. Prove one document actually works: drive at least the plot and dataframe
+   panels from a stub `init` and confirm they answer `ready` and render. If
+   that cannot be done without out-of-scope files, say so precisely rather than
+   claiming it.
+
+Order: the plot panel first (a single image and a format control is the
+simplest complete exercise of the path, per the spec's own risk note), then the
+dataframe panel, then the rest.
+
+## Required Tests And Checks
+
+`pytest tests/panels`; `ruff check` and `ruff format --check`; the frontend
+suite only if a frontend test was added. `gate_record init --task-kind feature
+--persona implementer --base-ref track/adr-054-spec1-panel-contract`
+(mandatory: the branch is stacked) then `gate_record check --mode local --base
+track/adr-054-spec1-panel-contract`. Known non-blockers: ~40
+`tests/blocks/io/**` failures from a missing `openpyxl`; and per D-014, no
+`planned_governs` finding is fixed by editing `docs/specs/**`. No `finalize`,
+no PR. Sentrux is not installed in this environment.
+
+Commit trailers: `Gate-Record`, `Task-Kind: feature`, `Issue: #2229`,
+`Assisted-by`.
+
+## Output Required
+
+Every created path; one `panel.json` in full for checking against D-007; one
+line per panel saying what it renders and which component's behaviour it
+replaces; the knowingly duplicated code and why factoring it out would break
+A-004; what was actually proved about a document working and by what harness,
+distinguishing a static check from a document that answered `ready` and
+rendered; the packaging change and how shipping was verified; tests and results
+with counts; the pushed commit sha; any blocker.
+
+## Stop Conditions
+
+An out-of-scope file is needed; a provider's payload cannot be rendered without
+importing something shared, i.e. FR-034 and the payload are in genuine
+conflict; the message contract cannot express something a panel needs; the
+documents cannot be made to ship in the wheel without a packaging change larger
+than adding the files; the task conflicts with AGENTS.md, the ADR, the spec, or
+the gate record.
+```
