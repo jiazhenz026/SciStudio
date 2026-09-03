@@ -1,7 +1,172 @@
 {
   "base_ref": "origin/track/adr-054-spec1-panel-contract",
   "branch": "feat/2229-panel-frontend",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-03T07:32:12.532213Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0deac04405434cdca6d65dc3c51f5b5938ddb201f6adf484ce98451ad607e155",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T07:32:14.872351Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:00a08f83ae5e88e2d6aba77206a47f3f4c11fd774bedca2fc5ece4a11d81a54b",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T07:32:16.286381Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:102f4fec721ebfc465e7a0ebf36ba896c75f73ca64a3d872407303e84c235e40",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T07:32:16.499402Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-03T07:33:04.329111Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d565b277195fe89a328ce1ad3f3d779f6cc7d6609cf1c8cddfd63dcc48e79290",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T07:33:17.717299Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T07:33:18.210296Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:179b1cba851dd153ae0ab07e4f5ff8b2a735cc2c3d6d4494d3c0100847360442",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T07:33:18.284464Z",
+      "command": "ruff check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-03T07:38:52.413505Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T07:39:03.203025Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e94394e48009cd8fbd5108426e57662cdd3e4d99e817a3b4494b7e53776b5c37",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -19,10 +184,260 @@
       "path": "N/A",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T07:39:17.128037Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "the governing documents are docs/specs/adr-054-panel-contract.md and docs/adr/ADR-054.md, which already specify this work (T-007, T-008 frontend half, T-011); D-014 and the dispatch put docs/specs/**, docs/adr/** and docs/planning/** out of this agent's scope, and the manager fills docs/planning/adr-054-panel-contract-checklist.md from this agent's report",
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-03T07:39:03.254733Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:03.267476Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:03.280436Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "frontend/src/App.parts/InteractiveModals.parts/DynamicPanel.test.tsx",
+              "frontend/src/App.parts/InteractiveModals.parts/DynamicPanel.tsx",
+              "frontend/src/App.parts/InteractiveModals.parts/InteractivePanelHost.tsx",
+              "frontend/src/App.parts/InteractiveModals.parts/__tests__/tutorialReviewPanel.test.ts",
+              "frontend/src/App.parts/InteractiveModals.parts/panelModuleLoader.test.ts",
+              "frontend/src/App.parts/InteractiveModals.parts/panelModuleLoader.ts",
+              "frontend/src/App.parts/InteractiveModals.test.tsx",
+              "frontend/src/App.parts/InteractiveModals.tsx",
+              "frontend/src/components/DataPreview.parts/PanelTutorialChrome.tsx",
+              "frontend/src/components/DataPreview.parts/PlotViewer.tsx",
+              "frontend/src/components/DataPreview.parts/PreviewHost.dynamic.test.tsx",
+              "frontend/src/components/DataPreview.parts/PreviewHost.exportFallback.test.tsx",
+              "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
+              "frontend/src/components/DataPreview.parts/PreviewHost.tsx",
+              "frontend/src/components/DataPreview.parts/TableViewer.tsx",
+              "frontend/src/components/DataPreview.parts/coreViewers.test.tsx",
+              "frontend/src/components/DataPreview.parts/coreViewers.tsx",
+              "frontend/src/components/DataPreview.parts/dynamicPanel.ts",
+              "frontend/src/components/DataPreview.parts/panelHostApi.ts",
+              "frontend/src/components/DataPreview.tsx",
+              "frontend/src/components/__tests__/tutorialTargets.test.tsx",
+              "frontend/src/hooks/useWebSocket.parts/dispatchEvent.ts",
+              "frontend/src/hooks/useWebSocket.parts/handleFileChanged.ts",
+              "frontend/src/hooks/useWebSocket.parts/handleLifecycle.ts",
+              "frontend/src/hooks/useWebSocket.parts/panelReload.test.ts",
+              "frontend/src/lib/api/data.ts",
+              "frontend/src/panels/PanelHost.tsx",
+              "frontend/src/panels/index.ts",
+              "frontend/src/panels/panelCapability.ts",
+              "frontend/src/panels/panelDescriptor.ts",
+              "frontend/src/panels/panelFrame.ts",
+              "frontend/src/panels/panelMessages.test.ts",
+              "frontend/src/panels/panelMessages.ts",
+              "frontend/src/panels/panelPaths.test.ts",
+              "frontend/src/panels/panelPaths.ts",
+              "frontend/src/store/panelCatalogSlice.ts",
+              "frontend/src/store/types.ts",
+              "frontend/src/store/usePanelReload.ts",
+              "frontend/src/testUtils.ts",
+              "frontend/src/types/api.ts"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-03T07:39:03.293332Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:03.306299Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:03.318898Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:03.331653Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:03.344464Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:03.357075Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:03.369769Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:03.404158Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:22.734996Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:22.748588Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:22.761556Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:22.774864Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:22.790620Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:22.803404Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:22.816139Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:22.828317Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:22.840872Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:22.855438Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T07:39:22.885730Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -32,19 +447,129 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "track/adr-054-spec1-panel-contract",
+    "base_sha": "7b4e05624",
+    "changed_files": [
+      ".workflow/records/2229-feat-2229-panel-frontend.json",
+      "frontend/src/App.parts/InteractiveModals.parts/DynamicPanel.test.tsx",
+      "frontend/src/App.parts/InteractiveModals.parts/DynamicPanel.tsx",
+      "frontend/src/App.parts/InteractiveModals.parts/InteractivePanelHost.tsx",
+      "frontend/src/App.parts/InteractiveModals.parts/__tests__/tutorialReviewPanel.test.ts",
+      "frontend/src/App.parts/InteractiveModals.parts/panelModuleLoader.test.ts",
+      "frontend/src/App.parts/InteractiveModals.parts/panelModuleLoader.ts",
+      "frontend/src/App.parts/InteractiveModals.test.tsx",
+      "frontend/src/App.parts/InteractiveModals.tsx",
+      "frontend/src/components/DataPreview.parts/PanelTutorialChrome.tsx",
+      "frontend/src/components/DataPreview.parts/PlotViewer.tsx",
+      "frontend/src/components/DataPreview.parts/PreviewHost.dynamic.test.tsx",
+      "frontend/src/components/DataPreview.parts/PreviewHost.exportFallback.test.tsx",
+      "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
+      "frontend/src/components/DataPreview.parts/PreviewHost.tsx",
+      "frontend/src/components/DataPreview.parts/TableViewer.tsx",
+      "frontend/src/components/DataPreview.parts/coreViewers.test.tsx",
+      "frontend/src/components/DataPreview.parts/coreViewers.tsx",
+      "frontend/src/components/DataPreview.parts/dynamicPanel.ts",
+      "frontend/src/components/DataPreview.parts/panelHostApi.ts",
+      "frontend/src/components/DataPreview.tsx",
+      "frontend/src/components/__tests__/tutorialTargets.test.tsx",
+      "frontend/src/hooks/useWebSocket.parts/dispatchEvent.ts",
+      "frontend/src/hooks/useWebSocket.parts/handleFileChanged.ts",
+      "frontend/src/hooks/useWebSocket.parts/handleLifecycle.ts",
+      "frontend/src/hooks/useWebSocket.parts/panelReload.test.ts",
+      "frontend/src/lib/api/data.ts",
+      "frontend/src/panels/PanelHost.tsx",
+      "frontend/src/panels/index.ts",
+      "frontend/src/panels/panelCapability.ts",
+      "frontend/src/panels/panelDescriptor.ts",
+      "frontend/src/panels/panelFrame.ts",
+      "frontend/src/panels/panelMessages.test.ts",
+      "frontend/src/panels/panelMessages.ts",
+      "frontend/src/panels/panelPaths.test.ts",
+      "frontend/src/panels/panelPaths.ts",
+      "frontend/src/store/panelCatalogSlice.ts",
+      "frontend/src/store/types.ts",
+      "frontend/src/store/usePanelReload.ts",
+      "frontend/src/testUtils.ts",
+      "frontend/src/types/api.ts"
+    ],
+    "diff_fingerprint": "sha256:e27c0b943a60343dfa0618bc0485c5a21756cf4c741835696cc86f50f52f0cd2",
+    "head": "HEAD",
+    "head_sha": "6e374946d",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 40,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 40,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 40,
+      "test": 12,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Replace both frontend loaders with one, delete the kind-to-panel dispatch in favour of the backend-named fallback, and add hot reload and the state hook: tasks T-007, T-008 frontend half, and T-011 of docs/specs/adr-054-panel-contract.md.",
   "persona": "implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-03T07:39:03.404193Z",
+      "diff_fingerprint": "sha256:e27c0b943a60343dfa0618bc0485c5a21756cf4c741835696cc86f50f52f0cd2",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "tests.changed_test_required"
+      ]
+    },
+    {
+      "at": "2026-09-03T07:39:22.885766Z",
+      "diff_fingerprint": "sha256:e27c0b943a60343dfa0618bc0485c5a21756cf4c741835696cc86f50f52f0cd2",
+      "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "2229-feat-2229-panel-frontend",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
@@ -105,7 +630,7 @@
     }
   ],
   "session_id": "dfcf6196-56bf-4a21-a0aa-7986018bfcc2",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "feature",
   "test_events": [
     {
@@ -121,6 +646,54 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/DataPreview.parts/**",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T07:39:17.128064Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/panelPaths.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T07:39:17.128069Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/panelMessages.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T07:39:17.128071Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T07:39:17.128073Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/InteractiveModals.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T07:39:17.128074Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/hooks/useWebSocket.parts/panelReload.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T07:39:17.128076Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/tutorialTargets.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }

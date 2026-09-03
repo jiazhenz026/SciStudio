@@ -536,12 +536,12 @@ export interface TypesSlice {
  */
 export interface PanelCatalogSlice {
   panels: PanelSpecSummary[];
-  /** True once `GET /api/previews/previewers` has landed at least once. */
+  /** True once `GET /api/panels` has landed at least once. */
   panelsLoaded: boolean;
   /** Registry discovery diagnostics reported alongside the listing (#2095). */
   panelDiagnostics: string[];
   panelChoices: PanelChoice[];
-  /** True once `GET /api/previews/choices` has landed at least once. */
+  /** True once `GET /api/panels/choices` has landed at least once. */
   panelChoicesLoaded: boolean;
   /**
    * Bumped on every choice mutation. `DataPreview` feeds it to `PreviewHost`

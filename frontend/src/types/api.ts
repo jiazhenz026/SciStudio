@@ -777,7 +777,8 @@ export interface PanelSpecSummary {
   api_version: string;
 }
 
-/** `GET /api/previews/previewers` response (#2095). */
+/** `GET /api/panels` response (#2095, moved under the panel naming by
+ *  ADR-054 D-020). */
 export interface PanelListResponse {
   previewers: PanelSpecSummary[];
   /** Discovery problems recorded during the scan (duplicate ids, refused
@@ -785,7 +786,7 @@ export interface PanelListResponse {
   diagnostics: string[];
 }
 
-/** `POST /api/previews/reload` response (#2095). */
+/** `POST /api/panels/reload` response (#2095, ADR-054 D-020). */
 export interface PanelReloadResponse {
   reloaded: number;
   added: string[];
@@ -808,7 +809,7 @@ export interface PanelChoice {
   available: boolean;
 }
 
-/** `GET /api/previews/choices` response (#2049). */
+/** `GET /api/panels/choices` response (#2049, ADR-054 D-020). */
 export interface PanelChoiceListResponse {
   choices: PanelChoice[];
 }
