@@ -715,3 +715,67 @@ documents cannot be made to ship in the wheel without a packaging change larger
 than adding the files; the task conflicts with AGENTS.md, the ADR, the spec, or
 the gate record.
 ```
+
+---
+
+## Manager contract sheet: D-017 to D-019
+
+Added after `W4-builtin` landed the eleven documents and reported three gaps
+the contract had no answer for. All three are manager rulings; the agents that
+implement them are named.
+
+- **D-017 - The panel-to-host message types are named, not overloaded.**
+  `W4-builtin` needed five operations D-011 had no name for and expressed them
+  all as `read` with an `action` key. That is refused: an export is not a read,
+  and folding five meanings into one type produces exactly the illegible single
+  mechanism ADR-054 section 9 is written to prevent. The contract is:
+
+  Panel to host: `ready` (`api_version`); `read` (`request_id`, `query` - a
+  patch of the panel's query state: page, page_size, sort_by, sort_dir, slice
+  indices; this is today's `session.patchQuery`); `resource` (`request_id`,
+  `resource_id`, `params` - a bounded follow-up read, today's
+  `session.getResource`, used by composite slot navigation and collection item
+  opening); `host_action` (`request_id`, `action`, `params` - chrome the frame
+  cannot perform for itself because it has neither `allow-downloads` nor access
+  to the application; `action` is `export` with a `format`, `download` with a
+  path or resource id, or `editor_handoff` with a ref); `emit` (`code`,
+  producing only, capability-gated); `error` (`message`, `detail`); `state`
+  (`state`).
+
+  Host to panel: `init`, `update`, `read_result` (`request_id`, `window`),
+  `resource_result` (`request_id`, `resource`), `host_action_result`
+  (`request_id`, `ok`, `detail`), `error`, `state_request`, `teardown`.
+
+  `read`, `resource` and `host_action` are granted to displaying and producing
+  panels alike - FR-011 withholds the *emission* path from a displaying panel
+  (FR-012), not the bounded read FR-010 requires the host to supply. Only
+  `emit` is capability-gated.
+
+  Implemented by `W3-fe` in `frontend/src/panels/**`; the eleven documents are
+  updated to speak it by `W4-builtin`.
+
+- **D-018 - Confirm and cancel are host chrome for a producing panel.**
+  A producing panel's only outbound path is `emit` (FR-012), so it does not own
+  a Confirm button. The host renders Confirm and Cancel around the frame, as
+  `DynamicPanel.tsx` renders the title bar and binds ESC today. Confirm commits
+  the panel's most recent `emit`; with no emission yet, Confirm is disabled.
+  Cancel is today's cancel path unchanged. Every built-in producing panel
+  re-emits its whole decision on every change, so the newest emission is always
+  the current decision - that is the property the host relies on, and each
+  producing document must say so in a comment so a person forking it does not
+  break it. Implemented by `W3-fe`.
+
+- **D-019 - The host keeps the tutorial surface a sandboxed frame cannot.**
+  The shipped `what-is-a-type` tutorial depends on the `preview_item_opened` UI
+  event and the `preview_item` tutorial target in five places
+  (`src/scistudio/tutorials/core/what-is-a-type/tutorial.yaml`, with
+  `src/scistudio/tutorials/conditions.py` and `manifest.py` declaring them, and
+  `tests/tutorials/test_core_tutorial_what_is_a_type.py` asserting them). A
+  frame at an opaque origin can carry neither the highlight target nor the
+  store. **This is not deferrable and `TODO(#2229)` is not an acceptable
+  answer for it**: it is a shipped tutorial and the migration must not break
+  it. The host fires `preview_item_opened` when it services a panel's
+  `resource` message for a collection item, and carries
+  `data-tutorial-target="preview_item"` on its own chrome around the frame.
+  `tests/tutorials/test_core_tutorial_what_is_a_type.py` must still pass
+  unchanged. Implemented by `W3-fe`.
