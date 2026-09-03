@@ -1,7 +1,188 @@
 {
   "base_ref": "origin/track/adr-054-spec1-panel-contract",
   "branch": "feat/2229-builtin-panels",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-03T06:05:58.911659Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6bb21d8810a548f3dca7243de20d7bbb120221d903e2805f32c0b6e56ee130f7",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:06:01.895521Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:db34ad9064b2650915ee3fd907d74a357081fc1c28b81b06571fa22f637ab12f",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:06:03.290455Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6d2976eeeed5402f0dfffbabab0934bea64c531c8bcb07f38c77801c35e04980",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:06:03.577798Z",
+      "command": "ruff format tests/panels/test_builtin_panels.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:dcc82f8b415dc3ba5e15766176bc2123ecfdb74324ad5d2d949d1bc6811f43e8",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-03T06:06:17.130594Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c3499904c16110136d2132904ccffc5a4bf94715a802cd17d3a91dce027e48b4",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:06:18.130098Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c533c3d9b07dacc8e994ef52120ab0b413f7ba91774d5cb7574fa36bf43a0ab1",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:06:18.150983Z",
+      "command": "ruff check tests/panels/test_builtin_panels.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:947b79b9e8196c6de26bfa7873c8d33f655544fd0ab5d34ceedc32f3e7729905",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-03T06:09:13.304620Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:4e73b0d954fd0c603be5d3680597945328d18f3f8dab93134f5714e504dfc6eb",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:09:25.372905Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c45061687bdfce42aca0b306a83968b80aea29efb9f4f8a6a11949a1794425b8",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:09:38.059679Z",
+      "command": "python -m build --wheel",
+      "covered_surface": "packaging",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e82b248a57a80132e39b6f43a4fa1ab87ac7900404ae87a50d0fdf9a4d818ba9",
+      "name": "wheel_release_smoke",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/wheel_release_smoke.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:15:17.805627Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4e73b0d954fd0c603be5d3680597945328d18f3f8dab93134f5714e504dfc6eb",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -13,9 +194,739 @@
     ]
   },
   "directive_events": [],
-  "docs_events": [],
-  "governance_touch": false,
-  "guard_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-03T06:16:27.857431Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "The eleven panel documents are an internal rewrite of what the nine core previewers and the two interactive modals already render; the person-facing documentation of panels belongs to #2211, docs/specs/** is closed to this agent under D-014, and docs/planning/adr-054-panel-contract-checklist.md is filled by the manager from this agent's report.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [
+    {
+      "at": "2026-09-03T06:09:38.095263Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:09:38.107605Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:09:38.120123Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "pyproject.toml",
+              "src/scistudio/panels/builtin/core.array.basic/index.html",
+              "src/scistudio/panels/builtin/core.array.basic/panel.json",
+              "src/scistudio/panels/builtin/core.artifact.basic/index.html",
+              "src/scistudio/panels/builtin/core.artifact.basic/panel.json",
+              "src/scistudio/panels/builtin/core.base.fallback/index.html",
+              "src/scistudio/panels/builtin/core.base.fallback/panel.json",
+              "src/scistudio/panels/builtin/core.collection.basic/index.html",
+              "src/scistudio/panels/builtin/core.collection.basic/panel.json",
+              "src/scistudio/panels/builtin/core.composite.basic/index.html",
+              "src/scistudio/panels/builtin/core.composite.basic/panel.json",
+              "src/scistudio/panels/builtin/core.dataframe.basic/index.html",
+              "src/scistudio/panels/builtin/core.dataframe.basic/panel.json",
+              "src/scistudio/panels/builtin/core.interactive.data_router/index.html",
+              "src/scistudio/panels/builtin/core.interactive.data_router/panel.json",
+              "src/scistudio/panels/builtin/core.interactive.pair_editor/index.html",
+              "src/scistudio/panels/builtin/core.interactive.pair_editor/panel.json",
+              "src/scistudio/panels/builtin/core.plot.basic/index.html",
+              "src/scistudio/panels/builtin/core.plot.basic/panel.json",
+              "src/scistudio/panels/builtin/core.series.basic/index.html",
+              "src/scistudio/panels/builtin/core.series.basic/panel.json",
+              "src/scistudio/panels/builtin/core.text.basic/index.html",
+              "src/scistudio/panels/builtin/core.text.basic/panel.json"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-03T06:09:38.132360Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:09:38.145091Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:09:38.157637Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "pyproject.toml",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": "pyproject.toml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-03T06:09:38.170475Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:09:38.183798Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:09:38.195786Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:09:38.207645Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:09:38.220228Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:17.841834Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:17.854447Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:17.866936Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "pyproject.toml",
+              "src/scistudio/panels/builtin/core.array.basic/index.html",
+              "src/scistudio/panels/builtin/core.array.basic/panel.json",
+              "src/scistudio/panels/builtin/core.artifact.basic/index.html",
+              "src/scistudio/panels/builtin/core.artifact.basic/panel.json",
+              "src/scistudio/panels/builtin/core.base.fallback/index.html",
+              "src/scistudio/panels/builtin/core.base.fallback/panel.json",
+              "src/scistudio/panels/builtin/core.collection.basic/index.html",
+              "src/scistudio/panels/builtin/core.collection.basic/panel.json",
+              "src/scistudio/panels/builtin/core.composite.basic/index.html",
+              "src/scistudio/panels/builtin/core.composite.basic/panel.json",
+              "src/scistudio/panels/builtin/core.dataframe.basic/index.html",
+              "src/scistudio/panels/builtin/core.dataframe.basic/panel.json",
+              "src/scistudio/panels/builtin/core.interactive.data_router/index.html",
+              "src/scistudio/panels/builtin/core.interactive.data_router/panel.json",
+              "src/scistudio/panels/builtin/core.interactive.pair_editor/index.html",
+              "src/scistudio/panels/builtin/core.interactive.pair_editor/panel.json",
+              "src/scistudio/panels/builtin/core.plot.basic/index.html",
+              "src/scistudio/panels/builtin/core.plot.basic/panel.json",
+              "src/scistudio/panels/builtin/core.series.basic/index.html",
+              "src/scistudio/panels/builtin/core.series.basic/panel.json",
+              "src/scistudio/panels/builtin/core.text.basic/index.html",
+              "src/scistudio/panels/builtin/core.text.basic/panel.json"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-03T06:15:17.879251Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:17.892234Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:17.904473Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "pyproject.toml",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": "pyproject.toml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-03T06:15:17.917466Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:17.929586Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:17.941961Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:17.953962Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:17.966492Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:28.354179Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:28.367814Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:28.380865Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "pyproject.toml",
+              "src/scistudio/panels/builtin/core.array.basic/index.html",
+              "src/scistudio/panels/builtin/core.array.basic/panel.json",
+              "src/scistudio/panels/builtin/core.artifact.basic/index.html",
+              "src/scistudio/panels/builtin/core.artifact.basic/panel.json",
+              "src/scistudio/panels/builtin/core.base.fallback/index.html",
+              "src/scistudio/panels/builtin/core.base.fallback/panel.json",
+              "src/scistudio/panels/builtin/core.collection.basic/index.html",
+              "src/scistudio/panels/builtin/core.collection.basic/panel.json",
+              "src/scistudio/panels/builtin/core.composite.basic/index.html",
+              "src/scistudio/panels/builtin/core.composite.basic/panel.json",
+              "src/scistudio/panels/builtin/core.dataframe.basic/index.html",
+              "src/scistudio/panels/builtin/core.dataframe.basic/panel.json",
+              "src/scistudio/panels/builtin/core.interactive.data_router/index.html",
+              "src/scistudio/panels/builtin/core.interactive.data_router/panel.json",
+              "src/scistudio/panels/builtin/core.interactive.pair_editor/index.html",
+              "src/scistudio/panels/builtin/core.interactive.pair_editor/panel.json",
+              "src/scistudio/panels/builtin/core.plot.basic/index.html",
+              "src/scistudio/panels/builtin/core.plot.basic/panel.json",
+              "src/scistudio/panels/builtin/core.series.basic/index.html",
+              "src/scistudio/panels/builtin/core.series.basic/panel.json",
+              "src/scistudio/panels/builtin/core.text.basic/index.html",
+              "src/scistudio/panels/builtin/core.text.basic/panel.json"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-03T06:15:28.393541Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:28.407062Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:28.419878Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "pyproject.toml",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": "pyproject.toml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-03T06:15:28.434770Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:28.448022Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:28.461752Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:28.475328Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:28.489710Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:49.907686Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:49.919608Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:49.931829Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "pyproject.toml",
+              "src/scistudio/panels/builtin/core.array.basic/index.html",
+              "src/scistudio/panels/builtin/core.array.basic/panel.json",
+              "src/scistudio/panels/builtin/core.artifact.basic/index.html",
+              "src/scistudio/panels/builtin/core.artifact.basic/panel.json",
+              "src/scistudio/panels/builtin/core.base.fallback/index.html",
+              "src/scistudio/panels/builtin/core.base.fallback/panel.json",
+              "src/scistudio/panels/builtin/core.collection.basic/index.html",
+              "src/scistudio/panels/builtin/core.collection.basic/panel.json",
+              "src/scistudio/panels/builtin/core.composite.basic/index.html",
+              "src/scistudio/panels/builtin/core.composite.basic/panel.json",
+              "src/scistudio/panels/builtin/core.dataframe.basic/index.html",
+              "src/scistudio/panels/builtin/core.dataframe.basic/panel.json",
+              "src/scistudio/panels/builtin/core.interactive.data_router/index.html",
+              "src/scistudio/panels/builtin/core.interactive.data_router/panel.json",
+              "src/scistudio/panels/builtin/core.interactive.pair_editor/index.html",
+              "src/scistudio/panels/builtin/core.interactive.pair_editor/panel.json",
+              "src/scistudio/panels/builtin/core.plot.basic/index.html",
+              "src/scistudio/panels/builtin/core.plot.basic/panel.json",
+              "src/scistudio/panels/builtin/core.series.basic/index.html",
+              "src/scistudio/panels/builtin/core.series.basic/panel.json",
+              "src/scistudio/panels/builtin/core.text.basic/index.html",
+              "src/scistudio/panels/builtin/core.text.basic/panel.json"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-03T06:15:49.944166Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:49.956735Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:49.968754Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "pyproject.toml",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": "pyproject.toml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-03T06:15:49.980855Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:49.992708Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:50.004501Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:50.016269Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:15:50.029655Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:16:34.283557Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:16:34.296361Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:16:34.308975Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:16:34.321902Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:16:34.334802Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:16:34.352757Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:16:34.366706Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:16:34.380015Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:16:34.393215Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:16:34.406264Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:16:34.419781Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -25,19 +936,150 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "track/adr-054-spec1-panel-contract",
+    "base_sha": "668b2d468",
+    "changed_files": [
+      ".workflow/records/2229-feat-2229-builtin-panels.json",
+      "pyproject.toml",
+      "src/scistudio/panels/builtin/core.array.basic/index.html",
+      "src/scistudio/panels/builtin/core.array.basic/panel.json",
+      "src/scistudio/panels/builtin/core.artifact.basic/index.html",
+      "src/scistudio/panels/builtin/core.artifact.basic/panel.json",
+      "src/scistudio/panels/builtin/core.base.fallback/index.html",
+      "src/scistudio/panels/builtin/core.base.fallback/panel.json",
+      "src/scistudio/panels/builtin/core.collection.basic/index.html",
+      "src/scistudio/panels/builtin/core.collection.basic/panel.json",
+      "src/scistudio/panels/builtin/core.composite.basic/index.html",
+      "src/scistudio/panels/builtin/core.composite.basic/panel.json",
+      "src/scistudio/panels/builtin/core.dataframe.basic/index.html",
+      "src/scistudio/panels/builtin/core.dataframe.basic/panel.json",
+      "src/scistudio/panels/builtin/core.interactive.data_router/index.html",
+      "src/scistudio/panels/builtin/core.interactive.data_router/panel.json",
+      "src/scistudio/panels/builtin/core.interactive.pair_editor/index.html",
+      "src/scistudio/panels/builtin/core.interactive.pair_editor/panel.json",
+      "src/scistudio/panels/builtin/core.plot.basic/index.html",
+      "src/scistudio/panels/builtin/core.plot.basic/panel.json",
+      "src/scistudio/panels/builtin/core.series.basic/index.html",
+      "src/scistudio/panels/builtin/core.series.basic/panel.json",
+      "src/scistudio/panels/builtin/core.text.basic/index.html",
+      "src/scistudio/panels/builtin/core.text.basic/panel.json",
+      "tests/panels/test_builtin_panels.py"
+    ],
+    "diff_fingerprint": "sha256:23f5df665cc73809da55c3c378ed9fcbe799c57118f736b3da61446c86b7ff82",
+    "head": "HEAD",
+    "head_sha": "5e94765bb",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 1,
+      "governed_docs": 0,
+      "implementation": 23,
+      "packaging": 1,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 23,
+      "test": 1,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Rewrite the eleven built-in panels as self-contained panel documents on disk, task T-009 of docs/specs/adr-054-panel-contract.md; their Python providers are unchanged.",
   "persona": "implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-03T06:09:38.220262Z",
+      "diff_fingerprint": "sha256:23f5df665cc73809da55c3c378ed9fcbe799c57118f736b3da61446c86b7ff82",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "guard.mod_guard"
+      ]
+    },
+    {
+      "at": "2026-09-03T06:15:17.966528Z",
+      "diff_fingerprint": "sha256:23f5df665cc73809da55c3c378ed9fcbe799c57118f736b3da61446c86b7ff82",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "guard.mod_guard"
+      ]
+    },
+    {
+      "at": "2026-09-03T06:15:28.489746Z",
+      "diff_fingerprint": "sha256:23f5df665cc73809da55c3c378ed9fcbe799c57118f736b3da61446c86b7ff82",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "guard.mod_guard"
+      ]
+    },
+    {
+      "at": "2026-09-03T06:15:50.029686Z",
+      "diff_fingerprint": "sha256:23f5df665cc73809da55c3c378ed9fcbe799c57118f736b3da61446c86b7ff82",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "guard.mod_guard"
+      ]
+    },
+    {
+      "at": "2026-09-03T06:16:34.419813Z",
+      "diff_fingerprint": "sha256:23f5df665cc73809da55c3c378ed9fcbe799c57118f736b3da61446c86b7ff82",
+      "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "2229-feat-2229-builtin-panels",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check",
+      "wheel_release_smoke"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
@@ -56,7 +1098,7 @@
     }
   ],
   "session_id": "51ba371d-e680-4443-a888-8d4852e504b1",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "feature",
   "test_events": [
     {
