@@ -47,7 +47,7 @@ __all__ = [
 ]
 
 #: One file per concern under the project library dir, as
-#: ``previewer-choices.json`` already is.
+#: ``panel-choices.json`` already is.
 OPEN_AS_FILENAME = "open-as-types.json"
 
 #: Schema version of the written file. Readers ignore what they do not know, so

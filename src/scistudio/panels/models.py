@@ -50,6 +50,10 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+# ADR-054 spec 1, FR-001 / FR-004 / D-009 / D-010: the shared contract lives in
+# the core layer, and this module re-exports it rather than restating it. There
+# is exactly one ``PANEL_API_VERSION`` in the tree and this is not it.
+from scistudio.core.panels import PANEL_API_VERSION, PanelCapability, PanelTier
 from scistudio.stability import internal, provisional
 
 if TYPE_CHECKING:
@@ -62,24 +66,16 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
-@provisional(since="0.3.1")
-class OwnerKind(StrEnum):
-    """Where a panel came from; sets how strongly it wins when routing.
-
-    When more than one panel could handle a target, provenance decides
-    precedence: a project-local panel beats a user-library panel, which
-    beats a package panel, which beats a built-in core fallback. The string
-    values appear verbatim in the REST and session API payloads.
-    """
-
-    CORE = "core"
-    """A built-in fallback that ships with SciStudio."""
-    PACKAGE = "package"
-    """A panel registered by an installed package."""
-    USER = "user"
-    """A panel registered from the user library (``~/.scistudio/previewers``)."""
-    PROJECT = "project"
-    """A panel registered locally by the active project."""
+#: Where a panel came from; sets how strongly it wins when routing.
+#:
+#: ADR-054 spec 1 renamed this concept :class:`~scistudio.core.panels.PanelTier`
+#: and moved it into the core layer with the rest of the contract (FR-018,
+#: D-009). ``OwnerKind`` is that same enum under the name the ADR-048 preview
+#: subsystem already published — an alias, not a second four-valued enum with
+#: the same string values, because a copy would be exactly the duplication
+#: ADR-054 §9 exists to prevent. The public guarantee is unchanged: same
+#: members, same values, same provisional tier since 0.3.1.
+OwnerKind = PanelTier
 
 
 @provisional(since="0.3.1")
@@ -152,16 +148,13 @@ class PreviewErrorCode(StrEnum):
     """A read would exceed a bounded preview budget (rows/bytes/items/...)."""
 
 
-# A bare ``str`` cannot carry a ``scistudio.stability`` marker (it is an
-# immutable builtin), so the provisional tier is recorded in the spec and this
-# constant renders in the reference without a tier badge.
-PANEL_API_VERSION = "1"
-"""Current panel API compatibility version.
-
-A :class:`PanelSpec` or :class:`FrontendManifest` that declares a different
-``api_version`` is still loaded, but the mismatch is flagged through diagnostics
-so the frontend can refuse to mount an incompatible manifest.
-"""
+# :data:`PANEL_API_VERSION` is imported from :mod:`scistudio.core.panels` above
+# and re-exported here, where panel authors already look for it. There is
+# exactly one definition of it in the tree (FR-004, SC-001, D-010).
+#
+# A :class:`PanelSpec` or :class:`FrontendManifest` that declares a different
+# ``api_version`` is still loaded, but the mismatch is flagged through
+# diagnostics so the frontend can refuse to mount an incompatible manifest.
 
 
 # ---------------------------------------------------------------------------
@@ -337,6 +330,7 @@ class PanelSpec:
         ...     owner_name="acme",
         ...     target_type="Image",
         ...     features=("slice", "lut"),
+        ...     capability=PanelCapability.DISPLAYING,
         ...     backend_provider="acme.panels:render_image",
         ... )
         >>> spec.target_type
@@ -351,7 +345,20 @@ class PanelSpec:
     """Owning package name, project identifier, or ``"scistudio"``."""
     target_type: str
     """Fully qualified type name this panel claims, e.g. ``"Array"`` or
-    ``"Image"``."""
+    ``"Image"``.
+
+    A spec constructed in Python names one type. A panel registered as a
+    directory names a list (:attr:`target_types`), and this field then carries
+    the first of them so that everything reading a spec's type keeps working."""
+    target_types: tuple[str, ...] = ()
+    """Every type this panel claims, when it claims more than one.
+
+    ADR-054 spec 1 D-007 makes ``target_types`` a list in the on-disk
+    declaration, because a panel that renders both a frame and a series is an
+    ordinary thing to write and forcing it to register twice would give it two
+    ids and two entries in the palette. Empty for a spec that names one type
+    through :attr:`target_type`; :attr:`target_type_names` is what routing reads,
+    so the two spellings never have to be told apart at the point of use."""
     supports_collection: bool = False
     """Whether the panel can inspect collections (claims
     ``Collection[target_type]``)."""
@@ -360,7 +367,19 @@ class PanelSpec:
     unresolved equal-priority tie is a routing error."""
     features: tuple[str, ...] = ()
     """Feature strings the panel advertises, e.g. ``slice``, ``table``,
-    ``lut``, ``export``."""
+    ``lut``, ``export``. Free-form advertising, not a capability: the word
+    capability names :class:`~scistudio.core.panels.PanelCapability` and nothing
+    else (ADR-054 spec 1 FR-051)."""
+    capability: PanelCapability = PanelCapability.DISPLAYING
+    """What this panel may do (ADR-054 spec 1 FR-005, FR-048).
+
+    Defaults to displaying because what SciStudio called a previewer is exactly
+    that — a panel resolved by the type of the data, with no outbound path — so
+    every spec written before this contract existed keeps the capability it
+    always had. Resolution filters the candidates on this before the routing
+    ladder and the user choice apply, and a producing panel also satisfies a
+    displaying request (FR-006).
+    """
     backend_provider: PreviewProvider | str | None = None
     """The render callable, or a dotted ``module:callable`` import path resolved
     lazily."""
@@ -372,6 +391,17 @@ class PanelSpec:
     api_version: str = PANEL_API_VERSION
     """Panel API version this spec targets."""
 
+    @property
+    def target_type_names(self) -> tuple[str, ...]:
+        """Every type this spec claims, whichever way it was declared.
+
+        The one reading routing does, so a spec written in Python and a panel
+        registered as a directory are the same kind of thing to the ladder.
+        """
+        if self.target_types:
+            return self.target_types
+        return (self.target_type,) if self.target_type else ()
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-safe dict of the spec (providers shown by name)."""
         provider_repr = _provider_repr(self.backend_provider)
@@ -381,9 +411,11 @@ class PanelSpec:
             "owner_kind": self.owner_kind.value,
             "owner_name": self.owner_name,
             "target_type": self.target_type,
+            "target_types": list(self.target_type_names),
             "supports_collection": self.supports_collection,
             "priority": self.priority,
             "features": list(self.features),
+            "capability": self.capability.value,
             "backend_provider": provider_repr,
             "resource_provider": resource_provider_repr,
             "frontend_manifest": (self.frontend_manifest.to_dict() if self.frontend_manifest is not None else None),

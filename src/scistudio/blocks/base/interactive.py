@@ -11,8 +11,12 @@ class — interactivity is layered onto an existing category (for example
 
 The capability gives a block three things:
 
-* :attr:`InteractiveMixin.interactive_panel` — a :class:`PanelManifest` naming
-  the frontend window component the block opens.
+* :attr:`InteractiveMixin.interactive_panel` — a
+  :class:`~scistudio.core.panels.PanelManifest` naming the panel the block
+  opens. A block-declared panel must declare the producing capability
+  (:class:`~scistudio.core.panels.PanelCapability`, imported from the contract
+  module), which is what the manifest defaults to and what the registry
+  checks when the block is discovered (ADR-054 spec 1 FR-050).
 * :meth:`InteractiveMixin.prepare_prompt` — turns the real input data into the
   JSON-safe, window-sized view the panel renders, plus optional heavy
   intermediate work carried forward as storage references (never in memory).
@@ -37,20 +41,20 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
 from scistudio.core.meta._display_name import resolve_display_name
+
+# ADR-054 spec 1, FR-001 / D-009: the manifest, the capability declaration and
+# the API version constant live in the core layer, and this module imports them
+# rather than defining its own. The block layer sits below the panel subsystem
+# and below the API layer, all three read the same manifest, and no layer above
+# core may be imported by the others — so a manifest defined here would force
+# the panel subsystem to import upward, and the pressure to relieve that is what
+# produced two manifest types and two version constants in the first place.
+from scistudio.core.panels import PANEL_API_VERSION, PanelManifest
 from scistudio.core.storage.ref import StorageReference
 from scistudio.stability import provisional
 
 if TYPE_CHECKING:
     from scistudio.blocks.base.config import BlockConfig
-
-# The frontend panel host refuses to mount a manifest whose major version
-# differs from this.
-PANEL_API_VERSION = "1"
-"""Panel API compatibility version.
-
-A :class:`PanelManifest` whose major version differs from this is refused by the
-frontend panel host. Bump it when the panel contract changes incompatibly.
-"""
 
 # Config keys the engine threads into the compute phase. The response key
 # carries the user's decision and is recorded in lineage; the intermediate key
@@ -71,83 +75,6 @@ INTERACTIVE_INTERMEDIATE_KEY = "interactive_intermediate"
 # the engine reads it on dispatch. Stored in node config (frontend owns the
 # workflow definition); the engine never writes it back.
 INTERACTIVE_MEMORY_KEY = "interactive_memory"
-
-
-@provisional(since="0.3.1")
-@dataclass(frozen=True)
-class PanelManifest:
-    """Describes the frontend window component a block opens for interaction.
-
-    An interactive block declares one of these as its ``interactive_panel`` to
-    name the window the user sees. A built-in (core) panel is resolved by
-    :attr:`panel_id` against the frontend's built-in registry; a package-provided
-    panel is loaded by importing :attr:`module_url` from the backend (same-origin
-    only — remote URLs are rejected). Core panels leave ``module_url`` empty
-    because they ship with the app.
-
-    Example:
-        >>> manifest = PanelManifest(panel_id="core.interactive.data_router")
-    """
-
-    panel_id: str
-    """Stable id of the window component (e.g. ``"core.interactive.data_router"``).
-
-    For a core panel this is the frontend's resolution key.
-    """
-
-    module_url: str = ""
-    """Backend-relative URL (``/api/...``) to import a package panel module from.
-
-    Remote URLs are rejected. Left empty for built-in core panels.
-    """
-
-    export_name: str = "default"
-    """Named export inside the module to mount as the panel component."""
-
-    css: tuple[str, ...] = ()
-    """Optional backend-relative URLs of CSS assets the panel needs."""
-
-    version: str = "0"
-    """Panel bundle version (a fingerprint or semver string)."""
-
-    api_version: str = PANEL_API_VERSION
-    """Panel API compatibility version; its major must match :data:`PANEL_API_VERSION`."""
-
-    response_schema: dict[str, Any] | None = None
-    """Optional declaration of the response shape the panel returns.
-
-    A JSON-schema-like description; advisory metadata for the panel host, not
-    enforced by the runtime.
-    """
-
-    asset_root: str | None = None
-    """Filesystem directory a package confines its panel assets under.
-
-    Never sent to the frontend; used only by a backend validator to keep asset
-    paths confined to the package.
-    """
-
-    @provisional(since="0.3.1")
-    def to_dict(self) -> dict[str, Any]:
-        """Return the JSON-safe wire form of this manifest sent to the frontend.
-
-        :attr:`asset_root` is intentionally omitted (it is a backend-only path),
-        and :attr:`response_schema` is included only when it is set.
-
-        Returns:
-            A dict with the manifest's frontend-facing fields.
-        """
-        data: dict[str, Any] = {
-            "panel_id": self.panel_id,
-            "module_url": self.module_url,
-            "export_name": self.export_name,
-            "css": list(self.css),
-            "version": self.version,
-            "api_version": self.api_version,
-        }
-        if self.response_schema is not None:
-            data["response_schema"] = self.response_schema
-        return data
 
 
 @provisional(since="0.3.1")

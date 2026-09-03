@@ -29,6 +29,7 @@ from __future__ import annotations
 import importlib
 import importlib.metadata
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 from scistudio.core.entry_points import (
@@ -39,6 +40,7 @@ from scistudio.core.entry_points import (
     load_entry_point,
     prepared_plugin_import_roots,
 )
+from scistudio.core.panels import PanelCapability
 from scistudio.desktop.paths import (
     candidate_package_dirs,
     iter_source_package_module_candidates,
@@ -75,7 +77,13 @@ class PanelRegistry:
         # same-tier priority tie, while this one short-circuits the whole
         # FR-003 ladder. They are kept apart here for the same reason they are
         # kept in separate files.
-        self._panel_choices: dict[str, str] = {}
+        #
+        # ADR-054 spec 1 FR-049 keys it on the required capability as well as
+        # the type: the panel a person prefers for looking at a frame and the
+        # one they prefer for producing from it are different preferences, and
+        # one slot for both would make a display default silently disable
+        # production from that type.
+        self._panel_choices: dict[str, dict[str, str]] = {capability.value: {} for capability in PanelCapability}
 
     # -- registration -------------------------------------------------------
 
@@ -102,14 +110,26 @@ class PanelRegistry:
         """Declare a project default panel for *target_type* (FR-005)."""
         self._project_default_panels[target_type] = previewer_id
 
-    def set_panel_choices(self, choices: dict[str, str]) -> None:
-        """Install the person's per-type panel choices (#2049).
+    def set_panel_choices(self, choices: Mapping[str, object]) -> None:
+        """Install the person's per-type, per-capability panel choices (#2049).
 
         Replaces the set wholesale, because the caller loads both layers and
         resolves them together; a partial update here would let a cleared
         project-layer choice keep shadowing the user-layer one it overrode.
+
+        Two shapes are accepted. ``{capability: {type: panel id}}`` is the
+        ADR-054 FR-049 form. A flat ``{type: panel id}`` is read as the
+        displaying layer, which is what every caller written before this spec
+        meant and what a version-1 file on disk contains.
         """
-        self._panel_choices = dict(choices)
+        layers: dict[str, dict[str, str]] = {capability.value: {} for capability in PanelCapability}
+        for key, value in choices.items():
+            if isinstance(value, dict):
+                if key in layers:
+                    layers[key] = {str(type_name): str(panel_id) for type_name, panel_id in value.items()}
+            elif isinstance(value, str):
+                layers[PanelCapability.DISPLAYING.value][str(key)] = value
+        self._panel_choices = layers
 
     def record_diagnostic(self, message: str) -> None:
         """Record a discovery-scan diagnostic from an external scan pass.
@@ -134,13 +154,28 @@ class PanelRegistry:
     def project_default_for(self, target_type: str) -> str | None:
         return self._project_default_panels.get(target_type)
 
-    def choice_for(self, target_type: str) -> str | None:
-        """Return the panel id chosen for *target_type*, if any (#2049)."""
-        return self._panel_choices.get(target_type)
+    def choice_for(
+        self,
+        target_type: str,
+        capability: PanelCapability = PanelCapability.DISPLAYING,
+    ) -> str | None:
+        """Return the panel id chosen for *target_type* under *capability*.
 
-    def panel_choices(self) -> dict[str, str]:
-        """Return a copy of the installed per-type choices (#2049)."""
-        return dict(self._panel_choices)
+        The default is displaying, which is the request every caller written
+        before ADR-054 spec 1 was making (#2049, FR-049).
+        """
+        return self._panel_choices.get(capability.value, {}).get(target_type)
+
+    def panel_choices(
+        self,
+        capability: PanelCapability = PanelCapability.DISPLAYING,
+    ) -> dict[str, str]:
+        """Return a copy of one capability's installed per-type choices."""
+        return dict(self._panel_choices.get(capability.value, {}))
+
+    def panel_choice_layers(self) -> dict[str, dict[str, str]]:
+        """Return a copy of every capability's installed per-type choices."""
+        return {capability: dict(entries) for capability, entries in self._panel_choices.items()}
 
     @property
     def diagnostics(self) -> list[str]:
@@ -150,7 +185,7 @@ class PanelRegistry:
         self._by_id.clear()
         self._diagnostics.clear()
         self._project_default_panels.clear()
-        self._panel_choices.clear()
+        self._panel_choices = {capability.value: {} for capability in PanelCapability}
 
     # -- discovery ----------------------------------------------------------
 

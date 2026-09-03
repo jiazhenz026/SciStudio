@@ -71,6 +71,15 @@ that gives way. Everything else — enumeration, error containment (FR-026,
 FR-027), diagnostics (FR-028), and import-root preparation (FR-030) — applies
 to ``scistudio.tutorials`` unchanged.
 
+``scistudio.panels`` (ADR-054 spec 1 FR-045) is the second member of that
+exemption, and it is there for its own reason rather than by analogy. A panel is
+a directory holding a declaration and a self-contained document, and the spec
+states that a package MUST NOT need to construct a Python object to register
+one — because the people and agents who write those files would otherwise be
+put behind an import. Its value therefore names a directory of panel
+directories, resolved by the same metadata-only path. See
+:data:`METADATA_ONLY_GROUPS`.
+
 **Import roots (FR-030).** :func:`prepared_plugin_import_roots` activates the
 user-installed plugin import roots for the duration of a scan. This used to be
 done by the panel registry alone, which made the same installed package
@@ -117,6 +126,7 @@ BLOCKS_ENTRY_POINT_GROUP = "scistudio.blocks"
 TYPES_ENTRY_POINT_GROUP = "scistudio.types"
 PREVIEWERS_ENTRY_POINT_GROUP = "scistudio.previewers"
 TUTORIALS_ENTRY_POINT_GROUP = "scistudio.tutorials"
+PANELS_ENTRY_POINT_GROUP = "scistudio.panels"
 
 #: Every live ``scistudio.*`` entry-point group (FR-034).
 #:
@@ -135,6 +145,7 @@ LIVE_ENTRY_POINT_GROUPS: tuple[str, ...] = (
     TYPES_ENTRY_POINT_GROUP,
     PREVIEWERS_ENTRY_POINT_GROUP,
     TUTORIALS_ENTRY_POINT_GROUP,
+    PANELS_ENTRY_POINT_GROUP,
 )
 
 #: Groups whose entry point value may name a class directly (FR-029).
@@ -147,7 +158,19 @@ BARE_CLASS_GROUPS: frozenset[str] = frozenset({BLOCKS_ENTRY_POINT_GROUP})
 #:
 #: Resolved through :func:`resolve_entry_point_directory` from distribution
 #: metadata, never by importing the value's module.
-METADATA_ONLY_GROUPS: frozenset[str] = frozenset({TUTORIALS_ENTRY_POINT_GROUP})
+#:
+#: Two members, and each has its own reason rather than a shared taste for
+#: directories. ``scistudio.tutorials`` cannot satisfy the callable contract:
+#: implementing it means importing the entry point's target, and ADR-053 FR-018
+#: forbids importing a package module while listing the catalogue, which happens
+#: every time the Learning Center opens. ``scistudio.panels`` must not satisfy
+#: it: ADR-054 spec 1 FR-045 states that a package MUST NOT need to construct a
+#: Python object to register a panel, because a panel is a directory holding a
+#: declaration and a document (FR-002) and requiring Python to announce one
+#: would put the agent and the person who write those files behind an import.
+#: Both resolve to a directory; neither is an invitation for a third group to
+#: join without an argument of its own.
+METADATA_ONLY_GROUPS: frozenset[str] = frozenset({TUTORIALS_ENTRY_POINT_GROUP, PANELS_ENTRY_POINT_GROUP})
 
 STAGE_ENUMERATE = "enumerate"
 STAGE_LOAD = "load"
@@ -483,6 +506,7 @@ __all__ = [
     "BLOCKS_ENTRY_POINT_GROUP",
     "LIVE_ENTRY_POINT_GROUPS",
     "METADATA_ONLY_GROUPS",
+    "PANELS_ENTRY_POINT_GROUP",
     "PREVIEWERS_ENTRY_POINT_GROUP",
     "STAGE_ENUMERATE",
     "STAGE_INVOKE",

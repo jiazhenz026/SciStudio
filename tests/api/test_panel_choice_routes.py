@@ -178,9 +178,17 @@ def test_a_project_scoped_choice_lands_in_the_project(client: TestClient, opened
     _install_panels(opened_project, client)
     client.put("/api/previews/choices/DataFrame", json={"previewer_id": "choice.alternate", "scope": "project"})
 
-    path = opened_project / ".scistudio" / "previewer-choices.json"
+    # ADR-054 spec 1 FR-046 carried this file over under the panel naming; the
+    # legacy ``previewer-choices.json`` is still read and never written.
+    path = opened_project / ".scistudio" / "panel-choices.json"
     assert path.is_file()
-    assert json.loads(path.read_text(encoding="utf-8"))["choices"] == {"DataFrame": "choice.alternate"}
+    # ADR-054 spec 1 FR-049: one map per capability rather than one flat map,
+    # so the panel a person prefers for looking at a frame and the one they
+    # prefer for producing from it can differ.
+    assert json.loads(path.read_text(encoding="utf-8"))["choices"] == {
+        "displaying": {"DataFrame": "choice.alternate"},
+        "producing": {},
+    }
 
 
 def test_the_author_declared_manifest_is_a_separate_file(client: TestClient, opened_project: Path) -> None:

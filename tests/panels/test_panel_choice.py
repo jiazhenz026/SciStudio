@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 from scistudio.panels.choices import (
+    CHOICES_FILENAME,
     clear_choice,
     load_choices,
     project_choices_path,
@@ -89,21 +90,21 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def test_a_choice_round_trips(tmp_path: Path) -> None:
-    path = tmp_path / "previewer-choices.json"
+    path = tmp_path / CHOICES_FILENAME
     write_choice(path, "Probe", "probe.package")
     assert read_choice_layer(path) == {"Probe": "probe.package"}
 
 
 def test_writing_one_type_leaves_the_others_alone(tmp_path: Path) -> None:
     """The write reads first, so a second type is not lost to a blind overwrite."""
-    path = tmp_path / "previewer-choices.json"
+    path = tmp_path / CHOICES_FILENAME
     write_choice(path, "Probe", "probe.package")
     write_choice(path, "Image", "image.viewer")
     assert read_choice_layer(path) == {"Probe": "probe.package", "Image": "image.viewer"}
 
 
 def test_clearing_removes_only_that_type(tmp_path: Path) -> None:
-    path = tmp_path / "previewer-choices.json"
+    path = tmp_path / CHOICES_FILENAME
     write_choice(path, "Probe", "probe.package")
     write_choice(path, "Image", "image.viewer")
     clear_choice(path, "Probe")
@@ -111,7 +112,7 @@ def test_clearing_removes_only_that_type(tmp_path: Path) -> None:
 
 
 def test_clearing_a_type_that_was_never_chosen_is_not_an_error(tmp_path: Path) -> None:
-    path = tmp_path / "previewer-choices.json"
+    path = tmp_path / CHOICES_FILENAME
     clear_choice(path, "NeverChosen")
     assert read_choice_layer(path) == {}
 
@@ -151,19 +152,19 @@ def test_a_missing_file_is_an_empty_layer(tmp_path: Path) -> None:
 
 
 def test_malformed_json_is_ignored_rather_than_raised(tmp_path: Path) -> None:
-    path = tmp_path / "previewer-choices.json"
+    path = tmp_path / CHOICES_FILENAME
     path.write_text("{not json", encoding="utf-8")
     assert read_choice_layer(path) == {}
 
 
 def test_a_payload_that_is_not_an_object_is_ignored(tmp_path: Path) -> None:
-    path = tmp_path / "previewer-choices.json"
+    path = tmp_path / CHOICES_FILENAME
     path.write_text('["not", "an", "object"]', encoding="utf-8")
     assert read_choice_layer(path) == {}
 
 
 def test_an_unknown_key_from_a_newer_build_does_not_lose_the_choices(tmp_path: Path) -> None:
-    path = tmp_path / "previewer-choices.json"
+    path = tmp_path / CHOICES_FILENAME
     path.write_text(
         json.dumps({"version": 99, "choices": {"Probe": "probe.package"}, "somethingNew": {"a": 1}}),
         encoding="utf-8",
@@ -172,7 +173,7 @@ def test_an_unknown_key_from_a_newer_build_does_not_lose_the_choices(tmp_path: P
 
 
 def test_one_malformed_entry_does_not_cost_the_others(tmp_path: Path) -> None:
-    path = tmp_path / "previewer-choices.json"
+    path = tmp_path / CHOICES_FILENAME
     path.write_text(
         json.dumps({"choices": {"Probe": "probe.package", "Bad": ["list"], "": "empty-key", "Blank": ""}}),
         encoding="utf-8",

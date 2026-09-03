@@ -493,6 +493,13 @@ _GROUP_REFRESH_SITES: dict[str, str] = {
     "scistudio.blocks": "block_registry",
     "scistudio.types": "type_registry",
     "scistudio.previewers": "preview_service",
+    # ADR-054 spec 1 FR-046: the panel-directory scan runs inside
+    # ``build_preview_service``, so the panel group's refresh site is the same
+    # one the previewer group already had. That is not an accident of
+    # implementation — FR-046 requires the registry rebuild to be the *one* way
+    # a directory added to a project takes effect, and giving the group a
+    # second refresh site would give it a second way.
+    "scistudio.panels": "preview_service",
 }
 
 
