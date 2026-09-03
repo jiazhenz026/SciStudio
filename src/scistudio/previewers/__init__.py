@@ -10,10 +10,18 @@ on-disk drop-ins migrate:
 * the user-library and project tiers still read ``~/.scistudio/previewers`` and
   ``<project>/previewers``, whose drop-in modules import from here.
 
-It contains no logic of its own — only imports and aliases. The renamed symbols
-are re-exported under their old names; import from :mod:`scistudio.panels` in
-new code. This module is removed under the condition stated in the ADR-048
-addendum (FR-044).
+**The alias modules translate; they do not merely re-export** (ADR-054 spec 1
+D-001). Keeping a name importable is not the promise the ADR-048 addendum makes.
+The promise is that code already written against the pre-rename API keeps
+producing a registered panel, so where the rename moved a keyword or a field
+position, :mod:`scistudio.previewers.models` carries a translating
+:class:`~scistudio.previewers.models.PreviewerSpec` rather than the renamed
+class itself, and it is that spec type this package re-exports.
+
+Apart from that translation the package holds no logic of its own. The renamed
+symbols are re-exported under their old names; import from
+:mod:`scistudio.panels` in new code. This module is removed under the condition
+stated in the ADR-048 addendum (FR-044).
 """
 
 from __future__ import annotations
@@ -26,9 +34,6 @@ from scistudio.panels import (
 )
 from scistudio.panels import (
     PanelRegistry as PreviewerRegistry,  # noqa: F401  (retired-name re-export)
-)
-from scistudio.panels import (
-    PanelSpec as PreviewerSpec,
 )
 from scistudio.panels import (
     PreviewDataAccess as PreviewDataAccess,
@@ -99,6 +104,7 @@ from scistudio.panels import (
 from scistudio.panels import (
     load_user_panels as load_user_previewers,  # noqa: F401  (retired-name re-export)
 )
+
 from scistudio.panels.models import (
     EnvelopeKind as EnvelopeKind,
 )
@@ -110,6 +116,13 @@ from scistudio.panels.models import (
 )
 from scistudio.panels.models import (
     TargetKind as TargetKind,
+)
+
+# The pre-rename spec type, translated rather than re-exported (D-001). This is
+# the one symbol the alias package does not take straight from
+# :mod:`scistudio.panels`: see :mod:`scistudio.previewers.models`.
+from scistudio.previewers.models import (
+    PreviewerSpec as PreviewerSpec,
 )
 
 __all__ = [
