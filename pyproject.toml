@@ -160,6 +160,14 @@ scistudio = [
     # the SPA bundle only. Same failure class as #824 and #2032.
     "tutorials/schema/*.json",
     "tutorials/core/**/*",
+    # ADR-054 spec 1 FR-002/FR-033: the eleven built-in panels are directories
+    # of data files (``panel.json`` + a self-contained ``index.html``), not
+    # importable packages — a panel directory is named for its panel id, which
+    # carries dots (``core.plot.basic``) precisely because a panel id is not a
+    # module path. ``packages.find`` cannot see them, so without this pattern an
+    # installed wheel discovers no built-in panel at all and every preview
+    # degrades to a load failure. Same failure class as #824 and #2032.
+    "panels/builtin/**/*",
 ]
 
 [tool.ruff]

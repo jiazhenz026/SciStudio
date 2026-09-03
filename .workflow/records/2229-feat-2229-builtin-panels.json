@@ -1,0 +1,71 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "feat/2229-builtin-panels",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/panels/builtin/**",
+      "tests/panels/test_builtin_panels.py",
+      "pyproject.toml"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Rewrite the eleven built-in panels as self-contained panel documents on disk, task T-009 of docs/specs/adr-054-panel-contract.md; their Python providers are unchanged.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-feat-2229-builtin-panels",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-03T05:46:09.080846Z",
+      "pattern": "src/scistudio/panels/builtin/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T05:46:09.080866Z",
+      "pattern": "pyproject.toml",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "51ba371d-e680-4443-a888-8d4852e504b1",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-03T05:46:09.080875Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_builtin_panels.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
