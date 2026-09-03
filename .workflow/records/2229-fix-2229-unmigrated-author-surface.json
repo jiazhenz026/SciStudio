@@ -1,0 +1,90 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "fix/2229-unmigrated-author-surface",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-03T18:36:46.636587Z",
+      "class": "code-only",
+      "kind": "na",
+      "path": null,
+      "rationale": "the alias package's own module docstrings carry the compatibility contract; docs/specs and docs/package-development are manager-owned under ADR-054 D-014 and out of this agent's scope",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-054 spec 1 unified panel contract compatibility: make the scistudio.previewers alias package translate the pre-rename authoring surface (capabilities keyword, positional field order, retired module paths, load_choices) so an unmigrated package or on-disk drop-in keeps working or is told clearly, and unify the duplicated choice-precedence rule. Five red tests from test/2229-panel-migration-regression are the specification.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-fix-2229-unmigrated-author-surface",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:36:46.636545Z",
+      "pattern": "src/scistudio/previewers",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:36:46.636570Z",
+      "pattern": "src/scistudio/panels/choices.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:36:46.636574Z",
+      "pattern": "tests/panels",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "08aa4c47-de47-4872-8b81-9a9e6d4c8a29",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-03T18:36:46.636596Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_unmigrated_author_surface.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T18:36:46.636600Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_choice_file_names_on_disk.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
