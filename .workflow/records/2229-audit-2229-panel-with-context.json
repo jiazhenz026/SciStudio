@@ -1,0 +1,72 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "audit/2229-panel-with-context",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-03T18:05:57.134201Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-03-panel-contract-with-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "With-context conformance audit of ADR-054 spec 1 (the panel contract) on track/adr-054-spec1-panel-contract: check T-001..T-016 delivery, SC-001..SC-016, manager decisions D-001..D-020, scope discipline per ledger, drift-log honesty, and every introduced TODO.",
+  "persona": "audit_reviewer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-audit-2229-panel-with-context",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:claude-opus-5",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:05:57.134176Z",
+      "pattern": "docs/audit/**",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "d6ee95a0-da0f-4ffa-9007-3a7ec4b1ebd8",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-09-03T18:05:57.134216Z",
+      "class": "audit-report",
+      "kind": "na",
+      "path": null,
+      "rationale": "an audit report adds no product behaviour; each finding names the test or code that must change",
+      "verified_in_diff": null
+    }
+  ]
+}
