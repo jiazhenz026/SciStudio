@@ -124,6 +124,18 @@
       "at": "2026-09-03T18:52:55.802395Z",
       "pattern": "tests/tutorials/test_core_tutorial_what_is_a_type.py",
       "reason": "the tutorial's review_labels panel is the twelfth shipped document and its test spelled the API version literally in three places, the same SC-001 coupling defect as test_builtin_panels.py"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T19:09:18.382655Z",
+      "pattern": "src/scistudio/api/_opaque_origin_middleware.py",
+      "reason": "FR-021's cross-origin clause needs an enforcement point outside the global CORS middleware; a dedicated ASGI guard module beside _logging_middleware.py, and the test that was missing entirely"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T19:09:18.382673Z",
+      "pattern": "tests/api/test_panel_asset_cors.py",
+      "reason": "FR-021's cross-origin clause needs an enforcement point outside the global CORS middleware; a dedicated ASGI guard module beside _logging_middleware.py, and the test that was missing entirely"
     }
   ],
   "session_id": "15d14d4d-fb57-42c3-a79a-e57c559bddae",
