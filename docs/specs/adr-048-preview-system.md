@@ -56,10 +56,10 @@ governs:
     - frontend/src/types/api.ts
     - frontend/src/lib/api/data.ts
 tests:
-  - tests/previewers/test_preview_registry.py
-  - tests/previewers/test_preview_routing.py
-  - tests/previewers/test_preview_data_access.py
-  - tests/api/test_previewers.py
+  - tests/panels/test_preview_registry.py
+  - tests/panels/test_preview_routing.py
+  - tests/panels/test_preview_data_access.py
+  - tests/api/test_panels.py
   - tests/api/test_data.py
   - tests/api/test_data_register_path.py
   - tests/api/test_runtime_import_surface.py
