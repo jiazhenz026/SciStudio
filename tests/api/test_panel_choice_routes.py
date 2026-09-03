@@ -49,7 +49,7 @@ def _install_panels(project: Path, client: TestClient) -> None:
 
 
 def _choices(client: TestClient) -> dict[str, dict]:
-    response = client.get("/api/previews/choices")
+    response = client.get("/api/panels/choices")
     assert response.status_code == 200
     return {entry["target_type"]: entry for entry in response.json()["choices"]}
 
@@ -64,24 +64,24 @@ def test_no_choices_recorded_is_an_empty_list(client: TestClient, opened_project
 def test_a_user_scoped_choice_reports_its_scope(client: TestClient, opened_project: Path) -> None:
     _install_panels(opened_project, client)
     response = client.put(
-        "/api/previews/choices/DataFrame",
-        json={"previewer_id": "choice.alternate", "scope": "user"},
+        "/api/panels/choices/DataFrame",
+        json={"panel_id": "choice.alternate", "scope": "user"},
     )
     assert response.status_code == 200
 
     entry = _choices(client)["DataFrame"]
-    assert entry["previewer_id"] == "choice.alternate"
+    assert entry["panel_id"] == "choice.alternate"
     assert entry["scope"] == "user"
     assert entry["available"] is True
 
 
 def test_a_project_scoped_choice_overrides_the_user_one(client: TestClient, opened_project: Path) -> None:
     _install_panels(opened_project, client)
-    client.put("/api/previews/choices/DataFrame", json={"previewer_id": "choice.alternate", "scope": "user"})
-    client.put("/api/previews/choices/DataFrame", json={"previewer_id": "choice.project", "scope": "project"})
+    client.put("/api/panels/choices/DataFrame", json={"panel_id": "choice.alternate", "scope": "user"})
+    client.put("/api/panels/choices/DataFrame", json={"panel_id": "choice.project", "scope": "project"})
 
     entry = _choices(client)["DataFrame"]
-    assert entry["previewer_id"] == "choice.project"
+    assert entry["panel_id"] == "choice.project"
     assert entry["scope"] == "project"
 
 
@@ -89,13 +89,13 @@ def test_clearing_the_project_layer_reveals_the_user_choice_again(client: TestCl
     """The two layers stack rather than replace: clearing the override restores
     what it was overriding, instead of leaving the type unchosen."""
     _install_panels(opened_project, client)
-    client.put("/api/previews/choices/DataFrame", json={"previewer_id": "choice.alternate", "scope": "user"})
-    client.put("/api/previews/choices/DataFrame", json={"previewer_id": "choice.project", "scope": "project"})
+    client.put("/api/panels/choices/DataFrame", json={"panel_id": "choice.alternate", "scope": "user"})
+    client.put("/api/panels/choices/DataFrame", json={"panel_id": "choice.project", "scope": "project"})
 
-    assert client.delete("/api/previews/choices/DataFrame", params={"scope": "project"}).status_code == 200
+    assert client.delete("/api/panels/choices/DataFrame", params={"scope": "project"}).status_code == 200
 
     entry = _choices(client)["DataFrame"]
-    assert entry["previewer_id"] == "choice.alternate"
+    assert entry["panel_id"] == "choice.alternate"
     assert entry["scope"] == "user"
 
 
@@ -103,7 +103,7 @@ def test_a_choice_whose_panel_is_gone_reads_as_unavailable(client: TestClient, o
     """A choice outlives the package that provided it. Reporting it as stale is
     more useful than dropping it, because reinstalling should bring it back."""
     _install_panels(opened_project, client)
-    client.put("/api/previews/choices/DataFrame", json={"previewer_id": "choice.alternate", "scope": "user"})
+    client.put("/api/panels/choices/DataFrame", json={"panel_id": "choice.alternate", "scope": "user"})
 
     (opened_project / "previewers" / "choice_probe.py").unlink()
     # /api/blocks/reload rather than the panel-owned endpoint (#2095): this
@@ -111,7 +111,7 @@ def test_a_choice_whose_panel_is_gone_reads_as_unavailable(client: TestClient, o
     assert client.post("/api/blocks/reload").status_code == 200
 
     entry = _choices(client)["DataFrame"]
-    assert entry["previewer_id"] == "choice.alternate"
+    assert entry["panel_id"] == "choice.alternate"
     assert entry["available"] is False
 
 
@@ -122,8 +122,8 @@ def test_choosing_an_unknown_previewer_is_refused(client: TestClient, opened_pro
     """Routing tolerates a panel that has since disappeared; accepting one
     that never existed would store a preference that can never apply."""
     response = client.put(
-        "/api/previews/choices/DataFrame",
-        json={"previewer_id": "never.existed", "scope": "user"},
+        "/api/panels/choices/DataFrame",
+        json={"panel_id": "never.existed", "scope": "user"},
     )
     assert response.status_code == 400
     assert "never.existed" in response.json()["detail"]
@@ -132,8 +132,8 @@ def test_choosing_an_unknown_previewer_is_refused(client: TestClient, opened_pro
 def test_an_unknown_scope_is_refused_and_names_the_known_ones(client: TestClient, opened_project: Path) -> None:
     _install_panels(opened_project, client)
     response = client.put(
-        "/api/previews/choices/DataFrame",
-        json={"previewer_id": "choice.alternate", "scope": "global"},
+        "/api/panels/choices/DataFrame",
+        json={"panel_id": "choice.alternate", "scope": "global"},
     )
     assert response.status_code == 400
     detail = response.json()["detail"]
@@ -141,7 +141,7 @@ def test_an_unknown_scope_is_refused_and_names_the_known_ones(client: TestClient
 
 
 def test_clearing_a_type_that_was_never_chosen_succeeds(client: TestClient, opened_project: Path) -> None:
-    assert client.delete("/api/previews/choices/NeverChosen", params={"scope": "user"}).status_code == 200
+    assert client.delete("/api/panels/choices/NeverChosen", params={"scope": "user"}).status_code == 200
 
 
 def test_choice_writes_refresh_every_registry(
@@ -163,11 +163,11 @@ def test_choice_writes_refresh_every_registry(
     monkeypatch.setattr(runtime, "refresh_all_registries", tracked_refresh)
 
     response = client.put(
-        "/api/previews/choices/DataFrame",
-        json={"previewer_id": "choice.alternate", "scope": "user"},
+        "/api/panels/choices/DataFrame",
+        json={"panel_id": "choice.alternate", "scope": "user"},
     )
     assert response.status_code == 200
-    assert client.delete("/api/previews/choices/DataFrame", params={"scope": "user"}).status_code == 200
+    assert client.delete("/api/panels/choices/DataFrame", params={"scope": "user"}).status_code == 200
     assert refreshes == 2
 
 
@@ -176,7 +176,7 @@ def test_choice_writes_refresh_every_registry(
 
 def test_a_project_scoped_choice_lands_in_the_project(client: TestClient, opened_project: Path) -> None:
     _install_panels(opened_project, client)
-    client.put("/api/previews/choices/DataFrame", json={"previewer_id": "choice.alternate", "scope": "project"})
+    client.put("/api/panels/choices/DataFrame", json={"panel_id": "choice.alternate", "scope": "project"})
 
     # ADR-054 spec 1 FR-046 carried this file over under the panel naming; the
     # legacy ``previewer-choices.json`` is still read and never written.
@@ -196,7 +196,7 @@ def test_the_author_declared_manifest_is_a_separate_file(client: TestClient, ope
     a choice is a person's preference about their own view. Writing a choice
     must not touch the manifest."""
     _install_panels(opened_project, client)
-    client.put("/api/previews/choices/DataFrame", json={"previewer_id": "choice.alternate", "scope": "project"})
+    client.put("/api/panels/choices/DataFrame", json={"panel_id": "choice.alternate", "scope": "project"})
 
     assert not (opened_project / ".scistudio" / "previewers.json").exists()
 
@@ -231,8 +231,8 @@ def test_a_choice_changes_what_a_preview_session_resolves_to(client: TestClient,
 
     assert (
         client.put(
-            "/api/previews/choices/DataFrame",
-            json={"previewer_id": "choice.alternate", "scope": "user"},
+            "/api/panels/choices/DataFrame",
+            json={"panel_id": "choice.alternate", "scope": "user"},
         ).status_code
         == 200
     )
@@ -242,8 +242,8 @@ def test_a_choice_changes_what_a_preview_session_resolves_to(client: TestClient,
 
 def test_clearing_the_choice_returns_routing_to_the_ladder(client: TestClient, opened_project: Path) -> None:
     _install_panels(opened_project, client)
-    client.put("/api/previews/choices/DataFrame", json={"previewer_id": "choice.alternate", "scope": "user"})
-    assert client.delete("/api/previews/choices/DataFrame", params={"scope": "user"}).status_code == 200
+    client.put("/api/panels/choices/DataFrame", json={"panel_id": "choice.alternate", "scope": "user"})
+    assert client.delete("/api/panels/choices/DataFrame", params={"scope": "user"}).status_code == 200
 
     upload = client.post("/api/data/upload", files={"file": ("t.csv", b"a,b\n1,2\n", "text/csv")})
     response = client.post(

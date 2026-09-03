@@ -46,7 +46,7 @@ from scistudio.core.panels import (
 from scistudio.panels.assets import is_allowed_asset_suffix, is_safe_panel_id
 from scistudio.panels.discovery import DiscoveredPanel, PanelDiscovery
 from scistudio.stability import internal
-from scistudio.utils.atomic_io import atomic_write_text
+from scistudio.utils.atomic_io import atomic_write_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -321,9 +321,13 @@ def save_panel_source(
 
     entry_path = _confined_file(directory, panel.manifest.entry, panel_id=panel.panel_id)
     entry_path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_text(entry_path, source, encoding="utf-8")
+    # Bytes rather than text: a panel document is source, and the platform must
+    # not rewrite its line endings on the way to disk. A person who saves a
+    # document on Windows and reads it back on a colleague's machine has to see
+    # what they wrote, not what the runtime's newline translation made of it.
+    atomic_write_bytes(entry_path, source.encode("utf-8"))
     if declaration is not None:
-        atomic_write_text(directory / PANEL_DECLARATION_FILENAME, declaration, encoding="utf-8")
+        atomic_write_bytes(directory / PANEL_DECLARATION_FILENAME, declaration.encode("utf-8"))
     logger.info("Saved panel %s to the %s tier at %s (copied=%s)", panel.panel_id, tier.value, directory, copied)
     return PanelSaved(panel_id=panel.panel_id, tier=tier, directory=directory, copied=copied)
 
