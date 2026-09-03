@@ -571,7 +571,44 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:37:42.167373Z",
+      "pattern": "src/scistudio/blocks/base/__init__.py",
+      "reason": "Moving PanelManifest into the core layer and adding the scistudio.panels entry-point group breaks declared sets and frozen surfaces that live outside the original include: tests/api/public_surface.snapshot.json and its three readers, tests/api/test_registry_reload_symmetry.py's refresh map, the two route tests that read the choices file on disk, and src/scistudio/blocks/base/__init__.py's re-export list. Each is a governance declaration the change makes false, and each fails loudly by design; none is a behaviour change to the API layer, which W3-api owns."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:37:42.167392Z",
+      "pattern": "tests/api/public_surface.snapshot.json",
+      "reason": "Moving PanelManifest into the core layer and adding the scistudio.panels entry-point group breaks declared sets and frozen surfaces that live outside the original include: tests/api/public_surface.snapshot.json and its three readers, tests/api/test_registry_reload_symmetry.py's refresh map, the two route tests that read the choices file on disk, and src/scistudio/blocks/base/__init__.py's re-export list. Each is a governance declaration the change makes false, and each fails loudly by design; none is a behaviour change to the API layer, which W3-api owns."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:37:42.167394Z",
+      "pattern": "tests/api/test_registry_reload_symmetry.py",
+      "reason": "Moving PanelManifest into the core layer and adding the scistudio.panels entry-point group breaks declared sets and frozen surfaces that live outside the original include: tests/api/public_surface.snapshot.json and its three readers, tests/api/test_registry_reload_symmetry.py's refresh map, the two route tests that read the choices file on disk, and src/scistudio/blocks/base/__init__.py's re-export list. Each is a governance declaration the change makes false, and each fails loudly by design; none is a behaviour change to the API layer, which W3-api owns."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:37:42.167396Z",
+      "pattern": "tests/api/test_panel_choice_routes.py",
+      "reason": "Moving PanelManifest into the core layer and adding the scistudio.panels entry-point group breaks declared sets and frozen surfaces that live outside the original include: tests/api/public_surface.snapshot.json and its three readers, tests/api/test_registry_reload_symmetry.py's refresh map, the two route tests that read the choices file on disk, and src/scistudio/blocks/base/__init__.py's re-export list. Each is a governance declaration the change makes false, and each fails loudly by design; none is a behaviour change to the API layer, which W3-api owns."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:37:42.167397Z",
+      "pattern": "tests/api/test_stability_decorators.py",
+      "reason": "Moving PanelManifest into the core layer and adding the scistudio.panels entry-point group breaks declared sets and frozen surfaces that live outside the original include: tests/api/public_surface.snapshot.json and its three readers, tests/api/test_registry_reload_symmetry.py's refresh map, the two route tests that read the choices file on disk, and src/scistudio/blocks/base/__init__.py's re-export list. Each is a governance declaration the change makes false, and each fails loudly by design; none is a behaviour change to the API layer, which W3-api owns."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:37:42.167399Z",
+      "pattern": "tests/api/test_public_surface.py",
+      "reason": "Moving PanelManifest into the core layer and adding the scistudio.panels entry-point group breaks declared sets and frozen surfaces that live outside the original include: tests/api/public_surface.snapshot.json and its three readers, tests/api/test_registry_reload_symmetry.py's refresh map, the two route tests that read the choices file on disk, and src/scistudio/blocks/base/__init__.py's re-export list. Each is a governance declaration the change makes false, and each fails loudly by design; none is a behaviour change to the API layer, which W3-api owns."
+    }
+  ],
   "session_id": "14a7cdf4-a7dc-457c-a7f8-26f363a367e1",
   "strictness_tier": 1,
   "task_kind": "feature",
@@ -629,6 +666,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/adr052_contract/test_surface_inventory.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T06:37:42.167405Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packages/test_entry_point_symmetry.py",
       "rationale": null,
       "verified_in_diff": null
     }

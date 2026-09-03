@@ -34,8 +34,14 @@ from scistudio.core.entry_points import (
     PANELS_ENTRY_POINT_GROUP,
     PREVIEWERS_ENTRY_POINT_GROUP,
 )
-from scistudio.core.panels import PanelTier
-from scistudio.panels.discovery import discover_panels, discover_tier, package_panel_roots
+from scistudio.core.panels import PanelCapability, PanelTier
+from scistudio.panels.discovery import (
+    discover_panels,
+    discover_tier,
+    package_panel_roots,
+    register_discovered_panels,
+)
+from scistudio.panels.models import PanelSpec
 from scistudio.panels.project import (
     LEGACY_PROJECT_PANELS_MANIFEST,
     PROJECT_PANELS_MANIFEST,
@@ -417,3 +423,98 @@ def test_the_older_declaration_is_never_rewritten_or_deleted(tmp_path: Path) -> 
     load_project_panels(PanelRegistry(), project)
 
     assert (project / LEGACY_PROJECT_PANELS_MANIFEST).read_bytes() == before
+
+
+# ---------------------------------------------------------------------------
+# FR-046 — a directory-registered panel reaches the routing ladder
+# ---------------------------------------------------------------------------
+
+
+def test_a_directory_registered_panel_becomes_routable(tmp_path: Path) -> None:
+    """Registration is a directory, so nobody writes a PanelSpec for it."""
+    root = tmp_path / "project"
+    root.mkdir()
+    write_panel(root, "acme.frame", target_types=["DataFrame", "Series"], capability="producing", priority=7)
+    discovery = discover_panels(core_root=tmp_path / "absent", package_roots=[], project_roots=(root,))
+    registry = PanelRegistry()
+
+    register_discovered_panels(registry, discovery)
+
+    spec = registry.get("acme.frame")
+    assert spec is not None
+    assert spec.owner_kind is PanelTier.PROJECT
+    assert spec.target_type_names == ("DataFrame", "Series")
+    assert spec.capability is PanelCapability.PRODUCING
+    assert spec.priority == 7
+
+
+def test_a_directory_does_not_add_a_second_entry_for_a_panel_already_registered(tmp_path: Path) -> None:
+    """A built-in has both a spec (its Python provider and its place in the
+    ladder, FR-033) and a directory (its document). They are one panel joined by
+    its id, and an edited copy in a project keeps that id (FR-027), so the
+    routing entry never moves — only the document served for it does."""
+    root = tmp_path / "project"
+    root.mkdir()
+    write_panel(root, "core.dataframe.basic", display_name="my table")
+    discovery = discover_panels(core_root=tmp_path / "absent", package_roots=[], project_roots=(root,))
+    registry = PanelRegistry()
+    registry.register(
+        PanelSpec(
+            previewer_id="core.dataframe.basic",
+            owner_kind=PanelTier.CORE,
+            owner_name="scistudio",
+            target_type="DataFrame",
+        )
+    )
+
+    register_discovered_panels(registry, discovery)
+
+    assert len(registry.all_specs()) == 1
+    assert registry.get("core.dataframe.basic").owner_kind is PanelTier.CORE
+    assert discovery.get("core.dataframe.basic").manifest.display_name == "my table"
+
+
+def test_a_block_addressed_panel_claims_nothing_in_the_type_ladder(tmp_path: Path) -> None:
+    """FR-017: it is addressed by the block that opens it, not by a data type,
+    so it is discovered and listed but never routed to."""
+    root = tmp_path / "project"
+    root.mkdir()
+    directory = root / "acme.block.panel"
+    directory.mkdir()
+    (directory / "panel.json").write_text(
+        json.dumps(
+            {
+                "panel_id": "acme.block.panel",
+                "display_name": "Block panel",
+                "target_types": [],
+                "capability": "producing",
+                "entry": "index.html",
+                "api_version": "1",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (directory / "index.html").write_text("<title>x</title>", encoding="utf-8")
+    discovery = discover_panels(core_root=tmp_path / "absent", package_roots=[], project_roots=(root,))
+    registry = PanelRegistry()
+
+    register_discovered_panels(registry, discovery)
+
+    assert discovery.get("acme.block.panel") is not None
+    assert registry.all_specs() == []
+
+
+def test_every_discovery_diagnostic_reaches_the_registry_surface(tmp_path: Path) -> None:
+    """The same surface that reports a refused drop-in today."""
+    root = tmp_path / "project"
+    root.mkdir()
+    broken = root / "broken"
+    broken.mkdir()
+    (broken / "panel.json").write_text(json.dumps({"panel_id": "broken"}), encoding="utf-8")
+    discovery = discover_panels(core_root=tmp_path / "absent", package_roots=[], project_roots=(root,))
+    registry = PanelRegistry()
+
+    register_discovered_panels(registry, discovery)
+
+    assert registry.diagnostics == discovery.diagnostics
+    assert registry.diagnostics
