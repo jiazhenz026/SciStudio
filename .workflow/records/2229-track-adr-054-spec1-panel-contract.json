@@ -163,6 +163,24 @@
       "at": "2026-09-03T02:26:36.843759Z",
       "pattern": "src/scistudio/tutorials/core/what-is-a-type/assets/code/review_labels.py",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:35:08.291039Z",
+      "pattern": "src/scistudio/_user_guide/api-reference/**",
+      "reason": "The rename's real blast radius includes two surfaces the initial plan missed: the generated API reference under src/scistudio/_user_guide/api-reference (regenerated, never hand-edited) and the import-linter contracts in pyproject.toml that CI's Import Contracts job runs."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:35:08.291057Z",
+      "pattern": "pyproject.toml",
+      "reason": "The rename's real blast radius includes two surfaces the initial plan missed: the generated API reference under src/scistudio/_user_guide/api-reference (regenerated, never hand-edited) and the import-linter contracts in pyproject.toml that CI's Import Contracts job runs."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:35:08.291059Z",
+      "pattern": "src/scistudio/**",
+      "reason": "The rename's real blast radius includes two surfaces the initial plan missed: the generated API reference under src/scistudio/_user_guide/api-reference (regenerated, never hand-edited) and the import-linter contracts in pyproject.toml that CI's Import Contracts job runs."
     }
   ],
   "session_id": "c235ce21-b19f-4ddf-9ec1-d0f9af6fe751",

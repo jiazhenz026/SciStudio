@@ -247,6 +247,9 @@ Append only.
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
 | `2026-09-02` | `manager` | none yet | dispatch opened | `N/A` |
+| `2026-09-02` | `manager` | the rename's blast radius reaches the generated API reference under `src/scistudio/_user_guide/api-reference/**`, which my first prompt excluded | amended `W1-rename`'s scope: regenerate with `scripts/docs/build_reference.py`, never hand-edit; gate record amended | `N/A` |
+| `2026-09-02` | `manager` | the rename's blast radius reaches the import-linter contracts in `pyproject.toml` that CI's Import Contracts job runs | amended `W1-rename`'s scope to include `pyproject.toml`; asked it to confirm `lint-imports` passes | `N/A` |
+| `2026-09-02` | `manager` | `scripts/audit/check_package_contract_tables.py` maps the renamed symbols into `docs/package-development/**`, which the spec excludes | verified nothing in CI, `src/scistudio/qa/`, or `tests/` invokes that script, so it cannot fail the build; `W1-rename` told to report staleness rather than fix it | follow-up issue if `W1-rename` reports staleness |
 
 ## 10. Final Readiness
 
