@@ -197,10 +197,19 @@ def _confined_file(directory: Path, name: str, *, panel_id: str) -> Path:
 
 
 def _read_text(path: Path) -> str:
+    """Return *path* as UTF-8 text, or refuse readably.
+
+    A panel document that is not valid UTF-8 is refused rather than allowed to
+    escape as a decode error: reading a panel is the first thing a person does
+    when a panel is misbehaving, and the answer has to name the file rather than
+    be a stack trace.
+    """
     try:
         return path.read_text(encoding="utf-8")
     except OSError as exc:
         raise PanelEditError(f"panel file {path.name} could not be read ({exc})") from exc
+    except UnicodeDecodeError as exc:
+        raise PanelEditError(f"panel file {path.name} is not valid UTF-8 text and cannot be edited") from exc
 
 
 def _shadowed_tier(discovery: PanelDiscovery, panel_id: str) -> PanelTier | None:

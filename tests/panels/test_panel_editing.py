@@ -402,3 +402,18 @@ def test_the_copy_skips_a_symlink_rather_than_following_it(roots: dict[str, Path
     save_panel_source(_panel(roots, "probe.copylink"), DOCUMENT, project_panels_root=roots["project"])
     assert not (roots["project"] / "probe.copylink" / "linked.js").exists()
     assert (roots["project"] / "probe.copylink" / "index.html").read_text(encoding="utf-8") == DOCUMENT
+
+
+def test_a_document_that_is_not_utf8_is_refused_readably(roots: dict[str, Path]) -> None:
+    """Reading a panel is the first thing a person does when one misbehaves.
+
+    So the answer has to name the file rather than escape as a decode error the
+    route would turn into a 500.
+    """
+    directory = write_panel(roots["project"], "probe.binary")
+    (directory / "index.html").write_bytes(b"\xff\xfe\x00\x01not utf-8")
+    discovery = _discover(roots)
+    panel = discovery.get("probe.binary")
+    assert panel is not None
+    with pytest.raises(PanelEditError, match="not valid UTF-8"):
+        read_panel_source(panel, discovery)
