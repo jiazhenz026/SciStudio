@@ -672,10 +672,33 @@ def build_compat_panel(spec: PanelSpec, *, root: Path | None = None) -> Discover
         json.dumps(panel_manifest.to_declaration_dict(), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    tier = spec.owner_kind if isinstance(spec.owner_kind, PanelTier) else PanelTier.PACKAGE
     return DiscoveredPanel(
         manifest=panel_manifest,
-        tier=tier,
+        # Always the package tier, whoever registered the previewer, and this is
+        # the one place the wrapped panel is *not* described by its origin.
+        #
+        # `OwnerKind` is `PanelTier`, so reading the tier off the spec described
+        # a user-library or project drop-in previewer as tier `user` or
+        # `project` — the two tiers `save_panel_source` writes back *in place*.
+        # In place, here, means inside `compat_shim_root()`, which is a process
+        # temporary directory regenerated on every registry build: the save
+        # reported success, the frame remounted from the just-written file, and
+        # the edit was gone at the next `POST /api/panels/reload`. FR-028 exists
+        # to make a failed edit explicit, and a silent discard that reads as a
+        # save is worse than the silent fallback it forbids.
+        #
+        # The package tier is the accurate description: what is behind this
+        # panel is a *bundle*, not a directory a person maintains, exactly as
+        # for a package panel. Editing one therefore copies it into the open
+        # project under the same id (FR-026, FR-027) — which survives the
+        # rebuild, and which is the migration itself, since the copy is a real
+        # panel directory in the new form and FR-019 then shadows the shim out
+        # of existence. With no project open the save is refused readably rather
+        # than deposited somewhere nobody asked for.
+        #
+        # `owner_name` still carries who supplied it, so the discovery surface
+        # answers "where did this come from" as it did before.
+        tier=PanelTier.PACKAGE,
         directory=directory,
         root=shim_root,
         owner_name=spec.owner_name,

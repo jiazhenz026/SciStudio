@@ -1,0 +1,54 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "fix/2229-panel-editing-host",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/panels/compat.py",
+      "frontend/src/panels/**",
+      "frontend/src/components/PanelPalette.tsx",
+      "frontend/src/components/PanelPalette.parts/**",
+      "frontend/src/lib/api/data.ts",
+      "frontend/src/types/api.ts",
+      "frontend/src/store/**",
+      "tests/panels/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix the two P1 findings from the with-context audit of ADR-054 spec 1: A-1 a save to a shimmed unmigrated user/project-tier previewer reports success and is discarded on the next registry rebuild; A-2 T-010's editing endpoints have no frontend consumer so FR-024/025/028/029/030 and SC-004 are unreachable. Also F-5: repoint the TODO(#2211) sites at an open issue.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-2229-panel-editing-host",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "9f4d4a1a-dd59-459e-8676-6501adb921a0",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": []
+}
