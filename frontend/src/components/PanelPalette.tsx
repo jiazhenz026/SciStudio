@@ -171,12 +171,13 @@ export function PanelPalette() {
       <div className="flex items-center justify-between gap-2">
         {/* The panel names itself after its tab, so `Previewers` reads as a
             peer of `Blocks` and `Data types` (FR-034/FR-039).
-            TODO(#2211): the interface copy on this surface — this heading, the
+            TODO(#2236): the interface copy on this surface — this heading, the
             activity-bar label, the search placeholder, the empty-state hints —
             still says previewer. ADR-054 spec 1 T-001 renamed the code only
             (manager decision D-003); revising the words a person reads is the
-            human documentation spec's scope.
-            Followup: https://github.com/jiazhenz026/SciStudio/issues/2211 */}
+            human documentation spec's scope. #2211 specified that revision and
+            is closed; #2236 is the issue that performs it.
+            Followup: https://github.com/jiazhenz026/SciStudio/issues/2236 */}
         <p className="font-display text-xl text-ink">Previewers</p>
         <button className="toolbar-button" onClick={handleReload} type="button">
           Reload
