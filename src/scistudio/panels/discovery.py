@@ -61,6 +61,7 @@ from scistudio.core.panels import (
     PanelTier,
     read_panel_declaration,
 )
+from scistudio.panels.models import PanelSpec
 from scistudio.panels.providers import resolve_declared_provider
 from scistudio.stability import internal
 
@@ -75,6 +76,8 @@ __all__ = [
     "discover_tier",
     "iter_panel_directories",
     "package_panel_roots",
+    "register_discovered_panels",
+    "spec_from_discovered",
 ]
 
 
@@ -353,3 +356,69 @@ def discover_panels(
             else:
                 discovery.shadowed.append(panel)
     return discovery
+
+
+# ---------------------------------------------------------------------------
+# Joining a directory-registered panel to the routing ladder
+# ---------------------------------------------------------------------------
+
+
+@internal()
+def spec_from_discovered(panel: DiscoveredPanel) -> PanelSpec:
+    """Return the routing entry a directory-registered panel contributes.
+
+    FR-046 says a panel is registered by existing as a directory, so a panel
+    found in the user library or the project has to reach the routing ladder
+    without anybody writing a :class:`~scistudio.panels.models.PanelSpec` for
+    it. This is that translation, and it is the only place it happens.
+
+    The declaration's ``target_types`` list is carried whole
+    (:attr:`~scistudio.panels.models.PanelSpec.target_types`) rather than
+    flattened into one spec per type: one panel is one id, one palette entry and
+    one directory, and splitting it would give it several of each.
+    """
+    manifest = panel.manifest
+    return PanelSpec(
+        previewer_id=manifest.panel_id,
+        owner_kind=panel.tier,
+        owner_name=panel.owner_name or panel.tier.value,
+        target_type=manifest.target_types[0] if manifest.target_types else "",
+        target_types=manifest.target_types,
+        supports_collection=manifest.supports_collection,
+        priority=manifest.priority,
+        features=manifest.features,
+        capability=manifest.capability,
+        backend_provider=panel.provider or manifest.provider,
+        api_version=manifest.api_version,
+    )
+
+
+@internal()
+def register_discovered_panels(registry: Any, discovery: PanelDiscovery) -> None:
+    """Register the discovered panels *registry* does not already carry.
+
+    A built-in panel has both: a :class:`PanelSpec` in
+    :func:`scistudio.panels.fallbacks.core_panel_specs`, which is its Python
+    provider and its place in the ladder (FR-033 leaves those unchanged), and a
+    directory under the core tier, which is its document. They are the same
+    panel joined by its id, so the directory contributes no second entry.
+
+    That is also what makes shadowing mean the right thing for an edited
+    built-in: a project copy keeps the id (FR-027), so the routing entry does
+    not move and only the document served for that id changes — which is exactly
+    what a person editing a panel is asking for. A panel id nothing has
+    registered yet is a genuinely new panel, and gets an entry built by
+    :func:`spec_from_discovered`.
+
+    A panel that declares no target type at all is skipped: it is addressed by
+    the block that opens it (FR-017), not by the type of the data, so it has
+    nothing to claim in the type ladder. It is still discovered and listed.
+    """
+    for panel in discovery.all_panels():
+        if registry.get(panel.panel_id) is not None:
+            continue
+        if not panel.manifest.target_types:
+            continue
+        registry.register(spec_from_discovered(panel))
+    for message in discovery.diagnostics:
+        registry.record_diagnostic(message)

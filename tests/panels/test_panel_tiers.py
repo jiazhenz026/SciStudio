@@ -45,7 +45,7 @@ def _discover(roots: dict[str, Path], **overrides: object) -> object:
 
 def test_the_core_tier_root_is_a_directory_under_the_panel_subsystem() -> None:
     """D-015/A-003: the built-in documents live on disk, not in the bundle."""
-    assert BUILTIN_PANELS_ROOT == builtin_panels_root()
+    assert builtin_panels_root() == BUILTIN_PANELS_ROOT
     assert BUILTIN_PANELS_ROOT.name == "builtin"
     assert BUILTIN_PANELS_ROOT.parent.name == "panels"
 

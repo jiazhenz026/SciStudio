@@ -147,9 +147,7 @@ def test_a_request_that_matches_nothing_at_all_still_raises() -> None:
 
 
 def test_the_core_fallback_serves_a_producing_request_with_no_outbound_path() -> None:
-    router = PreviewRouter(
-        _registry(_spec("core.base.fallback", target_type="DataObject", owner=OwnerKind.CORE))
-    )
+    router = PreviewRouter(_registry(_spec("core.base.fallback", target_type="DataObject", owner=OwnerKind.CORE)))
 
     resolution = router.resolve_request(_frame(), PanelCapability.PRODUCING)
 

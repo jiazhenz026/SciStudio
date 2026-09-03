@@ -38,6 +38,7 @@ from scistudio.core.entry_points import (
     BLOCKS_ENTRY_POINT_GROUP,
     LIVE_ENTRY_POINT_GROUPS,
     METADATA_ONLY_GROUPS,
+    PANELS_ENTRY_POINT_GROUP,
     PREVIEWERS_ENTRY_POINT_GROUP,
     STAGE_ENUMERATE,
     STAGE_INVOKE,
@@ -490,14 +491,26 @@ def test_an_unresolvable_metadata_only_entry_point_is_a_diagnostic(
     assert tripwire.attempts == []
 
 
-def test_the_metadata_only_exemption_is_the_tutorial_group_alone() -> None:
+def test_the_metadata_only_exemption_is_declared_group_by_group() -> None:
     """FR-029a is an exemption with a reason, not a second general option.
 
-    The reason is that the callable contract is implemented by importing the
-    target and FR-018 forbids that while listing the catalogue. Nothing else
-    has that conflict, so nothing else may join without a new argument.
+    Two members, and each one carries its own argument for being here:
+
+    * ``scistudio.tutorials`` *cannot* satisfy the callable contract. Satisfying
+      it means importing the entry point's target, and ADR-053 FR-018 forbids
+      importing a package module while listing the catalogue, which happens
+      every time the Learning Center opens.
+    * ``scistudio.panels`` *must not*. ADR-054 spec 1 FR-045 states that a
+      package must not need to construct a Python object to register a panel,
+      because a panel is a directory holding a declaration and a self-contained
+      document (FR-002) — requiring Python to announce one would put the person
+      and the agent who write those files behind an import.
+
+    Asserted against the declared set rather than against behaviour alone, so
+    that a third group joining is a deliberate edit here with its reason written
+    down beside the other two.
     """
-    assert frozenset({TUTORIALS_ENTRY_POINT_GROUP}) == METADATA_ONLY_GROUPS
+    assert frozenset({TUTORIALS_ENTRY_POINT_GROUP, PANELS_ENTRY_POINT_GROUP}) == METADATA_ONLY_GROUPS
     assert not (METADATA_ONLY_GROUPS & BARE_CLASS_GROUPS)
 
 
@@ -520,6 +533,7 @@ _REGISTRY_SCANS: dict[str, str] = {
     TYPES_ENTRY_POINT_GROUP: "types",
     PREVIEWERS_ENTRY_POINT_GROUP: "previewers",
     TUTORIALS_ENTRY_POINT_GROUP: "tutorials",
+    PANELS_ENTRY_POINT_GROUP: "panels",
 }
 
 _GROUPS_WITHOUT_A_REGISTRY = frozenset(LIVE_ENTRY_POINT_GROUPS) - set(_REGISTRY_SCANS)
@@ -556,11 +570,31 @@ def _scan_registry(kind: str) -> list[str]:
         return type_registry.diagnostics
     if kind == "tutorials":
         return _scan_tutorials()
+    if kind == "panels":
+        return _scan_panels()
     from scistudio.panels.registry import PanelRegistry
 
     panel_registry = PanelRegistry()
     panel_registry._scan_entry_points()
     return panel_registry.diagnostics
+
+
+def _scan_panels() -> list[str]:
+    """Run the ADR-054 panel-directory scan and return its diagnostics.
+
+    Like the tutorial row, this is a scan rather than a registry rebuild: the
+    panel group contributes *directories*, and the pass that reads them is
+    :func:`scistudio.panels.discovery.package_panel_roots`. What the three
+    assertions below check is the part common to every group — that a scan
+    contains an enumeration failure, records a load failure as a diagnostic, and
+    stays quiet when nothing is wrong — and that part does not depend on a group
+    holding state.
+    """
+    from scistudio.panels.discovery import package_panel_roots
+
+    diagnostics: list[EntryPointDiagnostic] = []
+    package_panel_roots(diagnostics=diagnostics)
+    return [str(diagnostic) for diagnostic in diagnostics]
 
 
 def _scan_tutorials() -> list[str]:

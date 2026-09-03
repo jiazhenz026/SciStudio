@@ -27,7 +27,6 @@ from scistudio.blocks.registry._capability import _validate_interactive_capabili
 from scistudio.core.panels import PANEL_API_VERSION, PanelCapability
 from scistudio.panels.descriptor import PANEL_ASSET_ROUTE_PREFIX, panel_asset_base_url, panel_descriptor
 
-
 # ---------------------------------------------------------------------------
 # FR-050 / SC-016 — the block-declared panel must be producing
 # ---------------------------------------------------------------------------
@@ -38,7 +37,7 @@ def _interactive_block(manifest: PanelManifest) -> type:
         execution_mode = ExecutionMode.INTERACTIVE
         interactive_panel = manifest
 
-        def prepare_prompt(self, inputs, config):  # noqa: ANN001, ANN201 - test double
+        def prepare_prompt(self, inputs, config):
             return {}
 
     Probe.__name__ = "ProbeBlock"
@@ -148,7 +147,7 @@ def test_the_descriptor_defaults_to_the_declared_capability() -> None:
     assert panel_descriptor(manifest).to_dict()["capability"] == "producing"
 
 
-def test_a_discovered_panel_descriptor_names_the_tier_it_resolved_from(tmp_path) -> None:  # noqa: ANN001
+def test_a_discovered_panel_descriptor_names_the_tier_it_resolved_from(tmp_path) -> None:
     from scistudio.core.panels import PanelTier
     from scistudio.panels.discovery import discover_tier
     from tests.panels.conftest import write_panel

@@ -32,12 +32,14 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from scistudio.panels.choices import load_choices
+from scistudio.core.dropins import panel_roots
+from scistudio.panels.choices import load_choice_layers
 from scistudio.panels.data_access import PreviewDataAccess
+from scistudio.panels.discovery import PanelDiscovery, discover_panels, register_discovered_panels
 
 # Public author symbols (ADR-052 §8.1) re-exported here for convenience; the
 # canonical author root is ``scistudio.panels.models``.
@@ -99,6 +101,15 @@ class PreviewService:
     registry: PanelRegistry
     router: PreviewRouter
     sessions: PreviewSessionManager
+    panels: PanelDiscovery = field(default_factory=PanelDiscovery)
+    """What the four-tier on-disk scan found (ADR-054 spec 1 FR-018/FR-019).
+
+    Held beside the registry rather than inside it because the two answer
+    different questions: the registry answers "which panel renders this type",
+    and this answers "which directory is this panel's document served from, and
+    which tier did it win from". The asset route and the discovery surface read
+    it; routing reads the registry.
+    """
 
 
 @internal()
@@ -132,7 +143,20 @@ def build_preview_service(
     registry.load_packages()
     load_project_panels(registry, project_dir)
     load_user_panels(registry, project_dir)
-    registry.set_panel_choices(load_choices(project_dir))
+
+    # ADR-054 spec 1 FR-018/FR-046: the on-disk scan, across all four tiers.
+    # It runs here and only here, which is what makes FR-046's "takes effect
+    # after a registry rebuild" true: rebuilding the service *is* rescanning,
+    # and there is no other path by which a directory added to a project
+    # becomes visible.
+    project_roots = panel_roots(project_dir)
+    discovery = discover_panels(
+        user_roots=project_roots[-1:],
+        project_roots=project_roots[:-1],
+    )
+    register_discovered_panels(registry, discovery)
+
+    registry.set_panel_choices(load_choice_layers(project_dir))
 
     router = PreviewRouter(registry)
     sessions = PreviewSessionManager(
@@ -140,7 +164,7 @@ def build_preview_service(
         child_context_resolver=child_context_resolver,
         project_dir=project_dir,
     )
-    return PreviewService(registry=registry, router=router, sessions=sessions)
+    return PreviewService(registry=registry, router=router, sessions=sessions, panels=discovery)
 
 
 # Process-global default service so non-runtime callers (and the

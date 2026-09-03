@@ -66,7 +66,9 @@ def _module_level_assignments(path: Path, name: str) -> int:
         return 0
     count = 0
     for node in tree.body:
-        targets = node.targets if isinstance(node, ast.Assign) else ([node.target] if isinstance(node, ast.AnnAssign) else [])
+        targets = (
+            node.targets if isinstance(node, ast.Assign) else ([node.target] if isinstance(node, ast.AnnAssign) else [])
+        )
         for target in targets:
             if isinstance(target, ast.Name) and target.id == name:
                 count += 1
@@ -81,8 +83,7 @@ def test_exactly_one_panel_api_version_definition_in_the_tree() -> None:
         if (count := _module_level_assignments(path, "PANEL_API_VERSION"))
     }
     assert definitions == {"core/panels.py": 1}, (
-        "PANEL_API_VERSION must be defined once, in scistudio.core.panels (D-010); "
-        f"found: {definitions}"
+        f"PANEL_API_VERSION must be defined once, in scistudio.core.panels (D-010); found: {definitions}"
     )
 
 
@@ -102,11 +103,11 @@ def test_every_module_that_names_the_version_shares_the_one_object() -> None:
 
 def test_the_block_layer_imports_the_manifest_rather_than_defining_one() -> None:
     """FR-001: one manifest type, and the block layer's name for it is that one."""
-    from scistudio.blocks.base import PanelManifest as from_blocks_root
-    from scistudio.blocks.base.interactive import PanelManifest as from_interactive
+    import scistudio.blocks.base as blocks_base_root
+    from scistudio.blocks.base import interactive as blocks_base_interactive
 
-    assert from_interactive is PanelManifest
-    assert from_blocks_root is PanelManifest
+    assert blocks_base_interactive.PanelManifest is PanelManifest
+    assert blocks_base_root.PanelManifest is PanelManifest
 
 
 def test_the_block_layer_does_not_import_the_panel_subsystem() -> None:

@@ -13,9 +13,16 @@ make through :func:`scistudio.core.dropins.library_root_for_project`.
 
 Discovery surface (kept deliberately small per spec §4.5 risk mitigation):
 
-* ``<project>/.scistudio/previewers.json`` — a declarative manifest declaring
+* ``<project>/.scistudio/panels.json`` — a declarative manifest declaring
   default-panel tie-breakers (FR-005); it does not register panel
-  specs. Drop-in provider code may also be referenced by a ``module:callable``
+  specs. ADR-054 spec 1 FR-046 carries this file over under the panel naming
+  with its behaviour unchanged, and FR-020 keeps the file it used to be called,
+  ``previewers.json``, working for projects that already exist on disk. **When
+  both are present the panel-named one is used, entire, and the older one is
+  ignored with a diagnostic saying so.** Not merged: two files declaring the
+  same defaults produce a state neither of them describes, and "which file am I
+  editing" then has no answer. The older file is never rewritten or deleted, so
+  a project opened by an earlier build finds it exactly as it was. Drop-in provider code may also be referenced by a ``module:callable``
   import path resolved lazily at render time against the spec's **owning**
   tier directory — imported by file path under a synthetic name, so no
   bare-stem ``sys.modules`` entry crosses tier boundaries
@@ -71,7 +78,13 @@ from scistudio.stability import internal
 logger = logging.getLogger(__name__)
 
 PROJECT_PANELS_DIR = "previewers"
-PROJECT_PANELS_MANIFEST = ".scistudio/previewers.json"
+
+#: The project's default-panel declaration, under the panel naming (FR-046).
+PROJECT_PANELS_MANIFEST = ".scistudio/panels.json"
+
+#: The name that file had before the rename. Read when the panel-named one is
+#: absent, so a project written by an earlier build keeps its defaults (FR-020).
+LEGACY_PROJECT_PANELS_MANIFEST = ".scistudio/previewers.json"
 
 
 @internal()
@@ -107,9 +120,29 @@ def load_user_panels(registry: PanelRegistry, project_dir: Path | None = None) -
 
 
 def _load_manifest_defaults(registry: PanelRegistry, project_dir: Path) -> None:
+    """Install the project's declared default panels (FR-005, FR-046, FR-020).
+
+    Exactly one file is in effect. The panel-named one wins whenever it exists,
+    and the older ``previewers.json`` is then ignored with a diagnostic naming
+    both — a person who copied one to the other and edited the copy has to be
+    able to tell which of them the product is reading.
+    """
     manifest_path = project_dir / PROJECT_PANELS_MANIFEST
-    if not manifest_path.is_file():
+    legacy_path = project_dir / LEGACY_PROJECT_PANELS_MANIFEST
+    if manifest_path.is_file():
+        if legacy_path.is_file():
+            message = (
+                f"project declares default panels in both {PROJECT_PANELS_MANIFEST} and "
+                f"{LEGACY_PROJECT_PANELS_MANIFEST}; reading {PROJECT_PANELS_MANIFEST} and "
+                f"ignoring the other"
+            )
+            logger.warning("%s (%s)", message, project_dir)
+            registry.record_diagnostic(message)
+    elif legacy_path.is_file():
+        manifest_path = legacy_path
+    else:
         return
+
     try:
         data = json.loads(manifest_path.read_text(encoding="utf-8"))
     except Exception:
@@ -226,6 +259,7 @@ def _scan_panel_dropins(
 
 
 __all__ = [
+    "LEGACY_PROJECT_PANELS_MANIFEST",
     "PROJECT_PANELS_DIR",
     "PROJECT_PANELS_MANIFEST",
     "load_project_panels",

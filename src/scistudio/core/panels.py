@@ -392,8 +392,7 @@ def _string_field(raw: dict[str, Any], name: str, directory: Path) -> str:
         )
     if not isinstance(value, str):
         raise InvalidDeclarationFieldError(
-            f"panel declaration at {directory} declares {name!r} as "
-            f"{type(value).__name__}, expected a string",
+            f"panel declaration at {directory} declares {name!r} as {type(value).__name__}, expected a string",
             directory=directory,
             field=name,
         )
@@ -412,14 +411,14 @@ def _string_tuple_field(raw: dict[str, Any], name: str, directory: Path, *, requ
         return ()
     if not isinstance(value, (list, tuple)) or not all(isinstance(item, str) for item in value):
         raise InvalidDeclarationFieldError(
-            f"panel declaration at {directory} declares {name!r} as "
-            f"{type(value).__name__}, expected a list of strings",
+            f"panel declaration at {directory} declares {name!r} as {type(value).__name__}, expected a list of strings",
             directory=directory,
             field=name,
         )
     return tuple(item.strip() for item in value if item.strip())
 
 
+@provisional(since="0.3.4")
 def manifest_from_declaration(raw: object, directory: Path | str) -> PanelManifest:
     """Return the :class:`PanelManifest` a ``panel.json`` body declares (FR-003).
 
@@ -464,8 +463,7 @@ def manifest_from_declaration(raw: object, directory: Path | str) -> PanelManife
     priority = raw.get("priority", 0)
     if not isinstance(priority, int) or isinstance(priority, bool):
         raise InvalidDeclarationFieldError(
-            f"panel declaration at {directory} declares 'priority' as "
-            f"{type(priority).__name__}, expected an integer",
+            f"panel declaration at {directory} declares 'priority' as {type(priority).__name__}, expected an integer",
             directory=directory,
             field="priority",
             panel_id=panel_id,
@@ -505,6 +503,7 @@ def manifest_from_declaration(raw: object, directory: Path | str) -> PanelManife
     )
 
 
+@provisional(since="0.3.4")
 def read_panel_declaration(directory: Path | str) -> PanelManifest:
     """Read and validate ``<directory>/panel.json`` (FR-002, FR-003).
 

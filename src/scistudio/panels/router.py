@@ -30,12 +30,29 @@ The ladder is table-driven (:data:`_EXACT_TIERS` / :data:`_PARENT_TIERS`)
 rather than hand-expanded branches: adding the user tier (#2017, precedence
 project > user > package per the owner decision recorded there) cost one
 tuple entry instead of four more branches, and the next tier costs the same.
+
+**ADR-054 spec 1 adds one thing and changes nothing else** (FR-016, FR-048,
+A-006). Every request now states the capability it requires, and the candidate
+set is filtered to the panels that can serve it *before* the ladder and the
+person's choice see them. The ladder itself, the tier precedence, the
+specificity walk, the priority tie-break, and the FR-005 project default are
+all carried over untouched.
+
+The filter comes first rather than last because a filter applied afterwards is
+not a filter: it would let a person's displaying default for a type win the
+choice short-circuit and then be discarded, leaving a session unable to produce
+from that type at all even though a producing panel was installed. A producing
+request that finds no producing panel falls back to the *displaying* resolution
+and is mounted with no outbound path (FR-049) - the data is still shown, and
+nothing is granted that was not declared.
 """
 
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
+from scistudio.core.panels import PanelCapability
 from scistudio.panels.models import (
     OwnerKind,
     PanelSpec,
@@ -56,11 +73,69 @@ _PARENT_TIERS: tuple[OwnerKind, ...] = (OwnerKind.PROJECT, OwnerKind.USER, Owner
 
 
 @internal()
+@dataclass(frozen=True)
+class PanelResolution:
+    """What one capability-aware request resolved to (FR-048, FR-049).
+
+    ``granted_capability`` is what the host may grant this mount, which is not
+    always what the panel declares: a producing panel opened from the preview
+    surface is granted display only, and a producing request that found no
+    producing panel is granted display as well. ``fell_back_to_display`` is what
+    tells a caller the second case apart from the first, because a session that
+    asked to produce and got a display mount has to say so rather than offer a
+    control that cannot work.
+    """
+
+    spec: PanelSpec
+    """The panel the request resolved to."""
+    required_capability: PanelCapability
+    """What the request asked for."""
+    granted_capability: PanelCapability
+    """What this mount may do."""
+    fell_back_to_display: bool = False
+    """True when a producing request found no producing panel for the type."""
+
+
+@internal()
 class PreviewRouter:
     """Deterministic panel resolver over a :class:`PanelRegistry`."""
 
     def __init__(self, registry: PanelRegistry) -> None:
         self._registry = registry
+
+    def resolve_request(
+        self,
+        target: PreviewTarget,
+        capability: PanelCapability = PanelCapability.DISPLAYING,
+    ) -> PanelResolution:
+        """Resolve *target* for a request that requires *capability* (FR-048).
+
+        The candidates are filtered to the panels declaring at least
+        *capability* before the ladder and the person's choice apply; a
+        producing panel satisfies a displaying request (FR-006). A producing
+        request with no producing panel for the type falls back to the
+        displaying resolution and is granted no outbound path (FR-049).
+
+        Raises:
+            RoutingAmbiguityError: On an unresolved priority tie.
+            UnknownTargetError: When nothing matches even after the fallback.
+        """
+        try:
+            spec = self._resolve(target, capability)
+        except UnknownTargetError:
+            if capability is PanelCapability.DISPLAYING:
+                raise
+            return PanelResolution(
+                spec=self._resolve(target, PanelCapability.DISPLAYING),
+                required_capability=capability,
+                granted_capability=PanelCapability.DISPLAYING,
+                fell_back_to_display=True,
+            )
+        return PanelResolution(
+            spec=spec,
+            required_capability=capability,
+            granted_capability=capability,
+        )
 
     def resolve(self, target: PreviewTarget) -> PanelSpec:
         """Return the single best panel spec for *target* (FR-003).
@@ -72,8 +147,16 @@ class PreviewRouter:
         Raises :class:`RoutingAmbiguityError` on an unresolved priority tie
         within a tier+specificity and :class:`UnknownTargetError` when nothing
         matches (not even a core fallback).
+
+        This is the displaying request, which is what every caller written
+        before ADR-054 spec 1 was asking for; :meth:`resolve_request` is the
+        capability-aware entry point.
         """
-        specs = self._registry.all_specs()
+        return self._resolve(target, PanelCapability.DISPLAYING)
+
+    def _resolve(self, target: PreviewTarget, capability: PanelCapability) -> PanelSpec:
+        """Run the FR-003 ladder over the candidates that can serve *capability*."""
+        specs = [spec for spec in self._registry.all_specs() if spec.capability.satisfies(capability)]
         is_collection = target.is_collection
         # Type chain ordered specific -> general for "closest parent wins".
         chain = self._specificity_chain(target)
@@ -84,7 +167,7 @@ class PreviewRouter:
         # and when it does not the ladder is entered exactly as before. That is
         # what makes this purely additive — a session with no choice recorded
         # routes today's answer, unchanged.
-        chosen = self._chosen_spec(most_specific, chain, want_collection=is_collection)
+        chosen = self._chosen_spec(most_specific, chain, want_collection=is_collection, capability=capability)
         if chosen is not None:
             return chosen
 
@@ -132,7 +215,14 @@ class PreviewRouter:
 
     # -- internals ----------------------------------------------------------
 
-    def _chosen_spec(self, type_name: str, chain: list[str], *, want_collection: bool) -> PanelSpec | None:
+    def _chosen_spec(
+        self,
+        type_name: str,
+        chain: list[str],
+        *,
+        want_collection: bool,
+        capability: PanelCapability = PanelCapability.DISPLAYING,
+    ) -> PanelSpec | None:
         """Return the spec the person chose for *type_name*, if it is usable.
 
         Four things can make a recorded choice not apply, and all four fall
@@ -159,23 +249,35 @@ class PreviewRouter:
         """
         if not type_name:
             return None
-        previewer_id = self._registry.choice_for(type_name)
+        previewer_id = self._registry.choice_for(type_name, capability)
         if previewer_id is None:
             return None
         spec = self._registry.get(previewer_id)
         if spec is None:
             logger.debug("chosen panel %r for %r is not registered; falling back", previewer_id, type_name)
             return None
-        if spec.target_type not in chain:
+        if not set(spec.target_type_names) & set(chain):
             logger.debug(
-                "chosen panel %r targets %r, which is not in the type chain for %r; falling back",
+                "chosen panel %r targets %r, none of which is in the type chain for %r; falling back",
                 previewer_id,
-                spec.target_type,
+                spec.target_type_names,
                 type_name,
             )
             return None
         if want_collection and not spec.supports_collection:
             logger.debug("chosen panel %r cannot render a collection of %r; falling back", previewer_id, type_name)
+            return None
+        if not spec.capability.satisfies(capability):
+            # A fifth way a recorded choice can fail to apply, and it falls
+            # through like the other four: a preference is not a constraint, so
+            # a choice that cannot serve the capability the request needs must
+            # never be able to stop the panel from being found (FR-048/FR-049).
+            logger.debug(
+                "chosen panel %r declares %s and cannot serve a %s request; falling back",
+                previewer_id,
+                spec.capability.value,
+                capability.value,
+            )
             return None
         return spec
 
@@ -221,7 +323,7 @@ class PreviewRouter:
             s
             for s in specs
             if s.owner_kind is owner_kind
-            and s.target_type == type_name
+            and type_name in s.target_type_names
             and bool(s.supports_collection) == want_collection
         ]
         return self._resolve_candidates(candidates, owner_kind, type_name, target)
@@ -243,7 +345,7 @@ class PreviewRouter:
             s
             for s in specs
             if s.owner_kind is OwnerKind.CORE
-            and s.target_type == sentinel
+            and sentinel in s.target_type_names
             and bool(s.supports_collection) == want_collection
         ]
         return self._resolve_candidates(candidates, OwnerKind.CORE, sentinel, target)
@@ -280,4 +382,4 @@ class PreviewRouter:
         )
 
 
-__all__ = ["PreviewRouter"]
+__all__ = ["PanelResolution", "PreviewRouter"]

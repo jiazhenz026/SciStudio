@@ -77,6 +77,7 @@ if TYPE_CHECKING:
 #: members, same values, same provisional tier since 0.3.1.
 OwnerKind = PanelTier
 
+
 @provisional(since="0.3.1")
 class TargetKind(StrEnum):
     """The kind of thing a :class:`PreviewTarget` points at."""
@@ -344,7 +345,20 @@ class PanelSpec:
     """Owning package name, project identifier, or ``"scistudio"``."""
     target_type: str
     """Fully qualified type name this panel claims, e.g. ``"Array"`` or
-    ``"Image"``."""
+    ``"Image"``.
+
+    A spec constructed in Python names one type. A panel registered as a
+    directory names a list (:attr:`target_types`), and this field then carries
+    the first of them so that everything reading a spec's type keeps working."""
+    target_types: tuple[str, ...] = ()
+    """Every type this panel claims, when it claims more than one.
+
+    ADR-054 spec 1 D-007 makes ``target_types`` a list in the on-disk
+    declaration, because a panel that renders both a frame and a series is an
+    ordinary thing to write and forcing it to register twice would give it two
+    ids and two entries in the palette. Empty for a spec that names one type
+    through :attr:`target_type`; :attr:`target_type_names` is what routing reads,
+    so the two spellings never have to be told apart at the point of use."""
     supports_collection: bool = False
     """Whether the panel can inspect collections (claims
     ``Collection[target_type]``)."""
@@ -377,6 +391,17 @@ class PanelSpec:
     api_version: str = PANEL_API_VERSION
     """Panel API version this spec targets."""
 
+    @property
+    def target_type_names(self) -> tuple[str, ...]:
+        """Every type this spec claims, whichever way it was declared.
+
+        The one reading routing does, so a spec written in Python and a panel
+        registered as a directory are the same kind of thing to the ladder.
+        """
+        if self.target_types:
+            return self.target_types
+        return (self.target_type,) if self.target_type else ()
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-safe dict of the spec (providers shown by name)."""
         provider_repr = _provider_repr(self.backend_provider)
@@ -386,6 +411,7 @@ class PanelSpec:
             "owner_kind": self.owner_kind.value,
             "owner_name": self.owner_name,
             "target_type": self.target_type,
+            "target_types": list(self.target_type_names),
             "supports_collection": self.supports_collection,
             "priority": self.priority,
             "features": list(self.features),

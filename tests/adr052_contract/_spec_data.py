@@ -58,6 +58,15 @@ ROOTS: tuple[str, ...] = tuple(k for k in EXPECTED_SURFACE if not k.startswith("
 # --------------------------------------------------------------------------- #
 NON_MARKABLE_PUBLIC_SYMBOLS: frozenset[tuple[str, str]] = frozenset(
     {
+        # ADR-054 spec 1: the panel contract's constants. A ``str`` and three
+        # tuples are immutable builtins with no writable ``__dict__``, so they
+        # cannot carry a runtime marker for exactly the reason the nine below
+        # cannot. Their tier is pinned by the expected fixture.
+        ("scistudio.core.panels", "PANEL_API_VERSION"),
+        ("scistudio.core.panels", "PANEL_DECLARATION_FILENAME"),
+        ("scistudio.core.panels", "DEFAULT_PANEL_ENTRY"),
+        ("scistudio.core.panels", "PANEL_TIER_ORDER"),
+        ("scistudio.core.panels", "REQUIRED_DECLARATION_FIELDS"),
         ("scistudio.blocks.base", "INTERACTIVE_RESPONSE_KEY"),
         ("scistudio.blocks.base", "PANEL_API_VERSION"),
         ("scistudio.blocks.io", "CapabilityDirection"),
@@ -145,6 +154,7 @@ DEMOTIONS: dict[str, tuple[str, ...]] = {
 INTERACTIVE_REEXPORTS: tuple[str, ...] = (
     "InteractiveMixin",
     "InteractivePrompt",
+    "PanelCapability",
     "PanelManifest",
     "load_intermediate",
     "PANEL_API_VERSION",

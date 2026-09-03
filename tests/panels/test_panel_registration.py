@@ -39,7 +39,12 @@ from scistudio.panels.providers import resolve_declared_provider
 from tests.panels.conftest import write_panel
 
 FIXTURE_PACKAGE_PANELS = (
-    Path(__file__).resolve().parents[1] / "fixtures" / "scistudio-blocks-fixture" / "src" / "scistudio_blocks_fixture" / "panels"
+    Path(__file__).resolve().parents[1]
+    / "fixtures"
+    / "scistudio-blocks-fixture"
+    / "src"
+    / "scistudio_blocks_fixture"
+    / "panels"
 )
 
 
@@ -212,6 +217,7 @@ def test_a_project_registers_a_panel_by_containing_a_directory(tier_roots: dict[
 def test_a_directory_added_or_removed_takes_effect_on_the_next_rebuild(tier_roots: dict[str, Path]) -> None:
     """FR-046: a rebuild is the one trigger, so discovery is a pure function of
     what is on disk when it runs — nothing is cached across passes."""
+
     def rebuild() -> set[str]:
         return set(
             discover_panels(

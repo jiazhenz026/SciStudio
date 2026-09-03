@@ -14,6 +14,7 @@ from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.base.interactive import (
     InteractiveMixin,
     InteractivePrompt,
+    PanelCapability,
     PanelManifest,
     interactive_item_label,
 )
@@ -72,6 +73,7 @@ class DataRouter(InteractiveMixin, ProcessBlock):
     # the built-in panel registry (core panel; no wheel-served module_url).
     interactive_panel: ClassVar[PanelManifest] = PanelManifest(
         panel_id="core.interactive.data_router",
+        capability=PanelCapability.PRODUCING,
         version="1",
     )
     """Identifies the built-in UI panel the frontend opens when this block pauses."""

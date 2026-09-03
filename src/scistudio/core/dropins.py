@@ -179,6 +179,7 @@ from scistudio.desktop.paths import user_python_import_roots
 
 __all__ = [
     "BLOCKS_DIR_NAME",
+    "PANELS_DIR_NAME",
     "PREVIEWERS_DIR_NAME",
     "PROJECT_DIR_ENV_VAR",
     "TUTORIALS_DIR_NAME",
@@ -198,9 +199,11 @@ __all__ = [
     "is_tutorial_location",
     "library_root_for_project",
     "panel_import_roots",
+    "panel_roots",
     "panel_scan_dirs",
     "project_blocks_dir",
     "project_dir_from_env",
+    "project_panel_root",
     "project_panels_dir",
     "project_tutorials_dir",
     "project_types_dir",
@@ -213,6 +216,7 @@ __all__ = [
     "type_scan_dirs",
     "user_blocks_dir",
     "user_library_dir",
+    "user_panel_root",
     "user_panels_dir",
     "user_tutorials_dir",
     "user_types_dir",
@@ -227,11 +231,24 @@ BLOCKS_DIR_NAME = "blocks"
 #: Child directory holding drop-in ``DataObject`` files, in both tiers.
 TYPES_DIR_NAME = "types"
 
-#: Child directory holding drop-in panel files, in both tiers.
-#: Panels are this module's third consumer (#2044/#2017): the same tier
+#: Child directory holding the retired ADR-048 drop-in panel *modules*, in both
+#: tiers. Panels are this module's third consumer (#2044/#2017): the same tier
 #: definition, collision guard, and bytecode eviction that blocks and types
 #: use, applied to ``<project>/previewers`` and ``~/.scistudio/previewers``.
+#:
+#: ADR-054 spec 1 FR-020 keeps this root discovered for the duration of the
+#: migration. It holds ``.py`` files exposing ``get_previewers()``, which is a
+#: different thing from the on-disk panel form; the two live in separate
+#: directories rather than in one directory holding two kinds of thing, so
+#: "what is in here" has one answer per directory.
 PREVIEWERS_DIR_NAME = "previewers"
+
+#: Child directory holding on-disk panel *directories*, in both tiers
+#: (ADR-054 spec 1 FR-046, D-007). A panel is registered by existing here as a
+#: directory containing ``panel.json`` and its entry document; nothing is
+#: imported out of this root, which is why it is deliberately absent from
+#: :func:`panel_import_roots` and from the FR-016 collision guard.
+PANELS_DIR_NAME = "panels"
 
 #: Child directory holding drop-in tutorial directories, in both tiers
 #: (ADR-053 Learning Center FR-016).
@@ -286,8 +303,13 @@ def user_types_dir() -> Path:
 
 
 def user_panels_dir() -> Path:
-    """Return the user-tier drop-in panel dir, ``~/.scistudio/previewers``."""
+    """Return the user-tier drop-in panel *module* dir, ``~/.scistudio/previewers``."""
     return user_library_dir() / PREVIEWERS_DIR_NAME
+
+
+def user_panel_root() -> Path:
+    """Return the user-tier panel-directory root, ``~/.scistudio/panels`` (FR-046)."""
+    return user_library_dir() / PANELS_DIR_NAME
 
 
 def project_blocks_dir(project_dir: str | Path) -> Path:
@@ -301,8 +323,13 @@ def project_types_dir(project_dir: str | Path) -> Path:
 
 
 def project_panels_dir(project_dir: str | Path) -> Path:
-    """Return the project-tier drop-in panel dir, ``<project>/previewers``."""
+    """Return the project-tier drop-in panel *module* dir, ``<project>/previewers``."""
     return Path(project_dir) / PREVIEWERS_DIR_NAME
+
+
+def project_panel_root(project_dir: str | Path) -> Path:
+    """Return the project-tier panel-directory root, ``<project>/panels`` (FR-046)."""
+    return Path(project_dir) / PANELS_DIR_NAME
 
 
 def project_dir_from_env() -> Path | None:
@@ -445,6 +472,23 @@ def panel_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:
     ``~/.scistudio/previewers``.
     """
     return _tier_dirs(PREVIEWERS_DIR_NAME, project_dir, library_root_for_project(project_dir))
+
+
+def panel_roots(project_dir: str | Path | None = None) -> tuple[Path, ...]:
+    """Return the on-disk panel-directory roots for *project_dir* (FR-046).
+
+    The same tier definition every other drop-in kind uses (FR-058): the project
+    tier when a project context exists, then the user tier unconditionally
+    (FR-060), with a tutorial project's user tier swapped for the
+    tutorial-scoped library (:func:`library_root_for_project`, FR-070/FR-071).
+
+    These roots are *read*, never imported from: a panel is a declaration and a
+    self-contained document. That is why they make no claim on the top-level
+    module namespace and so need neither the FR-016 collision guard nor a place
+    in :func:`dropin_import_roots` — the same reasoning that keeps the tutorial
+    tier out of both.
+    """
+    return _tier_dirs(PANELS_DIR_NAME, project_dir, library_root_for_project(project_dir))
 
 
 def dropin_import_roots(project_dir: str | Path | None = None) -> tuple[Path, ...]:

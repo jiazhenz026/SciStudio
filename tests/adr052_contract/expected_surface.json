@@ -10,9 +10,9 @@
   "scistudio.core.types": {
     "mode": "exact",
     "spec_refs": [
-      "spec \u00a73",
-      "spec \u00a73.1-\u00a73.9",
-      "ADR \u00a73"
+      "spec §3",
+      "spec §3.1-§3.9",
+      "ADR §3"
     ],
     "symbols": {
       "DataObject": {
@@ -60,7 +60,7 @@
   "scistudio.core.meta": {
     "mode": "exact",
     "spec_refs": [
-      "spec \u00a73.10"
+      "spec §3.10"
     ],
     "symbols": {
       "FrameworkMeta": {
@@ -77,11 +77,82 @@
       }
     }
   },
+  "scistudio.core.panels": {
+    "mode": "subset",
+    "spec_refs": [
+      "ADR-054 section 3.3, section 9.2",
+      "adr-054-panel-contract FR-001 to FR-006, FR-041, D-007, D-009, D-010"
+    ],
+    "ambiguity": "ADR-052 predates this root and does not enumerate it; the fixture pins the symbols ADR-054 spec 1 introduces and tolerates later additions from the same spec's remaining tasks.",
+    "symbols": {
+      "PANEL_API_VERSION": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PanelManifest": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PanelTier": {
+        "tier": "provisional",
+        "since": "0.3.1"
+      },
+      "PanelCapability": {
+        "tier": "provisional",
+        "since": "0.3.4"
+      },
+      "PanelDeclarationError": {
+        "tier": "provisional",
+        "since": "0.3.4"
+      },
+      "MissingDeclarationFieldError": {
+        "tier": "provisional",
+        "since": "0.3.4"
+      },
+      "InvalidDeclarationFieldError": {
+        "tier": "provisional",
+        "since": "0.3.4"
+      },
+      "UnreadableDeclarationError": {
+        "tier": "provisional",
+        "since": "0.3.4"
+      },
+      "DuplicatePanelDeclarationError": {
+        "tier": "provisional",
+        "since": "0.3.4"
+      },
+      "manifest_from_declaration": {
+        "tier": "provisional",
+        "since": "0.3.4"
+      },
+      "read_panel_declaration": {
+        "tier": "provisional",
+        "since": "0.3.4"
+      },
+      "PANEL_DECLARATION_FILENAME": {
+        "tier": "provisional",
+        "since": "0.3.4"
+      },
+      "DEFAULT_PANEL_ENTRY": {
+        "tier": "provisional",
+        "since": "0.3.4"
+      },
+      "PANEL_TIER_ORDER": {
+        "tier": "provisional",
+        "since": "0.3.4"
+      },
+      "REQUIRED_DECLARATION_FIELDS": {
+        "tier": "provisional",
+        "since": "0.3.4"
+      }
+    }
+  },
   "scistudio.blocks.base": {
     "mode": "exact",
     "spec_refs": [
-      "spec \u00a74",
-      "spec \u00a74.8 Net blocks.base.__all__ change"
+      "spec §4",
+      "spec §4.8 Net blocks.base.__all__ change",
+      "ADR-054 spec 1 FR-006 (PanelCapability joins the interactive re-export set)"
     ],
     "symbols": {
       "Block": {
@@ -135,13 +206,17 @@
       "INTERACTIVE_RESPONSE_KEY": {
         "tier": "provisional",
         "since": "0.3.1"
+      },
+      "PanelCapability": {
+        "tier": "provisional",
+        "since": "0.3.4"
       }
     }
   },
   "scistudio.blocks.process": {
     "mode": "exact",
     "spec_refs": [
-      "spec \u00a75"
+      "spec §5"
     ],
     "symbols": {
       "ProcessBlock": {
@@ -153,8 +228,8 @@
   "scistudio.blocks.io": {
     "mode": "exact",
     "spec_refs": [
-      "spec \u00a76",
-      "spec \u00a76.5 Net io.__all__ change"
+      "spec §6",
+      "spec §6.5 Net io.__all__ change"
     ],
     "symbols": {
       "IOBlock": {
@@ -210,8 +285,8 @@
   "scistudio.blocks.app": {
     "mode": "exact",
     "spec_refs": [
-      "spec \u00a77",
-      "spec \u00a77 Net app.__all__ change"
+      "spec §7",
+      "spec §7 Net app.__all__ change"
     ],
     "symbols": {
       "AppBlock": {
@@ -247,10 +322,10 @@
   "scistudio.blocks.code": {
     "mode": "exact",
     "spec_refs": [
-      "spec \u00a77A",
-      "spec \u00a718 log 2026-06-27"
+      "spec §7A",
+      "spec §18 log 2026-06-27"
     ],
-    "ambiguity": "Reconciled at integration (#1833) to the live 60-symbol blocks.code surface: per the owner directive (spec \u00a77A, \u00a718 log 2026-06-27) the ENTIRE blocks/code non-underscore surface is Public/provisional. InterpreterFamily is a non-markable type-alias (ADR-052 \u00a715) whose tier is carried by this fixture, not a runtime marker.",
+    "ambiguity": "Reconciled at integration (#1833) to the live 60-symbol blocks.code surface: per the owner directive (spec §7A, §18 log 2026-06-27) the ENTIRE blocks/code non-underscore surface is Public/provisional. InterpreterFamily is a non-markable type-alias (ADR-052 §15) whose tier is carried by this fixture, not a runtime marker.",
     "symbols": {
       "CodeBlock": {
         "tier": "provisional",
@@ -497,9 +572,10 @@
   "scistudio.panels.models": {
     "mode": "subset",
     "spec_refs": [
-      "spec \u00a78.1"
+      "spec §8.1",
+      "ADR-054 spec 1 FR-005/FR-048 (PanelSpec.capability and its enum)"
     ],
-    "ambiguity": "Spec \u00a78.1 prose states the current __all__ declares 29 symbols and #1817 drops the 7 Internal rows; the enumerated table rows total 28 (21 Public + 7 Internal), an off-by-one vs the stated 29. The 21 Public rows below are explicitly enumerated; subset mode plus the no-internal-leak test (which forbids the 7 named Internal symbols) is the honest guard given the unreconciled count.",
+    "ambiguity": "Spec §8.1 prose states the current __all__ declares 29 symbols and #1817 drops the 7 Internal rows; the enumerated table rows total 28 (21 Public + 7 Internal), an off-by-one vs the stated 29. The 21 Public rows below are explicitly enumerated; subset mode plus the no-internal-leak test (which forbids the 7 named Internal symbols) is the honest guard given the unreconciled count.",
     "symbols": {
       "PANEL_API_VERSION": {
         "tier": "provisional",
@@ -584,13 +660,17 @@
       "ProviderError": {
         "tier": "provisional",
         "since": "0.3.1"
+      },
+      "PanelCapability": {
+        "tier": "provisional",
+        "since": "0.3.4"
       }
     }
   },
   "scistudio.panels.data_access": {
     "mode": "exact",
     "spec_refs": [
-      "spec \u00a78.2"
+      "spec §8.2"
     ],
     "symbols": {
       "PreviewDataAccess": {

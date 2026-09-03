@@ -170,9 +170,7 @@ BARE_CLASS_GROUPS: frozenset[str] = frozenset({BLOCKS_ENTRY_POINT_GROUP})
 #: would put the agent and the person who write those files behind an import.
 #: Both resolve to a directory; neither is an invitation for a third group to
 #: join without an argument of its own.
-METADATA_ONLY_GROUPS: frozenset[str] = frozenset(
-    {TUTORIALS_ENTRY_POINT_GROUP, PANELS_ENTRY_POINT_GROUP}
-)
+METADATA_ONLY_GROUPS: frozenset[str] = frozenset({TUTORIALS_ENTRY_POINT_GROUP, PANELS_ENTRY_POINT_GROUP})
 
 STAGE_ENUMERATE = "enumerate"
 STAGE_LOAD = "load"
