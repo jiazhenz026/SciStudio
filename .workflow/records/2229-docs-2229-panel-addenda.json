@@ -33,6 +33,38 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:47:08.794605Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:af15de00c6edb08689686146f6826490f55ef7de27ee61a255b4681a055ebfe8",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:47:19.475818Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c858300288d2b90bc64a75a0c6d2b93aebdee5447d3a5df33394db441cf20d09",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -56,6 +88,22 @@
     },
     {
       "at": "2026-09-03T06:45:27.150815Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-051-addendum2.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T06:47:06.310653Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-048-addendum1.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T06:47:06.310671Z",
       "class": null,
       "kind": "path",
       "path": "docs/adr/ADR-051-addendum2.md",
@@ -328,6 +376,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:47:19.510792Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:47:19.523466Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:47:19.536345Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:47:19.548536Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:47:19.561220Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:47:19.573603Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:47:19.586009Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:47:19.598676Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:47:19.611298Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:47:19.624434Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:47:19.639441Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -347,9 +483,9 @@
       "docs/adr/ADR-048-addendum1.md",
       "docs/adr/ADR-051-addendum2.md"
     ],
-    "diff_fingerprint": "sha256:a02def060b1a7b19ffce1ec377073d440ac3c5342f99ab713379cb0b4f6fcae9",
+    "diff_fingerprint": "sha256:9d6b8d055e6e33e9e27bc8b2b1870c5be002f9c9315fbaa534e7809466bfcb33",
     "head": "HEAD",
-    "head_sha": "e2dd23b51",
+    "head_sha": "ec181cc72",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -391,6 +527,14 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-03T06:47:19.639474Z",
+      "diff_fingerprint": "sha256:9d6b8d055e6e33e9e27bc8b2b1870c5be002f9c9315fbaa534e7809466bfcb33",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
     }
   ],
   "record_id": "2229-docs-2229-panel-addenda",
@@ -426,6 +570,14 @@
   "test_events": [
     {
       "at": "2026-09-03T06:45:27.150826Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "documentation-only addenda; the panel contract's tests are delivered by docs/specs/adr-054-panel-contract.md tasks T-001 to T-016",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T06:47:06.310680Z",
       "class": "implementation",
       "kind": "na",
       "path": null,
