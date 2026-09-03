@@ -24,6 +24,14 @@ The capability gives a block three things:
   the user's decision from ``config["interactive_response"]`` and produces the
   block's outputs.
 
+A producing panel has one outbound path, the emission of code (ADR-054 spec 1
+FR-012), and ADR-054 §3.6 says the meaning of an emission is settled by the
+context it is mounted in. This module owns the interactive-block half of that:
+:func:`settle_interactive_response` turns the snippet the host committed into
+the decision dict ``run`` reads. The other half — appending an emission as a
+notebook cell and queuing it, with the §3.6 statement whitelist that governs
+*that* context — belongs to the explore session and is deliberately not here.
+
 The registry binds the capability and the execution mode together when it scans
 blocks: a block that declares one without the other, omits ``prepare_prompt``,
 or omits a valid :class:`PanelManifest` is rejected at load time.
@@ -37,6 +45,7 @@ lives in the engine scheduler and runners.
 
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
@@ -233,6 +242,276 @@ def coerce_prompt(result: InteractivePrompt | dict[str, Any]) -> InteractiveProm
     )
 
 
+# ---------------------------------------------------------------------------
+# ADR-054 spec 1 FR-012, second half: settling a produced value in the
+# interactive-block context.
+# ---------------------------------------------------------------------------
+
+INTERACTIVE_EMISSION_KEY = "code"
+"""The key a producing panel's emission arrives under on ``interactive_complete``.
+
+FR-012 gives a producing panel exactly one outbound path — the emission of code
+— so the host (``InteractivePanelHost``) commits the panel's most recent ``emit``
+by sending ``{"code": "<the emitted snippet>"}``. This module turns that snippet
+into the decision dict the block's ``run`` reads from
+``config[INTERACTIVE_RESPONSE_KEY]``.
+
+Internal (ADR-052 §4.8): wire key, not author surface.
+"""
+
+#: The filename a traceback from an emitted snippet carries. Not a real path:
+#: it exists so a syntax error names something a reader recognises.
+_EMISSION_FILENAME = "<panel emission>"
+
+
+class InteractiveEmissionError(ValueError):
+    """A producing panel's emission could not be settled into a decision (FR-012).
+
+    Every refusal names the block and the panel, because those are the two
+    things a person looking at a paused block can act on. The engine surfaces
+    one of these exactly as it surfaces a rejected (non-JSON-safe) interactive
+    response: the block goes to ``ERROR`` and the message reaches the reader.
+    Clicking Confirm and getting nothing is the failure mode this class exists
+    to prevent.
+
+    Args:
+        message: What went wrong, without the block/panel prefix.
+        block_name: The block the panel was opened for.
+        panel_id: The panel that emitted.
+    """
+
+    def __init__(self, message: str, *, block_name: str, panel_id: str) -> None:
+        super().__init__(f"{block_name} (panel {panel_id!r}): {message}")
+        self.block_name = block_name
+        self.panel_id = panel_id
+        self.reason = message
+
+
+def _emission_namespace(
+    record: list[dict[str, Any]],
+    *,
+    block_name: str,
+    panel_id: str,
+) -> Any:
+    """Build the one object an emitted snippet may reach: ``scistudio``.
+
+    Its only attribute is ``output``, which records the keyword arguments it was
+    called with. Nothing else — no module, no host object, no block — is
+    reachable through it.
+    """
+
+    def _output(*args: Any, **kwargs: Any) -> None:
+        if args:
+            raise InteractiveEmissionError(
+                "emitted code called scistudio.output() with a positional argument; "
+                "the decision is named keyword arguments only, "
+                "for example scistudio.output(assignments=assignments)",
+                block_name=block_name,
+                panel_id=panel_id,
+            )
+        record.append(dict(kwargs))
+
+    class _Scistudio:
+        """The ``scistudio`` name inside a panel emission. One attribute only."""
+
+        __slots__ = ()
+
+        output = staticmethod(_output)
+
+    return _Scistudio()
+
+
+def _refuse_dunder_reach(tree: ast.AST, *, block_name: str, panel_id: str) -> None:
+    """Refuse any identifier beginning with ``__`` anywhere in the emission.
+
+    This is a restriction on the *namespace*, not on the statement forms. An
+    emission runs with no builtins, and the documented way out of a
+    no-builtins namespace is a dunder walk — ``().__class__.__bases__[0]
+    .__subclasses__()`` and from there some class whose ``__init__.__globals__``
+    still carries a live ``__builtins__``. Nothing a decision needs to say
+    contains a dunder, so refusing the whole family closes that walk at the one
+    point every emission passes, and does it before anything executes.
+
+    It is deliberately NOT the ADR-054 §3.6 statement whitelist, which admits
+    only rebinding assignments, imports and ``scistudio.output`` calls: that
+    whitelist belongs where an emission is *queued* (the explore session), and
+    the spec's ``scope.out`` keeps it out of this one. Statement forms are
+    unrestricted here; reachable names are not.
+    """
+    for node in ast.walk(tree):
+        name: str | None = None
+        if isinstance(node, ast.Name):
+            name = node.id
+        elif isinstance(node, ast.Attribute):
+            name = node.attr
+        elif isinstance(node, ast.keyword | ast.arg):
+            name = node.arg
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            name = node.name
+        elif isinstance(node, ast.alias):
+            name = node.asname or node.name
+        elif isinstance(node, ast.Global | ast.Nonlocal):
+            name = next((each for each in node.names if each.startswith("__")), None)
+        if name is not None and name.startswith("__"):
+            raise InteractiveEmissionError(
+                f"emitted code reaches {name!r}; a panel's decision runs in a namespace whose "
+                "only name is scistudio, and names beginning with '__' are refused because they "
+                "are how that namespace is escaped",
+                block_name=block_name,
+                panel_id=panel_id,
+            )
+
+
+def settle_panel_emission(code: str, *, block_name: str, panel_id: str) -> dict[str, Any]:
+    """Run a producing panel's emitted code and return the decision it output.
+
+    **Which half of FR-012 this is.** FR-012 gives a producing panel one
+    outbound path, the emission of code, and says the meaning of what it emits
+    is settled by the context it runs in — never by the panel loading
+    machinery. ADR-054 §3.6 names two such contexts. In a session with a
+    notebook open, the emission is appended as a cell and queued; that half is
+    the explore session's and is out of this spec. This is the other half: an
+    interactive block's pause, where the emission *is* the user's decision, and
+    settling it means running it and taking what it handed back.
+
+    **The namespace.** The snippet arrived over a WebSocket, so it executes with
+    ``__builtins__`` set to an empty mapping and exactly one name bound:
+    ``scistudio``, an object whose only attribute is ``output``. There is no
+    ``open``, no ``__import__`` (so an ``import`` statement fails), no ``eval``,
+    no ``getattr``, no module, and no host object. Identifiers beginning with
+    ``__`` are refused before execution by :func:`_refuse_dunder_reach`.
+
+    **What is not restricted.** Statement forms. The ADR-054 §3.6 whitelist that
+    admits only rebinding assignments, imports and ``scistudio.output`` calls
+    sits where an emission is queued, and the spec's ``scope.out`` keeps it out
+    of here. Both built-in producing panels emit exactly two statements — an
+    assignment to a plain name and one ``scistudio.output`` call — but this
+    function admits any statement the namespace can execute.
+
+    Args:
+        code: The snippet the panel emitted.
+        block_name: The block whose pause this settles, for the diagnostic.
+        panel_id: The panel that emitted, for the diagnostic.
+
+    Returns:
+        The keyword arguments of the snippet's single ``scistudio.output`` call,
+        which the engine places at ``config[INTERACTIVE_RESPONSE_KEY]``. It is
+        *not* checked for JSON-safety here: the engine applies the same
+        ``json.dumps(..., allow_nan=False)`` gate it applies to every
+        interactive response, and one gate is better than two.
+
+    Raises:
+        InteractiveEmissionError: If the snippet is empty, does not parse,
+            reaches a refused name, raises while running, never calls
+            ``scistudio.output``, or calls it more than once. Every message
+            names the block and the panel.
+    """
+    if not isinstance(code, str) or not code.strip():
+        raise InteractiveEmissionError(
+            "the panel emitted no code, so there is no decision to settle",
+            block_name=block_name,
+            panel_id=panel_id,
+        )
+
+    try:
+        tree = ast.parse(code, filename=_EMISSION_FILENAME, mode="exec")
+    except SyntaxError as exc:
+        raise InteractiveEmissionError(
+            f"the emitted code does not parse as Python: {exc.msg} (line {exc.lineno})",
+            block_name=block_name,
+            panel_id=panel_id,
+        ) from exc
+
+    _refuse_dunder_reach(tree, block_name=block_name, panel_id=panel_id)
+
+    record: list[dict[str, Any]] = []
+    namespace: dict[str, Any] = {
+        "__builtins__": {},
+        "scistudio": _emission_namespace(record, block_name=block_name, panel_id=panel_id),
+    }
+    try:
+        exec(compile(tree, filename=_EMISSION_FILENAME, mode="exec"), namespace)
+    except InteractiveEmissionError:
+        raise
+    except BaseException as exc:  # every failure becomes one legible refusal
+        raise InteractiveEmissionError(
+            f"the emitted code raised while running: {type(exc).__name__}: {exc}",
+            block_name=block_name,
+            panel_id=panel_id,
+        ) from exc
+
+    if not record:
+        raise InteractiveEmissionError(
+            "the emitted code ran but never called scistudio.output(), so it handed back no "
+            "decision; a producing panel commits by calling it once with the whole decision",
+            block_name=block_name,
+            panel_id=panel_id,
+        )
+    if len(record) > 1:
+        raise InteractiveEmissionError(
+            f"the emitted code called scistudio.output() {len(record)} times; exactly one call "
+            "carries the decision, because the host commits one emission and the block reads one "
+            "response",
+            block_name=block_name,
+            panel_id=panel_id,
+        )
+    return record[0]
+
+
+def is_panel_emission(payload: Any) -> bool:
+    """Return whether *payload* is a producing panel's emission rather than a decision.
+
+    The two shapes that reach the boundary are told apart structurally: an
+    emission is a mapping whose *only* key is ``code`` and whose value is a
+    ``str``. Anything else — any other key, any extra key, a non-string value,
+    a non-mapping — is a decision dict and passes through untouched, which is
+    what keeps a programmatic driver, a test, and a decision remembered before
+    this migration working exactly as they did.
+
+    A decision that happened to be exactly ``{"code": "<some string>"}`` would be
+    read as an emission. No block in the tree has such a decision (``DataRouter``
+    reads ``assignments``, ``PairEditor`` reads ``reorder``), and the
+    misclassification is loud rather than silent: the string would be run and,
+    calling no ``scistudio.output``, would raise
+    :class:`InteractiveEmissionError` naming the block and the panel.
+    """
+    return (
+        isinstance(payload, dict)
+        and set(payload) == {INTERACTIVE_EMISSION_KEY}
+        and isinstance(payload[INTERACTIVE_EMISSION_KEY], str)
+    )
+
+
+def settle_interactive_response(payload: Any, *, block_name: str, panel_id: str) -> Any:
+    """Turn what came back from the panel into the decision the block's ``run`` reads.
+
+    The boundary the engine calls at the moment an ``interactive_complete``
+    resolves a paused block, before the JSON-safety gate. A producing panel's
+    emission (FR-012) is executed by :func:`settle_panel_emission`; anything
+    else is already a decision and is returned unchanged.
+
+    Args:
+        payload: What the frontend sent, or what a remembered decision replayed.
+        block_name: The block whose pause this settles, for the diagnostic.
+        panel_id: The panel the block declared, for the diagnostic.
+
+    Returns:
+        The decision dict for ``config[INTERACTIVE_RESPONSE_KEY]``.
+
+    Raises:
+        InteractiveEmissionError: When *payload* is an emission that cannot be
+            settled. The engine turns it into the block's error, exactly as it
+            does a response that is not JSON-safe.
+    """
+    if not is_panel_emission(payload):
+        return payload
+    return settle_panel_emission(
+        payload[INTERACTIVE_EMISSION_KEY],
+        block_name=block_name,
+        panel_id=panel_id,
+    )
+
+
 def interactive_item_label(item: Any, index: int) -> str:
     """Best-effort human label for one input item shown in an interactive panel.
 
@@ -341,7 +620,11 @@ def load_intermediate(config: BlockConfig | dict[str, Any]) -> tuple[StorageRefe
 # re-exported from the ``scistudio.blocks.base`` root (the canonical path).
 # Demoted to internal (deep-path importable, out of ``__all__``):
 # ``SupportsInteraction``, ``coerce_prompt``, ``serialise_storage_ref``,
-# ``deserialise_storage_ref``, ``INTERACTIVE_INTERMEDIATE_KEY``.
+# ``deserialise_storage_ref``, ``INTERACTIVE_INTERMEDIATE_KEY``, and the FR-012
+# emission-settling group (``INTERACTIVE_EMISSION_KEY``,
+# ``InteractiveEmissionError``, ``is_panel_emission``,
+# ``settle_panel_emission``, ``settle_interactive_response``) — engine-facing,
+# called from ``scistudio.engine.scheduler._dispatch``.
 __all__ = [
     "INTERACTIVE_RESPONSE_KEY",
     "PANEL_API_VERSION",

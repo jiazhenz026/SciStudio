@@ -1,0 +1,87 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "feat/2229-panel-emission-consumer",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/blocks/base/interactive.py",
+      "src/scistudio/engine/scheduler/_dispatch.py",
+      "tests/blocks/**",
+      "tests/engine/**",
+      "frontend/src/App.parts/InteractiveModals.tsx",
+      "frontend/src/App.parts/InteractiveModals.test.tsx",
+      "frontend/src/App.parts/InteractiveModals.parts/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-03T15:32:28.873574Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "The behaviour is already specified by docs/specs/adr-054-panel-contract.md FR-012/FR-017/FR-050 and the owner's 2026-09-03 scope.out amendment; docs/specs/** and docs/adr/** are manager-owned and out of this agent's scope.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Let the interactive-block context settle a produced value, and hand the host a mountable descriptor for a paused block's panel. Owner-directed scope expansion recorded in the spec's scope.out on 2026-09-03.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-feat-2229-panel-emission-consumer",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "4edc6150-bc1b-48af-b542-75dfea2477c9",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-03T15:32:28.873601Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_interactive_emission.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T15:32:28.873611Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_interactive_panel_descriptor.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T15:32:28.873614Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/InteractiveModals.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
