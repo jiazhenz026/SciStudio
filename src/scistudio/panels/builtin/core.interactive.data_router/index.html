@@ -26,9 +26,16 @@
   not interpret what a panel emits, and ADR-054 3.6 puts the whitelist where an
   emission is queued, which is the explore session.
 
-  Confirm and cancel are host chrome (ADR-054 4.2), not this panel's, so the
-  panel re-emits its decision each time the routing changes. Every emission is
-  the same rebinding assignment, so the newest one is simply the decision.
+  Confirm and Cancel are host chrome (ADR-054 4.2, D-018), not this panel's. The
+  host renders them around the frame, and Confirm commits the panel's most recent
+  `emit`; with no emission yet it is disabled.
+
+  That is why this panel re-emits the WHOLE decision every time the routing
+  changes, rather than emitting what changed. Confirm has only the last emission
+  to commit, so a fork that switched to emitting deltas would leave Confirm
+  committing a fragment — and nothing else in this file would say so. Every
+  emission rebinds the same name, so re-emitting costs nothing and the newest
+  emission is simply the decision.
 
   FR-034 / A-004: strictly self-contained. Markup, styles and script in one
   file — no <script src>, no <link rel=stylesheet>, no shared runtime import, no
