@@ -39,10 +39,11 @@ not by waiting.
 * this file, ``src/scistudio/panels/compat.py``;
 * its test, ``tests/panels/test_compat_shim.py``;
 * its host-side proof, ``frontend/src/panels/panelCompat.test.tsx``;
-* the four calls in :func:`scistudio.panels.build_preview_service` marked
-  ``ADR-048 compatibility shim`` (one import, one call, and the two lines of
-  comment above them);
-* the fixture previewer the test mounts,
+* the two places in ``src/scistudio/panels/__init__.py`` marked ``ADR-048
+  compatibility shim``: the import of :func:`install_compat_panels`, and the
+  call to it in :func:`scistudio.panels.build_preview_service` together with the
+  comment above that call;
+* the fixture previewer the test mounts, and its bundle,
   ``tests/fixtures/scistudio-blocks-fixture/src/scistudio_blocks_fixture/previewers/``;
 
 and, in the same change but owned by the addendum rather than by this file, the
