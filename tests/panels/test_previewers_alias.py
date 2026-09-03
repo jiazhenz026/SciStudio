@@ -8,6 +8,18 @@ its declaration types from ``scistudio.previewers`` /
 ``scistudio.previewers.models``. The alias package is what keeps those imports
 resolving, so this asserts the re-exports resolve and are the renamed objects
 themselves rather than copies.
+
+**One symbol is deliberately not the renamed object.** ``PreviewerSpec`` is a
+translating subclass, not a re-export (#2229). These tests originally asserted
+``previewers.PreviewerSpec is panels.PanelSpec``, and that identity was itself
+the defect: FR-051 renamed ``capabilities`` to ``features`` and D-007 inserted
+``target_types`` ahead of ``supports_collection``, so re-exporting the renamed
+class made the alias package refuse the keyword a pre-rename author copied out
+of its own docstring and silently mis-bind a positional call. The identity
+assertions are replaced by the two properties the identity was standing in for —
+that the alias resolves, and that a spec built through it is a live
+``PanelSpec`` — with the translation itself covered by
+``test_unmigrated_author_surface.py``.
 """
 
 from __future__ import annotations
@@ -24,7 +36,8 @@ import scistudio.previewers.models as previewers_models
 
 def test_package_alias_reexports_the_renamed_symbols() -> None:
     """``scistudio.previewers`` names the renamed objects under the old names."""
-    assert previewers.PreviewerSpec is panels.PanelSpec
+    assert previewers.PreviewerSpec is previewers_models.PreviewerSpec
+    assert issubclass(previewers.PreviewerSpec, panels.PanelSpec)
     assert previewers.PreviewerEntryPoint is panels.PanelEntryPoint
     assert previewers.PreviewerRegistry is panels.PanelRegistry
     assert previewers.UnknownPreviewerError is panels.UnknownPanelError
@@ -35,7 +48,7 @@ def test_package_alias_reexports_the_renamed_symbols() -> None:
 
 def test_models_alias_reexports_the_author_root() -> None:
     """``scistudio.previewers.models`` is the ADR-048 author root, still importable."""
-    assert previewers_models.PreviewerSpec is panels_models.PanelSpec
+    assert issubclass(previewers_models.PreviewerSpec, panels_models.PanelSpec)
     assert previewers_models.PreviewerSpecList is panels_models.PanelSpecList
     assert previewers_models.DuplicatePreviewerIdError is panels_models.DuplicatePanelIdError
     assert previewers_models.FrontendManifest is panels_models.FrontendManifest

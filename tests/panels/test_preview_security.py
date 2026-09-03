@@ -20,12 +20,23 @@ from scistudio.panels.helpers import sanitize_svg
 def test_sanitize_svg_back_compat_reexport_from_fallbacks() -> None:
     """#1823: sanitize_svg relocated to the public helpers home (ADR-052 §8).
 
-    The legacy ``scistudio.panels.fallbacks`` import path is kept as a
+    The legacy ``scistudio.previewers.fallbacks`` import path is kept as a
     back-compat re-export (out of ``__all__``) so out-of-tree packages do not
     hard-break before migrating; it must resolve to the same function.
+
+    That sentence is #1823's, and ``scistudio.previewers.fallbacks`` is the path
+    it named. The ADR-054 rename rewrote this test's subject to
+    ``scistudio.panels.fallbacks`` — the *current* path, which needs no
+    back-compat promise — leaving the assertion a tautology about the new module
+    while the door #1823 held open closed (#2229). The retired path is asserted
+    again here, and the current one alongside it, since a package part-way
+    through migrating reaches either.
     """
     from scistudio.panels import fallbacks, helpers
+    from scistudio.previewers import fallbacks as retired_fallbacks
 
+    assert retired_fallbacks.sanitize_svg is helpers.sanitize_svg
+    assert "sanitize_svg" not in retired_fallbacks.__all__
     assert fallbacks.sanitize_svg is helpers.sanitize_svg
     assert "sanitize_svg" not in fallbacks.__all__
     assert "sanitize_svg" in helpers.__all__
