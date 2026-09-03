@@ -31,7 +31,7 @@ language_source: en
   `.worktrees/`.
 - Protected branch: `main`
 - Umbrella branch: `track/adr-054-spec2-dependency-analysis`
-- Umbrella PR: `#pending`
+- Umbrella PR: `#2232`
 - Umbrella PR title: `[DO NOT MERGE] ADR-054 Spec 2: notebook dependency analysis`
 - Final PR target: `main`
 - Dispatch prompt templates:
@@ -92,18 +92,24 @@ language_source: en
       -> `.workflow/records/2231-track-adr-054-spec2-dependency-analysis.json`
 - [x] Scope include/exclude recorded in the gate record.
       -> ledger init event
-- [ ] Umbrella branch created.
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella branch created. -> `track/adr-054-spec2-dependency-analysis`,
+      pushed at 38125e1f6
+- [x] Umbrella PR opened. -> https://github.com/jiazhenz026/SciStudio/pull/2232
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch and umbrella PR number recorded in this checklist.
+      -> `main`, `#2232`
 - [x] No `pip install -e .` environment pollution found.
       -> The shared `.venv` carries a stale editable `.pth` pointing at a
       different checkout; all Python invocations in worktrees MUST set
       `PYTHONPATH="$PWD/src"` (recorded in every dispatch prompt).
-- [ ] Dispatch checklist copied from the template and committed.
-- [ ] Dispatch prompts created from the correct prompt template and linked
-      below.
-- [ ] Sentrux baseline recorded, or N/A reason recorded.
+- [x] Dispatch checklist copied from the template and committed. -> 38125e1f6
+- [~] Dispatch prompts created from the correct prompt template and linked
+      below. -> `a-impl.md` committed at 38125e1f6; `a-test.md` and
+      `a-audit.md` are written when their dispatch starts (they need the
+      integration state at that point).
+- [x] Sentrux baseline recorded, or N/A reason recorded.
+      -> N/A: Sentrux MCP is not available in this session; agents record
+      the CLI fallback or N/A in their own ledgers.
 
 ## 5. Local Gate Hook Bypass Evidence
 
