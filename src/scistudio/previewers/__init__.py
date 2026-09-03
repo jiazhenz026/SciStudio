@@ -18,6 +18,15 @@ position, :mod:`scistudio.previewers.models` carries a translating
 :class:`~scistudio.previewers.models.PreviewerSpec` rather than the renamed
 class itself, and it is that spec type this package re-exports.
 
+Every module that resolved under ``scistudio.previewers`` before the rename
+still resolves — ``registry``, ``router``, ``session``, ``fallbacks``,
+``assets``, ``choices``, ``project``, ``open_as``, ``_raster`` and
+``_table_cache`` alongside the three canonical author roots. Most of those were
+core-internal and carry no author promise, but a path that used to import and
+now raises ``ModuleNotFoundError`` is exactly the silent break this package
+exists to prevent, and :mod:`scistudio.previewers.fallbacks` in particular was
+kept by #1823 as a deliberate back-compat door for ``sanitize_svg``.
+
 Apart from that translation the package holds no logic of its own. The renamed
 symbols are re-exported under their old names; import from
 :mod:`scistudio.panels` in new code. This module is removed under the condition
@@ -105,6 +114,15 @@ from scistudio.panels import (
     load_user_panels as load_user_previewers,  # noqa: F401  (retired-name re-export)
 )
 
+# ``load_choices`` was imported into this namespace before the rename, so
+# ``from scistudio.previewers import load_choices`` resolved. It was never in
+# ``__all__`` and was never advertised author surface, but it imported, and a
+# path that silently stops importing is the break this package exists to
+# prevent — so it is re-exported here and left out of ``__all__`` exactly as it
+# was.
+from scistudio.panels.choices import (
+    load_choices as load_choices,
+)
 from scistudio.panels.models import (
     EnvelopeKind as EnvelopeKind,
 )
