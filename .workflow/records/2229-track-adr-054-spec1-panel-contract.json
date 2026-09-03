@@ -1,0 +1,172 @@
+{
+  "base_ref": null,
+  "branch": "track/adr-054-spec1-panel-contract",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/planning/**",
+      ".workflow/records/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-03T02:26:36.843705Z",
+      "owner_directive": "Manager plan: deliver spec tasks T-001..T-016 through five dispatch waves on branches cut from the track branch, integrate into the track branch, then close the [DO NOT MERGE] umbrella PR and open the final PR through the wrapper.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-03T02:26:36.843766Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-panel-contract-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Manager for ADR-054 spec 1 (the panel contract). Pull latest main, own the whole spec implementation, dispatch agents including a no-context audit and an adversarial no-context test engineer that proves previewer behaviour is preserved through the migration, and deliver one PR.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-track-adr-054-spec1-panel-contract",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843723Z",
+      "pattern": "docs/planning/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843731Z",
+      "pattern": ".workflow/records/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843733Z",
+      "pattern": "docs/audit/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843735Z",
+      "pattern": "src/scistudio/core/panels.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843736Z",
+      "pattern": "src/scistudio/panels/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843738Z",
+      "pattern": "src/scistudio/previewers/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843739Z",
+      "pattern": "src/scistudio/core/dropins.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843741Z",
+      "pattern": "src/scistudio/core/entry_points.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843742Z",
+      "pattern": "src/scistudio/blocks/base/interactive.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843743Z",
+      "pattern": "src/scistudio/api/routes/panels.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843745Z",
+      "pattern": "src/scistudio/api/routes/data.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843747Z",
+      "pattern": "src/scistudio/api/routes/blocks.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843748Z",
+      "pattern": "src/scistudio/api/schemas.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843749Z",
+      "pattern": "frontend/src/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843751Z",
+      "pattern": "tests/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843756Z",
+      "pattern": "docs/adr/ADR-048*.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843758Z",
+      "pattern": "docs/adr/ADR-051*.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T02:26:36.843759Z",
+      "pattern": "src/scistudio/tutorials/core/what-is-a-type/assets/code/review_labels.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "c235ce21-b19f-4ddf-9ec1-d0f9af6fe751",
+  "strictness_tier": null,
+  "task_kind": "manager",
+  "test_events": []
+}
