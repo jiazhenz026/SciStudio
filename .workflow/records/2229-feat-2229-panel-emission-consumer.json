@@ -54,7 +54,20 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-03T15:42:07.517754Z",
+      "pattern": "frontend/src/App.parts/__tests__/**",
+      "reason": "Gap 2's frontend proof needs a test that mocks InteractivePanelHost to drive InteractiveModals' Confirm -> interactive_complete hop; it lands under frontend/src/App.parts/__tests__/ where the surface's other tests live."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T15:45:14.297138Z",
+      "pattern": "frontend/src/hooks/useWebSocket.parts/handleInteractivePrompt.test.ts",
+      "reason": "Gap 2's adapter line \u2014 handleInteractivePrompt reading data.panel_descriptor \u2014 had no test, leaving one unproven link between the engine event and the mounted host. Test-only addition to the existing handler suite; no production code in frontend/src/hooks is touched."
+    }
+  ],
   "session_id": "4edc6150-bc1b-48af-b542-75dfea2477c9",
   "strictness_tier": null,
   "task_kind": "feature",
@@ -80,6 +93,30 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/App.parts/InteractiveModals.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T15:45:14.297161Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/hooks/useWebSocket.parts/handleInteractivePrompt.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T15:45:14.297166Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/InteractiveModals.parts/__tests__/interactivePanelHost.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T15:45:14.297168Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/__tests__/interactiveModalsConfirm.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }
