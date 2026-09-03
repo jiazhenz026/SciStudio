@@ -1,0 +1,160 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "fix/2229-panel-audit-p1",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-03T18:30:33.912829Z",
+      "class": "no-contract-change",
+      "kind": "na",
+      "path": null,
+      "rationale": "security hardening of behaviour the governing spec already requires (FR-047 confinement, FR-021 cross-origin); spec/ADR text is manager-owned per D-014 and the FR-021 wording question is reported to the manager rather than edited here",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix the P1 and security findings the no-context audit raised against ADR-054 spec 1: provider path escape, str.format dunder bypass, unpinned panel API version test, FR-021 cross-origin claim, missing panel document hardening headers, and the unvalidated editor_handoff path.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-fix-2229-panel-audit-p1",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:30:33.912775Z",
+      "pattern": "src/scistudio/panels/providers.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:30:33.912799Z",
+      "pattern": "src/scistudio/blocks/base/interactive.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:30:33.912802Z",
+      "pattern": "src/scistudio/api/routes/panels.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:30:33.912804Z",
+      "pattern": "src/scistudio/api/app.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:30:33.912806Z",
+      "pattern": "frontend/src/components/DataPreview.parts/PreviewHost.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:30:33.912808Z",
+      "pattern": "tests/panels/test_panel_registration.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:30:33.912809Z",
+      "pattern": "tests/panels/test_builtin_panels.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:30:33.912811Z",
+      "pattern": "tests/panels/test_panel_asset_route.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:30:33.912812Z",
+      "pattern": "tests/blocks/test_interactive_emission.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:30:33.912814Z",
+      "pattern": "tests/api/test_app.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:30:33.912815Z",
+      "pattern": "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:38:02.399439Z",
+      "pattern": "src/scistudio/panels/session.py",
+      "reason": "the same unconfined provider join has a second copy at session.py:706, which providers.py's docstring already claimed delegated to it; fixing one without the other leaves the escape reachable at render time"
+    }
+  ],
+  "session_id": "15d14d4d-fb57-42c3-a79a-e57c559bddae",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-03T18:30:33.912838Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_registration.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T18:30:33.912843Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_interactive_emission.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T18:30:33.912846Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_builtin_panels.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T18:30:33.912847Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_app.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

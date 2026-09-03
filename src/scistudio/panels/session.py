@@ -53,6 +53,7 @@ from scistudio.panels.models import (
     ProviderError,
     UnknownPanelError,
 )
+from scistudio.panels.providers import dropin_module_path, is_importable_module_name
 from scistudio.panels.registry import PanelRegistry
 from scistudio.panels.router import PreviewRouter
 from scistudio.stability import internal
@@ -706,18 +707,15 @@ def _import_callable(dotted: str) -> Callable[..., Any] | None:
 def _dropin_module_path(root: Path, mod_name: str) -> Path | None:
     """Return the file *mod_name* resolves to under *root*, else ``None``.
 
-    Both importable shapes are covered: ``<name>.py`` and a
-    ``<name>/__init__.py`` package (mirroring
-    :func:`scistudio.core.dropins._importable_entries`).
+    This delegates rather than repeats (#2229). It used to hold its own copy of
+    the join, which meant it held its own copy of the FR-047 escape:
+    ``Path.joinpath`` resets on an absolute segment, so a ``provider`` whose
+    module part split to an absolute component left the tier root and was then
+    ``exec_module``'d. The confinement now has one definition, in
+    :mod:`scistudio.panels.providers`, and this render-time path uses it —
+    which is what that module's docstring already claimed.
     """
-    candidate = root.joinpath(*mod_name.split("."))
-    init_file = candidate / "__init__.py"
-    if candidate.is_dir() and init_file.is_file():
-        return init_file
-    py_file = candidate.with_suffix(".py")
-    if py_file.is_file():
-        return py_file
-    return None
+    return dropin_module_path(root, mod_name)
 
 
 def _dropin_provider_from_decl(dotted: str, owning_root: Path) -> Callable[..., Any] | None:
@@ -743,6 +741,12 @@ def _dropin_provider_from_decl(dotted: str, owning_root: Path) -> Callable[..., 
             mod_name, attr = dotted.rsplit(".", 1)
     except ValueError:
         logger.warning("Failed to import panel provider %r", dotted, exc_info=True)
+        return None
+    # #2229: an ill-shaped module part is refused here rather than handed to
+    # the plain-import fallback, so a reference that was trying to leave the
+    # tier root cannot be re-read as an ordinary installed module name.
+    if not is_importable_module_name(mod_name):
+        logger.warning("panel provider %r names a module part that is not a dotted module name", dotted)
         return None
     path = _dropin_module_path(owning_root, mod_name)
     if path is None:
