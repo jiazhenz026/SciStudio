@@ -61,14 +61,17 @@ import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 from urllib.parse import unquote, urlsplit
 
 from scistudio.core.panels import PanelCapability, PanelManifest, PanelTier
 from scistudio.panels.assets import is_allowed_asset_suffix, is_safe_panel_id, validate_manifest
-from scistudio.panels.discovery import DiscoveredPanel
+from scistudio.panels.discovery import DiscoveredPanel, PanelDiscovery
 from scistudio.panels.models import FrontendManifest, PanelSpec
 from scistudio.stability import internal
+
+if TYPE_CHECKING:
+    from scistudio.panels.registry import PanelRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -685,7 +688,12 @@ def build_compat_panel(spec: PanelSpec, *, root: Path | None = None) -> Discover
 
 
 @internal()
-def install_compat_panels(registry: Any, discovery: Any, *, root: Path | None = None) -> list[str]:
+def install_compat_panels(
+    registry: PanelRegistry,
+    discovery: PanelDiscovery,
+    *,
+    root: Path | None = None,
+) -> list[str]:
     """Wrap every unmigrated ADR-048 previewer and add it to *discovery*.
 
     Called once per registry build, after the on-disk scan has registered what
