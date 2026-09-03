@@ -329,14 +329,25 @@ status is "unchanged", not "proved to bite".
 
 | Check | Result |
 |---|---|
-| `pytest tests/panels` (before any change) | all pass, 3 skipped (symlink, needs elevation) |
-| `pytest tests/panels tests/api` (baseline) | exit 0 |
-| `pytest` full required set | see below |
-| `ruff check` / `ruff format --check` | see below |
-| frontend `npm test` / `typecheck` / `lint` | see below |
+| `pytest tests/panels` (before any change) | all pass; 3 skipped (symlink, needs elevation) |
+| `pytest tests/panels tests/api` (baseline, before any change) | exit 0, no failures |
+| `pytest tests/panels tests/api tests/architecture tests/adr052_contract tests/tutorials tests/blocks tests/engine` | **45 failures, every one accounted for**: 40 pre-existing `openpyxl`, 5 mine by design. Nothing else failed. |
+| `ruff check src tests` | All checks passed |
+| `ruff format --check src tests` | 901 files already formatted |
+| frontend `npm test` | 194 files, **2275 passed** |
+| frontend `npm run typecheck` | clean |
+| frontend `npm run lint` | 0 errors, 42 pre-existing warnings |
 
-`tests/blocks/io` openpyxl failures: **40 on `origin/main`**, verified directly
-in a materialised `origin/main` tree. Pre-existing, ambient-environment, not
-migration-related, discounted.
+The full-suite failure list, in full:
+
+- `tests/blocks/io/test_io_coverage_matrix.py` — 29
+- `tests/blocks/io/test_xlsx_io.py` — 11
+- `tests/panels/test_unmigrated_author_surface.py` — 5 (mine, deliberate)
+
+`tests/blocks/io` openpyxl failures: **40 here and 40 on `origin/main`**, the
+latter verified directly in a materialised `origin/main` tree
+(`grep -c "No module named 'openpyxl'"` = 40 on both). Pre-existing,
+ambient-environment, not migration-related, discounted — and the count matching
+exactly is what rules out the migration having added any of them.
 
 Sentrux is not installed here; not attempted.
