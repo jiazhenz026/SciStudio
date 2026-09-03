@@ -874,3 +874,107 @@ the shim while the defect is fixed.
 - **A-010**: A panel needs no Python by default, because the shared
   data-access layer windows every core type. A package type the layer cannot
   window ships a provider named in the panel's declaration. _Source: adr._
+
+## 7. Delivery Decisions
+
+The spec leaves questions open that the delivery had to answer, and the
+answers constrain shipped behaviour: source files across the panel subsystem,
+the API layer and the frontend cite them by number. They were first recorded in
+the dispatch's planning file, which this spec's own `governs.excludes` excludes
+— a decision that binds the code cannot live where the governance does not
+reach, so the ones that bind are restated here. The planning file keeps the
+full deliberation and the ones that only shaped the dispatch.
+
+Numbering is continuous with that file so an existing `D-0NN` citation in
+source resolves here.
+
+- **D-001 — The retired import paths stay importable.** `scistudio.previewers`
+  and its `models`, `data_access`, `helpers` and `fallbacks` submodules remain
+  as an alias package, because FR-045 and FR-020 require the
+  `scistudio.previewers` entry-point group and its `get_previewers()` factory
+  to keep resolving, and a package supplying that factory imports its
+  declaration types from those paths. FR-038 permits the retired word to
+  survive in the compatibility shim; this alias is part of it. It translates
+  rather than merely re-exporting: a spec constructed with the retired
+  `capabilities` keyword is accepted and mapped onto `features`, because a
+  registration that fails silently satisfies none of FR-020, FR-042 or FR-045.
+  Removed under the condition in ADR-048 addendum 1 §5.
+- **D-007 — The on-disk form.** A panel directory holds `panel.json` and its
+  entry document. Required fields: `panel_id`, `display_name`, `target_types`,
+  `capability`, `entry`, `api_version`. Optional, with defaults: `features`
+  (`[]`), `priority` (`0`), `supports_collection` (`false`), `provider`
+  (`null`, in `module:attribute` form). Unknown keys are ignored so a
+  declaration from a later build still loads. A missing required field is
+  refused at discovery with a diagnostic naming the directory and the field
+  (FR-003).
+- **D-008 — The merged asset route.**
+  `GET /api/panels/assets/{panel_id}/{asset_path:path}`, one path-confinement
+  check and one suffix allowlist across all four tier roots, differing only in
+  the root each tier resolves to. The allowlist is
+  `.html .js .mjs .css .map .json .svg .png .jpg .jpeg .woff .woff2`.
+- **D-010 — Exactly one API version constant, and it is the backend's.**
+  `PANEL_API_VERSION` in `scistudio.core.panels` is the single definition FR-004
+  and SC-001 require. The frontend host defines no version of its own; it
+  receives the accepted version in the panel descriptor and compares the
+  panel's declared version against it. A version literal in `frontend/` is a
+  defect against SC-001. The eleven built-in documents each spell the version,
+  because FR-034 forbids the shared import that would remove the duplication —
+  so the test that pins them imports the backend constant rather than spelling
+  it a twelfth time.
+- **D-011 and D-017 — The message contract.** Every message in both directions
+  is `{ scistudio_panel: 1, token, type, payload }`. The host issues the token
+  at mount; a message without it is ignored, and the host additionally requires
+  `event.source === frame.contentWindow` (FR-008). The frame carries
+  `sandbox="allow-scripts"` and nothing else.
+  Host to panel: `init`, `update`, `read_result`, `resource_result`,
+  `host_action_result`, `error`, `state_request`, `teardown`.
+  Panel to host: `ready`; `read` (`request_id`, `query` — a patch of the
+  panel's own query state); `resource` (`request_id`, `resource_id`, `params`
+  — a bounded follow-up read); `host_action` (`request_id`, `action`, `params`
+  — chrome the frame cannot perform for itself, `action` being `export`,
+  `download` or `editor_handoff`); `emit` (`code`); `error`; `state`.
+  **`read`, `resource` and `host_action` are granted to displaying and
+  producing panels alike.** FR-011 withholds the *emission* path from a
+  displaying panel (FR-012); it does not withhold the bounded read FR-010
+  requires the host to supply, and read literally against FR-009 and FR-010 it
+  could not. Only `emit` is capability-gated, and the gate is structural in the
+  host rather than a check a panel could decline to make (SC-007).
+- **D-013 — The backend names the fallback.** The response the host reads
+  carries the chosen panel's descriptor and the fallback's, both as full
+  descriptors rather than ids: an id is not mountable, and deriving a URL from
+  one is the frontend re-deciding what the backend decided. The frontend keeps
+  no mapping from a response kind to a panel (FR-036).
+- **D-015 — Where the built-in panels live.**
+  `src/scistudio/panels/builtin/<panel_id>/`, keeping the ids their specs
+  already carried. `core.base.fallback` is the panel D-013 names, so it is the
+  one that renders from the least information.
+- **D-016 — The descriptor's mandatory fields.** A panel descriptor carries
+  `accepted_api_version` (D-010) and `read_limits`. The host refuses to mount
+  without either rather than inventing a bound or a version, so a descriptor
+  missing them is a backend defect rather than a host fallback. `init` also
+  carries `restored_state`, the return half of the FR-031 state hook, and the
+  host-to-panel `error` carries a nullable `request_id` so a failed read
+  terminates without the panel waiting out its own timeout.
+- **D-018 — Confirm and Cancel are host chrome.** A producing panel's only
+  outbound path is `emit` (FR-012), so it owns no Confirm button. The host
+  renders Confirm and Cancel around the frame; Confirm commits the panel's most
+  recent emission and is disabled before there is one. Every producing panel
+  re-emits its whole decision on every change, so the newest emission is always
+  the current decision — a panel that switched to emitting deltas would leave
+  Confirm committing a fragment, which is why each producing document states
+  the property in its own header.
+- **D-019 — The host keeps the tutorial surface a frame cannot.** A frame at an
+  opaque origin can carry neither a highlight target nor the store, so the host
+  fires `preview_item_opened` when it services a panel's `resource` message for
+  a collection item, fires `plot_exported` after an `export` host action on a
+  plot artifact, and carries `data-tutorial-target` on its own chrome. The
+  shipped `what-is-a-type` tutorial depends on these, and
+  `tests/tutorials/test_core_tutorial_what_is_a_type.py` is the guard.
+- **D-020 — The panel API surface.** `GET /api/panels/assets/{panel_id}/{path}`;
+  `GET /api/panels`; `POST /api/panels/reload`; `GET`, `PUT` and `DELETE`
+  `/api/panels/choices[/{target_type}]`; `GET` and `PUT`
+  `/api/panels/{panel_id}/source`; `DELETE /api/panels/{panel_id}/override`.
+  `scistudio.panels.descriptor` owns the route prefix constant and the
+  descriptor builder, so the route and the descriptor cannot disagree.
+  `/api/previews/assets/...` and `/api/blocks/panels/...` keep serving their
+  existing clients for the duration of the migration (FR-022).
