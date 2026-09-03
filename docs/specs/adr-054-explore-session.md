@@ -453,8 +453,12 @@ mid-cell is reported as dead and restartable.
 **The session**
 
 - **FR-001**: A session MUST be a notebook file in the project's explore
-  directory, `{project}/explore/`, plus an optional kernel. The session's
-  identity MUST be the notebook's project-relative path. A notebook MUST have
+  directory, `{project}/explore/`, plus an optional kernel. The API MUST
+  address a session by the notebook's project-relative path. Every ref,
+  record, and file name derived from a session MUST use a ref-safe session id
+  instead: a random identifier written into the notebook's metadata when the
+  session is created and read back from it, so that a path containing a
+  character git refuses in a ref name never reaches one. A notebook MUST have
   at most one kernel at a time, and opening a session on a notebook that
   already has one MUST return the existing session.
 - **FR-002**: A session MUST be openable over the outputs of a block whose
@@ -532,10 +536,13 @@ mid-cell is reported as dead and restartable.
   coalesced with it. A running request MUST NOT be cancelled except by an
   explicit interrupt.
 - **FR-018**: A snippet emitted by a panel MUST be parsed before it is queued
-  and admitted only if every statement is an assignment, an import, or a call
-  to `scistudio.output`. Any other statement MUST cause the emission to be
-  refused with an error naming the panel and the statement, and no cell MUST
-  be inserted. An admitted snippet MUST be inserted as a new cell after the
+  and admitted only if every statement is an assignment whose every target is
+  a plain name, including a tuple or star unpacking of plain names, an import,
+  or a call to `scistudio.output`. An assignment to a subscript or an
+  attribute MUST be refused, because it mutates the object the name holds
+  rather than rebinding the name. Any other statement MUST cause the emission
+  to be refused with an error naming the panel and the statement, and no cell
+  MUST be inserted. An admitted snippet MUST be inserted as a new cell after the
   session's current cell and queued.
 - **FR-019**: Before a cell runs, the service MUST compare, for each name the
   cell reads, the cell the graph says defines it with the cell that last bound
@@ -571,7 +578,7 @@ mid-cell is reported as dead and restartable.
   MUST write the notebook before each run so that a kernel death loses
   nothing typed.
 - **FR-028**: Every cell run MUST produce one commit to the session's ref
-  under a dedicated namespace, `refs/scistudio/explore/<session>`, containing
+  under a dedicated namespace, `refs/scistudio/explore/<session-id>`, containing
   the notebook as captured at execution time with outputs stripped, written
   after the result has been returned to the caller.
 - **FR-029**: Explore commits MUST be written with plumbing commands against a
@@ -668,8 +675,9 @@ mid-cell is reported as dead and restartable.
 **Lineage**
 
 - **FR-052**: An `explore_sessions` table MUST be added that parallels `runs`
-  field for field: the notebook's path, its captured content, the commit of
-  FR-028, an environment snapshot reference, a start time, and a status.
+  field for field: the session id, the notebook's path, its captured content,
+  the commit of FR-028, an environment snapshot reference, a start time, and a
+  status.
 - **FR-053**: Every cell run MUST write a record carrying the session, the
   notebook commit, the cell id, and the environment reference.
 - **FR-054**: A packaged block's run MUST be an ordinary workflow run whose
@@ -708,7 +716,7 @@ mid-cell is reported as dead and restartable.
 ### Key Entities
 
 - **ExploreSession** — a notebook and its optional kernel. Attributes:
-  notebook path, bound run, kernel state, current cell, marks per cell,
+  session id, notebook path, bound run, kernel state, current cell, marks per cell,
   last-bound-by map, declared outputs, current notebook commit.
   Relationships: owned by SessionService; has one ExecutionQueue; recorded as
   one ExploreSessionRecord.

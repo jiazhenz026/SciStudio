@@ -149,7 +149,7 @@ consulting the ADR or the source.
    them, then the entry-point declaration appears in one guide and the others
    link to it.
 
-### User Story 2 - The owner revises the architecture document section by section (Priority: P1)
+### User Story 2 - The owner revises the architecture document section by section (Priority: P2)
 
 As the repository owner, I review the architecture document one section at a
 time and decide what changes, so I authorise text I have read rather than a
@@ -159,7 +159,9 @@ change proposed on my behalf.
 The guard exists because PR #2036 carried a thirty-line addition through every
 check green and was caught only by the owner reading the diff. A spec that
 proposed architecture text would reproduce exactly the situation the guard was
-added to prevent.
+added to prevent. It ranks below Story 1 because a misled package author does
+wasted work today, while a stale architecture section misleads no one into
+building.
 
 **Independent Test:** Open one architecture tranche and confirm it touches only
 sections the owner approved for that tranche, carries the approval label, and
@@ -180,7 +182,7 @@ passes the drift audit with no exclusion added.
    when the tranche is authored, then that sentence is deferred to the later
    tranche rather than written with the name omitted.
 
-### User Story 3 - A reader of the generated reference sees the surface that exists (Priority: P2)
+### User Story 3 - A reader of the generated reference sees the surface that exists (Priority: P3)
 
 As anyone reading the API reference, I see pages for the modules that exist and
 navigation entries that resolve, so the reference is trustworthy without
@@ -203,7 +205,7 @@ under `docs/user/reference/`.
    with `--strict`, then the build succeeds and every navigation entry points at
    a page the generator emitted.
 
-### User Story 4 - A future author cannot quietly reintroduce the retired form (Priority: P2)
+### User Story 4 - A future author cannot quietly reintroduce the retired form (Priority: P4)
 
 As a maintainer reviewing a documentation change two releases from now, I have a
 test that fails when a guide teaches the retired panel form, so the rot this

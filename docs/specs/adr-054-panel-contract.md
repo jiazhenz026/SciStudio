@@ -359,9 +359,19 @@ outside historical documents and the compatibility shim; it returns nothing.
 
 - **FR-007**: A panel MUST be mounted inside a sandboxed frame and MUST be
   reachable from the host only through message passing.
-- **FR-008**: The spec MUST state the exact sandbox permissions granted to a
-  panel frame, with a stated reason for each permission granted and each
-  permission withheld.
+- **FR-008**: A panel frame MUST be mounted with the sandbox attribute
+  granting `allow-scripts` and nothing else. Each withheld permission is
+  withheld for a reason: `allow-same-origin`, because with it the framed
+  document shares the application's origin and can reach the parent document,
+  its storage, and the API with the person's credentials, which would make
+  the frame no boundary at all; `allow-forms`, because a panel submits
+  nothing; `allow-popups` and `allow-top-navigation`, because a panel must
+  not open or navigate anything outside itself; `allow-modals`, because a
+  panel must not block the application with a dialog; `allow-downloads`,
+  because saving a file is host chrome. The frame therefore runs at an opaque
+  origin: the host addresses it by its window reference, every message in
+  both directions carries a per-mount token the host issued at mount, and a
+  message without the token MUST be ignored.
 - **FR-009**: The host MUST perform a handshake before treating a panel as
   mounted: it sends the API version and the opening snapshot, and the panel
   answers that it is ready. A panel that does not answer within a bounded wait
@@ -406,7 +416,11 @@ outside historical documents and the compatibility shim; it returns nothing.
 
 - **FR-021**: One asset route MUST serve all four tiers, using one path
   confinement check and one suffix allowlist, differing only in the root
-  directory each tier resolves to.
+  directory each tier resolves to. The route MUST answer read-only
+  cross-origin requests, because a panel at an opaque origin fetches bulk
+  assets from it directly, and no other route MUST answer such requests,
+  which is what keeps the asset route the only thing a panel can reach
+  without the host.
 - **FR-022**: The two existing asset routes MUST continue to serve their
   existing clients for the duration of the migration.
 - **FR-023**: The endpoints that list panels, rebuild the registry, and record
@@ -576,6 +590,16 @@ also what makes hot reload clean, because tearing down a frame and building a
 new one leaves no cached module behind, where reloading an ES module would
 require cache-busting the URL and would silently serve stale code when that was
 forgotten.
+
+**The sandbox is one permission.** The frame is granted script execution
+and nothing else. Granting same-origin access as well would let a panel's
+script walk into the parent document, read the application's storage, and
+call the API with the person's credentials, which is the failure the frame
+exists to prevent; every other permission has no legitimate use in a panel.
+The cost is that the frame runs at an opaque origin: it cannot fetch from the
+application except where the application says so, which is the asset route
+and only the asset route, and messages between host and frame cannot rely on
+an origin check, so each mount issues a token that every message carries.
 
 **The two resolutions stay as they are.** Routing by data type keeps the ladder
 and the per-type user choice. Routing by block keeps the manifest on the block
@@ -831,10 +855,13 @@ the shim while the defect is fixed.
   itself must be confirmed not to suppress agent-written panel files. This is
   stated as an assumption because it has not been verified in the code, and
   T-011 carries its verification. _Source: inferred._
-- **A-008**: The compatibility shim covers the previewer module form only. No
+- **A-008**: The asset route sends no cross-origin read headers today; it
+  gains them for its own responses only, so a panel at an opaque origin can
+  fetch assets and nothing else. _Source: inferred._
+- **A-009**: The compatibility shim covers the previewer module form only. No
   equivalent shim is provided for the interactive-panel module form, because its
   only consumers are in this repository and the tutorial asset that carries a
   hard-coded panel URL is updated as part of §4.2. _Source: inferred._
-- **A-009**: A panel needs no Python by default, because the shared
+- **A-010**: A panel needs no Python by default, because the shared
   data-access layer windows every core type. A package type the layer cannot
   window ships a provider named in the panel's declaration. _Source: adr._

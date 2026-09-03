@@ -417,7 +417,7 @@ updated together, and the suite passes.
 **Counts and catalogs**
 
 - **FR-025**: The tool-count assertions in the MCP tests MUST be updated for
-  the ten tools this spec adds, and the per-group assertions MUST gain the
+  the eleven tools this spec adds, and the per-group assertions MUST gain the
   two new groups.
 - **FR-026**: The catalogs that list tools — the base skill, the embedded
   coding agent spec, and the architecture document's tool table — MUST list
@@ -619,7 +619,7 @@ additive and default to today's behaviour when absent.
   requirement and the shape. _Source: spec._
 - **A-003**: Session tools call the session API the explore-session spec
   defines and never reach the kernel. _Source: adr._
-- **A-004**: The tool set is the author's: four panel tools and six session
+- **A-004**: The tool set is the author's: four panel tools and seven session
   tools. The owner delegated the list. _Source: owner._
 - **A-005**: The harness is generated from the same contract module the frame
   host uses, so that it cannot drift silently. _Source: inferred._
