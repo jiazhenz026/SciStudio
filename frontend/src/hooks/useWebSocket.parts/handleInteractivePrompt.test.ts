@@ -68,4 +68,59 @@ describe("handleInteractivePrompt (ADR-051)", () => {
     expect(result?.panelPayload).toEqual({});
     expect(result?.workflowId).toBe("w");
   });
+
+  // ADR-054 spec 1 D-020 — the descriptor the paused block's panel mounts from.
+  //
+  // The manifest above is the retired ES-module shape: no capability, no
+  // document URL, no asset base, no read limits, so `validatePanelDescriptor`
+  // refuses it (D-016.3) and the reader gets the host's error surface instead of
+  // the panel. The engine emits a descriptor beside it
+  // (`engine/scheduler/_dispatch.py`, pinned by
+  // `tests/engine/test_interactive_panel_descriptor.py`); this is the one line
+  // that carries it from the wire into the store the host reads.
+  it("lifts the panel descriptor the backend resolved for the block", () => {
+    const descriptor = {
+      panel_id: "core.interactive.data_router",
+      display_name: "core.interactive.data_router",
+      api_version: "1",
+      accepted_api_version: "1",
+      capability: "producing",
+      document_url: "/api/panels/assets/core.interactive.data_router/index.html",
+      asset_base_url: "/api/panels/assets/core.interactive.data_router/",
+      read_limits: { max_rows: 500, max_bytes: 1_000_000 },
+    };
+
+    const result = capture({
+      type: "interactive_prompt",
+      block_id: "node-a",
+      workflow_id: "wf-1",
+      data: {
+        block_type: "DataRouter",
+        panel_manifest: { panel_id: "core.interactive.data_router", version: "1" },
+        panel_descriptor: descriptor,
+        panel_payload: {},
+      },
+      timestamp: "t",
+    });
+
+    expect(result?.panelDescriptor).toEqual(descriptor);
+    // FR-022: the retired shape rides along for the migration rather than being
+    // dropped, so an unmigrated reader of `panel_manifest` keeps working.
+    expect(result?.panelManifest?.panel_id).toBe("core.interactive.data_router");
+  });
+
+  it("reports no descriptor rather than inventing one", () => {
+    // A prompt without a descriptor is a backend defect, and the host says so
+    // on its own error surface — with Cancel reachable, because a person must
+    // never be stuck on a paused block with no exit (#2195).
+    const result = capture({
+      type: "interactive_prompt",
+      block_id: "b",
+      workflow_id: "w",
+      data: { block_type: "X", panel_manifest: { panel_id: "myproj.foo" } },
+      timestamp: "t",
+    });
+
+    expect(result?.panelDescriptor).toBeNull();
+  });
 });
