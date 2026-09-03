@@ -3,27 +3,27 @@
   "branch": "feat/2231-dep-analysis-impl",
   "check_events": [
     {
-      "at": "2026-09-03T16:03:25.757507Z",
+      "at": "2026-09-03T16:23:06.396767Z",
       "command": "pytest tests/architecture/ -v --no-cov",
       "covered_surface": "architecture",
-      "exit_code": 1,
-      "input_fingerprint": "sha256:0deac04405434cdca6d65dc3c51f5b5938ddb201f6adf484ce98451ad607e155",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0c84df01167ed0417ec57b6a58dbede445d9dc74798a7cdae501cc383464e7db",
       "name": "architecture_tests",
       "parity_detail": null,
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
       "scope": "repo",
-      "status": "fail",
-      "summary": "exit 1",
+      "status": "pass",
+      "summary": "clean",
       "tool_versions": {}
     },
     {
-      "at": "2026-09-03T16:03:28.804813Z",
+      "at": "2026-09-03T16:23:08.776182Z",
       "command": "pre-commit run --all-files --hook-stage manual",
       "covered_surface": "hygiene",
       "exit_code": 0,
-      "input_fingerprint": "sha256:f758b128a156a5cae07d13248d2c2af1e66530353ec499d0b3c1f253cf095526",
+      "input_fingerprint": "sha256:be6cdcde52aadee359978f66cea49e6f3465846b54b18b477a90863f856ced0b",
       "name": "commit_hygiene",
       "parity_detail": null,
       "parity_gap": false,
@@ -35,11 +35,11 @@
       "tool_versions": {}
     },
     {
-      "at": "2026-09-03T16:03:30.312086Z",
+      "at": "2026-09-03T16:23:10.233540Z",
       "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
       "covered_surface": "python_deferrals",
       "exit_code": 0,
-      "input_fingerprint": "sha256:102f4fec721ebfc465e7a0ebf36ba896c75f73ca64a3d872407303e84c235e40",
+      "input_fingerprint": "sha256:3850e07235248d13639e6eb67bb551a318343ab019fc58275cc1fbb106d5926a",
       "name": "deferral_discipline",
       "parity_detail": null,
       "parity_gap": false,
@@ -51,17 +51,17 @@
       "tool_versions": {}
     },
     {
-      "at": "2026-09-03T16:03:30.402073Z",
-      "command": "ruff format --check .",
+      "at": "2026-09-03T16:23:10.257504Z",
+      "command": "ruff format src/scistudio/explore/__init__.py src/scistudio/explore/dependency_analysis.py src/scistudio/explore/fingerprint.py tests/architecture/test_layer_deps.py",
       "covered_surface": "python_lint",
       "exit_code": 0,
-      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "input_fingerprint": "sha256:327f0a9cc8d35c089eab1c50ae88c28889edb426bebe2f166be81293d50ee037",
       "name": "format_check",
       "parity_detail": null,
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/format_check.log",
-      "scope": "repo",
+      "scope": "diff",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {
@@ -69,11 +69,11 @@
       }
     },
     {
-      "at": "2026-09-03T16:03:47.855287Z",
+      "at": "2026-09-03T16:23:25.228544Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
       "covered_surface": "governance",
       "exit_code": 1,
-      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "input_fingerprint": "sha256:5082bc6fd5af71d77df53d43710e6afeb1ed8faefa559b9ec769ec5aa0644823",
       "name": "full_audit",
       "parity_detail": null,
       "parity_gap": false,
@@ -85,11 +85,11 @@
       "tool_versions": {}
     },
     {
-      "at": "2026-09-03T16:03:48.446686Z",
+      "at": "2026-09-03T16:23:25.502106Z",
       "command": "lint-imports",
       "covered_surface": "python_imports",
       "exit_code": 0,
-      "input_fingerprint": "sha256:179b1cba851dd153ae0ab07e4f5ff8b2a735cc2c3d6d4494d3c0100847360442",
+      "input_fingerprint": "sha256:627e86eb8c9bd5d4ca091c2deca5305ca358ea6e723541262a5572256bd6f854",
       "name": "import_contracts",
       "parity_detail": null,
       "parity_gap": false,
@@ -101,17 +101,17 @@
       "tool_versions": {}
     },
     {
-      "at": "2026-09-03T16:03:48.539084Z",
-      "command": "ruff check .",
+      "at": "2026-09-03T16:23:25.526335Z",
+      "command": "ruff check src/scistudio/explore/__init__.py src/scistudio/explore/dependency_analysis.py src/scistudio/explore/fingerprint.py tests/architecture/test_layer_deps.py",
       "covered_surface": "python_lint",
       "exit_code": 0,
-      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "input_fingerprint": "sha256:82097b8e5aa5d83ee5f23e109f99d6537d5a8a11903310d3457b813e9242866d",
       "name": "lint_format",
       "parity_detail": null,
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/lint_format.log",
-      "scope": "repo",
+      "scope": "diff",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {
@@ -119,33 +119,33 @@
       }
     },
     {
-      "at": "2026-09-03T16:07:22.670226Z",
+      "at": "2026-09-03T16:29:44.281445Z",
       "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
       "covered_surface": "python_tests",
-      "exit_code": 1,
-      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:51bd9d953b183fe007f454eefe017e5bf830ddeec35b762b02f185b10897a82a",
       "name": "python_tests",
       "parity_detail": null,
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/python_tests.log",
       "scope": "repo",
-      "status": "fail",
-      "summary": "exit 1",
+      "status": "pass",
+      "summary": "clean",
       "tool_versions": {}
     },
     {
-      "at": "2026-09-03T16:07:37.910781Z",
-      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "at": "2026-09-03T16:29:44.500969Z",
+      "command": "mypy src/scistudio/explore/__init__.py src/scistudio/explore/dependency_analysis.py src/scistudio/explore/fingerprint.py --ignore-missing-imports",
       "covered_surface": "python_types",
       "exit_code": 0,
-      "input_fingerprint": "sha256:e94394e48009cd8fbd5108426e57662cdd3e4d99e817a3b4494b7e53776b5c37",
+      "input_fingerprint": "sha256:5b6dce49ff9bdefe8b7f8104c762d33937d0a54880c9f9b1256d952ccef647bd",
       "name": "type_check",
       "parity_detail": null,
       "parity_gap": false,
       "pr_only": false,
       "raw_log_ref": ".workflow/local/logs/type_check.log",
-      "scope": "repo",
+      "scope": "diff",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
@@ -167,14 +167,14 @@
   },
   "directive_events": [
     {
-      "at": "2026-09-03T15:37:05.356709Z",
-      "owner_directive": "Implement spec 4.3 sequence T-001..T-009 and T-011: explore package, dependency_analysis (static facts, graph, queries, codec, AnalysisFlag), fingerprint (bound+sampled fingerprint, namespace comparison, observation), layer test enumeration; test engineer owns tests/explore",
+      "at": "2026-09-03T16:19:52.081254Z",
+      "owner_directive": "Implement spec 4.3 sequence T-001..T-009 and T-011: explore package, dependency_analysis, fingerprint, layer test enumeration; test engineer owns tests/explore",
       "reason": "plan"
     }
   ],
   "docs_events": [
     {
-      "at": "2026-09-03T15:37:05.356862Z",
+      "at": "2026-09-03T16:19:52.081283Z",
       "class": "user-docs",
       "kind": "na",
       "path": null,
@@ -185,193 +185,89 @@
   "governance_touch": false,
   "guard_events": [
     {
-      "at": "2026-09-03T16:07:37.952159Z",
+      "at": "2026-09-03T16:29:44.546855Z",
       "findings": [],
       "guard": "architecture_doc_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-03T16:07:37.967825Z",
+      "at": "2026-09-03T16:29:44.562127Z",
       "findings": [],
       "guard": "core_change_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-03T16:07:37.982509Z",
+      "at": "2026-09-03T16:29:44.575587Z",
       "findings": [],
       "guard": "docs_landing",
       "status": "pass"
     },
     {
-      "at": "2026-09-03T16:07:37.996712Z",
+      "at": "2026-09-03T16:29:44.588632Z",
       "findings": [],
       "guard": "human_bypass_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-03T16:07:38.016775Z",
+      "at": "2026-09-03T16:29:44.607332Z",
       "findings": [],
       "guard": "issue_link",
       "status": "pass"
     },
     {
-      "at": "2026-09-03T16:07:38.031498Z",
+      "at": "2026-09-03T16:29:44.621754Z",
       "findings": [],
       "guard": "mod_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-03T16:07:38.046984Z",
+      "at": "2026-09-03T16:29:44.635680Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T16:29:44.648783Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T16:29:44.661806Z",
       "findings": [
         {
           "actual": null,
           "drift_class": null,
-          "evidence": {
-            "allowed_roots": [
-              ".agents",
-              ".claude",
-              ".codex",
-              ".gemini"
-            ],
-            "runtime": "kimi"
-          },
+          "evidence": {},
           "expected": null,
           "file": "",
-          "finding_class": "persona_policy",
+          "finding_class": "sentrux",
           "git_evidence": null,
-          "id": "persona_policy.unsupported-runtime-root",
+          "id": "sentrux.free_tier.advisory-missing-evidence",
           "line": null,
-          "message": "runtime must map to one of the ADR-042 AI runtime config roots",
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
           "path": "",
           "related_findings": [],
           "remediation": null,
-          "rule_id": "persona_policy.unsupported-runtime-root",
-          "severity": "error",
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
           "subject": null,
           "suggested_fix": null,
           "symbol": null,
           "tool": null
         }
       ],
-      "guard": "persona_policy",
-      "status": "fail"
-    },
-    {
-      "at": "2026-09-03T16:07:38.064148Z",
-      "findings": [],
-      "guard": "pr_merge_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-03T16:07:38.079161Z",
-      "findings": [],
       "guard": "sentrux_gate",
       "status": "pass"
     },
     {
-      "at": "2026-09-03T16:07:38.094726Z",
+      "at": "2026-09-03T16:29:44.678247Z",
       "findings": [],
       "guard": "test_engineer_scope_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-03T16:07:38.111796Z",
-      "findings": [],
-      "guard": "weakened_ci_check",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-03T16:12:02.482390Z",
-      "findings": [],
-      "guard": "architecture_doc_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-03T16:12:02.505784Z",
-      "findings": [],
-      "guard": "core_change_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-03T16:12:02.520813Z",
-      "findings": [],
-      "guard": "docs_landing",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-03T16:12:02.536800Z",
-      "findings": [],
-      "guard": "human_bypass_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-03T16:12:02.553876Z",
-      "findings": [],
-      "guard": "issue_link",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-03T16:12:02.571490Z",
-      "findings": [],
-      "guard": "mod_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-03T16:12:02.587805Z",
-      "findings": [
-        {
-          "actual": null,
-          "drift_class": null,
-          "evidence": {
-            "allowed_roots": [
-              ".agents",
-              ".claude",
-              ".codex",
-              ".gemini"
-            ],
-            "runtime": "kimi"
-          },
-          "expected": null,
-          "file": "",
-          "finding_class": "persona_policy",
-          "git_evidence": null,
-          "id": "persona_policy.unsupported-runtime-root",
-          "line": null,
-          "message": "runtime must map to one of the ADR-042 AI runtime config roots",
-          "path": "",
-          "related_findings": [],
-          "remediation": null,
-          "rule_id": "persona_policy.unsupported-runtime-root",
-          "severity": "error",
-          "subject": null,
-          "suggested_fix": null,
-          "symbol": null,
-          "tool": null
-        }
-      ],
-      "guard": "persona_policy",
-      "status": "fail"
-    },
-    {
-      "at": "2026-09-03T16:12:02.602333Z",
-      "findings": [],
-      "guard": "pr_merge_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-03T16:12:02.622981Z",
-      "findings": [],
-      "guard": "sentrux_gate",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-03T16:12:02.640441Z",
-      "findings": [],
-      "guard": "test_engineer_scope_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-03T16:12:02.655542Z",
+      "at": "2026-09-03T16:29:44.696703Z",
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
@@ -389,49 +285,42 @@
   "observed_diff": {
     "base": "origin/track/adr-054-spec2-dependency-analysis",
     "base_sha": "bcaa1b274",
-    "changed_files": [],
-    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "changed_files": [
+      ".workflow/records/2231-feat-2231-dep-analysis-impl.json",
+      "src/scistudio/explore/__init__.py",
+      "src/scistudio/explore/dependency_analysis.py",
+      "src/scistudio/explore/fingerprint.py",
+      "tests/architecture/test_layer_deps.py"
+    ],
+    "diff_fingerprint": "sha256:0bd8ca55ce8913af01f223ac9d2b902240c47d7a46c1e3cd55b0f5419d7d0054",
     "head": "HEAD",
-    "head_sha": "5c7367d62",
+    "head_sha": "86b3721b8",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 0,
+      "implementation": 3,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 0,
-      "test": 0,
+      "sentrux": 4,
+      "test": 1,
       "workflow_ci": 0
     }
   },
-  "owner_directive": "Implement ADR-054 spec 2 production code per docs/specs/adr-054-notebook-dependency-analysis.md",
+  "owner_directive": "Implement ADR-054 spec 2 production code per docs/specs/adr-054-notebook-dependency-analysis.md. Runtime token corrected from kimi to agents per manager direction: kimi maps to no ADR-042 config root (guard persona_policy) and this harness uses the generic .agents root. The ledger was recreated via the CLI because init on an existing ledger never updates the runtime field (workflow.py run_init only sets runtime at creation) and amend has no --runtime flag; the prior ledger state is preserved in git history at 86b3721b8.",
   "persona": "implementer",
   "pull_request": null,
   "reconcile_events": [
     {
-      "at": "2026-09-03T16:07:38.111824Z",
-      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "at": "2026-09-03T16:29:44.696723Z",
+      "diff_fingerprint": "sha256:0bd8ca55ce8913af01f223ac9d2b902240c47d7a46c1e3cd55b0f5419d7d0054",
       "mode": "local",
       "result": "fail",
       "tier": 1,
       "unsatisfied": [
-        "checks.architecture_tests",
-        "checks.full_audit",
-        "checks.python_tests",
-        "guard.persona_policy"
-      ]
-    },
-    {
-      "at": "2026-09-03T16:12:02.655580Z",
-      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "mode": "local",
-      "result": "fail",
-      "tier": 1,
-      "unsatisfied": [
-        "guard.persona_policy"
+        "checks.full_audit"
       ]
     }
   ],
@@ -450,7 +339,9 @@
       "python_tests",
       "type_check"
     ],
-    "docs": [],
+    "docs": [
+      "docs_required_or_na"
+    ],
     "guards": [
       "architecture_doc_guard",
       "core_change_guard",
@@ -464,36 +355,26 @@
       "test_engineer_scope_guard",
       "weakened_ci_check"
     ],
-    "tests": []
+    "tests": [
+      "changed_test_required"
+    ]
   },
-  "runtime": "kimi",
+  "runtime": "agents",
   "schema_version": 2,
   "scope_events": [
     {
       "action": "add-include",
-      "at": "2026-09-03T15:37:05.356789Z",
-      "pattern": "src/scistudio/explore/__init__.py",
-      "reason": "plan"
-    },
-    {
-      "action": "add-include",
-      "at": "2026-09-03T15:37:05.356827Z",
-      "pattern": "src/scistudio/explore/dependency_analysis.py",
-      "reason": "plan"
-    },
-    {
-      "action": "add-include",
-      "at": "2026-09-03T15:37:05.356836Z",
-      "pattern": "src/scistudio/explore/fingerprint.py",
-      "reason": "plan"
+      "at": "2026-09-03T16:19:52.678095Z",
+      "pattern": "tests/architecture/test_placement.py",
+      "reason": "placement test enumerates known packages; the new explore subsystem must be listed"
     }
   ],
-  "session_id": "6a4dd418-7efc-4737-bb51-e3be043e7eb9",
+  "session_id": "ba168695-a8ac-4d49-88b4-d4e6b4fc8031",
   "strictness_tier": 1,
   "task_kind": "feature",
   "test_events": [
     {
-      "at": "2026-09-03T15:37:05.356966Z",
+      "at": "2026-09-03T16:19:52.081293Z",
       "class": null,
       "kind": "path",
       "path": "tests/architecture/test_layer_deps.py",
@@ -501,7 +382,7 @@
       "verified_in_diff": null
     },
     {
-      "at": "2026-09-03T15:37:05.357006Z",
+      "at": "2026-09-03T16:19:52.081299Z",
       "class": "implementation-tests",
       "kind": "na",
       "path": null,
