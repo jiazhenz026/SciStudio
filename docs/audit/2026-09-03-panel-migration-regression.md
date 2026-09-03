@@ -350,4 +350,10 @@ latter verified directly in a materialised `origin/main` tree
 ambient-environment, not migration-related, discounted — and the count matching
 exactly is what rules out the migration having added any of them.
 
+`gate_record check --mode local` reports **one unsatisfied obligation: the test
+check, failing on the five deliberate reds.** That is the gate working, not the
+gate being wrong, and it is left that way. Making it green would mean editing
+the five tests until they stop reporting the difference they were written to
+report. `finalize` was not run.
+
 Sentrux is not installed here; not attempted.
