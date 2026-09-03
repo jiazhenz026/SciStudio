@@ -1,0 +1,84 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "test/2229-panel-migration-regression",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-03T18:09:16.160199Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-03-panel-migration-regression.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Adversarial no-context regression test pass over the previewer-to-panel migration: inventory every pre-migration test property, verify the survivors still bite, write tests for undefended properties, leave real behaviour differences red. Tests and docs/audit report only; no production code.",
+  "persona": "test_engineer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-panel-migration-regression",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:09:16.160166Z",
+      "pattern": "tests",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T18:09:16.160189Z",
+      "pattern": "docs/audit",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "226cf52e-bdc2-42ea-8f39-e3aabfadfd01",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-03T18:09:16.160206Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_unmigrated_author_surface.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T18:09:16.160211Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_choice_file_names_on_disk.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
