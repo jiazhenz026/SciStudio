@@ -328,3 +328,53 @@ audit can check it rather than rediscover it.
   (ADR-054 3.6) sits where an emission is queued, which is the explore session.
   FR-012 says the panel loading machinery MUST NOT interpret what a panel emits.
   Do not implement the whitelist in this spec.
+
+---
+
+## Manager contract sheet: D-014 to D-016
+
+Added after `W2-host` landed the frame host and reported back.
+
+- **D-014 - The `planned_governs` migration is the manager's, and one finding is
+  expected until integration.** `full_audit` raises, at error severity,
+  `docs/specs/adr-054-panel-contract.md: planned governed file path or glob
+  already resolves and must move to governs: <path>` as soon as a path listed
+  under the spec's `planned_governs.files` starts to exist. The list contains
+  `src/scistudio/core/panels.py`, `src/scistudio/panels/**`,
+  `src/scistudio/api/routes/panels.py`, and `frontend/src/panels/**`, so every
+  wave-2 and wave-3 agent creating one of them will see this finding on its own
+  branch. **Do not fix it. Do not edit `docs/specs/**`.** The manager migrates
+  all four entries from `planned_governs` to `governs` once at integration,
+  when they all resolve; migrating one at a time would only trade this finding
+  for its mirror image, a governed path that does not yet exist. Report the
+  finding in your output and treat `full_audit` as otherwise clean if this is
+  its only error-severity entry.
+- **D-015 - Where the built-in panels live.**
+  `src/scistudio/panels/builtin/<panel_id>/` holding `panel.json` and
+  `index.html` in the D-007 form. The nine displaying panels keep the ids their
+  `PanelSpec`s already carry (`core.dataframe.basic`, `core.array.basic`,
+  `core.series.basic`, `core.text.basic`, `core.artifact.basic`,
+  `core.composite.basic`, `core.collection.basic`, `core.plot.basic`,
+  `core.base.fallback`) and the two producing panels keep theirs
+  (`core.interactive.data_router`, `core.interactive.pair_editor`). Their
+  Python providers are unchanged (FR-033). `core.base.fallback` is the panel the
+  backend names as the fallback under D-013, so it must be the one that renders
+  from the least information.
+- **D-016 - Three additions to the D-011 message contract, from the host that
+  implements it.** The backend conforms to these; they are not open for
+  reinterpretation.
+  1. `init.restored_state` — the state hook's return half. D-011 gave
+     `state_request` -> `state` outbound but no route back, and `init` is the
+     only message a fresh mount receives, so FR-031's remount half rides there.
+  2. `error.request_id`, nullable, on the host-to-panel `error` — it lets a
+     failed or timed-out read terminate without the panel waiting out its own
+     timeout, and keeps `read_result` at the two fields D-011 names.
+  3. The panel descriptor the backend sends MUST carry `accepted_api_version`
+     (the backend's `PANEL_API_VERSION`, per D-010) and `read_limits`. The host
+     refuses to mount without either rather than inventing a bound or a
+     version, so a descriptor missing them is a backend defect, not a host
+     fallback.
+- **Sentrux is unavailable in this environment.** No `sentrux` on PATH, no
+  Python package; only `.sentrux/rules.toml` is present. Recorded once here for
+  every agent in this dispatch; state it in your report rather than rediscovering
+  it.

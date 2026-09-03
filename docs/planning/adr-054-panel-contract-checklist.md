@@ -109,7 +109,10 @@ language_source: en
 - [x] Dispatch checklist copied from the template and committed.
 - [x] Dispatch prompts created from the correct prompt template and linked
       below.
-- [ ] Sentrux baseline recorded, or N/A reason recorded.
+- [x] Sentrux baseline recorded, or N/A reason recorded.
+      -> N/A: Sentrux is not installed in this environment (no `sentrux` on PATH,
+      no Python package; only `.sentrux/rules.toml` is present). Recorded for
+      every agent in the prompt file rather than per agent.
 
 ## 5. Local Gate Hook Bypass Evidence
 
@@ -142,7 +145,7 @@ language_source: en
 |---|---|---|---|---|---|---|---|---|---|---|
 | `W1-rename` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w1-rename` | T-001 and FR-051 | `refactor/2229-panel-rename` | `.worktrees/w1-panel-rename` | the whole tree, mechanical rename only | any behaviour change | `#2229` | `[ ]` |
 | `W2-core` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w2-core` | T-002, T-003, T-013, T-015, T-016 | `feat/2229-panel-core-contract` | `.worktrees/w2-panel-core` | `src/scistudio/core/panels.py`, `src/scistudio/panels/**`, `src/scistudio/core/dropins.py`, `src/scistudio/core/entry_points.py`, `src/scistudio/blocks/base/interactive.py`, `tests/panels/**`, `tests/architecture/**`, `tests/adr052_contract/**` | frontend, API routes | `#2229` | `[ ]` |
-| `W2-host` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w2-host` | T-005, T-006 | `feat/2229-panel-frame-host` | `.worktrees/w2-panel-host` | `frontend/src/panels/**` | backend, the existing previewer frontend | `#2229` | `[ ]` |
+| `W2-host` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w2-host` | T-005, T-006 | `feat/2229-panel-frame-host` | `.worktrees/w2-panel-host` | `frontend/src/panels/**` | backend, the existing previewer frontend | `#2229` | `[x]` `c4cf38715` |
 | `W3-api` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w3-api` | T-004, T-008 backend half, T-010 | `feat/2229-panel-api` | `.worktrees/w3-panel-api` | `src/scistudio/api/routes/panels.py`, `routes/data.py`, `routes/blocks.py`, `api/schemas.py`, `tests/api/**` | frontend, panel discovery internals | `#2229` | `[ ]` |
 | `W3-fe` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w3-fe` | T-007, T-008 frontend half, T-011 | `feat/2229-panel-frontend` | `.worktrees/w3-panel-frontend` | the panel surfaces under `frontend/src/**` | backend | `#2229` | `[ ]` |
 | `W4-builtin` | `implementer` | `N/A` | `adr-054-panel-contract-prompts.md#w4-builtin` | T-009 | `feat/2229-builtin-panels` | `.worktrees/w4-builtin-panels` | the built-in panel directories and their tests | the Python providers, the host | `#2229` | `[ ]` |
@@ -199,8 +202,8 @@ amendment.
 | T-002 | Move the contract into the core layer | `W2-core` | `[ ]` | |
 | T-003 | The on-disk panel form and four-tier discovery | `W2-core` | `[ ]` | |
 | T-004 | Merge the asset route | `W3-api` | `[ ]` | |
-| T-005 | The frame host and the message contract | `W2-host` | `[ ]` | |
-| T-006 | The capability gate in the host | `W2-host` | `[ ]` | |
+| T-005 | The frame host and the message contract | `W2-host` | `[x]` | `c4cf38715`; `frontend/src/panels/{panelMessages,panelFrame,panelDescriptor,PanelHost,PanelErrorSurface}`; 112 tests in `vitest run src/panels` |
+| T-006 | The capability gate in the host | `W2-host` | `[x]` | `c4cf38715`; `frontend/src/panels/panelCapability.ts` + `panelCapability.test.ts`; SC-007 asserted from the host's side |
 | T-007 | One loader; delete the retired modules | `W3-fe` | `[ ]` | |
 | T-008 | The backend names the fallback; delete the dispatch | `W3-api`, `W3-fe` | `[ ]` | |
 | T-009 | Rewrite the eleven built-in panels | `W4-builtin` | `[ ]` | |
@@ -250,6 +253,10 @@ Append only.
 | `2026-09-02` | `manager` | the rename's blast radius reaches the generated API reference under `src/scistudio/_user_guide/api-reference/**`, which my first prompt excluded | amended `W1-rename`'s scope: regenerate with `scripts/docs/build_reference.py`, never hand-edit; gate record amended | `N/A` |
 | `2026-09-02` | `manager` | the rename's blast radius reaches the import-linter contracts in `pyproject.toml` that CI's Import Contracts job runs | amended `W1-rename`'s scope to include `pyproject.toml`; asked it to confirm `lint-imports` passes | `N/A` |
 | `2026-09-02` | `manager` | `scripts/audit/check_package_contract_tables.py` maps the renamed symbols into `docs/package-development/**`, which the spec excludes | verified nothing in CI, `src/scistudio/qa/`, or `tests/` invokes that script, so it cannot fail the build; `W1-rename` told to report staleness rather than fix it | follow-up issue if `W1-rename` reports staleness |
+| `2026-09-02` | `W2-host` | `full_audit` raises an error-severity finding as soon as a `planned_governs.files` entry starts to exist; `W2-host` correctly refused to edit `docs/specs/**` to fix it | recorded as manager decision D-014: the manager migrates all four `planned_governs` entries to `governs` once at integration, when they all resolve; no agent edits the spec | `N/A` |
+| `2026-09-02` | `W2-host` | the message contract needed three additions D-011 did not name: `init.restored_state`, a nullable `error.request_id`, and `accepted_api_version` + `read_limits` on the descriptor | accepted and recorded as D-016; the backend agents conform to them | `N/A` |
+| `2026-09-02` | `W2-host` | Sentrux is unavailable in this environment (not on PATH, not installed, only `.sentrux/rules.toml` present) | recorded once in the prompt file for every agent in this dispatch rather than rediscovered per agent | `N/A` |
+| `2026-09-02` | `W2-host` | agents left their own checklist rows blank to avoid a four-way merge conflict on this file | accepted; the manager owns every checklist row and fills them from agent reports | `N/A` |
 
 ## 10. Final Readiness
 
