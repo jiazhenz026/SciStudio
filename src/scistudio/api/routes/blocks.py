@@ -504,6 +504,15 @@ async def serve_panel_asset(
     path-confined under the root with the same suffix allowlist ADR-048 uses, so
     the server never leaks arbitrary filesystem reads. Core panels are bundled
     (no ``asset_root``) and resolve from the frontend registry, not this route.
+
+    ADR-054 spec 1 FR-022 keeps this route serving its existing clients for the
+    duration of the migration. It is not a second implementation: ``resolve_asset``
+    now defers to :func:`scistudio.panels.assets.resolve_confined_asset`, the one
+    confinement check the merged route ``GET /api/panels/assets/...`` also uses
+    (FR-021, SC-008). Only the root differs — a manifest's ``asset_root`` here, a
+    discovered panel's own directory there. This route answers same-origin only;
+    the cross-origin headers a framed panel needs belong to the merged route and
+    to nothing else (A-008).
     """
     asset_root: str | None = None
     for spec in registry.all_specs().values():
