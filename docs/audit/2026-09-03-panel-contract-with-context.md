@@ -58,11 +58,24 @@ three-line refusal.
 | `ruff check src tests` | **All checks passed** |
 | `ruff format --check src tests` | **899 files already formatted** |
 | `lint-imports` | **13 contracts kept, 0 broken** — including the new `Panels must not depend on engine, blocks, workflow, ai, or api` |
-| `scripts/audit/generate_facts.py --check` | pass (after `--write`; `docs/facts/generated.yaml` is gitignored, so `--check` fails on a fresh worktree until generated — not a finding) |
+| `scripts/audit/generate_facts.py --check` | pass — see the note below |
 | `full_audit` | **status: pass.** 0 error findings, 8 warnings (all `vulture.dead-code`). D-014's expected finding is gone: all four `planned_governs` entries have been migrated to `governs`. |
 | `gate_record check --mode local --base origin/main --head HEAD` | tier 1, 11 checks, one unsatisfied obligation: `guard.core_change_guard` (see F-7) |
 | `gate_record check --mode local --base track/... --head HEAD` | tier **3**, 2 checks, *"recovery reconciliation passed"* (see F-8) |
 | Sentrux | not installed in this environment; no binary on PATH, no package. N/A, as recorded for every agent in the prompt file. |
+
+**A note on `docs/facts/generated.yaml`, for whoever runs the final gate.** The
+file is gitignored, so a fresh worktree has none and `full_audit` fails on
+`facts.generated-stale` until it is written. Less obviously, it must be written
+by the **worktree's own venv interpreter**
+(`.workflow/local/venv/Scripts/python`), not the ambient one: the gate runs
+`full_audit` through that venv (`checks.py:540`), the two interpreters produce
+different expected text, and regenerating with the ambient python leaves the
+gate reporting staleness that `--force-checks` will not clear. Regenerating via
+the venv turned my own `checks.full_audit` obligation from unsatisfied to
+`reconciliation passed` with no other change. This is ambient tooling friction
+rather than a finding against this PR, but it will cost the manager an hour at
+`finalize` if it is met cold.
 
 ---
 
