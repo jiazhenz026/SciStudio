@@ -1,0 +1,89 @@
+{
+  "base_ref": null,
+  "branch": "docs/adr-054-specs",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/adr/ADR-054.md",
+      "docs/specs/adr-054-panel-contract.md",
+      "docs/specs/adr-054-notebook-dependency-analysis.md",
+      "docs/specs/adr-054-explore-session.md",
+      "docs/specs/adr-054-explore-frontend.md",
+      "docs/specs/adr-054-agent-enablement.md",
+      "docs/specs/adr-054-documentation.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2219,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2211,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2213,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2215,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2222,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2225,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2226,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner-directed session 2026-09-02: revise ADR-054 in place to the settled explore-session model and land its six implementation specs (panel contract, dependency analysis, explore session, explore frontend, agent enablement, documentation) in one PR, as the owner asked.",
+  "persona": "adr_author",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2219-docs-adr-054-specs",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "e2ea4a2e-ef05-4aac-9234-3dbfd40681a9",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": []
+}
