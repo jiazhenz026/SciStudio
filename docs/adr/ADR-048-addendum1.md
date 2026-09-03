@@ -213,11 +213,11 @@ be answered here rather than by a later judgement call.
 
 **The shim is removed when all three of these are true.**
 
-First, `scistudio-blocks-imaging` — the one published package that ships
-previewers written against the retired form — has released a version in which
+First, `scistudio-blocks-imaging` — the one published package known to ship
+previewers written against the retired form — has published a release in which
 every panel it registers is a directory registered through the
-`scistudio.panels` entry-point group, and SciStudio's own dependency floor for
-that package names that version or a later one.
+`scistudio.panels` entry-point group, in the on-disk form the contract
+requires, and that release is the package's latest.
 
 Second, nothing inside this repository still reads the retired form:
 `src/scistudio/previewers/` holds only the four alias modules and no logic; no
@@ -232,12 +232,21 @@ repository can enumerate — has had a release in which it was told.
 
 The check belongs to the owner of the imaging-package migration, on the issue
 that tracks it, and every clause is settled by looking rather than by judging:
-at the imaging package's entry-point declaration, at SciStudio's dependency
-floor for that package, at the contents of `src/scistudio/previewers/`, and at
-the release that carried the deprecation. When all three hold, removal is a
-deletion and not a redesign: the shim, the four alias modules, the
-`scistudio.previewers` entry-point group, the two retained asset routes, and
-the retired drop-in directory names go together in one change.
+at the imaging package's published entry-point declaration and the directories
+that release ships, at the contents of `src/scistudio/previewers/` and of the
+test tree, and at the release that carried the deprecation. When all three
+hold, removal is a deletion and not a redesign: the shim, the four alias
+modules, the `scistudio.previewers` entry-point group, the two retained asset
+routes, and the retired drop-in directory names go together in one change.
+
+What the third clause buys is a bounded exposure rather than a guarantee, and
+that is worth saying rather than implying. After removal, an installation still
+holding a previewer written against the retired form gets the ordinary
+load-failure behaviour of the contract: the host renders its own error surface
+naming the panel and the failure, and mounts the fallback panel the backend
+named, so the data stays visible (FR-014). The shim shortens the window in
+which anyone meets that; it was never the only thing standing between an
+unmigrated previewer and a blank pane.
 
 ## 6. The Governance Transfer
 
