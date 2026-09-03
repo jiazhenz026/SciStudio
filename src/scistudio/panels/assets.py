@@ -275,14 +275,73 @@ def resolve_asset(manifest: FrontendManifest, relative_path: str) -> ServedAsset
     )
 
 
+# ---------------------------------------------------------------------------
+# The boundary the response carries (#2229)
+# ---------------------------------------------------------------------------
+
+#: The frame boundary, restated by the server that serves the document.
+#:
+#: FR-008's boundary is real, and it rests on **one attribute on one code
+#: path**: ``element.setAttribute("sandbox", PANEL_FRAME_SANDBOX)`` in
+#: ``frontend/src/panels/panelFrame.ts``. But the document is served as
+#: ``text/html`` from the application's own origin, so a package panel — or a
+#: project panel that arrived with a shared project — is an HTML document a
+#: browser will execute *at the application origin* if it is ever reached
+#: outside that frame: by direct navigation, by a link, by ``window.open``.
+#:
+#: Defence in depth, not a replacement. The CSP carries the same
+#: ``allow-scripts`` token the frame applies and no other, so it removes
+#: nothing a mounted panel can do today and makes the boundary a property of
+#: the document rather than of one call site. ``Referrer-Policy`` likewise
+#: mirrors the frame's own ``referrerpolicy="no-referrer"``.
+#:
+#: ``X-Frame-Options`` is deliberately absent. The mechanism *is* a document in
+#: a frame, and ``DENY`` would break every panel.
+PANEL_DOCUMENT_SECURITY_HEADERS = {
+    "Content-Security-Policy": "sandbox allow-scripts",
+    "Referrer-Policy": "no-referrer",
+}
+
+#: Carried by every served asset, not only the document. A ``.json`` or a
+#: ``.map`` that a browser sniffed as HTML would be the same problem the CSP
+#: above exists to close, arriving *through* the suffix allowlist rather than
+#: past it.
+PANEL_ASSET_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+}
+
+#: The media type the document headers key off, compared on the type alone so a
+#: charset parameter cannot make the check miss.
+_DOCUMENT_MEDIA_TYPE = "text/html"
+
+
+def panel_asset_security_headers(media_type: str) -> dict[str, str]:
+    """Return the boundary headers one served panel asset answers with.
+
+    Here rather than in a route for the same reason the confinement check is:
+    three routes serve panel files, and a boundary that held on one of them
+    would be a boundary a panel document reaches around by being requested
+    through another. The cross-origin *grant* is not here — it belongs to the
+    merged route alone (FR-021, A-008) and the two FR-022 routes must not gain
+    it.
+    """
+    headers = dict(PANEL_ASSET_SECURITY_HEADERS)
+    if media_type.split(";", 1)[0].strip().lower() == _DOCUMENT_MEDIA_TYPE:
+        headers |= PANEL_DOCUMENT_SECURITY_HEADERS
+    return headers
+
+
 __all__ = [
     "MAX_PANEL_ASSET_BYTES",
+    "PANEL_ASSET_SECURITY_HEADERS",
+    "PANEL_DOCUMENT_SECURITY_HEADERS",
     "ManifestValidation",
     "PanelAssetTooLargeError",
     "ServedAsset",
     "is_allowed_asset_suffix",
     "is_remote_url",
     "is_safe_panel_id",
+    "panel_asset_security_headers",
     "resolve_asset",
     "resolve_confined_asset",
     "validate_manifest",

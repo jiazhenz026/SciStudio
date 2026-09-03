@@ -136,6 +136,30 @@
       "at": "2026-09-03T19:09:18.382673Z",
       "pattern": "tests/api/test_panel_asset_cors.py",
       "reason": "FR-021's cross-origin clause needs an enforcement point outside the global CORS middleware; a dedicated ASGI guard module beside _logging_middleware.py, and the test that was missing entirely"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T19:16:25.822933Z",
+      "pattern": "src/scistudio/panels/assets.py",
+      "reason": "the boundary headers belong beside the one confinement check in panels/assets.py, because the two FR-022 routes serve the same text/html documents and a boundary on one route only is one a document reaches around through another"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T19:16:25.822950Z",
+      "pattern": "src/scistudio/api/routes/blocks.py",
+      "reason": "the boundary headers belong beside the one confinement check in panels/assets.py, because the two FR-022 routes serve the same text/html documents and a boundary on one route only is one a document reaches around through another"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T19:16:25.822953Z",
+      "pattern": "src/scistudio/api/routes/data.py",
+      "reason": "the boundary headers belong beside the one confinement check in panels/assets.py, because the two FR-022 routes serve the same text/html documents and a boundary on one route only is one a document reaches around through another"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T19:16:25.822954Z",
+      "pattern": "tests/api/test_panel_asset_headers.py",
+      "reason": "the boundary headers belong beside the one confinement check in panels/assets.py, because the two FR-022 routes serve the same text/html documents and a boundary on one route only is one a document reaches around through another"
     }
   ],
   "session_id": "15d14d4d-fb57-42c3-a79a-e57c559bddae",

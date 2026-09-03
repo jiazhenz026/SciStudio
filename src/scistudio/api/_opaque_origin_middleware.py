@@ -122,6 +122,4 @@ def _header(scope: Scope, name: bytes) -> str | None:
 def _is_grant(name: bytes) -> bool:
     """Whether *name* is a response header granting cross-origin access."""
     lowered = name.lower()
-    return lowered in _CROSS_ORIGIN_GRANT_HEADERS or lowered.decode("latin-1").startswith(
-        _CROSS_ORIGIN_GRANT_PREFIXES
-    )
+    return lowered in _CROSS_ORIGIN_GRANT_HEADERS or lowered.decode("latin-1").startswith(_CROSS_ORIGIN_GRANT_PREFIXES)

@@ -39,6 +39,7 @@ from scistudio.panels.assets import (
     PanelAssetTooLargeError,
     is_allowed_asset_suffix,
     is_safe_panel_id,
+    panel_asset_security_headers,
     resolve_confined_asset,
 )
 from scistudio.panels.discovery import discover_panels
@@ -306,3 +307,53 @@ def test_a_windows_short_name_style_join_stays_confined(tmp_path: Path) -> None:
     (tmp_path / "secret.html").write_text("secret\n", encoding="utf-8")
     with pytest.raises(MissingBundleError, match="escapes confinement root"):
         resolve_confined_asset(directory, "..\\..\\secret.html", panel_id="probe.win")
+
+
+# ---------------------------------------------------------------------------
+# The boundary the response carries (#2229)
+# ---------------------------------------------------------------------------
+
+
+def test_a_served_document_carries_the_frames_own_sandbox() -> None:
+    """FR-008's boundary is one attribute on one code path in the host; the
+    served document restates it so it holds however the document is reached.
+
+    Here rather than beside the confinement tests only in file order: it is the
+    same module, deliberately, because three routes serve these documents and a
+    boundary that held on one of them would be one a document reaches around by
+    being requested through another.
+    """
+    headers = panel_asset_security_headers("text/html; charset=utf-8")
+
+    assert headers["Content-Security-Policy"] == "sandbox allow-scripts"
+    assert headers["Referrer-Policy"] == "no-referrer"
+    assert headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_the_documents_sandbox_is_neither_stricter_nor_weaker_than_the_frames() -> None:
+    """Stricter and the panel cannot run; weaker and it regains the origin the
+    whole boundary exists to withhold."""
+    policy = panel_asset_security_headers("text/html")["Content-Security-Policy"]
+
+    assert "allow-scripts" in policy
+    assert "allow-same-origin" not in policy
+
+
+@pytest.mark.parametrize(
+    "media_type",
+    ["text/javascript", "application/json", "image/svg+xml", "text/css", "application/octet-stream"],
+)
+def test_a_non_document_asset_is_hardened_but_not_sandboxed(media_type: str) -> None:
+    """``nosniff`` rides on everything — a ``.json`` sniffed as HTML is the same
+    problem — but the sandbox directive belongs to the document."""
+    headers = panel_asset_security_headers(media_type)
+
+    assert headers["X-Content-Type-Options"] == "nosniff"
+    assert "Content-Security-Policy" not in headers
+
+
+def test_the_route_never_forbids_framing() -> None:
+    """The mechanism *is* a framed document; ``X-Frame-Options: DENY`` would
+    break every panel, so it is deliberately absent."""
+    for media_type in ("text/html", "text/javascript"):
+        assert "X-Frame-Options" not in panel_asset_security_headers(media_type)

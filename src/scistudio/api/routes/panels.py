@@ -74,6 +74,7 @@ from scistudio.core.panels import PanelCapability, PanelTier
 from scistudio.panels.assets import (
     PanelAssetTooLargeError,
     is_safe_panel_id,
+    panel_asset_security_headers,
     resolve_confined_asset,
 )
 from scistudio.panels.choices import (
@@ -122,6 +123,22 @@ PANEL_ASSET_CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
     "Cross-Origin-Resource-Policy": "cross-origin",
 }
+
+
+def panel_asset_headers(media_type: str) -> dict[str, str]:
+    """Return every header the *merged* route answers one asset with (#2229).
+
+    The cross-origin grant above, which is this route's alone (FR-021, A-008),
+    plus the boundary headers
+    :func:`~scistudio.panels.assets.panel_asset_security_headers` gives every
+    route that serves a panel file. The boundary lives beside the confinement
+    check rather than here for the same reason the confinement check does:
+    three routes serve these documents, and a boundary that held on one of them
+    would be a boundary a document reaches around by being requested through
+    another.
+    """
+    return dict(PANEL_ASSET_CORS_HEADERS) | panel_asset_security_headers(media_type)
+
 
 _USER_SCOPE = "user"
 _PROJECT_SCOPE = "project"
@@ -206,7 +223,7 @@ async def serve_panel_asset(panel_id: str, asset_path: str, runtime: RuntimeDep)
     return FileResponse(
         path=served.path,
         media_type=served.media_type,
-        headers=dict(PANEL_ASSET_CORS_HEADERS),
+        headers=panel_asset_headers(served.media_type),
     )
 
 

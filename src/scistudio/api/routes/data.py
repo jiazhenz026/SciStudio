@@ -52,7 +52,7 @@ from scistudio.panels import (
     UnknownPanelError,
     UnknownTargetError,
 )
-from scistudio.panels.assets import resolve_asset, validate_manifest
+from scistudio.panels.assets import panel_asset_security_headers, resolve_asset, validate_manifest
 from scistudio.panels.models import MissingBundleError, PreviewError
 from scistudio.panels.open_as import (
     clear_open_as,
@@ -537,4 +537,10 @@ async def serve_preview_asset(previewer_id: str, asset_path: str, runtime: Runti
         served = resolve_asset(spec.frontend_manifest, asset_path)
     except MissingBundleError as exc:
         raise HTTPException(status_code=404, detail=exc.message) from exc
-    return FileResponse(path=Path(served.path), media_type=served.media_type)
+    # #2229: the same boundary the merged route carries, for the same documents.
+    # Same-origin only, so no cross-origin grant (FR-021, A-008).
+    return FileResponse(
+        path=Path(served.path),
+        media_type=served.media_type,
+        headers=panel_asset_security_headers(served.media_type),
+    )
