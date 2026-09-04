@@ -88,6 +88,18 @@
       "at": "2026-09-04T14:46:07.899908Z",
       "pattern": "tests/api/test_explore_routes.py",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T15:57:41.509768Z",
+      "pattern": "src/scistudio/explore/session.py",
+      "reason": "The manager reassigned two further unwired seams from the parallel agent's pass: FR-051 (a cell's inline block call writes no lineage record) and FR-034 (environment_ref is None on every row). Both land in the bridge and in the session service, so session.py and its lineage tests join the write set."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T15:57:41.509787Z",
+      "pattern": "tests/explore/test_session_lineage.py",
+      "reason": "The manager reassigned two further unwired seams from the parallel agent's pass: FR-051 (a cell's inline block call writes no lineage record) and FR-034 (environment_ref is None on every row). Both land in the bridge and in the session service, so session.py and its lineage tests join the write set."
     }
   ],
   "session_id": "ca1819a4-3ae0-4148-a043-5fc4b875d596",
@@ -107,6 +119,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_explore_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T15:57:41.509794Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_session_lineage.py",
       "rationale": null,
       "verified_in_diff": null
     }

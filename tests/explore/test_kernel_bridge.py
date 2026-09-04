@@ -524,9 +524,15 @@ class _Doubler:
     below are then about the bridge alone.
     """
 
-    def __init__(self, outputs: dict[str, Any] | None = None, raises: Exception | None = None) -> None:
+    def __init__(
+        self,
+        outputs: dict[str, Any] | None = None,
+        raises: Exception | None = None,
+        data_object: Any = None,
+    ) -> None:
         self.outputs = outputs if outputs is not None else {"doubled": [2, 4, 6]}
         self.raises = raises
+        self.data_object = data_object
         self.seen: dict[str, Any] = {}
 
     def call_detailed(self, identifier: str, /, *, inputs: Any = None, config: Any = None) -> Any:
@@ -534,7 +540,7 @@ class _Doubler:
         self.seen = {"identifier": identifier, "inputs": dict(inputs or {}), "config": dict(config or {})}
         if self.raises is not None:
             raise self.raises
-        return _Result(outputs=dict(self.outputs), lineage=_lineage_for(identifier))
+        return _Result(outputs=dict(self.outputs), lineage=_lineage_for(identifier, self.data_object))
 
     def call(self, identifier: str, /, **kwargs: Any) -> Any:
         """The notebook-facing form ``blocks.run`` delegates to."""
@@ -552,7 +558,7 @@ class _Result:
     lineage: Any
 
 
-def _lineage_for(identifier: str) -> Any:
+def _lineage_for(identifier: str, data_object: Any = None) -> Any:
     """A real :class:`BlockCallLineage` with one edge, to render across the frame."""
     from scistudio.explore.block_call import BlockCallEdge, BlockCallLineage
 
@@ -573,8 +579,9 @@ def _lineage_for(identifier: str) -> Any:
                 object_id="object-1",
                 position=0,
                 type_name="Array",
-                # An object that could never be JSON: the point of the assertion below.
-                data_object=object(),
+                # Defaults to an object that could never be JSON and has no
+                # envelope either: the point of one of the assertions below.
+                data_object=data_object if data_object is not None else object(),
             ),
         ),
     )
@@ -686,13 +693,14 @@ def test_a_block_call_that_binds_nothing_still_reports(
 def test_a_block_calls_lineage_survives_the_frame(
     capsys: pytest.CaptureFixture[str], stub_adapter: Callable[..., _Doubler]
 ) -> None:
-    """FR-051's facts reach the caller; the edge's data object deliberately does not.
+    """FR-051's facts reach the caller; the edge's data *object* deliberately does not.
 
     The reply has been through ``json.dumps`` and base64 by the time it is read
     here, so this asserts what actually survives rather than what the dataclass
-    holds. The data object exists only in the kernel and no serialisation of it
-    would be the same object, so the frame carries facts and the caller takes
-    objects from the adapter's own callback inside the kernel.
+    holds. The object exists only in the kernel and no serialisation of it would
+    be the same object; what travels in its place is the wire envelope a
+    ``data_objects`` row stores, and this adapter's stand-in object has none, so
+    the edge carries ``None`` and every other fact regardless.
     """
     stub_adapter()
 
@@ -712,8 +720,90 @@ def test_a_block_calls_lineage_survives_the_frame(
             "object_id": "object-1",
             "position": 0,
             "type_name": "Array",
+            "data_object": None,
         }
     ]
+
+
+def test_an_edges_data_object_crosses_the_frame_as_its_wire_envelope(
+    capsys: pytest.CaptureFixture[str], stub_adapter: Callable[..., _Doubler], tmp_path: Path
+) -> None:
+    """FR-051 records a call's objects "as they are for a workflow run" (#2240).
+
+    A ``data_objects`` row stores the reference-only envelope, and the object the
+    row is about lives in the kernel — so the envelope is what has to cross, and
+    it has to be the *same* envelope a workflow step writes, or the object a cell
+    passed to a block would be a different object in the catalog from the one a
+    workflow passed to the same block.
+
+    The object is saved first because an envelope *is* a reference: an object
+    with nothing behind it has none, and the edge then carries its identity and
+    its type alone (the assertion above).
+    """
+    from scistudio.core.types.serialization import _serialise_one
+    from scistudio.core.types.text import Text
+
+    text = Text(content="a value a block returned")
+    text.save(tmp_path / "value.txt")
+    stub_adapter(data_object=text)
+
+    kernel_bridge._dispatch({"data": [1]}, _request(action="block_call", identifier="Doubler"))
+    edge = _decode_frame(capsys.readouterr().out)["result"]["lineage"]["edges"][0]
+
+    assert edge["data_object"] == json.loads(json.dumps(_serialise_one(text))), (
+        "the envelope is not the one the engine writes for the same object"
+    )
+    assert edge["data_object"]["metadata"]["type_chain"][-1] == "Text"
+
+
+@pytest.fixture(autouse=True)
+def _empty_block_call_buffer() -> Iterator[None]:
+    """Start and end every test with the kernel-side block-call buffer empty.
+
+    It is process state (a kernel serves one session), so a test that left a
+    call in it would hand it to the next test's drain.
+    """
+    kernel_bridge.drain_block_calls()
+    try:
+        yield
+    finally:
+        kernel_bridge.drain_block_calls()
+
+
+def test_the_buffer_keeps_calls_in_order_and_hands_each_out_once() -> None:
+    """FR-051's drain: everything since the last one, in order, exactly once (#2240).
+
+    The buffer exists because the hook fires inside the kernel, where there is
+    no lineage store and no way to reach one. What makes it safe is that the
+    service takes rather than reads: a payload handed out twice would be a
+    second ``BlockExecutionRecord`` for one execution.
+    """
+    first = _lineage_for("First")
+    second = _lineage_for("Second")
+
+    kernel_bridge.record_block_call_lineage(first)
+    kernel_bridge.record_block_call_lineage(second)
+
+    drained = kernel_bridge.drain_block_calls()
+    assert [call["block_identifier"] for call in drained] == ["First", "Second"]
+    assert kernel_bridge.drain_block_calls() == [], "the second drain handed the same calls out again"
+
+
+def test_a_lineage_that_will_not_render_does_not_break_the_cell() -> None:
+    """A provenance buffer that could raise would cost people their work (#2240).
+
+    The hook runs inside the person's own cell, on the adapter's thread. An
+    object it cannot render is a gap in the record; it is not a reason for
+    ``blocks.run(...)`` to raise something the person did not write.
+    """
+
+    class _Unrenderable:
+        def __getattr__(self, name: str) -> Any:
+            raise RuntimeError("this lineage will not answer")
+
+    kernel_bridge.record_block_call_lineage(_Unrenderable())
+
+    assert kernel_bridge.drain_block_calls() == []
 
 
 def test_a_block_call_names_an_input_the_kernel_does_not_have(
@@ -1158,7 +1248,7 @@ from scistudio.blocks.base import Block, BlockConfig, OutputPort
 from scistudio.blocks.registry import BlockRegistry, BlockSpec
 from scistudio.core.types import Text
 from scistudio.explore.block_call import BlockCallAdapter
-from scistudio.explore.kernel_bridge import set_block_call_adapter
+from scistudio.explore.kernel_bridge import record_block_call_lineage, set_block_call_adapter
 
 
 class Greeter(Block):
@@ -1174,23 +1264,42 @@ class Greeter(Block):
         return {"out": Text(content=config.get("greeting", "hello"))}
 
 
+class Exploder(Block):
+    """Raises, so that a failed call has a record to be asserted about."""
+
+    name = "Exploder"
+    version = "1.0.0"
+    input_ports: ClassVar[list] = []
+    output_ports: ClassVar[list[OutputPort]] = [OutputPort(name="out", accepted_types=[Text])]
+
+    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
+        """Fail the way a person's block fails."""
+        raise RuntimeError("this block was never going to work")
+
+
 def install() -> None:
-    """Register Greeter and hand the kernel an adapter that can resolve it."""
+    """Register the blocks and hand the kernel an adapter that can resolve them."""
     registry = BlockRegistry()
-    spec = BlockSpec(
-        name=Greeter.name,
-        type_name=Greeter.name.lower(),
-        version=Greeter.version,
-        module_path=__name__,
-        class_name=Greeter.__name__,
-        base_category="process",
-        input_ports=[],
-        output_ports=list(Greeter.output_ports),
-        execution_mode=Greeter.execution_mode.value,
+    for cls in (Greeter, Exploder):
+        spec = BlockSpec(
+            name=cls.name,
+            type_name=cls.name.lower(),
+            version=cls.version,
+            module_path=__name__,
+            class_name=cls.__name__,
+            base_category="process",
+            input_ports=[],
+            output_ports=list(cls.output_ports),
+            execution_mode=cls.execution_mode.value,
+        )
+        registry._registry[spec.name] = spec
+        registry._aliases[spec.type_name] = spec.name
+    # ``on_call`` is what makes a cell's own ``blocks.run(...)`` reach the
+    # session's lineage: the inline call never touches the bridge's block_call
+    # action, so the hook is the only place it can be seen (FR-051).
+    set_block_call_adapter(
+        BlockCallAdapter(registry=registry, session_id="session-1", on_call=record_block_call_lineage)
     )
-    registry._registry[spec.name] = spec
-    registry._aliases[spec.type_name] = spec.name
-    set_block_call_adapter(BlockCallAdapter(registry=registry, session_id="session-1"))
 '''
 
 
@@ -1232,6 +1341,85 @@ def test_a_cell_calls_a_block_through_the_bound_name(kernels: Callable[..., Any]
     assert "greeting" in listed, "the cell's own variable is missing from the bindings list"
     assert "blocks" not in listed, "the injected name was reported as one of the person's variables"
     assert "blocks" not in bridge.fingerprints()
+
+
+@requires_kernel
+@pytest.mark.serial
+def test_a_cells_own_block_call_reaches_the_drain(kernels: Callable[..., Any], tmp_path: Path) -> None:
+    """FR-051 for the path a person actually uses (#2240).
+
+    A cell writes ``blocks.run(...)``. That call never touches
+    :meth:`KernelBridge.block_call` — it goes straight to the adapter inside the
+    kernel — so a drain that only covered the bridge's own action would report
+    nothing here while claiming FR-051 was met. This runs the real cell on a
+    real kernel and then asks the bridge what the session would write.
+
+    Draining twice is the second half: a call is one execution, and a payload
+    that came back twice would be two ``BlockExecutionRecord`` rows for it.
+    """
+    from scistudio.explore.kernel_bridge import KernelBridge
+
+    module_dir = tmp_path / "probe"
+    module_dir.mkdir()
+    (module_dir / "scistudio_probe_block.py").write_text(_PROBE_BLOCK_MODULE, encoding="utf-8")
+    inherited = os.environ.get("PYTHONPATH", "")
+    handle = kernels(env={"PYTHONPATH": os.pathsep.join(filter(None, [str(module_dir), inherited]))})
+    handle.start()
+    bridge = KernelBridge(handle, timeout=_EXEC_TIMEOUT)
+    bridge.install(mode="session")
+    prepared = handle.execute("import scistudio_probe_block\nscistudio_probe_block.install()", timeout=_EXEC_TIMEOUT)
+    assert prepared.status == "ok", prepared.error
+
+    assert bridge.block_calls() == (), "something was buffered before any cell called a block"
+    result = handle.execute('greeting = blocks.run("Greeter", greeting="from a cell")', timeout=_EXEC_TIMEOUT)
+    assert result.status == "ok", result.error
+
+    calls = bridge.block_calls()
+    assert len(calls) == 1, f"the inline call left {len(calls)} records"
+    call = calls[0]
+    assert call["session_id"] == "session-1", "the record has no session to hang off"
+    assert call["block_identifier"] == "Greeter"
+    assert call["block_type"] == "greeter"
+    assert call["block_version"] == "1.0.0"
+    assert call["termination"] == "completed"
+    assert [(edge["direction"], edge["port_name"]) for edge in call["edges"]] == [("output", "out")]
+
+    assert bridge.block_calls() == (), "the drain handed the same call out twice"
+
+
+@requires_kernel
+@pytest.mark.serial
+def test_a_cells_block_call_that_raised_is_still_recorded(kernels: Callable[..., Any], tmp_path: Path) -> None:
+    """FR-051 does not say "a call that succeeded" (#2240).
+
+    ``termination`` has an ``"error"`` value precisely because a call that blew
+    up is a thing that happened, and the person asking later why a notebook
+    produced nothing is exactly who needs it. The adapter fires its hook before
+    the exception propagates, which is why the buffering is on the hook rather
+    than around either door: a wrapper around a raising call would see the
+    exception and no lineage.
+    """
+    from scistudio.explore.kernel_bridge import KernelBridge
+
+    module_dir = tmp_path / "probe"
+    module_dir.mkdir()
+    (module_dir / "scistudio_probe_block.py").write_text(_PROBE_BLOCK_MODULE, encoding="utf-8")
+    inherited = os.environ.get("PYTHONPATH", "")
+    handle = kernels(env={"PYTHONPATH": os.pathsep.join(filter(None, [str(module_dir), inherited]))})
+    handle.start()
+    bridge = KernelBridge(handle, timeout=_EXEC_TIMEOUT)
+    bridge.install(mode="session")
+    prepared = handle.execute("import scistudio_probe_block\nscistudio_probe_block.install()", timeout=_EXEC_TIMEOUT)
+    assert prepared.status == "ok", prepared.error
+
+    result = handle.execute('blocks.run("Exploder")', timeout=_EXEC_TIMEOUT)
+    assert result.status == "error", "the fixture block did not fail"
+
+    calls = bridge.block_calls()
+    assert len(calls) == 1, "a call that raised left no record"
+    assert calls[0]["termination"] == "error"
+    assert calls[0]["block_identifier"] == "Exploder"
+    assert calls[0]["termination_detail"], "the record says it failed but not why"
 
 
 @requires_kernel

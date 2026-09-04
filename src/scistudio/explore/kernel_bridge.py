@@ -98,9 +98,11 @@ __all__ = [
     "bindings",
     "block_call_adapter",
     "cell_installs_packages",
+    "drain_block_calls",
     "environment_snapshot",
     "fingerprints",
     "memory_bytes",
+    "record_block_call_lineage",
     "scistudio_type_name",
     "session_kernel_env",
     "set_block_call_adapter",
@@ -631,6 +633,13 @@ def set_block_call_adapter(adapter: Any) -> None:
     on this side. Passing ``None`` drops the installed adapter and the next
     call builds a default one.
 
+    An adapter installed this way must be built with
+    ``on_call=record_block_call_lineage`` if its calls are to reach the
+    session's lineage (FR-051). The default adapter :func:`block_call_adapter`
+    builds carries the hook; one handed in here carries whatever its builder
+    gave it, and this deliberately does not reach into it to attach one — an
+    adapter is somebody else's object.
+
     Args:
         adapter: The adapter to use, or ``None`` to reset.
     """
@@ -641,6 +650,11 @@ def set_block_call_adapter(adapter: Any) -> None:
 @provisional(since="0.3.4")
 def block_call_adapter(session_id: str | None = None) -> Any:
     """The installed adapter, building a default one on first use.
+
+    The default adapter is built with
+    :func:`record_block_call_lineage` as its ``on_call`` hook, so every call it
+    makes — a cell's ``blocks.run(...)`` included — buffers its lineage for the
+    service to drain and write (FR-051).
 
     Args:
         session_id: Carried into the lineage of every call this default adapter
@@ -654,7 +668,7 @@ def block_call_adapter(session_id: str | None = None) -> Any:
     if _ADAPTER is None:
         from scistudio.explore.block_call import BlockCallAdapter
 
-        _ADAPTER = BlockCallAdapter(session_id=session_id)
+        _ADAPTER = BlockCallAdapter(session_id=session_id, on_call=record_block_call_lineage)
     return _ADAPTER
 
 
@@ -801,14 +815,103 @@ def _bind_outputs(namespace: dict[str, Any], outputs: Mapping[str, Any], bind: A
     return bound
 
 
+#: Lineage for the block calls this kernel has made since the service last
+#: drained it (FR-051). Process state for the same reason the adapter is: a
+#: kernel serves one session.
+#:
+#: A buffer rather than a direct write because the store is on the *other* side
+#: of the kernel boundary. The adapter fires its ``on_call`` hook inside this
+#: process, where there is no lineage store and no way to reach one; the
+#: service drains this after every cell run and writes the rows.
+_BLOCK_CALL_LINEAGE: list[dict[str, Any]] = []
+
+
+@provisional(since="0.3.4")
+def record_block_call_lineage(lineage: Any) -> None:
+    """Buffer one block call's lineage for the service to drain (FR-051).
+
+    This is the ``on_call`` hook :func:`block_call_adapter` installs, and it is
+    the hook rather than a wrapper around either door on purpose. **The path a
+    person actually uses is the inline one** — a cell writing
+    ``blocks.run("imaging.find_peaks", img=img)`` — which never reaches
+    :meth:`KernelBridge.block_call`; a drain that only covered the bridge's own
+    action would satisfy FR-051 on paper and leave every real call unrecorded.
+    The hook covers both doors, and it covers the call that *raised*: the
+    adapter fires it from ``finish()`` before the exception propagates, so a
+    block that failed still writes a record with ``termination="error"``, which
+    is what FR-051 asks for and what a wrapper around a raising call could not
+    give.
+
+    Never raises. A lineage buffer that could break a cell would be a provenance
+    feature that costs people their work.
+
+    Args:
+        lineage: The :class:`~scistudio.explore.block_call.BlockCallLineage` the
+            adapter built for the call.
+    """
+    try:
+        payload = _lineage_payload(lineage)
+    except Exception:  # pragma: no cover - a lineage that will not render
+        return
+    if payload is not None:
+        _BLOCK_CALL_LINEAGE.append(payload)
+
+
+@provisional(since="0.3.4")
+def drain_block_calls() -> list[dict[str, Any]]:
+    """Take and clear the buffered block-call lineage (FR-051).
+
+    Draining rather than reading, because every call must be written exactly
+    once: the service records what comes back, and a second drain of the same
+    call would be a second ``BlockExecutionRecord`` for one execution.
+
+    Returns:
+        One payload per call since the last drain, in the order the calls were
+        made.
+    """
+    drained = list(_BLOCK_CALL_LINEAGE)
+    _BLOCK_CALL_LINEAGE.clear()
+    return drained
+
+
+def _data_object_payload(data_object: Any) -> dict[str, Any] | None:
+    """Serialise one edge's data object into the envelope a lineage row stores.
+
+    FR-051 records a call's inputs and outputs "as they are for a workflow
+    run", and what a workflow run stores in ``data_objects.wire_payload`` is the
+    reference-only envelope :func:`scistudio.core.types.serialization._serialise_one`
+    writes. Using the same function is the point: an object a cell passed to a
+    block and an object a workflow step passed to one are the same object in
+    the catalog, reconstructable the same way.
+
+    The object itself still cannot cross the frame — it lives in this process —
+    but its envelope is exactly the reference the row wants, so this is not a
+    lossy substitute for it.
+
+    Returns:
+        The envelope, or ``None`` for an object that cannot be serialised. A
+        row with an empty payload still carries the object's identity and type,
+        which is enough for the edge; refusing the whole call over one
+        unserialisable port would lose more.
+    """
+    if data_object is None:
+        return None
+    try:
+        from scistudio.core.types.serialization import _serialise_one
+
+        return _serialise_one(data_object)
+    except Exception:  # an object with no envelope is still an edge
+        return None
+
+
 def _lineage_payload(lineage: Any) -> dict[str, Any] | None:
     """Render :class:`BlockCallLineage` into something the frame can carry.
 
-    Every field of a ``BlockExecutionRecord`` survives; each edge's
-    ``data_object`` deliberately does not. The object exists only in the kernel
-    and no serialisation of it would be the same object, so a caller that needs
-    it takes it from the adapter's own ``on_call`` inside the kernel rather
-    than from this reply, which carries facts.
+    Every field of a ``BlockExecutionRecord`` survives, and each edge carries
+    its data object's *wire envelope* rather than the object: the object exists
+    only in this process, but the envelope is precisely what a ``data_objects``
+    row stores, so the service can build the same row a workflow run would
+    (:func:`_data_object_payload`).
     """
     if lineage is None:
         return None
@@ -832,6 +935,7 @@ def _lineage_payload(lineage: Any) -> dict[str, Any] | None:
                 "object_id": edge.object_id,
                 "position": edge.position,
                 "type_name": edge.type_name,
+                "data_object": _data_object_payload(edge.data_object),
             }
             for edge in lineage.edges
         ],
@@ -979,6 +1083,8 @@ def _handle(namespace: dict[str, Any], payload: Mapping[str, Any]) -> Any:
             }
             for binding in bindings(namespace)
         ]
+    if action == "block_calls":
+        return drain_block_calls()
     if action == "memory":
         return memory_bytes()
     if action == "environment":
@@ -1111,6 +1217,25 @@ class KernelBridge:
             )
             for entry in raw
         )
+
+    def block_calls(self) -> tuple[dict[str, Any], ...]:
+        """Take the block calls this kernel has made since the last drain (FR-051).
+
+        The session calls this after every cell run and writes each payload as a
+        ``BlockExecutionRecord`` against itself. It **drains**: a payload comes
+        back once, because a call is one execution and a second write of it
+        would be a second row for it.
+
+        Each edge carries its data object's wire envelope under
+        ``data_object``, which is what a ``data_objects`` row stores, so the
+        recorder can build the same row a workflow run would.
+
+        Returns:
+            One payload per call, in the order the calls were made. Empty when
+            the cell called no block, which is the ordinary case.
+        """
+        raw = self._call({"action": "block_calls"})
+        return tuple(dict(entry) for entry in raw or ())
 
     def memory_bytes(self) -> int | None:
         """Resident memory the kernel reports for itself (FR-009).
