@@ -165,6 +165,24 @@
       "at": "2026-09-04T11:01:55.952677Z",
       "pattern": "tests/blocks/registry/**",
       "reason": "S3-C2 found that a generated packaged block declares version = <notebook commit> but _spec_from_class force-injects the distribution version and _resolve_block_version prefers the spec, so lineage stamps the SciStudio version instead of the commit; FR-054 makes the commit sha the link from a run back to its session, so the requirement is unmet without a fix in the registry spec or the scheduler's lineage"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T13:01:15.670272Z",
+      "pattern": "src/scistudio/api/app.py",
+      "reason": "S3-C3 found that create_app never mounts the explore router, so 23 routes are dead code, and that the mount has an ordering constraint against the SPA static mount; and that SessionService.retire_kernels is never called on a branch change, so FR-014 is unmet. Both wiring points are outside the spec's section 4.2 file table"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T13:01:15.670293Z",
+      "pattern": "src/scistudio/api/routes/git.py",
+      "reason": "S3-C3 found that create_app never mounts the explore router, so 23 routes are dead code, and that the mount has an ordering constraint against the SPA static mount; and that SessionService.retire_kernels is never called on a branch change, so FR-014 is unmet. Both wiring points are outside the spec's section 4.2 file table"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T13:01:15.670295Z",
+      "pattern": "tests/api/**",
+      "reason": "S3-C3 found that create_app never mounts the explore router, so 23 routes are dead code, and that the mount has an ordering constraint against the SPA static mount; and that SessionService.retire_kernels is never called on a branch change, so FR-014 is unmet. Both wiring points are outside the spec's section 4.2 file table"
     }
   ],
   "session_id": "8c06bfb9-2c49-447a-b286-4ed23bc35536",
