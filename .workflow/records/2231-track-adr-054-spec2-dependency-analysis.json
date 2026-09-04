@@ -73,7 +73,26 @@
   },
   "runtime": "kimi",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:25:34.086267Z",
+      "pattern": "tests/architecture/test_placement.py",
+      "reason": "S2-B1 reports two surfaces the original scope missed: tests/architecture/test_placement.py enumerates top-level packages independently of the layer test and fails when a subsystem is added, and the ADR-054 and spec front matter must move planned_governs entries into governs in the same commit range that creates the package or full_audit errors either way"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:25:34.086285Z",
+      "pattern": "docs/adr/ADR-054.md",
+      "reason": "S2-B1 reports two surfaces the original scope missed: tests/architecture/test_placement.py enumerates top-level packages independently of the layer test and fails when a subsystem is added, and the ADR-054 and spec front matter must move planned_governs entries into governs in the same commit range that creates the package or full_audit errors either way"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:25:34.086289Z",
+      "pattern": "docs/specs/adr-054-notebook-dependency-analysis.md",
+      "reason": "S2-B1 reports two surfaces the original scope missed: tests/architecture/test_placement.py enumerates top-level packages independently of the layer test and fails when a subsystem is added, and the ADR-054 and spec front matter must move planned_governs entries into governs in the same commit range that creates the package or full_audit errors either way"
+    }
+  ],
   "session_id": "172b5b7b-49d5-4461-abba-a645e9f606d4",
   "strictness_tier": null,
   "task_kind": "manager",
