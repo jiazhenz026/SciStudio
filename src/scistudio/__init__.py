@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING, Any
 from scistudio.version import __version__
 
 if TYPE_CHECKING:  # pragma: no cover - imported for annotations only
-    from scistudio.explore.notebook_api import input, load, output
+    from scistudio.explore.notebook_api import blocks, input, load, output
 
-__all__ = ["__version__", "input", "load", "output"]
+__all__ = ["__version__", "blocks", "input", "load", "output"]
 
 #: The notebook helpers, exposed lazily (ADR-054 FR-010; spec assumption A-006).
 #: A notebook writes ``scistudio.load(scistudio.input("signal"))``, so the three
@@ -21,7 +21,13 @@ __all__ = ["__version__", "input", "load", "output"]
 #: resolved on first attribute access, the way
 #: :mod:`scistudio.qa.governance` resolves its own delegated surface: importing
 #: ``scistudio`` still costs only the version.
-_LAZY_EXPLORE_HELPERS = frozenset({"input", "load", "output"})
+#:
+#: ``blocks`` joins them for ADR-054 FR-049: a cell calls a block as
+#: ``scistudio.blocks.run("Smooth", data=x)``. The bare ``blocks`` name the
+#: session kernel binds exists only inside a session, so a notebook packaged as
+#: a block would carry a name its nbconvert run does not have; reaching the same
+#: object through the package is what makes one notebook run in both modes.
+_LAZY_EXPLORE_HELPERS = frozenset({"blocks", "input", "load", "output"})
 
 
 def __getattr__(name: str) -> Any:

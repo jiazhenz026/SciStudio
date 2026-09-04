@@ -55,6 +55,12 @@ from scistudio.stability import provisional
 if TYPE_CHECKING:  # pragma: no cover - imported for annotations only
     from scistudio.core.storage.ref import StorageReference
     from scistudio.core.types.base import DataObject
+    from scistudio.explore.kernel_bridge import NotebookBlocks
+
+    #: Declared for the type checker and for the ``__all__`` audit; resolved at
+    #: runtime by this module's ``__getattr__``. See it for why the import is
+    #: not a module-level one.
+    blocks: NotebookBlocks
 
 __all__ = [
     "ARTEFACT_REFERENCE_SCHEME",
@@ -71,6 +77,7 @@ __all__ = [
     "NotebookPortError",
     "SessionBinding",
     "bind_session",
+    "blocks",
     "clear_declared_outputs",
     "clear_session",
     "current_mode",
@@ -892,3 +899,27 @@ def _required_dir(variable: str) -> Path:
         )
         raise NotebookModeError(msg)
     return Path(raw)
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve ``blocks`` on first use (FR-049).
+
+    ``blocks`` is the block-calling surface a notebook writes as
+    ``scistudio.blocks.run("Smooth", data=x)``. It lives on
+    :mod:`scistudio.explore.kernel_bridge` beside the machinery that binds the
+    bare ``blocks`` name into a session kernel, and is reached from here so the
+    top-level package can re-export it beside ``input``, ``output`` and
+    ``load`` without either module importing the other at module scope —
+    ``kernel_bridge`` already imports *this* module, so a module-level import
+    back would be a cycle.
+
+    The object holds no adapter and resolves one per call, so it works
+    unchanged in packaged mode: a packaged notebook that calls a block gets the
+    process's default adapter over the block registry, which is exactly what a
+    session cell gets before a session installs its own.
+    """
+    if name == "blocks":
+        from scistudio.explore.kernel_bridge import notebook_blocks
+
+        return notebook_blocks()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

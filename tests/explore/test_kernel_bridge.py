@@ -43,6 +43,7 @@ from __future__ import annotations
 import ast
 import base64
 import contextlib
+import gc
 import hashlib
 import importlib.util
 import json
@@ -51,6 +52,7 @@ import re
 import subprocess
 import sys
 import time
+import weakref
 import zipfile
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
@@ -1231,7 +1233,15 @@ def test_the_helpers_answer_the_installed_binding(
     printed = "".join(output.text or "" for output in result.outputs if output.output_type == "stream")
     assert result.status == "ok", result.error
     assert printed.strip().endswith("3")
-    assert bridge.declared_outputs() == ("result",)
+    # FR-055: the declaration carries the object's *identity* across the frame,
+    # not just its name. Without that there is nothing for the service to join a
+    # declared name to, and the durable set the retention planner subtracts with
+    # is empty however much a notebook declares (#2240 audit P1-2).
+    (declared,) = bridge.declared_outputs()
+    assert declared["name"] == "result"
+    assert declared["type_name"] == "DataFrame"
+    assert declared["object_id"], "the declaration crossed the frame with no object identity"
+    assert declared["data_object"]["path"], "the declaration carries no storage envelope"
 
 
 #: A block, and the registration that makes it findable, written into a
@@ -1562,3 +1572,89 @@ def test_a_bridge_call_waits_behind_a_running_cell(bridge_over_kernel: Callable[
     assert finished, "the slow cell never finished"
     assert answered >= finished[0], "the bridge answered before the cell ahead of it"
     assert "late" in listed, "the bridge did not see the namespace the cell left"
+
+
+def test_the_declarable_map_does_not_keep_a_block_call_result_alive() -> None:
+    """The FR-055 identity map must not be why memory does not come back (#2240).
+
+    ``blocks.run(...)`` returns a native, so joining a declared name to the
+    object a call produced needs a map from one to the other. Holding the value
+    in that map would keep every result alive for the life of the kernel — a
+    cell that calls a block a hundred times would pin a hundred arrays even
+    after rebinding the name — which is a bad trade for a provenance hint in a
+    tool that reports kernel memory per session.
+
+    So the map holds a weak reference wherever the type supports one, which
+    covers every large object, and confirms a hit with ``is`` so a reused ``id``
+    cannot be mistaken for the original.
+    """
+
+    class _Opaque:
+        """A data object with no in-memory form, so it unwraps to itself.
+
+        Weak-referenceable, which is what every large object a block returns —
+        array, frame, data object — has in common.
+        """
+
+        def to_memory(self) -> object:
+            raise NotImplementedError
+
+    kernel_bridge._DECLARABLE_BY_ID.clear()
+    try:
+        value = _Opaque()
+        kernel_bridge._remember_declarable(_lineage_of(value, "obj-1", "Array"))
+        assert kernel_bridge._declarable_for(value) == ("obj-1", "Array")
+
+        tracked = weakref.ref(value)
+        del value
+        gc.collect()
+        assert tracked() is None, "the identity map kept the block call's result alive"
+
+        kernel_bridge._prune_declarable()
+        assert kernel_bridge._DECLARABLE_BY_ID == {}, "a dead entry was left where a reused id could match it"
+    finally:
+        kernel_bridge._DECLARABLE_BY_ID.clear()
+
+
+def test_a_value_that_cannot_be_weakly_referenced_is_still_matched() -> None:
+    """A ``str`` supports no weakref, and holding one costs nothing.
+
+    The fallback matters because ``Text`` unwraps to a ``str``: a map that only
+    handled weak-referenceable values would silently fail to make a declared
+    text output durable, which is the commonest shape of all.
+    """
+
+    class _Textish:
+        """Unwraps to a ``str``, the way ``Text`` does."""
+
+        def __init__(self, content: str) -> None:
+            self._content = content
+
+        def to_memory(self) -> str:
+            return self._content
+
+    text = "a value no weakref can hold"
+    kernel_bridge._DECLARABLE_BY_ID.clear()
+    try:
+        kernel_bridge._remember_declarable(_lineage_of(_Textish(text), "obj-2", "Text"))
+        assert kernel_bridge._declarable_for(text) == ("obj-2", "Text")
+        assert kernel_bridge._declarable_for("an unrelated string") is None
+    finally:
+        kernel_bridge._DECLARABLE_BY_ID.clear()
+
+
+def _lineage_of(data_object: object, object_id: str, type_name: str) -> object:
+    """One output edge's worth of block-call lineage, as the hook receives it."""
+
+    @dataclass
+    class _Edge:
+        direction: str
+        object_id: str
+        type_name: str
+        data_object: object
+
+    @dataclass
+    class _Lineage:
+        edges: tuple[object, ...]
+
+    return _Lineage(edges=(_Edge("output", object_id, type_name, data_object),))

@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import keyword
 import logging
+import os
 import queue as stdlib_queue
 import re
 import threading
@@ -51,8 +52,11 @@ from scistudio.explore.dependency_analysis import (
     DependencyGraph,
     analyse_cells,
     build_graph,
+    encode_cell_record,
+    encode_notebook_record,
     source_hash,
 )
+from scistudio.explore.fingerprint import ObservedChange
 from scistudio.explore.lineage import ExploreLineage
 from scistudio.explore.notebook import (
     NotebookCell,
@@ -128,6 +132,11 @@ _ENVIRONMENTS_DIR_NAME: Final[str] = "environments"
 #: Notebook-level metadata key holding the ref-safe session id (FR-001).
 SESSION_ID_METADATA_KEY: Final[str] = "session_id"
 
+#: Notebook-level metadata key holding the analysis version (analysis FR-031).
+#: A sibling of :data:`SESSION_ID_METADATA_KEY` under the same ``scistudio``
+#: namespace, written through the same setter so neither disturbs the other.
+_ANALYSIS_VERSION_KEY: Final[str] = "analysis_version"
+
 #: What a session id may look like, so that a notebook path containing a
 #: character git refuses in a ref name never reaches ``update-ref`` (FR-001).
 #: Matches ``_commit_ops._SESSION_ID_RE``, which is the backstop this satisfies.
@@ -172,6 +181,21 @@ class SessionError(RuntimeError):
 @provisional(since="0.3.4")
 class NothingToExploreError(SessionError):
     """A session was requested over outputs that have never been produced (FR-002)."""
+
+
+@provisional(since="0.3.4")
+class PathEscapesProjectError(SessionError):
+    """A session was requested over a file outside the project's data tree (FR-002).
+
+    FR-002 opens a session over "a file in the project's data tree". A path that
+    resolves outside the project is refused rather than accepted, because the
+    notebook the session writes records the path verbatim in its first cell: a
+    session over ``../../../../etc/passwd`` produces a notebook that is not
+    portable and whose data source is not in the project the notebook lives in.
+
+    A *missing* file is still not refused — that is the documented edge case
+    (spec §2) and is a different question from where the path points.
+    """
 
 
 @provisional(since="0.3.4")
@@ -1110,6 +1134,12 @@ class ExploreSession:
         # there is no store to write them to. Drained here, once per run,
         # because this is the point at which the cell that made them is known.
         self._service._record_block_calls(self, cell_id, self._drain_block_calls())
+        # FR-055: the names this notebook has declared through ``scistudio.output``
+        # are durable. Read after the block calls are written, because a name
+        # declared in this very cell usually points at an object a call in this
+        # very cell produced, and the declaration is an edge onto that call's
+        # record.
+        self._service._record_declared_outputs(self, self._read_declared_outputs())
 
         self._record_outputs(cell_id, result)
         self._apply_observation(cell_id, observation, in_order=not reads)
@@ -1144,6 +1174,25 @@ class ExploreSession:
             return bridge.block_calls()
         except Exception as error:
             self._service._note_provenance_failure(self.session_id, "read the block calls a cell made", error)
+            return ()
+
+    def _read_declared_outputs(self) -> tuple[Mapping[str, Any], ...]:
+        """What the notebook has declared through ``scistudio.output`` (FR-055).
+
+        Best effort, on the same terms as :meth:`_drain_block_calls`: a bridge
+        that cannot answer marks the session's provenance degraded and the run
+        stands. Reading rather than draining, because the declarations are the
+        notebook's current statement of what it produces and a re-declaration of
+        the same name must stay idempotent — ``declare_output`` is keyed on the
+        edge, so declaring twice writes once.
+        """
+        bridge = self.bridge
+        if bridge is None:
+            return ()
+        try:
+            return bridge.declared_outputs()
+        except Exception as error:
+            self._service._note_provenance_failure(self.session_id, "read the notebook's declared outputs", error)
             return ()
 
     def _record_outputs(self, cell_id: str, result: ExecutionResult) -> None:
@@ -1272,6 +1321,7 @@ class ExploreSession:
             if current.get(cell_id) == observation.source_hash
         }
         self._graph = build_graph(self._facts, enabled=enabled, observations=dict(self._observations))
+        self._store_analysis_records()
 
         known = set(current)
         if keep_marks:
@@ -1289,6 +1339,50 @@ class ExploreSession:
         else:
             self._marks = {cell_id: {CellMark.NEVER_RUN} for cell_id in known}
             self._reasons = {}
+
+    def _store_analysis_records(self) -> None:
+        """Write the analysis into the notebook's metadata (analysis FR-031, FR-034).
+
+        The analysis spec makes storing the record a MUST — "the per-cell record
+        MUST be stored under the ``scistudio`` key of the cell's metadata",
+        with a notebook-level record holding the analysis version — and its
+        FR-034 says who does it: *"Loading and saving the notebook file is the
+        explore-session spec's; this spec defines the record and its codec."*
+        The codec was written and complete on both sides, and **nothing called
+        either half**: ``encode_cell_record``, ``encode_notebook_record`` and
+        ``NotebookDocument.set_analysis_record`` had no production caller, so
+        no notebook ever carried a record and this spec's own FR-032 — "the
+        record ... MUST be preserved by every write" — held only vacuously.
+
+        Called from :meth:`_rebuild`, so the document carries the current
+        analysis the moment the analysis changes and every subsequent write
+        persists it. It writes into the in-memory document only; the store's
+        write is what puts it on disk, which is what keeps "preserved by every
+        write" a property of the writer rather than of this method.
+
+        **Reading the record back is deliberately not wired.** The analysis'
+        FR-032 allows a matching record to be trusted on load, and
+        :func:`decode_cell_record` exists for it, but re-analysing from source
+        is always at least as correct and the cost is one parse per cell; making
+        the load path trust stored facts is an optimisation with its own
+        divergence risk and is not what the MUST above asks for.
+
+        Never raises: a notebook that cannot carry its record is still a
+        notebook the person can work in.
+        """
+        observations = dict(self._observations)
+        try:
+            for facts in self._facts:
+                self._document.set_analysis_record(
+                    facts.cell_id,
+                    encode_cell_record(facts, _as_observed_change(observations.get(facts.cell_id))),
+                )
+            self._document.set_scistudio_metadata(
+                _ANALYSIS_VERSION_KEY,
+                encode_notebook_record(self._document.scistudio_metadata)[_ANALYSIS_VERSION_KEY],
+            )
+        except Exception:  # pragma: no cover - metadata must never break the session
+            _LOG.warning("Could not store the analysis record for session %s", self.session_id, exc_info=True)
 
     def _reset_marks_to_never_run(self) -> None:
         self._marks = {fact.cell_id: {CellMark.NEVER_RUN} for fact in self._facts}
@@ -1674,6 +1768,65 @@ class SessionService:
             except Exception as error:
                 self._note_provenance_failure(session.session_id, f"record a block call from cell {cell_id}", error)
 
+    def _record_declared_outputs(
+        self,
+        session: ExploreSession,
+        declarations: Sequence[Mapping[str, Any]],
+    ) -> None:
+        """Mark every object the notebook named through ``scistudio.output`` durable (FR-055).
+
+        FR-055: *"Objects named in ``scistudio.output`` MUST be durable; every
+        other object a session produces MUST be a reclaim candidate."* Both
+        halves were written and only the reclaim half was reachable.
+        ``declare_output`` is the sole writer of the ``declared_output`` edge and
+        had **no caller in src/**, so ``session_declared_output_paths()`` — the
+        query the retention planner subtracts with — always returned empty.
+        Meanwhile the planner adds every object a session produced to
+        ``candidates`` *before* the per-workflow floor guard, and
+        ``_schedule_artifact_retention`` runs after every successful workflow run
+        and is on unless it is switched off. Close a session, run any workflow,
+        and the objects the notebook named were deleted along with the rest.
+
+        The join is through the catalog rather than through session state: the
+        declaration carries the object's identity, and the store already knows
+        which execution produced it, because ``record_block_call`` fills
+        ``produced_by_execution`` on every output row. Going through the store
+        rather than remembering the last drain is what makes a name declared in
+        a *downstream* cell from the one that produced it — the ordinary shape, since
+        a notebook usually computes first and declares at the end — resolve to
+        the right execution.
+
+        A declaration whose object no execution of this session produced is
+        skipped rather than invented: retention only ever offers such an object
+        if something else produced it, and inventing an execution to hang the
+        edge on would put a row in ``block_executions`` for work nobody did.
+
+        Args:
+            session: The session whose notebook made the declarations.
+            declarations: What ``KernelBridge.declared_outputs`` returned.
+        """
+        if self._lineage is None or not declarations:
+            return
+        for declared in declarations:
+            object_id = declared.get("object_id")
+            if not isinstance(object_id, str) or not object_id:
+                continue
+            name = str(declared.get("name") or "")
+            if not name:
+                continue
+            try:
+                stored = self._lineage.store.get_data_object(object_id)
+                produced_by = (stored or {}).get("produced_by_execution")
+                if not produced_by:
+                    continue
+                self._lineage.declare_output(
+                    block_execution_id=str(produced_by),
+                    name=name,
+                    row=_declared_output_row(declared, stored, str(produced_by)),
+                )
+            except Exception as error:
+                self._note_provenance_failure(session.session_id, f"declare the output {name!r} durable", error)
+
     def _note_provenance_failure(self, session_id: str, what: str, error: BaseException) -> None:
         """Latch that a lineage write for *session_id* failed, and log it once per write.
 
@@ -1755,10 +1908,46 @@ class SessionService:
         Args:
             path: The file, absolute or project-relative.
             name: Notebook file stem; the file's stem by default.
+
+        Raises:
+            PathEscapesProjectError: *path* resolves outside the project.
         """
-        target = Path(path)
-        relative = _relative_posix(target, self._project_dir) if target.is_absolute() else target.as_posix()
+        relative = self._contained_relative(path)
         return self._create(name or PurePosixPath(relative).stem, file_path=relative)
+
+    def _contained_relative(self, path: str | Path) -> str:
+        """*path* as a project-relative posix path, or refuse it (FR-002).
+
+        The check is the repository's canonical one — ``os.path.realpath`` on
+        both sides and ``os.path.commonpath`` between them, as
+        ``api/routes/data.py::_contained_target`` and
+        ``api/routes/projects.py::_resolve_project_file`` already do — so a
+        symlink out of the tree is refused as well as a ``..`` walk, and a
+        different Windows drive (which makes ``commonpath`` raise) reads as the
+        escape it is.
+
+        It lives here rather than in the route because FR-002 is the *service*'s
+        obligation: ``open_over_file`` is reachable from the packaging reopen
+        path and from tests as well as from HTTP, and a containment rule only
+        one caller enforces is not a containment rule. The layer rule (FR-008)
+        forbids raising ``HTTPException`` here, so this raises a session refusal
+        and the route's closed refusal table maps it to 403.
+
+        The file need not exist: a missing file is the documented edge case and
+        ``realpath`` answers for a path that is not there.
+        """
+        root = os.path.realpath(self._project_dir)
+        raw = str(path)
+        candidate = os.path.realpath(raw if os.path.isabs(raw) else os.path.join(root, raw))
+        try:
+            contained = os.path.commonpath([root, candidate]) == root
+        except ValueError:  # different drives on Windows — an escape
+            contained = False
+        if not contained:
+            raise PathEscapesProjectError(
+                f"{raw!r} is outside this project, and FR-002 opens a session over a file in the project's data tree."
+            )
+        return _relative_posix(Path(candidate), self._project_dir)
 
     def open_notebook(self, path: str | Path, *, bound_run: BoundRun | None = None) -> ExploreSession:
         """Open a session on an existing notebook, or return the open one (FR-001).
@@ -1796,12 +1985,90 @@ class SessionService:
             )
         )
 
+    def reopen_packaged_block(
+        self,
+        block_name: str,
+        *,
+        node_block_id: str | None = None,
+        run_id: str | None = None,
+    ) -> ExploreSession:
+        """Open a session on a packaged block's notebook copy, bound to a run (FR-042).
+
+        FR-042: *"Double-clicking a packaged block's node MUST open a session on
+        the block's notebook copy bound to the node's most recent run inputs,
+        and packaging again from that session MUST replace the copy and the
+        declaration in place."* The in-place half was built and proved. This is
+        the other half, which had no entry point at all:
+        :func:`~scistudio.explore.packaging.reopen_target` resolved the copy and
+        the declaration and was called by nothing, ``POST /sessions`` with
+        ``source="notebook"`` ignored ``run_id`` and bound to nothing, and
+        nothing anywhere returned a node's most recent run inputs.
+
+        **Inputs, not outputs.** Reopening is for editing the notebook that
+        *produces* the node's outputs, so what the session needs bound is what
+        the node was given — which is why this reaches for the run's input edges
+        even though finding the run goes through the output query. A session
+        bound to the node's outputs would be a session over the answer rather
+        than over the work.
+
+        The bound run is best effort. A block that has never run reopens with no
+        binding rather than refusing: the notebook is on disk and editing it is
+        the point, and a node whose first run has not happened is exactly when
+        somebody wants to look at it.
+
+        Args:
+            block_name: The packaged block's name, as its declaration records it.
+            node_block_id: The node in the workflow, when the caller knows which
+                one was double-clicked. Defaults to *block_name*.
+            run_id: Bind to this run; the node's most recent completed run by
+                default.
+
+        Returns:
+            The session on the block's notebook copy.
+
+        Raises:
+            FileNotFoundError: No packaged block of that name is in the project.
+            PathEscapesProjectError: The resolved copy is outside the project.
+        """
+        from scistudio.explore.packaging import reopen_target
+
+        target = reopen_target(self._project_dir, block_name)
+        bound = self._packaged_block_binding(node_block_id or block_name, run_id)
+        return self.open_notebook(target.notebook_path, bound_run=bound)
+
+    def _packaged_block_binding(self, block_id: str, run_id: str | None) -> BoundRun | None:
+        """The inputs *block_id* received, in *run_id* or in its most recent run (FR-042)."""
+        resolver = self._block_outputs
+        if resolver is None:
+            return None
+        try:
+            resolved_run = run_id
+            if resolved_run is None:
+                latest = resolver.latest_block_outputs(block_id)
+                if latest is None:
+                    return None
+                resolved_run = latest.run_id
+            inputs = resolver.paused_run_inputs(resolved_run, block_id)
+        except Exception:  # a resolver that cannot answer must not stop the notebook opening
+            _LOG.warning("Could not resolve the run inputs of packaged block %s", block_id, exc_info=True)
+            return None
+        if inputs is None:
+            return None
+        return BoundRun(
+            run_id=inputs.run_id,
+            block_id=inputs.block_id,
+            opened_over="packaged_block",
+            ports=inputs.ports,
+        )
+
     def _resolve(self, path: str | Path) -> Path:
-        """A notebook path as an absolute path, project-relative paths included."""
-        candidate = Path(path)
-        if not candidate.is_absolute():
-            candidate = self._project_dir / candidate
-        return candidate.resolve()
+        """A notebook path as an absolute path, project-relative paths included.
+
+        Contained the same way ``open_over_file`` is: reopening a notebook reads
+        the file and answers with its cells, so an uncontained path here is an
+        arbitrary file read rather than only a portability problem.
+        """
+        return self._project_dir / self._contained_relative(path)
 
     def _require_resolver(self, block_id: str) -> BlockOutputResolver:
         if self._block_outputs is None:
@@ -2352,6 +2619,19 @@ def first_cell_source(*, bound_run: BoundRun | None = None, file_path: str | Non
     ``tests/explore/test_explore_session.py`` pins it by running the generated
     notebook through the analysis and asserting no unresolved read.
 
+    ``blocks = scistudio.blocks`` is there for the same reason and one more.
+    The bridge binds a bare ``blocks`` into the kernel too (FR-049), and a cell
+    writing ``blocks.run("Smooth", data=x)`` against it is an unresolved read by
+    exactly the argument above — so FR-049's affordance and FR-039's refusal
+    were mutually exclusive, and the workaround (``import blocks``) raises
+    ``ModuleNotFoundError`` because there is no such module. Binding the name
+    from the package attribute fixes both halves at once: the analysis resolves
+    the read to this cell, and the *packaged* copy carries the binding, because
+    packaging's backward slice keeps the cell that binds a name the slice reads.
+    A bare ``blocks`` would not survive that trip — the bridge does not install
+    into an nbconvert run — so the attribute spelling is what makes one notebook
+    run in a session and as a block.
+
     Args:
         bound_run: The run whose ports the first cell loads.
         file_path: The project-relative file a file session was opened over.
@@ -2359,7 +2639,7 @@ def first_cell_source(*, bound_run: BoundRun | None = None, file_path: str | Non
     Returns:
         The cell's source. It does not run automatically (FR-004).
     """
-    lines = ["import scistudio", ""]
+    lines = ["import scistudio", "", "blocks = scistudio.blocks", ""]
     if bound_run is not None:
         for port in bound_run.ports:
             variable = _identifier(port.name)
@@ -2482,6 +2762,94 @@ def _block_call_rows(
             port: [row for _, row in sorted(items, key=lambda item: item[0])]
             for port, items in grouped["output"].items()
         },
+    )
+
+
+def _as_wire_payload(raw: Any) -> dict[str, Any]:
+    """A stored ``wire_payload`` as the dict a :class:`DataObjectRow` carries.
+
+    SQLite hands the column back as the JSON text it was written as, so a row
+    read out of the store and written straight back would double-encode it.
+    """
+    if isinstance(raw, Mapping):
+        return dict(raw)
+    if isinstance(raw, str) and raw:
+        from json import JSONDecodeError, loads
+
+        try:
+            decoded = loads(raw)
+        except JSONDecodeError:
+            return {}
+        return decoded if isinstance(decoded, dict) else {}
+    return {}
+
+
+def _as_observed_change(observation: Observation | None) -> ObservedChange | None:
+    """The queue's :class:`Observation` as the record codec's ``ObservedChange``.
+
+    Two types describe one thing. ``queue.Observation`` splits the changed set
+    into ``differing``/``appeared``/``disappeared`` because the marks want the
+    three separately; ``fingerprint.ObservedChange`` is what the analysis spec's
+    FR-031 record stores and what ``decode_cell_record`` reads back. The
+    conversion is total — ``changed_names`` is exactly the union the codec wants
+    — so nothing is lost across it.
+
+    That the two exist at all is the #2240 audit's P2-11: the analysis spec's
+    own ``fingerprint.compare_namespaces`` has no caller in ``src/`` and the
+    session runs a second comparison. Reconciling them is a spec-2 question
+    about which comparison is canonical, not something to settle inside a
+    conversion helper; this makes the record storable without pretending the
+    duplication is resolved.
+    """
+    if observation is None:
+        return None
+    return ObservedChange(
+        cell_id=observation.cell_id,
+        changed_names=observation.changed_names,
+        unobservable_names=observation.unobservable,
+        source_hash=observation.source_hash,
+    )
+
+
+def _declared_output_row(
+    declared: Mapping[str, Any],
+    stored: Mapping[str, Any] | None,
+    produced_by: str,
+) -> DataObjectRow:
+    """The ``data_objects`` row a declaration is recorded against (FR-055).
+
+    Built from the row the store already holds, with the declaration's own
+    envelope only as a fallback. ``declare_output`` upserts before it writes the
+    edge, so a row assembled from the declaration alone would overwrite what the
+    block call recorded — including ``storage_path``, which is the column
+    retention decides over, and ``produced_by_execution``, which is what made
+    the object findable in the first place. Preserving the stored row means the
+    declaration adds an edge and changes nothing else.
+    """
+    payload = declared.get("data_object")
+    wire = dict(payload) if isinstance(payload, Mapping) else {}
+    if stored is not None:
+        return DataObjectRow(
+            object_id=str(stored["object_id"]),
+            type_name=str(stored.get("type_name") or declared.get("type_name") or "DataObject"),
+            wire_payload=_as_wire_payload(stored.get("wire_payload")) or wire,
+            created_at=str(stored.get("created_at") or _now()),
+            backend=stored.get("backend"),
+            storage_path=stored.get("storage_path"),
+            size_bytes=stored.get("size_bytes"),
+            mtime_at_write=stored.get("mtime_at_write"),
+            derived_from=stored.get("derived_from"),
+            produced_by_execution=produced_by,
+            content_hash=stored.get("content_hash"),
+        )
+    return DataObjectRow(
+        object_id=str(declared["object_id"]),
+        type_name=str(declared.get("type_name") or "DataObject"),
+        wire_payload=wire,
+        created_at=_now(),
+        backend=wire.get("backend") if isinstance(wire.get("backend"), str) else None,
+        storage_path=wire.get("path") if isinstance(wire.get("path"), str) else None,
+        produced_by_execution=produced_by,
     )
 
 
