@@ -267,8 +267,16 @@ amendment.
       closed Python type expresses. The spec's `planned_governs` is now empty.
       The same pass narrowed FR-011 from a textual first-character test to a
       lexical one, which is the `S2-D1` P1 finding
-      `test_sc003_wrapped_operator_slice_reproduces_the_notebook`. Gate ledger:
-      `.workflow/records/2231-docs-2231-governs-migration.json`.
+      `test_sc003_wrapped_operator_slice_reproduces_the_notebook`. Third pass, on
+      both audit reports: FR-003, FR-035 and SC-011 now name `xxhash` alongside
+      numpy and pandas, and SC-011 requires a measurement that collects imports at
+      any depth, since the one it named could not see a lazy import at all. The
+      spec's `tests:` list gained `test_adversarial_analysis.py` and
+      `test_placement.py`, ADR-054's gained the same two, `governs.files` gained
+      `tests/explore/__init__.py`, and §4.2 gained the three rows it was missing.
+      `full_audit` was `pass` (0 error, 84 info) before and after — this pass fixes
+      contradictions that no audit measures, which is the audits' own point. Gate
+      ledger: `.workflow/records/2231-docs-2231-governs-migration.json`.
 - [x] docs -> N/A, rationale recorded in §7.1.
 
 ### 7.4 Audit
@@ -313,6 +321,8 @@ Append only.
 | 2026-09-04 | `S2-B2` | Raised that SC-011 names only numpy and pandas as permitted lazy third-party imports while §4.1 directs arrays through `xxhash`. | Resolved by the shape of `S2-B1`'s allowlist test, which reads module-level imports only, so a lazy `xxhash` inside the fingerprint is permitted on the same terms as numpy and pandas. No document change needed. | N/A |
 | 2026-09-04 | `S2-D1`, `S2-G1` | FR-011 as written ("a line whose first non-blank character is `%` or `!` MUST be removed") is too broad. A formatter-wrapped `    % count` is such a line, so it was stripped, the cell still parsed as `ratio = (total)`, no flag was raised, and `count` vanished from the read set; the slice then ran the original source and raised `NameError`. `!=` and a magic-looking line inside a triple-quoted string share the root cause. | The implementation obeyed FR-011 exactly, so the defect is the spec's. `S2-G1` narrowed FR-011 to identify a magic line lexically — a `%` or `!` token that is the first token of a logical line — rather than by the first character of a physical line. The rule was prototyped against both acceptance tests and eleven other shapes before it was written. | `S2-F1` implements it. `tests/explore/test_adversarial_analysis.py::test_fr011_a_magic_line_inside_a_string_literal_is_stripped_too` asserts the old behaviour in its P3 half and must be updated with the fix. |
 | 2026-09-04 | `S2-G1` | Superseding the `AnalysisRecord` row above: `ObservedChange` was sequencing and has landed, but `AnalysisRecord` is not a Python type at all. Key Entities defines it as the JSON shape stored in cell metadata and FR-033 requires unrecognised keys to survive a rewrite. | Dropped from `planned_governs.contracts` on the manager's direction rather than satisfied by a type invented to fill a manifest line, with the reason kept as a front-matter comment where the entry stood. `S2-C1` was right to refuse to invent it. | N/A |
+| 2026-09-04 | `S2-E1`, `S2-E2`, `S2-G1` | Reopening the `S2-B2` row above, which closed this as "No document change needed". Both audits reached the same finding independently (no-context P2-1, with-context F-05): FR-003, FR-035 and SC-011 permit no third-party import but numpy and pandas, while §4.1 directs the fingerprint through `xxhash` and the code follows §4.1. The earlier resolution turned on the allowlist test not seeing lazy imports — but that is the defect, not the answer: a criterion nothing can fail is not a criterion, and a lazy `import requests` would have passed too. | `S2-G1` amended FR-003, FR-035 and SC-011 to name `xxhash` on the same terms as numpy and pandas, and rewrote SC-011 to require its measurement to collect imports at any depth. §4.1's direction is left alone; its reasoning is sound and the boundary rule was the half that was wrong. | `S2-F1` is strengthening `test_explore_imports_are_allowlisted` to match. Manager reconciles at integration if the landed test and the written criterion diverge. |
+| 2026-09-04 | `S2-G1` | Checked, on the manager's instruction, whether the false FR-015 justification the audits found in `build_graph`'s comment and a test docstring ("every `import pandas as pd` cell would report `pd` unresolved") also appears in the spec. | It does not. The spec carries no `import pandas as pd` example anywhere, and §4.1's description of `symtable` already draws the distinction correctly — "every name that is assigned or imported and every name that is referenced". No spec edit; the correction is `S2-F1`'s in the code alone. FR-015's rule left untouched per #2243. | #2243 |
 
 ## 10. Final Readiness
 
