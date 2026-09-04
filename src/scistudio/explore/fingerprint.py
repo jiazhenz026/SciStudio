@@ -984,9 +984,9 @@ def compare_namespaces(
 
     *before* and *after* map every top-level name in the module namespace to its
     :class:`Fingerprint`, taken before the cell ran and after it finished. Taking
-    those two snapshots is the kernel's job and the explore-session spec's to
-    specify (A-007); this function is pure over the two mappings and executes
-    nothing.
+    those two snapshots is what the kernel does around a cell run, and the
+    explore-session spec specifies both the kernel and the call site (A-007);
+    this function is pure over the two mappings and executes nothing.
 
     A name is in the observed changed set when it
 
