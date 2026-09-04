@@ -28,6 +28,11 @@ FR-060). The session runtime imports ``core`` for storage, lineage, and
 versioning and ``blocks`` for the registry, which is what spec 3 §4.1 places it
 beside the engine to do. ``test_engine_does_not_import_explore`` is the other
 half of FR-060, since a one-directional rule needs both halves stated.
+``test_explore_never_imports_upward_at_any_depth`` is the same forbidden list —
+read out of ``LAYER_RULES``, not restated — applied to function and class bodies
+as well as the module body, because the explore runtime defers imports inside
+functions by design and a violation written that way would otherwise be
+invisible.
 
 The stricter rule is about **two modules**, not the subsystem: spec 2 FR-035
 requires the analysis and the fingerprint to import from the standard library
@@ -111,6 +116,40 @@ def _get_imports_from_file(filepath: Path) -> list[str]:
     tree = ast.parse(source, filename=str(filepath))
     imports: list[str] = []
     _collect_imports(tree.body, imports)
+    return imports
+
+
+def _runtime_imports_at_any_depth(source: str, *, filename: str = "<scratch>") -> list[str]:
+    """Every runtime-imported module in *source*, function and class bodies included.
+
+    ``_get_imports_from_file`` walks the module body only, which is the right
+    reading for a rule about what a module costs to import. It is the wrong
+    reading for a rule about what a subsystem is *allowed to reach*: an import
+    written inside a function still runs, and the explore subsystem is built on
+    function-level imports by design — ``SessionService.build_kernel`` defers
+    ``jupyter_client``, ``ExploreSession.cell_marks`` defers ``packaging``. A
+    forbidden import written the same way would be invisible to the module-level
+    walk, which is exactly where it would end up.
+
+    ``if TYPE_CHECKING:`` bodies are excluded at any depth, as they are there.
+    """
+    tree = ast.parse(source, filename=filename)
+
+    type_checking_only: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.If) and _is_type_checking_guard(node):
+            for statement in node.body:
+                for child in ast.walk(statement):
+                    type_checking_only.add(id(child))
+
+    imports: list[str] = []
+    for node in ast.walk(tree):
+        if id(node) in type_checking_only:
+            continue
+        if isinstance(node, ast.Import):
+            imports.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            imports.append(node.module)
     return imports
 
 
@@ -250,6 +289,116 @@ def test_layer_rules_cover_all_source_layers() -> None:
     checked_layers = {rule[0] for rule in LAYER_RULES}
     expected = {"core", "blocks", "engine", "ai", "previewers", "plot", "explore"}
     assert expected.issubset(checked_layers), f"Missing layer rules for: {expected - checked_layers}"
+
+
+#: The ``explore`` entry's forbidden list, read out of ``LAYER_RULES`` rather
+#: than restated. FR-060 has one enumeration of what the subsystem may not
+#: import; the depth test below is the same rule looked at more closely, not a
+#: second mechanism, and deriving the list is what keeps it that way.
+EXPLORE_FORBIDDEN: list[str] = next(forbidden for layer, forbidden in LAYER_RULES if layer == "explore")
+
+
+def test_explore_never_imports_upward_at_any_depth() -> None:
+    """FR-060 over the whole file, not only its module body.
+
+    ``test_layer_does_not_import_forbidden`` walks each module's top level. That
+    is the correct depth for "what does importing this cost", and the wrong
+    depth for "what may this subsystem reach": the explore runtime defers
+    imports inside functions as a matter of course — ``jupyter_client`` in
+    ``build_kernel``, ``packaging`` in ``cell_marks``, the kernel and bridge
+    classes in the service's factories — so a lazy ``import scistudio.api``
+    inside a method is the shape a violation would actually take here, and the
+    module-level walk cannot see it.
+
+    Spec 3 §4.1 is unconditional about the direction: the subsystem imports
+    ``core`` and ``blocks``, and it imports neither the API, nor AI, nor the
+    engine. Nothing in that sentence is about where in a file the import is
+    written.
+    """
+    violations: list[str] = []
+    for filepath in _collect_py_files("explore"):
+        source = filepath.read_text(encoding="utf-8")
+        for imp in _runtime_imports_at_any_depth(source, filename=str(filepath)):
+            for forbidden_prefix in EXPLORE_FORBIDDEN:
+                if _is_forbidden(imp, forbidden_prefix):
+                    violations.append(f"  {filepath.relative_to(SRC_ROOT)}: imports {imp}")
+
+    assert not violations, (
+        "the explore subsystem must import neither the API, nor AI, nor the engine, at any depth "
+        "(ADR-054 spec 3 FR-008, FR-060):\n" + "\n".join(violations)
+    )
+
+
+@pytest.mark.parametrize(
+    ("scratch", "expected"),
+    [
+        pytest.param("import scistudio.api\n", "scistudio.api", id="module-level-import"),
+        pytest.param(
+            "def open_panel():\n    import scistudio.api\n",
+            "scistudio.api",
+            id="deferred-inside-a-function",
+        ),
+        pytest.param(
+            "class Service:\n    def build(self):\n        from scistudio.engine.events import EventBus\n",
+            "scistudio.engine.events",
+            id="deferred-inside-a-method",
+        ),
+        pytest.param(
+            "def resolve():\n    try:\n        from scistudio.ai.agent import mcp\n    except ImportError:\n"
+            "        mcp = None\n",
+            "scistudio.ai.agent",
+            id="deferred-inside-a-try",
+        ),
+    ],
+)
+def test_the_explore_depth_rule_catches_a_planted_import(scratch: str, expected: str) -> None:
+    """The depth rule fails on a violation rather than merely passing on clean code.
+
+    A rule that has never been shown to fail is a rule nobody has tested. Each
+    case is a way an upward import could plausibly be written into an explore
+    module — including the deferred forms the subsystem already uses for
+    legitimate reasons, which is what makes them plausible.
+    """
+    found = _runtime_imports_at_any_depth(scratch)
+    assert any(_is_forbidden(imp, prefix) for imp in found for prefix in EXPLORE_FORBIDDEN), (
+        f"a planted {expected!r} was not caught; found {found}"
+    )
+
+
+def test_the_explore_depth_rule_still_allows_core_and_blocks() -> None:
+    """The depth rule must not become the over-tight rule spec 3 §4.1 rejects.
+
+    ``explore`` imports ``core`` for storage, lineage, and versioning and
+    ``blocks`` for the registry and the Code Block — that is what §4.1 places it
+    beside the engine to do. A depth check that forbade those would block the
+    runtime from doing its job while looking stricter, which is the failure mode
+    this asserts against.
+    """
+    scratch = (
+        "from scistudio.core.lineage.store import LineageStore\n"
+        "def cell_marks():\n"
+        "    from scistudio.blocks.code.backends.notebook import NotebookBackend\n"
+    )
+    found = _runtime_imports_at_any_depth(scratch)
+    assert found == ["scistudio.core.lineage.store", "scistudio.blocks.code.backends.notebook"]
+    assert not [imp for imp in found for prefix in EXPLORE_FORBIDDEN if _is_forbidden(imp, prefix)]
+
+
+def test_the_explore_depth_rule_ignores_type_checking_imports() -> None:
+    """A ``TYPE_CHECKING`` import has no runtime effect and is not a violation.
+
+    The session module already imports its kernel types this way. Counting them
+    would fail the suite on code that is correct, which is how a layer rule gets
+    weakened by whoever has to make the build green.
+    """
+    scratch = (
+        "from typing import TYPE_CHECKING\n"
+        "if TYPE_CHECKING:\n"
+        "    from scistudio.api.runtime import ApiRuntime\n"
+        "    def _later():\n"
+        "        import scistudio.engine\n"
+    )
+    assert _runtime_imports_at_any_depth(scratch) == ["typing"]
 
 
 def test_engine_does_not_import_explore() -> None:
