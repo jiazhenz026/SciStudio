@@ -26,12 +26,32 @@ The other **five are genuine coverage holes** — the set fold, the sampled stri
 tail, the dict key, cycle detection, and the categorical storage path — and each
 has a test in the section below that kills its mutant.
 
+A second, independent round of mutation testing — the no-context audit of this
+change, fifty-seven mutations over two rounds — left ten more standing, and the
+six behavioural ones are in the same section: the descent into ``except`` and
+``match_case`` bodies, FR-029's check on the *after* snapshot, the string
+*stride* (as opposed to its tail, above), and the two cost guards that every
+``hashed_bytes`` assertion is blind to by construction. The dict and set half of
+FR-025 was the one survivor that was a defect rather than a hole, and it is fixed
+rather than pinned.
+
 The other half came from reading the spec's MUSTs against the code that claims
-them. Those tests are grouped by requirement, and the ones that **fail** carry a
-``FINDING`` line in the first sentence of their docstring with the severity and
-whether I believe the test or the product is wrong. They are left failing on
-purpose: a fix agent owns the repairs, and a test that is skipped, xfailed, or
-softened to pass is a finding that has been filed and closed in the same motion.
+them. Those tests are grouped by requirement, and the ones that found a defect
+carry a ``FINDING`` line in the first sentence of their docstring with the
+severity. They were written **failing**, on purpose: a fix agent owned the
+repairs, and a test that is skipped, xfailed, or softened to pass is a finding
+that has been filed and closed in the same motion.
+
+Every one of them now passes, and each of those docstrings has been rewritten in
+the past tense to say what was found, that it is closed, and what closed it.
+Three ``FINDING`` lines remain in the present tense and all three say why in
+their first paragraph: the process-dependent digest of a large set of strings
+and the record that carries no cell id are both boundaries the spec does not
+state rather than defects, and were filed as documented-not-failed from the
+start; FR-015's second exception is an open owner decision tracked as ``#2243``.
+Nothing in this file fails. If a docstring here describes the product as broken
+without saying it is deliberate or naming the issue that tracks it, the docstring
+is stale and the product is not.
 
 What is deliberately *not* asserted here is anything the spec admits it cannot
 do. The fingerprint misses a change confined to bytes its stride skipped, and
@@ -438,29 +458,37 @@ def test_fr015_two_disabled_definers_are_skipped_to_reach_a_third() -> None:
 
 
 def test_fr015_a_read_only_the_cell_itself_binds_is_not_reported_unresolved() -> None:
-    """FINDING P2 — an exception FR-015 does not authorise, resting on a false premise.
+    """FINDING P2, open and tracked as ``#2243`` — an exception FR-015 does not authorise.
 
     FR-015 admits exactly one exception to "a read with no enabled definer above
     it MUST be recorded as unresolved": a name in Python's builtins.
     :func:`build_graph` adds a second — a read of a name the *reading cell's own*
-    changed set contains — and the comment beside it justifies the exception by
-    saying that without it "every ``import pandas as pd`` cell would report ``pd``
-    unresolved and packaging would refuse every notebook".
+    changed set contains.
 
-    That premise is false. :mod:`symtable` reports ``pd`` in ``import pandas as
-    pd`` as imported and *not* referenced, so the cell reads nothing and the
-    exception is never what keeps it quiet; the second assertion below is the
-    proof. What the exception does reach is a first cell that says
-    ``df = df.dropna()``, which raises ``NameError`` the moment it runs and which
-    US2 scenario 5 exists so that packaging can refuse.
+    The justification is a cell that binds a name and then uses it, which is how
+    people write: ``import pandas as pd`` followed in the same cell by
+    ``df = pd.read_csv('f')``, ``total = 0`` followed by ``total += 1``,
+    ``def f(n): return f(n - 1)``. Without the exception every one of those would
+    report its own name unresolved and packaging would refuse the notebook. A
+    *bare* ``import pandas as pd`` would not, and the source comment used to cite
+    exactly that: :mod:`symtable` reports ``pd`` there as imported and *not*
+    referenced, so the cell reads nothing and this branch is never reached. Both
+    ADR-054 spec 2 audits measured the claim and found it false; the second
+    assertion below is the proof, and the comment now names the real case.
+
+    What the exception does reach is a first cell that says ``df = df.dropna()``,
+    which raises ``NameError`` the moment it runs and which US2 scenario 5 exists
+    so that packaging can refuse.
 
     This test documents the behaviour rather than failing, because removing the
     exception outright would report ``total`` unresolved for the equally ordinary
-    ``total = 0`` followed by ``total += 1`` in one cell, and telling the two
-    apart needs the statement order FR-001 forbids the analysis to model. Spec
-    and product genuinely disagree and the resolution is the owner's: either
-    FR-015 gains this exception, or FR-001 gains a narrow within-cell ordering
-    rule for the case where a name is bound before it is read.
+    ``total = 0; total += 1``, and telling the two apart needs the statement order
+    FR-001 forbids the analysis to model. Spec and product genuinely disagree and
+    the resolution is the owner's — either FR-015 gains this exception or FR-001
+    gains a narrow within-cell ordering rule — which is why this ``FINDING`` line
+    is still in the present tense while the rest of this file's are not. The
+    thread back to the decision is ``TODO(#2243)`` beside the exception in
+    :func:`build_graph`.
     """
     graph = graph_of(("c1", "df = df.dropna()"), ("c2", "peaks = find(df)"))
     assert unresolved_names(graph) == {("c2", "find")}, "df is not listed, and running this notebook fails on it"
@@ -470,25 +498,28 @@ def test_fr015_a_read_only_the_cell_itself_binds_is_not_reported_unresolved() ->
 
 
 def test_fr006_a_global_augmented_assignment_inside_a_function_is_a_module_read() -> None:
-    """FINDING P1 — a nested-scope read FR-006 requires and the analysis does not record.
+    """FINDING P1, closed: a nested-scope read FR-006 requires, now recorded.
 
     FR-006: "the names the cell reads at module scope, **including names read
     inside a nested scope that resolve to the module scope**". ``counter += 1``
     under a ``global counter`` declaration reads ``counter``; :mod:`symtable`
-    reports that symbol as assigned and global but not as referenced, and
-    ``_collect_module_level_reads`` — which exists precisely because
-    :mod:`symtable` under-reports augmented assignment and ``del`` — walks only
-    the module level and never enters the function body.
+    reports that symbol as assigned and global but not as referenced.
 
-    The consequence is not academic. ``tests/explore/fixtures/global_counter.ipynb``
-    is four cells long, its backward slice omits the cell that initialises the
-    counter, and running the slice raises ``NameError``. That fixture's
-    differential test fails alongside this one; this test is the isolated cause.
+    This test was written failing. ``_collect_module_level_reads`` — which exists
+    precisely because :mod:`symtable` under-reports augmented assignment and
+    ``del`` — walked only the module level and never entered a function body, so
+    cell 3 of ``tests/explore/fixtures/global_counter.ipynb`` was a definer of
+    ``counter`` that read nothing, its backward slice omitted the cell that
+    initialises the counter, and running the slice raised ``NameError``. The
+    fixture's differential test failed alongside this one; this test was the
+    isolated cause.
 
-    I believe the product is wrong. FR-006's sentence names this case and SC-003
-    is the criterion it fails, and the repair is the one
-    ``_collect_module_level_reads`` already makes at module scope, extended to a
-    nested scope's ``global`` names.
+    It is closed. ``_collect_module_level_reads`` now walks every ``def`` and
+    ``class``, reads the names that scope declares ``global``, and counts the
+    augmented assignments and deletions among them as module reads — the repair
+    it already made at module scope, extended to a nested scope's ``global``
+    names. ``test_sc003_global_counter_slice_reproduces_the_notebook`` is the
+    end-to-end proof.
     """
     facts = analyse_cell("c2", "def bump():\n    global counter\n\n    counter += 1\n")
     assert "counter" in facts.assigned, "the global assignment is recorded, which is why the edge misleads"
@@ -496,12 +527,13 @@ def test_fr006_a_global_augmented_assignment_inside_a_function_is_a_module_read(
 
 
 def test_fr006_a_global_del_inside_a_function_is_a_module_read() -> None:
-    """FINDING P2 — the ``del`` half of the same blind spot.
+    """FINDING P2, closed: the ``del`` half of the same blind spot.
 
     ``del counter`` under a ``global`` declaration requires ``counter`` to exist,
-    exactly as ``counter += 1`` does, and is missed for the same reason. It is
+    exactly as ``counter += 1`` does, and was missed for the same reason. It was
     filed separately because a repair aimed only at :class:`ast.AugAssign` would
-    leave it standing.
+    have left it standing; ``_augmented_and_deleted_names`` covers both forms, so
+    it did not.
     """
     facts = analyse_cell("c2", "def drop():\n    global counter\n\n    del counter\n")
     assert "counter" in facts.read
@@ -646,24 +678,25 @@ def test_a_deeply_nested_cell_does_not_break_the_module_level_walk() -> None:
 
 
 def test_fr012_a_cell_holding_an_unpaired_surrogate_is_flagged_rather_than_raising() -> None:
-    """FINDING P2 — ``analyse_cell`` raises on a cell a notebook file can legally hold.
+    """FINDING P2, closed: ``analyse_cell`` used to raise on a cell a notebook can hold.
 
     FR-012 requires a cell that does not parse to be *recorded* with the
     syntax-error flag and forbids it from preventing any other cell being
     analysed, and :func:`analyse_cell` says in its own docstring that it never
-    raises. It does. ``source_hash`` is computed before the ``try``, and it
-    encodes as strict UTF-8, so a cell containing an unpaired surrogate raises
-    ``UnicodeEncodeError`` straight out of ``analyse_cells`` and takes the whole
+    raises. It did. ``source_hash`` is computed before the ``try`` and encoded as
+    strict UTF-8, so a cell containing an unpaired surrogate raised
+    ``UnicodeEncodeError`` straight out of ``analyse_cells`` and took the whole
     notebook load with it.
 
     ``json.loads('"\\\\ud800"')`` returns exactly such a string, so an ``.ipynb``
     written by anything that escaped a lone surrogate reaches the analysis this
-    way; the fingerprint module already encodes with ``surrogatepass`` for the
-    same reason, which is where the asymmetry shows.
+    way; the fingerprint module already encoded with ``surrogatepass`` for the
+    same reason, which is where the asymmetry showed.
 
-    I believe the product is wrong: FR-012 and the function's own contract both
-    say this cell must come back flagged, and one ``errors=`` argument on the
-    hash is the difference.
+    One ``errors="surrogatepass"`` on the hash was the difference, and it is what
+    closed this: the cell now comes back flagged, and the cell beside it is
+    analysed as if nothing had happened, which is the half of FR-012 that
+    matters.
     """
     lone_surrogate = json.loads('"\\ud800 = 1"')
     facts = analyse_cells([("c1", lone_surrogate), ("c2", "df = load()")])
@@ -727,20 +760,22 @@ def test_fr036_the_seven_flags_are_reachable_and_each_renders_its_own_fields() -
 
 
 def test_fr016_every_version_edge_source_is_a_version_node() -> None:
-    """FINDING P3 — a version edge can point at a node the graph does not publish.
+    """FINDING P3, closed: a version edge used to point at a node the graph did not publish.
 
     FR-016: version nodes are one per name in each enabled cell's changed set, and
     "edges between version nodes [are] derived from the same facts as the edges
     between cells". An unknown-binding edge names a name the star-import cell does
     *not* have in its changed set — a star import binds an unknown set, so its
-    changed set is empty — and :func:`_version_edges` builds a source node for it
-    anyway. The dependency view is handed an edge whose source is not in the node
-    list it was given.
+    changed set is empty — and :func:`_version_edges` built a source node for it
+    anyway. The dependency view was handed an edge whose source was not in the
+    node list it was given, and every consumer had to discover the dangling
+    reference for itself.
 
-    I believe the product is wrong, in a small way: either the version node
-    belongs in ``version_nodes`` alongside the edge, or the unknown-binding edge
-    has no version-level counterpart. Either is a two-line change; the current
-    state asks every consumer to discover the dangling reference for itself.
+    Closed the way FR-002 points: ``build_graph`` tracks the names an
+    unknown-binding resolution says a cell produced and publishes a
+    ``version_nodes`` entry for each, so the edge keeps its source. The other
+    repair — dropping the edge — would have shown the reader unconnected to a
+    cell it really does depend on (FR-013).
     """
     graph = graph_of(("c1", "from numpy import *"), ("c2", "alpha = arange(3)"))
     nodes = set(graph.version_nodes)
@@ -1044,30 +1079,31 @@ def test_fr025_a_frame_above_the_row_bound_misses_a_change_off_its_stride() -> N
 
 
 def test_fr025_a_container_above_the_bound_is_sampled_across_its_full_extent() -> None:
-    """FINDING P1 — the container sample is a prefix and a tail, not a stride across the extent.
+    """FINDING P1, closed: the container sample is a stride across the extent, not a prefix.
 
     FR-025: above the bound "the content is sampled at fixed strides **across its
     full extent**", and ``_stride_indices``' own docstring says the property
-    "holds literally". It does not. The function computes
-    ``step = length // keep`` and then truncates the resulting index list to
-    ``keep`` entries, so the sampled positions stop at ``(keep - 1) * step`` and
-    the tail index is appended alone. For a 1000-element list and a
-    ``container_items`` of 512 the step is 1 and the sample is indices 0 to 511
-    plus 999: **every position from 512 to 998 is invisible**, which is half the
-    list. The gap exists for any length that is not a multiple of ``keep`` and is
-    widest just under twice it.
+    "holds literally". It did not. The function computed ``step = length // keep``
+    and then truncated the resulting index list to ``keep`` entries, so the
+    sampled positions stopped at ``(keep - 1) * step`` and the tail index was
+    appended alone. For a 1000-element list and a ``container_items`` of 512 the
+    step was 1 and the sample was indices 0 to 511 plus 999: **every position
+    from 512 to 998 was invisible**, which is half the list. The gap existed for
+    any length that is not a multiple of ``keep`` and was widest just under twice
+    it.
 
     A list of a thousand numbers is not a large object; it is what a notebook
-    holds. A cell that writes ``values[600] = 0`` changes it, the fingerprint
-    reports no change, the cell is not a definer, and nothing below it is marked
-    stale — the stale number ADR-054 §6.1 was written to remove. This is outside
-    the miss §4.5 admits, because §4.5 admits a *stride*, and a stride across
-    1000 positions with 513 samples cannot skip 487 consecutive ones.
+    holds. A cell that wrote ``values[600] = 0`` changed it, the fingerprint
+    reported no change, the cell was not a definer, and nothing below it was
+    marked stale — the stale number ADR-054 §6.1 was written to remove. That is
+    outside the miss §4.5 admits, because §4.5 admits a *stride*, and a stride
+    across 1000 positions with 513 samples cannot skip 487 consecutive ones.
 
-    I believe the product is wrong and the fix is one line: stride by
-    ``ceil(length / keep)`` so the indices span the extent, or take the indices
-    from ``range(0, length, step)`` without truncating after a step that already
-    bounds the count.
+    Closed by striding at ``ceil(length / keep)`` and taking the indices from
+    ``range(0, length, step)`` with no truncation, since a step that already
+    bounds the count does not need one. The same repair reached the dict and set
+    path a round later, where the floor step also lost the final entry entirely;
+    ``test_the_sample_spans_the_full_extent_of_a_mapping`` is its counterpart.
     """
     keep = FINGERPRINT_BUDGET.container_items
     values = list(range(2 * keep - 24))

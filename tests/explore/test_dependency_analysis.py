@@ -958,9 +958,20 @@ def test_a_name_the_reading_cell_binds_itself_is_not_unresolved() -> None:
 
     FR-015 draws no edge here because a cell must not depend on itself, and US2
     scenario 5 scopes the unresolved list to "a name that no enabled cell
-    changes" — which this is not. Without the exception every
-    ``import pandas as pd`` cell would report ``pd`` unresolved and packaging
-    would refuse every notebook.
+    changes" — which this is not.
+
+    The fixture is the real case, and the sentence beside it used not to be. Both
+    ADR-054 spec 2 audits caught the claim that a bare ``import pandas as pd``
+    cell "would report ``pd`` unresolved": it would not — :mod:`symtable` reports
+    ``pd`` there as imported and not referenced, so the cell reads nothing and the
+    exception never fires. What needs the exception is the import *followed in
+    the same cell* by ``pd.read_csv('f')``, which is what this test has always
+    used, and equally ``total = 0; total += 1`` and ``def f(n): return f(n - 1)``.
+
+    The exception is wider than FR-015 authorises and the deviation is an open
+    owner decision: ``TODO(#2243)`` beside it in :func:`build_graph`, and
+    ``test_fr015_a_read_only_the_cell_itself_binds_is_not_reported_unresolved``
+    for what it costs.
     """
     graph = graph_of(("c1", "import pandas as pd\ndf = pd.read_csv('f')\n"))
     assert ("c1", "pd") not in unresolved_tuples(graph)
