@@ -315,8 +315,15 @@ def test_explore_never_imports_upward_at_any_depth() -> None:
     engine. Nothing in that sentence is about where in a file the import is
     written.
     """
+    files = _collect_py_files("explore")
+    assert len(files) > len(FR_035_CONSTRAINED_MODULES), (
+        "this rule walks the whole subsystem; a filter narrowing it to the FR-035 modules "
+        "would exclude the session runtime, which is the code the docstring above names as "
+        "the reason the rule exists"
+    )
+
     violations: list[str] = []
-    for filepath in (f for f in _collect_py_files("explore") if f.name in FR_035_CONSTRAINED_MODULES):
+    for filepath in files:
         source = filepath.read_text(encoding="utf-8")
         for imp in _runtime_imports_at_any_depth(source, filename=str(filepath)):
             for forbidden_prefix in EXPLORE_FORBIDDEN:
@@ -413,10 +420,16 @@ def test_engine_does_not_import_explore() -> None:
 
     Without this, the engine could take a direct dependency on the session
     service and every other rule here would still pass.
+
+    Walked at any depth, for the same reason the outbound rule is: the engine
+    defers imports inside functions too, and a lazy
+    ``from scistudio.explore.session import SessionService`` inside
+    ``_run_interactive`` is exactly the shape this violation would take.
     """
     violations: list[str] = []
     for filepath in _collect_py_files("engine"):
-        for imp in _get_imports_from_file(filepath):
+        source = filepath.read_text(encoding="utf-8")
+        for imp in _runtime_imports_at_any_depth(source, filename=str(filepath)):
             if imp == "scistudio.explore" or imp.startswith("scistudio.explore."):
                 violations.append(f"  {filepath.relative_to(SRC_ROOT)}: imports {imp}")
 
