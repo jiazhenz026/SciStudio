@@ -1,0 +1,50 @@
+{
+  "base_ref": "origin/track/adr-054-spec2-dependency-analysis",
+  "branch": "fix/2231-audit-round-two",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/explore/**",
+      "tests/explore/**",
+      "tests/architecture/**",
+      ".workflow/records/2231-fix-2231-audit-round-two.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2231,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Close the findings from both ADR-054 spec 2 audits (no-context P2/P3 and with-context F-01/F-05/F-07/F-11): the comprehension walrus binding, the dict/set FR-025 stride and tail, four mutation-derived coverage holes, the tokeniser-fallback and lazy-import allowlist test-strength defects, the SC-010/SC-007 bounds, and the stale docstrings.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2231-2231-audit-round-two",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "Claude:claude-opus-5",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "32038607-53ba-46ba-b18d-4d1b52966fd3",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": []
+}

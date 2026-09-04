@@ -135,14 +135,25 @@ class FingerprintBudget:
     max_seconds: float = 0.25
     """Wall-clock bound for one call (SC-007).
 
-    The measured worst case over the fixtures in
-    ``tests/explore/test_fingerprint.py`` is 10.4 ms — a one-million-entry dict,
-    whose entries have to be *walked* even where they are not hashed, because a
-    mapping cannot be indexed. An 800 MB array costs 0.03 ms and a
-    one-million-row twenty-column frame 0.9 ms. The bound is set roughly
-    twenty-four times above the measurement so that a loaded shared runner does
-    not turn a timing test into a flake; it is not licence for a slower
-    algorithm, and a change that approaches it should be read as a regression.
+    The worst case is a **one-million-entry dict**, whose entries have to be
+    *walked* even where they are not hashed, because a mapping cannot be indexed
+    and :attr:`max_scan_items` is the length at which that walk stops. It is the
+    ``dict_1m`` fixture of
+    ``tests/explore/test_fingerprint.py::test_largest_fixture_costs_less_than_the_declared_time_bound``,
+    which times it against this constant on every run and prints the number; a
+    64 MB array costs 0.04 ms and a 500k-row eight-column frame 0.7 ms beside it.
+    The measurement is machine-dependent — 10 ms on a fast developer machine,
+    45 ms on a slower one — which is why the bound is set well above it rather
+    than near it: a shared runner must not turn a timing test into a flake. It is
+    not licence for a slower algorithm, and a change that approaches it should be
+    read as a regression.
+
+    Until the ADR-054 spec 2 audits, this docstring cited 10.4 ms for a
+    one-million-entry dict that no committed test built — the largest mapping
+    fixture was ``dict_200k``, and the only test that reached
+    :attr:`max_scan_items` overrode it to 1000. The fixture named above is that
+    measurement, committed.
+
     The bound for a whole namespace of *n* names is *n* times this constant.
     """
 
@@ -275,8 +286,19 @@ def _whole_limit(ctx: _Context) -> int:
     The whole-content route materialises a copy — ``tobytes()``, ``encode()`` —
     before :func:`_feed` sees it, so a call that has nearly spent its byte
     ceiling must take the sampled route even for content the standing limit
-    would have allowed. Without this, a list of five hundred one-megabyte arrays
-    copies five hundred megabytes to hash four.
+    would have allowed.
+
+    The effect is one copy, not many. Measured over a list of one-megabyte
+    arrays, removing the clamp raises the bytes *offered* to the hash from
+    3.3 MiB to 4.0 MiB — a single further whole copy of at most
+    :attr:`FingerprintBudget.whole_content_bytes`, because :func:`_digest`
+    returns as soon as ``_remaining`` reaches zero and never reaches the element
+    after it. That is the whole of the saving, and it is worth having: the
+    guarantee this function carries is that the bytes offered stay inside
+    :attr:`FingerprintBudget.max_total_bytes`, not merely the bytes accepted,
+    and ``test_survivor_the_whole_content_clamp_bounds_the_bytes_offered`` is
+    what holds it. An earlier draft of this docstring claimed five hundred
+    megabytes; nothing measured that, and it was not true.
     """
     return min(ctx.budget.whole_content_bytes, _remaining(ctx))
 
@@ -589,7 +611,24 @@ def _digest_set(obj: set[Any] | frozenset[Any], ctx: _Context) -> None:
 
 
 def _sampled_entries(iterator: Any, length: int, ctx: _Context) -> list[Any]:
-    """Return a bounded, full-extent sample of a non-indexable iterable."""
+    """Return a bounded, full-extent sample of a non-indexable iterable.
+
+    The mapping and set counterpart of :func:`_stride_indices`, and it owes the
+    same two properties for the same reasons. The step is ``ceil(length / keep)``
+    rather than ``length // keep``, and the final entry is always taken.
+
+    Rounding down was wrong in both halves. It let a 1000-entry dict take a step
+    of 1 and *walk and digest all thousand entries* where ``container_items``
+    declares at most 512, and — because a plain ``islice`` stops at the last
+    multiple of the step — it never looked at the final entry at all, so a change
+    to the last-inserted key of a 1024-entry dict moved no digest. §4.5 admits a
+    stride that skips positions; it does not admit a container whose last entry
+    is never read while every indexable container takes an explicit tail.
+
+    The sample is built from one pass of the iterator because a mapping is not
+    indexable: the entries between two kept positions still have to be walked,
+    which is the cost :attr:`FingerprintBudget.max_scan_items` exists to cap.
+    """
     keep = ctx.budget.container_items
     if length <= keep:
         return list(iterator)
@@ -597,9 +636,10 @@ def _sampled_entries(iterator: Any, length: int, ctx: _Context) -> list[Any]:
         ctx.truncated = True
         _tag(ctx, "prefix")
         return list(islice(iterator, keep))
-    step = max(1, length // keep)
+    step = _sample_step(length, keep)
     _feed(ctx, f"step={step}".encode("ascii"))
-    return list(islice(iterator, 0, None, step))
+    last = length - 1
+    return [entry for index, entry in enumerate(iterator) if index % step == 0 or index == last]
 
 
 def _element_digest(obj: object, ctx: _Context) -> int:
