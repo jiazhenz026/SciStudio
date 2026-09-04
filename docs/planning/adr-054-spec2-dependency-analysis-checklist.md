@@ -138,7 +138,7 @@ branch and issue.
 | `S2-D1` | `test_engineer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-d1-adversarial.md` | T-010 and adversarial coverage: the differential harness, the fixtures, and tests that try to break the analysis rather than confirm it | `test/2231-adversarial` | `.worktrees/s2-d1-adversarial` | `tests/explore/**` | Every production path. Report defects, do not fix them. | `#2231` | `[ ]` |
 | `S2-E1` | `audit_reviewer` | `no-context` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-e1-audit-no-context.md` | Independent audit of the explore analysis subsystem against the repository's own documents | `audit/2231-no-context` | `.worktrees/s2-e1-audit-nc` | `docs/audit/2026-09-04-explore-dependency-analysis-no-context.md` | Every implementation and test path. Read-only. | `#2231` | `[ ]` |
 | `S2-E2` | `audit_reviewer` | `with-context` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-e2-audit-with-context.md` | Audit of the delivered spec 2 work against the spec, the issue, and this checklist | `audit/2231-with-context` | `.worktrees/s2-e2-audit-wc` | `docs/audit/2026-09-04-adr-054-spec2-with-context.md` | Every implementation and test path. Read-only. | `#2231` | `[ ]` |
-| `S2-G1` | `adr_author` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-g1-governs-migration.md` | Move the ADR-054 and spec-2 `planned_governs` entries that now resolve into `governs`, and correct the one §11 sentence the move makes false | `docs/2231-governs-migration` | `.worktrees/s2-g1-governs` | `docs/adr/ADR-054.md` (front matter and one sentence), `docs/specs/adr-054-notebook-dependency-analysis.md` (front matter) | Every path under `src/` and `tests/`; every other ADR-054 spec; `docs/architecture/**` | `#2231` | `[ ]` |
+| `S2-G1` | `adr_author` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-g1-governs-migration.md` | Move the ADR-054 and spec-2 `planned_governs` entries that now resolve into `governs`, and correct the one §11 sentence the move makes false | `docs/2231-governs-migration` | `.worktrees/s2-g1-governs` | `docs/adr/ADR-054.md` (front matter and one sentence), `docs/specs/adr-054-notebook-dependency-analysis.md` (front matter) | Every path under `src/` and `tests/`; every other ADR-054 spec; `docs/architecture/**` | `#2231` | `[x]` |
 | `S2-F1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-f1-fix.md` | Fix the P1 and P2 findings the audits and the adversarial test engineer produce | `fix/2231-audit-findings` | `.worktrees/s2-f1-fix` | `src/scistudio/explore/**`, `tests/explore/**` | Everything else | `#2231` | `[ ]` |
 
 For `test_engineer` rows, the write set should default to tests, fixtures,
@@ -210,7 +210,18 @@ amendment.
       Gate ledger: `.workflow/records/2231-feat-2231-fingerprint.json`.
 - [ ] `S2-C1` observation, codec, stability markers -> artifact pending
 - [ ] `S2-D1` differential harness, fixtures, adversarial tests -> artifact pending
-- [ ] `S2-G1` the `planned_governs` migration -> artifact pending
+- [ ] `S2-G1` the `planned_governs` migration -> branch `docs/2231-governs-migration`
+      pushed, awaiting integration. `full_audit` went from `fail` (13 error, 88 info)
+      to `pass` (0 error, 88 info): the 13 `planned-*-is-resolved` errors on
+      `docs/adr/ADR-054.md` and `docs/specs/adr-054-notebook-dependency-analysis.md`
+      are cleared, and the 88 informational findings from other documents are
+      unchanged. `phase: planning` deliberately left as is — `phase: implementation`
+      makes `doc_drift` demand an *active* related spec, and spec 2 is `Draft`, so
+      the change trades 13 errors for one. `AnalysisRecord`, `ObservedChange`,
+      `tests/explore/test_analysis_differential.py`, and `tests/explore/fixtures/**`
+      stay in `planned_governs`; the first two do not exist under those names in the
+      delivered modules. Gate ledger:
+      `.workflow/records/2231-docs-2231-governs-migration.json`.
 - [x] docs -> N/A, rationale recorded in §7.1.
 
 ### 7.4 Audit

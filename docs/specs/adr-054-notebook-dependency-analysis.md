@@ -34,14 +34,6 @@ scope:
     - Statement-order precision inside a cell and control-flow precision, which are the model's stated limit, as ADR-054 section 6.2 states it.
     - Human documentation revision, which is specified separately in adr-054-documentation.
 governs:
-  modules: []
-  contracts: []
-  entry_points: []
-  files:
-    - docs/specs/adr-054-notebook-dependency-analysis.md
-    - tests/architecture/test_layer_deps.py
-  excludes: []
-planned_governs:
   modules:
     - scistudio.explore
     - scistudio.explore.dependency_analysis
@@ -49,16 +41,24 @@ planned_governs:
   contracts:
     - scistudio.explore.dependency_analysis.CellFacts
     - scistudio.explore.dependency_analysis.DependencyGraph
-    - scistudio.explore.dependency_analysis.AnalysisRecord
     - scistudio.explore.fingerprint.Fingerprint
-    - scistudio.explore.fingerprint.ObservedChange
   entry_points: []
   files:
+    - docs/specs/adr-054-notebook-dependency-analysis.md
     - src/scistudio/explore/__init__.py
     - src/scistudio/explore/dependency_analysis.py
     - src/scistudio/explore/fingerprint.py
+    - tests/architecture/test_layer_deps.py
     - tests/explore/test_dependency_analysis.py
     - tests/explore/test_fingerprint.py
+  excludes: []
+planned_governs:
+  modules: []
+  contracts:
+    - scistudio.explore.dependency_analysis.AnalysisRecord
+    - scistudio.explore.fingerprint.ObservedChange
+  entry_points: []
+  files:
     - tests/explore/test_analysis_differential.py
     - tests/explore/fixtures/**
   excludes: []
