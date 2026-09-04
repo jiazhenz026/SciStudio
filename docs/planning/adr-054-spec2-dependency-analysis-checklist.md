@@ -3,7 +3,9 @@ title: "ADR-054 Spec 2 Notebook Dependency Analysis Agent Dispatch Checklist"
 status: Approved
 owners:
   - "@jiazhenz026"
-related_adrs: [42, 51, 54]
+related_adrs:
+  - 42
+  - 54
 language_source: en
 ---
 
@@ -16,18 +18,14 @@ language_source: en
 
 ## 1. Change Summary
 
-- Owner request: Manage the complete implementation of ADR-054 spec 2
-  (`docs/specs/adr-054-notebook-dependency-analysis.md`): dispatch an
-  implementer, a no-context adversarial test engineer, and a no-context audit
-  reviewer, and deliver one final PR whose title carries `ADR-054 Spec 2`.
+- Owner request: `Implement ADR-054 spec 2 and spec 3 in full, restarting spec 2 from scratch, with a final adversarial test engineer and a no-context auditor, delivered as two PRs for owner review.`
 - Task kind: `manager`
 - Manager persona: `manager`
 - Issue: `#2231`
 - Gate record: `.workflow/records/2231-track-adr-054-spec2-dependency-analysis.json`
-- Branch/worktree plan: manager branch `track/adr-054-spec2-dependency-analysis`
-  in `.worktrees/mgr-2231-spec2-dep-analysis`; agent branches
-  `feat/2231-dep-analysis-impl`, `test/2231-dep-analysis-adversarial`,
-  `audit/2231-dep-analysis-no-context` with dedicated worktrees under
+- Branch/worktree plan: manager on `track/adr-054-spec2-dependency-analysis` in
+  `.worktrees/mgr-2231-spec2-dep-analysis`; agents on `feat/2231-*`,
+  `test/2231-*`, `audit/2231-*` branches, one dedicated worktree each under
   `.worktrees/`.
 - Protected branch: `main`
 - Umbrella branch: `track/adr-054-spec2-dependency-analysis`
@@ -41,32 +39,36 @@ language_source: en
   - Audit no context:
     `docs/ai-developer/templates/agent-dispatch-audit-no-context-prompt-template.md`
 
+### 1.1 Restart Note
+
+An earlier dispatch of this spec produced a checklist, three prompt files, and
+a gate ledger, and no implementation. The owner directed a full restart. The
+earlier checklist and prompt files are replaced by this dispatch; the gate
+ledger is retained and amended, because it is the append-only record for this
+branch and issue.
+
 ## 2. Scope
 
 - In scope:
   - `src/scistudio/explore/__init__.py`
   - `src/scistudio/explore/dependency_analysis.py`
   - `src/scistudio/explore/fingerprint.py`
-  - `tests/explore/test_dependency_analysis.py`
-  - `tests/explore/test_fingerprint.py`
-  - `tests/explore/test_analysis_differential.py`
-  - `tests/explore/fixtures/**`
-  - `tests/architecture/test_layer_deps.py` (subsystem enumeration + FR-035)
-  - `docs/audit/2026-09-03-adr-054-spec2-no-context.md` (audit report)
+  - `tests/explore/**`
+  - `tests/architecture/test_layer_deps.py`
+  - `docs/planning/adr-054-spec2-dependency-analysis-checklist.md`
+  - `docs/planning/adr-054-spec2-dispatch-prompts/**`
+  - `docs/audit/**` (audit reports only)
+  - `.workflow/records/2231-*.json`
 - Out of scope:
-  - The kernel, execution queue, stale/out-of-order marking application,
-    packaged-block run (explore-session spec)
-  - The dependency-graph view and cell enable/disable control
-    (explore-frontend spec)
-  - Notebook file loading/saving (explore-session spec)
-  - The panel contract (#2229, in flight under another dispatch)
-  - Any frontend (`frontend/**`, `desktop/**`) change
-  - Any change under `docs/ai-developer/**` (governance surface)
+  - Everything the explore-session spec owns: the kernel, the queue, the marks
+    as the session applies them, packaging, lineage, the API.
+  - Every frontend path.
+  - `docs/specs/adr-054-*.md` — the specs are approved input, not work product.
+  - `docs/architecture/**` — owner-controlled.
 - Protected paths:
-  - None of the in-scope paths are protected-core; layer test change is a
-    test file edit.
+  - None. Spec 2 adds a new subsystem and touches one architecture test.
 - Deferred work:
-  - N/A
+  - N/A at dispatch time. Any deferral must be a `TODO(#NNN)` citing an issue.
 
 ## 3. Conventions
 
@@ -83,46 +85,38 @@ language_source: en
 ## 4. Manager Preflight
 
 - [x] Dedicated manager branch and worktree created.
-      -> `.worktrees/mgr-2231-spec2-dep-analysis` on
-      `track/adr-054-spec2-dependency-analysis`
+      `track/adr-054-spec2-dependency-analysis` in
+      `.worktrees/mgr-2231-spec2-dep-analysis`.
 - [x] Existing issue linked, or new issue created only if none exists.
-      -> #2231 (created; #2209 is the ADR-level tracker and stays open,
-      #2229 tracks spec 1)
+      `#2231` already tracked this work; no new issue created.
 - [x] Gate record started.
-      -> `.workflow/records/2231-track-adr-054-spec2-dependency-analysis.json`
+      `.workflow/records/2231-track-adr-054-spec2-dependency-analysis.json`.
 - [x] Scope include/exclude recorded in the gate record.
-      -> ledger init event
-- [x] Umbrella branch created. -> `track/adr-054-spec2-dependency-analysis`,
-      pushed at 38125e1f6
-- [x] Umbrella PR opened. -> https://github.com/jiazhenz026/SciStudio/pull/2232
+- [x] Umbrella branch created.
+- [x] Umbrella PR opened. `#2232`.
 - [x] Umbrella PR title includes `[DO NOT MERGE]`.
 - [x] Protected branch and umbrella PR number recorded in this checklist.
-      -> `main`, `#2232`
 - [x] No `pip install -e .` environment pollution found.
-      -> The shared `.venv` carries a stale editable `.pth` pointing at a
-      different checkout; all Python invocations in worktrees MUST set
-      `PYTHONPATH="$PWD/src"` (recorded in every dispatch prompt).
-- [x] Dispatch checklist copied from the template and committed. -> 38125e1f6
-- [~] Dispatch prompts created from the correct prompt template and linked
-      below. -> `a-impl.md` committed at 38125e1f6; `a-test.md` and
-      `a-audit.md` are written when their dispatch starts (they need the
-      integration state at that point).
+      Every agent prompt forbids it and every gate command uses `PYTHONPATH=./src`.
+- [x] Dispatch checklist copied from the template and committed.
+- [x] Dispatch prompts created from the correct prompt template and linked
+      below.
 - [x] Sentrux baseline recorded, or N/A reason recorded.
-      -> N/A: Sentrux MCP is not available in this session; agents record
-      the CLI fallback or N/A in their own ledgers.
+      N/A: Sentrux MCP is not connected in this session. `gate_record check`
+      records the guard event from the CLI when it is available.
 
 ## 5. Local Gate Hook Bypass Evidence
 
 - Authorized bypass label: `N/A`
-- Owner authorization source: `N/A`
-- Reason: `N/A`
+- Owner authorization source: `Owner pre-approved every label this work needs (chat, 2026-09-04). No bypass label is expected for spec 2, which touches no protected path.`
+- Reason: `N/A — no bypass needed.`
 
 | Hook | Command | Bypass label | Status | Evidence |
 |---|---|---|---|---|
-| Pre-commit | `python -m scistudio.qa.governance.gate_record check --mode pre-commit` | `N/A` | `[ ]` | `<commit hooks removed in #2150; pre-pr mode owns these checks>` |
-| Commit message | `python -m scistudio.qa.governance.gate_record check --mode commit-msg` | `N/A` | `[ ]` | `<validated at pre-pr/ci per #2150>` |
-| Pre-push | `python -m scistudio.qa.governance.gate_record check --mode pre-push --base origin/main --head HEAD` | `N/A` | `[ ]` | `<reconcile event>` |
-| Pre-PR reconcile | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `N/A` | `[ ]` | `<reconcile event>` |
+| Pre-commit | `python -m scistudio.qa.governance.gate_record check --mode pre-commit` | `N/A` | `[ ]` | |
+| Commit message | `python -m scistudio.qa.governance.gate_record check --mode commit-msg` | `N/A` | `[ ]` | |
+| Pre-push | `python -m scistudio.qa.governance.gate_record check --mode pre-push` | `N/A` | `[ ]` | |
+| Pre-PR reconcile | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `N/A` | `[ ]` | |
 
 ## 5.1 Docs Impact Check
 
@@ -132,74 +126,81 @@ language_source: en
   `docs/ai-developer/specific_rules/gated-workflow.md`,
   `docs/ai-developer/specific_rules/agent-dispatch.md`,
   `docs/ai-developer/templates/*dispatch*.md`
-- Updated docs or N/A rationale: `N/A — no AI-workflow surface changes; this is
-  a new analysis subsystem plus tests.`
+- Updated docs or N/A rationale: `N/A — spec 2 adds a pure analysis subsystem and changes no AI workflow surface. The governing spec, docs/specs/adr-054-notebook-dependency-analysis.md, already landed in PR #2228.`
 
 ## 6. Dispatch Matrix
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A-impl` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/a-impl.md` | Implement the explore dependency-analysis subsystem (spec T-001..T-009, T-011 production code) | `feat/2231-dep-analysis-impl` | `.worktrees/spec2-impl` | `src/scistudio/explore/**`, `tests/architecture/test_layer_deps.py`, own gate ledger | `tests/explore/**`, everything else | `#2231` | `[ ]` |
-| `A-test` | `test_engineer` | `no-context (owner-directed adversarial)` | `docs/planning/adr-054-spec2-dispatch-prompts/a-test.md` | Write the adversarial test suite (`tests/explore/**` + fixtures) against the spec and the real code | `test/2231-dep-analysis-adversarial` | `.worktrees/spec2-test` | `tests/explore/**`, own gate ledger | all production code | `#2231` | `[ ]` |
-| `A-audit` | `audit_reviewer` | `no-context` | `docs/planning/adr-054-spec2-dispatch-prompts/a-audit.md` | Independent audit of the integrated diff against the spec and ADR-054 | `audit/2231-dep-analysis-no-context` | `.worktrees/spec2-audit` | `docs/audit/2026-09-03-adr-054-spec2-no-context.md`, own gate ledger | all implementation and test code | `#2231` | `[ ]` |
+| `S2-B1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-b1-graph.md` | T-001 to T-006: the package, the layer rule, per-cell static facts, flags, declarations, the graph, the four queries | `feat/2231-dep-analysis-graph` | `.worktrees/s2-b1-graph` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `tests/explore/test_dependency_analysis.py`, `tests/architecture/test_layer_deps.py` | `src/scistudio/explore/fingerprint.py`, `tests/explore/test_fingerprint.py`, everything outside `src/scistudio/explore/` and `tests/explore/` | `#2231` | `[ ]` |
+| `S2-B2` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-b2-fingerprint.md` | T-007: the fingerprint, the size bound, the unobservable fallback | `feat/2231-fingerprint` | `.worktrees/s2-b2-fingerprint` | `src/scistudio/explore/fingerprint.py`, `tests/explore/test_fingerprint.py` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `tests/architecture/**` | `#2231` | `[ ]` |
+| `S2-C1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-c1-observation.md` | T-008, T-009, T-011: the namespace comparison, the observation record with source-hash invalidation, the metadata codec, stability markers | `feat/2231-observation-codec` | `.worktrees/s2-c1-observation` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `src/scistudio/explore/fingerprint.py`, `tests/explore/test_dependency_analysis.py`, `tests/explore/test_fingerprint.py` | `tests/architecture/**`, everything outside `src/scistudio/explore/` and `tests/explore/` | `#2231` | `[ ]` |
+| `S2-D1` | `test_engineer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-d1-adversarial.md` | T-010 and adversarial coverage: the differential harness, the fixtures, and tests that try to break the analysis rather than confirm it | `test/2231-adversarial` | `.worktrees/s2-d1-adversarial` | `tests/explore/**` | Every production path. Report defects, do not fix them. | `#2231` | `[ ]` |
+| `S2-E1` | `audit_reviewer` | `no-context` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-e1-audit-no-context.md` | Independent audit of the explore analysis subsystem against the repository's own documents | `audit/2231-no-context` | `.worktrees/s2-e1-audit-nc` | `docs/audit/2026-09-04-explore-dependency-analysis-no-context.md` | Every implementation and test path. Read-only. | `#2231` | `[ ]` |
+| `S2-E2` | `audit_reviewer` | `with-context` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-e2-audit-with-context.md` | Audit of the delivered spec 2 work against the spec, the issue, and this checklist | `audit/2231-with-context` | `.worktrees/s2-e2-audit-wc` | `docs/audit/2026-09-04-adr-054-spec2-with-context.md` | Every implementation and test path. Read-only. | `#2231` | `[ ]` |
+| `S2-F1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-f1-fix.md` | Fix the P1 and P2 findings the audits and the adversarial test engineer produce | `fix/2231-audit-findings` | `.worktrees/s2-f1-fix` | `src/scistudio/explore/**`, `tests/explore/**` | Everything else | `#2231` | `[ ]` |
 
-For `test_engineer` rows, the write set defaults to tests, fixtures,
+For `test_engineer` rows, the write set should default to tests, fixtures,
 validation scripts, e2e scenarios, audit evidence, and explicitly assigned
 QA/governance tooling. Production code paths require a recorded scope
-amendment. `A-test` reports production-code defects as findings; fixes land
-through `A-impl` (or a manager-sequenced fix dispatch), never through `A-test`.
+amendment.
 
-## 7. Track: ADR-054 Spec 2 — Notebook Dependency Analysis
+## 7. Track: Notebook Dependency Analysis
 
 ### 7.1 Track Scope
 
-- Owner: `manager` (this session)
+- Owner: manager
 - In scope:
-  - Per-cell static facts (symtable + ast, stdlib only): assigned/read names,
-    output/input declarations, block calls, magic stripping, flags (FR-005 to
-    FR-013)
-  - The graph over enabled cells with edge origins, version nodes, unresolved
-    reads (FR-014 to FR-019)
-  - The four queries (FR-020 to FR-023)
-  - Fingerprint + namespace comparison + source-hash-keyed observation
-    (FR-024 to FR-030)
-  - Cell-metadata record codec (FR-031 to FR-034)
-  - Architecture layer test enumeration (FR-035) and stability markers (T-011)
-  - The full test suite and fixtures (spec §4.2 test files)
+  - The `scistudio.explore` package and its place in the architecture layer test.
+  - Per-cell static facts from `symtable` and `ast`: assigned names, read names,
+    output declarations, input declarations, block calls (FR-005 to FR-013).
+  - Magic and shell stripping, opaque cell magics, star imports, unparseable
+    cells, and the flag each produces (FR-036).
+  - The dependency graph over enabled cells, version nodes, edge origins, and
+    the four queries (FR-014 to FR-023).
+  - The fingerprint, the namespace comparison, and the observation record
+    (FR-024 to FR-030).
+  - The notebook cell metadata codec keyed to the cell source hash
+    (FR-031 to FR-034).
+  - The import constraint of FR-035 asserted by the layer test.
 - Out of scope:
-  - Everything listed in §2 out-of-scope above
+  - The kernel, the execution queue, the marks as the session applies them, and
+    the packaged block's run. Spec 3 owns those.
+  - The dependency-graph view and the enable/disable control. The
+    explore-frontend spec owns those.
 - Required docs:
-  - This checklist; the audit report; spec/ADR already exist. No user docs
-    (the subsystem has no user-visible surface yet — explore-session spec owns
-    that).
+  - N/A. `docs/specs/adr-054-notebook-dependency-analysis.md` is the governing
+    document and already landed in PR #2228. This work implements it and adds
+    no new user-facing or developer-facing surface that a guide describes.
 - Required tests:
   - `tests/explore/test_dependency_analysis.py`
   - `tests/explore/test_fingerprint.py`
   - `tests/explore/test_analysis_differential.py`
   - `tests/explore/fixtures/**`
-  - `tests/architecture/test_layer_deps.py` (modified)
+  - `tests/architecture/test_layer_deps.py`
 
 ### 7.2 Dispatch
 
-- [ ] Prompt file created or dispatch prompt recorded.
-- [ ] Correct prompt template selected.
-- [ ] Audit mode recorded when persona is `audit_reviewer` -> `no-context`.
-- [ ] Agent branch/worktree assigned.
-- [ ] Write set and out-of-scope paths included in prompt.
-- [ ] TODO rule included in prompt.
-- [ ] Required checks included in prompt.
+- [x] Prompt file created or dispatch prompt recorded.
+- [x] Correct prompt template selected.
+- [x] Audit mode recorded when persona is `audit_reviewer`.
+- [x] Agent branch/worktree assigned.
+- [x] Write set and out-of-scope paths included in prompt.
+- [x] TODO rule included in prompt.
+- [x] Required checks included in prompt.
 
 ### 7.3 Implementation
 
-- [ ] `A-impl`: explore package + layer test -> `<commit>`
-- [ ] `A-test`: adversarial tests + fixtures -> `<commit>`
-- [ ] Audit report committed -> `docs/audit/2026-09-03-adr-054-spec2-no-context.md`
+- [ ] `S2-B1` package, layer rule, static facts, graph, queries -> artifact pending
+- [ ] `S2-B2` fingerprint with bound and fallback -> artifact pending
+- [ ] `S2-C1` observation, codec, stability markers -> artifact pending
+- [ ] `S2-D1` differential harness, fixtures, adversarial tests -> artifact pending
+- [x] docs -> N/A, rationale recorded in §7.1.
 
 ### 7.4 Audit
 
-- [ ] Audit agent assigned, or manager audit completed. -> `A-audit`, no-context
+- [ ] Audit agent assigned, or manager audit completed.
 - [ ] Audit report file path assigned.
-      -> `docs/audit/2026-09-03-adr-054-spec2-no-context.md`
 - [ ] Audit report committed.
 - [ ] Audit report merged into final PR evidence path.
 - [ ] Findings recorded.
@@ -217,12 +218,12 @@ through `A-impl` (or a manager-sequenced fix dispatch), never through `A-test`.
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| Gate ledger check (local) | `python -m scistudio.qa.governance.gate_record check --mode local --base origin/main --head HEAD` | `[ ]` | `<reconcile event or summary>` |
-| Targeted tests | `PYTHONPATH="$PWD/src" ../../.venv/Scripts/python.exe -m pytest tests/explore tests/architecture/test_layer_deps.py` | `[ ]` | `<output summary>` |
-| Pre-push gate check | `python -m scistudio.qa.governance.gate_record check --mode pre-push --base origin/main --head HEAD` | `[ ]` | `<reconcile event or summary>` |
-| Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[ ]` | `<reconcile event or summary>` |
-| Gate finalize (pre-PR) | `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#2231"` | `[ ]` | `<ledger path>` |
-| Wrapper preflight | `python scripts/scistudio_pr_create.py --dry-run --title "<title>" --body "<body>"` | `[ ]` | `<output>` |
+| Gate ledger check (local) | `PYTHONPATH=./src python -m scistudio.qa.governance.gate_record check --mode local --base origin/main --head HEAD` | `[ ]` | |
+| Targeted tests | `PYTHONPATH=./src python -m pytest tests/explore tests/architecture/test_layer_deps.py -q` | `[ ]` | |
+| Pre-push gate check | `PYTHONPATH=./src python -m scistudio.qa.governance.gate_record check --mode pre-push --base origin/main --head HEAD` | `[ ]` | |
+| Gate ledger check (pre-PR) | `PYTHONPATH=./src python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[ ]` | |
+| Gate finalize (pre-PR) | `PYTHONPATH=./src python -m scistudio.qa.governance.gate_record finalize --commit SHA --pr-body-file .workflow/local/pr-body.md --closes "#2231"` | `[ ]` | |
+| Wrapper preflight | `PYTHONPATH=./src python scripts/scistudio_pr_create.py --dry-run --title TITLE --body BODY` | `[ ]` | |
 
 ## 9. Drift Log
 
@@ -230,7 +231,7 @@ Append only.
 
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
-| - | - | - | - | - |
+| 2026-09-04 | manager | The earlier spec 2 dispatch left a checklist and three prompts with no implementation behind them. | Owner directed a full restart. Replaced the checklist and the prompt directory; retained and amended the gate ledger. | N/A |
 
 ## 10. Final Readiness
 

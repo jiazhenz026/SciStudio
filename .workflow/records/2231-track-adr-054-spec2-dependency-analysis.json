@@ -21,6 +21,11 @@
       "at": "2026-09-03T02:37:06.664428Z",
       "owner_directive": "Manager plan: checklist + umbrella PR, then dispatch A-impl (implementer, production code), A-test (no-context adversarial test engineer), A-audit (no-context audit); integrate, gate check, final PR titled 'ADR-054 Spec 2: ...' closing #2231.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-09-04T08:49:54.203660Z",
+      "owner_directive": "Manager: implement ADR-054 spec 2 and spec 3 in full, restart spec 2 from scratch, dispatch a final adversarial test engineer and a no-context auditor, deliver two PRs for owner review; all needed labels pre-approved",
+      "reason": "Owner directed a full restart of ADR-054 spec 2 and added spec 3; replacing the dispatch checklist and prompt directory"
     }
   ],
   "docs_events": [
