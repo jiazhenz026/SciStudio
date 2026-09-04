@@ -1,0 +1,427 @@
+{
+  "base_ref": "origin/main",
+  "branch": "audit/2231-with-context",
+  "check_events": [
+    {
+      "at": "2026-09-04T11:29:14.412513Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d4a653c9057216dcf2b633c063c1704b5e3f451857d2583940a16eee55bb1d1a",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T11:29:14.442349Z",
+      "command": "ruff format src/scistudio/explore/__init__.py src/scistudio/explore/dependency_analysis.py src/scistudio/explore/fingerprint.py tests/architecture/test_layer_deps.py tests/architecture/test_placement.py tests/explore/__init__.py tests/explore/fixtures/_run_notebook.py tests/explore/test_adversarial_analysis.py tests/explore/test_analysis_differential.py tests/explore/test_dependency_analysis.py tests/explore/test_fingerprint.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2bd915a6553cd430de4bb786a02429f99b66ab0b1b9dd0eb7c2a65ac9d74bfa9",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T11:29:26.011555Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:29d611756ffecc4edf83044d07e7fc17902a437e40a99fdfc37a76a811ca0799",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T11:29:26.513134Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8748f3bcaa4eaa1a8752c6e8f28931c36d2de94c7a4f8dce293f8bd366cfc683",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T11:29:26.536055Z",
+      "command": "ruff check src/scistudio/explore/__init__.py src/scistudio/explore/dependency_analysis.py src/scistudio/explore/fingerprint.py tests/architecture/test_layer_deps.py tests/architecture/test_placement.py tests/explore/__init__.py tests/explore/fixtures/_run_notebook.py tests/explore/test_adversarial_analysis.py tests/explore/test_analysis_differential.py tests/explore/test_dependency_analysis.py tests/explore/test_fingerprint.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cd1b24028a2c3692cb0cde6b562741296dca7ca3181e5313943767be7a6c2233",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T11:34:48.777528Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2d820220134d39ecf57fd90c90c49a1abd1432f077061be3d9049e5f1fe08a01",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T11:34:49.595518Z",
+      "command": "mypy src/scistudio/explore/__init__.py src/scistudio/explore/dependency_analysis.py src/scistudio/explore/fingerprint.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:973f4d47dc48036e91ac638eb44dcc5600fa0f3931f06f15624edd6125e22f86",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-09-04-adr-054-spec2-with-context.md",
+      ".workflow/records/2231-docs-2231-audit-with-context.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-04T11:21:25.611130Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-04-adr-054-spec2-with-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T11:35:19.118906Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "read-only with-context audit under docs/audit/**; the audit report docs/audit/2026-09-04-adr-054-spec2-with-context.md is the whole artifact. No product behaviour, public contract, workflow surface, or AI-workflow document changed, so no guide, changelog entry, or reference page has anything to describe. The S2-E2 checklist row is the manager's to tick, not this agent's, per the dispatch prompt.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-09-04T11:34:49.648890Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:34:49.663973Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:34:49.678755Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "src/scistudio/explore/__init__.py",
+              "src/scistudio/explore/dependency_analysis.py",
+              "src/scistudio/explore/fingerprint.py"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-04T11:34:49.693654Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:34:49.708464Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:34:49.723216Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:34:49.738490Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:34:49.754492Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:34:49.771955Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:34:49.787221Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:34:49.831293Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2231,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "43e9313f2",
+    "changed_files": [
+      ".workflow/records/2231-docs-2231-governs-migration.json",
+      ".workflow/records/2231-feat-2231-dep-analysis-graph.json",
+      ".workflow/records/2231-feat-2231-fingerprint.json",
+      ".workflow/records/2231-feat-2231-observation-codec.json",
+      ".workflow/records/2231-fix-2231-audit-findings.json",
+      ".workflow/records/2231-test-2231-adversarial.json",
+      ".workflow/records/2231-track-adr-054-spec2-dependency-analysis.json",
+      "docs/adr/ADR-054.md",
+      "docs/planning/adr-054-spec2-dependency-analysis-checklist.md",
+      "docs/planning/adr-054-spec2-dispatch-prompts/s2-b1-graph.md",
+      "docs/planning/adr-054-spec2-dispatch-prompts/s2-b2-fingerprint.md",
+      "docs/planning/adr-054-spec2-dispatch-prompts/s2-c1-observation.md",
+      "docs/planning/adr-054-spec2-dispatch-prompts/s2-d1-adversarial.md",
+      "docs/planning/adr-054-spec2-dispatch-prompts/s2-e1-audit-no-context.md",
+      "docs/planning/adr-054-spec2-dispatch-prompts/s2-e2-audit-with-context.md",
+      "docs/planning/adr-054-spec2-dispatch-prompts/s2-f1-fix.md",
+      "docs/planning/adr-054-spec2-dispatch-prompts/s2-g1-governs-migration.md",
+      "docs/specs/adr-054-notebook-dependency-analysis.md",
+      "src/scistudio/explore/__init__.py",
+      "src/scistudio/explore/dependency_analysis.py",
+      "src/scistudio/explore/fingerprint.py",
+      "tests/architecture/test_layer_deps.py",
+      "tests/architecture/test_placement.py",
+      "tests/explore/__init__.py",
+      "tests/explore/fixtures/_run_notebook.py",
+      "tests/explore/fixtures/alias_mutation.ipynb",
+      "tests/explore/fixtures/alternatives_disabled.ipynb",
+      "tests/explore/fixtures/deletion_and_reuse.ipynb",
+      "tests/explore/fixtures/global_counter.ipynb",
+      "tests/explore/fixtures/line_magic.ipynb",
+      "tests/explore/fixtures/story_two_helper.ipynb",
+      "tests/explore/fixtures/story_two_in_place.ipynb",
+      "tests/explore/fixtures/story_two_library_function.ipynb",
+      "tests/explore/fixtures/story_two_subscript.ipynb",
+      "tests/explore/fixtures/wrapped_operator.ipynb",
+      "tests/explore/test_adversarial_analysis.py",
+      "tests/explore/test_analysis_differential.py",
+      "tests/explore/test_dependency_analysis.py",
+      "tests/explore/test_fingerprint.py"
+    ],
+    "diff_fingerprint": "sha256:71b2258dc13289808463f4341b4de1a4ffb046352719e06ee7edbefd93c7173b",
+    "head": "HEAD",
+    "head_sha": "42fd9a53c",
+    "surfaces": {
+      "docs": 11,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 3,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 23,
+      "test": 18,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Implement ADR-054 spec 2 in full, restarting from scratch, with a final adversarial test engineer and a no-context auditor. This record covers the with-context audit (S2-E2).",
+  "persona": "audit_reviewer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-09-04T11:34:49.831342Z",
+      "diff_fingerprint": "sha256:71b2258dc13289808463f4341b4de1a4ffb046352719e06ee7edbefd93c7173b",
+      "mode": "local",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": [
+        "docs.docs_required_or_na",
+        "guard.docs_landing"
+      ]
+    }
+  ],
+  "record_id": "2231-2231-audit-with-context",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "commit_hygiene",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T11:21:25.611100Z",
+      "pattern": ".workflow/records/2231-2231-audit-with-context.json",
+      "reason": "the ledger CLI named the record file 2231-2231-audit-with-context.json rather than the path declared at init; correct the declared scope to the real ledger path and record the audit report as the docs artifact"
+    },
+    {
+      "action": "remove-include",
+      "at": "2026-09-04T11:21:25.611123Z",
+      "pattern": ".workflow/records/2231-docs-2231-audit-with-context.json",
+      "reason": "the ledger CLI named the record file 2231-2231-audit-with-context.json rather than the path declared at init; correct the declared scope to the real ledger path and record the audit report as the docs artifact"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T11:35:19.118880Z",
+      "pattern": ".workflow/records/2231-2231-audit-with-context.json",
+      "reason": "record the docs N/A rationale the docs_required_or_na obligation and the docs_landing guard ask for, and correct the declared scope to the real ledger filename"
+    },
+    {
+      "action": "remove-include",
+      "at": "2026-09-04T11:35:19.118898Z",
+      "pattern": ".workflow/records/2231-docs-2231-audit-with-context.json",
+      "reason": "record the docs N/A rationale the docs_required_or_na obligation and the docs_landing guard ask for, and correct the declared scope to the real ledger filename"
+    }
+  ],
+  "session_id": "77dd9534-6569-45be-bd9a-f4062adbb9c7",
+  "strictness_tier": 3,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-09-04T11:21:25.611142Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "read-only audit; the report is the only artifact and no product code or test changed",
+      "verified_in_diff": null
+    }
+  ]
+}
