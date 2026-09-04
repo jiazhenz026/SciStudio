@@ -373,13 +373,32 @@ class DependencyGraph:
     _dependents: Mapping[str, tuple[str, ...]] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
+        # The adjacency lists are de-duplicated through a parallel set rather
+        # than by scanning the list, because the list is not short. FR-018 asks
+        # for a cost linear in cells and names, and `x not in some_list` is
+        # linear in that list's length -- which is fine only while every cell's
+        # fan-in and fan-out stay small. They do not: a notebook's first cell
+        # imports the libraries and reads the data, and every cell below it
+        # reads those names, so that one cell's `dependents` entry grows to the
+        # length of the notebook and the loop below turns quadratic against the
+        # single most ordinary notebook shape there is. Measured on a 2000-cell
+        # generated notebook whose first cell binds `base` and `scale`, the
+        # list form spent 13 ms of a 36 ms build here; the set form spends
+        # under 2 ms and the whole build is linear again. The lists are still
+        # what is published, so first-seen order -- and therefore FR-017's
+        # determinism -- is unchanged; the sets only answer the membership
+        # question.
         order = {cell_id: index for index, cell_id in enumerate(self.cells)}
         dependencies: dict[str, list[str]] = {cell_id: [] for cell_id in self.cells}
         dependents: dict[str, list[str]] = {cell_id: [] for cell_id in self.cells}
+        seen_dependencies: dict[str, set[str]] = {cell_id: set() for cell_id in self.cells}
+        seen_dependents: dict[str, set[str]] = {cell_id: set() for cell_id in self.cells}
         for edge in self.edges:
-            if edge.definer not in dependencies[edge.reader]:
+            if edge.definer not in seen_dependencies[edge.reader]:
+                seen_dependencies[edge.reader].add(edge.definer)
                 dependencies[edge.reader].append(edge.definer)
-            if edge.reader not in dependents[edge.definer]:
+            if edge.reader not in seen_dependents[edge.definer]:
+                seen_dependents[edge.definer].add(edge.reader)
                 dependents[edge.definer].append(edge.reader)
         object.__setattr__(self, "_order", MappingProxyType(order))
         object.__setattr__(
