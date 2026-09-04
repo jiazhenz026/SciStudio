@@ -245,10 +245,25 @@ def test_layer_rules_cover_all_source_layers() -> None:
 # ADR-054 spec 2 FR-035 / SC-011: the explore subsystem's import allowlist
 # ---------------------------------------------------------------------------
 
-#: The only SciStudio modules ``scistudio.explore`` may import at module level.
+#: The only SciStudio modules the **analysis** may import at module level.
 #: ``scistudio.stability`` carries the tier and ``since`` decorators (ADR-052 §5),
 #: which are no-ops at runtime; ``scistudio.explore`` itself is the package.
 EXPLORE_ALLOWED_SCISTUDIO_IMPORTS: set[str] = {"scistudio.stability", "scistudio.explore"}
+
+#: The modules FR-035 constrains. Its subject is "the analysis and fingerprint
+#: modules", not the whole subsystem: the session runtime that
+#: ``docs/specs/adr-054-explore-session.md`` adds beside them imports ``core``
+#: for storage, lineage, and versioning and ``blocks`` for the registry, which
+#: is what §4.1 of that spec places it there to do. The package ``__init__``
+#: is included because it re-exports only the analysis, which is what keeps
+#: importing the analysis from dragging a kernel in.
+#:
+#: The subsystem-wide rule — explore imports neither ``api``, nor ``ai``, nor
+#: ``engine`` — is the ``explore`` entry in ``LAYER_RULES`` above, and it
+#: applies to every file in the package.
+FR_035_CONSTRAINED_MODULES: frozenset[str] = frozenset(
+    {"__init__.py", "dependency_analysis.py", "fingerprint.py"}
+)
 
 
 def _is_stdlib(module: str) -> bool:
@@ -257,7 +272,12 @@ def _is_stdlib(module: str) -> bool:
 
 
 def test_explore_imports_are_allowlisted() -> None:
-    """FR-035: explore imports the standard library, and SciStudio only for stability markers.
+    """FR-035: the analysis imports the standard library, and SciStudio only for stability markers.
+
+    The constraint's subject is the analysis and fingerprint modules, not the
+    whole subsystem — see ``FR_035_CONSTRAINED_MODULES``. The second assertion
+    below fails if one of those modules is renamed or removed, so the rule
+    cannot quietly stop applying to the code it exists for.
 
     ``_get_imports_from_file`` collects **module-level** imports only — it never
     descends into a function body — so an import written lazily inside the
@@ -265,8 +285,12 @@ def test_explore_imports_are_allowlisted() -> None:
     here by construction. Anything third-party at module level is a violation,
     and so is any SciStudio import beyond the allowlist.
     """
-    files = _collect_py_files("explore")
-    assert files, f"No .py files found under {SRC_ROOT / 'explore'}"
+    files = [f for f in _collect_py_files("explore") if f.name in FR_035_CONSTRAINED_MODULES]
+    assert files, f"No FR-035-constrained modules found under {SRC_ROOT / 'explore'}"
+    assert {f.name for f in files} == set(FR_035_CONSTRAINED_MODULES), (
+        "FR_035_CONSTRAINED_MODULES names a module that no longer exists; the constraint "
+        "must follow the analysis rather than silently stop applying to it"
+    )
 
     violations: list[str] = []
     for filepath in files:
@@ -296,7 +320,7 @@ def test_explore_does_not_import_ipython_or_a_notebook_library() -> None:
     """
     forbidden = {"IPython", "nbformat", "nbclient", "jupyter_client", "astroid", "jedi", "libcst", "parso"}
     violations: list[str] = []
-    for filepath in _collect_py_files("explore"):
+    for filepath in (f for f in _collect_py_files("explore") if f.name in FR_035_CONSTRAINED_MODULES):
         source = filepath.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(filepath))
         for node in ast.walk(tree):
