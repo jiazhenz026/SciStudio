@@ -46,7 +46,7 @@ fingerprint, and numpy/pandas only when they are already loaded — an object
 cannot be a ``DataFrame`` if pandas was never imported, so the check is a
 ``sys.modules`` lookup rather than an import cost paid by every caller.
 
-Two honest limits, stated here rather than discovered later:
+Two honest limits, stated here rather than left for a caller to discover:
 
 * Above the budget the fingerprint is a *sample*. A change confined to bytes the
   stride skipped is not seen. The budget is chosen so that a fingerprint costs

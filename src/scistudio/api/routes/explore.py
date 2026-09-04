@@ -46,13 +46,14 @@ holds ``/`` and would swallow the rest of the route. Reopening a notebook the
 list reported as closed is ``POST /api/explore/sessions`` with
 ``source="notebook"``.
 
-**Mounting.** ``create_app`` must ``include_router(explore.router)`` for these
-routes to exist in the running application; the spec's affected-file table does
-not name ``src/scistudio/api/app.py``, so that one line is the integrating
-change and is tracked on issue #2240. It has to sit **with the other
-``include_router`` calls**, above the ``SPAStaticFiles`` mount at ``/``: that
-mount matches every path, ``/api/explore/...`` included, and answers it with its
-own 404, so a router added after it is registered where nothing can reach it.
+**Mounting.** ``create_app`` includes this router (#2240), and the call has to
+stay **with the other ``include_router`` calls**, above the ``SPAStaticFiles``
+mount at ``/``: that mount matches every path, ``/api/explore/...`` included,
+and answers it with its own 404, so a router registered after it sits where
+nothing can reach it. The mount exists only when a built frontend is present,
+so the mistake is invisible in a checkout without one —
+``tests/api/test_explore_mount.py`` therefore asserts the position in the route
+table, not only that a request succeeds.
 """
 
 from __future__ import annotations
@@ -161,13 +162,29 @@ def get_session_service(runtime: RuntimeDep) -> SessionService:
 ServiceDep = Annotated[SessionService, Depends(get_session_service)]
 
 
-# TODO(#2240): nothing in the running application calls this yet, and nothing
-#   calls SessionService.retire_kernels on a branch change (FR-014). Both hang
-#   off the same integrating change: create_app must include this router, and
-#   the git branch-switch route must retire the project's kernels. Neither
-#   src/scistudio/api/app.py nor src/scistudio/api/routes/git.py is in this
-#   task's write set (ADR-054 spec 3 §4.2 lists neither file).
-#   Followup: https://github.com/jiazhenz026/SciStudio/issues/2240
+def retire_kernels_for_project(project_dir: Path) -> tuple[str, ...]:
+    """Retire every kernel of *project_dir*'s live session service (FR-014).
+
+    This is what ``scistudio.api.routes.git``'s branch-switch route calls, and
+    the reason the lookup lives here rather than there: ``_services`` is this
+    module's registry, and a route in another module has no business reading it.
+
+    The service is **looked up, never built**. A project nobody has explored has
+    no kernels to retire, and constructing a service to discover that would
+    start its commit thread for nothing.
+
+    Returns:
+        The ids of the sessions whose kernels were retired — empty when the
+        project has no live service, which is the ordinary case.
+    """
+    key = str(Path(project_dir).resolve())
+    with _services_lock:
+        service = _services.get(key)
+    if service is None:
+        return ()
+    return service.retire_kernels()
+
+
 def shutdown_session_services(*, commit: bool = False) -> None:
     """Shut every registered service down. Used by application teardown and tests."""
     with _services_lock:
