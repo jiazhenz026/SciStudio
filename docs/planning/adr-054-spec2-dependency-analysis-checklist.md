@@ -135,7 +135,7 @@ branch and issue.
 | `S2-B1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-b1-graph.md` | T-001 to T-006: the package, the layer rule, per-cell static facts, flags, declarations, the graph, the four queries | `feat/2231-dep-analysis-graph` | `.worktrees/s2-b1-graph` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `tests/explore/test_dependency_analysis.py`, `tests/architecture/test_layer_deps.py`, `tests/architecture/test_placement.py` (amended) | `src/scistudio/explore/fingerprint.py`, `tests/explore/test_fingerprint.py`, everything outside `src/scistudio/explore/` and `tests/explore/` | `#2231` | `[!]` |
 | `S2-B2` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-b2-fingerprint.md` | T-007: the fingerprint, the size bound, the unobservable fallback | `feat/2231-fingerprint` | `.worktrees/s2-b2-fingerprint` | `src/scistudio/explore/fingerprint.py`, `tests/explore/test_fingerprint.py` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `tests/architecture/**` | `#2231` | `[ ]` |
 | `S2-C1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-c1-observation.md` | T-008, T-009, T-011: the namespace comparison, the observation record with source-hash invalidation, the metadata codec, stability markers | `feat/2231-observation-codec` | `.worktrees/s2-c1-observation` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `src/scistudio/explore/fingerprint.py`, `tests/explore/test_dependency_analysis.py`, `tests/explore/test_fingerprint.py` | `tests/architecture/**`, everything outside `src/scistudio/explore/` and `tests/explore/` | `#2231` | `[x]` |
-| `S2-D1` | `test_engineer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-d1-adversarial.md` | T-010 and adversarial coverage: the differential harness, the fixtures, and tests that try to break the analysis rather than confirm it | `test/2231-adversarial` | `.worktrees/s2-d1-adversarial` | `tests/explore/**` | Every production path. Report defects, do not fix them. | `#2231` | `[ ]` |
+| `S2-D1` | `test_engineer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-d1-adversarial.md` | T-010 and adversarial coverage: the differential harness, the fixtures, and tests that try to break the analysis rather than confirm it | `test/2231-adversarial` | `.worktrees/s2-d1-adversarial` | `tests/explore/**` | Every production path. Report defects, do not fix them. | `#2231` | `[x]` |
 | `S2-E1` | `audit_reviewer` | `no-context` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-e1-audit-no-context.md` | Independent audit of the explore analysis subsystem against the repository's own documents | `audit/2231-no-context` | `.worktrees/s2-e1-audit-nc` | `docs/audit/2026-09-04-explore-dependency-analysis-no-context.md` | Every implementation and test path. Read-only. | `#2231` | `[ ]` |
 | `S2-E2` | `audit_reviewer` | `with-context` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-e2-audit-with-context.md` | Audit of the delivered spec 2 work against the spec, the issue, and this checklist | `audit/2231-with-context` | `.worktrees/s2-e2-audit-wc` | `docs/audit/2026-09-04-adr-054-spec2-with-context.md` | Every implementation and test path. Read-only. | `#2231` | `[ ]` |
 | `S2-G1` | `adr_author` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-g1-governs-migration.md` | Move the ADR-054 and spec-2 `planned_governs` entries that now resolve into `governs`, and correct the one §11 sentence the move makes false | `docs/2231-governs-migration` | `.worktrees/s2-g1-governs` | `docs/adr/ADR-054.md` (front matter and one sentence), `docs/specs/adr-054-notebook-dependency-analysis.md` (front matter) | Every path under `src/` and `tests/`; every other ADR-054 spec; `docs/architecture/**` | `#2231` | `[x]` |
@@ -226,7 +226,29 @@ amendment.
       the codec, which the FR-035 allowlist already permits
       (`EXPLORE_ALLOWED_SCISTUDIO_IMPORTS` includes `scistudio.explore`).
       Gate ledger: `.workflow/records/2231-feat-2231-observation-codec.json`.
-- [ ] `S2-D1` differential harness, fixtures, adversarial tests -> artifact pending
+- [x] `S2-D1` differential harness, fixtures, adversarial tests -> delivered on
+      `test/2231-adversarial`. `tests/explore` **8 failed, 399 passed**; 96 tests are
+      new (`test_analysis_differential.py` 32, `test_adversarial_analysis.py` 64) and
+      ten fixture notebooks landed under `tests/explore/fixtures/`. The eight failures
+      are the deliverable, not a regression: each is a defect with a named test, and
+      no pre-existing test changed. **Two are P1 and both are proven by execution, not
+      by assertion** — the backward slice of `global_counter.ipynb` and of
+      `wrapped_operator.ipynb` raises `NameError` when it runs, which is the SC-003
+      failure User Story 2 exists to prevent, and in both cases FR-021's unresolved-read
+      list is empty so packaging would have accepted the notebook. A third P1 is in the
+      fingerprint: `_stride_indices` truncates its index list after the stride is
+      chosen, so a list of 513 to 2047 elements has an unsampled middle region and a
+      write into it is not observed. Fifty-one mutations were run against the delivered
+      modules with only the implementers' tests in place: 42 killed, 9 survived, of
+      which 5 were genuine coverage holes (now closed) and 4 equivalent mutants (now
+      documented). SC-010 measured on this runner: 500 cells analyse in 49 ms and build
+      in 11 ms, 60 ms total against the 500 ms bound; 1000 cells cost 139 ms, so the
+      cost is linear. `full_audit` reports 6 errors, all of the expected
+      `planned-*-is-resolved` shape on the spec front matter — `ObservedChange` plus the
+      two entries this agent's files made resolve; `test_adversarial_analysis.py` is in
+      neither `governs` nor `planned_governs` and the second migration pass should add
+      it. `tests/architecture` and `tests/api/test_public_surface.py` 540 passed / 1
+      skipped. Gate ledger: `.workflow/records/2231-test-2231-adversarial.json`.
 - [ ] `S2-G1` the `planned_governs` migration -> branch `docs/2231-governs-migration`
       pushed, awaiting integration. `full_audit` went from `fail` (13 error, 88 info)
       to `pass` (0 error, 88 info): the 13 `planned-*-is-resolved` errors on
