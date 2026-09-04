@@ -479,8 +479,18 @@ class DependencyGraph:
 
 @provisional(since="0.3.4")
 def source_hash(source: str) -> str:
-    """The hash a per-cell record and an observation are keyed to."""
-    return hashlib.sha256(source.encode("utf-8")).hexdigest()
+    """The hash a per-cell record and an observation are keyed to.
+
+    Encoded with ``surrogatepass``, as :mod:`scistudio.explore.fingerprint`
+    encodes a string, because a notebook is JSON and JSON can carry a lone
+    surrogate: ``json.loads('"\\\\ud800"')`` produces a ``str`` that strict UTF-8
+    refuses. Hashing such a cell must not raise — FR-012 requires the cell to
+    come back flagged and forbids it from stopping any other cell being
+    analysed, and this hash is taken before the parse that raises the flag. Every
+    string a strict encode accepts hashes to the same digest either way, so no
+    stored record is invalidated by the choice.
+    """
+    return hashlib.sha256(source.encode("utf-8", "surrogatepass")).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -652,6 +662,29 @@ def _output_declaration(node: ast.Call) -> OutputDeclaration:
     return OutputDeclaration(keywords=keywords, arguments=tuple(arguments))
 
 
+def _declared_global(body: Sequence[ast.stmt]) -> set[str]:
+    """The names a scope declares ``global``.
+
+    Read over the scope's own statements only. A ``global`` declaration governs
+    the whole scope that makes it, including its nested blocks, but does not
+    reach a ``def`` written inside it: that function has to repeat the
+    declaration before it binds the module-scope name.
+    """
+    return {name for node in _iter_module_level(body) if isinstance(node, ast.Global) for name in node.names}
+
+
+def _augmented_and_deleted_names(body: Sequence[ast.stmt]) -> Iterator[str]:
+    """The names ``x += 1`` and ``del x`` read in *body*, excluding nested scopes."""
+    for node in _iter_module_level(body):
+        if isinstance(node, ast.AugAssign):
+            if isinstance(node.target, ast.Name):
+                yield node.target.id
+        elif isinstance(node, ast.Delete):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    yield target.id
+
+
 def _collect_module_level_reads(tree: ast.Module, scan: _AstScan) -> None:
     """Record the two reads :mod:`symtable` does not report.
 
@@ -659,15 +692,24 @@ def _collect_module_level_reads(tree: ast.Module, scan: _AstScan) -> None:
     by :mod:`symtable` as bindings only. Without the read, a backward slice
     containing the cell would omit the cell that defines the name and fail with
     a ``NameError`` when the slice runs (FR-006, FR-021).
+
+    Both forms count wherever they resolve to the module scope, which is what
+    FR-006 asks for in full: at module level, and inside a ``def`` or a ``class``
+    for a name that scope declares ``global``. ``counter += 1`` under
+    ``global counter`` is the shape that matters — :mod:`symtable` reports the
+    symbol as assigned and global but not as referenced, so the cell would
+    otherwise be a definer of ``counter`` that reads nothing, and a slice through
+    it would drop the cell that gave ``counter`` its initial value. A nested
+    scope's own local stays its own and is not a module read.
     """
-    for node in _iter_module_level(tree.body):
-        if isinstance(node, ast.AugAssign):
-            if isinstance(node.target, ast.Name):
-                scan.extra_reads.add(node.target.id)
-        elif isinstance(node, ast.Delete):
-            for target in node.targets:
-                if isinstance(target, ast.Name):
-                    scan.extra_reads.add(target.id)
+    scan.extra_reads.update(_augmented_and_deleted_names(tree.body))
+    for node in ast.walk(tree):
+        if not isinstance(node, _SCOPE_STATEMENTS):
+            continue
+        declared = _declared_global(node.body)
+        if not declared:
+            continue
+        scan.extra_reads.update(name for name in _augmented_and_deleted_names(node.body) if name in declared)
 
 
 def _scan_ast(tree: ast.Module) -> _AstScan:
@@ -960,6 +1002,7 @@ def build_graph(
     edges: list[Edge] = []
     unresolved: list[UnresolvedRead] = []
     unknown_binding_cells: list[str] = []
+    unknown_versions: dict[str, set[str]] = {}
 
     for cell in enabled_cells:
         for name in sorted(cell.read):
@@ -988,6 +1031,7 @@ def build_graph(
                         origin=EdgeOrigin.UNKNOWN_BINDING,
                     )
                 )
+                unknown_versions.setdefault(latest_unknown, set()).add(name)
                 continue
             if name in BUILTIN_NAMES:
                 continue
@@ -1008,10 +1052,18 @@ def build_graph(
             latest_unknown = cell.cell_id
             unknown_binding_cells.append(cell.cell_id)
 
+    # FR-016: one node per name in the cell's changed set, plus the names an
+    # unknown-binding resolution says this cell produced. A star import binds an
+    # unknown set, so its changed set is empty and the names it resolved would
+    # otherwise be sources of version edges that point at nothing. Publishing the
+    # node keeps the edge — a cell that reads ``arange`` after ``from numpy
+    # import *`` really does depend on that cell (FR-013) — and FR-002 resolves
+    # the uncertainty toward the extra node rather than toward a version view
+    # that shows the reader unconnected.
     version_nodes = tuple(
         VersionNode(cell_id=cell.cell_id, name=name)
         for cell in enabled_cells
-        for name in sorted(changed_sets[cell.cell_id])
+        for name in sorted(changed_sets[cell.cell_id] | unknown_versions.get(cell.cell_id, set()))
     )
 
     return DependencyGraph(

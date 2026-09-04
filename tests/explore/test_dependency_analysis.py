@@ -377,10 +377,51 @@ def test_del_target_is_read() -> None:
     assert "df" in read("del df")
 
 
-def test_augmented_assignment_inside_a_nested_scope_is_not_a_module_read() -> None:
-    """The extra read is taken at module level only; a function's local is its own."""
+def test_augmented_assignment_on_a_nested_scope_local_is_not_a_module_read() -> None:
+    """A function's own local is its own, however it is written.
+
+    ``running`` is bound and then augmented inside ``tally``; nothing resolves it
+    to the module scope, so FR-006 does not reach it. This is the boundary of the
+    rule the test below states, and the two belong together: the extra read
+    follows the *scope a name resolves to*, not the depth the statement sits at.
+    """
     source = "def tally():\n    running = 0\n    running += 1\n    return running\n"
     assert "running" not in read(source)
+
+
+def test_augmented_assignment_on_a_global_inside_a_function_is_a_module_read() -> None:
+    """FR-006: a nested-scope read that resolves to the module scope is a module read.
+
+    ``counter += 1`` under ``global counter`` reads ``counter``. :mod:`symtable`
+    reports the symbol as assigned and global but not as referenced, so without
+    this the cell would be a definer of ``counter`` that reads nothing, and a
+    backward slice through it would drop the cell that gave ``counter`` its
+    initial value and fail with a ``NameError`` (FR-021, SC-003).
+    """
+    source = "def bump():\n    global counter\n\n    counter += 1\n"
+    assert "counter" in read(source)
+    assert "counter" in facts_for(source).assigned
+
+
+def test_del_of_a_global_inside_a_function_is_a_module_read() -> None:
+    """``del counter`` under ``global`` needs ``counter`` to exist, exactly as ``+=`` does."""
+    assert "counter" in read("def drop():\n    global counter\n\n    del counter\n")
+
+
+def test_a_global_declaration_does_not_reach_a_function_defined_inside_the_one_that_made_it() -> None:
+    """The declaration governs its own scope, and the extra read follows it exactly.
+
+    ``inner`` never declares ``counter`` global, so ``counter += 1`` there is a
+    read of ``inner``'s own local — a ``NameError`` at run time and not a
+    module-scope read the graph should draw an edge for.
+    """
+    source = "def outer():\n    global counter\n\n    def inner():\n        counter += 1\n\n    return inner\n"
+    assert "counter" not in read(source)
+
+
+def test_an_augmented_assignment_on_a_global_inside_a_class_body_is_a_module_read() -> None:
+    """A class body is a scope too, and ``global`` means the same thing in it."""
+    assert "tally" in read("class Counter:\n    global tally\n\n    tally += 1\n")
 
 
 def test_augmented_assignment_inside_a_module_level_loop_is_a_read() -> None:

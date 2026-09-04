@@ -1,0 +1,84 @@
+{
+  "base_ref": "origin/track/adr-054-spec2-dependency-analysis",
+  "branch": "fix/2231-audit-findings",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-04T10:51:36.311976Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "the spec is unchanged by this fix; the code is brought into line with FR-006, FR-012, FR-016, and FR-025 as already written, and the FR-011 narrowing is owned by S2-G1",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2231,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-054 spec 2 in full, with a final adversarial test engineer and a no-context auditor. S2-F1 fixes the findings the adversarial pass recorded as failing tests.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2231-fix-2231-audit-findings",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T10:51:36.311942Z",
+      "pattern": "src/scistudio/explore/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T10:51:36.311964Z",
+      "pattern": "tests/explore/**",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "5a8d6547-b782-4195-adb0-b35f8fe12877",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-04T10:51:36.311982Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_adversarial_analysis.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T10:51:36.311986Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_analysis_differential.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
