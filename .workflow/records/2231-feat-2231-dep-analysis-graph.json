@@ -55,7 +55,14 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:13:12.888823Z",
+      "pattern": "tests/architecture/test_placement.py",
+      "reason": "T-001 creates src/scistudio/explore/, and tests/architecture/test_placement.py::test_no_py_files_outside_known_packages enumerates the known top-level packages independently of tests/architecture/test_layer_deps.py. Creating the subsystem fails that test until explore is added to the enumeration. The dispatch prompt named only test_layer_deps.py; this is the same one-line subsystem registration in a second file and cannot be avoided by any change inside the declared scope. Reported to the manager."
+    }
+  ],
   "session_id": "974fc41e-3139-4ce6-bfda-4804fa4457ad",
   "strictness_tier": null,
   "task_kind": "feature",
@@ -73,6 +80,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/architecture/test_layer_deps.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T09:13:12.888846Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/architecture/test_placement.py",
       "rationale": null,
       "verified_in_diff": null
     }
