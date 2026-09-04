@@ -1,0 +1,79 @@
+{
+  "base_ref": "origin/track/adr-054-spec3-explore-session",
+  "branch": "feat/2240-block-calls",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2240,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-054 spec 3 T-012 (FR-049, FR-050, FR-051): a block-call adapter that runs a block in-process from inside the kernel with typed wrapping of arguments and results, an interactive-block call that blocks the cell until a value arrives, and the lineage facts a block call reports back to its caller.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2240-feat-2240-block-calls",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "Claude:claude-opus-5",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:37:27.171664Z",
+      "pattern": "src/scistudio/explore/block_call.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:37:27.171685Z",
+      "pattern": "tests/explore/test_block_call_adapter.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:37:27.171689Z",
+      "pattern": ".workflow/records/2240-feat-2240-block-calls.json",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:37:27.171691Z",
+      "pattern": "docs/planning/adr-054-spec3-explore-session-checklist.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "59d566db-54e6-49f3-bccf-a482933ff18f",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-04T09:37:27.171699Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_block_call_adapter.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
