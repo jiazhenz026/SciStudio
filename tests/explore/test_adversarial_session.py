@@ -973,26 +973,19 @@ def test_retention_will_not_sweep_while_a_session_is_open(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    reason=(
-        "#2240: _build_ports uses setdefault, so the *first* declaration wins and no duplicate "
-        "is reported; the spec's edge case says the second one wins and the duplicate is reported."
-    ),
-    strict=False,
-)
 def test_a_name_declared_as_an_output_twice_takes_the_second_declaration() -> None:
     """The spec's edge case: the declaration written second in order wins,
     and packaging reports the duplicate."
 
-    Both halves fail. ``_build_ports`` merges the declarations with
-    ``setdefault``, so the port is wired to the variable the *earlier* call
-    named — the one the notebook's own execution order says was superseded — and
-    :class:`~scistudio.explore.packaging.PackagingProblemKind` has no member for
-    a duplicate, so nothing tells the person the two declarations disagree.
+    ``_build_ports`` used to merge the declarations with ``setdefault``, so the
+    port was wired to the variable the *earlier* call named — the one the
+    notebook's own execution order says was superseded — and
+    :class:`~scistudio.explore.packaging.PackagingProblemKind` had no member for
+    a duplicate, so nothing told the person the two declarations disagree.
 
-    The consequence is silent: a person who refines an output by writing a
-    second ``scistudio.output(table=better)`` further down gets a block whose
-    port carries ``worse``, with the type of ``worse``, and no message.
+    The consequence was silent: a person who refines an output by writing a
+    second ``scistudio.output(table=better)`` further down got a block whose
+    port carried ``worse``, with the type of ``worse``, and no message.
     """
     from scistudio.explore.notebook import new_code_cell, new_notebook
     from scistudio.explore.packaging import check_packaging
@@ -1015,15 +1008,19 @@ def test_a_name_declared_as_an_output_twice_takes_the_second_declaration() -> No
     )
 
 
-def test_a_name_declared_as_an_output_twice_is_wired_to_the_earlier_declaration_today() -> None:
-    """The behaviour as delivered, pinned so the fix above is visible when it lands.
+def test_a_reported_duplicate_declaration_does_not_refuse_the_notebook() -> None:
+    """The other half of the spec's edge case: the later declaration *wins*.
 
-    Written as an assertion of what happens rather than of what should, because
-    an undocumented behaviour that nothing pins is one that changes without
-    anybody deciding to change it.
+    "Wins" only means something if there is still a block to write, so the
+    duplicate is reported without refusing —
+    :attr:`~scistudio.explore.packaging.PackagingProblem.refuses` is what
+    separates it from the refusals of FR-039. Pinned separately from the
+    resolution above because the two could be got right independently, and a
+    duplicate that quietly became a refusal would be a new way to strand
+    somebody mid-refinement.
     """
     from scistudio.explore.notebook import new_code_cell, new_notebook
-    from scistudio.explore.packaging import check_packaging
+    from scistudio.explore.packaging import PackagingProblemKind, check_packaging
 
     document = new_notebook(
         [
@@ -1036,8 +1033,14 @@ def test_a_name_declared_as_an_output_twice_is_wired_to_the_earlier_declaration_
 
     plan = check_packaging(document, bindings={"early": "Text", "late": "Text"})
 
-    assert [(port.name, port.bound_name) for port in plan.outputs] == [("table", "early")]
-    assert plan.is_packageable, "the notebook is packaged, silently, against the superseded name"
+    assert plan.is_packageable, "a resolved duplicate must not strand the person"
+    duplicates = [
+        problem for problem in plan.problems if problem.kind is PackagingProblemKind.DUPLICATE_OUTPUT_DECLARATION
+    ]
+    assert len(duplicates) == 1, [problem.kind.value for problem in plan.problems]
+    assert duplicates[0].refuses is False
+    assert duplicates[0].names == ("table",)
+    assert len(duplicates[0].cell_ids) == 2, "both declaring cells are named, not only the loser"
 
 
 # ---------------------------------------------------------------------------
@@ -1273,30 +1276,27 @@ def _packageable_session(service: SessionService) -> ExploreSession:
 
 @needs_kernel
 @pytest.mark.serial
-@pytest.mark.xfail(
-    reason=(
-        "#2240: KernelBridge reports type(value).__name__, so binding_types() yields 'str' where "
-        "FR-038 needs 'Text'; packaging a real session refuses every port it cannot name."
-    ),
-    strict=False,
-)
 def test_packaging_a_real_session_can_type_its_declared_port(
     services: Callable[..., SessionService],
 ) -> None:
     """FR-038 and SC-007 with the bindings a real session actually reports.
 
-    Every packaging test in the delivered suite supplies its own bindings, and
-    the API harness's fake bridge translates ``str`` to ``Text`` under a comment
+    Every packaging test in the delivered suite supplied its own bindings, and
+    the API harness's fake bridge translated ``str`` to ``Text`` under a comment
     saying "the real bridge does this translation because it is the only side
-    holding the object". It does not: ``KernelBridge`` reports
+    holding the object". It did not: ``KernelBridge`` reported
     ``type(value).__name__``, and :meth:`ExploreSession.binding_types` passes it
-    straight through, so ``check_packaging`` gets ``'str'`` and
-    ``default_port_extension`` has no entry for it.
+    straight through, so ``check_packaging`` got ``'str'`` and
+    ``default_port_extension`` had no entry for it.
 
-    The refusal is ``untyped_port``, which reads as "nothing is bound to that
-    name" — so the person is told their variable is missing when what is
-    missing is the translation. Only a type whose Python class name happens to
-    equal a SciStudio type name (``DataFrame``, ``Series``) packages at all.
+    The refusal was ``untyped_port``, which reads as "nothing is bound to that
+    name" — so the person was told their variable was missing when what was
+    missing was the translation. Only a type whose Python class name happens to
+    equal a SciStudio type name (``DataFrame``, ``Series``) packaged at all.
+
+    This is the end-to-end guard: a real kernel, a real bridge, the session's
+    own ``binding_types()``, and packaging. No fixture supplies the types, so
+    no fixture can assert a translation the bridge does not do.
     """
     from scistudio.explore.packaging import check_packaging
 
@@ -1316,31 +1316,26 @@ def test_packaging_a_real_session_can_type_its_declared_port(
 
 @needs_kernel
 @pytest.mark.serial
-def test_the_bridge_reports_the_native_type_name_today(
+def test_the_bridge_reports_both_the_scistudio_type_and_the_native_one(
     services: Callable[..., SessionService],
 ) -> None:
-    """The behaviour as delivered, pinned so the fix above is visible when it lands.
+    """The translation does not cost the person the type they actually wrote.
 
-    ``binding_types`` documents this as the bridge's job; nothing in the bridge
-    does it. Pinned here rather than left implicit, because the API harness's
-    fake bridge asserts the opposite in a comment and there is nothing else in
-    the suite that would notice.
+    ``x = 'a result worth keeping'`` is a ``str`` in the namespace the person is
+    reading and a ``Text`` on the port a block would carry, and the bindings
+    list has to be able to say both: packaging reads
+    :attr:`~scistudio.explore.kernel_bridge.Binding.type_name`, and the panel
+    reads ``native_type_name``. Pinned over a real kernel because the API
+    harness's fake bridge once asserted a translation the real one did not do,
+    and nothing in the suite noticed.
     """
-    from scistudio.explore.packaging import check_packaging
-
     service = services()
     session = _packageable_session(service)
 
-    assert session.binding_types().get("value") == "str", "the bridge began translating; update the xfail above"
-
-    plan = check_packaging(
-        session.document,
-        marks=session.cell_marks(),
-        bindings=session.binding_types(),
-        observations=session.observations,
-    )
-    assert not plan.is_packageable
-    assert [problem.kind.value for problem in plan.problems] == ["untyped_port"]
+    listed = {binding.name: binding for binding in session.bindings()}
+    assert listed["value"].type_name == "Text", "the bridge stopped translating for packaging"
+    assert listed["value"].native_type_name == "str", "the person's own type name was lost"
+    assert session.binding_types()["value"] == "Text"
 
 
 # ---------------------------------------------------------------------------

@@ -38,12 +38,14 @@ import re
 import threading
 import time
 import uuid
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
+from scistudio.core.lineage.environment import EnvironmentSnapshotStore
+from scistudio.core.lineage.record import DataObjectRow
 from scistudio.explore.dependency_analysis import (
     CellFacts,
     DependencyGraph,
@@ -110,6 +112,18 @@ _LOG = logging.getLogger(__name__)
 #: ``tests/explore/test_explore_session.py`` pins the two spellings together, so
 #: the folder a project offers and the folder a session opens in cannot drift.
 EXPLORE_DIR_NAME: Final[str] = "explore"
+
+#: The project's own internal directory, and the environment snapshot store
+#: inside it (FR-034). Spelled here rather than imported from
+#: ``scistudio.api.runtime`` for the layer rule of FR-008 — the explore
+#: subsystem never imports the API — and matching what that runtime opens
+#: ``lineage.db`` under, which is the database these snapshots are referenced
+#: from. A new convention was not invented: ``.scistudio/`` already holds
+#: ``lineage.db``, ``previews/`` and ``logs/``, and is already excluded from the
+#: project's file scans, so a content-addressed snapshot directory beside them
+#: stays out of the person's project and out of their commits.
+_SCISTUDIO_DIR_NAME: Final[str] = ".scistudio"
+_ENVIRONMENTS_DIR_NAME: Final[str] = "environments"
 
 #: Notebook-level metadata key holding the ref-safe session id (FR-001).
 SESSION_ID_METADATA_KEY: Final[str] = "session_id"
@@ -411,6 +425,7 @@ class ExploreSession:
         self._needs_restart = False
         self._last_commit_sha: str | None = None
         self._branch_commit_digest: str | None = None
+        self._environment_ref: str | None = None
         self._closed = False
 
         self._handle: KernelHandle | None = None
@@ -676,16 +691,15 @@ class ExploreSession:
             )
 
     def binding_types(self) -> dict[str, str]:
-        """Name to the type the kernel reports for it, for packaging's ports (FR-038).
+        """Name to the SciStudio type of the object bound to it, for packaging's ports (FR-038).
 
         Packaging types each port by the object bound to that name at packaging
         time, and only the kernel knows what that is. What comes back is
-        :attr:`~scistudio.explore.kernel_bridge.Binding.type_name`, which is
-        ``type(value).__name__`` inside the kernel — the *native* type. Where the
-        native and the SciStudio type names differ (a numpy array is ``ndarray``,
-        not ``Array``), packaging cannot resolve the port and says so, naming the
-        port; the translation belongs in the bridge, which is the only side that
-        holds the object.
+        :attr:`~scistudio.explore.kernel_bridge.Binding.type_name`, which the
+        bridge answers with the SciStudio type — the bridge is the only side
+        that holds the object, so it is the only side that can wrap it. A value
+        no rule covers keeps its native name and packaging refuses that port
+        rather than guessing (#2240).
 
         Returns an empty mapping when no kernel is running: a session with no
         kernel binds nothing.
@@ -904,8 +918,45 @@ class ExploreSession:
             self._install_bridge()
             with self._state_lock:
                 self._needs_restart = False
+        self._capture_environment()
         self._emit_kernel_state()
         return handle
+
+    @property
+    def environment_ref(self) -> str | None:
+        """Reference to this kernel's stored environment snapshot (FR-034).
+
+        ``None`` until a kernel has started: a session opens without one
+        (US1 scenario 1), and there is no environment to describe before the
+        interpreter that would be described exists.
+        """
+        with self._state_lock:
+            return self._environment_ref
+
+    def _capture_environment(self) -> None:
+        """Snapshot this kernel's environment and keep the reference (FR-034, FR-012).
+
+        Captured *through the bridge*, from inside the kernel, because the
+        kernel is a separate interpreter from the service and ``%pip`` installs
+        into the kernel's environment: a freeze taken here would describe the
+        wrong one. Stored once per distinct environment, so a session that
+        re-captures an unchanged environment costs one hash and no write.
+
+        Best effort. A snapshot that cannot be taken or cannot be stored leaves
+        the reference as it was and marks the session's provenance degraded; it
+        never stops a kernel starting or a cell running.
+        """
+        bridge = self.bridge
+        if bridge is None:
+            return
+        try:
+            snapshot = bridge.environment_snapshot()
+            reference = self._service.environments.put(snapshot)
+        except Exception as error:
+            self._service._note_provenance_failure(self.session_id, "capture the environment snapshot", error)
+            return
+        with self._state_lock:
+            self._environment_ref = reference
 
     def _install_bridge(self) -> None:
         assert self._bridge is not None
@@ -942,6 +993,10 @@ class ExploreSession:
             else:
                 self._handle.restart()
                 self._install_bridge()
+        # A restart is a fresh interpreter, so whatever a ``%pip`` installed
+        # into the last one is gone: the environment has to be described again
+        # rather than carried over (FR-034).
+        self._capture_environment()
         with self._state_lock:
             self._last_bound_by.clear()
             self._reasons.clear()
@@ -1046,6 +1101,16 @@ class ExploreSession:
         after = bridge.fingerprints()
         observation = observe_namespaces(before, after, cell_id=cell_id, source_hash=digest)
 
+        # FR-012: a cell that installed something changed the environment every
+        # record written from here on names, so the snapshot is retaken before
+        # this run's own records are written rather than after them.
+        if _cell_installs_packages(source):
+            self._capture_environment()
+        # FR-051: the calls a cell made are buffered inside the kernel, where
+        # there is no store to write them to. Drained here, once per run,
+        # because this is the point at which the cell that made them is known.
+        self._service._record_block_calls(self, cell_id, self._drain_block_calls())
+
         self._record_outputs(cell_id, result)
         self._apply_observation(cell_id, observation, in_order=not reads)
         self._emit_run_results(cell_id, result, observation)
@@ -1062,6 +1127,24 @@ class ExploreSession:
                 termination_detail=result.error.evalue if result.error is not None else "",
             ),
         )
+
+    def _drain_block_calls(self) -> tuple[dict[str, Any], ...]:
+        """Take the block calls the kernel buffered for this run (FR-051).
+
+        Best effort, and deliberately not on the run's critical path in the
+        sense that matters: a drain that fails marks the session's provenance
+        degraded and the run stands. The person's cell already ran and its
+        value is in their namespace; losing the record of a call is not a
+        reason to make the run look like a failure.
+        """
+        bridge = self.bridge
+        if bridge is None:
+            return ()
+        try:
+            return bridge.block_calls()
+        except Exception as error:
+            self._service._note_provenance_failure(self.session_id, "read the block calls a cell made", error)
+            return ()
 
     def _record_outputs(self, cell_id: str, result: ExecutionResult) -> None:
         """Write what the run produced into the cell and back to disk (FR-027).
@@ -1352,6 +1435,7 @@ class SessionService:
 
         self._lineage = ExploreLineage(lineage_store) if lineage_store is not None else None
         self._provenance_degraded: set[str] = set()
+        self._environments = EnvironmentSnapshotStore(self._project_dir / _SCISTUDIO_DIR_NAME / _ENVIRONMENTS_DIR_NAME)
         self._abandon_stale_sessions()
 
     # -- project layout ----------------------------------------------------
@@ -1365,6 +1449,23 @@ class SessionService:
     def explore_dir(self) -> Path:
         """``{project}/explore/`` — where session notebooks live (FR-001)."""
         return self._project_dir / EXPLORE_DIR_NAME
+
+    @property
+    def environments(self) -> EnvironmentSnapshotStore:
+        """``{project}/.scistudio/environments/`` — the snapshot store (FR-034).
+
+        The location is the repository's existing one rather than a new
+        convention: a project's own internal artefacts live under
+        ``.scistudio/``, the lineage database that references these snapshots is
+        ``.scistudio/lineage.db``, and ``.scistudio/previews`` and
+        ``.scistudio/logs`` are siblings of the same kind. ``.scistudio`` is
+        already excluded from the project's file scans, so a content-addressed
+        directory here does not appear in the person's project or their commits.
+
+        Built once and reused. The store writes nothing until a snapshot is put
+        in it, so a session that never starts a kernel creates no directory.
+        """
+        return self._environments
 
     # -- events (FR-057) ---------------------------------------------------
 
@@ -1479,6 +1580,7 @@ class SessionService:
                 session_id=session.session_id,
                 notebook_path=session.relative_path,
                 notebook_snapshot=session.document.to_json(),
+                environment_ref=session.environment_ref,
                 notebook_git_commit=session.notebook_commit,
                 opened_over=bound.opened_over if bound is not None else "file",
                 bound_run_id=bound.run_id if bound is not None else None,
@@ -1513,6 +1615,7 @@ class SessionService:
                 session_id=session.session_id,
                 cell_id=run.cell_id,
                 notebook_commit=sha or "",
+                environment_ref=session.environment_ref,
                 started_at=run.started_at,
                 finished_at=run.finished_at,
                 duration_ms=run.duration_ms,
@@ -1523,6 +1626,53 @@ class SessionService:
                 self._lineage.set_notebook_commit(session.session_id, sha)
         except Exception as error:
             self._note_provenance_failure(session.session_id, f"record the run of cell {run.cell_id}", error)
+
+    def _record_block_calls(
+        self,
+        session: ExploreSession,
+        cell_id: str,
+        calls: Sequence[Mapping[str, Any]],
+    ) -> None:
+        """Write a record for every block the cell called (FR-051).
+
+        The calls arrive from the kernel, where they were made and where the
+        objects they moved still live. Each becomes a ``BlockExecutionRecord``
+        whose foreign key is the session, with its inputs and outputs as
+        ``block_io`` edges over ``data_objects`` — the same shape a workflow
+        run writes, which is what makes an object a cell passed to a block and
+        an object a workflow step passed to one the same object in the catalog.
+
+        ``block_id`` is the cell id when the cell made one call and
+        ``<cell id>#<n>`` when it made several, because a record's ``block_id``
+        identifies the call and a cell that calls three blocks made three of
+        them.
+
+        A store that refuses a write does not fail the run; the session is
+        marked ``provenance_degraded`` and the exploring continues.
+        """
+        if self._lineage is None or not calls:
+            return
+        many = len(calls) > 1
+        for index, call in enumerate(calls):
+            try:
+                inputs, outputs = _block_call_rows(call.get("edges") or ())
+                self._lineage.record_block_call(
+                    session_id=session.session_id,
+                    block_id=f"{cell_id}#{index}" if many else cell_id,
+                    block_type=str(call.get("block_type") or call.get("block_identifier") or ""),
+                    block_version=str(call.get("block_version") or ""),
+                    config=dict(call.get("block_config_resolved") or {}),
+                    inputs=inputs,
+                    outputs=outputs,
+                    environment_ref=session.environment_ref,
+                    started_at=call.get("started_at"),
+                    finished_at=call.get("finished_at"),
+                    duration_ms=int(call.get("duration_ms") or 0),
+                    termination=str(call.get("termination") or "completed"),
+                    termination_detail=str(call.get("termination_detail") or ""),
+                )
+            except Exception as error:
+                self._note_provenance_failure(session.session_id, f"record a block call from cell {cell_id}", error)
 
     def _note_provenance_failure(self, session_id: str, what: str, error: BaseException) -> None:
         """Latch that a lineage write for *session_id* failed, and log it once per write.
@@ -2281,6 +2431,71 @@ def _format_hint(wire_payload: object) -> str | None:
         value = wire_payload.get("format")
         return str(value) if isinstance(value, str) else None
     return None
+
+
+def _block_call_rows(
+    edges: Iterable[Mapping[str, Any]],
+) -> tuple[dict[str, list[DataObjectRow]], dict[str, list[DataObjectRow]]]:
+    """Split a block call's edges into the input and output rows a record needs (FR-051).
+
+    Each edge came from the kernel carrying its object's identity, its type, and
+    the wire envelope :func:`scistudio.core.types.serialization._serialise_one`
+    writes — the same envelope a workflow run stores — so the row built here is
+    the row that run would have built. An edge whose envelope could not be taken
+    still becomes a row: the identity and the type are the parts the ``block_io``
+    edge needs, and dropping the edge would lose the fact that the object passed
+    through the port at all.
+
+    A port's edges are returned in ``position`` order, which is what makes a
+    Collection port one edge per item rather than an arbitrary shuffle of them.
+
+    Args:
+        edges: The call's edges, as the bridge rendered them.
+
+    Returns:
+        ``(inputs, outputs)``, each port name to its rows in position order.
+    """
+    grouped: dict[str, dict[str, list[tuple[int, DataObjectRow]]]] = {"input": {}, "output": {}}
+    for edge in edges:
+        direction = str(edge.get("direction") or "")
+        object_id = str(edge.get("object_id") or "")
+        if direction not in grouped or not object_id:
+            continue
+        wire = edge.get("data_object")
+        payload = dict(wire) if isinstance(wire, Mapping) else {}
+        grouped[direction].setdefault(str(edge.get("port_name") or ""), []).append(
+            (
+                int(edge.get("position") or 0),
+                DataObjectRow(
+                    object_id=object_id,
+                    type_name=str(edge.get("type_name") or "DataObject"),
+                    wire_payload=payload,
+                    created_at=_now(),
+                    backend=payload.get("backend") if isinstance(payload.get("backend"), str) else None,
+                    storage_path=payload.get("path") if isinstance(payload.get("path"), str) else None,
+                ),
+            )
+        )
+    return (
+        {port: [row for _, row in sorted(items, key=lambda item: item[0])] for port, items in grouped["input"].items()},
+        {
+            port: [row for _, row in sorted(items, key=lambda item: item[0])]
+            for port, items in grouped["output"].items()
+        },
+    )
+
+
+def _cell_installs_packages(source: str) -> bool:
+    """Whether *source* installed something into the kernel's environment (FR-012).
+
+    Imported inside the function to keep the module-level import set of the
+    session as it is: ``kernel_bridge`` is a typing-only import here, and the
+    session reaching for one text helper is not a reason to make it a runtime
+    one for every caller that only wants to open a notebook.
+    """
+    from scistudio.explore.kernel_bridge import cell_installs_packages
+
+    return cell_installs_packages(source)
 
 
 def _now() -> str:

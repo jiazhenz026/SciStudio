@@ -588,11 +588,17 @@ class BindingModel(BaseModel):
     name the notebook changes but the kernel does not hold is a name the person
     has not run yet, and the difference is what the panel list is for. Names the
     kernel does not hold carry no type.
+
+    ``type_name`` is the *SciStudio* type — the one a packaged port would carry
+    (FR-038) — and ``native_type_name`` is ``type(value).__name__``. Both are
+    reported because both are true of the same object: ``x = "hello"`` is a
+    ``str`` in the person's namespace and a ``Text`` on a block's port.
     """
 
     name: str
     exists_in_kernel: bool
     type_name: str | None = None
+    native_type_name: str | None = None
     type_module: str | None = None
     summary: str | None = None
     last_bound_by: str | None = None
@@ -656,12 +662,18 @@ class KernelListResponse(BaseModel):
 
 
 class PackagingProblemModel(BaseModel):
-    """One reason packaging refuses, with the cells it is about."""
+    """One thing packaging found, with the cells it is about.
+
+    ``refuses`` says whether it stops the notebook being packaged. Every
+    refusal of FR-039 does; the duplicate output declaration of spec §2 does
+    not, because packaging resolves it to the later declaration and reports it.
+    """
 
     kind: str
     message: str
     cell_ids: list[str]
     names: list[str]
+    refuses: bool = True
 
 
 class PackagedPortModel(BaseModel):
@@ -714,6 +726,14 @@ class PackageResponse(BaseModel):
     inputs: list[PackagedPortModel]
     outputs: list[PackagedPortModel]
     on_new_input: str
+    problems: list[PackagingProblemModel] = Field(
+        default_factory=list,
+        description=(
+            "What packaging resolved on the way past — never a refusal, which writes nothing. "
+            "A duplicate output declaration lands here so the person who packaged is told about "
+            "it too, not only the person who ran the check first."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -803,6 +823,7 @@ def _problem_models(problems: Any) -> list[PackagingProblemModel]:
             message=problem.message,
             cell_ids=list(problem.cell_ids),
             names=list(problem.names),
+            refuses=bool(problem.refuses),
         )
         for problem in problems
     ]
@@ -1102,6 +1123,7 @@ async def get_bindings(service: ServiceDep, session_id: str) -> BindingsResponse
                 name=name,
                 exists_in_kernel=binding is not None,
                 type_name=binding.type_name if binding is not None else None,
+                native_type_name=binding.native_type_name if binding is not None else None,
                 type_module=binding.type_module if binding is not None else None,
                 summary=binding.summary if binding is not None else None,
                 last_bound_by=last_bound_by.get(name),
@@ -1190,6 +1212,52 @@ async def end_kernel(service: ServiceDep, session_id: str) -> KernelStateRespons
 # ---------------------------------------------------------------------------
 
 
+PACKAGING_DRAIN_TIMEOUT: float = 900.0
+"""How long a packaging request waits for the execution queue to drain (FR-039).
+
+FR-039's last sentence — "Packaging MUST wait for the queue to drain before
+checking" — and spec §2's edge case: the slice's marks are not final until the
+queue has drained, so a check answered mid-run can call a notebook packageable
+whose slice the running cell is about to make stale.
+
+The wait is bounded rather than indefinite because it happens on a request
+thread. Fifteen minutes is long enough that no ordinary cell reaches it and
+short enough that a kernel wedged forever does not hold a worker for the life
+of the process; a person who does not want to wait interrupts the kernel, which
+drains the queue and lets the check through.
+"""
+
+
+async def _wait_for_the_queue_to_drain(session: ExploreSession) -> None:
+    """Block until the session's queue is idle, or refuse (FR-039, spec §2 edge cases).
+
+    Both packaging routes wait here rather than inside
+    :func:`~scistudio.explore.packaging.check_packaging`, which stays a pure
+    function of the notebook and the marks it is handed and must not learn
+    about queues.
+
+    Raises:
+        HTTPException: 409 when the queue did not drain within
+            :data:`PACKAGING_DRAIN_TIMEOUT`. Answering anyway would mean
+            answering from marks that are not final, which is the failure this
+            wait exists to prevent.
+    """
+    drained = await run_in_threadpool(lambda: session.wait_until_idle(PACKAGING_DRAIN_TIMEOUT))
+    if drained:
+        return
+    raise HTTPException(
+        status_code=409,
+        detail={
+            "error": "queue_not_drained",
+            "message": (
+                "This session is still running cells, and packaging waits for the queue to drain "
+                "because the slice's marks are not final until it has (FR-039). Let the run finish, "
+                "or interrupt the kernel, and try again."
+            ),
+        },
+    )
+
+
 @router.post("/sessions/{session_id}/packaging/check", response_model=PackagingCheckResponse)
 async def check_session_packaging(
     service: ServiceDep,
@@ -1201,6 +1269,11 @@ async def check_session_packaging(
     Writes nothing, and collects every refusal rather than stopping at the
     first: a person fixing a notebook wants the whole list.
 
+    Waits for the execution queue to drain first (FR-039, and
+    :func:`_wait_for_the_queue_to_drain`): a cell still running can make the
+    slice stale, so an answer given before it finishes is an answer about a
+    notebook that no longer exists by the time the person acts on it.
+
     The marks and the bound types are the session's and are passed in as
     arguments, because packaging is a pure function of the notebook and what it
     is given and never reaches into a session to find them.
@@ -1208,6 +1281,7 @@ async def check_session_packaging(
     from scistudio.explore.packaging import check_packaging
 
     session = await _session(service, session_id)
+    await _wait_for_the_queue_to_drain(session)
     with _refusals():
         plan = await run_in_threadpool(
             lambda: check_packaging(
@@ -1232,6 +1306,10 @@ async def check_session_packaging(
 async def package_session(service: ServiceDep, session_id: str, payload: PackageRequest) -> PackageResponse:
     """Package the notebook's declared-output slice into a Code Block (FR-037).
 
+    Waits for the execution queue to drain first, for the reason the check does
+    (FR-039): a block written from marks that were not final is a block whose
+    slice was stale before the file was closed.
+
     Refuses in the documented shape when any check of FR-039 refuses, with every
     problem under ``detail.problems``; nothing is written in that case.
 
@@ -1243,6 +1321,7 @@ async def package_session(service: ServiceDep, session_id: str, payload: Package
     from scistudio.explore.packaging import package_notebook
 
     session = await _session(service, session_id)
+    await _wait_for_the_queue_to_drain(session)
     commit = session.notebook_commit
     if not commit:
         raise HTTPException(
@@ -1298,4 +1377,5 @@ async def package_session(service: ServiceDep, session_id: str, payload: Package
         inputs=_port_models(packaged.inputs),
         outputs=_port_models(packaged.outputs),
         on_new_input=packaged.on_new_input,
+        problems=_problem_models(packaged.problems),
     )
