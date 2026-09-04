@@ -251,8 +251,8 @@ def session_binding() -> SessionBinding | None:
 def declared_outputs() -> tuple[DeclaredOutput, ...]:
     """Every name declared with :func:`output`, in declaration order.
 
-    A name declared twice appears once, carrying the last declaration and in
-    that declaration's position: "the later declaration in written order
+    A name declared twice appears once, carrying the later declaration and in
+    the later declaration's position: "the later declaration in written order
     wins" (spec §2, Edge Cases).
     """
     return tuple(_DECLARED.values())
