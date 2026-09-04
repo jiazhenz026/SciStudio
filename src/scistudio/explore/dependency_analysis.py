@@ -657,6 +657,7 @@ class _AstScan:
     star_import_lines: list[int] = field(default_factory=list)
     comprehension_targets: set[str] = field(default_factory=set)
     explicit_bindings: set[str] = field(default_factory=set)
+    walrus_targets: set[str] = field(default_factory=set)
     extra_reads: set[str] = field(default_factory=set)
 
 
@@ -719,6 +720,47 @@ def _collect_comprehension_targets(tree: ast.Module) -> tuple[set[str], set[int]
                     names.add(sub.id)
                     node_ids.add(id(sub))
     return names, node_ids
+
+
+#: The nodes whose bodies are a scope of their own. A ``lambda`` joins the three
+#: statement forms here because :func:`_collect_walrus_targets` walks expressions
+#: as well as statements, and a walrus inside a lambda binds in the lambda.
+_NESTED_SCOPES: Final = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+
+
+def _collect_walrus_targets(tree: ast.Module, scan: _AstScan) -> None:
+    """Record the ``:=`` targets that bind at module scope (FR-005).
+
+    PEP 572 gives a walrus inside a comprehension to the scope *containing* the
+    comprehension, and PEP 709 inlines list, set, and dict comprehensions from
+    CPython 3.12. The two together defeat :mod:`symtable`: for
+    ``vals = [y := i for i in range(3)]`` it reports ``y`` at module scope as
+    neither assigned nor local nor referenced, so nothing in the symbol walk
+    claims it, and ``assigned`` comes back as ``{"vals"}`` alone. ``exec`` binds
+    both. A generator expression is still a real child scope, so
+    :func:`_collect_nested_module_scope` already catches *its* walrus — which is
+    why only the inlined forms went missing.
+
+    A missing binding is the one direction FR-002 forbids: without ``y`` the cell
+    is not a definer of it, ``downstream`` never marks the reader stale, the
+    backward slice drops the cell, and FR-015 reports ``y`` as an unresolved read
+    of a notebook that runs correctly.
+
+    The walk descends from the module and stops at every :data:`_NESTED_SCOPES`
+    node, so a walrus inside a ``def``, a ``class`` body, or a ``lambda`` — where
+    it binds locally rather than at module scope — is not collected. Names the
+    symbol walk already reports are simply re-added; this only ever unions.
+    """
+
+    def descend(node: ast.AST) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, _NESTED_SCOPES):
+                continue
+            if isinstance(child, ast.NamedExpr) and isinstance(child.target, ast.Name):
+                scan.walrus_targets.add(child.target.id)
+            descend(child)
+
+    descend(tree)
 
 
 def _collect_bindings(tree: ast.Module, scan: _AstScan, comprehension_node_ids: set[int]) -> None:
@@ -831,6 +873,7 @@ def _scan_ast(tree: ast.Module) -> _AstScan:
     comprehension_names, comprehension_node_ids = _collect_comprehension_targets(tree)
     scan.comprehension_targets = comprehension_names
     _collect_bindings(tree, scan, comprehension_node_ids)
+    _collect_walrus_targets(tree, scan)
     _collect_calls(tree, scan)
     _collect_module_level_reads(tree, scan)
     return scan
@@ -947,6 +990,10 @@ def analyse_cell(cell_id: str, source: str) -> CellFacts:
     assigned, read = _symtable_names(table)
     comprehension_only = scan.comprehension_targets - scan.explicit_bindings
     assigned -= comprehension_only
+    # A walrus target the interpreter binds at module scope but symtable does not
+    # report there. Added after the subtraction so an inlined comprehension's
+    # ``:=`` survives it (FR-002, FR-005); see _collect_walrus_targets.
+    assigned |= scan.walrus_targets
     read |= scan.extra_reads
     read -= comprehension_only
 
@@ -1150,13 +1197,35 @@ def build_graph(
             if name in BUILTIN_NAMES:
                 continue
             if name in changed_sets[cell.cell_id]:
-                # The cell binds the name itself, so the read is not one a run
-                # would fail on. FR-015 draws no edge here because a cell must
-                # not depend on itself, and US2 scenario 5 scopes the unresolved
-                # list to "a name that no enabled cell changes" -- which this is
-                # not. Without the exception every ``import pandas as pd`` cell
-                # would report ``pd`` unresolved and packaging would refuse
-                # every notebook.
+                # The cell binds the name itself, so in the ordinary case the
+                # read is not one a run would fail on. FR-015 draws no edge here
+                # because a cell must not depend on itself, and US2 scenario 5
+                # scopes the unresolved list to "a name that no enabled cell
+                # changes" -- which this is not.
+                #
+                # The justification is a cell that binds a name and then uses it,
+                # which is how people write: ``import pandas as pd`` followed in
+                # the same cell by ``df = pd.read_csv('f')`` reads ``pd``, and so
+                # does ``total = 0`` followed by ``total += 1``, and
+                # ``def f(n): return f(n - 1)``. Without the exception every one
+                # of those would report its own name unresolved and packaging
+                # would refuse the notebook. A *bare* ``import pandas as pd``
+                # would not: symtable reports ``pd`` as imported and not
+                # referenced, so the cell reads nothing and this branch is never
+                # reached. That narrower claim stood in this comment until the
+                # ADR-054 spec 2 audits measured it and found it false.
+                #
+                # TODO(#2243): FR-015 admits one exception -- a builtin -- and
+                #   this is a second. The cost is a real false negative: a first
+                #   cell that says ``df = df.dropna()`` raises NameError when it
+                #   runs and is reported as resolved.
+                #   Out of scope per the owner decision recorded on #2243:
+                #   telling ``df = df.dropna()`` from ``total = 0; total += 1``
+                #   needs the within-cell statement order FR-001 forbids the
+                #   analysis to model, so the resolution is a spec change --
+                #   either FR-015 gains this exception or FR-001 gains a narrow
+                #   ordering rule -- and not an implementer's to invent.
+                #   Followup: https://github.com/jiazhenz026/SciStudio/issues/2243
                 continue
             unresolved.append(UnresolvedRead(cell_id=cell.cell_id, name=name))
 

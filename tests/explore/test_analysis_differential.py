@@ -16,11 +16,16 @@ omitted a cell whose effect the outputs depend on, which is the failure User
 Story 2 exists to prevent and which nothing else in the suite can detect: a
 missed edge is invisible to a test that asserts the edges the analysis produced.
 
-Two fixtures are here because they **fail**. ``global_counter.ipynb`` and
-``wrapped_operator.ipynb`` are ordinary notebooks whose slice raises
-``NameError`` when it runs, and each has its own named test rather than a row in
-the parametrised list, so that the pytest summary names the defect rather than
-hiding it behind a fixture id. Their docstrings carry the finding.
+Two fixtures were added here because they **failed**. ``global_counter.ipynb``
+and ``wrapped_operator.ipynb`` are ordinary notebooks whose slice raised
+``NameError`` when it ran, and each has its own named test rather than a row in
+the parametrised list, so that the pytest summary named the defect rather than
+hiding it behind a fixture id. Both defects are closed and both tests pass;
+their docstrings say what was found and what closed it. They keep their own
+names because the two failures they cover — a nested-scope ``global`` read and a
+formatter-wrapped operator eaten by the magic strip — are the two that a change
+to the analysis is most likely to reintroduce, and a named regression is easier
+to read in a summary than a fixture id.
 
 The executing half lives in ``fixtures/_run_notebook.py``; this module never
 runs notebook code in the pytest process. Spawning a fresh interpreter is not
@@ -268,12 +273,12 @@ def test_every_fixture_is_covered_by_a_test() -> None:
 
 
 # ---------------------------------------------------------------------------
-# The two fixtures that fail — findings, not fixtures to be quietly removed
+# The two fixtures that once failed — findings, kept as named regressions
 # ---------------------------------------------------------------------------
 
 
 def test_sc003_global_counter_slice_reproduces_the_notebook() -> None:
-    """FINDING P1 — a slice that raises ``NameError``: a nested-scope augmented assignment.
+    """FINDING P1, closed: a slice that raised ``NameError`` on a nested-scope ``global``.
 
     ``global_counter.ipynb`` is five ordinary cells::
 
@@ -289,26 +294,30 @@ def test_sc003_global_counter_slice_reproduces_the_notebook() -> None:
     scope, **including names read inside a nested scope that resolve to the
     module scope**". ``counter += 1`` inside ``bump`` reads ``counter``, and
     :mod:`symtable` reports that symbol as assigned and global but *not* as
-    referenced, so cell 3's read set comes back empty. Cell 3 is then a definer
-    of ``counter`` that reads nothing, the slice stops there, and cell 2 — the
-    only cell that gives ``counter`` its initial value — is left out. The slice
-    runs, calls ``bump()``, and raises ``NameError: name 'counter' is not
-    defined``. No unresolved read is reported, so packaging would have accepted
+    referenced, so cell 3's read set came back empty. Cell 3 was then a definer
+    of ``counter`` that read nothing, the slice stopped there, and cell 2 — the
+    only cell that gives ``counter`` its initial value — was left out. The slice
+    ran, called ``bump()``, and raised ``NameError: name 'counter' is not
+    defined``. No unresolved read was reported, so packaging would have accepted
     the notebook.
 
-    ``_collect_module_level_reads`` already repairs exactly this blind spot for
-    augmented assignment and ``del`` at module scope; it does not walk into a
-    nested scope, and a ``global`` declaration is the case where it must.
+    ``_collect_module_level_reads`` already repaired exactly this blind spot for
+    augmented assignment and ``del`` at module scope; it did not walk into a
+    nested scope, and a ``global`` declaration is the case where it must. It now
+    does, which is what closed this: it walks every ``def`` and ``class``, reads
+    the names that scope declares ``global``, and counts the augmented
+    assignments and deletions among them.
 
-    I believe the product is wrong and this test is right: FR-006's sentence
-    names this case, and SC-003 is the criterion it fails.
+    The test is kept under its own name because it is the end-to-end proof of a
+    repair whose unit-level cause lives in another file, and because a slice that
+    silently drops an initialiser is the failure User Story 2 exists to prevent.
     """
     whole, sliced, cells = differential("global_counter.ipynb")
     assert sliced == whole, f"the slice {cells} did not reproduce the notebook's outputs"
 
 
 def test_sc003_wrapped_operator_slice_reproduces_the_notebook() -> None:
-    """FINDING P1 — a slice that raises ``NameError``: a formatter-wrapped operator.
+    """FINDING P1, closed: a slice that raised ``NameError`` on a formatter-wrapped operator.
 
     ``wrapped_operator.ipynb`` holds the output of any ``black``- or
     ``ruff format``-shaped formatter on a long binary expression::
@@ -318,38 +327,49 @@ def test_sc003_wrapped_operator_slice_reproduces_the_notebook() -> None:
             % count
         )
 
-    FR-011 says a line whose first non-blank character is ``%`` or ``!`` MUST be
-    removed before parsing. The continuation line ``    % count`` is such a line,
-    so it is removed, the cell still parses — as ``ratio = (total)`` — and no flag
-    is raised, because the strip is only meant to make magics parseable. What is
-    lost is silent: ``count`` disappears from the cell's read set, the cell that
-    defines ``count`` is not in the slice, and the slice then executes the cell's
-    *original* source, which still says ``% count``, and raises ``NameError``.
-    The same happens for ``!=`` at the start of a wrapped comparison.
+    FR-011 used to say a line whose first non-blank character is ``%`` or ``!``
+    MUST be removed before parsing. The continuation line ``    % count`` is such
+    a line, so it was removed, the cell still parsed — as ``ratio = (total)`` —
+    and no flag was raised, because the strip is only meant to make magics
+    parseable. What was lost was silent: ``count`` disappeared from the cell's
+    read set, the cell that defines ``count`` was not in the slice, and the slice
+    then executed the cell's *original* source, which still says ``% count``, and
+    raised ``NameError``. The same happened for ``!=`` at the start of a wrapped
+    comparison.
 
-    Only reads are lost, so FR-002's one guarantee — never omit an assignment the
-    code shows — still holds; the guarantee simply does not cover this. FR-006
-    does, and so does SC-003.
+    Only reads were lost, so FR-002's one guarantee — never omit an assignment
+    the code shows — held throughout; the guarantee simply does not cover this.
+    FR-006 does, and so does SC-003.
 
-    Spec and product disagree here rather than product being alone at fault: the
-    implementation obeys FR-011 exactly as written, and FR-011 as written is too
-    broad, because a kernel tokenises before it decides what a magic is. I
-    believe the test is right about the required outcome and that the fix belongs
-    in FR-011 — strip a magic line only where the cell does not parse without it,
-    or only at a statement boundary — rather than in a rule the implementer
-    invented.
+    Spec and product disagreed here rather than the product being alone at fault:
+    the implementation obeyed FR-011 exactly as written, and FR-011 as written was
+    too broad, because a kernel tokenises before it decides what a magic is. That
+    is where it was fixed. FR-011 was rewritten to identify a magic *lexically* —
+    a magic token at the start of a **logical** line, with the tokeniser's
+    ``NEWLINE`` ending one and its ``NL`` not — and ``_magic_line_numbers``
+    implements it clause by clause. A continuation line inside an open bracket is
+    never at a logical start, so ``% count`` survives, ``count`` stays in the read
+    set, and the slice keeps the cell that defines it.
     """
     whole, sliced, cells = differential("wrapped_operator.ipynb")
     assert sliced == whole, f"the slice {cells} did not reproduce the notebook's outputs"
 
 
-def test_the_wrapped_operator_read_is_lost_without_a_flag() -> None:
+def test_the_wrapped_operator_read_survives_the_magic_strip() -> None:
     """The root cause of the fixture above, isolated from the execution harness.
 
-    Kept separate so that the finding survives even if the differential fixture
-    is later rewritten, and so that a reader can see the loss without reading a
-    subprocess transcript. ``count`` is read; nothing says it is not.
+    Kept separate so that the regression survives even if the differential
+    fixture is later rewritten, and so that a reader can see the read without
+    reading a subprocess transcript.
+
+    It was named ``..._is_lost_without_a_flag`` while it recorded the defect: the
+    strip removed ``    % count`` and raised no flag, so the loss was silent, and
+    that silence is what made the fixture above fail in a subprocess rather than
+    here. Both assertions were inverted when FR-011 was narrowed, and the name was
+    not — for one round it said the opposite of what the body proved. The name now
+    matches: no flag *and* the read is kept, which is the pair the narrowed FR-011
+    owes.
     """
     facts = analyse_cells([("c3", "ratio = (\n    total\n    % count\n)\n")])[0]
-    assert facts.flags == (), "the strip raised no flag, which is FR-011 working as specified"
+    assert facts.flags == (), "a continuation line is not a magic, so nothing is stripped and nothing is flagged"
     assert "count" in facts.read, "FR-006: the cell reads count, and the analysis must say so"
