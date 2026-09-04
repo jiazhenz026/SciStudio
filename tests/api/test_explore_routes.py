@@ -32,7 +32,9 @@ skip without one.
 
 Routes are mounted onto ``create_app()``'s application here rather than being
 found on it: ``create_app`` does not yet ``include_router(explore.router)``, and
-``src/scistudio/api/app.py`` is outside this task's write set (#2240).
+``src/scistudio/api/app.py`` is outside this task's write set (#2240). See
+``_mount_explore_routes`` for the ordering constraint that mounting has to
+respect, which these tests found by violating it.
 """
 
 from __future__ import annotations
@@ -1285,7 +1287,7 @@ def test_packaging_rejects_an_unknown_interaction_policy(git_harness: _Harness) 
 # ---------------------------------------------------------------------------
 
 
-def test_the_event_sequence_of_a_scripted_session(git_harness: _Harness) -> None:
+def test_the_event_sequence_of_a_cell_run(harness: _Harness) -> None:
     """FR-057, as a **sequence**: what a client renders depends on the order.
 
     ``cell_output`` before ``changed_names`` before the idle ``cell_state`` is
@@ -1293,23 +1295,19 @@ def test_the_event_sequence_of_a_scripted_session(git_harness: _Harness) -> None
     that asserted the *set* of types would pass on a runtime that emitted them
     backwards, which is the bug that would be hardest to find later.
 
-    No git engine writes explore commits during a cell run here — those land on
-    the commit thread and would interleave nondeterministically — so the one
-    ``commit_recorded`` in this sequence is the branch commit, published
-    synchronously by the route.
+    This harness has no git engine, so no explore commit is queued and nothing
+    arrives from the commit thread: every frame below is published on the
+    thread that did the work, in the order it did it.
     """
-    git_harness.git.commit_entries_to_ref = None  # type: ignore[assignment]
-    session = git_harness.open_file_session()
+    session = harness.open_file_session()
     session_id = session["session_id"]
     first = session["cells"][0]["cell_id"]
 
-    git_harness.events.clear()
-    _set_source(git_harness, session_id, first, "value = 1")
-    _run(git_harness, session_id, first)
-    git_harness.client.post(f"/api/explore/sessions/{session_id}/commit", json={"message": "checkpoint"})
-    git_harness.client.delete(f"/api/explore/sessions/{session_id}", params={"commit": False})
+    harness.events.clear()
+    _set_source(harness, session_id, first, "value = 1")
+    _run(harness, session_id, first)
 
-    assert git_harness.types() == [
+    assert harness.types() == [
         "explore.analysis_updated",
         "explore.kernel_state",
         "explore.cell_state",
@@ -1317,17 +1315,55 @@ def test_the_event_sequence_of_a_scripted_session(git_harness: _Harness) -> None
         "explore.changed_names",
         "explore.cell_state",
         "explore.analysis_updated",
+    ]
+
+    edited, ran = (frame for frame in harness.events if frame["type"] == "explore.analysis_updated")
+    assert edited["data"]["reason"] == "cell_edited"
+    assert ran["data"]["reason"] == "cell_ran"
+    running, idle = (frame for frame in harness.events if frame["type"] == "explore.cell_state")
+    assert running["data"]["state"] == "running"
+    assert idle["data"]["state"] == "idle"
+    assert idle["data"]["marks"] == {}
+    changed = next(frame for frame in harness.events if frame["type"] == "explore.changed_names")
+    assert changed["data"]["changed"] == ["value"]
+    output = next(frame for frame in harness.events if frame["type"] == "explore.cell_output")
+    assert output["data"]["status"] == "ok"
+
+
+def test_the_event_sequence_of_committing_and_closing(git_harness: _Harness) -> None:
+    """The other half of the sequence, where a git engine is present.
+
+    The explore commit one cell run queues is written on the commit thread and
+    would interleave with anything published afterwards, so it is drained
+    first — draining is not an operation of FR-056 and has no route. What is
+    asserted here is the order of what the *routes* then publish: the branch
+    commit, the kernel going away, and the session closing, in that order.
+    """
+    session = git_harness.open_file_session()
+    session_id = session["session_id"]
+    first = session["cells"][0]["cell_id"]
+    _set_source(git_harness, session_id, first, "value = 1")
+    _run(git_harness, session_id, first)
+    assert git_harness.service().wait_for_commits(timeout=_IDLE_TIMEOUT), "the commit thread did not drain"
+    assert [frame for frame in git_harness.events if frame["type"] == "explore.commit_recorded"], (
+        "a cell run with a git engine writes one explore commit"
+    )
+
+    git_harness.events.clear()
+    commit = git_harness.client.post(
+        f"/api/explore/sessions/{session_id}/commit", json={"message": "checkpoint"}
+    ).json()
+    git_harness.client.delete(f"/api/explore/sessions/{session_id}", params={"commit": False})
+
+    assert git_harness.types() == [
         "explore.commit_recorded",
         "explore.kernel_state",
         "explore.session_closed",
     ]
-
-    running, idle = (frame for frame in git_harness.events if frame["type"] == "explore.cell_state")
-    assert running["data"]["state"] == "running"
-    assert idle["data"]["state"] == "idle"
-    assert idle["data"]["marks"] == {}
-    changed = next(frame for frame in git_harness.events if frame["type"] == "explore.changed_names")
-    assert changed["data"]["changed"] == ["value"]
+    recorded = git_harness.events[0]
+    assert recorded["data"]["sha"] == commit["sha"]
+    assert recorded["data"]["ref"] == "branch"
+    assert git_harness.events[-1]["data"]["branch_commit"] is None, "closing with commit=false writes nothing"
 
 
 def test_every_event_type_of_fr_057_reaches_the_hub(git_harness: _Harness) -> None:

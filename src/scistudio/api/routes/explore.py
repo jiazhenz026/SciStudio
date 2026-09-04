@@ -49,7 +49,10 @@ list reported as closed is ``POST /api/explore/sessions`` with
 **Mounting.** ``create_app`` must ``include_router(explore.router)`` for these
 routes to exist in the running application; the spec's affected-file table does
 not name ``src/scistudio/api/app.py``, so that one line is the integrating
-change and is tracked on issue #2240.
+change and is tracked on issue #2240. It has to sit **with the other
+``include_router`` calls**, above the ``SPAStaticFiles`` mount at ``/``: that
+mount matches every path, ``/api/explore/...`` included, and answers it with its
+own 404, so a router added after it is registered where nothing can reach it.
 """
 
 from __future__ import annotations
