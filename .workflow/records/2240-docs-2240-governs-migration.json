@@ -33,6 +33,38 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T13:09:31.992686Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d12877c0032245d5bbc93dd9e4b7c5723c48573c9976f02ce248124b29de9521",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T13:09:43.542076Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0c9d7e908f50c88a9defa0ef9f05c0cb0685297929e3e92e543874ad2e877259",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -42,7 +74,24 @@
     "include": []
   },
   "directive_events": [],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-04T13:09:14.616831Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-explore-session.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T13:09:29.099243Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-explore-session.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
   "guard_events": [
     {
@@ -176,6 +225,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:09:43.577755Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:09:43.590473Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:09:43.603438Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:09:43.617755Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:09:43.631047Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:09:43.644204Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:09:43.658132Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:09:43.672062Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:09:43.684985Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:09:43.697835Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:09:43.712262Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -190,12 +327,15 @@
   "observed_diff": {
     "base": "origin/track/adr-054-spec3-explore-session",
     "base_sha": "6910065a5",
-    "changed_files": [],
-    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "changed_files": [
+      ".workflow/records/2240-docs-2240-governs-migration.json",
+      "docs/specs/adr-054-explore-session.md"
+    ],
+    "diff_fingerprint": "sha256:517211920f12f4e1b0fc6b405b91b3ce2ef416fae29dedf9c20fc8f44cf1ef72",
     "head": "HEAD",
-    "head_sha": "6910065a5",
+    "head_sha": "2ba1ef4f3",
     "surfaces": {
-      "docs": 0,
+      "docs": 1,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
@@ -203,7 +343,7 @@
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 0,
+      "sentrux": 1,
       "test": 0,
       "workflow_ci": 0
     }
@@ -225,6 +365,14 @@
     {
       "at": "2026-09-04T13:08:47.404070Z",
       "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-04T13:09:43.712293Z",
+      "diff_fingerprint": "sha256:517211920f12f4e1b0fc6b405b91b3ce2ef416fae29dedf9c20fc8f44cf1ef72",
       "mode": "local",
       "result": "pass",
       "tier": 3,
@@ -261,5 +409,22 @@
   "session_id": "8f910e82-fea2-461b-ae05-7c31a6d2d7d0",
   "strictness_tier": 3,
   "task_kind": "docs",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-09-04T13:09:14.616860Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only frontmatter and section 4.2 migration; no src or tests change",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T13:09:29.099269Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only frontmatter and section 4.2 migration; no src or tests change",
+      "verified_in_diff": null
+    }
+  ]
 }
