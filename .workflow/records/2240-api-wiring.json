@@ -201,6 +201,90 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T13:48:47.890854Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:58abedc0e7e49fbc520667ca0c2e1a117b5688d225a7c31524c6fb1e2570e284",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T13:48:47.917593Z",
+      "command": "ruff format src/scistudio/api/app.py src/scistudio/api/routes/explore.py src/scistudio/api/routes/git.py src/scistudio/explore/block_call.py src/scistudio/explore/dependency_analysis.py src/scistudio/explore/fingerprint.py src/scistudio/explore/lineage.py src/scistudio/explore/notebook.py tests/api/helpers.py tests/api/test_explore_branch_switch.py tests/api/test_explore_mount.py tests/api/test_explore_routes.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a25279c75b1f7fcc8e15bda8fb0973ba38649263e61a7cf20b2bf717f8a251b2",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T13:49:01.129839Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:18e06619e17c87c7f926e44e1c9eb71cbff8080219d973608c97c9868934f72a",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T13:49:01.153776Z",
+      "command": "ruff check src/scistudio/api/app.py src/scistudio/api/routes/explore.py src/scistudio/api/routes/git.py src/scistudio/explore/block_call.py src/scistudio/explore/dependency_analysis.py src/scistudio/explore/fingerprint.py src/scistudio/explore/lineage.py src/scistudio/explore/notebook.py tests/api/helpers.py tests/api/test_explore_branch_switch.py tests/api/test_explore_mount.py tests/api/test_explore_routes.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5627a5c851b7776d5c30e3a56c12647c9c99ed6ce2dc4d5248b7106c66cc86ad",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T13:53:43.666700Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/api tests/api/helpers.py tests/api/routes tests/api/test_explore_branch_switch.py tests/api/test_explore_mount.py tests/api/test_explore_routes.py tests/explore",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2b08e1d832ad5668ece4032ef64fb31df37837b0a1e6fd629a4c9d1663a4627",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -486,6 +570,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:53:43.711572Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:53:43.725071Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:53:43.738387Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:53:43.751821Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:53:43.765137Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:53:43.778082Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:53:43.791445Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:53:43.804794Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:53:43.818892Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:53:43.832190Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:53:43.848869Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -510,13 +682,14 @@
       "src/scistudio/explore/fingerprint.py",
       "src/scistudio/explore/lineage.py",
       "src/scistudio/explore/notebook.py",
+      "tests/api/helpers.py",
       "tests/api/test_explore_branch_switch.py",
       "tests/api/test_explore_mount.py",
       "tests/api/test_explore_routes.py"
     ],
-    "diff_fingerprint": "sha256:8e49de2395257884b069b0e4777f8eff6d9c6995a71d6e41a135acb139d83b87",
+    "diff_fingerprint": "sha256:dc76d7811b129f76cf47bfff44289f7d25f15650deea6ab30c8b57e174397cc1",
     "head": "HEAD",
-    "head_sha": "b3cfedd10",
+    "head_sha": "f4be23cc9",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -526,8 +699,8 @@
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 11,
-      "test": 3,
+      "sentrux": 12,
+      "test": 4,
       "workflow_ci": 0
     }
   },
@@ -564,6 +737,14 @@
         "docs.docs_required_or_na",
         "guard.docs_landing"
       ]
+    },
+    {
+      "at": "2026-09-04T13:53:43.848898Z",
+      "diff_fingerprint": "sha256:dc76d7811b129f76cf47bfff44289f7d25f15650deea6ab30c8b57e174397cc1",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
     }
   ],
   "record_id": "2240-api-wiring",
