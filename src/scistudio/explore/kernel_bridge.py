@@ -75,7 +75,7 @@ import json
 import os
 import re
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Final
 
@@ -909,20 +909,29 @@ def drain_block_calls() -> list[dict[str, Any]]:
     return drained
 
 
-#: Identity map from a value a block call handed a cell to the object it came
-#: from, as ``id(native) -> (native, object_id, type_name)`` (FR-055).
+#: Identity map from a value a block call handed a cell back to the object it
+#: came from: ``id(native) -> (getter, object_id, type_name)`` (FR-055).
 #:
 #: ``blocks.run(...)`` returns a **native** — a ``str``, an ``ndarray`` — so the
 #: value a notebook goes on to name in ``scistudio.output`` carries no object
 #: identity, while the row retention decides over is the ``DataObject`` the call
 #: produced. This is the only place both are in hand.
 #:
-#: The native is held in the tuple, not merely keyed on: a dead object's ``id``
-#: can be reused by the next allocation, and holding a reference makes the key
-#: unambiguous for as long as it is in the map. The cost is nothing in practice,
-#: because the cell that made the call assigned the value into the namespace
-#: anyway, and the map dies with the kernel process.
-_DECLARABLE_BY_ID: dict[int, tuple[Any, str, str]] = {}
+#: The entry is a *getter*, not the value, because this map must not be the
+#: reason a person's memory does not come back. A cell that calls a block a
+#: hundred times produces a hundred results, and holding each one would keep
+#: every array alive for the life of the kernel even after the cell rebound the
+#: name — in a tool that reports kernel memory per session, that is the wrong
+#: kind of bug to introduce for a provenance hint. So the getter is a
+#: :class:`weakref.ref` wherever the type supports one, which covers every large
+#: object (arrays, frames, data objects), and a plain closure over the value for
+#: the types that do not (``str``, ``int``, ``bytes``, ``tuple``) — exactly the
+#: small immutables where holding on costs nothing.
+#:
+#: The reference also disambiguates the key: a dead object's ``id`` can be
+#: reused by the next allocation, so a hit is confirmed with ``is`` and a
+#: weakref that has expired is dropped rather than trusted.
+_DECLARABLE_BY_ID: dict[int, tuple[Callable[[], Any], str, str]] = {}
 
 
 def _remember_declarable(lineage: Any) -> None:
@@ -932,8 +941,11 @@ def _remember_declarable(lineage: Any) -> None:
     the session and is not what FR-055 makes durable.
     """
     try:
+        import weakref
+
         from scistudio.explore.block_call import native_of
 
+        _prune_declarable()
         for edge in getattr(lineage, "edges", ()) or ():
             if getattr(edge, "direction", "") != "output":
                 continue
@@ -942,9 +954,24 @@ def _remember_declarable(lineage: Any) -> None:
             if not object_id or data_object is None:
                 continue
             native = native_of(data_object)
-            _DECLARABLE_BY_ID[id(native)] = (native, str(object_id), str(getattr(edge, "type_name", "") or ""))
+            try:
+                getter: Callable[[], Any] = weakref.ref(native)
+            except TypeError:  # a small immutable; holding it costs nothing
+                getter = _constant(native)
+            _DECLARABLE_BY_ID[id(native)] = (getter, str(object_id), str(getattr(edge, "type_name", "") or ""))
     except Exception:  # pragma: no cover - a durability hint must never break a cell
         return
+
+
+def _constant(value: Any) -> Callable[[], Any]:
+    """A getter for a value that cannot be weakly referenced."""
+    return lambda: value
+
+
+def _prune_declarable() -> None:
+    """Drop entries whose object is gone, so a stale ``id`` cannot be matched."""
+    for key in [key for key, (getter, _, _) in _DECLARABLE_BY_ID.items() if getter() is None]:
+        _DECLARABLE_BY_ID.pop(key, None)
 
 
 def _declarable_for(value: Any) -> tuple[str, str] | None:
@@ -956,8 +983,8 @@ def _declarable_for(value: Any) -> tuple[str, str] | None:
     found = _DECLARABLE_BY_ID.get(id(value))
     if found is None:
         return None
-    native, object_id, type_name = found
-    return (object_id, type_name) if native is value else None
+    getter, object_id, type_name = found
+    return (object_id, type_name) if getter() is value else None
 
 
 def _declared_output_payload(declared: Any) -> dict[str, Any]:
