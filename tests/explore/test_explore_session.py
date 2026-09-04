@@ -33,7 +33,7 @@ from scistudio.core.lineage.record import BlockExecutionRecord, BlockIORow, Data
 from scistudio.core.lineage.store import LineageStore
 from scistudio.core.versioning._commit_ops import _explore_session_ref
 from scistudio.core.versioning.git_engine import GitEngine
-from scistudio.explore.dependency_analysis import analyse_cells, build_graph
+from scistudio.explore.dependency_analysis import ANALYSIS_VERSION, analyse_cells, build_graph
 from scistudio.explore.notebook import NotebookStore, read_notebook, write_notebook
 from scistudio.explore.notebook_api import decode_artefact_reference
 from scistudio.explore.session import (
@@ -246,6 +246,64 @@ def test_the_first_cell_does_not_run_when_a_session_opens(
     assert session.kernel_status() is None
     assert service.kernels() == ()
     assert session.marks(session.cells()[0].cell_id or "") == {CellMark.NEVER_RUN}
+
+
+def test_the_notebook_on_disk_carries_the_analysis_record(
+    services: Callable[..., SessionService],
+) -> None:
+    """The analysis spec's FR-031 is a MUST, and nothing wrote it (#2240 sweep).
+
+    *"The per-cell record MUST be stored under the ``scistudio`` key of the
+    cell's metadata ... A notebook-level record under the same key MUST hold the
+    analysis version."* Its FR-034 says whose job that is: *"Loading and saving
+    the notebook file is the explore-session spec's."*
+
+    The codec was complete on both sides and **neither half had a production
+    caller** — ``encode_cell_record``, ``encode_notebook_record`` and
+    ``NotebookDocument.set_analysis_record`` were reachable only from tests — so
+    no notebook ever carried a record, and this spec's FR-032 ("the record MUST
+    be preserved by every write") was true only because there was never a record
+    to lose.
+
+    Asserted against the bytes on disk, because "stored in cell metadata" is a
+    claim about the file rather than about the in-memory document.
+    """
+    service = services()
+    session = service.open_over_file("data/raw/signal.csv")
+    session.set_cell_source(session.cells()[0].cell_id or "", "import scistudio\nsignal = 1\n")
+    session.write()
+
+    written = read_notebook(Path(session.notebook_path))
+    record = written.cells[0].scistudio_metadata
+    assert record["source_hash"], "the cell carries no analysis record"
+    assert "signal" in record["assigned"], "the record does not describe the cell it is attached to"
+    assert "edges" not in record, "analysis FR-032: edges must not be stored"
+    assert written.scistudio_metadata["analysis_version"] == ANALYSIS_VERSION
+
+
+def test_storing_the_record_leaves_the_enabled_flag_and_a_foreign_key_alone(
+    services: Callable[..., SessionService],
+) -> None:
+    """Analysis FR-033: keys the analysis does not recognise survive a rewrite.
+
+    The enabled flag (FR-033 of this spec) lives in the same ``scistudio``
+    namespace as the record, so a writer that replaced the namespace rather than
+    merging into it would silently re-enable every disabled cell.
+    """
+    service = services()
+    session = service.open_over_file("data/raw/signal.csv")
+    cell_id = session.cells()[0].cell_id or ""
+    session.set_cell_enabled(cell_id, enabled=False)
+
+    document = session.document
+    document.set_analysis_record(cell_id, {"vendor_x": {"keep": "me"}})
+    session.set_cell_source(cell_id, "import scistudio\nreanalysed = 1\n")
+    session.write()
+
+    namespace = read_notebook(Path(session.notebook_path)).cells[0].scistudio_metadata
+    assert namespace["enabled"] is False, "storing the record re-enabled a disabled cell"
+    assert namespace["vendor_x"] == {"keep": "me"}, "another tool's key under the same namespace was dropped"
+    assert "reanalysed" in namespace["assigned"]
 
 
 # ---------------------------------------------------------------------------

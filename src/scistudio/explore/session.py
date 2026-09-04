@@ -52,8 +52,11 @@ from scistudio.explore.dependency_analysis import (
     DependencyGraph,
     analyse_cells,
     build_graph,
+    encode_cell_record,
+    encode_notebook_record,
     source_hash,
 )
+from scistudio.explore.fingerprint import ObservedChange
 from scistudio.explore.lineage import ExploreLineage
 from scistudio.explore.notebook import (
     NotebookCell,
@@ -128,6 +131,11 @@ _ENVIRONMENTS_DIR_NAME: Final[str] = "environments"
 
 #: Notebook-level metadata key holding the ref-safe session id (FR-001).
 SESSION_ID_METADATA_KEY: Final[str] = "session_id"
+
+#: Notebook-level metadata key holding the analysis version (analysis FR-031).
+#: A sibling of :data:`SESSION_ID_METADATA_KEY` under the same ``scistudio``
+#: namespace, written through the same setter so neither disturbs the other.
+_ANALYSIS_VERSION_KEY: Final[str] = "analysis_version"
 
 #: What a session id may look like, so that a notebook path containing a
 #: character git refuses in a ref name never reaches ``update-ref`` (FR-001).
@@ -1313,6 +1321,7 @@ class ExploreSession:
             if current.get(cell_id) == observation.source_hash
         }
         self._graph = build_graph(self._facts, enabled=enabled, observations=dict(self._observations))
+        self._store_analysis_records()
 
         known = set(current)
         if keep_marks:
@@ -1330,6 +1339,50 @@ class ExploreSession:
         else:
             self._marks = {cell_id: {CellMark.NEVER_RUN} for cell_id in known}
             self._reasons = {}
+
+    def _store_analysis_records(self) -> None:
+        """Write the analysis into the notebook's metadata (analysis FR-031, FR-034).
+
+        The analysis spec makes storing the record a MUST — "the per-cell record
+        MUST be stored under the ``scistudio`` key of the cell's metadata",
+        with a notebook-level record holding the analysis version — and its
+        FR-034 says who does it: *"Loading and saving the notebook file is the
+        explore-session spec's; this spec defines the record and its codec."*
+        The codec was written and complete on both sides, and **nothing called
+        either half**: ``encode_cell_record``, ``encode_notebook_record`` and
+        ``NotebookDocument.set_analysis_record`` had no production caller, so
+        no notebook ever carried a record and this spec's own FR-032 — "the
+        record ... MUST be preserved by every write" — held only vacuously.
+
+        Called from :meth:`_rebuild`, so the document carries the current
+        analysis the moment the analysis changes and every subsequent write
+        persists it. It writes into the in-memory document only; the store's
+        write is what puts it on disk, which is what keeps "preserved by every
+        write" a property of the writer rather than of this method.
+
+        **Reading the record back is deliberately not wired.** The analysis'
+        FR-032 allows a matching record to be trusted on load, and
+        :func:`decode_cell_record` exists for it, but re-analysing from source
+        is always at least as correct and the cost is one parse per cell; making
+        the load path trust stored facts is an optimisation with its own
+        divergence risk and is not what the MUST above asks for.
+
+        Never raises: a notebook that cannot carry its record is still a
+        notebook the person can work in.
+        """
+        observations = dict(self._observations)
+        try:
+            for facts in self._facts:
+                self._document.set_analysis_record(
+                    facts.cell_id,
+                    encode_cell_record(facts, _as_observed_change(observations.get(facts.cell_id))),
+                )
+            self._document.set_scistudio_metadata(
+                _ANALYSIS_VERSION_KEY,
+                encode_notebook_record(self._document.scistudio_metadata)[_ANALYSIS_VERSION_KEY],
+            )
+        except Exception:  # pragma: no cover - metadata must never break the session
+            _LOG.warning("Could not store the analysis record for session %s", self.session_id, exc_info=True)
 
     def _reset_marks_to_never_run(self) -> None:
         self._marks = {fact.cell_id: {CellMark.NEVER_RUN} for fact in self._facts}
@@ -2729,6 +2782,33 @@ def _as_wire_payload(raw: Any) -> dict[str, Any]:
             return {}
         return decoded if isinstance(decoded, dict) else {}
     return {}
+
+
+def _as_observed_change(observation: Observation | None) -> ObservedChange | None:
+    """The queue's :class:`Observation` as the record codec's ``ObservedChange``.
+
+    Two types describe one thing. ``queue.Observation`` splits the changed set
+    into ``differing``/``appeared``/``disappeared`` because the marks want the
+    three separately; ``fingerprint.ObservedChange`` is what the analysis spec's
+    FR-031 record stores and what ``decode_cell_record`` reads back. The
+    conversion is total — ``changed_names`` is exactly the union the codec wants
+    — so nothing is lost across it.
+
+    That the two exist at all is the #2240 audit's P2-11: the analysis spec's
+    own ``fingerprint.compare_namespaces`` has no caller in ``src/`` and the
+    session runs a second comparison. Reconciling them is a spec-2 question
+    about which comparison is canonical, not something to settle inside a
+    conversion helper; this makes the record storable without pretending the
+    duplication is resolved.
+    """
+    if observation is None:
+        return None
+    return ObservedChange(
+        cell_id=observation.cell_id,
+        changed_names=observation.changed_names,
+        unobservable_names=observation.unobservable,
+        source_hash=observation.source_hash,
+    )
 
 
 def _declared_output_row(
