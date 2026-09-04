@@ -449,7 +449,14 @@
   },
   "runtime": "claude",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:31:05.380243Z",
+      "pattern": "tests/explore/__init__.py",
+      "reason": "tests/explore/ needs the package marker every other test subdirectory in this repository carries; without it the new test module is the only test package without an __init__.py"
+    }
+  ],
   "session_id": "f320f414-b95f-4185-b78e-17caeee7fafa",
   "strictness_tier": 1,
   "task_kind": "feature",
