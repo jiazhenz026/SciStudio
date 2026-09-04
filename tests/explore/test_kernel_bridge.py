@@ -350,6 +350,13 @@ def test_a_summary_never_calls_repr() -> None:
     assert listed[0].summary == "Exploding"
 
 
+def test_a_summary_is_bounded() -> None:
+    """A number is not automatically short, and one long name would dominate the payload."""
+    listed = bindings({"huge": 2**100_000, "wide": "x" * 10_000})
+    for binding in listed:
+        assert len(binding.summary) <= kernel_bridge._SUMMARY_LIMIT, binding
+
+
 # ---------------------------------------------------------------------------
 # The wire protocol
 # ---------------------------------------------------------------------------

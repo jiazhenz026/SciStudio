@@ -36,7 +36,7 @@ that type through :meth:`PreviewSessionManager.render_target`. A table window in
 a session is therefore produced by the same code that produces it in the
 workflow preview — there is no second renderer to keep in step. Persisting is
 done without touching the object the person's name is bound to: ``save()`` would
-set ``storage_ref`` on it, and the temporary file it pointed at is deleted when
+set ``storage_ref`` on it, and the scratch file it pointed at is deleted when
 the window is done, which would leave their variable holding a dangling
 reference.
 
@@ -128,6 +128,9 @@ _SHELL_NAMES: Final[frozenset[str]] = frozenset(
 
 #: IPython's numbered history entries: ``_1``, ``_i1``, ``_12``.
 _HISTORY_PATTERN: Final[re.Pattern[str]] = re.compile(r"^_i?\d+$")
+
+#: Characters one binding's summary may occupy. See :func:`_summarise`.
+_SUMMARY_LIMIT: Final[int] = 80
 
 
 # ---------------------------------------------------------------------------
@@ -327,8 +330,8 @@ def variable_window(
     existing = getattr(data_object, "storage_ref", None)
     if existing is not None:
         return _render(service, data_object, existing, target_kind, query)
-    with tempfile.TemporaryDirectory(prefix="scistudio-window-") as temporary:
-        destination = Path(temporary) / (name + _staging_suffix(data_object))
+    with tempfile.TemporaryDirectory(prefix="scistudio-window-") as staging:
+        destination = Path(staging) / (name + _staging_suffix(data_object))
         storage_ref = _persist_without_mutating(data_object, destination)
         return _render(service, data_object, storage_ref, target_kind, query)
 
@@ -388,7 +391,7 @@ def _persist_without_mutating(data_object: Any, destination: Any) -> Any:
 
     :meth:`~scistudio.core.types.base.DataObject.save` records the reference it
     wrote on the object. Here that would be wrong twice over: the object is the
-    one the person's variable is bound to, and the file is a temporary one this
+    one the person's variable is bound to, and the file is a scratch one this
     call deletes, so their variable would be left pointing at a path that no
     longer exists. This does the same three steps and keeps the reference to
     itself.
@@ -498,19 +501,24 @@ def _summarise(value: object) -> str:
     Never ``repr``: a binding list is drawn on every namespace change, and a
     ``repr`` can be a megabyte, can run arbitrary code, and can raise. Shape
     and length are what a person actually reads off that list anyway.
+
+    Bounded at :data:`_SUMMARY_LIMIT` characters, because a number is not
+    automatically short: ``value = 2 ** 100_000`` renders thirty thousand
+    digits, and one such name would dominate the payload the whole list travels
+    in.
     """
     type_name = _safe_type_name(value)
     try:
         shape = getattr(value, "shape", None)
         if isinstance(shape, tuple) and all(isinstance(size, int) for size in shape):
-            return f"{type_name}{tuple(shape)}"
+            return f"{type_name}{tuple(shape)}"[:_SUMMARY_LIMIT]
         if isinstance(value, (str, bytes, list, tuple, dict, set, frozenset)):
-            return f"{type_name} of {len(value)}"
+            return f"{type_name} of {len(value)}"[:_SUMMARY_LIMIT]
         if isinstance(value, (bool, int, float)):
-            return f"{type_name} {value}"
+            return f"{type_name} {value}"[:_SUMMARY_LIMIT]
     except Exception:  # an object whose len or shape raises describes itself as its type
         return type_name
-    return type_name
+    return type_name[:_SUMMARY_LIMIT]
 
 
 def _dispatch(namespace: dict[str, Any], request: str) -> None:

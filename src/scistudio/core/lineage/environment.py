@@ -218,18 +218,18 @@ class EnvironmentSnapshotStore:
         if path.exists():
             return reference
         self._root.mkdir(parents=True, exist_ok=True)
-        # Write through a temporary file in the same directory so a reader
-        # never sees a half-written snapshot, and so two processes storing the
-        # same environment at once cannot corrupt it.
-        temporary = path.with_name(path.name + f".{id(snapshot):x}.tmp")
-        temporary.write_text(
+        # Write through a scratch file in the same directory so a reader never
+        # sees a half-written snapshot, and so two processes storing the same
+        # environment at once cannot corrupt it.
+        scratch = path.with_name(path.name + f".{id(snapshot):x}.tmp")
+        scratch.write_text(
             json.dumps(snapshot.to_dict(), indent=2, sort_keys=True),
             encoding="utf-8",
         )
         try:
-            temporary.replace(path)
+            scratch.replace(path)
         except OSError:  # another writer won the race; its content is identical
-            temporary.unlink(missing_ok=True)
+            scratch.unlink(missing_ok=True)
         return reference
 
     def has(self, reference: str) -> bool:

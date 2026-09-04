@@ -484,8 +484,9 @@ def output(**names: Any) -> None:
 
     Raises:
         NotebookModeError: No mode is set. See :func:`current_mode`.
-        NotebookPortError: Packaged mode, and a declared name is not one of the
-            block's output ports.
+        NotebookPortError: Packaged mode, and either the declared name is not
+            one of the block's output ports or the run has no exchange manifest
+            to say what file format the port carries.
     """
     mode = current_mode()
     for name, value in names.items():
@@ -782,7 +783,7 @@ def _scratch_dir() -> Path:
     Prefers the Code Block's own ``tmp`` folder, which the runtime creates and
     owns for exactly this, so a packaged run leaves nothing behind anywhere
     else. Outside a packaged run (a session opened over a file) it falls back
-    to one temporary directory per process, cleaned when the process exits.
+    to one scratch directory per process, cleaned when the process exits.
     """
     exchange_dir = os.environ.get(EXCHANGE_DIR_ENV_VAR, "").strip()
     if exchange_dir:
