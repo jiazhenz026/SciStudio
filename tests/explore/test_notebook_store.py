@@ -561,6 +561,93 @@ class TestCellEdits:
 
 
 # ---------------------------------------------------------------------------
+# Recording what a run produced (FR-027)
+# ---------------------------------------------------------------------------
+
+
+class TestSetCellOutputs:
+    """The document can be told what a run produced, so the file on disk keeps it.
+
+    The counterpart of stripping, and the half that was missing until #2240:
+    without it every "the commit is stripped of outputs" assertion held for a
+    notebook that never had an output, and a notebook reopened here or in
+    JupyterLab showed every cell as never having run.
+    """
+
+    def test_outputs_and_the_execution_count_reach_the_file(self, notebook_path: Path) -> None:
+        document = read_notebook(notebook_path)
+
+        document.set_cell_outputs(
+            "fit-cell",
+            [{"output_type": "stream", "name": "stdout", "text": "fitted 3 peaks\n"}],
+            execution_count=11,
+        )
+        write_notebook(notebook_path, document)
+
+        cell = _load(notebook_path)["cells"][2]
+        assert cell["outputs"] == [{"output_type": "stream", "name": "stdout", "text": "fitted 3 peaks\n"}]
+        assert cell["execution_count"] == 11
+
+    def test_the_new_outputs_replace_the_old_ones(self, notebook_path: Path) -> None:
+        """A rerun's outputs are what the cell shows, not those plus the last run's."""
+        document = read_notebook(notebook_path)
+        assert len(document.cell("load-cell").outputs) == 3
+
+        document.set_cell_outputs("load-cell", [{"output_type": "stream", "name": "stdout", "text": "again\n"}])
+
+        assert [dict(output) for output in document.cell("load-cell").outputs] == [
+            {"output_type": "stream", "name": "stdout", "text": "again\n"}
+        ]
+        assert document.cell("load-cell").execution_count is None
+
+    def test_the_caller_keeps_no_handle_into_the_document(self, notebook_path: Path) -> None:
+        document = read_notebook(notebook_path)
+        payload: dict[str, Any] = {"output_type": "stream", "name": "stdout", "text": "first\n"}
+
+        document.set_cell_outputs("fit-cell", [payload])
+        payload["text"] = "mutated after the call"
+
+        assert document.cell("fit-cell").outputs[0]["text"] == "first\n"
+
+    def test_a_markdown_cell_is_refused_rather_than_given_output_keys(self, notebook_path: Path) -> None:
+        """nbformat allows ``outputs`` on a code cell alone, so this cannot be silent."""
+        document = read_notebook(notebook_path)
+
+        with pytest.raises(NotebookStoreError, match="not a code cell"):
+            document.set_cell_outputs("intro-cell", [{"output_type": "stream", "name": "stdout", "text": "x"}])
+
+        assert "outputs" not in document.cell("intro-cell").raw
+
+    def test_an_unknown_cell_is_a_key_error(self, notebook_path: Path) -> None:
+        with pytest.raises(KeyError):
+            read_notebook(notebook_path).set_cell_outputs("no-such-cell", [])
+
+    def test_recorded_outputs_are_stripped_from_the_committed_form(self, notebook_path: Path) -> None:
+        """FR-027 and FR-028 together: the file keeps them, the commit does not."""
+        document = read_notebook(notebook_path)
+        document.set_cell_outputs(
+            "fit-cell",
+            [{"output_type": "stream", "name": "stdout", "text": "fitted\n"}],
+            execution_count=11,
+        )
+
+        stripped = strip_outputs(document)
+
+        assert stripped.cell("fit-cell").outputs == ()
+        assert stripped.cell("fit-cell").execution_count is None
+        assert document.cell("fit-cell").outputs[0]["text"] == "fitted\n"
+
+    def test_the_analysis_record_and_the_enabled_flag_survive(self, notebook_path: Path) -> None:
+        document = read_notebook(notebook_path)
+
+        document.set_cell_outputs("fit-cell", [{"output_type": "stream", "name": "stdout", "text": "x\n"}])
+
+        namespace = document.cell("fit-cell").scistudio_metadata
+        assert namespace["source_hash"] == "abcd1234"
+        assert document.cell("fit-cell").enabled is False
+
+
+# ---------------------------------------------------------------------------
 # Output stripping (FR-028, FR-032)
 # ---------------------------------------------------------------------------
 

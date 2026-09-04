@@ -1,0 +1,131 @@
+{
+  "base_ref": "origin/track/adr-054-spec3-explore-session",
+  "branch": "fix/2240-lineage-wiring",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-04T15:08:02.442590Z",
+      "class": "spec-current",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR-054 spec 3 FR-027, FR-035, FR-052, FR-053 and FR-055 already state the required behaviour; this change makes the code match the spec and adds no contract.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2240,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix the session-side findings of the ADR-054 spec 3 adversarial pass: wire the session service to ExploreLineage (FR-052, FR-053, FR-055), write a run's outputs back into the notebook (FR-027), and make note_branch_commit report the newest commit (FR-035).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2240-fix-2240-lineage-wiring",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T15:08:02.442549Z",
+      "pattern": "src/scistudio/explore/session.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T15:08:02.442571Z",
+      "pattern": "src/scistudio/explore/notebook.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T15:08:02.442574Z",
+      "pattern": "tests/explore/test_session_lineage.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T15:08:02.442576Z",
+      "pattern": "tests/explore/test_explore_session.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T15:08:02.442577Z",
+      "pattern": "tests/explore/test_notebook_store.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T15:08:02.442579Z",
+      "pattern": "tests/explore/test_adversarial_session.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "bb2898d5-60b9-47b2-8932-556612b43030",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-04T15:08:02.442597Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_session_lineage.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T15:08:02.442602Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_adversarial_session.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T15:08:02.442604Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_notebook_store.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T15:08:02.442605Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_explore_session.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

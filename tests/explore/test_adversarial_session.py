@@ -890,13 +890,6 @@ def test_the_notebook_is_written_to_disk_by_the_run_itself(
 
 @needs_kernel
 @pytest.mark.serial
-@pytest.mark.xfail(
-    reason=(
-        "#2240: scistudio.explore.lineage.ExploreLineage is never constructed by any production "
-        "path, so no explore_sessions row is written when a session opens (FR-052, US6 scenario 4)."
-    ),
-    strict=False,
-)
 def test_opening_a_session_writes_its_explore_sessions_row(
     services: Callable[..., SessionService],
 ) -> None:
@@ -904,10 +897,10 @@ def test_opening_a_session_writes_its_explore_sessions_row(
 
     ``tests/explore/test_explore_lineage.py`` proves that
     :class:`~scistudio.explore.lineage.ExploreLineage` writes the row when it is
-    called. Nothing calls it: no module outside that one constructs it, and a
-    :class:`SessionService` given a lineage store uses it only to resolve a
-    block's output ports. So the anchor every cell-run and block-call record
-    hangs off is never written for a real session.
+    called. Until #2240 nothing called it: no module outside that one
+    constructed it, and a :class:`SessionService` given a lineage store used it
+    only to resolve a block's output ports, so the anchor every cell-run and
+    block-call record hangs off was never written for a real session.
     """
     from scistudio.core.lineage.store import LineageStore
 
@@ -926,10 +919,6 @@ def test_opening_a_session_writes_its_explore_sessions_row(
 
 @needs_kernel
 @pytest.mark.serial
-@pytest.mark.xfail(
-    reason="#2240: no production path records a cell run against its session (FR-053).",
-    strict=False,
-)
 def test_a_cell_run_writes_a_record_against_its_session(
     services: Callable[..., SessionService],
 ) -> None:
@@ -955,24 +944,17 @@ def test_a_cell_run_writes_a_record_against_its_session(
 
 @needs_kernel
 @pytest.mark.serial
-@pytest.mark.xfail(
-    reason=(
-        "#2240: with no explore_sessions row, sessions_in_progress() is always empty and the "
-        "retention guard that FR-055 relies on never fires."
-    ),
-    strict=False,
-)
 def test_retention_will_not_sweep_while_a_session_is_open(
     services: Callable[..., SessionService],
 ) -> None:
     """FR-055's protection, read from the store the planner actually consults.
 
     ``scistudio.core.lineage.retention`` refuses to sweep while
-    ``sessions_in_progress()`` is non-empty. Nothing writes the rows that method
-    reads, so the guard is inert in a live project and a session's objects are
-    reclaimable while the person is still exploring. This is the consequence of
-    the unwired anchor above, and it is the one that costs data rather than
-    provenance.
+    ``sessions_in_progress()`` is non-empty. Until #2240 nothing wrote the rows
+    that method reads, so the guard was inert in a live project and a session's
+    objects were reclaimable while the person was still exploring. This is the
+    consequence of the unwired anchor above, and it is the one that costs data
+    rather than provenance.
     """
     from scistudio.core.lineage.store import LineageStore
 
@@ -1063,13 +1045,6 @@ def test_a_name_declared_as_an_output_twice_is_wired_to_the_earlier_declaration_
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    reason=(
-        "#2240: ExploreSession.note_branch_commit keeps the first sha it is given "
-        "(``self._last_commit_sha or sha``), so a second branch commit does not update FR-035's answer."
-    ),
-    strict=False,
-)
 @pytest.mark.serial
 def test_the_reported_commit_follows_the_second_branch_commit(
     services: Callable[..., SessionService],
@@ -1077,13 +1052,11 @@ def test_the_reported_commit_follows_the_second_branch_commit(
 ) -> None:
     """FR-035: "A session MUST report its current notebook commit".
 
-    ``note_explore_commit`` overwrites; ``note_branch_commit`` keeps whatever is
-    already there. The hybrid means a session whose only commits are branch
-    commits reports the first one for ever — a commit whose tree no longer holds
-    the notebook. Either rule alone would be defensible; the property's own
-    docstring says it reports "the commit of the last cell run on the session's
-    ref", which the ``or`` contradicts in the other direction by accepting a
-    branch commit at all.
+    ``note_explore_commit`` overwrote and ``note_branch_commit`` kept whatever
+    was already there, so a session whose only commits are branch commits
+    reported the first one for ever — a commit whose tree no longer holds the
+    notebook. Fixed in #2240 by making both overwrite: FR-035 asks for the
+    commit the notebook is *at*, and both refs carry the notebook.
     """
     service = services(repository.project_path, git_engine=repository)
     session = service.open_over_file("data/raw/signal.csv")
@@ -1095,25 +1068,6 @@ def test_the_reported_commit_follows_the_second_branch_commit(
     second = service.commit_to_branch(session)
 
     assert session.notebook_commit == second, "the session reports a commit that predates its notebook"
-
-
-@pytest.mark.serial
-def test_the_reported_commit_keeps_the_first_branch_commit_today(
-    services: Callable[..., SessionService],
-    repository: GitEngine,
-) -> None:
-    """The behaviour as delivered, pinned. See the xfail above for why it is wrong."""
-    service = services(repository.project_path, git_engine=repository)
-    session = service.open_over_file("data/raw/signal.csv")
-    first = session.cells()[0].cell_id
-    assert first is not None
-
-    initial = service.commit_to_branch(session)
-    session.set_cell_source(first, "changed = True")
-    second = service.commit_to_branch(session)
-
-    assert initial != second
-    assert session.notebook_commit == initial
 
 
 # ---------------------------------------------------------------------------
@@ -1201,26 +1155,16 @@ def test_the_branch_commit_strips_outputs_that_were_really_there(
 
 @needs_kernel
 @pytest.mark.serial
-@pytest.mark.xfail(
-    reason=(
-        "#2240: no production path writes a run's outputs back into the notebook, so FR-027's "
-        "'the notebook on disk MUST keep its cell outputs' has nothing to keep."
-    ),
-    strict=False,
-)
 def test_a_cell_run_leaves_its_output_in_the_notebook_on_disk(
     services: Callable[..., SessionService],
 ) -> None:
     """FR-027, first sentence: "The notebook on disk MUST keep its cell outputs".
 
-    The run's outputs reach the frontend as a ``cell_output`` event and are then
-    dropped: nothing writes them into :class:`NotebookDocument`, which has no
-    setter for them at all. The notebook a person reopens, or opens in
-    JupyterLab, shows every cell as never having run.
-
-    This is also why the delivered "outputs stripped" assertions cannot fail —
-    a mutation that made the explore commit carry the whole document, outputs
-    and all, survived the entire ``tests/explore`` run.
+    The run's outputs reached the frontend as a ``cell_output`` event and were
+    then dropped: nothing wrote them into :class:`NotebookDocument`, which had
+    no setter for them at all, so the notebook a person reopened — here or in
+    JupyterLab — showed every cell as never having run. #2240 adds
+    ``NotebookDocument.set_cell_outputs`` and has the run call it.
     """
     service = services()
     session = service.open_over_file("data/raw/signal.csv")
