@@ -63,6 +63,7 @@ pretending the miss is caught.
 from __future__ import annotations
 
 import builtins
+import gc
 import io
 import json
 import math
@@ -99,7 +100,7 @@ from scistudio.explore.fingerprint import (
 from scistudio.explore.fingerprint import _fingerprint_context as fingerprint_context
 from scistudio.explore.fingerprint import _flat as flat_handle
 
-from .test_fingerprint import TIMING_RUNS
+from .test_fingerprint import TIMING_RUNS, best_of
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -1507,26 +1508,119 @@ def test_sc010_a_five_hundred_cell_notebook_is_analysed_and_built_under_the_boun
     )
 
 
+#: The two notebook sizes :func:`test_fr018_the_cost_grows_linearly_with_the_number_of_cells`
+#: compares, and the growth in per-cell cost it allows between them. See that
+#: test's docstring for the measurements all three numbers come from.
+FR018_SMALL, FR018_LARGE = 250, 4000
+FR018_PER_CELL_GROWTH = 1.5
+
+
 @pytest.mark.serial
 def test_fr018_the_cost_grows_linearly_with_the_number_of_cells() -> None:
-    """FR-018: linear in cells and names, asserted by doubling rather than by a constant.
+    """FR-018: linear in cells and names, asserted as cost per cell rather than as a ratio of totals.
 
-    A wall-clock ceiling passes on a fast runner however the algorithm scales.
-    This builds the graph at two sizes and requires the larger to cost less than
-    a quadratic would: four times the cells must not cost sixteen times the time.
-    The slack is generous because the measurement is a shared CI runner, and the
-    point is to catch an accidental quadratic, not to bill for milliseconds.
+    FINDING (P2, closed): the previous form asserted that four times the cells
+    cost less than sixteen times the time. Sixteen is *exactly* what a quadratic
+    scores over a fourfold span, so the bound sat on the answer it existed to
+    reject and had no room underneath it for anything milder -- and a real
+    quadratic went through it. ``DependencyGraph.__post_init__`` de-duplicated
+    its adjacency lists with ``x not in some_list``, which is linear in that
+    list, and that is fine only while every cell's fan-in and fan-out stay
+    small. They do not. A notebook's first cell imports the libraries and reads
+    the data, every cell below it reads those names, and so that one cell's
+    ``dependents`` entry grows to the length of the notebook: on the fixture
+    below, ``c0`` takes 3998 of the 5996 edges at 2000 cells. Against the most
+    ordinary notebook shape there is, the loop was quadratic. Measured at 250
+    against 1000 cells it scored 4.8 against the bound of 16 and passed. It is
+    fixed in ``dependency_analysis`` and this test is the regression.
+
+    **What is asserted.** Cost per cell, not a ratio of totals: FR-018 says the
+    cost is linear in cells and names, and linear means the per-cell cost does
+    not grow. ``analyse_cells`` runs outside the timer, as it always did; this
+    is a claim about ``build_graph``.
+
+    **Per-cell build cost in microseconds, best of ``TIMING_RUNS``, collector
+    paused, on the reference machine, on both interpreters CI runs:**
+
+    ======== ============ =========== ============ ===========
+    cells    3.11 before  3.11 after  3.13 before  3.13 after
+    ======== ============ =========== ============ ===========
+    250      10.4         9.5         14.8         13.7
+    500      11.4         9.9         17.0         13.9
+    1000     13.9         10.0        20.0         14.2
+    2000     17.2         10.1        25.5         14.3
+    4000     25.9         11.3        37.1         15.0
+    ======== ============ =========== ============ ===========
+
+    Read the "after" columns down: flat, which is what FR-018 claims. Read the
+    "before" columns down: not flat, which is the defect. The assertion is the
+    top row against the bottom one, and measured *inside a pytest process* --
+    which is the condition that matters, see below -- it scores **2.30-2.32
+    before the fix against 1.10-1.14 after on 3.11**, and 2.34-2.40 before
+    against 1.05-1.09 after on 3.13. ``FR018_PER_CELL_GROWTH`` sits between
+    them with 1.3x of room above the worst passing sample and 1.5x below the
+    best failing one, on both interpreters, and the two interpreters agree on
+    both numbers to within 5%.
+
+    The span is 250 to 4000 rather than 250 to 1000 because that is where the
+    separation is. The same defect scored 1.34 at 1000 cells, which no bound
+    tells apart from noise; a fourfold span cannot see a quadratic with a small
+    constant, and this one had a small constant.
+
+    **Why the collector is paused for the measurement.** This is the second half
+    of the CI failure that produced this test, and it is not a detail. A cycle
+    collection costs time proportional to the *process* heap, not to this
+    function's input, and a pytest process holds a large one. Measured: with a
+    400 000-object live heap, single samples of the 1000-cell build ran 15.6,
+    15.4, 15.7, **49.2**, 15.9, 15.4, 16.0, **51.4** ms -- a 3.3x swing from one
+    gen-2 collection landing inside the timed window, on 3.11 and on 3.13 alike.
+    That is exactly the shape the failing CI run reported: one leg sampled once,
+    unwarmed, at 265.9 ms against a 9.0 ms leg. ``best_of`` removes it at 1000
+    cells because the pause misses most samples; at 4000 cells it allocates
+    enough that a collection lands in *every* sample and the minimum cannot dodge
+    it. In this file's own process the 4000-cell leg measured 20.15 us per cell
+    with the collector running and 10.95 us with it paused -- the same code, and
+    a confound almost as large as the defect this test exists to catch. So the
+    collector is paused around both legs, for the reason :mod:`timeit` pauses it
+    by default: a complexity assertion is a claim about the algorithm, and GC
+    pauses are a claim about whatever else the process is holding. The wall-clock
+    ceilings elsewhere in this file deliberately keep the collector running,
+    because *there* the GC time is part of what the budget has to cover.
+
+    **What still fails this test, and what does not.** A quadratic scores 16 over
+    this span and is caught by an order of magnitude. Anything above roughly
+    ``n**1.15`` is caught -- that is where 1.5 lands over a sixteenfold span --
+    which covers the defect above and every accidental ``in``-a-list, repeated
+    ``sorted``, or nested rescan of the same shape. What it does not catch is a
+    **constant-factor** slowdown: code twice as slow at every size leaves the
+    ratio untouched. That is deliberate, and it is SC-010's job one test above,
+    the wall-clock ceiling this ratio is the complement of. Neither is sufficient
+    alone, which is why both are here.
+
+    **No floor on the small leg.** The previous form clamped it to 0.5 ms, on a
+    measurement of 2.4 ms, so it never did anything. It is not needed:
+    ``best_of`` takes the minimum, which biases the small leg *low* and therefore
+    makes the ratio *larger* -- the conservative direction for an assertion that
+    fails on large ratios -- and 2.4 ms is four orders of magnitude above
+    ``perf_counter``'s resolution.
     """
+    small_facts = analyse_cells(generated_notebook(FR018_SMALL))
+    large_facts = analyse_cells(generated_notebook(FR018_LARGE))
 
-    def build_ms(count: int) -> float:
-        facts = analyse_cells(generated_notebook(count))
-        started = time.perf_counter()
-        build_graph(facts)
-        return (time.perf_counter() - started) * 1000
+    gc.collect()
+    gc.disable()
+    try:
+        per_small = best_of(lambda: build_graph(small_facts)) * 1e6 / FR018_SMALL
+        per_large = best_of(lambda: build_graph(large_facts)) * 1e6 / FR018_LARGE
+    finally:
+        gc.enable()
 
-    small = max(build_ms(250), 0.5)
-    large = build_ms(1000)
-    assert large < small * 16, f"250 cells: {small:.1f} ms, 1000 cells: {large:.1f} ms"
+    assert per_large < per_small * FR018_PER_CELL_GROWTH, (
+        f"best of {TIMING_RUNS}: {FR018_SMALL} cells cost {per_small:.2f} us each and "
+        f"{FR018_LARGE} cells cost {per_large:.2f} us each, which is "
+        f"{per_large / per_small:.2f}x, against the {FR018_PER_CELL_GROWTH}x FR-018 allows "
+        f"(a quadratic would score {FR018_LARGE / FR018_SMALL:.0f}x)"
+    )
 
 
 @pytest.mark.serial
