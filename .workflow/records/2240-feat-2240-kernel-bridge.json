@@ -1,0 +1,87 @@
+{
+  "base_ref": "origin/track/adr-054-spec3-explore-session",
+  "branch": "feat/2240-kernel-bridge",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/explore/kernel_bridge.py",
+      "src/scistudio/explore/notebook_api.py",
+      "src/scistudio/__init__.py",
+      "src/scistudio/core/lineage/environment.py",
+      "tests/explore/test_kernel_bridge.py",
+      "tests/explore/test_notebook_api.py",
+      "docs/planning/adr-054-spec3-explore-session-checklist.md",
+      ".workflow/records/2240-feat-2240-kernel-bridge.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-04T10:04:50.433278Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "the governing spec docs/specs/adr-054-explore-session.md landed in PR 2228 and this change implements one of its tasks without adding a separately documented surface",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2240,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-054 spec 3 tasks T-003, T-004, T-010 and T-011: the kernel-side bridge for fingerprints, bindings, memory and variable windows; the three notebook helpers in session and packaged mode; and %pip detection with the environment snapshot stored by reference (FR-009 to FR-012, FR-034).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2240-feat-2240-kernel-bridge",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "e5e3be7b-663f-498b-93ae-10d627ccc699",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-04T10:04:50.433304Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_kernel_bridge.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T10:04:50.433311Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_notebook_api.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

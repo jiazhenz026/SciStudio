@@ -162,7 +162,7 @@ branch. Two consequences the owner must know before merging:
 | `S3-A2` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-a2-kernel.md` | T-002 kernel handle over `jupyter_client` | `feat/2240-kernel-handle` | `.worktrees/s3-a2-kernel` | `src/scistudio/explore/kernel.py`, `tests/explore/test_kernel_session.py` | `pyproject.toml`, every other explore module | `#2240` | `[x]` |
 | `S3-A3` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-a3-commit-plumbing.md` | T-009 plumbing commit to a ref with a temporary index; forced packing | `feat/2240-explore-commits` | `.worktrees/s3-a3-commits` | `src/scistudio/core/versioning/_commit_ops.py`, `tests/core/versioning/test_explore_ref_commits.py` | Every explore module, every other core path | `#2240` | `[ ]` |
 | `S3-A4` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-a4-on-new-input.md` | T-015a the `on_new_input` setting and the engine's remap policy | `feat/2240-on-new-input` | `.worktrees/s3-a4-policy` | `src/scistudio/blocks/base/interactive.py`, `src/scistudio/engine/scheduler/_dispatch.py`, `tests/blocks/base/test_interaction_policy.py` | Every explore module | `#2240` | `[x]` |
-| `S3-B1` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-b1-bridge.md` | T-003 bridge, T-004 notebook helpers, T-010 variable windows, T-011 env snapshot | `feat/2240-kernel-bridge` | `.worktrees/s3-b1-bridge` | `src/scistudio/explore/kernel_bridge.py`, `src/scistudio/explore/notebook_api.py`, `src/scistudio/__init__.py`, `src/scistudio/core/lineage/environment.py`, `tests/explore/test_kernel_bridge.py`, `tests/explore/test_notebook_api.py` | Every other explore module | `#2240` | `[ ]` |
+| `S3-B1` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-b1-bridge.md` | T-003 bridge, T-004 notebook helpers, T-010 variable windows, T-011 env snapshot | `feat/2240-kernel-bridge` | `.worktrees/s3-b1-bridge` | `src/scistudio/explore/kernel_bridge.py`, `src/scistudio/explore/notebook_api.py`, `src/scistudio/__init__.py`, `src/scistudio/core/lineage/environment.py`, `tests/explore/test_kernel_bridge.py`, `tests/explore/test_notebook_api.py` | Every other explore module | `#2240` | `[x]` |
 | `S3-B2` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-b2-session-queue.md` | T-006 session open/list/close, T-007 queue, T-008 marks, T-016 kernel list and branch-switch retirement | `feat/2240-session-queue` | `.worktrees/s3-b2-session` | `src/scistudio/explore/session.py`, `src/scistudio/explore/queue.py`, `src/scistudio/api/project_layout.py`, `tests/explore/test_explore_session.py`, `tests/explore/test_queue_and_marks.py` | Every other explore module | `#2240` | `[ ]` |
 | `S3-B3` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-b3-block-calls.md` | T-012 block-call adapter in the kernel, including the interactive-block call | `feat/2240-block-calls` | `.worktrees/s3-b3-blockcall` | `src/scistudio/explore/block_call.py`, `tests/explore/test_block_call_adapter.py` | Every other explore module | `#2240` | `[ ]` |
 | `S3-C1` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-c1-lineage.md` | T-013 `explore_sessions`, cell-run records, block-call records, retention | `feat/2240-explore-lineage` | `.worktrees/s3-c1-lineage` | `src/scistudio/core/lineage/{record,store,retention}.py`, `src/scistudio/explore/lineage.py`, `tests/explore/test_explore_lineage.py` | Every other explore module | `#2240` | `[ ]` |
@@ -247,7 +247,18 @@ amendment.
   Gate ledger: `.workflow/records/2240-feat-2240-kernel-handle.json`.
 - [ ] `S3-A3` plumbing commits to a ref -> artifact pending
 - [x] `S3-A4` `on_new_input` and the remap policy -> `feat/2240-on-new-input` @ `1c279895c`; `tests/blocks/base/test_interaction_policy.py` 36 passed, `tests/engine` 522 passed 4 skipped, `tests/blocks` 1511 passed 8 skipped
-- [ ] `S3-B1` bridge, helpers, windows, environment snapshot -> artifact pending
+- [x] `S3-B1` bridge, helpers, windows, environment snapshot -> `feat/2240-kernel-bridge`.
+  `src/scistudio/explore/kernel_bridge.py`, `src/scistudio/explore/notebook_api.py`,
+  `src/scistudio/__init__.py` (the three helpers, lazily), and
+  `src/scistudio/core/lineage/environment.py` (snapshot by reference, FR-034).
+  `tests/explore/test_kernel_bridge.py` + `tests/explore/test_notebook_api.py` 77 passed
+  **against a real ipykernel 7.3.0** in the isolated venv outside the repo, and 69 passed /
+  8 skipped under the repository venv, where the kernel tests skip and the pure ones still
+  run. The two load-bearing tests: one fixture notebook source executed in session mode and
+  in packaged mode with the outputs compared, and a bridge call proved to leave no cell by
+  reading the kernel's own input history and execution counter back out of it. `%pip` is
+  exercised as a real offline install into a throwaway virtual environment.
+  Gate ledger: `.workflow/records/2240-feat-2240-kernel-bridge.json`.
 - [ ] `S3-B2` session, queue, marks, kernel list -> artifact pending
 - [ ] `S3-B3` block-call adapter -> artifact pending
 - [ ] `S3-C1` lineage -> artifact pending
