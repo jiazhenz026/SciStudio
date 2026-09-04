@@ -463,11 +463,29 @@ async def _run_interactive(
 
     Cancelling while paused transitions to CANCELLED, releases any intermediate
     scratch, and spawns no compute phase (FR-012).
+
+    ADR-054 adds one policy read and no second pause. Before the interaction
+    memory's remap check, the dispatch resolves the node's ``on_new_input``
+    setting (FR-044/FR-045); ``ask`` reproduces the behaviour above unchanged
+    and is what a node with no setting written anywhere resolves to.
+
+    A packaged notebook block reuses this pause rather than getting one of its
+    own (FR-048): it is dispatched here like any other interactive block, its
+    prompt is built by its own prompt phase, and the pause holds nothing
+    resident beyond the pending future and the intermediate storage references
+    — no session, no kernel, no reference to anything the explore subsystem
+    owns, which the engine does not import. The decision that resolves the
+    future carries the notebook commit to execute (FR-047); it crosses into the
+    compute phase in ``interactive_response`` like every other decision, and is
+    recorded in lineage the same way. Whatever session was opened alongside the
+    prompt belongs to the session service, and nothing here waits on it.
     """
     from scistudio.blocks.base.interactive import (
         INTERACTIVE_INTERMEDIATE_KEY,
         INTERACTIVE_RESPONSE_KEY,
+        InteractionPolicy,
         load_interactive_memory,
+        resolve_interaction_policy,
     )
 
     intermediate: list[dict[str, Any]] = []
@@ -506,17 +524,37 @@ async def _run_interactive(
             # and the block accepts it for the current inputs, replay it and skip
             # the pause/UI entirely — the compute phase runs directly. Resolving
             # the future here makes the announce-prompt block below a no-op.
+            #
+            # ADR-054 FR-044/FR-045: ``on_new_input`` is the policy that decides
+            # whether the remap check is consulted at all, and it is read here,
+            # before that check. ``ask`` — the default, and what every block
+            # written before ADR-054 resolves to — delegates to the block's
+            # ``remap_saved_decision`` exactly as before, so the remembered
+            # decision replays on an unchanged input signature and the block
+            # pauses otherwise. ``replay`` replays the remembered decision
+            # regardless of the signature, so the node never pauses on changed
+            # input; a packaged notebook block declares it as its default and its
+            # remembered decision is the notebook commit it was packaged from
+            # (FR-046). Either way the setting only chooses what to do with a
+            # decision the node already remembers: with no memory record there is
+            # nothing to replay and the block pauses under both values.
             memory = load_interactive_memory(config)
             if memory is not None and not future.done():
-                replay = block.remap_saved_decision(
-                    memory.get("decision") or {},
-                    memory.get("signature") or {},
-                    current_signature,
-                )
+                policy = resolve_interaction_policy(block, config)
+                if policy is InteractionPolicy.REPLAY:
+                    replay: dict[str, Any] | None = memory.get("decision") or {}
+                else:
+                    replay = block.remap_saved_decision(
+                        memory.get("decision") or {},
+                        memory.get("signature") or {},
+                        current_signature,
+                    )
                 if replay is not None:
                     logger.info(
-                        "Interactive block %s replaying remembered decision (memory hit); skipping dialog",
+                        "Interactive block %s replaying remembered decision "
+                        "(memory hit, on_new_input=%s); skipping dialog",
                         node_id,
+                        policy.value,
                     )
                     future.set_result(replay)
 

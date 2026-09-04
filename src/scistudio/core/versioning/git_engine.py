@@ -33,6 +33,7 @@ from scistudio.core.versioning import (
 from scistudio.core.versioning.errors import GitError
 from scistudio.core.versioning.git_binary import GitBinary
 from scistudio.core.versioning.state import HeadState
+from scistudio.stability import provisional
 
 # ---------------------------------------------------------------------------
 # Public value types (ADR-039)
@@ -249,3 +250,26 @@ class GitEngine:
     merge_stage_file = _merge_ops._merge_stage_file
     merge_complete = _merge_ops._merge_complete
     merge_abort = _merge_ops._merge_abort
+
+    # Explore-session commits written with plumbing (ADR-054 spec 3, #2240).
+    #
+    # These four are the public surface of the plumbing path in
+    # ``_commit_ops``: a commit onto a dedicated ref that leaves the working
+    # tree, the real index and ``HEAD`` untouched (FR-028 to FR-031), and the
+    # explicit branch commit (FR-036). Callers use these methods; reaching
+    # into ``_commit_ops`` directly is unsupported.
+    #
+    # ``explore_session_ref`` is a ``staticmethod`` because it only formats a
+    # ref name and takes no engine — binding it plainly would feed ``self`` in
+    # as the session id.
+    #
+    # ADR-052 §5: the tier is declared here rather than in ``_commit_ops``,
+    # because the binding is the public symbol and the sibling function behind
+    # it is not. ``provisional`` — ADR-054 spec 3 is still landing, and the
+    # entries-and-message shape may settle further as the session service
+    # builds on it. The marker is applied to the function before
+    # ``staticmethod`` wraps it, which is the order ``get_stability`` unwraps.
+    commit_entries_to_ref = provisional(since="0.3.4")(_commit_ops._commit_entries_to_ref)
+    commit_entries_to_branch = provisional(since="0.3.4")(_commit_ops._commit_entries_to_branch)
+    pack_explore_objects = provisional(since="0.3.4")(_commit_ops._pack_explore_objects)
+    explore_session_ref = staticmethod(provisional(since="0.3.4")(_commit_ops._explore_session_ref))

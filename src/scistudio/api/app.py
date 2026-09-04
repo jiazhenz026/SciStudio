@@ -19,6 +19,7 @@ from scistudio.api.routes import (
     blocks,
     data,
     diagnostics,
+    explore,
     filesystem,
     lint,
     packages,
@@ -200,6 +201,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 pending_run_tasks.append(run.task)
         if pending_run_tasks:
             await asyncio.gather(*pending_run_tasks, return_exceptions=True)
+        # ADR-054 spec 3 (#2240): close every explore session and stop its
+        # kernel. The session services are module state in
+        # ``api.routes.explore`` rather than runtime state, so nothing else in
+        # this teardown reaches them — without this call an ipykernel process
+        # per open notebook outlives the backend it was started by.
+        from scistudio.api.routes.explore import shutdown_session_services
+
+        shutdown_session_services()
         app.state.registry.terminate_all(grace_period_sec=5.0)
         await stop_project_mcp_server(app, runtime)
         # Clear the global context so a subsequent app instance starts clean.
@@ -300,6 +309,18 @@ def create_app() -> FastAPI:
     app.include_router(lint.router)
     # ADR-038 §5.2 — ``runs`` router (lineage REST surface, D38-2.4a).
     app.include_router(runs.router)
+    # ADR-054 spec 3 §FR-056 (#2240) — the Explore Session API.
+    #
+    # This line has to stay HERE, with the other ``include_router`` calls and
+    # above the ``SPAStaticFiles`` mount at the bottom of this function. That
+    # mount is registered at ``/`` and matches every path, ``/api/explore/...``
+    # included, answering it with the SPA's own 404; a router appended after it
+    # is registered where nothing can reach it. The mount only exists when a
+    # built frontend is present, so moving this line down breaks the running
+    # desktop app while a checkout with no ``frontend/dist`` still looks fine —
+    # which is why ``tests/api/test_explore_mount.py`` asserts the position in
+    # the route table rather than only asserting that a request succeeds.
+    app.include_router(explore.router)
     # ADR-039 §3.5 — git endpoints (commit / log / diff / restore / branch
     # ops / merge / cherry-pick). D39-2.2b made these live. ADR-039 Addendum 1
     # (#1352) removed the stash CRUD surface (#1353).

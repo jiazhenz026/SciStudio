@@ -33,7 +33,9 @@ lives in the engine scheduler and runners.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
 from scistudio.core.meta._display_name import resolve_display_name
@@ -42,6 +44,8 @@ from scistudio.stability import provisional
 
 if TYPE_CHECKING:
     from scistudio.blocks.base.config import BlockConfig
+
+logger = logging.getLogger("scistudio.blocks.base.interactive")
 
 # The frontend panel host refuses to mount a manifest whose major version
 # differs from this.
@@ -71,6 +75,58 @@ INTERACTIVE_INTERMEDIATE_KEY = "interactive_intermediate"
 # the engine reads it on dispatch. Stored in node config (frontend owns the
 # workflow definition); the engine never writes it back.
 INTERACTIVE_MEMORY_KEY = "interactive_memory"
+
+# ADR-054 FR-044 interaction policy: the setting that decides whether the
+# interaction memory's remap check above is consulted at all. Declared on the
+# block class as ``on_new_input`` and overridable per node under this key in the
+# node config (or its ``params``), exactly like the memory record.
+ON_NEW_INPUT_KEY = "on_new_input"
+
+
+class InteractionPolicy(Enum):
+    """What a block with a remembered decision does when its input changes.
+
+    ADR-054 FR-044. The policy is read by the engine's interactive dispatch for
+    both block kinds, immediately before the interaction memory's remap check,
+    and it is what decides whether that check is consulted at all:
+
+    * :attr:`ASK` — consult :meth:`InteractiveMixin.remap_saved_decision`, which
+      by default replays the remembered decision only while the input signature
+      is unchanged and pauses otherwise. This is the pre-ADR-054 behaviour and
+      the default for an authored interactive block (FR-045).
+    * :attr:`REPLAY` — replay the remembered decision without consulting the
+      remap check, so the block never pauses on a changed input signature. This
+      is the default a packaged notebook block declares (FR-044), whose
+      remembered decision is the notebook commit it was packaged from (FR-046).
+
+    A block author may declare either an enum member or its plain string value
+    (``"ask"`` / ``"replay"``) as the block's ``on_new_input``; the engine
+    coerces both through :func:`resolve_interaction_policy`.
+
+    Internal (ADR-052 §4.8): engine/authoring plumbing reachable on the deep
+    ``scistudio.blocks.base.interactive`` path. It is deliberately not added to
+    the ``scistudio.blocks.base`` root's frozen ``__all__``, because the author
+    affordance FR-044 asks for is the ``on_new_input`` attribute itself, which
+    accepts a bare string and needs no import.
+
+    Example:
+        >>> from scistudio.blocks.base.interactive import InteractionPolicy
+        >>> InteractionPolicy("replay") is InteractionPolicy.REPLAY
+        True
+    """
+
+    ASK = "ask"
+    """Consult the remap check: replay on an unchanged signature, pause otherwise."""
+
+    REPLAY = "replay"
+    """Replay the remembered decision regardless of the input signature."""
+
+
+#: The policy an interaction falls back to when neither the node nor the block
+#: declares one, and the policy an unrecognised declared value degrades to.
+#: ``ask`` is the conservative direction: it never silently reuses a decision
+#: the user took over different data.
+DEFAULT_INTERACTION_POLICY = InteractionPolicy.ASK
 
 
 @provisional(since="0.3.1")
@@ -207,6 +263,23 @@ class InteractiveMixin:
 
     interactive_panel: ClassVar[PanelManifest]
     """The window this block opens. A subclass MUST set it to a :class:`PanelManifest`."""
+
+    on_new_input: ClassVar[InteractionPolicy | str] = DEFAULT_INTERACTION_POLICY
+    """What this block does with a remembered decision when its input changes.
+
+    ADR-054 FR-044/FR-045. Defaults to :attr:`InteractionPolicy.ASK`, which is
+    exactly the behaviour every interactive block had before the setting
+    existed: a remembered decision replays while the input signature is
+    unchanged and the block pauses otherwise. Set it to
+    :attr:`InteractionPolicy.REPLAY` (or the string ``"replay"``) on a block
+    whose remembered decision stays valid across changed inputs — a packaged
+    notebook block, whose decision is the notebook commit it was packaged from,
+    declares that default. A node may override the block's value under
+    :data:`ON_NEW_INPUT_KEY` in its config.
+
+    The setting only chooses the policy for a decision the node already
+    remembers; a block with no remembered decision pauses under either value.
+    """
 
     @provisional(since="0.3.1")
     def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> InteractivePrompt | dict[str, Any]:
@@ -359,6 +432,72 @@ def load_interactive_memory(config: Any) -> dict[str, Any] | None:
     return record
 
 
+def _coerce_interaction_policy(value: Any) -> InteractionPolicy | None:
+    """Return *value* as an :class:`InteractionPolicy`, or ``None`` if it is not one.
+
+    Accepts an enum member or its plain string value (case- and
+    whitespace-insensitive) so a block author may declare ``on_new_input =
+    "replay"`` without importing the enum. Anything else — a typo, a number, a
+    dict — yields ``None`` so the caller can fall back rather than crash a run.
+    """
+    if isinstance(value, InteractionPolicy):
+        return value
+    if isinstance(value, str):
+        try:
+            return InteractionPolicy(value.strip().lower())
+        except ValueError:
+            return None
+    return None
+
+
+def resolve_interaction_policy(block: Any, config: Any) -> InteractionPolicy:
+    """Resolve the effective ``on_new_input`` policy for one interactive dispatch.
+
+    ADR-054 FR-044: the setting is declared on the block with a default and
+    overridable on the node. Precedence, highest first:
+
+    1. the node's override — ``config[ON_NEW_INPUT_KEY]`` or
+       ``config['params'][ON_NEW_INPUT_KEY]`` (block configs carry user fields
+       in either place, as they do for the memory record);
+    2. the value declared on the block class as ``on_new_input``;
+    3. :data:`DEFAULT_INTERACTION_POLICY` (``ask``).
+
+    An unrecognised value at either level is logged and skipped rather than
+    raised: a typo in a node config must not fail a workflow, and falling
+    through to ``ask`` only ever means the user is asked a question they could
+    otherwise have skipped.
+
+    Args:
+        block: The block instance being dispatched. Read for its declared
+            ``on_new_input``; a block that declares none (every block written
+            before ADR-054) contributes nothing.
+        config: The node's resolved configuration.
+
+    Returns:
+        The :class:`InteractionPolicy` the engine applies to this dispatch.
+    """
+    node_value: Any = None
+    if isinstance(config, dict):
+        node_value = config.get(ON_NEW_INPUT_KEY)
+        if node_value is None and isinstance(config.get("params"), dict):
+            node_value = config["params"].get(ON_NEW_INPUT_KEY)
+
+    for source, raw in (("node config", node_value), ("block", getattr(block, ON_NEW_INPUT_KEY, None))):
+        if raw is None:
+            continue
+        policy = _coerce_interaction_policy(raw)
+        if policy is not None:
+            return policy
+        logger.warning(
+            "Ignoring unrecognised %s %s=%r; expected one of %s (ADR-054 FR-044)",
+            source,
+            ON_NEW_INPUT_KEY,
+            raw,
+            [member.value for member in InteractionPolicy],
+        )
+    return DEFAULT_INTERACTION_POLICY
+
+
 def serialise_storage_ref(ref: StorageReference) -> dict[str, Any]:
     """Serialize a :class:`StorageReference` to a JSON-safe dict (intermediate channel)."""
     return {
@@ -415,6 +554,12 @@ def load_intermediate(config: BlockConfig | dict[str, Any]) -> tuple[StorageRefe
 # Demoted to internal (deep-path importable, out of ``__all__``):
 # ``SupportsInteraction``, ``coerce_prompt``, ``serialise_storage_ref``,
 # ``deserialise_storage_ref``, ``INTERACTIVE_INTERMEDIATE_KEY``.
+# Internal by construction (ADR-054 FR-044, deep-path importable, out of
+# ``__all__`` because the ``scistudio.blocks.base`` root's surface is frozen by
+# the ADR-052 contract): ``InteractionPolicy``, ``ON_NEW_INPUT_KEY``,
+# ``DEFAULT_INTERACTION_POLICY``, ``resolve_interaction_policy``. The author
+# affordance is the ``InteractiveMixin.on_new_input`` attribute, which accepts a
+# bare ``"ask"``/``"replay"`` string and needs no import.
 __all__ = [
     "INTERACTIVE_RESPONSE_KEY",
     "PANEL_API_VERSION",

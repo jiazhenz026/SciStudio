@@ -276,6 +276,44 @@ def _auto_commit_if_dirty(engine: GitEngine, message: str) -> str | None:
         raise
 
 
+def _retire_explore_kernels(project_dir: Path) -> dict[str, Any]:
+    """Retire the project's explore kernels, before the branch changes (FR-014).
+
+    ADR-054 spec 3 FR-014: "switching the project's branch MUST retire every
+    kernel after writing every open notebook to disk, and each session MUST
+    report that it needs a restart". A kernel holds names bound by code that the
+    branch it came from is about to stop containing; keeping it alive across the
+    switch would leave a namespace nothing on disk explains.
+
+    **Call this before the checkout, never after.** Retirement writes each open
+    notebook to disk first, so nothing typed is lost. Run after the checkout,
+    that same write lands the *departing* branch's notebook on top of the file
+    the arriving branch just checked out — a silent overwrite rather than a
+    save. Calling it first also puts the written notebooks inside the
+    ``auto: pre-switch`` commit :func:`_auto_commit_if_dirty` makes, which is
+    where the person will look for them.
+
+    **Best-effort, like every other post-git-op step here, and for a sharper
+    reason.** A kernel that will not die must not become a branch the person
+    cannot leave: refusing the switch would strand them in the UI with no
+    recovery except killing the backend, which loses the same kernel anyway.
+    So a failure is logged, reported to the caller in the response, and the
+    switch proceeds.
+
+    Returns:
+        ``{"retired": [<session id>, ...], "error": <message> | None}`` — the
+        branch-switch response carries this so a hung kernel is visible rather
+        than silently skipped.
+    """
+    try:
+        from scistudio.api.routes import explore as explore_routes
+
+        return {"retired": list(explore_routes.retire_kernels_for_project(project_dir)), "error": None}
+    except Exception as exc:
+        logger.warning("branch_switch: retiring explore kernels failed (non-fatal)", exc_info=True)
+        return {"retired": [], "error": f"{type(exc).__name__}: {exc}"}
+
+
 _T = TypeVar("_T")
 
 
@@ -588,6 +626,13 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
     Best-effort: a refresh failure must not roll back the branch switch
     (the branch is already committed in the working tree); we log and
     proceed.
+
+    ADR-054 spec 3 FR-014 (#2240): the switch also writes every open explore
+    notebook to disk and retires its kernel, and the response reports which
+    sessions were retired under ``explore_kernels``. That step runs *before*
+    the auto-commit and the checkout — see :func:`_retire_explore_kernels` for
+    why the ordering is load-bearing and why a kernel that refuses to die is
+    reported rather than allowed to block the switch.
     """
     engine = _engine_for_request(request)
     runtime = request.app.state.runtime
@@ -608,6 +653,12 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
             status_code=404,
             detail=f"Branch '{body.branch_name}' does not exist.",
         )
+    # ADR-054 spec 3 FR-014 (#2240): write every open explore notebook and
+    # retire its kernel. Ordered here deliberately — after the target branch is
+    # known to exist, so a rejected request costs nobody their kernels, and
+    # before both the auto-commit and the checkout, so the notebooks are written
+    # onto the branch they were typed on. See :func:`_retire_explore_kernels`.
+    explore_kernels = _retire_explore_kernels(project_dir)
     try:
         # ADR-039 Addendum 1 (#1354): auto-commit dirty tree BEFORE the
         # checkout so the user does not see a raw git "your local
@@ -635,6 +686,7 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
         "status": "ok",
         "current_branch": body.branch_name,
         "auto_commit_sha": auto_sha,
+        "explore_kernels": explore_kernels,
     }
 
 

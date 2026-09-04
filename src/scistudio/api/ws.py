@@ -2,6 +2,21 @@
 
 ADR-018: WebSocket becomes bidirectional. Server pushes block state changes;
 client sends cancel requests and interactive completions.
+
+ADR-054 spec 3 FR-057: the Explore Session's events ride this same connection.
+Session events are not ``EngineEvent``s and do not go through the ``EventBus`` —
+the explore subsystem must not import the engine — so they arrive the way the
+``ai_pty`` broadcasts do, as ready-made frames from a subscriber registry, here
+``scistudio.api.routes.explore.register_explore_subscriber``. A client keeps one
+connection; there is no second socket.
+
+The one thing session events need that nothing else on this hub does is a hop
+across threads. The session service publishes from whichever thread did the
+work — the queue's worker thread for a cell run, the commit writer's thread for
+a commit — and ``asyncio.Queue.put_nowait`` from a foreign thread does not wake
+the event loop, so the frame would sit in the queue until some unrelated event
+happened to flush it. ``loop.call_soon_threadsafe`` is what makes a cell's
+output arrive at the moment it is produced.
 """
 
 from __future__ import annotations
@@ -231,17 +246,26 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     initiated AI Block tab opens / closes (``block_pty_opened`` /
     ``block_pty_closed``) flow over the same WS without introducing a
     new EngineEvent type.
+
+    ADR-054 spec 3 FR-057: also subscribes to the explore session broadcaster
+    so every session event (``explore.session_opened``, ``explore.cell_state``,
+    ``explore.cell_output``, and the rest) reaches the frontend on this one
+    connection.
     """
     # Imported lazily so the module-level circular import (ai_pty
     # imports nothing from ws, ws imports nothing from ai_pty at module
     # load) is sidestepped — and to keep the ws module's dep surface
-    # narrow.
+    # narrow. ``explore`` is imported the same way and for the second
+    # reason: it pulls in the session runtime, which this module has no
+    # business importing at load time.
     from scistudio.api.routes import ai_pty as ai_pty_module
+    from scistudio.api.routes import explore as explore_module
 
     global _gui_disconnect_cancel_task
 
     await websocket.accept()
 
+    loop = asyncio.get_running_loop()
     outbound_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
     client_token = id(outbound_queue)
     _gui_ws_clients.add(client_token)
@@ -256,10 +280,24 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
         """Callback for ai_pty broadcaster — enqueue raw dict frame."""
         outbound_queue.put_nowait(message)
 
+    def _on_explore_event(frame: dict[str, Any]) -> None:
+        """Callback for the explore broadcaster — enqueue from any thread (FR-057).
+
+        The session service publishes on its worker threads, so the enqueue is
+        marshalled onto this connection's event loop rather than called on it
+        directly. A closed loop means the connection is already gone; dropping
+        the frame is correct then, and raising into the session would be wrong.
+        """
+        try:
+            loop.call_soon_threadsafe(outbound_queue.put_nowait, frame)
+        except RuntimeError:
+            logger.debug("explore event dropped: the websocket's event loop is closed")
+
     # Subscribe to all outbound event types.
     for event_type in _OUTBOUND_EVENTS:
         event_bus.subscribe(event_type, _on_event)
     ai_pty_module.register_ai_pty_subscriber(_on_ai_pty_message)
+    explore_module.register_explore_subscriber(_on_explore_event)
 
     async def _inbound_loop() -> None:
         """Read messages from the client and dispatch to EventBus."""
@@ -359,5 +397,6 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
         for event_type in _OUTBOUND_EVENTS:
             event_bus.unsubscribe(event_type, _on_event)
         ai_pty_module.unregister_ai_pty_subscriber(_on_ai_pty_message)
+        explore_module.unregister_explore_subscriber(_on_explore_event)
         if not _gui_ws_clients and _has_active_workflow_runs(event_bus):
             _gui_disconnect_cancel_task = asyncio.create_task(_cancel_after_gui_disconnect_grace(event_bus))
