@@ -1,11 +1,22 @@
-"""LineageStore — the unified four-table SQLite store for run lineage.
+"""LineageStore — the unified SQLite store for run and session lineage.
 
 Tables:
 
 * ``runs``             — one row per workflow execution
-* ``block_executions`` — one row per block per run
+* ``explore_sessions`` — one row per Explore session (ADR-054 FR-052)
+* ``block_executions`` — one row per block per run **or per session**
 * ``data_objects``     — the catalog of every ``DataObject`` ever seen
 * ``block_io``         — port-to-DataObject edges per execution
+
+``runs`` and ``explore_sessions`` are the two anchors and the three tables
+below them are shared: a block execution carries exactly one of ``run_id`` or
+``session_id``, and everything downstream is the same code with a different
+foreign key (ADR-054 §4.1, "Lineage adds a table and reuses three"). That is
+what lets an object produced in a session and consumed by a workflow run be a
+single ``data_objects`` row reachable from both sides.
+
+Every pre-existing query keys on ``run_id``, so a session's rows are invisible
+to the workflow surfaces without those queries changing.
 
 All writes happen in the engine process; worker subprocesses never connect to
 this database. The store is best-effort: write failures are logged and
@@ -42,10 +53,20 @@ from scistudio.core.lineage.record import (
     BlockExecutionRecord,
     BlockIORow,
     DataObjectRow,
+    ExploreSessionRecord,
     RunRecord,
 )
+from scistudio.stability import provisional
 
 logger = logging.getLogger(__name__)
+
+#: ``block_io.direction`` for an object a cell named through ``scistudio.output``
+#: (ADR-054 FR-055). Such an object is durable; every other object a session
+#: produces is a reclaim candidate for the retention planner. The value is
+#: deliberately neither ``'input'`` nor ``'output'`` so that a declaration is not
+#: mistaken for a port, and it is only ever written on a session-anchored
+#: execution, which every run-scoped read reaches past by keying on ``run_id``.
+DECLARED_OUTPUT_DIRECTION = "declared_output"
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +215,84 @@ def _strip_sql_leading_comments(sql: str) -> str:
 # Schema (ADR-038 §3.1 verbatim)
 # ---------------------------------------------------------------------------
 
+# ADR-054 FR-052: the session anchor. Every column is the ``runs`` column of the
+# same role under a notebook name; see :class:`ExploreSessionRecord` for the
+# mapping. ``environment_ref`` is the one that is not a rename — FR-034 stores a
+# snapshot once per distinct environment and references it from records.
+_EXPLORE_SESSIONS_DDL = """
+    CREATE TABLE IF NOT EXISTS explore_sessions (
+        session_id              TEXT PRIMARY KEY,
+        notebook_path           TEXT NOT NULL,
+        notebook_snapshot       TEXT NOT NULL,
+        notebook_git_commit     TEXT,
+        started_at              TEXT NOT NULL,
+        finished_at             TEXT,
+        status                  TEXT NOT NULL,
+        environment_ref         TEXT,
+        opened_over             TEXT NOT NULL,
+        bound_run_id            TEXT REFERENCES runs(run_id),
+        provenance_degraded     INTEGER NOT NULL DEFAULT 0
+    )
+"""
+
+# ``block_executions`` is written with a ``{table}`` placeholder because
+# ``_migrate_block_executions_session_anchor`` rebuilds the table under a
+# temporary name and must use exactly this definition to do it (SQLite cannot
+# relax a NOT NULL constraint in place).
+#
+# The anchor is polymorphic: ``run_id`` for a workflow run, ``session_id`` for
+# an Explore session, never both and never neither. Pre-#2240 rows all carry a
+# ``run_id``, so the CHECK holds for every row that already exists.
+#
+# ``UNIQUE (run_id, block_id)`` is unchanged and stays inert for a session's
+# rows: SQLite treats NULLs as distinct in a UNIQUE index, which is what lets a
+# session re-run the same cell as often as a person presses the button while
+# a run still gets one row per block.
+_BLOCK_EXECUTIONS_DDL = """
+    CREATE TABLE IF NOT EXISTS {table} (
+        block_execution_id      TEXT PRIMARY KEY,
+        run_id                  TEXT REFERENCES runs(run_id),
+        block_id                TEXT NOT NULL,
+        block_type              TEXT NOT NULL,
+        block_version           TEXT NOT NULL,
+        block_config_resolved   TEXT NOT NULL,
+        started_at              TEXT NOT NULL,
+        finished_at             TEXT,
+        duration_ms             INTEGER,
+        termination             TEXT NOT NULL,
+        termination_detail      TEXT,
+        session_id              TEXT REFERENCES explore_sessions(session_id),
+        environment_ref         TEXT,
+        UNIQUE (run_id, block_id),
+        CHECK ((run_id IS NULL) <> (session_id IS NULL))
+    )
+"""
+
+#: Index statements for ``block_executions``, kept beside the DDL because a
+#: table rebuild drops the old table's indexes with it.
+_BLOCK_EXECUTIONS_INDEXES: tuple[str, ...] = (
+    "CREATE INDEX IF NOT EXISTS idx_be_run ON {table}(run_id)",
+    "CREATE INDEX IF NOT EXISTS idx_be_block ON {table}(block_id)",
+    "CREATE INDEX IF NOT EXISTS idx_be_session ON {table}(session_id)",
+)
+
+#: Columns carried over verbatim when the table is rebuilt. The two new columns
+#: are absent from the legacy table, so they are not listed and default to NULL.
+_BLOCK_EXECUTIONS_LEGACY_COLUMNS = (
+    "block_execution_id",
+    "run_id",
+    "block_id",
+    "block_type",
+    "block_version",
+    "block_config_resolved",
+    "started_at",
+    "finished_at",
+    "duration_ms",
+    "termination",
+    "termination_detail",
+)
+
+
 _SCHEMA_STATEMENTS: list[str] = [
     # Table 1: runs
     """
@@ -219,25 +318,15 @@ _SCHEMA_STATEMENTS: list[str] = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_runs_workflow ON runs(workflow_id, started_at DESC)",
-    # Table 2: block_executions
-    """
-    CREATE TABLE IF NOT EXISTS block_executions (
-        block_execution_id      TEXT PRIMARY KEY,
-        run_id                  TEXT NOT NULL REFERENCES runs(run_id),
-        block_id                TEXT NOT NULL,
-        block_type              TEXT NOT NULL,
-        block_version           TEXT NOT NULL,
-        block_config_resolved   TEXT NOT NULL,
-        started_at              TEXT NOT NULL,
-        finished_at             TEXT,
-        duration_ms             INTEGER,
-        termination             TEXT NOT NULL,
-        termination_detail      TEXT,
-        UNIQUE (run_id, block_id)
-    )
-    """,
-    "CREATE INDEX IF NOT EXISTS idx_be_run ON block_executions(run_id)",
-    "CREATE INDEX IF NOT EXISTS idx_be_block ON block_executions(block_id)",
+    # Table 1b: explore_sessions — the second anchor (ADR-054 FR-052).
+    _EXPLORE_SESSIONS_DDL,
+    "CREATE INDEX IF NOT EXISTS idx_es_notebook ON explore_sessions(notebook_path, started_at DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_es_commit ON explore_sessions(notebook_git_commit)",
+    # Table 2: block_executions. Its indexes are *not* listed here: one of them
+    # is on ``session_id``, which a pre-#2240 database does not have until
+    # ``_migrate_block_executions_session_anchor`` has run, so all three are
+    # created after the migrations instead.
+    _BLOCK_EXECUTIONS_DDL.format(table="block_executions"),
     # Table 3: data_objects
     """
     CREATE TABLE IF NOT EXISTS data_objects (
@@ -283,7 +372,11 @@ _SCHEMA_STATEMENTS: list[str] = [
 # #1530: persisted-format version stamp for lineage.db (SQLite PRAGMA
 # user_version). Bump on a non-backward-compatible schema change and pair the
 # bump with a migration step; stamping is the cheap half done now.
-LINEAGE_SCHEMA_VERSION = 1
+#
+# Version 2 (#2240, ADR-054 FR-051/FR-052): adds ``explore_sessions`` and gives
+# ``block_executions`` a session anchor. The bump is paired with
+# ``_migrate_block_executions_session_anchor``.
+LINEAGE_SCHEMA_VERSION = 2
 
 
 def _apply_pragmas_and_schema(conn: sqlite3.Connection) -> None:
@@ -294,16 +387,36 @@ def _apply_pragmas_and_schema(conn: sqlite3.Connection) -> None:
     """
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
-    # #1530: stamp the schema version on fresh/legacy DBs (user_version == 0) so
-    # a future format change has a version to branch on. No migration logic is
-    # performed here — only the stamp.
-    if conn.execute("PRAGMA user_version").fetchone()[0] == 0:
-        conn.execute(f"PRAGMA user_version = {LINEAGE_SCHEMA_VERSION}")
     for stmt in _SCHEMA_STATEMENTS:
         conn.execute(stmt)
     _migrate_runs_provenance_degraded(conn)
     _migrate_data_objects_content_hash(conn)
+    _migrate_block_executions_session_anchor(conn)
+    for stmt in _BLOCK_EXECUTIONS_INDEXES:
+        conn.execute(stmt.format(table="block_executions"))
+    # #1530: stamp the schema version so a future format change has a version to
+    # branch on. Stamped *after* the migrations so a database that failed to
+    # migrate is not advertised as current. A fresh database reads 0 here and is
+    # stamped exactly as it was before #2240; a database stamped at an older
+    # version is caught up once its migrations have run.
+    if conn.execute("PRAGMA user_version").fetchone()[0] < LINEAGE_SCHEMA_VERSION:
+        conn.execute(f"PRAGMA user_version = {LINEAGE_SCHEMA_VERSION}")
     conn.commit()
+
+
+def _all(cur: sqlite3.Cursor) -> list[dict[str, Any]]:
+    """Return every row of *cur* as a column-keyed dict."""
+    columns = [d[0] for d in cur.description]
+    return [dict(zip(columns, row, strict=False)) for row in cur.fetchall()]
+
+
+def _one(cur: sqlite3.Cursor) -> dict[str, Any] | None:
+    """Return the first row of *cur* as a column-keyed dict, or ``None``."""
+    row = cur.fetchone()
+    if row is None:
+        return None
+    columns = [d[0] for d in cur.description]
+    return dict(zip(columns, row, strict=False))
 
 
 def _column_names(conn: sqlite3.Connection, table: str) -> set[str]:
@@ -334,6 +447,59 @@ def _migrate_data_objects_content_hash(conn: sqlite3.Connection) -> None:
     """
     if "content_hash" not in _column_names(conn, "data_objects"):
         conn.execute("ALTER TABLE data_objects ADD COLUMN content_hash TEXT")
+
+
+def _migrate_block_executions_session_anchor(conn: sqlite3.Connection) -> None:
+    """Give a pre-#2240 ``block_executions`` table its Explore-session anchor.
+
+    ADR-054 FR-051/FR-052 make the anchor polymorphic: a row belongs to a run or
+    to a session. ``run_id`` was ``NOT NULL``, and SQLite has no
+    ``ALTER COLUMN``, so this is the documented table rebuild rather than the
+    ``ALTER TABLE ADD COLUMN`` the two migrations above could use.
+
+    The rebuild is additive in the sense that matters: every legacy row is
+    copied verbatim and keeps its ``run_id``, the two new columns default to
+    NULL, the indexes and the ``UNIQUE (run_id, block_id)`` constraint are
+    recreated as they were, and the only constraint that changes is one that
+    every existing row already satisfies (``run_id`` non-NULL, ``session_id``
+    NULL). ``PRAGMA foreign_key_check`` is run afterwards and a violation aborts
+    the transaction rather than leaving a half-migrated file.
+
+    No-op once ``session_id`` exists, so it costs one ``PRAGMA table_info`` per
+    store construction thereafter.
+    """
+    if "session_id" in _column_names(conn, "block_executions"):
+        return
+
+    # Foreign keys must be off for the swap: ``data_objects.produced_by_execution``
+    # and ``block_io.block_execution_id`` reference the table being dropped. The
+    # PRAGMA is a no-op inside a transaction, so commit whatever the CREATEs
+    # above left open first.
+    conn.commit()
+    conn.execute("PRAGMA foreign_keys=OFF")
+    try:
+        columns = ", ".join(_BLOCK_EXECUTIONS_LEGACY_COLUMNS)
+        conn.execute("BEGIN")
+        conn.execute(_BLOCK_EXECUTIONS_DDL.format(table="block_executions_migrating"))
+        conn.execute(
+            # The column list is a module constant, not caller input.
+            f"INSERT INTO block_executions_migrating ({columns}) SELECT {columns} FROM block_executions"
+        )
+        conn.execute("DROP TABLE block_executions")
+        conn.execute("ALTER TABLE block_executions_migrating RENAME TO block_executions")
+        for stmt in _BLOCK_EXECUTIONS_INDEXES:
+            conn.execute(stmt.format(table="block_executions"))
+        violations = conn.execute("PRAGMA foreign_key_check").fetchall()
+        if violations:
+            raise sqlite3.IntegrityError(
+                f"lineage: block_executions rebuild left {len(violations)} foreign-key violation(s)"
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys=ON")
 
 
 class LineageStore:
@@ -673,6 +839,261 @@ class LineageStore:
             return [dict(zip(columns, row, strict=False)) for row in cur.fetchall()]
 
     # ------------------------------------------------------------------
+    # explore_sessions (ADR-054 FR-052)
+    # ------------------------------------------------------------------
+
+    @provisional(since="0.3.4")
+    def insert_explore_session(self, session: ExploreSessionRecord) -> None:
+        """Insert a row into the ``explore_sessions`` table.
+
+        The session-side counterpart of :meth:`insert_run`.
+
+        Args:
+            session: The session record to insert.
+        """
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO explore_sessions (
+                    session_id, notebook_path, notebook_snapshot, notebook_git_commit,
+                    started_at, finished_at, status, environment_ref, opened_over,
+                    bound_run_id, provenance_degraded
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    session.session_id,
+                    session.notebook_path,
+                    session.notebook_snapshot,
+                    session.notebook_git_commit,
+                    session.started_at,
+                    session.finished_at,
+                    session.status,
+                    session.environment_ref,
+                    session.opened_over,
+                    session.bound_run_id,
+                    int(bool(session.provenance_degraded)),
+                ),
+            )
+            conn.commit()
+
+    @provisional(since="0.3.4")
+    def finalize_explore_session(
+        self,
+        session_id: str,
+        *,
+        finished_at: str,
+        status: str,
+        provenance_degraded: bool = False,
+    ) -> None:
+        """Update the terminal columns on an ``explore_sessions`` row.
+
+        The session-side counterpart of :meth:`finalize_run`, including the
+        latching of ``provenance_degraded``: one failed write marks the session
+        even if later writes succeed.
+
+        Args:
+            session_id: Id of the session to close.
+            finished_at: ISO-8601 timestamp of closure.
+            status: Terminal status (e.g. ``"closed"``, ``"crashed"``).
+            provenance_degraded: Whether any lineage write for this session failed.
+        """
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE explore_sessions
+                SET finished_at = ?,
+                    status = ?,
+                    provenance_degraded = MAX(provenance_degraded, ?)
+                WHERE session_id = ?
+                """,
+                (finished_at, status, 1 if provenance_degraded else 0, session_id),
+            )
+            conn.commit()
+
+    @provisional(since="0.3.4")
+    def set_session_notebook_commit(self, session_id: str, sha: str | None) -> None:
+        """Stamp ``notebook_git_commit`` on a session row (FR-028, FR-035).
+
+        Every cell run produces a commit on the session's ref, and the session
+        reports the newest one so packaging and interaction memory can name it.
+
+        Args:
+            session_id: The session to stamp.
+            sha: The commit SHA, or ``None`` to clear the column.
+        """
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE explore_sessions SET notebook_git_commit = ? WHERE session_id = ?",
+                (sha, session_id),
+            )
+            conn.commit()
+
+    @provisional(since="0.3.4")
+    def get_explore_session(self, session_id: str) -> dict[str, Any] | None:
+        """Return an ``explore_sessions`` row as a dict, or ``None`` when absent.
+
+        Args:
+            session_id: Id of the session to fetch.
+
+        Returns:
+            The session row as a column-keyed dict, or ``None`` if not found.
+        """
+        with self._connect() as conn:
+            cur = conn.execute("SELECT * FROM explore_sessions WHERE session_id = ?", (session_id,))
+            return _one(cur)
+
+    @provisional(since="0.3.4")
+    def list_explore_sessions(self, notebook_path: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+        """List sessions in reverse-chronological order.
+
+        Args:
+            notebook_path: When given, return only sessions over that notebook.
+            limit: Maximum number of sessions to return.
+
+        Returns:
+            A list of session rows (newest first), each a column-keyed dict.
+        """
+        with self._connect() as conn:
+            if notebook_path is None:
+                cur = conn.execute("SELECT * FROM explore_sessions ORDER BY started_at DESC LIMIT ?", (limit,))
+            else:
+                cur = conn.execute(
+                    "SELECT * FROM explore_sessions WHERE notebook_path = ? ORDER BY started_at DESC LIMIT ?",
+                    (notebook_path, limit),
+                )
+            return _all(cur)
+
+    @provisional(since="0.3.4")
+    def sessions_in_progress(self) -> list[str]:
+        """Return the ids of sessions that have not been closed.
+
+        The session-side counterpart of :meth:`runs_in_progress`, and used for
+        the same reason: an open session's outputs are not all recorded yet, so
+        retention must not read them as unreferenced.
+        """
+        with self._connect() as conn:
+            cur = conn.execute("SELECT session_id FROM explore_sessions WHERE status = 'running'")
+            return [row[0] for row in cur.fetchall()]
+
+    @provisional(since="0.3.4")
+    def list_session_block_executions(self, session_id: str) -> list[dict[str, Any]]:
+        """List a session's block executions in start-time order.
+
+        Covers both kinds of session-anchored row: a cell run (FR-053) and a
+        block called from a cell (FR-051).
+
+        Args:
+            session_id: Id of the session.
+
+        Returns:
+            A list of block-execution rows, each a column-keyed dict.
+        """
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM block_executions WHERE session_id = ? ORDER BY started_at",
+                (session_id,),
+            )
+            return _all(cur)
+
+    @provisional(since="0.3.4")
+    def explore_session_for_notebook_commit(self, commit_sha: str) -> dict[str, Any] | None:
+        """Return the session a notebook commit belongs to, or ``None``.
+
+        ADR-054 FR-054: a packaged block's run is an ordinary workflow run whose
+        block version is the notebook commit, so this is the lookup that walks
+        from a run's step back to the session the step came from.
+
+        Searches the cell-run records first, because each one stamps the commit
+        it produced, and falls back to the session's own current commit.
+
+        Args:
+            commit_sha: The notebook commit to resolve. Falsy input returns
+                ``None`` without touching the database.
+
+        Returns:
+            The session row as a column-keyed dict, or ``None`` when no session
+            recorded that commit.
+        """
+        if not commit_sha:
+            return None
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT es.* FROM explore_sessions es
+                JOIN block_executions be ON be.session_id = es.session_id
+                WHERE be.block_version = ?
+                ORDER BY be.started_at DESC LIMIT 1
+                """,
+                (commit_sha,),
+            )
+            row = _one(cur)
+            if row is not None:
+                return row
+            cur = conn.execute(
+                "SELECT * FROM explore_sessions WHERE notebook_git_commit = ? ORDER BY started_at DESC LIMIT 1",
+                (commit_sha,),
+            )
+            return _one(cur)
+
+    # ------------------------------------------------------------------
+    # Cross-anchor object resolution (ADR-054 FR-051, FR-054)
+    # ------------------------------------------------------------------
+
+    @provisional(since="0.3.4")
+    def execution_producing_object(self, object_id: str) -> dict[str, Any] | None:
+        """Return the block execution that produced *object_id*, or ``None``.
+
+        The returned row carries both anchor columns, so the caller reads
+        ``run_id`` or ``session_id`` to learn which side of the boundary the
+        object came from.
+
+        Args:
+            object_id: Id of the data object.
+
+        Returns:
+            The block-execution row as a column-keyed dict, or ``None`` when the
+            object is unknown or its producer was never recorded.
+        """
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT be.* FROM data_objects do
+                JOIN block_executions be ON be.block_execution_id = do.produced_by_execution
+                WHERE do.object_id = ?
+                """,
+                (object_id,),
+            )
+            return _one(cur)
+
+    @provisional(since="0.3.4")
+    def executions_consuming_object(self, object_id: str) -> list[dict[str, Any]]:
+        """Return every block execution that took *object_id* as an input.
+
+        The other direction of :meth:`execution_producing_object`, and the half
+        that crosses the boundary the other way: a workflow run consuming an
+        object a session produced appears here.
+
+        Args:
+            object_id: Id of the data object.
+
+        Returns:
+            Block-execution rows in start-time order, each with an added
+            ``port_name`` naming the port the object entered through.
+        """
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT be.*, bio.port_name AS port_name
+                FROM block_io bio
+                JOIN block_executions be ON be.block_execution_id = bio.block_execution_id
+                WHERE bio.object_id = ? AND bio.direction = 'input'
+                ORDER BY be.started_at
+                """,
+                (object_id,),
+            )
+            return _all(cur)
+
+    # ------------------------------------------------------------------
     # block_executions
     # ------------------------------------------------------------------
 
@@ -680,19 +1101,31 @@ class LineageStore:
         """Insert a row into ``block_executions``, skipping a duplicate.
 
         Uses ``INSERT OR IGNORE`` so a re-emit on the same ``(run_id,
-        block_id)`` does not raise; the first write for a block wins.
+        block_id)`` does not raise; the first write for a block wins. That
+        de-duplication is a run-only effect: a session's rows carry a NULL
+        ``run_id``, and SQLite treats NULLs as distinct in a UNIQUE index, so
+        re-running the same cell records every run of it.
 
         Args:
-            be: The block-execution record to insert.
+            be: The block-execution record to insert. Exactly one of
+                ``run_id`` and ``session_id`` must be set.
+
+        Raises:
+            ValueError: When both anchors are set, or neither is.
         """
+        if (be.run_id is None) == (be.session_id is None):
+            raise ValueError(
+                "block execution must be anchored to exactly one of run_id / session_id; "
+                f"got run_id={be.run_id!r}, session_id={be.session_id!r}"
+            )
         with self._connect() as conn:
             conn.execute(
                 """
                 INSERT OR IGNORE INTO block_executions (
                     block_execution_id, run_id, block_id, block_type, block_version,
                     block_config_resolved, started_at, finished_at, duration_ms,
-                    termination, termination_detail
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    termination, termination_detail, session_id, environment_ref
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     be.block_execution_id,
@@ -706,12 +1139,17 @@ class LineageStore:
                     be.duration_ms,
                     be.termination,
                     be.termination_detail,
+                    be.session_id,
+                    be.environment_ref,
                 ),
             )
             conn.commit()
 
     def list_block_executions(self, run_id: str) -> list[dict[str, Any]]:
         """List a run's block executions in start-time order.
+
+        Session-anchored rows carry a NULL ``run_id`` and so are never returned
+        here; :meth:`list_session_block_executions` is their read side.
 
         Args:
             run_id: Id of the run.
@@ -1129,6 +1567,75 @@ class LineageStore:
             )
             return {row[0] for row in cur.fetchall()}
 
+    @provisional(since="0.3.4")
+    def session_declared_output_paths(self, session_ids: Iterable[str] | None = None) -> set[str]:
+        """Return the storage paths of objects a session named as an output.
+
+        ADR-054 FR-055: an object named through ``scistudio.output`` is durable.
+        Retention protects exactly these paths and treats everything else a
+        session produced as a reclaim candidate.
+
+        Args:
+            session_ids: When given, restrict to those sessions. ``None`` covers
+                every session. An empty iterable returns an empty set without
+                touching the database.
+
+        Returns:
+            The set of non-NULL ``storage_path`` values declared as outputs.
+        """
+        # The interpolated direction is a module constant, not caller input.
+        return self._session_paths(
+            session_ids,
+            f"""
+            SELECT DISTINCT do.storage_path
+            FROM block_io bio
+            JOIN block_executions be ON be.block_execution_id = bio.block_execution_id
+            JOIN data_objects do ON do.object_id = bio.object_id
+            WHERE bio.direction = '{DECLARED_OUTPUT_DIRECTION}'
+              AND be.session_id IS NOT NULL
+              AND do.storage_path IS NOT NULL
+            """,
+        )
+
+    @provisional(since="0.3.4")
+    def artifact_paths_produced_by_sessions(self, session_ids: Iterable[str] | None = None) -> set[str]:
+        """Return the storage paths of artifacts produced inside sessions.
+
+        The session-side counterpart of :meth:`artifact_paths_produced_by`, and
+        liveness is "produced by" on this side too.
+
+        Args:
+            session_ids: When given, restrict to those sessions. ``None`` covers
+                every session. An empty iterable returns an empty set without
+                touching the database.
+
+        Returns:
+            The set of non-NULL ``storage_path`` values those sessions produced.
+        """
+        return self._session_paths(
+            session_ids,
+            """
+            SELECT DISTINCT do.storage_path
+            FROM data_objects do
+            JOIN block_executions be ON be.block_execution_id = do.produced_by_execution
+            WHERE be.session_id IS NOT NULL
+              AND do.storage_path IS NOT NULL
+            """,
+        )
+
+    def _session_paths(self, session_ids: Iterable[str] | None, sql: str) -> set[str]:
+        """Run *sql* (which selects one path column) over all or some sessions."""
+        params: tuple[str, ...] = ()
+        if session_ids is not None:
+            ids = [sid for sid in session_ids if sid]
+            if not ids:
+                return set()
+            sql = f"{sql} AND be.session_id IN ({','.join('?' * len(ids))})"
+            params = tuple(ids)
+        with self._connect() as conn:
+            cur = conn.execute(sql, params)
+            return {row[0] for row in cur.fetchall() if row[0]}
+
     # ------------------------------------------------------------------
     # Test / introspection helpers
     # ------------------------------------------------------------------
@@ -1136,9 +1643,12 @@ class LineageStore:
     def count(self, table: str) -> int:
         """Return the row count of one of the lineage tables.
 
+        ``block_executions`` holds both anchors' rows (ADR-054 FR-051), so its
+        count spans workflow runs and Explore sessions alike.
+
         Args:
-            table: One of ``"runs"``, ``"block_executions"``, ``"data_objects"``,
-                or ``"block_io"``.
+            table: One of ``"runs"``, ``"explore_sessions"``,
+                ``"block_executions"``, ``"data_objects"``, or ``"block_io"``.
 
         Returns:
             The number of rows in the table.
@@ -1146,7 +1656,7 @@ class LineageStore:
         Raises:
             ValueError: When *table* is not a known lineage table.
         """
-        if table not in {"runs", "block_executions", "data_objects", "block_io"}:
+        if table not in {"runs", "explore_sessions", "block_executions", "data_objects", "block_io"}:
             raise ValueError(f"unknown lineage table: {table}")
         with self._connect() as conn:
             cur = conn.execute(f"SELECT COUNT(*) FROM {table}")  # table name allow-listed above
