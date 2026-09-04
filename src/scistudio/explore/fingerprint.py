@@ -1,13 +1,21 @@
-"""Bounded content fingerprints for notebook runtime observation (ADR-054, FR-024 to FR-025, FR-029).
+"""Bounded content fingerprints and the namespace comparison (ADR-054, FR-024 to FR-030).
 
 What a notebook cell *changes* cannot be read off its source: a cell that calls
 ``df.dropna(inplace=True)`` or ``values.append(x)`` rebinds nothing, and no list
 of "mutating methods" stays right for long. ADR-054 answers that by *observing*
 instead of guessing — the session fingerprints every top-level name before a cell
 runs and again after, and the names whose fingerprint moved are the names the
-cell changed. This module is the fingerprint half of that answer; the comparison
-over a whole namespace (FR-026) and the observation record (FR-027 to FR-030)
-belong to :mod:`scistudio.explore.dependency_analysis`.
+cell changed.
+
+This module is the whole of that answer as spec §4.2 assigns it: the fingerprint
+(FR-024, FR-025), the comparison over a whole namespace (FR-026), and the
+:class:`ObservedChange` record keyed to the cell's source hash (FR-027, FR-029,
+FR-030). What the kernel does *around* a cell run — taking the two namespace
+snapshots and calling :func:`compare_namespaces` — is the explore-session spec's
+(A-007). Joining an observation to the graph, the unpredicted-change diagnostic
+of FR-028, and the metadata codec of FR-031 to FR-034 belong to
+:mod:`scistudio.explore.dependency_analysis`, which is where the static estimate
+an observation is compared against lives.
 
 The contract:
 
@@ -55,6 +63,7 @@ from __future__ import annotations
 
 import struct
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from itertools import islice
 from typing import Any
@@ -65,6 +74,8 @@ __all__ = [
     "FINGERPRINT_BUDGET",
     "Fingerprint",
     "FingerprintBudget",
+    "ObservedChange",
+    "compare_namespaces",
     "fingerprint",
 ]
 
@@ -903,4 +914,125 @@ def fingerprint(obj: object) -> Fingerprint:
         digest=ctx.hasher.hexdigest(),
         observable=ctx.observable,
         type_name=_type_name(obj),
+    )
+
+
+# ---------------------------------------------------------------------------
+# The namespace comparison and the observation record (FR-026 to FR-030)
+# ---------------------------------------------------------------------------
+
+
+@provisional(since="0.3.4")
+@dataclass(frozen=True)
+class ObservedChange:
+    """What a cell was seen to change when it ran (spec §3 Key Entities).
+
+    The record :func:`compare_namespaces` produces and the notebook stores. It is
+    a statement about *one version of one cell*: :attr:`source_hash` is the hash
+    of the cell's source at the moment of the run, and FR-027 requires the
+    observation to be discarded once that hash no longer matches the cell, so a
+    change an edit removed cannot keep drawing an edge. Use
+    :meth:`applies_to` rather than comparing the hashes by hand.
+
+    :attr:`changed_names` is the observed changed set of FR-026 — names whose
+    fingerprint differs, names that appeared, and names that disappeared, in one
+    set, because the graph treats all three the same way: the cell is a definer
+    of the name. :attr:`unobservable_names` is the FR-029 report, and is
+    deliberately *not* folded into the changed set: a name is unobservable
+    because the comparison could not see whether it changed, which is not the
+    same claim as "it changed", and a set that conflated them would add an edge
+    for every open file handle in the namespace on every run.
+
+    An observation only ever **adds** to a cell's changed set (FR-030). The join
+    is :func:`scistudio.explore.dependency_analysis.build_graph`, which unions
+    this record with the cell's static estimate and never subtracts from it.
+    """
+
+    cell_id: str
+    changed_names: frozenset[str]
+    unobservable_names: frozenset[str]
+    source_hash: str
+
+    def __post_init__(self) -> None:
+        # Normalise so a record decoded from JSON lists compares equal to one
+        # built by the comparison. Without this, a round trip through cell
+        # metadata would produce a record that is equal in content and unequal
+        # in ``==``, and the FR-032 round-trip check would be testing the
+        # container type rather than the observation.
+        object.__setattr__(self, "changed_names", frozenset(self.changed_names))
+        object.__setattr__(self, "unobservable_names", frozenset(self.unobservable_names))
+
+    def applies_to(self, source_hash: str) -> bool:
+        """Return ``True`` when this observation still describes *source_hash* (FR-027).
+
+        ``False`` means the cell has been edited since the run and the
+        observation must be discarded, leaving the static estimate alone to
+        govern until the cell runs again.
+        """
+        return self.source_hash == source_hash
+
+
+@provisional(since="0.3.4")
+def compare_namespaces(
+    before: Mapping[str, Fingerprint],
+    after: Mapping[str, Fingerprint],
+    *,
+    cell_id: str,
+    source_hash: str,
+) -> ObservedChange:
+    """Report what a cell changed, from the namespace fingerprints either side of its run (FR-026).
+
+    *before* and *after* map every top-level name in the module namespace to its
+    :class:`Fingerprint`, taken before the cell ran and after it finished. Taking
+    those two snapshots is what the kernel does around a cell run, and the
+    explore-session spec specifies both the kernel and the call site (A-007);
+    this function is pure over the two mappings and executes nothing.
+
+    A name is in the observed changed set when it
+
+    * appeared — it is in *after* and not in *before*, or
+    * disappeared — it is in *before* and not in *after*, which is what ``del df``
+      looks like from here, or
+    * differs — it is in both and the two fingerprints are unequal.
+
+    A name whose fingerprint fell back to identity on either side is reported in
+    :attr:`ObservedChange.unobservable_names` (FR-029), whether or not it is also
+    reported as changed. Equality of two identity fingerprints proves only that
+    the name still points at the same address, so the honest report is that the
+    observation does not cover it — and CPython reuses addresses, so it does not
+    even prove that for two short-lived objects.
+
+    The name sets are read from both mappings, so a caller that filters dunder
+    names or kernel-injected names does so before calling; this function reports
+    on exactly what it is given.
+
+    Example:
+        >>> before = {"df": fingerprint([1, 2]), "gone": fingerprint(1)}
+        >>> after = {"df": fingerprint([1, 99]), "new": fingerprint(2)}
+        >>> observed = compare_namespaces(before, after, cell_id="c2", source_hash="ab")
+        >>> sorted(observed.changed_names)
+        ['df', 'gone', 'new']
+        >>> observed.applies_to("ab")
+        True
+    """
+    changed: set[str] = set()
+    unobservable: set[str] = set()
+
+    for name, value in before.items():
+        if not value.observable:
+            unobservable.add(name)
+        if name not in after:
+            changed.add(name)
+    for name, value in after.items():
+        if not value.observable:
+            unobservable.add(name)
+        previous = before.get(name)
+        if previous is None or previous != value:
+            changed.add(name)
+
+    return ObservedChange(
+        cell_id=cell_id,
+        changed_names=frozenset(changed),
+        unobservable_names=frozenset(unobservable),
+        source_hash=source_hash,
     )
