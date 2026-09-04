@@ -50,6 +50,7 @@ governs:
     - src/scistudio/explore/dependency_analysis.py
     - src/scistudio/explore/fingerprint.py
     - tests/architecture/test_layer_deps.py
+    - tests/explore/__init__.py
     - tests/explore/fixtures/**
     - tests/explore/test_adversarial_analysis.py
     - tests/explore/test_analysis_differential.py
@@ -73,7 +74,9 @@ tests:
   - tests/explore/test_dependency_analysis.py
   - tests/explore/test_fingerprint.py
   - tests/explore/test_analysis_differential.py
+  - tests/explore/test_adversarial_analysis.py
   - tests/architecture/test_layer_deps.py
+  - tests/architecture/test_placement.py
 acceptance_source: adr
 language_source: en
 ---
@@ -363,7 +366,10 @@ graph rebuilt from the loaded record equals the graph built from source.
   uncertain MUST resolve toward the extra edge.
 - **FR-003**: The analysis MUST depend on the standard library only. It MUST
   NOT depend on IPython, on a notebook format library, or on any static
-  analysis package.
+  analysis package. The fingerprint is the one exception and a narrow one:
+  FR-035 names the three third-party modules it may import, lazily and inside
+  itself. Nothing in the facts, the graph, the queries, or the codec may import
+  any of them.
 - **FR-004**: The analysis MUST be pure: source, cell order, and recorded
   observations in; facts and graph out. It MUST NOT execute code, hold a
   kernel, or touch the filesystem. The fingerprint function is likewise pure
@@ -532,10 +538,15 @@ graph rebuilt from the loaded record equals the graph built from source.
 **Boundaries**
 
 - **FR-035**: The analysis and fingerprint modules MUST import from the
-  standard library and, lazily and only inside the fingerprint, numpy and
-  pandas. They MUST import nothing from SciStudio beyond stability markers.
+  standard library and, lazily and only inside the fingerprint, numpy, pandas,
+  and `xxhash` — those three and no other third-party module. `xxhash` is named
+  here because §4.1 directs the fingerprint through it: it is a dependency
+  SciStudio already carries, and the alternative is a slower hash for no
+  benefit. They MUST import nothing from SciStudio beyond stability markers.
   The architecture layer test MUST enumerate the new subsystem and verify the
-  constraint.
+  constraint at any depth rather than at module level only, so that a
+  third-party import written inside a function body fails it unless it is one
+  of the three named here.
 - **FR-036**: Every flag the analysis can raise MUST be a member of one
   enumeration with a human-readable message, and the enumeration MUST contain
   exactly the flags named in this spec: syntax error, opaque cell magic,
@@ -678,11 +689,14 @@ a task in §4.3 rather than a surprise.
 | `src/scistudio/explore/__init__.py` | create | The new subsystem's package; public surface for the analysis and the fingerprint. |
 | `src/scistudio/explore/dependency_analysis.py` | create | Per-cell static facts, the graph, the four queries, the flag enumeration, the metadata codec (FR-005 to FR-023, FR-031 to FR-034, FR-036). |
 | `src/scistudio/explore/fingerprint.py` | create | The fingerprint function, the namespace comparison, and the observation record (FR-024 to FR-030). |
+| `tests/explore/__init__.py` | create | Makes the test package importable alongside the rest of the suite. |
 | `tests/explore/test_dependency_analysis.py` | create | Every assignment form, magics, syntax errors, star imports, enabled flags, the four queries, the codec. |
 | `tests/explore/test_fingerprint.py` | create | Per-type fingerprints, the size bound, the namespace comparison, unobservable fallback, source-hash invalidation. |
 | `tests/explore/test_analysis_differential.py` | create | Executes fixture notebooks in a subprocess with observation, then runs the backward slice of the declared outputs on a cold namespace and compares outputs. |
 | `tests/explore/fixtures/**` | create | Fixture notebooks as `.ipynb` JSON, including the six-cell notebook of Story 2 and its three mutation variants. |
-| `tests/architecture/test_layer_deps.py` | modify | Subsystem enumeration gains `explore`; the import constraint of FR-035 is asserted. |
+| `tests/explore/test_adversarial_analysis.py` | create | Tests written against the analysis rather than with it: the flags and the cells nobody types on purpose, the shapes that break a static reader, and the differential findings that came back as defects. |
+| `tests/architecture/test_layer_deps.py` | modify | Subsystem enumeration gains `explore`; the import constraint of FR-035 is asserted at any depth, not at module level only. |
+| `tests/architecture/test_placement.py` | modify | Its independent enumeration of top-level packages gains `explore`, which is otherwise reported as a file outside a known package. |
 
 ### 4.3 Implementation Sequence
 
@@ -804,8 +818,13 @@ spec's concern and the reason this spec lands first.
   assigning and reading a few names, builds the graph in under five hundred
   milliseconds on the CI runner. Measured by a timed test.
 - **SC-011**: The two modules import nothing from SciStudio beyond stability
-  markers and nothing third-party except numpy and pandas lazily inside the
-  fingerprint. Measured by the architecture layer test.
+  markers, and the only third-party modules either of them imports — at module
+  level or lazily inside a function — are numpy, pandas, and `xxhash`, all
+  three inside the fingerprint. Measured by the architecture layer test, which
+  MUST collect imports at any depth rather than at module level only: a fourth
+  third-party import written inside a function body MUST fail it. A test that
+  reads module-level imports alone does not measure this criterion, because
+  every import FR-035 permits is written lazily and would be invisible to it.
 - **SC-012**: The architecture layer test, the architecture drift audit, and
   the frozen public-symbol inventory all pass. Measured by CI.
 - **SC-013**: For a cell and a name it reads, the definer query returns the

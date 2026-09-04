@@ -316,7 +316,7 @@ def test_explore_never_imports_upward_at_any_depth() -> None:
     written.
     """
     violations: list[str] = []
-    for filepath in _collect_py_files("explore"):
+    for filepath in (f for f in _collect_py_files("explore") if f.name in FR_035_CONSTRAINED_MODULES):
         source = filepath.read_text(encoding="utf-8")
         for imp in _runtime_imports_at_any_depth(source, filename=str(filepath)):
             for forbidden_prefix in EXPLORE_FORBIDDEN:
@@ -435,38 +435,116 @@ def test_engine_does_not_import_explore() -> None:
 #: which are no-ops at runtime; ``scistudio.explore`` itself is the package.
 EXPLORE_ALLOWED_SCISTUDIO_IMPORTS: set[str] = {"scistudio.stability", "scistudio.explore"}
 
-#: The modules FR-035 constrains. Its subject is "the analysis and fingerprint
-#: modules", not the whole subsystem: the session runtime that
-#: ``docs/specs/adr-054-explore-session.md`` adds beside them imports ``core``
-#: for storage, lineage, and versioning and ``blocks`` for the registry, which
-#: is what §4.1 of that spec places it there to do. The package ``__init__``
-#: is included because it re-exports only the analysis, which is what keeps
-#: importing the analysis from dragging a kernel in.
-#:
-#: The subsystem-wide rule — explore imports neither ``api``, nor ``ai``, nor
-#: ``engine`` — is the ``explore`` entry in ``LAYER_RULES`` above, and it
-#: applies to every file in the package.
-FR_035_CONSTRAINED_MODULES: frozenset[str] = frozenset({"__init__.py", "dependency_analysis.py", "fingerprint.py"})
-
 
 def _is_stdlib(module: str) -> bool:
     """Return ``True`` when *module*'s top-level package ships with CPython."""
     return module.partition(".")[0] in sys.stdlib_module_names
 
 
+#: The modules FR-035 constrains. Its subject is "the analysis and fingerprint
+#: modules", not the whole subsystem: the session runtime beside them imports
+#: ``core`` for storage, lineage, and versioning, ``blocks`` for the registry,
+#: and ``jupyter_client`` for the kernel, which is what
+#: ``docs/specs/adr-054-explore-session.md`` §4.1 places it there to do. The
+#: package ``__init__`` is included because it re-exports only the analysis,
+#: which is what keeps importing the analysis from dragging a kernel in.
+FR_035_CONSTRAINED_MODULES: frozenset[str] = frozenset({"__init__.py", "dependency_analysis.py", "fingerprint.py"})
+
+
+#: The only third-party packages ``scistudio.explore`` may import, and the only
+#: module that may import them. FR-035 permits numpy and pandas "lazily and only
+#: inside the fingerprint", and spec §4.1 directs the same module to hash array
+#: bytes through ``xxhash``; nothing else under ``explore/`` may reach for a
+#: third-party package at any depth.
+EXPLORE_ALLOWED_THIRD_PARTY: set[str] = {"numpy", "pandas", "xxhash"}
+
+#: The file the three above are permitted in, relative to ``src/scistudio``.
+EXPLORE_THIRD_PARTY_MODULE = Path("explore") / "fingerprint.py"
+
+
+def _absolute_module(node: ast.ImportFrom, relative: Path) -> str:
+    """Resolve ``from . import x`` to the dotted package it actually names.
+
+    A relative import is an import like any other, and ``from .. import core``
+    would leave ``explore/`` if it were skipped for having no ``module``.
+    """
+    if node.level == 0:
+        return node.module or ""
+    package = ["scistudio", *relative.parts[:-1]]
+    base = package[: len(package) - (node.level - 1)]
+    return ".".join([*base, node.module]) if node.module else ".".join(base)
+
+
+def _collect_imports_at_any_depth(source: str, relative: Path) -> list[tuple[str, int]]:
+    """Every runtime import in *source*, function bodies included, as ``(module, lineno)``.
+
+    The counterpart of :func:`_collect_imports`, which walks statement lists at
+    module level. This one uses :func:`ast.walk`, so an import written inside a
+    ``def`` is reported like any other. ``if TYPE_CHECKING:`` bodies are still
+    excluded, because a type-only import has no runtime effect.
+    """
+    tree = ast.parse(source, filename=str(relative))
+    guarded: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.If) and _is_type_checking_guard(node):
+            for statement in node.body:
+                for inner in ast.walk(statement):
+                    guarded.add(id(inner))
+
+    found: list[tuple[str, int]] = []
+    for node in ast.walk(tree):
+        if id(node) in guarded:
+            continue
+        if isinstance(node, ast.Import):
+            found.extend((alias.name, node.lineno) for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            found.append((_absolute_module(node, relative), node.lineno))
+    return found
+
+
+def _explore_import_violations(source: str, relative: Path) -> list[str]:
+    """Report every import in *source* that FR-035's allowlist does not permit.
+
+    Split out from the test so the test can be shown to fail: its sibling feeds
+    it a lazy ``import requests`` and asserts it is caught. A criterion whose
+    measurement has never been seen to fail is a statement, and SC-011 spent this
+    change as one.
+    """
+    violations: list[str] = []
+    for module, lineno in _collect_imports_at_any_depth(source, relative):
+        top = module.partition(".")[0]
+        if _is_stdlib(module):
+            continue
+        if top == "scistudio":
+            if not any(
+                module == allowed or module.startswith(allowed + ".") for allowed in EXPLORE_ALLOWED_SCISTUDIO_IMPORTS
+            ):
+                violations.append(f"  {relative}:{lineno}: imports {module}, which FR-035 does not allow")
+            continue
+        if top not in EXPLORE_ALLOWED_THIRD_PARTY:
+            violations.append(f"  {relative}:{lineno}: imports third-party {module}, which FR-035 forbids")
+        elif relative != EXPLORE_THIRD_PARTY_MODULE:
+            violations.append(
+                f"  {relative}:{lineno}: imports {module}, which FR-035 permits only inside {EXPLORE_THIRD_PARTY_MODULE}"
+            )
+    return violations
+
+
 def test_explore_imports_are_allowlisted() -> None:
-    """FR-035: the analysis imports the standard library, and SciStudio only for stability markers.
+    """FR-035 / SC-011: the closed import allowlist, measured at every depth.
 
-    The constraint's subject is the analysis and fingerprint modules, not the
-    whole subsystem — see ``FR_035_CONSTRAINED_MODULES``. The second assertion
-    below fails if one of those modules is renamed or removed, so the rule
-    cannot quietly stop applying to the code it exists for.
+    FR-035 names three third-party packages — numpy, pandas, and the ``xxhash``
+    digest spec §4.1 directs the fingerprint to use — permits them *only inside
+    the fingerprint*, and allows nothing from SciStudio beyond the stability
+    markers. Every one of the three is written lazily, inside a function body, so
+    the criterion cannot be measured by a module-level reader: SC-011 says as
+    much, and :func:`_collect_imports_at_any_depth` is what makes that sentence
+    true. A lazy ``import requests`` in either module is a violation here, and so
+    is a lazy ``import numpy`` in ``dependency_analysis.py``, which FR-035 gives
+    to the fingerprint alone.
 
-    ``_get_imports_from_file`` collects **module-level** imports only — it never
-    descends into a function body — so an import written lazily inside the
-    fingerprint, which is what FR-035 permits for numpy and pandas, is invisible
-    here by construction. Anything third-party at module level is a violation,
-    and so is any SciStudio import beyond the allowlist.
+    The sibling below proves this test can fail; without it the allowlist would
+    be an assertion nobody has watched bite.
     """
     files = [f for f in _collect_py_files("explore") if f.name in FR_035_CONSTRAINED_MODULES]
     assert files, f"No FR-035-constrained modules found under {SRC_ROOT / 'explore'}"
@@ -478,18 +556,39 @@ def test_explore_imports_are_allowlisted() -> None:
     violations: list[str] = []
     for filepath in files:
         relative = filepath.relative_to(SRC_ROOT)
-        for imp in _get_imports_from_file(filepath):
-            if _is_stdlib(imp):
-                continue
-            if imp.partition(".")[0] != "scistudio":
-                violations.append(f"  {relative}: imports third-party {imp} at module level")
-                continue
-            if not any(
-                imp == allowed or imp.startswith(allowed + ".") for allowed in EXPLORE_ALLOWED_SCISTUDIO_IMPORTS
-            ):
-                violations.append(f"  {relative}: imports {imp}, which FR-035 does not allow")
+        violations.extend(_explore_import_violations(filepath.read_text(encoding="utf-8"), relative))
 
     assert not violations, "explore/ violates the FR-035 import allowlist:\n" + "\n".join(violations)
+
+
+def test_the_explore_import_allowlist_catches_what_it_claims_to() -> None:
+    """The negative control for the allowlist: each forbidden shape is reported.
+
+    SC-011's previous measurement could not fail — it read module-level imports
+    only, while every import FR-035 permits is lazy — so a fourth lazy dependency
+    would have passed every check in the subsystem. These four sources are what
+    that reader could not see; each must now be a violation, and the permitted
+    shape beside them must not be.
+    """
+    fingerprint = EXPLORE_THIRD_PARTY_MODULE
+    analysis = Path("explore") / "dependency_analysis.py"
+
+    assert _explore_import_violations("def h():\n    import requests\n    return requests\n", fingerprint), (
+        "a lazy third-party import inside the fingerprint must be caught"
+    )
+    assert _explore_import_violations("def h():\n    import numpy\n    return numpy\n", analysis), (
+        "FR-035 permits numpy inside the fingerprint only"
+    )
+    assert _explore_import_violations("def h():\n    from scistudio.core import x\n    return x\n", fingerprint), (
+        "a lazy SciStudio import beyond the stability markers must be caught"
+    )
+    assert _explore_import_violations("class C:\n    def h(self):\n        import jedi\n", analysis), (
+        "depth is not a hiding place"
+    )
+    assert not _explore_import_violations(
+        "import symtable\nfrom scistudio.stability import provisional\n\n\ndef h():\n    import xxhash\n",
+        fingerprint,
+    ), "the shape FR-035 permits must not be reported"
 
 
 def test_explore_does_not_import_ipython_or_a_notebook_library() -> None:

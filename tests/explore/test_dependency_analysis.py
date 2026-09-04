@@ -133,6 +133,74 @@ def test_assigned_walrus_target() -> None:
     assert "value" in assigned("if (value := compute()):\n    pass")
 
 
+@pytest.mark.parametrize(
+    ("label", "source"),
+    [
+        ("list", "vals = [y := i for i in range(3)]"),
+        ("set", "vals = {y := i for i in range(3)}"),
+        ("dict", "vals = {i: (y := i) for i in range(3)}"),
+        ("nested", "vals = [[y := j for j in range(2)] for i in range(2)]"),
+        ("generator", "vals = list(y := i for i in range(3))"),
+    ],
+)
+def test_assigned_walrus_target_inside_a_comprehension(label: str, source: str) -> None:
+    """FR-005: PEP 572 gives a comprehension's ``:=`` to the scope around it.
+
+    The statement-level form above is the one the FR-005 ratchet used to stand
+    on, and it hid this: PEP 709 inlines list, set, and dict comprehensions from
+    CPython 3.12, and for an inlined one :mod:`symtable` reports the walrus target
+    at module scope as neither assigned nor local nor referenced. ``y`` was
+    therefore recorded nowhere, while ``exec`` binds it — the missing assignment
+    FR-002 forbids. A generator expression is still a real child scope and always
+    worked, which is included here as the control that made the asymmetry
+    visible.
+
+    The consequences are asserted in
+    ``test_a_comprehension_walrus_definer_reaches_the_cell_that_reads_it``; this
+    row is the isolated fact, one per comprehension kind, so a repair aimed at
+    only one of them cannot pass.
+    """
+    namespace: dict[str, object] = {}
+    # The interpreter is the oracle here: what it binds is what FR-002 says must not be omitted.
+    exec(source, namespace)
+    bound = {name for name in namespace if not name.startswith("__")}
+    assert bound == {"vals", "y"}, f"{label}: the fixture must bind y at module scope"
+    assert bound <= assigned(source), f"{label}: FR-002 forbids omitting an assignment the code shows"
+
+
+def test_a_walrus_bound_only_inside_a_nested_scope_is_not_the_cell_s_binding() -> None:
+    """FR-005: the exclusion still holds for ``:=``, which is what bounds the repair.
+
+    A walrus inside a ``def`` or a ``lambda`` binds in that scope, not at module
+    scope, so collecting every ``:=`` in the tree would over-report exactly where
+    FR-005's nested-scope exclusion says not to. The collector stops at both.
+    """
+    in_function = assigned("def f():\n    return [w := i for i in range(2)]\n")
+    assert "f" in in_function
+    assert "w" not in in_function
+
+    in_lambda = assigned("f = lambda: [w := i for i in range(2)]")
+    assert "f" in in_lambda
+    assert "w" not in in_lambda
+
+
+def test_a_comprehension_walrus_definer_reaches_the_cell_that_reads_it() -> None:
+    """FR-002, FR-015, FR-020, FR-021: what the missing binding cost downstream.
+
+    Every consequence of the omission in one place, because each is a different
+    promise: the reader was never marked stale (§6.1, the defect ADR-054 exists
+    to remove), the name was reported unresolved so packaging would refuse a
+    notebook that runs, and the slice dropped the definer so it would have raised
+    ``NameError``.
+    """
+    graph = graph_of(("c1", "vals = [y := i for i in range(3)]"), ("c2", "out = y + 1"))
+
+    assert graph.downstream("c1") == ("c2",)
+    assert graph.definer_for("c2", "y") == "c1"
+    assert [(read.cell_id, read.name) for read in graph.unresolved_reads] == []
+    assert graph.backward_slice(["c2"]).cells == ("c1", "c2")
+
+
 def test_assigned_augmented_assignment() -> None:
     """FR-005: an augmented assignment target."""
     assert "total" in assigned("total += 1")
@@ -277,6 +345,7 @@ FR_005_FORMS: dict[str, str] = {
     "star target": "test_assigned_star_target",
     "annotated target": "test_assigned_annotated_assignment",
     "walrus target at module scope": "test_assigned_walrus_target",
+    "walrus target inside a comprehension": "test_assigned_walrus_target_inside_a_comprehension",
     "augmented assignment": "test_assigned_augmented_assignment",
     "for target": "test_assigned_for_target",
     "with ... as target": "test_assigned_with_as_target",
@@ -291,7 +360,16 @@ FR_005_FORMS: dict[str, str] = {
 
 
 def test_every_fr_005_form_has_its_own_test() -> None:
-    """SC-001, measured by the presence of the test per form."""
+    """SC-001, measured by the presence of the test per form.
+
+    The ratchet checks that each *form* has a test, not that the test covers the
+    form's variants, and the ADR-054 spec 2 audits showed what that costs: a
+    walrus inside a comprehension was recorded nowhere while
+    ``test_assigned_walrus_target`` — the statement-level form — stayed green, so
+    this meta-test stayed green with it. A variant whose binding rule differs is
+    a row of its own here, which is why the two walrus forms are listed
+    separately.
+    """
     missing = [name for name, test in FR_005_FORMS.items() if test not in globals()]
     assert not missing, f"FR-005 forms with no test: {missing}"
 
@@ -652,10 +730,23 @@ def test_a_shell_line_the_tokeniser_cannot_read_is_still_stripped() -> None:
     string literal that never closes. Every physical line from there on is
     classified textually, so the shell line still goes and the cell below it
     still parses.
+
+    The first case is not enough on its own, and the ADR-054 spec 2 audit proved
+    it: ``!`` is the first token of its own logical line, so the *lexical* pass
+    marks line 2 before the tokeniser ever reaches the apostrophe, and the case
+    passes whether the fallback exists or not. The second case is the one that
+    needs it. Two magic lines, the first of which stops the tokeniser: only the
+    textual pass can reach the ``%pip`` line below the stop, and without it the
+    cell does not parse and comes back with a syntax-error flag and nothing
+    assigned. Delete the fallback and this test dies on that assertion.
     """
     facts = facts_for("df = load()\n!cat it's-a-file\npeaks = find(df)\n")
     assert facts.assigned >= {"df", "peaks"}
     assert facts.flags == ()
+
+    below_the_stop = facts_for("df = 1\n!cat it's-a-file\n%pip install x\n")
+    assert below_the_stop.flags == (), "the magic below the tokeniser stop is only reachable textually"
+    assert below_the_stop.assigned == frozenset({"df"})
 
 
 def test_a_magic_whose_logical_line_spans_two_physical_lines_is_removed_whole() -> None:
@@ -867,9 +958,20 @@ def test_a_name_the_reading_cell_binds_itself_is_not_unresolved() -> None:
 
     FR-015 draws no edge here because a cell must not depend on itself, and US2
     scenario 5 scopes the unresolved list to "a name that no enabled cell
-    changes" — which this is not. Without the exception every
-    ``import pandas as pd`` cell would report ``pd`` unresolved and packaging
-    would refuse every notebook.
+    changes" — which this is not.
+
+    The fixture is the real case, and the sentence beside it used not to be. Both
+    ADR-054 spec 2 audits caught the claim that a bare ``import pandas as pd``
+    cell "would report ``pd`` unresolved": it would not — :mod:`symtable` reports
+    ``pd`` there as imported and not referenced, so the cell reads nothing and the
+    exception never fires. What needs the exception is the import *followed in
+    the same cell* by ``pd.read_csv('f')``, which is what this test has always
+    used, and equally ``total = 0; total += 1`` and ``def f(n): return f(n - 1)``.
+
+    The exception is wider than FR-015 authorises and the deviation is an open
+    owner decision: ``TODO(#2243)`` beside it in :func:`build_graph`, and
+    ``test_fr015_a_read_only_the_cell_itself_binds_is_not_reported_unresolved``
+    for what it costs.
     """
     graph = graph_of(("c1", "import pandas as pd\ndf = pd.read_csv('f')\n"))
     assert ("c1", "pd") not in unresolved_tuples(graph)
@@ -1359,23 +1461,48 @@ def test_the_analysis_version_is_an_integer() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.serial
 def test_building_the_graph_of_a_five_hundred_cell_notebook_is_fast() -> None:
     """SC-010: under five hundred milliseconds on the CI runner, one linear pass.
 
     The generated notebook chains its cells so every one of them draws an edge,
     which is the shape that would expose a quadratic definer lookup.
+
+    The clock covers ``analyse_cells`` as well as ``build_graph``, which is the
+    whole of what SC-010 names — "**analysing** a generated notebook of five
+    hundred cells … **builds the graph** in under five hundred milliseconds". It
+    used to cover only the build, and the ADR-054 spec 2 audit measured why that
+    mattered: for these one-line cells the build is ~4 ms and the analysis ~26 ms,
+    so the spec's number was guarding the cheap seventh of the work with a
+    hundred-fold headroom while the expensive part was unbounded.
+
+    **Measured: 30 ms against 500 ms — 17x**, which is comfortable enough to stay
+    a single sample. It carries ``serial`` regardless, as every timed assertion in
+    ``tests/explore`` does, because a wall-clock number measured against
+    thirty-two sibling xdist workers is measuring them rather than this code. Its
+    sibling
+    ``test_adversarial_analysis.test_sc010_a_five_hundred_cell_notebook_is_analysed_and_built_under_the_bound``
+    runs the same criterion over three-statement cells, comes in at 67 ms for
+    7.4x, and takes the fastest of five passes for that reason. Both are here
+    because the notebook shape changes the answer by more than a factor of two:
+    this one chains every cell, which is what would expose a quadratic definer
+    lookup, and that one loads each cell more heavily, which is what sizes the
+    analysis.
     """
     cells = [("c0", "seed = load()")]
     cells += [(f"c{index}", f"v{index} = f(v{index - 1}, seed)\n") for index in range(1, 500)]
     cells[1] = ("c1", "v1 = f(seed, seed)\n")
-    facts = analyse_cells(cells)
 
     start = time.perf_counter()
+    facts = analyse_cells(cells)
+    analysed = time.perf_counter()
     graph = build_graph(facts)
     elapsed = time.perf_counter() - start
 
     assert len(graph.cells) == 500
-    assert elapsed < 0.5, f"graph build took {elapsed:.3f}s"
+    assert elapsed < 0.5, (
+        f"analyse {(analysed - start) * 1000:.1f} ms + build {(elapsed - (analysed - start)) * 1000:.1f} ms"
+    )
 
 
 # ---------------------------------------------------------------------------

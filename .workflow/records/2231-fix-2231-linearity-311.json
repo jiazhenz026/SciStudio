@@ -1,9 +1,9 @@
 {
   "base_ref": "origin/track/adr-054-spec2-dependency-analysis",
-  "branch": "docs/2231-governs-migration",
+  "branch": "fix/2231-linearity-311",
   "check_events": [
     {
-      "at": "2026-09-04T09:44:41.931379Z",
+      "at": "2026-09-04T14:20:22.615342Z",
       "command": "pre-commit run --all-files --hook-stage manual",
       "covered_surface": "hygiene",
       "exit_code": 0,
@@ -19,7 +19,25 @@
       "tool_versions": {}
     },
     {
-      "at": "2026-09-04T09:44:53.297727Z",
+      "at": "2026-09-04T14:20:22.701674Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T14:20:34.775454Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
       "covered_surface": "governance",
       "exit_code": 0,
@@ -35,11 +53,29 @@
       "tool_versions": {}
     },
     {
-      "at": "2026-09-04T09:45:28.451949Z",
+      "at": "2026-09-04T14:20:34.853662Z",
+      "command": "ruff check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T14:21:00.818064Z",
       "command": "pre-commit run --all-files --hook-stage manual",
       "covered_surface": "hygiene",
       "exit_code": 0,
-      "input_fingerprint": "sha256:d0346018a9a75a30104e98f4c66b784ea7d776cb2bf7f89dd02dbd2b0e8a9ce9",
+      "input_fingerprint": "sha256:67fbd1858216f8ddb39e2507efb4b43a205c3c313dae9eaebd2a2b1763495559",
       "name": "commit_hygiene",
       "parity_detail": null,
       "parity_gap": false,
@@ -51,11 +87,29 @@
       "tool_versions": {}
     },
     {
-      "at": "2026-09-04T09:45:39.081354Z",
+      "at": "2026-09-04T14:21:00.841152Z",
+      "command": "ruff format src/scistudio/explore/dependency_analysis.py tests/explore/test_adversarial_analysis.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cd1517e16bd7c22750e8642f06eeea203fb76fba053dc10ff7a2be431f91ebe7",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T14:21:11.714659Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
       "covered_surface": "governance",
       "exit_code": 0,
-      "input_fingerprint": "sha256:7b9a78caa49a15d0e9cbb43d562e28f449d2b77ffd89405ab51f129f6ef95e36",
+      "input_fingerprint": "sha256:ffcf7d817fc9cc0c4cf0b57eb80afacde22bce557ac15973bce0ce0d084f9b6f",
       "name": "full_audit",
       "parity_detail": null,
       "parity_gap": false,
@@ -67,226 +121,213 @@
       "tool_versions": {}
     },
     {
-      "at": "2026-09-04T10:55:10.412752Z",
-      "command": "pre-commit run --all-files --hook-stage manual",
-      "covered_surface": "hygiene",
+      "at": "2026-09-04T14:21:12.218644Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
       "exit_code": 0,
-      "input_fingerprint": "sha256:13b88bb9cc27a3102292c9def12337d112ef4e85376e7c4a4b9d3c1568ef79bd",
-      "name": "commit_hygiene",
+      "input_fingerprint": "sha256:543bc2e0d591771d9a35d94cf97cf859a280a58fd04d23a547a197d5f5b65465",
+      "name": "import_contracts",
       "parity_detail": null,
       "parity_gap": false,
       "pr_only": false,
-      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
       "scope": "repo",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
     },
     {
-      "at": "2026-09-04T10:55:21.617198Z",
-      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
-      "covered_surface": "governance",
+      "at": "2026-09-04T14:21:12.238312Z",
+      "command": "ruff check src/scistudio/explore/dependency_analysis.py tests/explore/test_adversarial_analysis.py",
+      "covered_surface": "python_lint",
       "exit_code": 0,
-      "input_fingerprint": "sha256:5b865e1a399b5a93cf248ea886cdb0fcc1b751bc5df767cde2cf70a502eaffd7",
-      "name": "full_audit",
+      "input_fingerprint": "sha256:e2f98045b7e8cd2b0e641015db8ec718ec3df6bfd216c8a243c381992d44272f",
+      "name": "lint_format",
       "parity_detail": null,
       "parity_gap": false,
       "pr_only": false,
-      "raw_log_ref": ".workflow/local/logs/full_audit.log",
-      "scope": "repo",
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T14:21:27.527690Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/explore tests/explore/test_adversarial_analysis.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3608e435dfe060a8633723b626337217e342e21ed9396513f70c78bbd76772c0",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
     },
     {
-      "at": "2026-09-04T11:42:26.364092Z",
-      "command": "pre-commit run --all-files --hook-stage manual",
-      "covered_surface": "hygiene",
+      "at": "2026-09-04T14:21:28.294968Z",
+      "command": "mypy src/scistudio/explore/dependency_analysis.py --ignore-missing-imports",
+      "covered_surface": "python_types",
       "exit_code": 0,
-      "input_fingerprint": "sha256:13d1068c7ea20673834c189d7cee0b633f207a907eafa8673800523c5dc1558e",
-      "name": "commit_hygiene",
+      "input_fingerprint": "sha256:c42a2810d324ad263368c2b891a79a76b3fe0a5e61fe3bba7023e43130884509",
+      "name": "type_check",
       "parity_detail": null,
       "parity_gap": false,
       "pr_only": false,
-      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
-      "scope": "repo",
-      "status": "pass",
-      "summary": "clean",
-      "tool_versions": {}
-    },
-    {
-      "at": "2026-09-04T11:42:36.983758Z",
-      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
-      "covered_surface": "governance",
-      "exit_code": 0,
-      "input_fingerprint": "sha256:3be615a30733bf94b07a45cead8430a78265651de8e9e08f6825ca5afecbf7cd",
-      "name": "full_audit",
-      "parity_detail": null,
-      "parity_gap": false,
-      "pr_only": false,
-      "raw_log_ref": ".workflow/local/logs/full_audit.log",
-      "scope": "repo",
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "c0c3c39eac9e4a7fc821c0237bee4b219c209432",
+    "shas": [
+      "c0c3c39eac9e4a7fc821c0237bee4b219c209432"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
-    "include": [
-      "docs/adr/ADR-054.md",
-      "docs/specs/adr-054-notebook-dependency-analysis.md",
-      "docs/planning/adr-054-spec2-dependency-analysis-checklist.md",
-      ".workflow/records/2231-docs-2231-governs-migration.json"
-    ]
+    "include": []
   },
   "directive_events": [],
   "docs_events": [
     {
-      "at": "2026-09-04T09:35:07.497588Z",
-      "class": null,
-      "kind": "path",
-      "path": "docs/adr/ADR-054.md",
-      "rationale": null,
-      "verified_in_diff": null
-    },
-    {
-      "at": "2026-09-04T09:35:07.497610Z",
-      "class": null,
-      "kind": "path",
-      "path": "docs/specs/adr-054-notebook-dependency-analysis.md",
-      "rationale": null,
-      "verified_in_diff": null
-    },
-    {
-      "at": "2026-09-04T09:39:09.484288Z",
-      "class": null,
-      "kind": "path",
-      "path": "docs/planning/adr-054-spec2-dependency-analysis-checklist.md",
-      "rationale": null,
+      "at": "2026-09-04T14:07:11.406991Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "FR-018 already states the linearity requirement and build_graph's docstring already claims it; this restores the claimed behaviour and hardens its test, so no contract, schema, or public surface changes.",
       "verified_in_diff": null
     }
   ],
   "governance_touch": false,
   "guard_events": [
     {
-      "at": "2026-09-04T09:44:53.332112Z",
+      "at": "2026-09-04T14:20:34.888960Z",
       "findings": [],
       "guard": "architecture_doc_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:44:53.345324Z",
+      "at": "2026-09-04T14:20:34.902839Z",
       "findings": [],
       "guard": "core_change_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:44:53.358035Z",
+      "at": "2026-09-04T14:20:34.916458Z",
       "findings": [],
       "guard": "docs_landing",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:44:53.370827Z",
+      "at": "2026-09-04T14:20:34.930393Z",
       "findings": [],
       "guard": "human_bypass_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:44:53.383904Z",
+      "at": "2026-09-04T14:20:34.944290Z",
       "findings": [],
       "guard": "issue_link",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:44:53.396945Z",
+      "at": "2026-09-04T14:20:34.958405Z",
       "findings": [],
       "guard": "mod_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:44:53.409337Z",
+      "at": "2026-09-04T14:20:34.972728Z",
       "findings": [],
       "guard": "persona_policy",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:44:53.422567Z",
+      "at": "2026-09-04T14:20:34.987923Z",
       "findings": [],
       "guard": "pr_merge_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:44:53.435177Z",
+      "at": "2026-09-04T14:20:35.002741Z",
       "findings": [],
       "guard": "sentrux_gate",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:44:53.448400Z",
+      "at": "2026-09-04T14:20:35.017681Z",
       "findings": [],
       "guard": "test_engineer_scope_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:44:53.462233Z",
+      "at": "2026-09-04T14:20:35.032386Z",
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:45:39.118741Z",
+      "at": "2026-09-04T14:21:28.333725Z",
       "findings": [],
       "guard": "architecture_doc_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:45:39.132334Z",
+      "at": "2026-09-04T14:21:28.347364Z",
       "findings": [],
       "guard": "core_change_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:45:39.145875Z",
+      "at": "2026-09-04T14:21:28.360759Z",
       "findings": [],
       "guard": "docs_landing",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:45:39.158858Z",
+      "at": "2026-09-04T14:21:28.383691Z",
       "findings": [],
       "guard": "human_bypass_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:45:39.171558Z",
+      "at": "2026-09-04T14:21:28.397879Z",
       "findings": [],
       "guard": "issue_link",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:45:39.184248Z",
+      "at": "2026-09-04T14:21:28.412155Z",
       "findings": [],
       "guard": "mod_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:45:39.197542Z",
+      "at": "2026-09-04T14:21:28.427411Z",
       "findings": [],
       "guard": "persona_policy",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:45:39.210027Z",
+      "at": "2026-09-04T14:21:28.441785Z",
       "findings": [],
       "guard": "pr_merge_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:45:39.222970Z",
+      "at": "2026-09-04T14:21:28.456474Z",
       "findings": [
         {
           "actual": null,
@@ -314,133 +355,67 @@
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:45:39.235608Z",
+      "at": "2026-09-04T14:21:28.471068Z",
       "findings": [],
       "guard": "test_engineer_scope_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T09:45:39.249233Z",
+      "at": "2026-09-04T14:21:28.487625Z",
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T10:54:38.598592Z",
+      "at": "2026-09-04T14:21:39.746102Z",
       "findings": [],
       "guard": "architecture_doc_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T10:54:38.614388Z",
+      "at": "2026-09-04T14:21:39.761759Z",
       "findings": [],
       "guard": "core_change_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T10:54:38.629760Z",
+      "at": "2026-09-04T14:21:39.776823Z",
       "findings": [],
       "guard": "docs_landing",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T10:54:38.645138Z",
+      "at": "2026-09-04T14:21:39.792274Z",
       "findings": [],
       "guard": "human_bypass_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T10:54:38.659750Z",
+      "at": "2026-09-04T14:21:39.806795Z",
       "findings": [],
       "guard": "issue_link",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T10:54:38.673716Z",
+      "at": "2026-09-04T14:21:39.821124Z",
       "findings": [],
       "guard": "mod_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T10:54:38.687980Z",
+      "at": "2026-09-04T14:21:39.835059Z",
       "findings": [],
       "guard": "persona_policy",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T10:54:38.701914Z",
+      "at": "2026-09-04T14:21:39.848799Z",
       "findings": [],
       "guard": "pr_merge_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T10:54:38.716050Z",
-      "findings": [],
-      "guard": "sentrux_gate",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T10:54:38.731026Z",
-      "findings": [],
-      "guard": "test_engineer_scope_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T10:54:38.745329Z",
-      "findings": [],
-      "guard": "weakened_ci_check",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T10:55:21.656386Z",
-      "findings": [],
-      "guard": "architecture_doc_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T10:55:21.671326Z",
-      "findings": [],
-      "guard": "core_change_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T10:55:21.686645Z",
-      "findings": [],
-      "guard": "docs_landing",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T10:55:21.701808Z",
-      "findings": [],
-      "guard": "human_bypass_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T10:55:21.717426Z",
-      "findings": [],
-      "guard": "issue_link",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T10:55:21.732122Z",
-      "findings": [],
-      "guard": "mod_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T10:55:21.746540Z",
-      "findings": [],
-      "guard": "persona_policy",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T10:55:21.760657Z",
-      "findings": [],
-      "guard": "pr_merge_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T10:55:21.775296Z",
+      "at": "2026-09-04T14:21:39.862774Z",
       "findings": [
         {
           "actual": null,
@@ -468,133 +443,67 @@
       "status": "pass"
     },
     {
-      "at": "2026-09-04T10:55:21.790525Z",
+      "at": "2026-09-04T14:21:39.877561Z",
       "findings": [],
       "guard": "test_engineer_scope_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T10:55:21.806073Z",
+      "at": "2026-09-04T14:21:39.893895Z",
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T11:41:56.589534Z",
+      "at": "2026-09-04T14:22:13.708707Z",
       "findings": [],
       "guard": "architecture_doc_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T11:41:56.602452Z",
+      "at": "2026-09-04T14:22:13.723700Z",
       "findings": [],
       "guard": "core_change_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T11:41:56.615822Z",
+      "at": "2026-09-04T14:22:13.738384Z",
       "findings": [],
       "guard": "docs_landing",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T11:41:56.629546Z",
+      "at": "2026-09-04T14:22:13.753286Z",
       "findings": [],
       "guard": "human_bypass_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T11:41:56.642820Z",
+      "at": "2026-09-04T14:22:13.769005Z",
       "findings": [],
       "guard": "issue_link",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T11:41:56.655694Z",
+      "at": "2026-09-04T14:22:13.784467Z",
       "findings": [],
       "guard": "mod_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T11:41:56.668746Z",
+      "at": "2026-09-04T14:22:13.800082Z",
       "findings": [],
       "guard": "persona_policy",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T11:41:56.681465Z",
+      "at": "2026-09-04T14:22:13.815467Z",
       "findings": [],
       "guard": "pr_merge_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T11:41:56.693992Z",
-      "findings": [],
-      "guard": "sentrux_gate",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T11:41:56.707325Z",
-      "findings": [],
-      "guard": "test_engineer_scope_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T11:41:56.720502Z",
-      "findings": [],
-      "guard": "weakened_ci_check",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T11:42:37.021668Z",
-      "findings": [],
-      "guard": "architecture_doc_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T11:42:37.034667Z",
-      "findings": [],
-      "guard": "core_change_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T11:42:37.047394Z",
-      "findings": [],
-      "guard": "docs_landing",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T11:42:37.060181Z",
-      "findings": [],
-      "guard": "human_bypass_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T11:42:37.081737Z",
-      "findings": [],
-      "guard": "issue_link",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T11:42:37.094509Z",
-      "findings": [],
-      "guard": "mod_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T11:42:37.107993Z",
-      "findings": [],
-      "guard": "persona_policy",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T11:42:37.120654Z",
-      "findings": [],
-      "guard": "pr_merge_guard",
-      "status": "pass"
-    },
-    {
-      "at": "2026-09-04T11:42:37.134216Z",
+      "at": "2026-09-04T14:22:13.830519Z",
       "findings": [
         {
           "actual": null,
@@ -622,13 +531,13 @@
       "status": "pass"
     },
     {
-      "at": "2026-09-04T11:42:37.147012Z",
+      "at": "2026-09-04T14:22:13.845327Z",
       "findings": [],
       "guard": "test_engineer_scope_guard",
       "status": "pass"
     },
     {
-      "at": "2026-09-04T11:42:37.160859Z",
+      "at": "2026-09-04T14:22:13.860904Z",
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
@@ -645,92 +554,91 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "origin/track/adr-054-spec2-dependency-analysis",
-    "base_sha": "f89c287e1",
+    "base_sha": "878c99d0a",
     "changed_files": [
-      ".workflow/records/2231-docs-2231-governs-migration.json",
-      "docs/adr/ADR-054.md",
-      "docs/planning/adr-054-spec2-dependency-analysis-checklist.md",
-      "docs/specs/adr-054-notebook-dependency-analysis.md"
+      ".workflow/records/2231-fix-2231-linearity-311.json",
+      "src/scistudio/explore/dependency_analysis.py",
+      "tests/explore/test_adversarial_analysis.py"
     ],
-    "diff_fingerprint": "sha256:3fb4cbefbb5d6938127a58e1fbf64e76b130d135bbfe3f820f8036e4fb695fe2",
+    "diff_fingerprint": "sha256:90d4361825da941921c8d562f72d856b93fc233f07b194995e6bd9c0d6d0f4b2",
     "head": "HEAD",
-    "head_sha": "b505b86ba",
+    "head_sha": "c0c3c39ea",
     "surfaces": {
-      "docs": 3,
+      "docs": 0,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 0,
+      "implementation": 1,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
       "sentrux": 2,
-      "test": 0,
+      "test": 1,
       "workflow_ci": 0
     }
   },
-  "owner_directive": "Implement ADR-054 spec 2 in full; the owner pre-approved every label and approval this work needs. S2-G1: move every resolved planned_governs entry into governs in docs/adr/ADR-054.md and docs/specs/adr-054-notebook-dependency-analysis.md, and revise the one sentence in ADR-054 section 11 that the front-matter change makes false.",
-  "persona": "adr_author",
-  "pull_request": null,
+  "owner_directive": "Diagnose and fix the Python 3.11-only CI failure of test_fr018_the_cost_grows_linearly_with_the_number_of_cells on PR #2246 (ADR-054 spec 2): measure the analysis on real 3.11 and 3.13 interpreters at four sizes, decide whether the product is superlinear or the measurement is fragile, and fix what is actually found without weakening FR-018's linearity claim.",
+  "persona": "implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2231
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
-      "at": "2026-09-04T09:44:53.462282Z",
+      "at": "2026-09-04T14:20:35.032437Z",
       "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "mode": "local",
       "result": "pass",
-      "tier": 3,
+      "tier": 2,
       "unsatisfied": []
     },
     {
-      "at": "2026-09-04T09:45:39.249267Z",
-      "diff_fingerprint": "sha256:2fde8c57d8963393b542170a03ac736254dbb9639bac5a9c065157c69e010d5b",
+      "at": "2026-09-04T14:21:28.487672Z",
+      "diff_fingerprint": "sha256:90d4361825da941921c8d562f72d856b93fc233f07b194995e6bd9c0d6d0f4b2",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "tests.changed_test_required"
+      ]
+    },
+    {
+      "at": "2026-09-04T14:21:39.893938Z",
+      "diff_fingerprint": "sha256:90d4361825da941921c8d562f72d856b93fc233f07b194995e6bd9c0d6d0f4b2",
       "mode": "local",
       "result": "pass",
-      "tier": 3,
+      "tier": 2,
       "unsatisfied": []
     },
     {
-      "at": "2026-09-04T10:54:38.745377Z",
-      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "mode": "local",
+      "at": "2026-09-04T14:22:13.860946Z",
+      "diff_fingerprint": "sha256:90d4361825da941921c8d562f72d856b93fc233f07b194995e6bd9c0d6d0f4b2",
+      "mode": "pre-pr",
       "result": "pass",
-      "tier": 3,
-      "unsatisfied": []
-    },
-    {
-      "at": "2026-09-04T10:55:21.806114Z",
-      "diff_fingerprint": "sha256:2ee8d13adcb21553bb9788c7c497577a5365fef4238063a714c7995d042f95b5",
-      "mode": "local",
-      "result": "pass",
-      "tier": 3,
-      "unsatisfied": []
-    },
-    {
-      "at": "2026-09-04T11:41:56.720548Z",
-      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "mode": "local",
-      "result": "pass",
-      "tier": 3,
-      "unsatisfied": []
-    },
-    {
-      "at": "2026-09-04T11:42:37.160890Z",
-      "diff_fingerprint": "sha256:3fb4cbefbb5d6938127a58e1fbf64e76b130d135bbfe3f820f8036e4fb695fe2",
-      "mode": "local",
-      "result": "pass",
-      "tier": 3,
+      "tier": 2,
       "unsatisfied": []
     }
   ],
-  "record_id": "2231-docs-2231-governs-migration",
+  "record_id": "2231-fix-2231-linearity-311",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
     "checks": [
       "commit_hygiene",
-      "full_audit"
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
     ],
-    "docs": [],
+    "docs": [
+      "docs_required_or_na"
+    ],
     "guards": [
       "architecture_doc_guard",
       "core_change_guard",
@@ -744,21 +652,68 @@
       "test_engineer_scope_guard",
       "weakened_ci_check"
     ],
-    "tests": []
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
-  "session_id": "e6bbecc6-4091-45ce-8d95-14750eb6d6b5",
-  "strictness_tier": 3,
-  "task_kind": "docs",
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T14:07:11.406951Z",
+      "pattern": "src/scistudio/explore/dependency_analysis.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T14:07:11.406977Z",
+      "pattern": "tests/explore/test_adversarial_analysis.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "f19ee847-52ce-4712-912b-83ec3bbe25e1",
+  "strictness_tier": 2,
+  "task_kind": "bugfix",
   "test_events": [
     {
-      "at": "2026-09-04T09:35:07.497618Z",
-      "class": "docs",
-      "kind": "na",
-      "path": null,
-      "rationale": "front matter and one sentence of prose; the audits that read this metadata are the coverage, and full_audit runs in CI",
+      "at": "2026-09-04T14:07:11.406999Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_adversarial_analysis.py::test_fr018_the_cost_grows_linearly_with_the_number_of_cells",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T14:19:47.205135Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_adversarial_analysis.py::test_fr018_the_cost_grows_linearly_with_the_number_of_cells",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T14:20:58.199248Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_adversarial_analysis.py::test_fr018_the_cost_grows_linearly_with_the_number_of_cells",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T14:21:34.456369Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_adversarial_analysis.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T14:21:39.374451Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_adversarial_analysis.py",
+      "rationale": null,
       "verified_in_diff": null
     }
   ]

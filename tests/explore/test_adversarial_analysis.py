@@ -26,12 +26,32 @@ The other **five are genuine coverage holes** — the set fold, the sampled stri
 tail, the dict key, cycle detection, and the categorical storage path — and each
 has a test in the section below that kills its mutant.
 
+A second, independent round of mutation testing — the no-context audit of this
+change, fifty-seven mutations over two rounds — left ten more standing, and the
+six behavioural ones are in the same section: the descent into ``except`` and
+``match_case`` bodies, FR-029's check on the *after* snapshot, the string
+*stride* (as opposed to its tail, above), and the two cost guards that every
+``hashed_bytes`` assertion is blind to by construction. The dict and set half of
+FR-025 was the one survivor that was a defect rather than a hole, and it is fixed
+rather than pinned.
+
 The other half came from reading the spec's MUSTs against the code that claims
-them. Those tests are grouped by requirement, and the ones that **fail** carry a
-``FINDING`` line in the first sentence of their docstring with the severity and
-whether I believe the test or the product is wrong. They are left failing on
-purpose: a fix agent owns the repairs, and a test that is skipped, xfailed, or
-softened to pass is a finding that has been filed and closed in the same motion.
+them. Those tests are grouped by requirement, and the ones that found a defect
+carry a ``FINDING`` line in the first sentence of their docstring with the
+severity. They were written **failing**, on purpose: a fix agent owned the
+repairs, and a test that is skipped, xfailed, or softened to pass is a finding
+that has been filed and closed in the same motion.
+
+Every one of them now passes, and each of those docstrings has been rewritten in
+the past tense to say what was found, that it is closed, and what closed it.
+Three ``FINDING`` lines remain in the present tense and all three say why in
+their first paragraph: the process-dependent digest of a large set of strings
+and the record that carries no cell id are both boundaries the spec does not
+state rather than defects, and were filed as documented-not-failed from the
+start; FR-015's second exception is an open owner decision tracked as ``#2243``.
+Nothing in this file fails. If a docstring here describes the product as broken
+without saying it is deliberate or naming the issue that tracks it, the docstring
+is stale and the product is not.
 
 What is deliberately *not* asserted here is anything the spec admits it cannot
 do. The fingerprint misses a change confined to bytes its stride skipped, and
@@ -43,6 +63,7 @@ pretending the miss is caught.
 from __future__ import annotations
 
 import builtins
+import gc
 import io
 import json
 import math
@@ -51,11 +72,13 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import pytest
 
+from scistudio.explore import fingerprint as fingerprint_module
 from scistudio.explore.dependency_analysis import (
     AnalysisFlag,
     DependencyGraph,
@@ -75,6 +98,9 @@ from scistudio.explore.fingerprint import (
     fingerprint,
 )
 from scistudio.explore.fingerprint import _fingerprint_context as fingerprint_context
+from scistudio.explore.fingerprint import _flat as flat_handle
+
+from .test_fingerprint import TIMING_RUNS, best_of
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -435,29 +461,37 @@ def test_fr015_two_disabled_definers_are_skipped_to_reach_a_third() -> None:
 
 
 def test_fr015_a_read_only_the_cell_itself_binds_is_not_reported_unresolved() -> None:
-    """FINDING P2 — an exception FR-015 does not authorise, resting on a false premise.
+    """FINDING P2, open and tracked as ``#2243`` — an exception FR-015 does not authorise.
 
     FR-015 admits exactly one exception to "a read with no enabled definer above
     it MUST be recorded as unresolved": a name in Python's builtins.
     :func:`build_graph` adds a second — a read of a name the *reading cell's own*
-    changed set contains — and the comment beside it justifies the exception by
-    saying that without it "every ``import pandas as pd`` cell would report ``pd``
-    unresolved and packaging would refuse every notebook".
+    changed set contains.
 
-    That premise is false. :mod:`symtable` reports ``pd`` in ``import pandas as
-    pd`` as imported and *not* referenced, so the cell reads nothing and the
-    exception is never what keeps it quiet; the second assertion below is the
-    proof. What the exception does reach is a first cell that says
-    ``df = df.dropna()``, which raises ``NameError`` the moment it runs and which
-    US2 scenario 5 exists so that packaging can refuse.
+    The justification is a cell that binds a name and then uses it, which is how
+    people write: ``import pandas as pd`` followed in the same cell by
+    ``df = pd.read_csv('f')``, ``total = 0`` followed by ``total += 1``,
+    ``def f(n): return f(n - 1)``. Without the exception every one of those would
+    report its own name unresolved and packaging would refuse the notebook. A
+    *bare* ``import pandas as pd`` would not, and the source comment used to cite
+    exactly that: :mod:`symtable` reports ``pd`` there as imported and *not*
+    referenced, so the cell reads nothing and this branch is never reached. Both
+    ADR-054 spec 2 audits measured the claim and found it false; the second
+    assertion below is the proof, and the comment now names the real case.
+
+    What the exception does reach is a first cell that says ``df = df.dropna()``,
+    which raises ``NameError`` the moment it runs and which US2 scenario 5 exists
+    so that packaging can refuse.
 
     This test documents the behaviour rather than failing, because removing the
     exception outright would report ``total`` unresolved for the equally ordinary
-    ``total = 0`` followed by ``total += 1`` in one cell, and telling the two
-    apart needs the statement order FR-001 forbids the analysis to model. Spec
-    and product genuinely disagree and the resolution is the owner's: either
-    FR-015 gains this exception, or FR-001 gains a narrow within-cell ordering
-    rule for the case where a name is bound before it is read.
+    ``total = 0; total += 1``, and telling the two apart needs the statement order
+    FR-001 forbids the analysis to model. Spec and product genuinely disagree and
+    the resolution is the owner's — either FR-015 gains this exception or FR-001
+    gains a narrow within-cell ordering rule — which is why this ``FINDING`` line
+    is still in the present tense while the rest of this file's are not. The
+    thread back to the decision is ``TODO(#2243)`` beside the exception in
+    :func:`build_graph`.
     """
     graph = graph_of(("c1", "df = df.dropna()"), ("c2", "peaks = find(df)"))
     assert unresolved_names(graph) == {("c2", "find")}, "df is not listed, and running this notebook fails on it"
@@ -467,25 +501,28 @@ def test_fr015_a_read_only_the_cell_itself_binds_is_not_reported_unresolved() ->
 
 
 def test_fr006_a_global_augmented_assignment_inside_a_function_is_a_module_read() -> None:
-    """FINDING P1 — a nested-scope read FR-006 requires and the analysis does not record.
+    """FINDING P1, closed: a nested-scope read FR-006 requires, now recorded.
 
     FR-006: "the names the cell reads at module scope, **including names read
     inside a nested scope that resolve to the module scope**". ``counter += 1``
     under a ``global counter`` declaration reads ``counter``; :mod:`symtable`
-    reports that symbol as assigned and global but not as referenced, and
-    ``_collect_module_level_reads`` — which exists precisely because
-    :mod:`symtable` under-reports augmented assignment and ``del`` — walks only
-    the module level and never enters the function body.
+    reports that symbol as assigned and global but not as referenced.
 
-    The consequence is not academic. ``tests/explore/fixtures/global_counter.ipynb``
-    is four cells long, its backward slice omits the cell that initialises the
-    counter, and running the slice raises ``NameError``. That fixture's
-    differential test fails alongside this one; this test is the isolated cause.
+    This test was written failing. ``_collect_module_level_reads`` — which exists
+    precisely because :mod:`symtable` under-reports augmented assignment and
+    ``del`` — walked only the module level and never entered a function body, so
+    cell 3 of ``tests/explore/fixtures/global_counter.ipynb`` was a definer of
+    ``counter`` that read nothing, its backward slice omitted the cell that
+    initialises the counter, and running the slice raised ``NameError``. The
+    fixture's differential test failed alongside this one; this test was the
+    isolated cause.
 
-    I believe the product is wrong. FR-006's sentence names this case and SC-003
-    is the criterion it fails, and the repair is the one
-    ``_collect_module_level_reads`` already makes at module scope, extended to a
-    nested scope's ``global`` names.
+    It is closed. ``_collect_module_level_reads`` now walks every ``def`` and
+    ``class``, reads the names that scope declares ``global``, and counts the
+    augmented assignments and deletions among them as module reads — the repair
+    it already made at module scope, extended to a nested scope's ``global``
+    names. ``test_sc003_global_counter_slice_reproduces_the_notebook`` is the
+    end-to-end proof.
     """
     facts = analyse_cell("c2", "def bump():\n    global counter\n\n    counter += 1\n")
     assert "counter" in facts.assigned, "the global assignment is recorded, which is why the edge misleads"
@@ -493,12 +530,13 @@ def test_fr006_a_global_augmented_assignment_inside_a_function_is_a_module_read(
 
 
 def test_fr006_a_global_del_inside_a_function_is_a_module_read() -> None:
-    """FINDING P2 — the ``del`` half of the same blind spot.
+    """FINDING P2, closed: the ``del`` half of the same blind spot.
 
     ``del counter`` under a ``global`` declaration requires ``counter`` to exist,
-    exactly as ``counter += 1`` does, and is missed for the same reason. It is
+    exactly as ``counter += 1`` does, and was missed for the same reason. It was
     filed separately because a repair aimed only at :class:`ast.AugAssign` would
-    leave it standing.
+    have left it standing; ``_augmented_and_deleted_names`` covers both forms, so
+    it did not.
     """
     facts = analyse_cell("c2", "def drop():\n    global counter\n\n    del counter\n")
     assert "counter" in facts.read
@@ -616,6 +654,7 @@ def test_a_non_ascii_identifier_binds_and_reads_like_any_other() -> None:
     assert graph.backward_slice(["c3"]).cells == ("c1", "c2", "c3")
 
 
+@pytest.mark.serial
 def test_a_very_long_cell_is_analysed_in_one_pass() -> None:
     """FR-018's neighbourhood: cost is linear in names, including inside one cell.
 
@@ -643,24 +682,25 @@ def test_a_deeply_nested_cell_does_not_break_the_module_level_walk() -> None:
 
 
 def test_fr012_a_cell_holding_an_unpaired_surrogate_is_flagged_rather_than_raising() -> None:
-    """FINDING P2 — ``analyse_cell`` raises on a cell a notebook file can legally hold.
+    """FINDING P2, closed: ``analyse_cell`` used to raise on a cell a notebook can hold.
 
     FR-012 requires a cell that does not parse to be *recorded* with the
     syntax-error flag and forbids it from preventing any other cell being
     analysed, and :func:`analyse_cell` says in its own docstring that it never
-    raises. It does. ``source_hash`` is computed before the ``try``, and it
-    encodes as strict UTF-8, so a cell containing an unpaired surrogate raises
-    ``UnicodeEncodeError`` straight out of ``analyse_cells`` and takes the whole
+    raises. It did. ``source_hash`` is computed before the ``try`` and encoded as
+    strict UTF-8, so a cell containing an unpaired surrogate raised
+    ``UnicodeEncodeError`` straight out of ``analyse_cells`` and took the whole
     notebook load with it.
 
     ``json.loads('"\\\\ud800"')`` returns exactly such a string, so an ``.ipynb``
     written by anything that escaped a lone surrogate reaches the analysis this
-    way; the fingerprint module already encodes with ``surrogatepass`` for the
-    same reason, which is where the asymmetry shows.
+    way; the fingerprint module already encoded with ``surrogatepass`` for the
+    same reason, which is where the asymmetry showed.
 
-    I believe the product is wrong: FR-012 and the function's own contract both
-    say this cell must come back flagged, and one ``errors=`` argument on the
-    hash is the difference.
+    One ``errors="surrogatepass"`` on the hash was the difference, and it is what
+    closed this: the cell now comes back flagged, and the cell beside it is
+    analysed as if nothing had happened, which is the half of FR-012 that
+    matters.
     """
     lone_surrogate = json.loads('"\\ud800 = 1"')
     facts = analyse_cells([("c1", lone_surrogate), ("c2", "df = load()")])
@@ -724,20 +764,22 @@ def test_fr036_the_seven_flags_are_reachable_and_each_renders_its_own_fields() -
 
 
 def test_fr016_every_version_edge_source_is_a_version_node() -> None:
-    """FINDING P3 — a version edge can point at a node the graph does not publish.
+    """FINDING P3, closed: a version edge used to point at a node the graph did not publish.
 
     FR-016: version nodes are one per name in each enabled cell's changed set, and
     "edges between version nodes [are] derived from the same facts as the edges
     between cells". An unknown-binding edge names a name the star-import cell does
     *not* have in its changed set — a star import binds an unknown set, so its
-    changed set is empty — and :func:`_version_edges` builds a source node for it
-    anyway. The dependency view is handed an edge whose source is not in the node
-    list it was given.
+    changed set is empty — and :func:`_version_edges` built a source node for it
+    anyway. The dependency view was handed an edge whose source was not in the
+    node list it was given, and every consumer had to discover the dangling
+    reference for itself.
 
-    I believe the product is wrong, in a small way: either the version node
-    belongs in ``version_nodes`` alongside the edge, or the unknown-binding edge
-    has no version-level counterpart. Either is a two-line change; the current
-    state asks every consumer to discover the dangling reference for itself.
+    Closed the way FR-002 points: ``build_graph`` tracks the names an
+    unknown-binding resolution says a cell produced and publishes a
+    ``version_nodes`` entry for each, so the edge keeps its source. The other
+    repair — dropping the edge — would have shown the reader unconnected to a
+    cell it really does depend on (FR-013).
     """
     graph = graph_of(("c1", "from numpy import *"), ("c2", "alpha = arange(3)"))
     nodes = set(graph.version_nodes)
@@ -1041,30 +1083,31 @@ def test_fr025_a_frame_above_the_row_bound_misses_a_change_off_its_stride() -> N
 
 
 def test_fr025_a_container_above_the_bound_is_sampled_across_its_full_extent() -> None:
-    """FINDING P1 — the container sample is a prefix and a tail, not a stride across the extent.
+    """FINDING P1, closed: the container sample is a stride across the extent, not a prefix.
 
     FR-025: above the bound "the content is sampled at fixed strides **across its
     full extent**", and ``_stride_indices``' own docstring says the property
-    "holds literally". It does not. The function computes
-    ``step = length // keep`` and then truncates the resulting index list to
-    ``keep`` entries, so the sampled positions stop at ``(keep - 1) * step`` and
-    the tail index is appended alone. For a 1000-element list and a
-    ``container_items`` of 512 the step is 1 and the sample is indices 0 to 511
-    plus 999: **every position from 512 to 998 is invisible**, which is half the
-    list. The gap exists for any length that is not a multiple of ``keep`` and is
-    widest just under twice it.
+    "holds literally". It did not. The function computed ``step = length // keep``
+    and then truncated the resulting index list to ``keep`` entries, so the
+    sampled positions stopped at ``(keep - 1) * step`` and the tail index was
+    appended alone. For a 1000-element list and a ``container_items`` of 512 the
+    step was 1 and the sample was indices 0 to 511 plus 999: **every position
+    from 512 to 998 was invisible**, which is half the list. The gap existed for
+    any length that is not a multiple of ``keep`` and was widest just under twice
+    it.
 
     A list of a thousand numbers is not a large object; it is what a notebook
-    holds. A cell that writes ``values[600] = 0`` changes it, the fingerprint
-    reports no change, the cell is not a definer, and nothing below it is marked
-    stale — the stale number ADR-054 §6.1 was written to remove. This is outside
-    the miss §4.5 admits, because §4.5 admits a *stride*, and a stride across
-    1000 positions with 513 samples cannot skip 487 consecutive ones.
+    holds. A cell that wrote ``values[600] = 0`` changed it, the fingerprint
+    reported no change, the cell was not a definer, and nothing below it was
+    marked stale — the stale number ADR-054 §6.1 was written to remove. That is
+    outside the miss §4.5 admits, because §4.5 admits a *stride*, and a stride
+    across 1000 positions with 513 samples cannot skip 487 consecutive ones.
 
-    I believe the product is wrong and the fix is one line: stride by
-    ``ceil(length / keep)`` so the indices span the extent, or take the indices
-    from ``range(0, length, step)`` without truncating after a step that already
-    bounds the count.
+    Closed by striding at ``ceil(length / keep)`` and taking the indices from
+    ``range(0, length, step)`` with no truncation, since a step that already
+    bounds the count does not need one. The same repair reached the dict and set
+    path a round later, where the floor step also lost the final entry entirely;
+    ``test_the_sample_spans_the_full_extent_of_a_mapping`` is its counterpart.
     """
     keep = FINGERPRINT_BUDGET.container_items
     values = list(range(2 * keep - 24))
@@ -1168,6 +1211,149 @@ def test_survivor_a_long_string_is_sampled_to_its_last_character() -> None:
     assert fingerprint("b" + text[1:]) != before
 
 
+@pytest.mark.parametrize(
+    ("label", "source"),
+    [
+        ("except", "try:\n    risky()\nexcept Exception:\n    total += 1\n"),
+        ("except del", "try:\n    risky()\nexcept Exception:\n    del total\n"),
+        ("match case", "match value:\n    case 1:\n        total += 1\n"),
+        ("match case del", "match value:\n    case 1:\n        del total\n"),
+    ],
+)
+def test_survivor_an_augmented_assignment_inside_an_except_or_match_body_is_a_read(label: str, source: str) -> None:
+    """Mutation survivor: ``_iter_module_level``'s descent into the two non-``stmt`` bodies.
+
+    ``ast.ExceptHandler`` and ``ast.match_case`` are not statements, so
+    ``iter_child_nodes`` does not reach their bodies through the ``ast.stmt``
+    branch and ``_iter_module_level`` names them explicitly. Deleting that branch
+    left the whole suite green while ``total += 1`` inside an ``except`` stopped
+    being a read of ``total``.
+
+    The consequence is the one the differential harness exists to catch. A cell
+    whose ``except`` body increments a counter is a definer of it that reads
+    nothing, the backward slice stops there, the cell that gave the counter its
+    initial value is dropped, and the slice raises ``NameError`` — the same
+    failure ``global_counter.ipynb`` was written for, in a body nothing walks
+    into. Both bodies get both forms, because a repair aimed at ``AugAssign``
+    alone would leave ``del`` standing.
+    """
+    facts = analyse_cell("c2", source)
+    assert "total" in facts.read, f"{label}: the body's read of total is not recorded"
+
+    graph = graph_of(("c1", "total = 0"), ("c2", source), ("c3", "scistudio.output(n=total)"))
+    assert graph.backward_slice(["c3"]).cells == ("c1", "c2", "c3"), f"{label}: the slice dropped the initialiser"
+
+
+def test_survivor_a_long_string_is_sampled_across_its_stride_not_its_prefix() -> None:
+    """Mutation survivor: the string *stride* was covered by nothing, only its tail.
+
+    ``_digest_text`` takes ``obj[::step]`` and then the final character. The test
+    above pins the tail, and the array and frame strides have tests of their own,
+    but replacing the string stride with a plain ``obj[:keep]`` prefix left the
+    whole suite green — a change anywhere in the middle of a long string was
+    invisible to every assertion in it.
+
+    The changed position is a multiple of the step, which is what the stride
+    visits, and lies far beyond ``sample_bytes`` characters, which is where a
+    prefix stops.
+    """
+    length = 2 * FINGERPRINT_BUDGET.whole_content_bytes
+    step = length // FINGERPRINT_BUDGET.sample_bytes
+    position = step * (FINGERPRINT_BUDGET.sample_bytes // 2)
+    assert position > FINGERPRINT_BUDGET.sample_bytes, "a prefix of the sample must not reach the change"
+
+    text = "a" * length
+    before = fingerprint(text)
+    mutated = text[:position] + "b" + text[position + 1 :]
+    assert len(mutated) == length
+    assert fingerprint(mutated) != before, "a change on the stride, past the prefix, was missed"
+
+
+def test_survivor_the_whole_content_clamp_bounds_the_bytes_offered_not_just_accepted() -> None:
+    """Mutation survivor: every cost assertion read ``hashed_bytes``, which cannot see this.
+
+    ``_feed`` truncates unconditionally, so ``hashed_bytes`` is bounded however
+    much content was *materialised* to produce it — which is why removing
+    ``_whole_limit``'s clamp against ``_remaining`` left the suite green. The
+    clamp's whole purpose is that a call which has nearly spent its byte ceiling
+    takes the sampled route rather than calling ``tobytes()`` on another whole
+    megabyte first, and the only way to see that is to watch what is handed to
+    ``_feed``.
+
+    Six 0.7 MiB arrays: five fit inside the 4 MiB ceiling whole, and the sixth
+    must be sampled because only ~0.6 MiB of the ceiling is left. Without the
+    clamp the sixth is copied whole and the bytes offered pass the ceiling.
+    """
+    offered: list[int] = []
+    real_feed = fingerprint_module._feed
+
+    def recording_feed(ctx: Any, data: Any) -> None:
+        offered.append(len(data))
+        real_feed(ctx, data)
+
+    arrays = [np.zeros(89_600, dtype=np.float64) for _ in range(6)]
+    assert arrays[0].nbytes < FINGERPRINT_BUDGET.whole_content_bytes, "each array must take the whole route"
+
+    monkeypatched = pytest.MonkeyPatch()
+    try:
+        monkeypatched.setattr(fingerprint_module, "_feed", recording_feed)
+        context = fingerprint_context(arrays)
+    finally:
+        monkeypatched.undo()
+
+    assert context.hashed_bytes <= FINGERPRINT_BUDGET.max_total_bytes, "the accepted bytes are bounded either way"
+    assert sum(offered) <= FINGERPRINT_BUDGET.max_total_bytes, (
+        f"{sum(offered)} bytes were materialised for a {FINGERPRINT_BUDGET.max_total_bytes}-byte ceiling"
+    )
+
+
+def test_survivor_the_flat_handle_reads_an_array_rather_than_copying_it() -> None:
+    """Mutation survivor: ``_flat``'s copy-avoidance had no assertion at all.
+
+    ``reshape(-1)`` is a view for C-contiguous data and a **full copy** otherwise,
+    which is why ``_flat`` hands back ``arr.flat`` — an iterator that materialises
+    only the positions the stride selects — for anything else. Replacing the
+    branch with an unconditional ``reshape(-1)`` blew that guarantee on exactly
+    the large strided arrays the budget exists for, and left the suite green,
+    because every cost assertion in the suite reads ``hashed_bytes`` and the
+    copy happens before a single byte is fed.
+    """
+
+    def reads_the_buffer_of(handle: Any, array: np.ndarray) -> bool:
+        buffer = handle if isinstance(handle, np.ndarray) else handle.base
+        return bool(np.shares_memory(buffer, array))
+
+    contiguous = np.arange(1_000_000, dtype=np.float64)
+    assert reads_the_buffer_of(flat_handle(contiguous), contiguous), "a contiguous array reshapes to a view"
+
+    strided = np.arange(2_000_000, dtype=np.float64)[::2]
+    assert not strided.flags["C_CONTIGUOUS"]
+    handle = flat_handle(strided)
+    assert not isinstance(handle, np.ndarray), "a non-contiguous array must not be reshaped into a copy"
+    assert reads_the_buffer_of(handle, strided)
+
+
+def test_survivor_a_name_that_only_exists_after_the_run_is_reported_unobservable() -> None:
+    """Mutation survivor: FR-029's check on the *after* snapshot was untested.
+
+    ``compare_namespaces`` tests ``observable`` on both mappings, and every test
+    of the unobservable report used a name present in both. Dropping the check on
+    the ``after`` side left the suite green — so a name a cell *creates*, whose
+    value the fingerprint cannot inspect, was reported as changed and not
+    reported as uncovered, which is precisely the pair FR-029 exists to keep
+    together.
+    """
+    opaque = fingerprint(object())
+    assert opaque.observable is False
+
+    observed = compare_namespaces({}, {"handle": opaque}, cell_id="c1", source_hash="h")
+    assert observed.changed_names == frozenset({"handle"})
+    assert observed.unobservable_names == frozenset({"handle"}), "a name that appeared is still uncovered"
+
+    disappeared = compare_namespaces({"handle": opaque}, {}, cell_id="c1", source_hash="h")
+    assert disappeared.unobservable_names == frozenset({"handle"})
+
+
 def test_survivor_a_removed_element_changes_a_sampled_container() -> None:
     """Mutation survivor, reclassified: the ``len`` feed in ``_digest_sequence`` is redundant.
 
@@ -1266,56 +1452,203 @@ def generated_notebook(count: int) -> list[tuple[str, str]]:
     return cells
 
 
+@pytest.mark.serial
 def test_sc010_a_five_hundred_cell_notebook_is_analysed_and_built_under_the_bound() -> None:
-    """SC-010: five hundred cells, graph built in under five hundred milliseconds.
+    """SC-010: five hundred cells, analysed and built in under five hundred milliseconds.
 
-    The existing timing test measures :func:`build_graph` alone. A notebook load
-    pays for the static analysis as well, and FR-018's linearity claim is about
-    the pass over cells and names, so this measures the whole of it — analyse and
-    build — and reports the split when it fails.
+    The ceiling is SC-010's own number and it covers both halves, which is what
+    the criterion says: "**analysing** a generated notebook of five hundred
+    cells … **builds the graph** in under five hundred milliseconds". Nothing
+    here is invented.
+
+    Both halves matter because they are not the same size. The analysis is ~57 ms
+    and the build ~9 ms, so a bound on the build alone — which is what both timed
+    tests used to assert — governs a sixth of the work with fifty times the
+    headroom it needs, and the ADR-054 spec 2 audit found this test guarding the
+    other five sixths with a **2000 ms** ceiling that appears in no spec at all.
+
+    The measurement is the fastest of ``TIMING_RUNS`` passes after a warm-up, for
+    the reason ``test_fingerprint.best_of`` sets out: the minimum is what the
+    machine can do, which is the claim a wall-clock bound makes, while a single
+    sample on a runner shared with other suites measures their load as much as
+    this code's cost. It also carries ``serial``, which matters more than the
+    sampling does: run inside the ``-n auto`` batch against thirty-two sibling
+    workers the worst sample was 105 ms (4.8x), and run alone in the serial phase
+    it is 67 ms.
+
+    **Measured minimum: 67 ms — analyse 57, build 9 — against 500 ms, which is
+    7.4x**, in the condition the test runs in. On a machine oversubscribed from
+    outside the run it falls to 3.0x, which is the floor neither the marker nor
+    the sampling can lift. That is the margin the next reader has before this
+    number starts to mean something; it is the tightest wall-clock assertion on
+    the analysis side of this delivery, and a change that takes it past ~200 ms
+    should be read as a regression long before it fails. The split is reported on
+    failure so the reader knows which half moved.
     """
     cells = generated_notebook(500)
-    started = time.perf_counter()
-    facts = analyse_cells(cells)
-    analysed = time.perf_counter()
-    graph = build_graph(facts)
-    finished = time.perf_counter()
 
-    analyse_ms = (analysed - started) * 1000
-    build_ms = (finished - analysed) * 1000
-    assert len(graph.cells) == 500
-    assert build_ms < 500.0, f"build_graph took {build_ms:.1f} ms"
-    assert analyse_ms + build_ms < 2000.0, f"analyse {analyse_ms:.1f} ms + build {build_ms:.1f} ms"
-
-
-def test_fr018_the_cost_grows_linearly_with_the_number_of_cells() -> None:
-    """FR-018: linear in cells and names, asserted by doubling rather than by a constant.
-
-    A wall-clock ceiling passes on a fast runner however the algorithm scales.
-    This builds the graph at two sizes and requires the larger to cost less than
-    a quadratic would: four times the cells must not cost sixteen times the time.
-    The slack is generous because the measurement is a shared CI runner, and the
-    point is to catch an accidental quadratic, not to bill for milliseconds.
-    """
-
-    def build_ms(count: int) -> float:
-        facts = analyse_cells(generated_notebook(count))
+    def one_pass() -> tuple[float, float]:
         started = time.perf_counter()
-        build_graph(facts)
-        return (time.perf_counter() - started) * 1000
+        facts = analyse_cells(cells)
+        analysed = time.perf_counter()
+        graph = build_graph(facts)
+        finished = time.perf_counter()
+        assert len(graph.cells) == 500
+        return (analysed - started) * 1000, (finished - analysed) * 1000
 
-    small = max(build_ms(250), 0.5)
-    large = build_ms(1000)
-    assert large < small * 16, f"250 cells: {small:.1f} ms, 1000 cells: {large:.1f} ms"
+    one_pass()  # warm-up, unmeasured
+    runs = [one_pass() for _ in range(TIMING_RUNS)]
+    total_ms = min(analyse + build for analyse, build in runs)
+    analyse_ms = min(analyse for analyse, _ in runs)
+    build_ms = min(build for _, build in runs)
+
+    assert total_ms < 500.0, (
+        f"best of {TIMING_RUNS}: analyse {analyse_ms:.1f} ms + build {build_ms:.1f} ms "
+        f"= {total_ms:.1f} ms, bound 500 ms"
+    )
 
 
+#: The two notebook sizes :func:`test_fr018_the_cost_grows_linearly_with_the_number_of_cells`
+#: compares, and the growth in per-cell cost it allows between them. See that
+#: test's docstring for the measurements all three numbers come from.
+FR018_SMALL, FR018_LARGE = 250, 4000
+FR018_PER_CELL_GROWTH = 1.5
+
+
+@pytest.mark.serial
+def test_fr018_the_cost_grows_linearly_with_the_number_of_cells() -> None:
+    """FR-018: linear in cells and names, asserted as cost per cell rather than as a ratio of totals.
+
+    FINDING (P2, closed): the previous form asserted that four times the cells
+    cost less than sixteen times the time. Sixteen is *exactly* what a quadratic
+    scores over a fourfold span, so the bound sat on the answer it existed to
+    reject and had no room underneath it for anything milder -- and a real
+    quadratic went through it. ``DependencyGraph.__post_init__`` de-duplicated
+    its adjacency lists with ``x not in some_list``, which is linear in that
+    list, and that is fine only while every cell's fan-in and fan-out stay
+    small. They do not. A notebook's first cell imports the libraries and reads
+    the data, every cell below it reads those names, and so that one cell's
+    ``dependents`` entry grows to the length of the notebook: on the fixture
+    below, ``c0`` takes 3998 of the 5996 edges at 2000 cells. Against the most
+    ordinary notebook shape there is, the loop was quadratic. Measured at 250
+    against 1000 cells it scored 4.8 against the bound of 16 and passed. It is
+    fixed in ``dependency_analysis`` and this test is the regression.
+
+    **What is asserted.** Cost per cell, not a ratio of totals: FR-018 says the
+    cost is linear in cells and names, and linear means the per-cell cost does
+    not grow. ``analyse_cells`` runs outside the timer, as it always did; this
+    is a claim about ``build_graph``.
+
+    **Per-cell build cost in microseconds, best of ``TIMING_RUNS``, collector
+    paused, on the reference machine, on both interpreters CI runs:**
+
+    ======== ============ =========== ============ ===========
+    cells    3.11 before  3.11 after  3.13 before  3.13 after
+    ======== ============ =========== ============ ===========
+    250      10.4         9.5         14.8         13.7
+    500      11.4         9.9         17.0         13.9
+    1000     13.9         10.0        20.0         14.2
+    2000     17.2         10.1        25.5         14.3
+    4000     25.9         11.3        37.1         15.0
+    ======== ============ =========== ============ ===========
+
+    Read the "after" columns down: flat, which is what FR-018 claims. Read the
+    "before" columns down: not flat, which is the defect. The assertion is the
+    top row against the bottom one, and measured *inside a pytest process* --
+    which is the condition that matters, see below -- it scores **2.30-2.32
+    before the fix against 1.10-1.14 after on 3.11**, and 2.34-2.40 before
+    against 1.05-1.09 after on 3.13. ``FR018_PER_CELL_GROWTH`` sits between
+    them with 1.3x of room above the worst passing sample and 1.5x below the
+    best failing one, on both interpreters, and the two interpreters agree on
+    both numbers to within 5%.
+
+    The span is 250 to 4000 rather than 250 to 1000 because that is where the
+    separation is. The same defect scored 1.34 at 1000 cells, which no bound
+    tells apart from noise; a fourfold span cannot see a quadratic with a small
+    constant, and this one had a small constant.
+
+    **Why the collector is paused for the measurement.** This is the second half
+    of the CI failure that produced this test, and it is not a detail. A cycle
+    collection costs time proportional to the *process* heap, not to this
+    function's input, and a pytest process holds a large one. Measured: with a
+    400 000-object live heap, single samples of the 1000-cell build ran 15.6,
+    15.4, 15.7, **49.2**, 15.9, 15.4, 16.0, **51.4** ms -- a 3.3x swing from one
+    gen-2 collection landing inside the timed window, on 3.11 and on 3.13 alike.
+    That is exactly the shape the failing CI run reported: one leg sampled once,
+    unwarmed, at 265.9 ms against a 9.0 ms leg. ``best_of`` removes it at 1000
+    cells because the pause misses most samples; at 4000 cells it allocates
+    enough that a collection lands in *every* sample and the minimum cannot dodge
+    it. In this file's own process the 4000-cell leg measured 20.15 us per cell
+    with the collector running and 10.95 us with it paused -- the same code, and
+    a confound almost as large as the defect this test exists to catch. So the
+    collector is paused around both legs, for the reason :mod:`timeit` pauses it
+    by default: a complexity assertion is a claim about the algorithm, and GC
+    pauses are a claim about whatever else the process is holding. The wall-clock
+    ceilings elsewhere in this file deliberately keep the collector running,
+    because *there* the GC time is part of what the budget has to cover.
+
+    **What still fails this test, and what does not.** A quadratic scores 16 over
+    this span and is caught by an order of magnitude. Anything above roughly
+    ``n**1.15`` is caught -- that is where 1.5 lands over a sixteenfold span --
+    which covers the defect above and every accidental ``in``-a-list, repeated
+    ``sorted``, or nested rescan of the same shape. What it does not catch is a
+    **constant-factor** slowdown: code twice as slow at every size leaves the
+    ratio untouched. That is deliberate, and it is SC-010's job one test above,
+    the wall-clock ceiling this ratio is the complement of. Neither is sufficient
+    alone, which is why both are here.
+
+    **No floor on the small leg.** The previous form clamped it to 0.5 ms, on a
+    measurement of 2.4 ms, so it never did anything. It is not needed:
+    ``best_of`` takes the minimum, which biases the small leg *low* and therefore
+    makes the ratio *larger* -- the conservative direction for an assertion that
+    fails on large ratios -- and 2.4 ms is four orders of magnitude above
+    ``perf_counter``'s resolution.
+    """
+    small_facts = analyse_cells(generated_notebook(FR018_SMALL))
+    large_facts = analyse_cells(generated_notebook(FR018_LARGE))
+
+    gc.collect()
+    gc.disable()
+    try:
+        per_small = best_of(lambda: build_graph(small_facts)) * 1e6 / FR018_SMALL
+        per_large = best_of(lambda: build_graph(large_facts)) * 1e6 / FR018_LARGE
+    finally:
+        gc.enable()
+
+    assert per_large < per_small * FR018_PER_CELL_GROWTH, (
+        f"best of {TIMING_RUNS}: {FR018_SMALL} cells cost {per_small:.2f} us each and "
+        f"{FR018_LARGE} cells cost {per_large:.2f} us each, which is "
+        f"{per_large / per_small:.2f}x, against the {FR018_PER_CELL_GROWTH}x FR-018 allows "
+        f"(a quadratic would score {FR018_LARGE / FR018_SMALL:.0f}x)"
+    )
+
+
+@pytest.mark.serial
 def test_sc007_fingerprinting_a_whole_namespace_stays_inside_the_declared_bound() -> None:
     """SC-007: every name in the largest fixture's namespace, against ``max_seconds``.
 
-    The bound is per call, so a namespace of *n* names is allowed *n* times it.
     The namespace here is what a working session holds: a large frame, a large
     array, containers, scalars, and a handful of values the fingerprint cannot
     inspect at all.
+
+    The bound is one ``max_seconds`` — 250 ms — for the *whole* namespace, not
+    ``max_seconds`` per name. ``max_seconds`` is the ceiling for a single call, so
+    ``max_seconds x len(namespace)`` is what the budget formally permits, but at
+    nine names that is 2 250 ms against a measured 6 ms and the ADR-054 spec 2
+    audit was right to call the result unfalsifiable: 476x headroom is a
+    statement, not a measurement. The claim actually worth holding is stronger and
+    is what the design rests on — nine ordinary session values together cost less
+    than the budget allows for *one* of them.
+
+    **Measured: 6.1 ms against 250 ms — 41x.** That is deliberately comfortable
+    and stays a single sample: nothing here is close enough to the bound for
+    scheduler noise to reach it, so it does not need the ``best_of`` treatment
+    that ``dict_1m`` (5.4x) and the SC-010 test above (7.4x) do. It does carry
+    ``serial``, as every timed assertion in ``tests/explore`` does — 41x today is
+    not a reason to let a wall-clock number be measured against thirty-two sibling
+    xdist workers, because the headroom is what would absorb the noise and the
+    reader would have no way to tell the two apart. The ``per name`` bound is
+    asserted alongside it so the formal criterion is still on the record.
     """
     namespace = {
         "frame": pd.DataFrame({f"c{i}": np.random.default_rng(i).random(50_000) for i in range(20)}),
@@ -1332,6 +1665,10 @@ def test_sc007_fingerprinting_a_whole_namespace_stays_inside_the_declared_bound(
     snapshot = {name: fingerprint(value) for name, value in namespace.items()}
     elapsed = time.perf_counter() - started
 
-    budget = FINGERPRINT_BUDGET.max_seconds * len(namespace)
-    assert elapsed < budget, f"{elapsed * 1000:.1f} ms for {len(namespace)} names, bound {budget * 1000:.0f} ms"
+    formal = FINGERPRINT_BUDGET.max_seconds * len(namespace)
+    assert elapsed < formal, f"{elapsed * 1000:.1f} ms for {len(namespace)} names, bound {formal * 1000:.0f} ms"
+    assert elapsed < FINGERPRINT_BUDGET.max_seconds, (
+        f"the whole namespace took {elapsed * 1000:.1f} ms, which is more than one call is allowed "
+        f"({FINGERPRINT_BUDGET.max_seconds * 1000:.0f} ms)"
+    )
     assert compare_namespaces(snapshot, snapshot, cell_id="c1", source_hash="h").changed_names == frozenset()
