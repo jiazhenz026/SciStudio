@@ -44,7 +44,9 @@ from scistudio.explore.fingerprint import (
     FINGERPRINT_BUDGET,
     Fingerprint,
     FingerprintBudget,
+    ObservedChange,
     _fingerprint_context,
+    compare_namespaces,
     fingerprint,
 )
 from scistudio.stability import get_stability
@@ -696,7 +698,7 @@ def test_fingerprint_of_a_plain_value_needs_no_third_party_import() -> None:
 
 def test_public_symbols_carry_stability_markers() -> None:
     """ADR-052 §5: tier and Since on every public symbol this module adds."""
-    for symbol in (fingerprint, Fingerprint, FingerprintBudget):
+    for symbol in (fingerprint, Fingerprint, FingerprintBudget, ObservedChange, compare_namespaces):
         info = get_stability(symbol)
         assert info is not None, symbol
         assert info.tier == "provisional"
@@ -706,6 +708,8 @@ def test_public_symbols_carry_stability_markers() -> None:
         "FINGERPRINT_BUDGET",
         "Fingerprint",
         "FingerprintBudget",
+        "ObservedChange",
+        "compare_namespaces",
         "fingerprint",
     }
 
@@ -860,3 +864,267 @@ def test_the_sys_modules_guard_is_a_complete_test(monkeypatch: pytest.MonkeyPatc
     monkeypatch.delitem(sys.modules, library)
 
     assert fingerprint(value).observable is False
+
+
+# ---------------------------------------------------------------------------
+# FR-026 to FR-030 (T-008): the namespace comparison and the observation record.
+#
+# The comparison is the half of the observation that decides what a cell
+# changed, so it is tested against each of the three ways a name can move
+# (differ, appear, disappear), against the two ways it can *not* move, and
+# against the unobservable report that tells a person when the answer is a
+# guess. The FR-030 union — an observation only ever adds — is enforced by
+# ``build_graph`` and tested in ``test_dependency_analysis.py``, where the
+# static estimate it unions with lives.
+# ---------------------------------------------------------------------------
+
+CELL_HASH = "0" * 64
+OTHER_HASH = "1" * 64
+
+
+def _namespace(**values: Any) -> dict[str, Fingerprint]:
+    """Fingerprint a namespace the way the kernel would (A-007)."""
+    return {name: fingerprint(value) for name, value in values.items()}
+
+
+def test_fr026_a_name_whose_fingerprint_differs_is_changed() -> None:
+    """FR-026 / US3 scenario 1: the fingerprint moved, so the name is in the changed set."""
+    frame = pd.DataFrame({"x": [1.0, 2.0, 3.0]})
+    before = _namespace(df=frame, other=[1, 2])
+    frame.loc[1, "x"] = 99.0
+    after = _namespace(df=frame, other=[1, 2])
+
+    observed = compare_namespaces(before, after, cell_id="c4", source_hash=CELL_HASH)
+
+    assert observed.changed_names == frozenset({"df"})
+    assert observed.cell_id == "c4"
+    assert observed.source_hash == CELL_HASH
+
+
+def test_fr026_a_name_that_appeared_is_changed() -> None:
+    """FR-026 / US3 scenario 2: a name bound by the run is in the changed set."""
+    observed = compare_namespaces(
+        _namespace(df=[1]),
+        _namespace(df=[1], peaks=[2, 3]),
+        cell_id="c2",
+        source_hash=CELL_HASH,
+    )
+
+    assert observed.changed_names == frozenset({"peaks"})
+
+
+def test_fr026_a_name_that_disappeared_is_changed() -> None:
+    """FR-026 / US3 scenario 2: ``del df`` is a change, so readers below depend on the cell.
+
+    The spec's edge case says so explicitly: running them then fails with a name
+    error, which is the loud failure the model relies on.
+    """
+    observed = compare_namespaces(
+        _namespace(df=[1], keep=[2]),
+        _namespace(keep=[2]),
+        cell_id="c3",
+        source_hash=CELL_HASH,
+    )
+
+    assert observed.changed_names == frozenset({"df"})
+
+
+def test_fr026_an_untouched_namespace_reports_nothing_changed() -> None:
+    """The direction that keeps the diagnostic worth reading: no mutation, no report."""
+    frame = pd.DataFrame({"x": [1.0, 2.0]})
+    values = [1, 2, 3]
+    before = _namespace(df=frame, values=values, count=7, label="a")
+    after = _namespace(df=frame, values=values, count=7, label="a")
+
+    observed = compare_namespaces(before, after, cell_id="c1", source_hash=CELL_HASH)
+
+    assert observed.changed_names == frozenset()
+    assert observed.unobservable_names == frozenset()
+
+
+def test_fr026_two_empty_namespaces_report_nothing() -> None:
+    """A cell that runs against an empty namespace and binds nothing."""
+    observed = compare_namespaces({}, {}, cell_id="c1", source_hash=CELL_HASH)
+
+    assert observed.changed_names == frozenset()
+    assert observed.unobservable_names == frozenset()
+
+
+def test_fr026_a_rebinding_to_an_equal_value_is_not_reported() -> None:
+    """Content, not identity: ``df = df.copy()`` leaves the value where it was.
+
+    A fingerprint that keyed on ``id()`` for everything would report this as a
+    change and, over a notebook, teach the person to ignore the marks. The
+    static estimate still names ``df`` for such a cell, so no edge is lost —
+    only the false *observation* is.
+    """
+    before = _namespace(df=pd.DataFrame({"x": [1.0, 2.0]}))
+    after = _namespace(df=pd.DataFrame({"x": [1.0, 2.0]}))
+
+    assert compare_namespaces(before, after, cell_id="c1", source_hash=CELL_HASH).changed_names == frozenset()
+
+
+def test_fr026_a_name_that_changed_type_is_reported_even_at_an_equal_digest() -> None:
+    """The type is part of the fingerprint, so a swapped container is a change."""
+    before = {"values": Fingerprint(digest="abc", observable=True, type_name="list")}
+    after = {"values": Fingerprint(digest="abc", observable=True, type_name="tuple")}
+
+    observed = compare_namespaces(before, after, cell_id="c1", source_hash=CELL_HASH)
+
+    assert observed.changed_names == frozenset({"values"})
+
+
+def test_fr029_an_unobservable_name_is_reported() -> None:
+    """FR-029 / US3 scenario 5: the person is told the observation does not cover it."""
+
+    class Opaque:
+        pass
+
+    handle = Opaque()
+    before = _namespace(handle=handle, df=[1])
+    after = _namespace(handle=handle, df=[1])
+
+    observed = compare_namespaces(before, after, cell_id="c5", source_hash=CELL_HASH)
+
+    assert observed.unobservable_names == frozenset({"handle"})
+
+
+def test_fr029_an_unobservable_name_is_not_reported_as_changed() -> None:
+    """Unobservable is not the same claim as changed.
+
+    Folding the two together would add an edge for every open handle in the
+    namespace on every run — a stream of false diagnostics the person would
+    learn to ignore, which the spec's risk section calls out by name.
+    """
+
+    class Opaque:
+        pass
+
+    handle = Opaque()
+    observed = compare_namespaces(
+        _namespace(handle=handle),
+        _namespace(handle=handle),
+        cell_id="c1",
+        source_hash=CELL_HASH,
+    )
+
+    assert observed.changed_names == frozenset()
+    assert observed.unobservable_names == frozenset({"handle"})
+
+
+def test_fr029_an_unobservable_name_that_also_changed_is_in_both_sets() -> None:
+    """A name can be changed *and* uncovered; the two reports are independent."""
+
+    class Opaque:
+        pass
+
+    observed = compare_namespaces(
+        _namespace(handle=Opaque()),
+        _namespace(handle=Opaque()),
+        cell_id="c1",
+        source_hash=CELL_HASH,
+    )
+
+    assert observed.unobservable_names == frozenset({"handle"})
+    # Two distinct objects, so the identity digests differ and the name reads as
+    # changed. It is *not* proof of a change — which is exactly what the
+    # unobservable report above says.
+    assert observed.changed_names == frozenset({"handle"})
+
+
+def test_fr029_an_unobservable_name_present_only_before_is_reported() -> None:
+    """A name that was uncovered and then vanished is still reported for that run."""
+
+    class Opaque:
+        pass
+
+    observed = compare_namespaces(
+        _namespace(handle=Opaque()),
+        {},
+        cell_id="c1",
+        source_hash=CELL_HASH,
+    )
+
+    assert observed.unobservable_names == frozenset({"handle"})
+    assert observed.changed_names == frozenset({"handle"})
+
+
+def test_fr027_an_observation_knows_which_source_it_describes() -> None:
+    """FR-027 / US3 scenario 4: keyed to the hash of the source at the time of the run."""
+    observed = compare_namespaces({}, {}, cell_id="c1", source_hash=CELL_HASH)
+
+    assert observed.applies_to(CELL_HASH) is True
+    assert observed.applies_to(OTHER_HASH) is False
+
+
+def test_the_comparison_is_pure_over_its_two_mappings() -> None:
+    """FR-004: it reads the two mappings and writes neither."""
+    before = _namespace(df=[1, 2])
+    after = _namespace(df=[1, 2, 3])
+    before_copy = dict(before)
+    after_copy = dict(after)
+
+    compare_namespaces(before, after, cell_id="c1", source_hash=CELL_HASH)
+
+    assert before == before_copy
+    assert after == after_copy
+
+
+def test_the_comparison_reports_on_exactly_the_names_it_is_given() -> None:
+    """Filtering dunder and kernel-injected names is the caller's, per the docstring."""
+    observed = compare_namespaces(
+        {"__builtins__": fingerprint([1])},
+        {"__builtins__": fingerprint([2])},
+        cell_id="c1",
+        source_hash=CELL_HASH,
+    )
+
+    assert observed.changed_names == frozenset({"__builtins__"})
+
+
+def test_an_observed_change_normalises_its_name_collections() -> None:
+    """A record rebuilt from JSON arrays compares equal to one the comparison made.
+
+    Without the normalisation the round trip of FR-032 would be comparing the
+    container type rather than the observation.
+    """
+    from_lists = ObservedChange(
+        cell_id="c1",
+        changed_names=["b", "a"],  # type: ignore[arg-type]
+        unobservable_names=["h"],  # type: ignore[arg-type]
+        source_hash=CELL_HASH,
+    )
+    from_sets = ObservedChange(
+        cell_id="c1",
+        changed_names=frozenset({"a", "b"}),
+        unobservable_names=frozenset({"h"}),
+        source_hash=CELL_HASH,
+    )
+
+    assert from_lists == from_sets
+    assert isinstance(from_lists.changed_names, frozenset)
+
+
+def test_an_observed_change_is_frozen() -> None:
+    """It is a record of a run that happened; nothing may edit it afterwards."""
+    observed = compare_namespaces({}, {}, cell_id="c1", source_hash=CELL_HASH)
+
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        observed.cell_id = "c2"  # type: ignore[misc]
+
+
+def test_the_comparison_scales_to_a_namespace_of_names() -> None:
+    """SC-007's shape at the comparison level: the join is linear in the names.
+
+    The fingerprints themselves carry the cost bound; the comparison must not
+    add one of its own on top of it.
+    """
+    before = {f"name{index}": fingerprint(index) for index in range(5000)}
+    after = {f"name{index}": fingerprint(index + 1) for index in range(5000)}
+
+    start = time.perf_counter()
+    observed = compare_namespaces(before, after, cell_id="c1", source_hash=CELL_HASH)
+    elapsed = time.perf_counter() - start
+
+    assert len(observed.changed_names) == 5000
+    assert elapsed < FINGERPRINT_BUDGET.max_seconds, f"comparison took {elapsed:.3f}s"

@@ -1,0 +1,81 @@
+{
+  "base_ref": "origin/track/adr-054-spec2-dependency-analysis",
+  "branch": "feat/2231-observation-codec",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [
+      "tests/architecture/**"
+    ],
+    "include": [
+      "src/scistudio/explore/__init__.py",
+      "src/scistudio/explore/dependency_analysis.py",
+      "src/scistudio/explore/fingerprint.py",
+      "tests/explore/test_dependency_analysis.py",
+      "tests/explore/test_fingerprint.py",
+      "docs/planning/adr-054-spec2-dependency-analysis-checklist.md",
+      ".workflow/records/2231-feat-2231-observation-codec.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-04T09:36:46.326592Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "the governing spec landed in PR 2228 and this change implements it without adding a documented surface",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2231,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-054 spec 2 tasks T-008, T-009, T-011: the namespace comparison and observation record (FR-026 to FR-030), the metadata codec (FR-031 to FR-034), and stability markers on the explore package's public symbols.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2231-feat-2231-observation-codec",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "a5c422bc-7fd7-4442-8dfc-c44a061efd1c",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-04T09:36:46.326615Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_fingerprint.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T09:36:46.326621Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_dependency_analysis.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

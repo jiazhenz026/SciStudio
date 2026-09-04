@@ -1,6 +1,6 @@
-"""Per-cell static facts and the cell-level dependency graph of an explore notebook.
+"""Per-cell static facts, the cell-level dependency graph, and the metadata codec.
 
-This module implements FR-005 to FR-023 and FR-036 of
+This module implements FR-005 to FR-023, FR-028, and FR-031 to FR-036 of
 ``docs/specs/adr-054-notebook-dependency-analysis.md`` (ADR-054 §6.1, §6.2).
 
 The unit of analysis is the **cell** (FR-001). For each cell the module records
@@ -33,8 +33,16 @@ tracking, and no analysis of a called function's body. When a cell runs, the
 kernel fingerprints the namespace before and after and hands the observed
 changed set to :func:`build_graph`, which unions it with the static estimate so
 that an observation can only add a definer (FR-022, FR-030). The fingerprint and
-the comparison live in :mod:`scistudio.explore.fingerprint`; this module depends
-on neither and only accepts the result.
+the comparison live in :mod:`scistudio.explore.fingerprint`.
+
+The graph never calls into that module: :func:`build_graph` reads an observation
+through the two attributes it needs, so a caller may hand it an
+:class:`~scistudio.explore.fingerprint.ObservedChange`, a plain set of names, or
+anything else that answers to ``changed_names``. The codec is the one part that
+must name the type, because decoding a stored record has to *build* one, and the
+:class:`ObservedChange` import exists for that alone. Both modules stay inside
+the FR-035 allowlist, which permits the standard library, the stability markers,
+and ``scistudio.explore`` itself.
 """
 
 from __future__ import annotations
@@ -48,12 +56,16 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Final
+from typing import Any, Final
+
+from scistudio.explore.fingerprint import ObservedChange
+from scistudio.stability import provisional
 
 __all__ = [
     "ANALYSIS_VERSION",
     "BLOCK_CALL_PATHS",
     "BUILTIN_NAMES",
+    "CELL_RECORD_KEY",
     "INPUT_CALL_PATH",
     "OUTPUT_CALL_PATH",
     "AnalysisFlag",
@@ -63,6 +75,7 @@ __all__ = [
     "DependencyGraph",
     "Edge",
     "EdgeOrigin",
+    "LoadedCell",
     "OutputDeclaration",
     "SliceResult",
     "UnresolvedRead",
@@ -71,6 +84,11 @@ __all__ = [
     "analyse_cell",
     "analyse_cells",
     "build_graph",
+    "decode_cell_record",
+    "encode_cell_record",
+    "encode_notebook_record",
+    "notebook_record_version",
+    "observation_flags",
     "source_hash",
 ]
 
@@ -78,6 +96,12 @@ __all__ = [
 #: The version of the analysis that produced a record. A stored record written
 #: by an older version is re-analysed rather than trusted (FR-031).
 ANALYSIS_VERSION: Final[int] = 1
+
+#: The cell-metadata and notebook-metadata key the record is stored under
+#: (FR-031). One key for both levels, so a notebook carries exactly one
+#: SciStudio-owned entry per metadata dictionary and another tool's entries under
+#: their own keys are untouched.
+CELL_RECORD_KEY: Final[str] = "scistudio"
 
 #: Names in Python's builtins namespace. A read of one of these draws no edge
 #: and is *not* recorded as unresolved, so the unresolved list stays about names
@@ -97,6 +121,7 @@ BLOCK_CALL_PATHS: Final[tuple[tuple[str, ...], ...]] = (("blocks", "run"),)
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.4")
 class AnalysisFlag(StrEnum):
     """The closed set of flags the analysis can raise (FR-036).
 
@@ -148,6 +173,7 @@ _FLAG_MESSAGES: Final[Mapping[AnalysisFlag, str]] = MappingProxyType(
 )
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class CellFlag:
     """One raised flag, with the rendered message and, where it has one, a position."""
@@ -159,6 +185,7 @@ class CellFlag:
     offset: int | None = None
 
 
+@provisional(since="0.3.4")
 class EdgeOrigin(StrEnum):
     """Why an edge exists (FR-019).
 
@@ -181,6 +208,7 @@ class EdgeOrigin(StrEnum):
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class OutputDeclaration:
     """One ``scistudio.output(...)`` call in a cell (FR-008).
@@ -196,6 +224,7 @@ class OutputDeclaration:
     arguments: tuple[str, ...]
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class BlockCall:
     """One block call in a cell (FR-010).
@@ -209,6 +238,7 @@ class BlockCall:
     lineno: int
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class CellFacts:
     """The static result for one cell.
@@ -252,6 +282,7 @@ class CellFacts:
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class Edge:
     """A dependency from a reading cell to a defining cell, for one name."""
@@ -262,6 +293,7 @@ class Edge:
     origin: EdgeOrigin
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class VersionNode:
     """One name changed by one cell (FR-016)."""
@@ -270,6 +302,7 @@ class VersionNode:
     name: str
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class VersionEdge:
     """An edge between version nodes, derived from the same facts as :class:`Edge`.
@@ -286,6 +319,7 @@ class VersionEdge:
     origin: EdgeOrigin
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class UnresolvedRead:
     """A read no enabled cell above resolves (FR-015)."""
@@ -302,6 +336,7 @@ class UnresolvedRead:
         )
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class SliceResult:
     """The answer to a backward-slice query (FR-021)."""
@@ -310,6 +345,7 @@ class SliceResult:
     unresolved_reads: tuple[UnresolvedRead, ...]
 
 
+@provisional(since="0.3.4")
 @dataclass(frozen=True)
 class DependencyGraph:
     """The cell-level graph over the enabled cells of a notebook.
@@ -441,6 +477,7 @@ class DependencyGraph:
 # ---------------------------------------------------------------------------
 
 
+@provisional(since="0.3.4")
 def source_hash(source: str) -> str:
     """The hash a per-cell record and an observation are keyed to."""
     return hashlib.sha256(source.encode("utf-8")).hexdigest()
@@ -726,6 +763,7 @@ def _syntax_error_facts(cell_id: str, digest: str, error: BaseException) -> Cell
     )
 
 
+@provisional(since="0.3.4")
 def analyse_cell(cell_id: str, source: str) -> CellFacts:
     """Compute the static facts of one cell. Never raises.
 
@@ -788,6 +826,7 @@ def analyse_cell(cell_id: str, source: str) -> CellFacts:
     )
 
 
+@provisional(since="0.3.4")
 def analyse_cells(cells: Sequence[tuple[str, str]]) -> tuple[CellFacts, ...]:
     """Analyse ``(cell_id, source)`` pairs in written order."""
     return tuple(analyse_cell(cell_id, source) for cell_id, source in cells)
@@ -815,15 +854,40 @@ def _observed_names(value: object) -> frozenset[str]:
     return frozenset(str(name) for name in changed)
 
 
+def _observation_is_current(cell: CellFacts, observation: object) -> bool:
+    """Return ``True`` when *observation* still describes *cell*'s source (FR-027).
+
+    An observation is a statement about the version of the cell that ran. Once
+    the source is edited the statement is about code that no longer exists, and
+    keeping it would draw an edge for a change the edit may have removed — so it
+    is discarded and the static estimate alone governs until the cell runs again.
+
+    An observation that carries no ``source_hash`` at all — a bare set of names,
+    which :func:`_observed_names` also accepts — is taken at face value, because
+    the caller who built it without a key is the one vouching that it is current.
+    """
+    recorded = getattr(observation, "source_hash", None)
+    return recorded is None or recorded == cell.source_hash
+
+
 def _resolve_changed_sets(
     facts: Sequence[CellFacts],
     observations: Mapping[str, object] | None,
 ) -> dict[str, frozenset[str]]:
+    """The changed set per cell: the union of the static estimate and the observation.
+
+    FR-030 lives here, in one expression. ``cell.assigned | observed`` can only
+    grow the static estimate; nothing in this module subtracts from it, so an
+    observation that reports *fewer* names than the source shows — a conditional
+    assignment on a branch that was not taken — leaves every static edge standing
+    (FR-002, spec §4.1 "Why the changed set is a union").
+    """
     changed: dict[str, frozenset[str]] = {}
     for cell in facts:
+        recorded = observations.get(cell.cell_id) if observations else None
         observed = (
-            _observed_names(observations[cell.cell_id])
-            if observations and cell.cell_id in observations
+            _observed_names(recorded)
+            if recorded is not None and _observation_is_current(cell, recorded)
             else frozenset()
         )
         changed[cell.cell_id] = cell.assigned | observed
@@ -860,6 +924,7 @@ def _version_edges(
     return tuple(version_edges)
 
 
+@provisional(since="0.3.4")
 def build_graph(
     facts: Sequence[CellFacts],
     *,
@@ -958,3 +1023,370 @@ def build_graph(
         unknown_binding_cells=tuple(unknown_binding_cells),
         changed_sets=MappingProxyType(changed_sets),
     )
+
+
+# ---------------------------------------------------------------------------
+# Observation diagnostics (FR-028, FR-029)
+# ---------------------------------------------------------------------------
+
+
+@provisional(since="0.3.4")
+def observation_flags(facts: CellFacts, observation: ObservedChange | None) -> tuple[CellFlag, ...]:
+    """The flags a cell's observation raises against its static estimate (FR-028, FR-029).
+
+    Two of the seven flags in :class:`AnalysisFlag` can only be raised here,
+    because only here are the observation and the static estimate both in hand:
+
+    * :attr:`AnalysisFlag.UNPREDICTED_CHANGE`, one per name the cell was observed
+      to change that its source does not assign. This is the ``normalise(df)``
+      case of US3: the cell changed ``df`` and nothing in the code says so, and
+      the person is entitled to be told which cell and which name. Where the
+      message is shown is the explore-frontend spec's.
+    * :attr:`AnalysisFlag.UNOBSERVABLE_NAME`, one per name whose fingerprint fell
+      back to identity - reported once for that cell run (FR-029), so the person
+      knows the observation does not cover it.
+
+    Returns ``()`` for a cell with no observation and for one whose observation
+    no longer matches its source (FR-027): a diagnostic about a run of code the
+    person has since edited is noise, and the observation itself is discarded by
+    :func:`build_graph` for the same reason.
+
+    The flags are *returned*, not folded into :attr:`CellFacts.flags`, because
+    ``CellFacts`` is the static result and stays a function of the source alone.
+    A caller that wants both concatenates them.
+    """
+    if observation is None:
+        return ()
+    if observation.cell_id != facts.cell_id:
+        raise ValueError(f"observation for cell {observation.cell_id!r} does not describe cell {facts.cell_id!r}")
+    if not observation.applies_to(facts.source_hash):
+        return ()
+
+    flags: list[CellFlag] = [
+        CellFlag(
+            flag=AnalysisFlag.UNPREDICTED_CHANGE,
+            message=AnalysisFlag.UNPREDICTED_CHANGE.message(cell_id=facts.cell_id, name=name),
+            name=name,
+        )
+        for name in sorted(observation.changed_names - facts.assigned)
+    ]
+    flags.extend(
+        CellFlag(
+            flag=AnalysisFlag.UNOBSERVABLE_NAME,
+            message=AnalysisFlag.UNOBSERVABLE_NAME.message(cell_id=facts.cell_id, name=name),
+            name=name,
+        )
+        for name in sorted(observation.unobservable_names)
+    )
+    return tuple(flags)
+
+
+# ---------------------------------------------------------------------------
+# The metadata codec (FR-031 to FR-034)
+# ---------------------------------------------------------------------------
+
+#: Keys inside a per-cell record that this analysis owns. Every other key found
+#: in the record is another tool's and is carried through a rewrite untouched
+#: (FR-033).
+_RECOGNISED_CELL_KEYS: Final[frozenset[str]] = frozenset(
+    {"source_hash", "assigned", "read", "outputs", "inputs", "block_calls", "flags", "observation"}
+)
+
+#: Keys inside the notebook-level record that this analysis owns (FR-031).
+_RECOGNISED_NOTEBOOK_KEYS: Final[frozenset[str]] = frozenset({"analysis_version"})
+
+
+@provisional(since="0.3.4")
+@dataclass(frozen=True)
+class LoadedCell:
+    """One cell's facts and observation, as :func:`decode_cell_record` recovered them.
+
+    :attr:`facts` is always present and always describes the source that was
+    passed in: a record that did not match is discarded and the cell re-analysed
+    rather than returned as ``None`` for the caller to handle (FR-032).
+    :attr:`reanalysed` says which of the two happened, so a session can tell a
+    load that reused the stored facts from one that recomputed them, and so a
+    test can assert the discard rather than infer it.
+    """
+
+    facts: CellFacts
+    observation: ObservedChange | None
+    reanalysed: bool
+
+
+def _string_tuple(values: object) -> tuple[str, ...]:
+    """Read a JSON array of strings, refusing anything else.
+
+    A bare ``str`` is refused explicitly: iterating one yields characters, which
+    would decode ``"df"`` as three names rather than failing, and a silently
+    wrong record is worse than a discarded one.
+    """
+    if isinstance(values, str) or not isinstance(values, Iterable):
+        raise TypeError(f"expected an array of strings, got {type(values).__name__}")
+    items = tuple(values)
+    for item in items:
+        if not isinstance(item, str):
+            raise TypeError(f"expected a string, got {type(item).__name__}")
+    return items
+
+
+def _require_str(value: object, what: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"expected {what} to be a string, got {type(value).__name__}")
+    return value
+
+
+def _optional_str(value: object) -> str | None:
+    if value is None or isinstance(value, str):
+        return value
+    raise TypeError(f"expected a string or null, got {type(value).__name__}")
+
+
+def _require_int(value: object, what: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"expected {what} to be an integer, got {type(value).__name__}")
+    return value
+
+
+def _optional_int(value: object) -> int | None:
+    if value is None:
+        return None
+    return _require_int(value, "a position")
+
+
+def _require_mapping(value: object, what: str) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise TypeError(f"expected {what} to be an object, got {type(value).__name__}")
+    return value
+
+
+def _require_sequence(value: object, what: str) -> tuple[Any, ...]:
+    if isinstance(value, (str, bytes)) or not isinstance(value, Iterable):
+        raise TypeError(f"expected {what} to be an array, got {type(value).__name__}")
+    return tuple(value)
+
+
+def _encode_flag(flag: CellFlag) -> dict[str, Any]:
+    return {
+        "flag": flag.flag.value,
+        "message": flag.message,
+        "name": flag.name,
+        "lineno": flag.lineno,
+        "offset": flag.offset,
+    }
+
+
+def _decode_flag(payload: object) -> CellFlag:
+    entry = _require_mapping(payload, "a flag")
+    return CellFlag(
+        # AnalysisFlag is closed (FR-036), so a value from outside it is a record
+        # this version of the analysis cannot read: the ValueError reaches
+        # decode_cell_record, which discards the record and re-analyses.
+        flag=AnalysisFlag(entry["flag"]),
+        message=_require_str(entry["message"], "a flag message"),
+        name=_optional_str(entry.get("name")),
+        lineno=_optional_int(entry.get("lineno")),
+        offset=_optional_int(entry.get("offset")),
+    )
+
+
+def _encode_observation(observation: ObservedChange) -> dict[str, Any]:
+    return {
+        "changed_names": sorted(observation.changed_names),
+        "unobservable_names": sorted(observation.unobservable_names),
+        "source_hash": observation.source_hash,
+    }
+
+
+def _decode_observation(cell_id: str, digest: str, record: Mapping[str, Any]) -> ObservedChange | None:
+    """Recover the observation, or ``None`` when it no longer describes the cell (FR-027)."""
+    payload = record.get("observation")
+    if payload is None:
+        return None
+    entry = _require_mapping(payload, "an observation")
+    recorded = _require_str(entry["source_hash"], "an observation source hash")
+    if recorded != digest:
+        # The cell has been edited since the run. FR-027: the observation is
+        # discarded and the static estimate alone governs until the cell runs
+        # again. It is checked against the cell's *current* source rather than
+        # against the record's own hash, so a record whose facts are stale for
+        # one reason and whose observation is stale for another resolves each
+        # independently.
+        return None
+    return ObservedChange(
+        cell_id=cell_id,
+        changed_names=frozenset(_string_tuple(entry.get("changed_names", ()))),
+        unobservable_names=frozenset(_string_tuple(entry.get("unobservable_names", ()))),
+        source_hash=recorded,
+    )
+
+
+def _decode_output(payload: object) -> OutputDeclaration:
+    entry = _require_mapping(payload, "an output declaration")
+    return OutputDeclaration(
+        keywords=_string_tuple(entry["keywords"]),
+        arguments=_string_tuple(entry["arguments"]),
+    )
+
+
+def _decode_block_call(payload: object) -> BlockCall:
+    entry = _require_mapping(payload, "a block call")
+    return BlockCall(
+        block_id=_optional_str(entry.get("block_id")),
+        lineno=_require_int(entry["lineno"], "a block call line number"),
+    )
+
+
+def _decode_facts(cell_id: str, digest: str, record: Mapping[str, Any]) -> CellFacts | None:
+    """Recover the static facts, or ``None`` when the record is for other source (FR-032)."""
+    if record.get("source_hash") != digest:
+        return None
+    return CellFacts(
+        cell_id=cell_id,
+        source_hash=digest,
+        assigned=frozenset(_string_tuple(record.get("assigned", ()))),
+        read=frozenset(_string_tuple(record.get("read", ()))),
+        outputs=tuple(_decode_output(item) for item in _require_sequence(record.get("outputs", ()), "outputs")),
+        inputs=_string_tuple(record.get("inputs", ())),
+        block_calls=tuple(
+            _decode_block_call(item) for item in _require_sequence(record.get("block_calls", ()), "block calls")
+        ),
+        flags=tuple(_decode_flag(item) for item in _require_sequence(record.get("flags", ()), "flags")),
+    )
+
+
+@provisional(since="0.3.4")
+def encode_cell_record(
+    facts: CellFacts,
+    observation: ObservedChange | None = None,
+    *,
+    existing: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build the per-cell record for the ``scistudio`` key of cell metadata (FR-031).
+
+    The record holds the static facts, the flags, the source hash they were
+    computed from, and the observation with its own source hash. It holds **no
+    edges** (FR-032): the graph is a deterministic function of the sources, their
+    order, the enabled flags, and the observations, all of which the notebook
+    already carries, and a stored copy could only ever disagree with the
+    recomputed one.
+
+    Nor does it hold the cell id. The id belongs to the notebook cell the record
+    is attached to; a second copy inside the record is one more value that can
+    disagree with the cell it describes, for the same reason edges are not
+    stored. :func:`decode_cell_record` takes the id from the caller.
+
+    *existing* is the record currently under the key, if any. Keys this analysis
+    does not recognise are carried through untouched, so another tool's metadata
+    under the same key survives a rewrite (FR-033). The copy is shallow: an
+    unknown value is passed through as the object it already was.
+
+    Every value in the result is a JSON primitive - object, array, string,
+    integer, or null - so the session's own :mod:`json` handling of the notebook
+    is all that is needed to store it (FR-033, FR-034). Sets are written as
+    sorted arrays, so the record is stable for a given input and a notebook does
+    not churn in git on a re-save.
+    """
+    if observation is not None and observation.cell_id != facts.cell_id:
+        raise ValueError(f"observation for cell {observation.cell_id!r} does not describe cell {facts.cell_id!r}")
+
+    record: dict[str, Any] = {
+        "source_hash": facts.source_hash,
+        "assigned": sorted(facts.assigned),
+        "read": sorted(facts.read),
+        "outputs": [
+            {"keywords": list(declaration.keywords), "arguments": list(declaration.arguments)}
+            for declaration in facts.outputs
+        ],
+        "inputs": list(facts.inputs),
+        "block_calls": [{"block_id": call.block_id, "lineno": call.lineno} for call in facts.block_calls],
+        "flags": [_encode_flag(flag) for flag in facts.flags],
+    }
+    if observation is not None:
+        record["observation"] = _encode_observation(observation)
+    # Every recognised key is rewritten from the facts above, so one whose new
+    # value is absent — an observation the source edit invalidated — is dropped
+    # rather than left behind under a fresh source hash. Everything else in
+    # *existing* is another tool's and survives (FR-033).
+    record.update(
+        {key: value for key, value in (existing or {}).items() if key not in _RECOGNISED_CELL_KEYS},
+    )
+    return record
+
+
+@provisional(since="0.3.4")
+def decode_cell_record(
+    cell_id: str,
+    source: str,
+    record: Mapping[str, Any] | None,
+    *,
+    analysis_version: int | None = ANALYSIS_VERSION,
+) -> LoadedCell:
+    """Recover a cell's facts and observation from its stored record (FR-032).
+
+    *record* is the value under the ``scistudio`` key of the cell's metadata, as
+    the session's :mod:`json` load produced it, or ``None`` for a cell that has
+    none. *analysis_version* is what :func:`notebook_record_version` read from
+    the notebook-level record; ``None`` means the notebook carries no version.
+
+    The record is **discarded and the cell re-analysed** when it is absent, when
+    its source hash does not match *source*, when it was written by a different
+    analysis version, or when any part of it fails to decode. That last case
+    matters: a record lives in a file a person can edit and another tool can
+    write, so a malformed one must cost a re-analysis and never an exception out
+    of a notebook load. :attr:`LoadedCell.reanalysed` reports which happened.
+
+    The observation is keyed to its own source hash and resolved independently:
+    it survives only while it still describes the current source (FR-027).
+    """
+    digest = source_hash(source)
+    facts: CellFacts | None = None
+    observation: ObservedChange | None = None
+
+    if record is not None and analysis_version == ANALYSIS_VERSION:
+        try:
+            entry = _require_mapping(record, "a cell record")
+            facts = _decode_facts(cell_id, digest, entry)
+            observation = _decode_observation(cell_id, digest, entry)
+        except (TypeError, ValueError, KeyError, AttributeError):
+            # Any malformed part discards the whole record: a half-read record
+            # would produce facts that no source ever produced, and FR-002's one
+            # guarantee is about facts the source shows.
+            facts = None
+            observation = None
+
+    if facts is None:
+        return LoadedCell(facts=analyse_cell(cell_id, source), observation=observation, reanalysed=True)
+    return LoadedCell(facts=facts, observation=observation, reanalysed=False)
+
+
+@provisional(since="0.3.4")
+def encode_notebook_record(existing: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Build the notebook-level record for the ``scistudio`` key (FR-031).
+
+    It holds the analysis version and nothing else: the version is what lets a
+    later release refuse records it cannot read, and everything else about a
+    notebook is per-cell. Unknown keys in *existing* are preserved (FR-033).
+    """
+    record: dict[str, Any] = {"analysis_version": ANALYSIS_VERSION}
+    record.update(
+        {key: value for key, value in (existing or {}).items() if key not in _RECOGNISED_NOTEBOOK_KEYS},
+    )
+    return record
+
+
+@provisional(since="0.3.4")
+def notebook_record_version(record: Mapping[str, Any] | None) -> int | None:
+    """The analysis version stored in the notebook-level record, or ``None``.
+
+    ``None`` for a notebook that carries no record, one whose record is not an
+    object, and one whose version is not an integer - all of which mean the same
+    thing to :func:`decode_cell_record`: nothing here was written by an analysis
+    this release can read, so every cell is re-analysed.
+    """
+    if not isinstance(record, Mapping):
+        return None
+    version = record.get("analysis_version")
+    if isinstance(version, bool) or not isinstance(version, int):
+        return None
+    return version
