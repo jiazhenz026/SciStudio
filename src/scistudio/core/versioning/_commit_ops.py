@@ -161,10 +161,10 @@ def _commit(
 #      object database. ``--no-filters`` is load-bearing: it stops
 #      ``core.autocrlf`` and any clean filter from rewriting notebook bytes,
 #      so what the caller passed is exactly what the commit records.
-#   2. ``git update-index --add --cacheinfo`` populates a **temporary** index
+#   2. ``git update-index --add --cacheinfo`` populates a **scratch** index
 #      selected with ``GIT_INDEX_FILE``. The repository's real index file is
 #      never opened.
-#   3. ``git write-tree`` turns that temporary index into a tree.
+#   3. ``git write-tree`` turns that scratch index into a tree.
 #   4. ``git commit-tree`` builds the commit object.
 #   5. ``git update-ref`` moves the target ref, with the previous value passed
 #      as the compare-and-swap old value so two concurrent writers cannot
@@ -326,15 +326,15 @@ def _write_tree(
     base_commit: str | None,
     index_file: Path,
 ) -> str:
-    """Build a tree from *blobs* against a temporary index and return its SHA.
+    """Build a tree from *blobs* against a scratch index and return its SHA.
 
     Args:
         engine: The engine whose repository receives the objects.
         blobs: Repository-relative POSIX path to the blob SHA recorded there.
         base_commit: When given, the tree of this commit is read into the
-            temporary index first, so the result is that tree with *blobs*
+            scratch index first, so the result is that tree with *blobs*
             applied on top. ``None`` builds a tree containing *only* *blobs*.
-        index_file: Path of the temporary index, selected with
+        index_file: Path of the scratch index, selected with
             ``GIT_INDEX_FILE``. Must sit outside the repository's ``.git`` so
             the real index is never a candidate.
 

@@ -1,0 +1,100 @@
+{
+  "base_ref": "origin/track/adr-054-spec3-explore-session",
+  "branch": "fix/2240-ci-failures",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-04T20:54:56.915781Z",
+      "class": "no-contract-change",
+      "kind": "na",
+      "path": null,
+      "rationale": "the change is test parametrisation portability plus comment/docstring wording; no contract, schema, route, or behavior changes",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2240,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix the two real CI failures on PR #2251: platform-assuming path-containment test parametrisations, and the deferral diff gate reporting newly-added deferral language.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2240-fix-2240-ci-failures",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T20:54:56.915735Z",
+      "pattern": "tests/api/test_explore_routes.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T20:54:56.915761Z",
+      "pattern": "src/scistudio/explore/notebook_api.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T20:54:56.915765Z",
+      "pattern": "src/scistudio/explore/packaging.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T20:54:56.915767Z",
+      "pattern": "src/scistudio/api/routes/explore.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T20:54:56.915768Z",
+      "pattern": "src/scistudio/core/lineage/store.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T20:54:56.915770Z",
+      "pattern": "src/scistudio/core/versioning/_commit_ops.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "f6ef3f57-8426-482b-9243-44095f1a1fd8",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-04T20:54:56.915788Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_explore_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

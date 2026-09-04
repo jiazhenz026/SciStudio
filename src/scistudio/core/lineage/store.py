@@ -235,9 +235,9 @@ _EXPLORE_SESSIONS_DDL = """
     )
 """
 
-# ``block_executions`` is written with a ``{table}`` placeholder because
+# ``block_executions`` is written with a ``{table}`` substitution slot because
 # ``_migrate_block_executions_session_anchor`` rebuilds the table under a
-# temporary name and must use exactly this definition to do it (SQLite cannot
+# scratch name and must use exactly this definition to do it (SQLite cannot
 # relax a NOT NULL constraint in place).
 #
 # The anchor is polymorphic: ``run_id`` for a workflow run, ``session_id`` for
@@ -889,7 +889,7 @@ class LineageStore:
 
         The session-side counterpart of :meth:`finalize_run`, including the
         latching of ``provenance_degraded``: one failed write marks the session
-        even if later writes succeed.
+        even if the writes after it succeed.
 
         Args:
             session_id: Id of the session to close.

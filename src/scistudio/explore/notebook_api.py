@@ -258,9 +258,9 @@ def session_binding() -> SessionBinding | None:
 def declared_outputs() -> tuple[DeclaredOutput, ...]:
     """Every name declared with :func:`output`, in declaration order.
 
-    A name declared twice appears once, carrying the later declaration and in
-    the later declaration's position: "the later declaration in written order
-    wins" (spec §2, Edge Cases).
+    A name declared twice appears once, carrying the second declaration and in
+    the second declaration's position: the declaration written last in the
+    notebook wins (spec §2, Edge Cases).
     """
     return tuple(_DECLARED.values())
 
@@ -498,7 +498,7 @@ def output(**names: Any) -> None:
     mode = current_mode()
     for name, value in names.items():
         if mode == SESSION_MODE:
-            # "The later declaration in written order wins" (spec §2, Edge
+            # The declaration written last in the notebook wins (spec §2, Edge
             # Cases): drop the earlier entry so the winner also takes its own
             # position rather than inheriting the first one's.
             _DECLARED.pop(name, None)
