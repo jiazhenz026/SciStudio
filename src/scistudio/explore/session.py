@@ -1126,6 +1126,12 @@ class ExploreSession:
         # there is no store to write them to. Drained here, once per run,
         # because this is the point at which the cell that made them is known.
         self._service._record_block_calls(self, cell_id, self._drain_block_calls())
+        # FR-055: the names this notebook has declared through ``scistudio.output``
+        # are durable. Read after the block calls are written, because a name
+        # declared in this very cell usually points at an object a call in this
+        # very cell produced, and the declaration is an edge onto that call's
+        # record.
+        self._service._record_declared_outputs(self, self._read_declared_outputs())
 
         self._record_outputs(cell_id, result)
         self._apply_observation(cell_id, observation, in_order=not reads)
@@ -1160,6 +1166,25 @@ class ExploreSession:
             return bridge.block_calls()
         except Exception as error:
             self._service._note_provenance_failure(self.session_id, "read the block calls a cell made", error)
+            return ()
+
+    def _read_declared_outputs(self) -> tuple[Mapping[str, Any], ...]:
+        """What the notebook has declared through ``scistudio.output`` (FR-055).
+
+        Best effort, on the same terms as :meth:`_drain_block_calls`: a bridge
+        that cannot answer marks the session's provenance degraded and the run
+        stands. Reading rather than draining, because the declarations are the
+        notebook's current statement of what it produces and a re-declaration of
+        the same name must stay idempotent — ``declare_output`` is keyed on the
+        edge, so declaring twice writes once.
+        """
+        bridge = self.bridge
+        if bridge is None:
+            return ()
+        try:
+            return bridge.declared_outputs()
+        except Exception as error:
+            self._service._note_provenance_failure(self.session_id, "read the notebook's declared outputs", error)
             return ()
 
     def _record_outputs(self, cell_id: str, result: ExecutionResult) -> None:
@@ -1689,6 +1714,65 @@ class SessionService:
                 )
             except Exception as error:
                 self._note_provenance_failure(session.session_id, f"record a block call from cell {cell_id}", error)
+
+    def _record_declared_outputs(
+        self,
+        session: ExploreSession,
+        declarations: Sequence[Mapping[str, Any]],
+    ) -> None:
+        """Mark every object the notebook named through ``scistudio.output`` durable (FR-055).
+
+        FR-055: *"Objects named in ``scistudio.output`` MUST be durable; every
+        other object a session produces MUST be a reclaim candidate."* Both
+        halves were written and only the reclaim half was reachable.
+        ``declare_output`` is the sole writer of the ``declared_output`` edge and
+        had **no caller in src/**, so ``session_declared_output_paths()`` — the
+        query the retention planner subtracts with — always returned empty.
+        Meanwhile the planner adds every object a session produced to
+        ``candidates`` *before* the per-workflow floor guard, and
+        ``_schedule_artifact_retention`` runs after every successful workflow run
+        and is on unless it is switched off. Close a session, run any workflow,
+        and the objects the notebook named were deleted along with the rest.
+
+        The join is through the catalog rather than through session state: the
+        declaration carries the object's identity, and the store already knows
+        which execution produced it, because ``record_block_call`` fills
+        ``produced_by_execution`` on every output row. Going through the store
+        rather than remembering the last drain is what makes a name declared in
+        a *later* cell than the one that produced it — the ordinary shape, since
+        a notebook usually computes first and declares at the end — resolve to
+        the right execution.
+
+        A declaration whose object no execution of this session produced is
+        skipped rather than invented: retention only ever offers such an object
+        if something else produced it, and inventing an execution to hang the
+        edge on would put a row in ``block_executions`` for work nobody did.
+
+        Args:
+            session: The session whose notebook made the declarations.
+            declarations: What ``KernelBridge.declared_outputs`` returned.
+        """
+        if self._lineage is None or not declarations:
+            return
+        for declared in declarations:
+            object_id = declared.get("object_id")
+            if not isinstance(object_id, str) or not object_id:
+                continue
+            name = str(declared.get("name") or "")
+            if not name:
+                continue
+            try:
+                stored = self._lineage.store.get_data_object(object_id)
+                produced_by = (stored or {}).get("produced_by_execution")
+                if not produced_by:
+                    continue
+                self._lineage.declare_output(
+                    block_execution_id=str(produced_by),
+                    name=name,
+                    row=_declared_output_row(declared, stored, str(produced_by)),
+                )
+            except Exception as error:
+                self._note_provenance_failure(session.session_id, f"declare the output {name!r} durable", error)
 
     def _note_provenance_failure(self, session_id: str, what: str, error: BaseException) -> None:
         """Latch that a lineage write for *session_id* failed, and log it once per write.
@@ -2549,6 +2633,67 @@ def _block_call_rows(
             port: [row for _, row in sorted(items, key=lambda item: item[0])]
             for port, items in grouped["output"].items()
         },
+    )
+
+
+def _as_wire_payload(raw: Any) -> dict[str, Any]:
+    """A stored ``wire_payload`` as the dict a :class:`DataObjectRow` carries.
+
+    SQLite hands the column back as the JSON text it was written as, so a row
+    read out of the store and written straight back would double-encode it.
+    """
+    if isinstance(raw, Mapping):
+        return dict(raw)
+    if isinstance(raw, str) and raw:
+        from json import JSONDecodeError, loads
+
+        try:
+            decoded = loads(raw)
+        except JSONDecodeError:
+            return {}
+        return decoded if isinstance(decoded, dict) else {}
+    return {}
+
+
+def _declared_output_row(
+    declared: Mapping[str, Any],
+    stored: Mapping[str, Any] | None,
+    produced_by: str,
+) -> DataObjectRow:
+    """The ``data_objects`` row a declaration is recorded against (FR-055).
+
+    Built from the row the store already holds, with the declaration's own
+    envelope only as a fallback. ``declare_output`` upserts before it writes the
+    edge, so a row assembled from the declaration alone would overwrite what the
+    block call recorded — including ``storage_path``, which is the column
+    retention decides over, and ``produced_by_execution``, which is what made
+    the object findable in the first place. Preserving the stored row means the
+    declaration adds an edge and changes nothing else.
+    """
+    payload = declared.get("data_object")
+    wire = dict(payload) if isinstance(payload, Mapping) else {}
+    if stored is not None:
+        return DataObjectRow(
+            object_id=str(stored["object_id"]),
+            type_name=str(stored.get("type_name") or declared.get("type_name") or "DataObject"),
+            wire_payload=_as_wire_payload(stored.get("wire_payload")) or wire,
+            created_at=str(stored.get("created_at") or _now()),
+            backend=stored.get("backend"),
+            storage_path=stored.get("storage_path"),
+            size_bytes=stored.get("size_bytes"),
+            mtime_at_write=stored.get("mtime_at_write"),
+            derived_from=stored.get("derived_from"),
+            produced_by_execution=produced_by,
+            content_hash=stored.get("content_hash"),
+        )
+    return DataObjectRow(
+        object_id=str(declared["object_id"]),
+        type_name=str(declared.get("type_name") or "DataObject"),
+        wire_payload=wire,
+        created_at=_now(),
+        backend=wire.get("backend") if isinstance(wire.get("backend"), str) else None,
+        storage_path=wire.get("path") if isinstance(wire.get("path"), str) else None,
+        produced_by_execution=produced_by,
     )
 
 

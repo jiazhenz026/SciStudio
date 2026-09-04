@@ -26,7 +26,7 @@ import pytest
 
 from scistudio.core.lineage.record import ExploreSessionRecord, RunRecord
 from scistudio.core.lineage.retention import plan_retention
-from scistudio.core.lineage.store import LineageStore
+from scistudio.core.lineage.store import DECLARED_OUTPUT_DIRECTION, LineageStore
 from scistudio.core.versioning._commit_ops import _explore_session_ref
 from scistudio.core.versioning.git_engine import GitEngine
 from scistudio.explore.lineage import CELL_BLOCK_TYPE
@@ -452,6 +452,101 @@ def test_a_block_a_cell_called_is_recorded_against_the_session(
     edges = store.list_block_io(record["block_execution_id"])
     assert [(edge["direction"], edge["port_name"]) for edge in edges] == [("output", "out")]
     assert store.get_data_object(edges[0]["object_id"]) is not None, "the edge points at no data object"
+
+
+@needs_kernel
+@pytest.mark.serial
+def test_a_declared_output_is_durable_and_survives_the_retention_sweep(
+    store: LineageStore, services: Callable[..., SessionService], tmp_path: Path
+) -> None:
+    """FR-055's durable half has a production writer (#2240 audit P1-2).
+
+    ``ExploreLineage.declare_output`` is the only writer of the
+    ``declared_output`` edge and had no caller in ``src/`` — the two tests that
+    covered the retention planner's durable branch called it themselves, so the
+    only writer in the repository was a test helper and
+    ``session_declared_output_paths()`` was empty at runtime. Retention adds
+    every object a session produced to ``candidates`` **before** the
+    per-workflow floor guard, and the sweep runs after every successful workflow
+    run, so closing a session and running any workflow deleted exactly the
+    objects ``scistudio.output`` exists to protect.
+
+    Written against a real kernel and a real block on purpose: the declaration
+    is made inside the kernel by ``scistudio.output``, the object's identity has
+    to cross the frame, and the join to the execution that produced it is made
+    in the service. A test that supplied any of those three would prove nothing
+    about the path a person takes.
+
+    This is the half that was missing — **production writes the edge**. The
+    other half, *the edge is what retention honours*, is
+    ``test_explore_lineage.py::test_retention_keeps_the_declared_object_and_reclaims_the_rest``,
+    which builds its object with a storage path so the planner has something to
+    decide over. Keeping them apart is deliberate: an in-process ``Text`` has no
+    ``storage_path``, so a single test would have to persist through the storage
+    router to say anything about retention, and would then prove the writer only
+    incidentally.
+    """
+    service = services(lineage_store=store)
+    session = service.open_over_file("data/raw/signal.csv")
+    first = session.cells()[0].cell_id
+    assert first is not None
+    _install_probe_block(session, tmp_path, first)
+
+    call_cell = session.insert_cell('greeting = blocks.run("Greeter", greeting="from a cell")', after=first)
+    session.run_cell(call_cell)
+    assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+
+    declare_cell = session.insert_cell("import scistudio\nscistudio.output(greeting=greeting)", after=call_cell)
+    session.run_cell(declare_cell)
+    assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+
+    (call,) = [
+        row for row in store.list_session_block_executions(session.session_id) if row["block_type"] != CELL_BLOCK_TYPE
+    ]
+    edges = store.list_block_io(call["block_execution_id"])
+    declared = [edge for edge in edges if edge["direction"] == DECLARED_OUTPUT_DIRECTION]
+    assert declared, "no declared_output edge: the durable set is empty however much the notebook declares"
+    assert declared[0]["port_name"] == "greeting", "the edge does not carry the name the notebook declared"
+
+    produced = [edge for edge in edges if edge["direction"] == "output"]
+    assert declared[0]["object_id"] == produced[0]["object_id"], (
+        "the declaration must name the object the call produced, not a new one"
+    )
+    obj = store.get_data_object(declared[0]["object_id"])
+    assert obj is not None
+    assert obj["produced_by_execution"] == call["block_execution_id"], (
+        "declaring must not overwrite the producer the block call recorded"
+    )
+
+
+@needs_kernel
+@pytest.mark.serial
+def test_a_value_that_is_not_a_stored_object_declares_nothing(
+    store: LineageStore, services: Callable[..., SessionService]
+) -> None:
+    """Declaring a plain value writes no edge, rather than inventing one.
+
+    Retention decides over rows in ``data_objects``; a value that was never
+    stored was never a reclaim candidate, so there is nothing to make durable.
+    A writer that invented a row here would put an object in the catalog that
+    nothing produced.
+    """
+    service = services(lineage_store=store)
+    session = service.open_over_file("data/raw/signal.csv")
+    first = session.cells()[0].cell_id
+    assert first is not None
+    session.set_cell_source(first, "import scistudio\ntotal = 1 + 1\nscistudio.output(total=total)")
+    session.run_cell(first)
+    assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+
+    edges = [
+        edge
+        for row in store.list_session_block_executions(session.session_id)
+        for edge in store.list_block_io(row["block_execution_id"])
+        if edge["direction"] == DECLARED_OUTPUT_DIRECTION
+    ]
+    assert edges == []
+    assert store.session_declared_output_paths([session.session_id]) == set()
 
 
 @needs_kernel

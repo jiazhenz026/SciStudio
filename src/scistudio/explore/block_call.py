@@ -789,6 +789,27 @@ def _to_native(obj: Any) -> Any:
         return transient if transient is not None else obj
 
 
+@provisional(since="0.3.4")
+def native_of(data_object: Any) -> Any:
+    """The in-memory value a cell is handed for *data_object*.
+
+    The same unwrapping :meth:`BlockCallAdapter.call` performs on its way out,
+    exposed because FR-055 has to answer a question only this mapping can:
+    ``blocks.run(...)`` hands the cell a **native** value, so the name a
+    notebook later passes to ``scistudio.output`` is a ``str`` or an ``ndarray``
+    with no object identity on it, while the object retention decides over is
+    the ``DataObject`` the call produced. Unwrapping the edge's object the way
+    the call did is what lets the two be recognised as the same thing.
+
+    Args:
+        data_object: The object a call's output edge carries.
+
+    Returns:
+        Its in-memory form, or the object itself when it has none.
+    """
+    return _to_native(data_object)
+
+
 def _unwrap_one(value: Any) -> Any:
     """Unwrap one output port's Collection into what the cell should bind.
 

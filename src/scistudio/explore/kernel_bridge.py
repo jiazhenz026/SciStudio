@@ -877,6 +877,7 @@ def record_block_call_lineage(lineage: Any) -> None:
         return
     if payload is not None:
         _BLOCK_CALL_LINEAGE.append(payload)
+    _remember_declarable(lineage)
 
 
 @provisional(since="0.3.4")
@@ -894,6 +895,99 @@ def drain_block_calls() -> list[dict[str, Any]]:
     drained = list(_BLOCK_CALL_LINEAGE)
     _BLOCK_CALL_LINEAGE.clear()
     return drained
+
+
+#: Identity map from a value a block call handed a cell to the object it came
+#: from, as ``id(native) -> (native, object_id, type_name)`` (FR-055).
+#:
+#: ``blocks.run(...)`` returns a **native** — a ``str``, an ``ndarray`` — so the
+#: value a notebook later names in ``scistudio.output`` carries no object
+#: identity, while the row retention decides over is the ``DataObject`` the call
+#: produced. This is the only place both are in hand.
+#:
+#: The native is held in the tuple, not merely keyed on: a dead object's ``id``
+#: can be reused by a later allocation, and holding a reference makes the key
+#: unambiguous for as long as it is in the map. The cost is nothing in practice,
+#: because the cell that made the call assigned the value into the namespace
+#: anyway, and the map dies with the kernel process.
+_DECLARABLE_BY_ID: dict[int, tuple[Any, str, str]] = {}
+
+
+def _remember_declarable(lineage: Any) -> None:
+    """Record the natives one call's outputs unwrap to (FR-055). Never raises.
+
+    Inputs are skipped: an object a cell *passed* to a block was not produced by
+    the session and is not what FR-055 makes durable.
+    """
+    try:
+        from scistudio.explore.block_call import native_of
+
+        for edge in getattr(lineage, "edges", ()) or ():
+            if getattr(edge, "direction", "") != "output":
+                continue
+            object_id = getattr(edge, "object_id", "")
+            data_object = getattr(edge, "data_object", None)
+            if not object_id or data_object is None:
+                continue
+            native = native_of(data_object)
+            _DECLARABLE_BY_ID[id(native)] = (native, str(object_id), str(getattr(edge, "type_name", "") or ""))
+    except Exception:  # pragma: no cover - a durability hint must never break a cell
+        return
+
+
+def _declarable_for(value: Any) -> tuple[str, str] | None:
+    """``(object_id, type_name)`` for *value*, when a block call produced it.
+
+    Identity, not equality: two arrays with the same contents are two objects,
+    and only the one a call actually produced has a row in the catalog.
+    """
+    found = _DECLARABLE_BY_ID.get(id(value))
+    if found is None:
+        return None
+    native, object_id, type_name = found
+    return (object_id, type_name) if native is value else None
+
+
+def _declared_output_payload(declared: Any) -> dict[str, Any]:
+    """One ``scistudio.output`` declaration as the frame can carry it (FR-055).
+
+    The name and the type were always here. ``object_id`` and ``data_object``
+    are what make the declaration *durable* rather than merely recorded: FR-055
+    says an object named in ``scistudio.output`` must be kept while everything
+    else a session produced is a reclaim candidate, and the retention planner
+    decides that over rows in ``data_objects``. Without the object's identity
+    crossing the frame there is nothing to join the name to, which is why the
+    durable set was empty at runtime however many declarations a notebook made.
+
+    The envelope is built with the same :func:`_data_object_payload` a block
+    call's edges use, so a declared object and an object a call produced are the
+    same row in the catalog.
+
+    Two ways the identity is found, because a notebook reaches an object by two
+    routes. A cell holding a ``DataObject`` outright carries its identity on the
+    object. A cell that wrote ``x = blocks.run(...)`` holds a **native** —
+    ``blocks.run`` unwraps on the way out — and that value has no identity of
+    its own, so it is looked up in :data:`_DECLARABLE_BY_ID`, which the lineage
+    hook fills at the moment both forms are in hand. The second route is the one
+    that matters: it is how the objects FR-055 exists to protect are produced.
+
+    A declared value that is neither — a plain int a cell computed — carries no
+    identity. That is not a gap: retention decides over rows in
+    ``data_objects``, and a value that was never stored was never a reclaim
+    candidate either.
+    """
+    payload: dict[str, Any] = {"name": declared.name, "type_name": declared.type_name}
+    value = getattr(declared, "value", None)
+    framework = getattr(value, "framework", None)
+    object_id = getattr(framework, "object_id", None)
+    if isinstance(object_id, str) and object_id:
+        payload["object_id"] = object_id
+        payload["data_object"] = _data_object_payload(value)
+        return payload
+    from_call = _declarable_for(value)
+    if from_call is not None:
+        payload["object_id"], payload["type_name"] = from_call
+    return payload
 
 
 def _data_object_payload(data_object: Any) -> dict[str, Any] | None:
@@ -1112,9 +1206,7 @@ def _handle(namespace: dict[str, Any], payload: Mapping[str, Any]) -> Any:
     if action == "environment":
         return environment_snapshot()
     if action == "declared_outputs":
-        return [
-            {"name": declared.name, "type_name": declared.type_name} for declared in notebook_api.declared_outputs()
-        ]
+        return [_declared_output_payload(declared) for declared in notebook_api.declared_outputs()]
     if action == "window":
         return variable_window(
             namespace,
@@ -1267,10 +1359,21 @@ class KernelBridge:
         raw = self._call({"action": "memory"})
         return int(raw) if raw is not None else None
 
-    def declared_outputs(self) -> tuple[str, ...]:
-        """The names cells have declared with ``scistudio.output`` (FR-010)."""
+    def declared_outputs(self) -> tuple[dict[str, Any], ...]:
+        """What cells have declared with ``scistudio.output`` (FR-010, FR-055).
+
+        Each entry carries ``name`` and ``type_name``, and — when the declared
+        value is a ``DataObject`` — ``object_id`` and the ``data_object``
+        envelope a lineage row stores. The identity is the point: FR-055's
+        durable set is decided over rows in ``data_objects``, so a declaration
+        that crossed the frame as a bare name could not be joined to anything
+        and the durable set was empty however many outputs a notebook declared.
+
+        Returns:
+            One mapping per declared name, in declaration order.
+        """
         raw = self._call({"action": "declared_outputs"})
-        return tuple(str(entry["name"]) for entry in raw)
+        return tuple(dict(entry) for entry in raw)
 
     def environment_snapshot(self) -> Any:
         """Capture the kernel's environment (FR-012, FR-034).
