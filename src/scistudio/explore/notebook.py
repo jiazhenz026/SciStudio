@@ -514,6 +514,43 @@ class NotebookDocument:
         cell = self._cell_list[self._require_index(cell_id)]
         self._namespace(self._cell_metadata(cell))[ENABLED_METADATA_KEY] = bool(enabled)
 
+    def set_cell_outputs(
+        self,
+        cell_id: str,
+        outputs: Iterable[Mapping[str, Any]],
+        *,
+        execution_count: int | None = None,
+    ) -> None:
+        """Write what a run produced into one code cell (FR-027).
+
+        The counterpart of :meth:`without_outputs`: that one clears outputs for
+        the commit, this one records them so the file on disk keeps them and a
+        notebook reopened here — or in JupyterLab — shows what ran.
+
+        *outputs* replaces whatever the cell held; each item is deep-copied, so
+        the caller keeps no handle into the document. The items are nbformat
+        output mappings (``output_type`` plus that type's own fields), which is
+        the shape :class:`~scistudio.explore.kernel.KernelOutput` already
+        carries.
+
+        Args:
+            cell_id: The cell that ran.
+            outputs: The nbformat output mappings, in arrival order.
+            execution_count: The kernel's counter for this execution, or
+                ``None`` to record none.
+
+        Raises:
+            KeyError: No cell carries that id.
+            NotebookStoreError: The cell is not a code cell. Only a code cell
+                may carry ``outputs``; writing them onto a markdown cell would
+                produce a notebook nbformat rejects.
+        """
+        cell = self._cell_list[self._require_index(cell_id)]
+        if cell.get("cell_type") != _EXECUTABLE_CELL_TYPE:
+            raise NotebookStoreError(f"Cell {cell_id!r} is not a code cell, so it cannot carry outputs")
+        cell["outputs"] = [copy.deepcopy(dict(output)) for output in outputs]
+        cell["execution_count"] = execution_count
+
     def set_analysis_record(self, cell_id: str, record: Mapping[str, Any]) -> None:
         """Merge the dependency analysis' record into a cell's ``scistudio`` metadata.
 
