@@ -2259,6 +2259,24 @@
       "at": "2026-09-04T13:01:15.670295Z",
       "pattern": "tests/api/**",
       "reason": "S3-C3 found that create_app never mounts the explore router, so 23 routes are dead code, and that the mount has an ordering constraint against the SPA static mount; and that SessionService.retire_kernels is never called on a branch change, so FR-014 is unmet. Both wiring points are outside the spec's section 4.2 file table"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T21:18:27.739544Z",
+      "pattern": "src/scistudio/core/versioning/_commit_ops.py",
+      "reason": "The deferral diff gate is all-or-nothing across the PR diff, and eight of the fifteen flagged lines live outside the explore subsystem: five in core/versioning/_commit_ops.py, three in core/lineage/store.py, one in api/routes/explore.py. All are comment or docstring prose; no behaviour changed in any protected path. The agent declared them in its own plan before editing and reported the overrun rather than leaving it to be found"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T21:18:27.739563Z",
+      "pattern": "src/scistudio/core/lineage/store.py",
+      "reason": "The deferral diff gate is all-or-nothing across the PR diff, and eight of the fifteen flagged lines live outside the explore subsystem: five in core/versioning/_commit_ops.py, three in core/lineage/store.py, one in api/routes/explore.py. All are comment or docstring prose; no behaviour changed in any protected path. The agent declared them in its own plan before editing and reported the overrun rather than leaving it to be found"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T21:18:27.739565Z",
+      "pattern": "src/scistudio/api/routes/explore.py",
+      "reason": "The deferral diff gate is all-or-nothing across the PR diff, and eight of the fifteen flagged lines live outside the explore subsystem: five in core/versioning/_commit_ops.py, three in core/lineage/store.py, one in api/routes/explore.py. All are comment or docstring prose; no behaviour changed in any protected path. The agent declared them in its own plan before editing and reported the overrun rather than leaving it to be found"
     }
   ],
   "session_id": "8c06bfb9-2c49-447a-b286-4ed23bc35536",
