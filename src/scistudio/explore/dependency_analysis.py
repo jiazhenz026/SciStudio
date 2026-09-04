@@ -8,7 +8,7 @@ what the source shows it binds and what it reads, and from the cells' written
 order it builds a graph with one rule: *a cell that reads a name depends on the
 nearest enabled cell above it whose changed set contains that name.*
 
-Two standard-library tools do the work and nothing else is imported (FR-003):
+Three standard-library tools do the work and nothing else is imported (FR-003):
 
 * :mod:`symtable` answers the scoping question — which names the module scope of
   a cell assigns or imports, which it references, and which names a nested scope
@@ -18,6 +18,10 @@ Two standard-library tools do the work and nothing else is imported (FR-003):
   ``scistudio.input`` declarations, the block calls, star imports, and the two
   forms :mod:`symtable` does not report as reads (augmented assignment and
   ``del``).
+* :mod:`tokenize` answers the magic question — where a logical line begins, and
+  therefore which ``%`` and ``!`` are IPython's and which are Python's modulo and
+  inequality operators (FR-011). A kernel tokenises before it decides what a
+  magic is, and so does this.
 
 Nothing here executes code, holds a kernel, or touches the filesystem (FR-004).
 
@@ -50,8 +54,10 @@ from __future__ import annotations
 import ast
 import builtins
 import hashlib
+import io
 import re
 import symtable
+import tokenize
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -510,16 +516,124 @@ def _first_non_blank(source: str) -> str | None:
     return None
 
 
-def _strip_magic_lines(source: str) -> tuple[str, bool]:
-    """Remove ``%`` and ``!`` lines, keeping the line count so positions survive.
+#: The two tokens that can open a magic line. ``!=`` and ``%=`` are single
+#: tokens of their own and are never one of these, so a wrapped comparison is
+#: safe by construction rather than by a second check.
+_MAGIC_TOKENS: Final[frozenset[str]] = frozenset({"%", "!"})
 
-    Returns the stripped source and whether any removed line was a ``%run``,
-    which binds an unknown set of names (FR-013).
+#: Token types that say nothing about where a logical line begins. Ignoring them
+#: is what lets an indented magic and a magic after a comment still be seen as
+#: the first token of their logical line (FR-011).
+_LOGICAL_LINE_IGNORED: Final[frozenset[int]] = frozenset({tokenize.INDENT, tokenize.DEDENT, tokenize.COMMENT})
+
+
+def _source_lines(source: str) -> list[str]:
+    """Split *source* the way the tokeniser's ``readline`` does.
+
+    ``str.splitlines`` also breaks on a form feed, a vertical tab, and half a
+    dozen other characters Python's tokeniser treats as ordinary whitespace, so
+    using it here would shift every line number against the ones the tokeniser
+    reports. Joining the result back with ``"\\n"`` reproduces *source* exactly.
     """
+    return source.split("\n")
+
+
+def _error_line(error: BaseException) -> int:
+    """The 1-based line the tokeniser stopped on.
+
+    :class:`SyntaxError` carries ``lineno``; :class:`tokenize.TokenError` carries
+    a ``(row, column)`` pair as its second argument instead. Anything else is
+    treated as a stop at the first line, which costs the older textual test over
+    the whole cell and never less coverage than that.
+    """
+    lineno = getattr(error, "lineno", None)
+    if isinstance(lineno, int):
+        return lineno
+    args: tuple[Any, ...] = error.args
+    position = args[1] if len(args) >= 2 else None
+    if isinstance(position, tuple) and position and isinstance(position[0], int):
+        return position[0]
+    return 1
+
+
+def _textual_magic_lines(source: str, first: int) -> set[int]:
+    """The lines from *first* on whose first non-blank character is ``%`` or ``!``."""
+    return {
+        number
+        for number, line in enumerate(_source_lines(source), start=1)
+        if number >= first and _MAGIC_LINE.match(line)
+    }
+
+
+def _magic_line_numbers(source: str) -> set[int]:
+    """The 1-based physical lines the cell's magic and shell lines occupy (FR-011).
+
+    A ``%`` or ``!`` opens a magic only as the first token of a *logical* line,
+    which is what separates ``%matplotlib inline`` from the ``% count`` a
+    formatter puts on the continuation line of a wrapped expression. The
+    tokeniser draws that line for us, and the distinction the whole rule rests on
+    is between its two newlines: ``NEWLINE`` ends a logical line, ``NL`` — what it
+    emits inside an open bracket and after a blank or comment-only line — does
+    not. Collapsing the two is exactly the reading that made ``    % count`` look
+    like a magic, so ``NL`` is handled on its own and never sets the flag.
+
+    Where the tokeniser stops on an error, every line from that one on is
+    classified by the older textual test, so a magic in a cell that cannot be
+    tokenised — ``!cat it's-a-file`` stops the tokeniser on the apostrophe — is
+    still removed.
+    """
+    magic_lines: set[int] = set()
+    at_logical_start = True
+    in_magic = False
+    error_line: int | None = None
+    try:
+        for token in tokenize.generate_tokens(io.StringIO(source).readline):
+            if token.type in _LOGICAL_LINE_IGNORED:
+                continue
+            if token.type == tokenize.NL:
+                if in_magic:
+                    magic_lines.update(range(token.start[0], token.end[0] + 1))
+                continue
+            if token.type == tokenize.NEWLINE:
+                if in_magic:
+                    magic_lines.add(token.start[0])
+                    in_magic = False
+                at_logical_start = True
+                continue
+            if token.type == tokenize.ENDMARKER:
+                break
+            if in_magic:
+                magic_lines.update(range(token.start[0], token.end[0] + 1))
+                continue
+            if at_logical_start and token.string in _MAGIC_TOKENS:
+                in_magic = True
+                magic_lines.update(range(token.start[0], token.end[0] + 1))
+            at_logical_start = False
+    except (tokenize.TokenError, SyntaxError, ValueError) as error:
+        # ValueError covers a source with a null byte, which the tokeniser
+        # refuses before it reaches the first line. IndentationError is a
+        # SyntaxError subclass and is covered with it.
+        error_line = _error_line(error)
+
+    if error_line is not None:
+        magic_lines.update(_textual_magic_lines(source, error_line))
+    return magic_lines
+
+
+def _strip_magic_lines(source: str) -> tuple[str, bool]:
+    """Remove the magic and shell lines, keeping the line count so positions survive.
+
+    Returns the stripped source and whether any removed magic was a ``%run``,
+    which binds an unknown set of names (FR-013). FR-011's definition of a magic
+    line governs FR-013's ``%run`` too, so the ``%run`` test is applied to the
+    first physical line of a line the lexical pass already called a magic, and
+    never to a line that merely starts with the character.
+    """
+    magic_lines = _magic_line_numbers(source)
     saw_run = False
     kept: list[str] = []
-    for line in source.splitlines():
-        if _MAGIC_LINE.match(line):
+    for number, line in enumerate(_source_lines(source), start=1):
+        if number in magic_lines:
             if _RUN_MAGIC_LINE.match(line):
                 saw_run = True
             kept.append("")

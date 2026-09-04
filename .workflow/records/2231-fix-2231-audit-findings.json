@@ -1,7 +1,124 @@
 {
   "base_ref": "origin/track/adr-054-spec2-dependency-analysis",
   "branch": "fix/2231-audit-findings",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-04T10:57:17.919320Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d0bb60fd4b29918018f601ff0dad2a9d9c22b2af674979d9203321cdc24d47b7",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T10:57:17.942439Z",
+      "command": "ruff format src/scistudio/explore/dependency_analysis.py src/scistudio/explore/fingerprint.py tests/explore/test_dependency_analysis.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e5a272e609f901cf9a6b20132428674c6298a6d64509143ff89b4e4aba5d1c77",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T10:57:29.921648Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:10d9cbcee19e270e576cf8759dcb99c81fb14b8add903b863a6ed866cc17e809",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T10:57:30.442657Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:37d5b5c9e86517e69bf8c1be88baf9c7b04593d87249cfe7d81a9d9d07cfd709",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T10:57:30.462657Z",
+      "command": "ruff check src/scistudio/explore/dependency_analysis.py src/scistudio/explore/fingerprint.py tests/explore/test_dependency_analysis.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:30a1b18a4fd8599b2f60111207b3d8f66465ef377a6d9018b7b6edb7c64851d2",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T10:57:42.851692Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/explore tests/explore/test_dependency_analysis.py",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:bdb6a51bdecb64c72f284f43dec488b31cf6ac36958336828051d270012ea96f",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T10:57:43.620270Z",
+      "command": "mypy src/scistudio/explore/dependency_analysis.py src/scistudio/explore/fingerprint.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5a0d6472e07050d1c4b831d4e4d07e6828624e2dd8fc81d6540fb18f813608d8",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -20,7 +137,96 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-04T10:57:43.665516Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:43.680124Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:43.694779Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:43.708442Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:43.722392Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:43.735543Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:43.748675Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:43.761740Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:43.775633Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:43.789709Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:43.804494Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -30,19 +236,81 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/track/adr-054-spec2-dependency-analysis",
+    "base_sha": "e7c81b5cb",
+    "changed_files": [
+      ".workflow/records/2231-fix-2231-audit-findings.json",
+      "src/scistudio/explore/dependency_analysis.py",
+      "src/scistudio/explore/fingerprint.py",
+      "tests/explore/test_dependency_analysis.py"
+    ],
+    "diff_fingerprint": "sha256:5543c628821598e1e92bb70e43ab4b21899c4fbf638c44d8b6032fe47f566476",
+    "head": "HEAD",
+    "head_sha": "f81deb72f",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 2,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 3,
+      "test": 1,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Implement ADR-054 spec 2 in full, with a final adversarial test engineer and a no-context auditor. S2-F1 fixes the findings the adversarial pass recorded as failing tests.",
   "persona": "implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-04T10:57:43.804526Z",
+      "diff_fingerprint": "sha256:5543c628821598e1e92bb70e43ab4b21899c4fbf638c44d8b6032fe47f566476",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.full_audit",
+        "checks.python_tests",
+        "tests.changed_test_required"
+      ]
+    }
+  ],
   "record_id": "2231-fix-2231-audit-findings",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "commit_hygiene",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude",
   "schema_version": 2,
@@ -61,7 +329,7 @@
     }
   ],
   "session_id": "5a8d6547-b782-4195-adb0-b35f8fe12877",
-  "strictness_tier": null,
+  "strictness_tier": 2,
   "task_kind": "bugfix",
   "test_events": [
     {
