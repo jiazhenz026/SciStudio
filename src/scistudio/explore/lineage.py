@@ -511,7 +511,7 @@ class ExploreLineage:
         """Return every consumption of an object, session or run alike.
 
         The other direction of :meth:`origin_of`. An object a session produced
-        and a workflow run later consumed shows the run here, which is what
+        and a workflow run then consumed shows the run here, which is what
         "resolves across the boundary" means from the session's side.
 
         Args:

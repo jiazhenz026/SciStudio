@@ -30,11 +30,12 @@ the fake executes the cell's source and the fingerprints are computed by the
 same function the real bridge uses. The tests that need a real kernel say so and
 skip without one.
 
-Routes are mounted onto ``create_app()``'s application here rather than being
-found on it: ``create_app`` does not yet ``include_router(explore.router)``, and
-``src/scistudio/api/app.py`` is outside this task's write set (#2240). See
-``_mount_explore_routes`` for the ordering constraint that mounting has to
-respect, which these tests found by violating it.
+Routes are found on ``create_app()``'s application rather than mounted onto it
+here. They were mounted here while ``create_app`` did not include the router; it
+does now (#2240), and ``_require_explore_routes`` asserts that instead, so a lost
+``include_router`` fails this module rather than being papered over by it. The
+ordering constraint mounting has to respect is pinned in
+``tests/api/test_explore_mount.py``, which these tests found by violating it.
 """
 
 from __future__ import annotations
@@ -319,26 +320,24 @@ def _bound_run(*, opened_over: str = "block_outputs") -> BoundRun:
 # ---------------------------------------------------------------------------
 
 
-def _mount_explore_routes(app: Any) -> None:
-    """Include the router the way ``create_app`` must: before the SPA catch-all.
+def _require_explore_routes(app: Any) -> None:
+    """Fail loudly if ``create_app`` stopped mounting the explore router.
 
-    ``create_app`` mounts ``SPAStaticFiles`` at ``/`` last, and that mount
-    matches every path — including ``/api/explore/...``, which it answers with
-    its own 404. Appending routes after it therefore registers them where
-    nothing can reach them.
+    These tests used to include the router themselves, because ``create_app``
+    did not (#2240). It does now, and including it here again would hide the
+    regression this assertion exists to catch: with a private ``include_router``
+    in the fixture, every test below would keep passing on an application that
+    serves none of these routes.
 
-    That is a live constraint on the integrating change, not a test artifact:
-    ``app.include_router(explore.router)`` has to sit with the other
-    ``include_router`` calls, above the mount. Here the mount is moved back to
-    the end instead, so these tests behave the same whether or not a built
-    frontend happens to be present in the checkout.
+    The mounting *position* is the other half, and it is not asserted here.
+    ``tests/api/test_explore_mount.py`` owns it, because proving it needs a built
+    SPA on disk. The short version: the ``SPAStaticFiles`` mount at ``/`` matches
+    every path, ``/api/explore/...`` included, and answers it with its own 404,
+    so the router has to be included above it.
     """
-    from starlette.routing import Mount
-
-    app.include_router(explore.router)
-    for route in [r for r in app.router.routes if isinstance(r, Mount) and r.path in {"", "/"}]:
-        app.router.routes.remove(route)
-        app.router.routes.append(route)
+    mounted = {getattr(route, "path", "") for route in app.router.routes}
+    missing = {getattr(route, "path", "") for route in explore.router.routes} - mounted
+    assert not missing, f"create_app no longer mounts the explore router: {sorted(missing)}"
 
 
 @dataclass
@@ -417,7 +416,7 @@ def harness(
     # The real bridge launches the kernel with this set (``session_kernel_env``);
     # the fake kernel is this process, so the helpers a cell imports need it here.
     monkeypatch.setenv(MODE_ENV_VAR, SESSION_MODE)
-    _mount_explore_routes(client.app)
+    _require_explore_routes(client.app)
 
     explore.register_explore_subscriber(events.append)
     harness = _Harness(
@@ -1789,7 +1788,7 @@ def test_no_active_project_is_a_refusal_on_every_collection_route(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Without a project there is no explore directory, and that is not a 500."""
-    _mount_explore_routes(client.app)
+    _require_explore_routes(client.app)
     try:
         for method, url, body in (
             ("GET", "/api/explore/sessions", None),
@@ -1890,7 +1889,7 @@ def real_harness(
     monkeypatch.setenv("PYTHONPATH", os.pathsep.join(entries))
 
     events: list[dict[str, Any]] = []
-    _mount_explore_routes(client.app)
+    _require_explore_routes(client.app)
     explore.register_explore_subscriber(events.append)
     harness = _Harness(
         client=client,
