@@ -40,29 +40,74 @@ scope:
     - A general-purpose notebook IDE, importing external notebooks with their own execution history, and lifting block calls out of a notebook onto the canvas as nodes, all excluded by ADR-054 section 10.2.
 governs:
   modules:
+    - scistudio.explore.session
+    - scistudio.explore.kernel
+    - scistudio.explore.kernel_bridge
+    - scistudio.explore.block_call
+    - scistudio.explore.notebook
+    - scistudio.explore.notebook_api
+    - scistudio.explore.queue
+    - scistudio.explore.packaging
+    - scistudio.explore.lineage
     - scistudio.blocks.base.interactive
     - scistudio.blocks.code.backends.notebook
     - scistudio.core.lineage
     - scistudio.core.versioning
+    - scistudio.api.routes.explore
     - scistudio.api.ws
   contracts:
+    - scistudio.explore.session.ExploreSession
+    - scistudio.explore.session.SessionService
+    - scistudio.explore.queue.ExecutionRequest
+    - scistudio.explore.packaging.PackagingPlan
+    - scistudio.explore.block_call.BlockCallAdapter
     - scistudio.blocks.base.interactive.InteractiveMixin
     - scistudio.core.lineage.record.RunRecord
+    - scistudio.core.lineage.record.ExploreSessionRecord
     - scistudio.core.lineage.record.BlockExecutionRecord
   entry_points: []
   files:
     - docs/specs/adr-054-explore-session.md
     - src/scistudio/__init__.py
+    - src/scistudio/explore/session.py
+    - src/scistudio/explore/kernel.py
+    - src/scistudio/explore/kernel_bridge.py
+    - src/scistudio/explore/block_call.py
+    - src/scistudio/explore/notebook.py
+    - src/scistudio/explore/notebook_api.py
+    - src/scistudio/explore/queue.py
+    - src/scistudio/explore/packaging.py
+    - src/scistudio/explore/lineage.py
     - src/scistudio/blocks/base/interactive.py
     - src/scistudio/blocks/code/backends/notebook.py
+    - src/scistudio/blocks/registry/_spec.py
+    - src/scistudio/core/lineage/__init__.py
     - src/scistudio/core/lineage/record.py
     - src/scistudio/core/lineage/store.py
     - src/scistudio/core/lineage/environment.py
+    - src/scistudio/core/lineage/retention.py
     - src/scistudio/core/versioning/_commit_ops.py
+    - src/scistudio/core/versioning/git_engine.py
     - src/scistudio/engine/scheduler/_dispatch.py
+    - src/scistudio/api/routes/explore.py
     - src/scistudio/api/ws.py
     - src/scistudio/api/project_layout.py
     - pyproject.toml
+    - tests/explore/test_kernel_session.py
+    - tests/explore/test_kernel_bridge.py
+    - tests/explore/test_explore_session.py
+    - tests/explore/test_queue_and_marks.py
+    - tests/explore/test_notebook_store.py
+    - tests/explore/test_notebook_api.py
+    - tests/explore/test_block_call_adapter.py
+    - tests/explore/test_packaged_block.py
+    - tests/explore/test_explore_lineage.py
+    - tests/api/test_explore_routes.py
+    - tests/blocks/base/test_interaction_policy.py
+    - tests/blocks/registry/test_block_version_source.py
+    - tests/core/lineage/test_explore_sessions_table.py
+    - tests/core/versioning/test_explore_ref_commits.py
+    - tests/core/test_git_engine.py
     - tests/architecture/test_layer_deps.py
   excludes:
     - docs/architecture/**
@@ -70,57 +115,46 @@ governs:
     - src/scistudio/_skills/**
     - src/scistudio/_agent_reference/**
 planned_governs:
-  modules:
-    - scistudio.explore.session
-    - scistudio.explore.kernel
-    - scistudio.explore.kernel_bridge
-    - scistudio.explore.notebook
-    - scistudio.explore.notebook_api
-    - scistudio.explore.queue
-    - scistudio.explore.packaging
-    - scistudio.explore.lineage
-    - scistudio.api.routes.explore
-  contracts:
-    - scistudio.explore.session.ExploreSession
-    - scistudio.explore.session.SessionService
-    - scistudio.explore.queue.ExecutionRequest
-    - scistudio.explore.packaging.PackagingReport
-    - scistudio.explore.lineage.ExploreSessionRecord
+  # Nothing is planned any more: every module, contract, file, and test this
+  # spec planned has landed and moved into `governs` above. Two planned
+  # contracts are deliberately *gone* rather than moved, because the name they
+  # used is not the name that was built, and inventing a type to make the
+  # manifest resolve would govern nothing:
+  #
+  # * `scistudio.explore.packaging.PackagingReport` — the packaging check's
+  #   result shipped as `PackagingPlan`, which is what `check_packaging`
+  #   returns and what the session API answers "can this be packaged" from.
+  #   A rename, governed under the built name.
+  # * `scistudio.explore.lineage.ExploreSessionRecord` — the session anchor is
+  #   a row in the lineage store's `explore_sessions` table, so it is defined
+  #   beside `RunRecord` and `BlockExecutionRecord` in
+  #   `scistudio.core.lineage.record` rather than inside the Explore
+  #   subsystem, which only reads and writes it. Governed at that path.
+  #
+  # Four planned test paths are gone for the same reason — `test_marks.py` and
+  # `test_execution_queue.py` were written as one file, `test_packaging.py` as
+  # `test_packaged_block.py`, and `test_explore_commits.py` landed beside the
+  # plumbing it exercises. §4.2 records where each one's coverage lives.
+  modules: []
+  contracts: []
   entry_points: []
-  files:
-    - src/scistudio/explore/session.py
-    - src/scistudio/explore/kernel.py
-    - src/scistudio/explore/kernel_bridge.py
-    - src/scistudio/explore/notebook.py
-    - src/scistudio/explore/notebook_api.py
-    - src/scistudio/explore/queue.py
-    - src/scistudio/explore/packaging.py
-    - src/scistudio/explore/lineage.py
-    - src/scistudio/api/routes/explore.py
-    - tests/explore/test_kernel_session.py
-    - tests/explore/test_execution_queue.py
-    - tests/explore/test_marks.py
-    - tests/explore/test_notebook_store.py
-    - tests/explore/test_explore_commits.py
-    - tests/explore/test_packaging.py
-    - tests/explore/test_block_call_adapter.py
-    - tests/explore/test_explore_lineage.py
-    - tests/explore/test_notebook_api.py
-    - tests/api/test_explore_routes.py
-    - tests/blocks/base/test_interaction_policy.py
+  files: []
   excludes: []
 tests:
   - tests/explore/test_kernel_session.py
-  - tests/explore/test_execution_queue.py
-  - tests/explore/test_marks.py
+  - tests/explore/test_kernel_bridge.py
+  - tests/explore/test_explore_session.py
+  - tests/explore/test_queue_and_marks.py
   - tests/explore/test_notebook_store.py
-  - tests/explore/test_explore_commits.py
-  - tests/explore/test_packaging.py
-  - tests/explore/test_block_call_adapter.py
-  - tests/explore/test_explore_lineage.py
   - tests/explore/test_notebook_api.py
+  - tests/explore/test_block_call_adapter.py
+  - tests/explore/test_packaged_block.py
+  - tests/explore/test_explore_lineage.py
   - tests/api/test_explore_routes.py
   - tests/blocks/base/test_interaction_policy.py
+  - tests/blocks/registry/test_block_version_source.py
+  - tests/core/lineage/test_explore_sessions_table.py
+  - tests/core/versioning/test_explore_ref_commits.py
   - tests/architecture/test_layer_deps.py
 acceptance_source: adr
 language_source: en
@@ -856,33 +890,54 @@ frontend keeps one connection.
 
 ### 4.2 Affected Files
 
+This table describes what was built. Where the built shape differs from what
+this section planned, the row says so rather than being quietly corrected: the
+divergences are the record of what the plan got wrong about its own subject.
+
 | File or glob | Action | Rationale |
 |---|---|---|
 | `docs/specs/adr-054-explore-session.md` | create | This spec. |
-| `src/scistudio/explore/session.py` | create | ExploreSession, SessionService, open and close, marks, last-bound-by (FR-001 to FR-006, FR-019 to FR-026). |
+| `src/scistudio/explore/session.py` | create | ExploreSession, SessionService, open and close, marks, last-bound-by, the commit writer, and the block-output resolver (FR-001 to FR-006, FR-019 to FR-026). |
 | `src/scistudio/explore/kernel.py` | create | KernelHandle over `jupyter_client`; launch, interrupt, restart, stop, death detection, memory (FR-007, FR-013 to FR-016). |
-| `src/scistudio/explore/kernel_bridge.py` | create | Injected into the kernel: fingerprints, windows, bindings, memory, the helpers' session-mode backend, the block-call adapter (FR-009, FR-010, FR-049, FR-050). |
+| `src/scistudio/explore/kernel_bridge.py` | create | Injected into the kernel: fingerprints, windows, bindings, memory, the helpers' session-mode backend (FR-009, FR-010). |
+| `src/scistudio/explore/block_call.py` | create | **Diverges from the plan**, which put the block-call adapter inside `kernel_bridge.py`. `BlockCallAdapter` resolves, wraps, validates, and runs a block in the kernel process, and carries the interaction channel a called interactive block blocks on. It shares nothing with the bridge's fingerprint and window work, and folding it in would have made one module out of two subjects (FR-049 to FR-051). |
 | `src/scistudio/explore/notebook_api.py` | create | `input`, `output`, `load` with mode selection (FR-010, FR-011). |
 | `src/scistudio/__init__.py` | modify | Exposes the three helpers lazily at the top level. |
 | `src/scistudio/explore/notebook.py` | create | `.ipynb` read and write, output stripping, cell metadata preservation, external-change reload (FR-005, FR-027, FR-032, FR-033). |
 | `src/scistudio/explore/queue.py` | create | The queue, admission whitelist, coalescing, observation around runs, freeze bound (FR-017, FR-018, FR-021, FR-025). |
-| `src/scistudio/explore/packaging.py` | create | Checks, declaration generation, notebook copy, port inference, repackaging (FR-037 to FR-043). |
-| `src/scistudio/explore/lineage.py` | create | ExploreSessionRecord, cell-run records, retention hooks (FR-052 to FR-055). |
+| `src/scistudio/explore/packaging.py` | create | Checks, declaration generation, notebook copy, port inference, repackaging (FR-037 to FR-043). Its result type is `PackagingPlan`; the frontmatter had planned it under the name `PackagingReport`. |
+| `src/scistudio/explore/lineage.py` | create | `ExploreLineage`: cell-run records, block-call records, and object origins written against the store (FR-052 to FR-054). The `ExploreSessionRecord` dataclass this row planned is **not here** — it is a row of a lineage table and is defined with the others, below. |
 | `src/scistudio/core/versioning/_commit_ops.py` | modify | Plumbing commit to a ref with a temporary index; forced packing (FR-028 to FR-031, FR-036). |
-| `src/scistudio/core/lineage/record.py`, `store.py` | modify | The `explore_sessions` table and cell-run records; block executions keyed to a session (FR-051, FR-052). |
+| `src/scistudio/core/versioning/git_engine.py` | modify | **Not planned.** Binds the four plumbing operations onto `GitEngine` as their supported surface, so the session service never reaches into a private module (FR-028 to FR-031, FR-036). |
+| `src/scistudio/core/lineage/record.py`, `store.py`, `__init__.py` | modify | The `explore_sessions` table and its `ExploreSessionRecord`, cell-run records, and block executions keyed to a session (FR-051, FR-052). `explore_sessions` is the second anchor beside `runs`, so its row type belongs beside `RunRecord`. |
 | `src/scistudio/core/lineage/environment.py` | modify | Snapshot by reference (FR-034). |
+| `src/scistudio/core/lineage/retention.py` | modify | **Diverges from the plan**, which put the retention hooks in `explore/lineage.py`. A session's rule — an object declared through `scistudio.output` is durable, an open session blocks the sweep — is decided inside the same sweep as the run rule, and separating them would have meant two passes disagreeing about one plan (FR-055). |
 | `src/scistudio/blocks/code/backends/notebook.py` | modify | Cell selection and packaged-mode environment (FR-040). |
 | `src/scistudio/blocks/base/interactive.py` | modify | `on_new_input` and its defaults (FR-044, FR-045). |
+| `src/scistudio/blocks/registry/_spec.py` | modify | **Not planned.** A packaged block's version is the notebook commit it was packaged from, which the ADR-038 §3.3 distribution stamping would otherwise overwrite. Adds the opt-in a block declares to keep a version that is its own content identity (FR-054). |
 | `src/scistudio/engine/scheduler/_dispatch.py` | modify | Consults `on_new_input` before the remap check; the packaged block's prompt and decision (FR-045 to FR-048). |
 | `src/scistudio/api/routes/explore.py` | create | The session API (FR-056, FR-058). |
 | `src/scistudio/api/ws.py` | modify | Session event types on the hub (FR-057). |
 | `src/scistudio/api/project_layout.py` | modify | The explore directory joins the project layout (FR-001). |
 | `pyproject.toml` | modify | `ipykernel` and `jupyter_client` (FR-059). |
-| `tests/explore/**` | create | The tests listed in the frontmatter. |
+| `tests/explore/test_kernel_session.py` | create | The kernel process against a real ipykernel. |
+| `tests/explore/test_kernel_bridge.py` | create | **Not planned.** The bridge's calls — fingerprints, windows, bindings, memory — are large enough that keeping them in the kernel's file would have hidden them. |
+| `tests/explore/test_explore_session.py` | create | **Not planned by name.** Session open over each source, close, the marks, and the session ref one run commits to. |
+| `tests/explore/test_queue_and_marks.py` | create | **Planned as two files**, `test_execution_queue.py` and `test_marks.py`. The marks are produced by the observation the queue takes around each run, and every fixture drives both, so the split would have duplicated the fixture rather than the coverage. |
+| `tests/explore/test_notebook_store.py`, `test_notebook_api.py`, `test_block_call_adapter.py`, `test_explore_lineage.py` | create | As planned. |
+| `tests/explore/test_packaged_block.py` | create | **Planned as `test_packaging.py`.** Renamed for what it asserts: the notebook is packaged and the generated block is then discovered, run in a workflow, and compared against the session. |
+| `tests/core/versioning/test_explore_ref_commits.py` | create | **Planned as `tests/explore/test_explore_commits.py`.** It reads refs with git and asserts the working tree and branch are untouched, which is `core/versioning` behaviour, so it sits with the code it exercises. |
+| `tests/core/lineage/test_explore_sessions_table.py` | create | **Not planned.** The table, its migration, and its foreign keys, apart from the Explore-side writer that fills it. |
+| `tests/blocks/registry/test_block_version_source.py` | create | **Not planned.** The FR-054 version opt-in, including that no existing block's stamping changes. |
 | `tests/api/test_explore_routes.py` | create | API and event coverage. |
 | `tests/blocks/base/test_interaction_policy.py` | create | `on_new_input` for both block kinds. |
+| `tests/core/test_git_engine.py` | modify | The plumbing operations as bound on the engine. |
 | `tests/architecture/test_layer_deps.py` | modify | The explore subsystem's forbidden imports (FR-060). |
 
+`src/scistudio/explore/__init__.py`, `dependency_analysis.py`, and
+`fingerprint.py` are written and governed by
+`adr-054-notebook-dependency-analysis`; this spec's modules import them and do
+not own them.
 ### 4.3 Implementation Sequence
 
 | Task | Title | Story | Depends on | Verification |
