@@ -1163,23 +1163,69 @@ def test_fr029_an_unobservable_name_is_not_reported_as_changed() -> None:
 
 
 def test_fr029_an_unobservable_name_that_also_changed_is_in_both_sets() -> None:
-    """A name can be changed *and* uncovered; the two reports are independent."""
+    """A name can be changed *and* uncovered; the two reports are independent.
+
+    Both objects are held in locals for the whole comparison. The identity
+    fallback digests :func:`id`, and two objects that are alive at the same
+    moment cannot share an address on any CPython — so the digests differ here
+    on every interpreter, and for the same reason on each. Rebinding the name
+    over a temporary instead (``_namespace(handle=Opaque())`` twice) would free
+    the first object before the second is allocated, and whether the allocator
+    then hands back the same address is a version detail: it does on 3.11 and
+    did not on 3.13, which is a property of the allocator and not of the code
+    under test. That collision is the module docstring's admitted limit of the
+    fallback, pinned as a limit by
+    :func:`test_the_identity_fallback_cannot_see_a_change_and_says_so`.
+    """
 
     class Opaque:
         pass
 
+    first = Opaque()
+    second = Opaque()
     observed = compare_namespaces(
-        _namespace(handle=Opaque()),
-        _namespace(handle=Opaque()),
+        _namespace(handle=first),
+        _namespace(handle=second),
         cell_id="c1",
         source_hash=CELL_HASH,
     )
 
+    assert id(first) != id(second)
     assert observed.unobservable_names == frozenset({"handle"})
-    # Two distinct objects, so the identity digests differ and the name reads as
-    # changed. It is *not* proof of a change — which is exactly what the
-    # unobservable report above says.
+    # Two distinct live objects, so the identity digests differ and the name
+    # reads as changed. It is *not* proof of a change — which is exactly what
+    # the unobservable report above says.
     assert observed.changed_names == frozenset({"handle"})
+
+
+def test_the_identity_fallback_cannot_see_a_change_and_says_so() -> None:
+    """The admitted limit of the fallback, asserted as a limit (FR-029).
+
+    An unobservable fingerprint digests the object's address and nothing
+    inside it, so a value that really did change reads as unchanged: the
+    mutation below moves no digest. The same arithmetic is why two distinct
+    short-lived objects that CPython happened to allocate at one address
+    fingerprint alike. Either way the comparison's silence is not evidence of
+    no change, which is precisely why the name is still reported unobservable —
+    a person reading the report is told the observation does not cover it
+    rather than being told it held still.
+    """
+
+    class Opaque:
+        def __init__(self) -> None:
+            self.state = 0
+
+    handle = Opaque()
+    before = _namespace(handle=handle)
+    handle.state = 1
+    after = _namespace(handle=handle)
+
+    assert before["handle"].digest == after["handle"].digest
+
+    observed = compare_namespaces(before, after, cell_id="c1", source_hash=CELL_HASH)
+
+    assert observed.changed_names == frozenset()
+    assert observed.unobservable_names == frozenset({"handle"})
 
 
 def test_fr029_an_unobservable_name_present_only_before_is_reported() -> None:
