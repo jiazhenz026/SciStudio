@@ -110,6 +110,7 @@ class InteractionPolicy(Enum):
     accepts a bare string and needs no import.
 
     Example:
+        >>> from scistudio.blocks.base.interactive import InteractionPolicy
         >>> InteractionPolicy("replay") is InteractionPolicy.REPLAY
         True
     """
