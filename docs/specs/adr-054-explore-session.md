@@ -90,6 +90,8 @@ governs:
     - src/scistudio/core/versioning/git_engine.py
     - src/scistudio/engine/scheduler/_dispatch.py
     - src/scistudio/api/routes/explore.py
+    - src/scistudio/api/app.py
+    - src/scistudio/api/routes/git.py
     - src/scistudio/api/ws.py
     - src/scistudio/api/project_layout.py
     - pyproject.toml
@@ -103,6 +105,9 @@ governs:
     - tests/explore/test_packaged_block.py
     - tests/explore/test_explore_lineage.py
     - tests/api/test_explore_routes.py
+    - tests/api/test_explore_mount.py
+    - tests/api/test_explore_branch_switch.py
+    - tests/api/helpers.py
     - tests/blocks/base/test_interaction_policy.py
     - tests/blocks/registry/test_block_version_source.py
     - tests/core/lineage/test_explore_sessions_table.py
@@ -151,6 +156,8 @@ tests:
   - tests/explore/test_packaged_block.py
   - tests/explore/test_explore_lineage.py
   - tests/api/test_explore_routes.py
+  - tests/api/test_explore_mount.py
+  - tests/api/test_explore_branch_switch.py
   - tests/blocks/base/test_interaction_policy.py
   - tests/blocks/registry/test_block_version_source.py
   - tests/core/lineage/test_explore_sessions_table.py
@@ -917,6 +924,8 @@ divergences are the record of what the plan got wrong about its own subject.
 | `src/scistudio/blocks/registry/_spec.py` | modify | **Not planned.** A packaged block's version is the notebook commit it was packaged from, which the ADR-038 §3.3 distribution stamping would otherwise overwrite. Adds the opt-in a block declares to keep a version that is its own content identity (FR-054). |
 | `src/scistudio/engine/scheduler/_dispatch.py` | modify | Consults `on_new_input` before the remap check; the packaged block's prompt and decision (FR-045 to FR-048). |
 | `src/scistudio/api/routes/explore.py` | create | The session API (FR-056, FR-058). |
+| `src/scistudio/api/app.py` | modify | **Not planned.** Includes the explore router, without which the routes above are unreachable, and closes every session on shutdown so no ipykernel outlives the backend. The `include_router` call has to sit above the SPA static mount: that mount is registered at `/`, matches `/api/explore/...`, and answers it with the SPA's own 404, so a router appended below it is registered where nothing reaches it. The mount only exists when a built frontend is present, so the mistake breaks the desktop app while a checkout without `frontend/dist` still looks fine (FR-056). |
+| `src/scistudio/api/routes/git.py` | modify | **Not planned.** Wires FR-014's kernel retirement to a branch switch, and reports it in the response under `explore_kernels`. Retirement runs after the target-branch existence check, so a rejected switch costs nobody their kernels, and before the auto-commit and the checkout, because it writes every open notebook — run after the checkout, that write lands the departing branch's notebook on top of the file the arriving branch just checked out. A kernel that refuses to die is reported rather than allowed to block the switch (FR-014). |
 | `src/scistudio/api/ws.py` | modify | Session event types on the hub (FR-057). |
 | `src/scistudio/api/project_layout.py` | modify | The explore directory joins the project layout (FR-001). |
 | `pyproject.toml` | modify | `ipykernel` and `jupyter_client` (FR-059). |
@@ -930,6 +939,9 @@ divergences are the record of what the plan got wrong about its own subject.
 | `tests/core/lineage/test_explore_sessions_table.py` | create | **Not planned.** The table, its migration, and its foreign keys, apart from the Explore-side writer that fills it. |
 | `tests/blocks/registry/test_block_version_source.py` | create | **Not planned.** The FR-054 version opt-in, including that no existing block's stamping changes. |
 | `tests/api/test_explore_routes.py` | create | API and event coverage. |
+| `tests/api/test_explore_mount.py` | create | **Not planned.** Asserts the router's *position* in the route table rather than only that a request succeeds, because a mount registered below the SPA fails only where a built frontend exists. |
+| `tests/api/test_explore_branch_switch.py` | create | **Not planned.** Retirement on a branch switch, including its ordering against the existence check, the auto-commit, and the checkout, and a failing kernel reported rather than blocking. |
+| `tests/api/helpers.py` | modify | **Not planned**, and not a file this spec owns. Gains the route-table introspection the mount test reads, which has to flatten two different FastAPI table shapes. |
 | `tests/blocks/base/test_interaction_policy.py` | create | `on_new_input` for both block kinds. |
 | `tests/core/test_git_engine.py` | modify | The plumbing operations as bound on the engine. |
 | `tests/architecture/test_layer_deps.py` | modify | The explore subsystem's forbidden imports (FR-060). |
@@ -938,6 +950,16 @@ divergences are the record of what the plan got wrong about its own subject.
 `fingerprint.py` are written and governed by
 `adr-054-notebook-dependency-analysis`; this spec's modules import them and do
 not own them.
+
+Three of the files above are ADR-039's: `core/versioning/_commit_ops.py`,
+`git_engine.py`, and `api/routes/git.py`. This spec governs the change it makes
+to each; ADR-039 keeps the subsystem. One of those changes reaches further than
+the code — `POST /api/git/branch/switch` now answers with an additional
+`explore_kernels` field, and the response shape ADR-039 documents does not
+carry it. ADR-039 is `agent_editable: false` and the text in question sits
+inside Addendum 1's record of what it superseded, so the field is **not**
+documented by editing that document here: it needs an ADR-039 addendum of its
+own, deferred out of this spec and tracked under #2240.
 ### 4.3 Implementation Sequence
 
 | Task | Title | Story | Depends on | Verification |
