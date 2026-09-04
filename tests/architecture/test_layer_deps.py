@@ -19,15 +19,24 @@ so it must import NEITHER ``scistudio.api`` NOR ``scistudio.ai``; callers inject
 ``previewers/`` is a subsystem the API layer mounts; it may depend on core but
 must never import up into ``scistudio.api`` (ADR-048 / #1598).
 
-``explore/`` is the ADR-054 notebook dependency analysis. Its constraint is
-tighter than a layer rule and is stated as an allowlist rather than a
-forbidden-import list: ADR-054 spec 2 FR-035 requires that it import from the
-standard library and, lazily and only inside the fingerprint, numpy and pandas,
-and that it import nothing from SciStudio beyond ``scistudio.stability``. That
-is what lets the session, the API layer, and the kernel adapter all import it
-without a layering question. ``test_explore_imports_are_allowlisted`` asserts
-the allowlist; the ``explore`` entry in ``LAYER_RULES`` is the ordinary layer
-rule that comes with it.
+``explore/`` is the ADR-054 subsystem, and it carries two rules of different
+scope, which is worth reading carefully before changing either.
+
+The subsystem rule is the ordinary one: the ``explore`` entry in
+``LAYER_RULES`` forbids ``api``, ``ai``, and ``engine`` (spec 3 FR-008,
+FR-060). The session runtime imports ``core`` for storage, lineage, and
+versioning and ``blocks`` for the registry, which is what spec 3 §4.1 places it
+beside the engine to do. ``test_engine_does_not_import_explore`` is the other
+half of FR-060, since a one-directional rule needs both halves stated.
+
+The stricter rule is about **two modules**, not the subsystem: spec 2 FR-035
+requires the analysis and the fingerprint to import from the standard library
+and, lazily and only inside the fingerprint, numpy and pandas, and to import
+nothing from SciStudio beyond ``scistudio.stability``. That is what lets the
+session, the API layer, and the kernel adapter all import the analysis without
+a layering question. ``test_explore_imports_are_allowlisted`` asserts it over
+``FR_035_CONSTRAINED_MODULES``, and fails if one of those modules is renamed
+away rather than silently ceasing to apply.
 
 Cross-cutting packages (workflow/, utils/, cli/) are exempt from layer ordering
 but core/ still must not import workflow/.
@@ -192,21 +201,23 @@ LAYER_RULES: list[tuple[str, list[str]]] = [
         ],
     ),
     (
-        # The ADR-054 notebook dependency analysis (spec 2, FR-035). Imported by
-        # the explore session, the API layer, and the kernel adapter alike, so it
-        # must import none of them. The allowlist test below is the stronger
-        # statement; this rule keeps ``explore`` inside the same mechanism as
-        # every other subsystem.
+        # The ADR-054 explore subsystem. Spec 3 §4.1 places it beside the engine
+        # at the layer of ``previewers`` and ``plot``: it imports ``core`` for
+        # storage, lineage, and versioning and ``blocks`` for the registry, and
+        # it imports neither the API, nor AI, nor the engine (spec 3 FR-008,
+        # FR-060). ``test_engine_does_not_import_explore`` is the other half of
+        # FR-060 — the engine never imports it either, and the interactive pause
+        # is the one place they meet, through a prompt event.
+        #
+        # The analysis and fingerprint modules inside this package are held to a
+        # far stricter rule — standard library plus stability markers only —
+        # by ``test_explore_imports_are_allowlisted`` below (spec 2 FR-035).
+        # That is a rule about two modules, not about the subsystem.
         "explore",
         [
             "scistudio.api",
             "scistudio.ai",
             "scistudio.engine",
-            "scistudio.blocks",
-            "scistudio.core",
-            "scistudio.previewers",
-            "scistudio.plot",
-            "scistudio.workflow",
         ],
     ),
 ]
@@ -241,6 +252,31 @@ def test_layer_rules_cover_all_source_layers() -> None:
     assert expected.issubset(checked_layers), f"Missing layer rules for: {expected - checked_layers}"
 
 
+def test_engine_does_not_import_explore() -> None:
+    """FR-060, the half a one-directional rule always forgets.
+
+    ``scistudio.explore`` not importing the engine is enforced by the
+    ``explore`` entry in ``LAYER_RULES``. That says nothing about the engine
+    importing ``explore``, and spec 3 §4.1 forbids it: the interactive pause is
+    the one point where the engine and a session meet, and it meets the session
+    the way it meets every interactive block — through a prompt event and a
+    decision, never through a reference to the session.
+
+    Without this, the engine could take a direct dependency on the session
+    service and every other rule here would still pass.
+    """
+    violations: list[str] = []
+    for filepath in _collect_py_files("engine"):
+        for imp in _get_imports_from_file(filepath):
+            if imp == "scistudio.explore" or imp.startswith("scistudio.explore."):
+                violations.append(f"  {filepath.relative_to(SRC_ROOT)}: imports {imp}")
+
+    assert not violations, (
+        "the engine must reach a session through a prompt event and a decision, "
+        "never through a reference to it (ADR-054 spec 3 FR-060):\n" + "\n".join(violations)
+    )
+
+
 # ---------------------------------------------------------------------------
 # ADR-054 spec 2 FR-035 / SC-011: the explore subsystem's import allowlist
 # ---------------------------------------------------------------------------
@@ -261,9 +297,7 @@ EXPLORE_ALLOWED_SCISTUDIO_IMPORTS: set[str] = {"scistudio.stability", "scistudio
 #: The subsystem-wide rule — explore imports neither ``api``, nor ``ai``, nor
 #: ``engine`` — is the ``explore`` entry in ``LAYER_RULES`` above, and it
 #: applies to every file in the package.
-FR_035_CONSTRAINED_MODULES: frozenset[str] = frozenset(
-    {"__init__.py", "dependency_analysis.py", "fingerprint.py"}
-)
+FR_035_CONSTRAINED_MODULES: frozenset[str] = frozenset({"__init__.py", "dependency_analysis.py", "fingerprint.py"})
 
 
 def _is_stdlib(module: str) -> bool:
