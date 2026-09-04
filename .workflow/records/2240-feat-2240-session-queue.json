@@ -1,0 +1,98 @@
+{
+  "base_ref": "origin/track/adr-054-spec3-explore-session",
+  "branch": "feat/2240-session-queue",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/explore/session.py",
+      "src/scistudio/explore/queue.py",
+      "src/scistudio/api/project_layout.py",
+      "tests/explore/test_explore_session.py",
+      "tests/explore/test_queue_and_marks.py",
+      "docs/planning/adr-054-spec3-explore-session-checklist.md",
+      ".workflow/records/2240-feat-2240-session-queue.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-04T11:20:53.680231Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "the governing spec docs/specs/adr-054-explore-session.md landed in PR 2228 and this change implements one of its tasks without adding a separately documented surface",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2240,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-054 spec 3 tasks T-006, T-007, T-008 and T-016: the session service over a block's outputs, a file, or a paused run; the single execution queue with the admission whitelist, coalescing and the observation call; the marks with last-bound-by, the out-of-order check, stale propagation, run-stale and run-with-upstream; and the kernel list with branch-switch retirement (FR-001 to FR-006, FR-016 to FR-026, FR-036).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2240-feat-2240-session-queue",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T11:20:53.680196Z",
+      "pattern": "src/scistudio/explore/session.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T11:20:53.680218Z",
+      "pattern": "src/scistudio/explore/queue.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T11:20:53.680220Z",
+      "pattern": "src/scistudio/api/project_layout.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "3423c5eb-fefd-4a7d-a4e1-ae3fdf04acb5",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-04T11:20:53.680235Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_explore_session.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T11:20:53.680238Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_queue_and_marks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
