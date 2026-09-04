@@ -39,11 +39,13 @@ from scistudio.blocks.base import (
     ExecutionMode,
     InputPort,
     InteractiveMixin,
+    InteractivePrompt,
     OutputPort,
     PanelManifest,
+    load_intermediate,
 )
 from scistudio.blocks.registry import BlockRegistry, BlockSpec
-from scistudio.core.types import Array, Collection, DataFrame, DataObject, Text
+from scistudio.core.types import Array, Collection, DataFrame, DataObject, StorageReference, Text
 from scistudio.explore.block_call import (
     BlockCallAdapter,
     BlockCallCancelledError,
@@ -170,6 +172,28 @@ class Decide(InteractiveMixin, Block):
         return {"picked": Text(content=str(response["choice"]))}
 
 
+class CarriesIntermediate(InteractiveMixin, Block):
+    """An interactive block whose prompt phase produces heavy work for its run to reuse."""
+
+    name = "CarriesIntermediate"
+    execution_mode = ExecutionMode.INTERACTIVE
+    interactive_panel = PanelManifest(panel_id="core.interactive.data_router")
+    input_ports: ClassVar[list[InputPort]] = []
+    output_ports: ClassVar[list[OutputPort]] = [OutputPort(name="out", accepted_types=[Text])]
+
+    def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> InteractivePrompt:
+        """Return a payload plus one storage reference to carry forward."""
+        return InteractivePrompt(
+            panel_payload={"options": []},
+            intermediate=(StorageReference(backend="zarr", path="scratch/partial.zarr"),),
+        )
+
+    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
+        """Record the references the adapter carried across, and the decision."""
+        OBSERVED["intermediate"] = load_intermediate(config)
+        return {"out": Text(content=str(config.get(INTERACTIVE_RESPONSE_KEY)))}
+
+
 class BadPanel(InteractiveMixin, Block):
     """An interactive block whose panel payload is not JSON."""
 
@@ -196,6 +220,7 @@ _BLOCKS: tuple[type[Block], ...] = (
     DropsOutput,
     Exploding,
     Decide,
+    CarriesIntermediate,
     BadPanel,
 )
 
@@ -664,6 +689,36 @@ def test_an_interactive_block_without_a_channel_is_refused_with_a_diagnosis(
     message = str(excinfo.value)
     assert "Decide" in message
     assert "Explore session" in message
+
+
+def test_the_prompt_phases_intermediate_reaches_the_run_but_not_the_lineage(
+    registry: BlockRegistry,
+) -> None:
+    """FR-050: the two halves of an interactive block still meet, in-process.
+
+    The engine carries an interactive block's heavy intermediate work across
+    its pause under a config key its ``run`` reads back, and deliberately keeps
+    that key out of lineage. There is no pause to cross in a kernel, but the
+    block is the same block, so both halves of that arrangement hold: the
+    references arrive at ``run``, and the recorded config carries the decision
+    without them.
+    """
+    recorded: list[BlockCallLineage] = []
+    channel = RecordingChannel()
+    adapter = BlockCallAdapter(registry=registry, interaction=channel, on_call=recorded.append)
+    thread, results, errors, _ = _call_in_thread(adapter, "CarriesIntermediate")
+
+    channel.await_open().submit({"choice": "a"})
+    thread.join(timeout=10)
+
+    assert errors == []
+    assert results
+    carried = OBSERVED["intermediate"]
+    assert [ref.path for ref in carried] == ["scratch/partial.zarr"]
+
+    config = recorded[0].block_config_resolved
+    assert config[INTERACTIVE_RESPONSE_KEY] == {"choice": "a"}
+    assert "interactive_intermediate" not in config
 
 
 def test_a_panel_payload_that_is_not_json_is_refused(registry: BlockRegistry) -> None:

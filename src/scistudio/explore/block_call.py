@@ -1059,6 +1059,12 @@ class BlockCallAdapter:
         ports_by_name = {port.name: port for port in effective_inputs}
         wrapped = {name: _wrap_one(value, ports_by_name.get(name), name) for name, value in call_inputs.items()}
 
+        # ``call_config`` is what lineage records; ``run_config`` is what the
+        # block is handed. They differ for an interactive call by exactly the
+        # intermediate storage references, which the engine also carries across
+        # its pause and also keeps out of lineage.
+        run_config = dict(call_config)
+
         started_at = _now()
         started_perf = time.perf_counter()
         pending: PendingInteraction | None = None
@@ -1096,7 +1102,7 @@ class BlockCallAdapter:
 
         if interactive:
             try:
-                pending = self._open_panel(identifier, spec, block, wrapped)
+                pending, intermediate = self._open_panel(identifier, spec, block, wrapped)
             except BlockCallError as exc:
                 # A refusal at the prompt phase — no channel, or a payload the
                 # panel could never render — is as terminal as a failed run and
@@ -1118,9 +1124,12 @@ class BlockCallAdapter:
             self._close_panel(pending)
             call_config = dict(call_config)
             call_config[rt.response_key] = response
-            block.config = rt.BlockConfig(**call_config)
+            run_config = dict(call_config)
+            if intermediate:
+                run_config[rt.intermediate_key] = list(intermediate)
+            block.config = rt.BlockConfig(**run_config)
 
-        block_config = rt.BlockConfig(**call_config)
+        block_config = rt.BlockConfig(**run_config)
         try:
             raw_outputs = block.run(wrapped, block_config)
         except Exception as exc:
@@ -1215,7 +1224,7 @@ class BlockCallAdapter:
         spec: Any,
         block: Any,
         wrapped: Mapping[str, Any],
-    ) -> PendingInteraction:
+    ) -> tuple[PendingInteraction, tuple[Any, ...]]:
         """Run the block's prompt phase and hand the panel to the session (FR-050).
 
         Args:
@@ -1225,7 +1234,8 @@ class BlockCallAdapter:
             wrapped: The call's wrapped inputs.
 
         Returns:
-            The pending interaction to block on.
+            The pending interaction to block on, and the storage references the
+            prompt phase produced for the compute phase to reuse.
 
         Raises:
             InteractionUnavailableError: If the adapter has no channel.
@@ -1259,14 +1269,6 @@ class BlockCallAdapter:
                 f"Block '{identifier}' produced a panel payload that is not JSON: {exc}"
             ) from exc
 
-        if prompt.intermediate:
-            # The engine carries an interactive block's heavy intermediate work
-            # across its pause under this key; in-process there is no pause to
-            # cross, but the block's ``run`` reads it from the same place.
-            block.config = rt.BlockConfig(
-                **{**block.config.model_dump(), rt.intermediate_key: list(prompt.intermediate)}
-            )
-
         request = InteractionRequest(
             block_identifier=identifier,
             block_type=spec.type_name or spec.name,
@@ -1277,7 +1279,7 @@ class BlockCallAdapter:
         )
         pending = PendingInteraction(request)
         self._interaction.open(pending)
-        return pending
+        return pending, tuple(prompt.intermediate)
 
     def _close_panel(self, pending: PendingInteraction) -> None:
         """Take a panel down, swallowing a channel that fails on the way.
