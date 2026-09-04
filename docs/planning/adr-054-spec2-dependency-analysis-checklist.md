@@ -132,7 +132,7 @@ branch and issue.
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `S2-B1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-b1-graph.md` | T-001 to T-006: the package, the layer rule, per-cell static facts, flags, declarations, the graph, the four queries | `feat/2231-dep-analysis-graph` | `.worktrees/s2-b1-graph` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `tests/explore/test_dependency_analysis.py`, `tests/architecture/test_layer_deps.py` | `src/scistudio/explore/fingerprint.py`, `tests/explore/test_fingerprint.py`, everything outside `src/scistudio/explore/` and `tests/explore/` | `#2231` | `[ ]` |
+| `S2-B1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-b1-graph.md` | T-001 to T-006: the package, the layer rule, per-cell static facts, flags, declarations, the graph, the four queries | `feat/2231-dep-analysis-graph` | `.worktrees/s2-b1-graph` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `tests/explore/test_dependency_analysis.py`, `tests/architecture/test_layer_deps.py`, `tests/architecture/test_placement.py` (amended) | `src/scistudio/explore/fingerprint.py`, `tests/explore/test_fingerprint.py`, everything outside `src/scistudio/explore/` and `tests/explore/` | `#2231` | `[!]` |
 | `S2-B2` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-b2-fingerprint.md` | T-007: the fingerprint, the size bound, the unobservable fallback | `feat/2231-fingerprint` | `.worktrees/s2-b2-fingerprint` | `src/scistudio/explore/fingerprint.py`, `tests/explore/test_fingerprint.py` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `tests/architecture/**` | `#2231` | `[ ]` |
 | `S2-C1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-c1-observation.md` | T-008, T-009, T-011: the namespace comparison, the observation record with source-hash invalidation, the metadata codec, stability markers | `feat/2231-observation-codec` | `.worktrees/s2-c1-observation` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `src/scistudio/explore/fingerprint.py`, `tests/explore/test_dependency_analysis.py`, `tests/explore/test_fingerprint.py` | `tests/architecture/**`, everything outside `src/scistudio/explore/` and `tests/explore/` | `#2231` | `[ ]` |
 | `S2-D1` | `test_engineer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-d1-adversarial.md` | T-010 and adversarial coverage: the differential harness, the fixtures, and tests that try to break the analysis rather than confirm it | `test/2231-adversarial` | `.worktrees/s2-d1-adversarial` | `tests/explore/**` | Every production path. Report defects, do not fix them. | `#2231` | `[ ]` |
@@ -191,8 +191,22 @@ amendment.
 
 ### 7.3 Implementation
 
-- [ ] `S2-B1` package, layer rule, static facts, graph, queries -> artifact pending
-- [ ] `S2-B2` fingerprint with bound and fallback -> artifact pending
+- [x] `S2-B1` package, layer rule, static facts, graph, queries -> merged into the
+      track branch. `tests/explore/test_dependency_analysis.py` 162 passed,
+      `tests/architecture/test_layer_deps.py` 10 passed, and the wider
+      `tests/architecture tests/adr052_contract tests/stability tests/docs tests/explore`
+      run 870 passed / 8 skipped. The agent ran 23 mutations against its own
+      implementation and all 23 were caught. Gate ledger:
+      `.workflow/records/2231-feat-2231-dep-analysis-graph.json`, scope amended to
+      include `tests/architecture/test_placement.py`, whose
+      `test_no_py_files_outside_known_packages` enumerates top-level packages
+      independently of `test_layer_deps.py`.
+- [x] `S2-B2` fingerprint with bound and fallback -> merged into the track branch.
+      `tests/explore/test_fingerprint.py` 67 passed, 100% statement coverage of
+      `src/scistudio/explore/fingerprint.py`, measured worst case 10.4 ms against the
+      declared 250 ms bound. Benchmarking found and fixed a real defect: leaf handlers
+      copied a full megabyte per element before the byte ceiling truncated it.
+      Gate ledger: `.workflow/records/2231-feat-2231-fingerprint.json`.
 - [ ] `S2-C1` observation, codec, stability markers -> artifact pending
 - [ ] `S2-D1` differential harness, fixtures, adversarial tests -> artifact pending
 - [x] docs -> N/A, rationale recorded in §7.1.
