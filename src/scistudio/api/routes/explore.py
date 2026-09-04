@@ -256,15 +256,21 @@ _REFUSALS: tuple[tuple[type[BaseException], int, str], ...] = (
 )
 
 #: ``(module, class name)`` -> ``(status code, kind)`` for the refusals raised by
-#: modules this one must not import.
+#: modules this one does not import.
 #:
-#: ``scistudio.explore.kernel`` imports ``jupyter_client`` at module scope, and
+#: ``scistudio.explore.kernel`` imports ``jupyter_client`` at module scope and
 #: ``scistudio.explore.packaging`` pulls in the block registry and the Code
-#: Block; importing either here would make the whole API layer pay for a kernel
-#: stack it may not have, at import time, on every start. Matching by name over
-#: the raised exception's MRO costs nothing and needs no import, and the route
-#: tests raise each of these through a route so a renamed class fails a test
-#: rather than silently degrading to a 500.
+#: Block, so importing either here would make the whole API layer pay for a
+#: kernel stack it may not have, at import time, on every start.
+#: ``scistudio.explore.kernel_bridge`` is cheap enough to import and is listed
+#: here anyway, so that the kernel-facing refusals are described in one place
+#: and an ``import`` of the bridge does not sit one line away from an import of
+#: the kernel it drives (FR-058).
+#:
+#: Matching by name over the raised exception's MRO costs nothing and needs no
+#: import. ``test_the_by_name_refusal_table_names_classes_that_exist`` is what
+#: keeps it honest: a renamed class fails a test rather than silently degrading
+#: a documented refusal to a 500.
 _REFUSALS_BY_NAME: dict[tuple[str, str], tuple[int, str]] = {
     ("scistudio.explore.kernel", "KernelTimeoutError"): (504, "kernel_timeout"),
     ("scistudio.explore.kernel", "KernelDiedError"): (409, "kernel_died"),

@@ -317,11 +317,34 @@ def _bound_run(*, opened_over: str = "block_outputs") -> BoundRun:
 # ---------------------------------------------------------------------------
 
 
+def _mount_explore_routes(app: Any) -> None:
+    """Include the router the way ``create_app`` must: before the SPA catch-all.
+
+    ``create_app`` mounts ``SPAStaticFiles`` at ``/`` last, and that mount
+    matches every path — including ``/api/explore/...``, which it answers with
+    its own 404. Appending routes after it therefore registers them where
+    nothing can reach them.
+
+    That is a live constraint on the integrating change, not a test artifact:
+    ``app.include_router(explore.router)`` has to sit with the other
+    ``include_router`` calls, above the mount. Here the mount is moved back to
+    the end instead, so these tests behave the same whether or not a built
+    frontend happens to be present in the checkout.
+    """
+    from starlette.routing import Mount
+
+    app.include_router(explore.router)
+    for route in [r for r in app.router.routes if isinstance(r, Mount) and r.path in {"", "/"}]:
+        app.router.routes.remove(route)
+        app.router.routes.append(route)
+
+
 @dataclass
 class _Harness:
     """Everything a test needs to drive the routes and inspect what happened."""
 
     client: TestClient
+    project_dir: Path
     kernels: list[_FakeKernel]
     bridges: list[_FakeBridge]
     resolver: _StubResolver
@@ -329,12 +352,15 @@ class _Harness:
     events: list[dict[str, Any]]
 
     def service(self) -> SessionService:
-        """The live service, for **synchronisation only**.
+        """The live service, for the two things no route offers.
 
         The queue runs on a worker thread, so a test that asserts on a run's
-        effects has to wait for it. Waiting is not an operation of FR-056 and
-        has no route; reaching the service for ``wait_until_idle`` is therefore
-        the honest thing, and no assertion in this module is made against it.
+        effects has to wait for it, and waiting is not an operation of FR-056.
+        Reporting that a kernel process died is the handle's own ``on_death``
+        callback, and has no route either — it is something that happens *to*
+        the session. Nothing else in this module reaches past the routes: the
+        project directory comes from the fixture, and every assertion about
+        behaviour is made against an HTTP response or against the filesystem.
         """
         services = list(explore._services.values())
         assert len(services) == 1, f"expected exactly one session service, found {len(services)}"
@@ -389,11 +415,12 @@ def harness(
     # The real bridge launches the kernel with this set (``session_kernel_env``);
     # the fake kernel is this process, so the helpers a cell imports need it here.
     monkeypatch.setenv(MODE_ENV_VAR, SESSION_MODE)
-    client.app.include_router(explore.router)
+    _mount_explore_routes(client.app)
 
     explore.register_explore_subscriber(events.append)
     harness = _Harness(
         client=client,
+        project_dir=opened_project,
         kernels=kernels,
         bridges=bridges,
         resolver=resolver,
@@ -1139,7 +1166,7 @@ def _packageable_session(harness: _Harness) -> tuple[str, str, str]:
 def test_the_packaging_check_reports_the_slice_and_the_ports(git_harness: _Harness) -> None:
     """FR-039: the check writes nothing and says what packaging would produce."""
     session_id, first, second = _packageable_session(git_harness)
-    blocks_before = sorted((Path(git_harness.service().project_dir) / "blocks").glob("*"))
+    blocks_before = sorted((git_harness.project_dir / "blocks").glob("*"))
 
     body = git_harness.client.post(
         f"/api/explore/sessions/{session_id}/packaging/check",
@@ -1150,7 +1177,7 @@ def test_the_packaging_check_reports_the_slice_and_the_ports(git_harness: _Harne
     assert body["cells"] == [first, second]
     assert [port["name"] for port in body["outputs"]] == ["answer"]
     assert body["outputs"][0]["data_type"] == "Text"
-    assert sorted((Path(git_harness.service().project_dir) / "blocks").glob("*")) == blocks_before
+    assert sorted((git_harness.project_dir / "blocks").glob("*")) == blocks_before
 
 
 def test_the_packaging_check_names_every_refusal_rather_than_the_first(harness: _Harness) -> None:
@@ -1174,8 +1201,7 @@ def test_packaging_writes_the_declaration_and_the_notebook_copy(git_harness: _Ha
     session_id, _first, _second = _packageable_session(git_harness)
     git_harness.client.post(f"/api/explore/sessions/{session_id}/commit", json={"message": "checkpoint"})
     notebook_before = (
-        Path(git_harness.service().project_dir)
-        / git_harness.client.get(f"/api/explore/sessions/{session_id}").json()["notebook_path"]
+        git_harness.project_dir / git_harness.client.get(f"/api/explore/sessions/{session_id}").json()["notebook_path"]
     ).read_bytes()
 
     response = git_harness.client.post(
@@ -1191,8 +1217,7 @@ def test_packaging_writes_the_declaration_and_the_notebook_copy(git_harness: _Ha
     assert Path(body["declaration_path"]).is_file()
     assert Path(body["notebook_path"]).is_file()
     assert (
-        Path(git_harness.service().project_dir)
-        / git_harness.client.get(f"/api/explore/sessions/{session_id}").json()["notebook_path"]
+        git_harness.project_dir / git_harness.client.get(f"/api/explore/sessions/{session_id}").json()["notebook_path"]
     ).read_bytes() == notebook_before
 
 
@@ -1238,7 +1263,7 @@ def test_packaging_a_stale_slice_is_refused_with_every_problem_named(git_harness
     assert [problem["kind"] for problem in detail["problems"]] == ["stale_cell"]
     assert detail["problems"][0]["cell_ids"] == [second]
     assert all(problem["message"] for problem in detail["problems"])
-    blocks = Path(git_harness.service().project_dir) / "blocks"
+    blocks = git_harness.project_dir / "blocks"
     assert not list(blocks.glob("refused_block*")), "nothing is written when packaging refuses"
 
 
@@ -1728,7 +1753,7 @@ def test_no_active_project_is_a_refusal_on_every_collection_route(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Without a project there is no explore directory, and that is not a 500."""
-    client.app.include_router(explore.router)
+    _mount_explore_routes(client.app)
     try:
         for method, url, body in (
             ("GET", "/api/explore/sessions", None),
@@ -1829,9 +1854,17 @@ def real_harness(
     monkeypatch.setenv("PYTHONPATH", os.pathsep.join(entries))
 
     events: list[dict[str, Any]] = []
-    client.app.include_router(explore.router)
+    _mount_explore_routes(client.app)
     explore.register_explore_subscriber(events.append)
-    harness = _Harness(client=client, kernels=[], bridges=[], resolver=_StubResolver(), git=None, events=events)
+    harness = _Harness(
+        client=client,
+        project_dir=opened_project,
+        kernels=[],
+        bridges=[],
+        resolver=_StubResolver(),
+        git=None,
+        events=events,
+    )
     try:
         yield harness
     finally:
