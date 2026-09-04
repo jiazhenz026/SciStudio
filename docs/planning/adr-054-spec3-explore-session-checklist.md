@@ -158,7 +158,7 @@ branch. Two consequences the owner must know before merging:
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `S3-A1` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-a1-notebook-store.md` | T-001 dependencies, T-005 notebook store | `feat/2240-notebook-store` | `.worktrees/s3-a1-notebook` | `pyproject.toml`, `src/scistudio/explore/notebook.py`, `tests/explore/test_notebook_store.py` | `tests/architecture/**`, every other explore module | `#2240` | `[ ]` |
+| `S3-A1` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-a1-notebook-store.md` | T-001 dependencies, T-005 notebook store | `feat/2240-notebook-store` | `.worktrees/s3-a1-notebook` | `pyproject.toml`, `src/scistudio/explore/notebook.py`, `tests/explore/test_notebook_store.py` | `tests/architecture/**`, every other explore module | `#2240` | `[x]` |
 | `S3-A2` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-a2-kernel.md` | T-002 kernel handle over `jupyter_client` | `feat/2240-kernel-handle` | `.worktrees/s3-a2-kernel` | `src/scistudio/explore/kernel.py`, `tests/explore/test_kernel_session.py` | `pyproject.toml`, every other explore module | `#2240` | `[ ]` |
 | `S3-A3` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-a3-commit-plumbing.md` | T-009 plumbing commit to a ref with a temporary index; forced packing | `feat/2240-explore-commits` | `.worktrees/s3-a3-commits` | `src/scistudio/core/versioning/_commit_ops.py`, `tests/core/versioning/test_explore_ref_commits.py` | Every explore module, every other core path | `#2240` | `[ ]` |
 | `S3-A4` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-a4-on-new-input.md` | T-015a the `on_new_input` setting and the engine's remap policy | `feat/2240-on-new-input` | `.worktrees/s3-a4-policy` | `src/scistudio/blocks/base/interactive.py`, `src/scistudio/engine/scheduler/_dispatch.py`, `tests/blocks/base/test_interaction_policy.py` | Every explore module | `#2240` | `[x]` |
@@ -232,7 +232,12 @@ amendment.
 
 ### 7.3 Implementation
 
-- [ ] `S3-A1` dependencies and the notebook store -> artifact pending
+- [x] `S3-A1` dependencies and the notebook store -> `pyproject.toml`
+  (`ipykernel`, `jupyter_client`), `src/scistudio/explore/notebook.py`,
+  `tests/explore/test_notebook_store.py` (86 passed), `CHANGELOG.md`, on
+  `feat/2240-notebook-store`. Open for the manager: nobody's write set covers
+  `tests/architecture/test_placement.py`, whose `known_packages` set must gain
+  `"explore"` before any branch that creates `src/scistudio/explore/` is green.
 - [ ] `S3-A2` kernel handle -> artifact pending
 - [ ] `S3-A3` plumbing commits to a ref -> artifact pending
 - [x] `S3-A4` `on_new_input` and the remap policy -> `feat/2240-on-new-input` @ `1c279895c`; `tests/blocks/base/test_interaction_policy.py` 36 passed, `tests/engine` 522 passed 4 skipped, `tests/blocks` 1511 passed 8 skipped

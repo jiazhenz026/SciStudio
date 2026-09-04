@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2240] **SciStudio carries a Jupyter kernel.** `ipykernel` and
+  `jupyter_client` join the core dependencies. An ADR-054 Explore Session runs
+  its notebook on an ipykernel process launched from SciStudio's own
+  interpreter, and the session service drives it through `jupyter_client` as
+  that kernel's only client — nothing else in the product opens a connection to
+  it. They are core rather than an optional extra because the session is part
+  of the product and the desktop's bundled runtime ships core's dependency set.
+  That runtime cannot receive new packages over the air, so the release that
+  first ships the Explore Session must rebuild it; until then a desktop build
+  has the session's code and no kernel to run it on.
+
 - [#2112] **Previews open as canvas tabs, and the Data tree opens files for
   preview.** The DataPreview panel's maximize button used to float the preview
   over the workspace as an overlay; it now opens the preview as a tab in the
