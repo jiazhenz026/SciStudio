@@ -138,6 +138,7 @@ branch and issue.
 | `S2-D1` | `test_engineer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-d1-adversarial.md` | T-010 and adversarial coverage: the differential harness, the fixtures, and tests that try to break the analysis rather than confirm it | `test/2231-adversarial` | `.worktrees/s2-d1-adversarial` | `tests/explore/**` | Every production path. Report defects, do not fix them. | `#2231` | `[ ]` |
 | `S2-E1` | `audit_reviewer` | `no-context` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-e1-audit-no-context.md` | Independent audit of the explore analysis subsystem against the repository's own documents | `audit/2231-no-context` | `.worktrees/s2-e1-audit-nc` | `docs/audit/2026-09-04-explore-dependency-analysis-no-context.md` | Every implementation and test path. Read-only. | `#2231` | `[ ]` |
 | `S2-E2` | `audit_reviewer` | `with-context` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-e2-audit-with-context.md` | Audit of the delivered spec 2 work against the spec, the issue, and this checklist | `audit/2231-with-context` | `.worktrees/s2-e2-audit-wc` | `docs/audit/2026-09-04-adr-054-spec2-with-context.md` | Every implementation and test path. Read-only. | `#2231` | `[ ]` |
+| `S2-G1` | `adr_author` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-g1-governs-migration.md` | Move the ADR-054 and spec-2 `planned_governs` entries that now resolve into `governs`, and correct the one §11 sentence the move makes false | `docs/2231-governs-migration` | `.worktrees/s2-g1-governs` | `docs/adr/ADR-054.md` (front matter and one sentence), `docs/specs/adr-054-notebook-dependency-analysis.md` (front matter) | Every path under `src/` and `tests/`; every other ADR-054 spec; `docs/architecture/**` | `#2231` | `[ ]` |
 | `S2-F1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-f1-fix.md` | Fix the P1 and P2 findings the audits and the adversarial test engineer produce | `fix/2231-audit-findings` | `.worktrees/s2-f1-fix` | `src/scistudio/explore/**`, `tests/explore/**` | Everything else | `#2231` | `[ ]` |
 
 For `test_engineer` rows, the write set should default to tests, fixtures,
@@ -209,6 +210,7 @@ amendment.
       Gate ledger: `.workflow/records/2231-feat-2231-fingerprint.json`.
 - [ ] `S2-C1` observation, codec, stability markers -> artifact pending
 - [ ] `S2-D1` differential harness, fixtures, adversarial tests -> artifact pending
+- [ ] `S2-G1` the `planned_governs` migration -> artifact pending
 - [x] docs -> N/A, rationale recorded in §7.1.
 
 ### 7.4 Audit
@@ -246,6 +248,9 @@ Append only.
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
 | 2026-09-04 | manager | The earlier spec 2 dispatch left a checklist and three prompts with no implementation behind them. | Owner directed a full restart. Replaced the checklist and the prompt directory; retained and amended the gate ledger. | N/A |
+| 2026-09-04 | `S2-B1`, `S2-B2`, `S3-A1` | Three agents independently hit the same blocker and each correctly refused to widen its own scope: creating `src/scistudio/explore/` makes the ADR-054 and spec `planned_governs` entries resolve, and `full_audit` requires a resolved entry to move into `governs`. No implementer's write set covers governance front matter, and the move cannot be pre-applied on a branch without the package. | Manager added agent `S2-G1` (`adr_author`) to make the move once, as its own reviewable change, and amended the ledger to include the two documents. | A second short pass moves `tests/explore/test_analysis_differential.py` and `tests/explore/fixtures/**` once `S2-D1` creates them. |
+| 2026-09-04 | `S2-B1` | `tests/architecture/test_placement.py::test_no_py_files_outside_known_packages` enumerates top-level packages independently of the layer test and fails for whichever branch first creates the subsystem. | Scope amended; `S2-B1` added the one line. | N/A |
+| 2026-09-04 | `S2-B2` | Raised that SC-011 names only numpy and pandas as permitted lazy third-party imports while §4.1 directs arrays through `xxhash`. | Resolved by the shape of `S2-B1`'s allowlist test, which reads module-level imports only, so a lazy `xxhash` inside the fingerprint is permitted on the same terms as numpy and pandas. No document change needed. | N/A |
 
 ## 10. Final Readiness
 
