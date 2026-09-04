@@ -34,7 +34,7 @@ from scistudio.core.lineage.store import LineageStore
 from scistudio.core.versioning._commit_ops import _explore_session_ref
 from scistudio.core.versioning.git_engine import GitEngine
 from scistudio.explore.dependency_analysis import analyse_cells, build_graph
-from scistudio.explore.notebook import NotebookStore, read_notebook
+from scistudio.explore.notebook import NotebookStore, read_notebook, write_notebook
 from scistudio.explore.notebook_api import decode_artefact_reference
 from scistudio.explore.session import (
     EXPLORE_DIR_NAME,
@@ -742,6 +742,72 @@ def test_shutting_the_service_down_leaves_no_kernel_behind(
     assert pid is not None
     service.shutdown()
     assert _process_gone(pid)
+
+
+# ---------------------------------------------------------------------------
+# FR-027: what a run leaves in the notebook on disk
+# ---------------------------------------------------------------------------
+
+
+@needs_kernel
+@pytest.mark.serial
+def test_a_rerun_replaces_the_outputs_the_previous_run_left(
+    services: Callable[..., SessionService],
+) -> None:
+    """FR-027: the file shows what the cell last printed, not everything it ever printed."""
+    service = services()
+    session = service.open_over_file("data/raw/signal.csv")
+    first = session.cells()[0].cell_id
+    assert first is not None
+
+    session.set_cell_source(first, "print('the first run')")
+    session.run_cell(first)
+    assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+    session.set_cell_source(first, "print('the second run')")
+    session.run_cell(first)
+    assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+
+    text = "".join(
+        str(output.get("text", "")) for cell in read_notebook(session.notebook_path).cells for output in cell.outputs
+    )
+    assert "the second run" in text
+    assert "the first run" not in text, "the cell accumulated outputs instead of recording the run that just ended"
+
+
+@needs_kernel
+@pytest.mark.serial
+def test_a_run_that_printed_nothing_leaves_the_outputs_it_found_alone(
+    services: Callable[..., SessionService],
+) -> None:
+    """The rule the write-back follows, stated where a reader will look for it.
+
+    FR-027 makes the file's outputs something the service **keeps** rather than
+    something it owns: a cell may carry an output an editor put there, or one an
+    earlier session left, and a silent run is not evidence that the person wants
+    it gone. So a run records what it produced and a run that produced nothing
+    records nothing — which is also what keeps the "the commit is stripped, the
+    file is not" assertions of FR-028 able to fail.
+    """
+    service = services()
+    session = service.open_over_file("data/raw/signal.csv")
+    first = session.cells()[0].cell_id
+    assert first is not None
+    session.set_cell_source(first, "silent = 1")
+
+    document = read_notebook(session.notebook_path)
+    document.set_cell_outputs(
+        first,
+        [{"output_type": "stream", "name": "stdout", "text": "written by somebody else\n"}],
+        execution_count=4,
+    )
+    write_notebook(session.notebook_path, document)
+    assert session.reload_if_changed()
+
+    session.run_cell(first)
+    assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+
+    kept = read_notebook(session.notebook_path).cell(first).outputs
+    assert [output["text"] for output in kept] == ["written by somebody else\n"]
 
 
 # ---------------------------------------------------------------------------

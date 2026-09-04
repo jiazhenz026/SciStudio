@@ -51,6 +51,7 @@ from scistudio.explore.dependency_analysis import (
     build_graph,
     source_hash,
 )
+from scistudio.explore.lineage import ExploreLineage
 from scistudio.explore.notebook import (
     NotebookCell,
     NotebookDocument,
@@ -128,6 +129,20 @@ _COMMIT_RETRY_SECONDS: Final[float] = 0.2
 
 #: Characters a port or file name may contribute to a Python identifier.
 _NON_IDENTIFIER = re.compile(r"\W")
+
+#: An execute reply's status as the ``termination`` a lineage record carries
+#: (FR-053). ``"abort"`` is a request the kernel dropped without running, which
+#: is a cancellation rather than a failure of the cell itself.
+_TERMINATION_BY_STATUS: Final[Mapping[str, str]] = {
+    "ok": "completed",
+    "error": "error",
+    "abort": "cancelled",
+}
+
+#: ``explore_sessions.status`` for a session whose owning process is gone. The
+#: value the lineage module already spells for a clean close is imported with
+#: it; this one is spelled here because only the service can decide it.
+_SESSION_STATUS_CRASHED: Final[str] = "crashed"
 
 
 # ---------------------------------------------------------------------------
@@ -445,7 +460,14 @@ class ExploreSession:
 
     @property
     def notebook_commit(self) -> str | None:
-        """The commit of the last cell run on the session's ref (FR-035)."""
+        """The newest commit written of this notebook, on either ref (FR-035).
+
+        A cell run commits to the session's ref (FR-028) and a request or a
+        close commits to the branch (FR-036); whichever wrote last is what the
+        notebook is at, and that is what packaging stamps as the block's version
+        and what the interaction memory of FR-046 names. ``None`` until one of
+        them has written — a service with no git engine never leaves ``None``.
+        """
         with self._state_lock:
             return self._last_commit_sha
 
@@ -1017,13 +1039,54 @@ class ExploreSession:
             {"cell_id": cell_id, "state": "running", "out_of_order": [read.name for read in reads]},
         )
 
+        started_at = _now()
+        started = time.monotonic()
         result = handle.execute(source)
+        duration_ms = int((time.monotonic() - started) * 1000)
         after = bridge.fingerprints()
         observation = observe_namespaces(before, after, cell_id=cell_id, source_hash=digest)
 
+        self._record_outputs(cell_id, result)
         self._apply_observation(cell_id, observation, in_order=not reads)
         self._emit_run_results(cell_id, result, observation)
-        self._service.queue_explore_commit(self, cell_id=cell_id, notebook=captured)
+        self._service.queue_explore_commit(
+            self,
+            cell_id=cell_id,
+            notebook=captured,
+            run=_CellRun(
+                cell_id=cell_id,
+                started_at=started_at,
+                finished_at=_now(),
+                duration_ms=duration_ms,
+                termination=_TERMINATION_BY_STATUS.get(result.status, "error"),
+                termination_detail=result.error.evalue if result.error is not None else "",
+            ),
+        )
+
+    def _record_outputs(self, cell_id: str, result: ExecutionResult) -> None:
+        """Write what the run produced into the cell and back to disk (FR-027).
+
+        The notebook on disk keeps its cell outputs, so a person who reopens
+        this notebook — here, or in JupyterLab — sees what the cell printed
+        rather than a cell that has never run. The committed form is unaffected:
+        the bytes the explore commit carries were captured before the run
+        started and are stripped anyway (FR-028).
+
+        A run that produced nothing writes nothing. The outputs a cell already
+        carries were not necessarily put there by this session — an editor, an
+        earlier session, or the file as it arrived — and FR-027 makes the file's
+        outputs something the service keeps rather than something it owns, so a
+        silent run is not taken as an instruction to discard them.
+        """
+        if not result.outputs:
+            return
+        payloads = [_notebook_output(output, result.execution_count) for output in result.outputs]
+        with self._state_lock:
+            try:
+                self._document.set_cell_outputs(cell_id, payloads, execution_count=result.execution_count)
+            except (KeyError, NotebookStoreError):  # the cell went while it ran
+                return
+            self._store.write(self._document)
 
     def _mark_order_before_run(self, cell_id: str) -> tuple[OutOfOrderRead, ...]:
         """FR-019: compare each read's definer with its last binder, and mark.
@@ -1175,10 +1238,17 @@ class ExploreSession:
             return _digest(self.stripped_notebook()) != self._branch_commit_digest
 
     def note_branch_commit(self, sha: str, payload: bytes) -> None:
-        """Record that *payload* reached the branch as *sha* (FR-036)."""
+        """Record that *payload* reached the branch as *sha* (FR-035, FR-036).
+
+        The newest commit wins, exactly as it does for an explore commit: both
+        commits carry this notebook, and FR-035 asks for the commit the notebook
+        is *at*. Keeping the first one — which this did until #2240 — made a
+        session whose only commits are branch commits report a tree that no
+        longer holds what the notebook says.
+        """
         with self._state_lock:
             self._branch_commit_digest = _digest(payload)
-            self._last_commit_sha = self._last_commit_sha or sha
+            self._last_commit_sha = sha
 
     def note_explore_commit(self, sha: str) -> None:
         """Record the commit one cell run produced on the session's ref (FR-035)."""
@@ -1280,6 +1350,10 @@ class SessionService:
         self._commits = _CommitWriter(self)
         self._reported_commit_failure: set[str] = set()
 
+        self._lineage = ExploreLineage(lineage_store) if lineage_store is not None else None
+        self._provenance_degraded: set[str] = set()
+        self._abandon_stale_sessions()
+
     # -- project layout ----------------------------------------------------
 
     @property
@@ -1351,6 +1425,115 @@ class SessionService:
         from scistudio.explore.kernel_bridge import KernelBridge as _KernelBridge
 
         return _KernelBridge(handle)
+
+    # -- lineage (FR-052, FR-053, FR-055) ---------------------------------
+
+    def _abandon_stale_sessions(self) -> None:
+        """Close the session rows a dead process left open (FR-055).
+
+        ``sessions_in_progress()`` is what stops
+        :func:`~scistudio.core.lineage.retention.plan_retention` sweeping while
+        somebody is exploring, so a row that stays ``running`` for ever does not
+        merely misreport — it disables retention for the project forever after.
+        A session ends by :meth:`close`, and a session that ends by the process
+        dying instead never reaches it.
+
+        This service is the one owner of every session in its project, so a row
+        still ``running`` when it is constructed belonged to an owner that is
+        gone: the app was killed, the machine lost power, the process crashed.
+        Those rows are closed as ``crashed`` rather than ``closed``, because the
+        distinction is the only record that the session's provenance stops
+        wherever the process did.
+
+        It follows that two services must not be built over one project and one
+        store at the same time; the API keeps one service per project directory
+        for exactly that reason.
+        """
+        if self._lineage is None:
+            return
+        try:
+            stale = self._lineage.store.sessions_in_progress()
+        except Exception:  # a store that cannot be read must not stop a session opening
+            _LOG.exception("Could not read the open explore sessions of %s", self._project_dir)
+            return
+        for session_id in stale:
+            try:
+                self._lineage.close_session(session_id, status=_SESSION_STATUS_CRASHED)
+            except Exception:
+                _LOG.exception("Could not close the abandoned explore session %s", session_id)
+
+    def _open_session_row(self, session: ExploreSession) -> None:
+        """Write the ``explore_sessions`` anchor for a newly opened session (FR-052).
+
+        Every cell-run and block-call record hangs off this row, and retention
+        reads it to know that a session is open. A store that refuses the write
+        does not stop the session: the person is exploring, and losing the
+        provenance of that is not a reason to lose the exploring. The session is
+        marked ``provenance_degraded`` instead, and says so when it closes.
+        """
+        if self._lineage is None:
+            return
+        bound = session.bound_run
+        try:
+            self._lineage.open_session(
+                session_id=session.session_id,
+                notebook_path=session.relative_path,
+                notebook_snapshot=session.document.to_json(),
+                notebook_git_commit=session.notebook_commit,
+                opened_over=bound.opened_over if bound is not None else "file",
+                bound_run_id=bound.run_id if bound is not None else None,
+            )
+        except Exception as error:
+            self._note_provenance_failure(session.session_id, "open the session row", error)
+
+    def _close_session_row(self, session: ExploreSession) -> None:
+        """Close a session's anchor so retention may sweep again (FR-052, FR-055)."""
+        if self._lineage is None:
+            return
+        degraded = session.session_id in self._provenance_degraded
+        try:
+            self._lineage.close_session(session.session_id, provenance_degraded=degraded)
+        except Exception as error:
+            self._note_provenance_failure(session.session_id, "close the session row", error)
+        self._provenance_degraded.discard(session.session_id)
+
+    def _record_cell_run(self, session: ExploreSession, run: _CellRun, sha: str | None) -> None:
+        """Write the record for one cell run against its session (FR-053).
+
+        Called from the commit thread once the run's commit exists, so the
+        record's ``block_version`` is the commit that carries the notebook the
+        cell ran — which is what makes the run reachable from the history. A
+        service with no git engine writes no commit, and the record carries an
+        empty version rather than not being written: the run happened.
+        """
+        if self._lineage is None:
+            return
+        try:
+            self._lineage.record_cell_run(
+                session_id=session.session_id,
+                cell_id=run.cell_id,
+                notebook_commit=sha or "",
+                started_at=run.started_at,
+                finished_at=run.finished_at,
+                duration_ms=run.duration_ms,
+                termination=run.termination,
+                termination_detail=run.termination_detail,
+            )
+            if sha is not None:
+                self._lineage.set_notebook_commit(session.session_id, sha)
+        except Exception as error:
+            self._note_provenance_failure(session.session_id, f"record the run of cell {run.cell_id}", error)
+
+    def _note_provenance_failure(self, session_id: str, what: str, error: BaseException) -> None:
+        """Latch that a lineage write for *session_id* failed, and log it once per write.
+
+        :class:`~scistudio.explore.lineage.ExploreLineage` deliberately does not
+        swallow store failures, so the decision about what one means is here:
+        the exploring continues, and the session's row records that its
+        provenance is incomplete.
+        """
+        self._provenance_degraded.add(session_id)
+        _LOG.warning("Explore session %s could not %s: %s", session_id, what, error, exc_info=True)
 
     # -- opening (FR-001 to FR-004) ---------------------------------------
 
@@ -1524,6 +1707,7 @@ class SessionService:
         with self._lock:
             self._sessions[session.relative_path] = session
         self._commits.start()
+        self._open_session_row(session)
         return session
 
     # -- listing, closing, committing (FR-006, FR-036) --------------------
@@ -1619,6 +1803,7 @@ class SessionService:
         target._shutdown()
         with self._lock:
             self._sessions.pop(target.relative_path, None)
+        self._close_session_row(target)
         self.publish(
             SessionEvent(
                 type=SessionEventType.SESSION_CLOSED,
@@ -1698,16 +1883,33 @@ class SessionService:
 
     # -- explore commits (FR-028 to FR-031) -------------------------------
 
-    def queue_explore_commit(self, session: ExploreSession, *, cell_id: str, notebook: bytes) -> None:
+    def queue_explore_commit(
+        self,
+        session: ExploreSession,
+        *,
+        cell_id: str,
+        notebook: bytes,
+        run: _CellRun | None = None,
+    ) -> None:
         """Queue the commit for one cell run, off the execution path (FR-028, FR-030).
 
         The notebook committed is the one captured when the cell started, so a
         second run during the interval cannot change what this commit records.
         Nothing here blocks the run: the request has already returned.
+
+        Args:
+            session: The session whose cell ran.
+            cell_id: The cell that ran.
+            notebook: The notebook as captured at execution time, stripped.
+            run: The run's lineage facts (FR-053). They travel with the commit
+                because the record names the commit; a service with no git
+                engine writes the record here instead, with no commit to name.
         """
         if self._git is None:
+            if run is not None:
+                self._record_cell_run(session, run, None)
             return
-        self._commits.submit(_CommitJob(session=session, cell_id=cell_id, notebook=notebook))
+        self._commits.submit(_CommitJob(session=session, cell_id=cell_id, notebook=notebook, run=run))
 
     def wait_for_commits(self, timeout: float | None = None) -> bool:
         """Block until every queued explore commit has been written or given up on."""
@@ -1724,6 +1926,8 @@ class SessionService:
             f"explore({session.session_id}): {job.cell_id}",
         )
         session.note_explore_commit(sha)
+        if job.run is not None:
+            self._record_cell_run(session, job.run, sha)
         self.publish(
             SessionEvent(
                 type=SessionEventType.COMMIT_RECORDED,
@@ -1735,6 +1939,11 @@ class SessionService:
     def _report_commit_failure(self, job: _CommitJob, error: BaseException) -> None:
         """FR-030: a run whose commit could not be written is reported once."""
         session = job.session
+        if job.run is not None:
+            # The run happened even though its commit did not, so the record is
+            # written with no commit to name and the session is marked degraded.
+            self._note_provenance_failure(session.session_id, f"commit the run of cell {job.cell_id}", error)
+            self._record_cell_run(session, job.run, None)
         if session.session_id in self._reported_commit_failure:
             return
         self._reported_commit_failure.add(session.session_id)
@@ -1768,12 +1977,30 @@ class SessionService:
 
 
 @dataclass(frozen=True)
+class _CellRun:
+    """What one cell run reports for lineage (FR-053), minus the commit.
+
+    The commit is the one thing the run cannot supply: FR-028 writes it after
+    the result has been returned, so these facts travel with the commit job and
+    the record is written once the sha is known.
+    """
+
+    cell_id: str
+    started_at: str
+    finished_at: str
+    duration_ms: int
+    termination: str
+    termination_detail: str
+
+
+@dataclass(frozen=True)
 class _CommitJob:
     """One explore commit waiting to be written."""
 
     session: ExploreSession
     cell_id: str
     notebook: bytes
+    run: _CellRun | None = None
 
 
 class _CommitWriter:
@@ -2054,6 +2281,25 @@ def _format_hint(wire_payload: object) -> str | None:
         value = wire_payload.get("format")
         return str(value) if isinstance(value, str) else None
     return None
+
+
+def _now() -> str:
+    """An ISO-8601 UTC timestamp, in the form the lineage rows use."""
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).isoformat()
+
+
+def _notebook_output(output: Any, execution_count: int | None) -> dict[str, Any]:
+    """One kernel output as the nbformat mapping a cell stores (FR-027).
+
+    The same fields the cell-output event carries, plus the ``execution_count``
+    nbformat requires *inside* an ``execute_result``.
+    """
+    payload = _output_payload(output)
+    if payload["output_type"] == "execute_result":
+        payload["execution_count"] = execution_count
+    return payload
 
 
 def _output_payload(output: Any) -> dict[str, Any]:
