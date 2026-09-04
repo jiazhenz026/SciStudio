@@ -607,9 +607,19 @@ def test_branch_commit_leaves_the_working_tree_and_staged_work_alone(engine: Git
 def test_branch_commit_does_not_leave_a_staged_deletion_behind(engine: GitEngine) -> None:
     """The real index follows the branch, or the person's next commit reverts this one.
 
-    Moving ``HEAD`` while the index stayed at the old commit would make git
-    report the notebook as deleted-and-staged. A person who then ran
-    ``git commit`` would silently undo the save.
+    **Do not "simplify" the real-index write out of**
+    :func:`_commit_ops._commit_entries_to_branch`. **This test is what stands
+    between that edit and data loss**, and it caught the bug in the first
+    draft of that function.
+
+    The index is a cache of ``HEAD`` plus what is staged. Every other function
+    in this file is careful *not* to touch it, so removing the one write that
+    does looks like a tidy-up. It is not. Move ``HEAD`` forward while the
+    index still describes the old commit and git reads the difference as a
+    staged deletion of the notebook: ``git status`` shows ``deleted:
+    explore/analysis.ipynb`` in the "changes to be committed" section, and the
+    person's next ``git commit`` — for something else entirely — silently
+    removes from the branch the notebook this call just saved.
     """
     _commit_ops._commit_entries_to_branch(engine, {_NOTEBOOK: b"stripped"}, "Save notebook")
 
@@ -767,3 +777,108 @@ def test_the_module_imports_nothing_first_party_beyond_its_own_package() -> None
         "scistudio.core.versioning.errors",
         "scistudio.core.versioning.git_engine",  # TYPE_CHECKING only
     }, f"unexpected first-party imports: {sorted(first_party)}"
+
+
+# ---------------------------------------------------------------------------
+# The public surface: the GitEngine bindings
+# ---------------------------------------------------------------------------
+#
+# ``_commit_ops`` is package-private. What callers actually use is the method
+# bound onto ``GitEngine`` in ``git_engine.py``, so the binding is a surface in
+# its own right and needs its own coverage: a missing or misspelled binding, or
+# one that forgets ``staticmethod``, would leave every test above passing while
+# the Explore session cannot reach any of this.
+
+_BOUND_METHODS = {
+    "commit_entries_to_ref": "_commit_entries_to_ref",
+    "commit_entries_to_branch": "_commit_entries_to_branch",
+    "pack_explore_objects": "_pack_explore_objects",
+    "explore_session_ref": "_explore_session_ref",
+}
+
+
+@pytest.mark.parametrize(("method_name", "function_name"), sorted(_BOUND_METHODS.items()))
+def test_every_plumbing_function_is_bound_onto_the_engine(method_name: str, function_name: str) -> None:
+    """The method exists and is the very same function, so behaviour cannot diverge."""
+    bound = inspect.getattr_static(GitEngine, method_name)
+    expected = getattr(_commit_ops, function_name)
+    underlying = bound.__func__ if isinstance(bound, staticmethod) else bound
+    assert underlying is expected
+
+
+def test_no_plumbing_function_is_left_unbound() -> None:
+    """A function added to the plumbing path without a binding is unreachable.
+
+    Catches the half-finished change: a fifth operation lands in
+    ``_commit_ops`` and nothing in ``git_engine.py`` exposes it.
+    """
+    plumbing = {
+        name
+        for name in vars(_commit_ops)
+        if name.startswith(("_commit_entries", "_pack_explore", "_explore_session"))
+        and callable(getattr(_commit_ops, name))
+    }
+    assert plumbing == set(_BOUND_METHODS.values()), (
+        "a plumbing function has no GitEngine binding (or _BOUND_METHODS is stale)"
+    )
+
+
+def test_the_engine_method_commits_to_the_ref(engine: GitEngine) -> None:
+    """The bound method behaves exactly as the private function does."""
+    ref = engine.explore_session_ref("s1")
+    assert ref == "refs/scistudio/explore/s1"
+
+    index_before = _index_bytes(engine)
+    worktree_before = _worktree_snapshot(engine)
+    head_before = _git(engine, "rev-parse", "HEAD")
+
+    sha = engine.commit_entries_to_ref(ref, {_NOTEBOOK: b"through the engine"}, "cell run 1")
+
+    assert _index_bytes(engine) == index_before
+    assert _worktree_snapshot(engine) == worktree_before
+    assert _git(engine, "rev-parse", "HEAD") == head_before
+    assert _git(engine, "rev-parse", ref) == sha
+    assert _blob_bytes(engine, sha, _NOTEBOOK) == b"through the engine"
+    assert sha not in _git(engine, "log", "--format=%H", "main").splitlines()
+
+
+def test_the_engine_static_method_does_not_receive_the_engine(engine: GitEngine) -> None:
+    """``explore_session_ref`` is a ``staticmethod``.
+
+    Bound plainly it would take ``self`` as the session id, and every id would
+    be refused — on the class it would silently format the repr of an engine
+    into a ref name.
+    """
+    assert engine.explore_session_ref("s1") == GitEngine.explore_session_ref("s1")
+    with pytest.raises(ValueError):
+        engine.explore_session_ref("has space")
+
+
+def test_the_engine_method_commits_to_the_branch(engine: GitEngine) -> None:
+    """FR-036 reaches callers through the engine too."""
+    head_before = _git(engine, "rev-parse", "HEAD")
+
+    sha = engine.commit_entries_to_branch({_NOTEBOOK: b"stripped"}, "Save notebook")
+
+    assert _git(engine, "rev-parse", "HEAD") == sha
+    assert _git(engine, "rev-list", "--parents", "-1", sha).split() == [sha, head_before]
+    assert _git(engine, "diff", "--cached", "--name-status") == ""
+
+
+def test_the_engine_method_packs(engine: GitEngine) -> None:
+    """The packing trigger is callable from the engine and reports success."""
+    ref = engine.explore_session_ref("s1")
+    engine.commit_entries_to_ref(ref, {_NOTEBOOK: b"one"}, "cell run 1", pack_every=None)
+    assert _pack_files(engine) == []
+
+    assert engine.pack_explore_objects() is True
+
+    assert len(_pack_files(engine)) == 1
+
+
+def test_the_engine_method_refuses_a_branch_ref(engine: GitEngine) -> None:
+    """The refusals are the same refusals through the public surface."""
+    with pytest.raises(ValueError, match="refs/scistudio/"):
+        engine.commit_entries_to_ref("refs/heads/main", {_NOTEBOOK: b"x"}, "nope")
+    with pytest.raises(ValueError):
+        engine.commit_entries_to_ref(engine.explore_session_ref("s1"), {".git/config": b"x"}, "nope")

@@ -249,3 +249,19 @@ class GitEngine:
     merge_stage_file = _merge_ops._merge_stage_file
     merge_complete = _merge_ops._merge_complete
     merge_abort = _merge_ops._merge_abort
+
+    # Explore-session commits written with plumbing (ADR-054 spec 3, #2240).
+    #
+    # These four are the public surface of the plumbing path in
+    # ``_commit_ops``: a commit onto a dedicated ref that leaves the working
+    # tree, the real index and ``HEAD`` untouched (FR-028 to FR-031), and the
+    # explicit branch commit (FR-036). Callers use these methods; reaching
+    # into ``_commit_ops`` directly is unsupported.
+    #
+    # ``explore_session_ref`` is a ``staticmethod`` because it only formats a
+    # ref name and takes no engine — binding it plainly would feed ``self`` in
+    # as the session id.
+    commit_entries_to_ref = _commit_ops._commit_entries_to_ref
+    commit_entries_to_branch = _commit_ops._commit_entries_to_branch
+    pack_explore_objects = _commit_ops._pack_explore_objects
+    explore_session_ref = staticmethod(_commit_ops._explore_session_ref)
