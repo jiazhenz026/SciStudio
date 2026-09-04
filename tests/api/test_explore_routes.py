@@ -643,8 +643,8 @@ def _native_separator_traversal(_project_dir: Path) -> str:
 
     This case used to be the literal ``..\\..\\..\\..\\Windows\\win.ini``, which
     only escapes on Windows: on POSIX the backslash is an ordinary filename
-    character, so that string is one 30-character file name sitting directly in
-    the project and the 403 the test demanded was the wrong answer. Deriving the
+    character, so that string is a single file name sitting directly in the
+    project and the 403 the test demanded was the wrong answer. Deriving the
     separator makes the same *claim* — a walk out of the tree in the notation
     the platform actually parses — true wherever the suite runs.
     """
@@ -720,7 +720,7 @@ def test_opening_over_a_file_outside_the_project_is_refused(
 
     response = harness.client.post("/api/explore/sessions", json={"source": "file", "path": path})
 
-    assert response.status_code == 403, response.text
+    assert response.status_code == 403, f"{path!r} was not refused: {response.text}"
     assert response.json()["detail"]["error"] == "path_escapes_project"
     after = (
         sorted(p.name for p in (harness.project_dir / "explore").glob("*"))
