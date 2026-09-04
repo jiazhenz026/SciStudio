@@ -251,8 +251,8 @@ amendment.
   `src/scistudio/explore/kernel_bridge.py`, `src/scistudio/explore/notebook_api.py`,
   `src/scistudio/__init__.py` (the three helpers, lazily), and
   `src/scistudio/core/lineage/environment.py` (snapshot by reference, FR-034).
-  `tests/explore/test_kernel_bridge.py` + `tests/explore/test_notebook_api.py` 77 passed
-  **against a real ipykernel 7.3.0** in the isolated venv outside the repo, and 69 passed /
+  `tests/explore/test_kernel_bridge.py` + `tests/explore/test_notebook_api.py` 79 passed
+  **against a real ipykernel 7.3.0** in the isolated venv outside the repo, and 71 passed /
   8 skipped under the repository venv, where the kernel tests skip and the pure ones still
   run. The two load-bearing tests: one fixture notebook source executed in session mode and
   in packaged mode with the outputs compared, and a bridge call proved to leave no cell by

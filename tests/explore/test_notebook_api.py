@@ -470,6 +470,35 @@ def test_packaged_output_writes_through_the_adapters(tmp_path: Path, frame: Any)
     pandas.testing.assert_frame_equal(pandas.read_csv(written[0]), frame, check_dtype=False)
 
 
+def test_packaged_output_refuses_a_name_that_is_not_a_port(tmp_path: Path, frame: Any) -> None:
+    """A declaration the block has no port for is refused, not written somewhere.
+
+    The manifest is authoritative in a real run, so a name it does not carry is
+    not a port; inventing a folder for it would write the person's result where
+    nothing collects it from and the run would report success.
+    """
+    exchange = packaged_exchange(tmp_path, frame)
+    enter_packaged_mode(exchange)
+    with pytest.raises(NotebookPortError, match="result"):
+        notebook_api.output(surprise=frame)
+    assert sorted(path.name for path in (exchange / "outputs").iterdir()) == ["result"]
+
+
+def test_packaged_output_without_a_manifest_says_what_is_missing(tmp_path: Path, frame: Any) -> None:
+    """Writing needs the port's declared format, and only the manifest carries it.
+
+    A ``DataFrame`` has six registered savers and the block registry refuses to
+    pick between them; picking one here would decide a person's output format
+    by accident, so the refusal names the file that would have decided it.
+    """
+    exchange = packaged_exchange(tmp_path, frame)
+    (exchange / "manifest.json").unlink()
+    enter_packaged_mode(exchange)
+    with pytest.raises(NotebookPortError, match=r"manifest\.json"):
+        notebook_api.output(result=frame)
+    assert not list((exchange / "outputs" / "result").iterdir())
+
+
 def test_packaged_output_accepts_a_typed_object(tmp_path: Path, frame: Any) -> None:
     """A cell that built the SciStudio type itself is written the same way."""
     from scistudio.core.types.dataframe import DataFrame

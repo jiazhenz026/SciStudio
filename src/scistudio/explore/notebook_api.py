@@ -664,6 +664,7 @@ def _packaged_input(name: str) -> Path:
     if record is not None:
         folder = Path(str(record["folder"]))
     else:
+        _refuse_undeclared_port("input", name)
         folder = _required_dir(INPUTS_DIR_ENV_VAR) / safe_exchange_name(name, fallback="port")
     if not folder.is_dir():
         inputs_dir = _required_dir(INPUTS_DIR_ENV_VAR)
@@ -694,18 +695,28 @@ def _packaged_input(name: str) -> Path:
 
 
 def _packaged_output(name: str, value: object) -> None:
-    """Write *value* into port *name*'s output folder through the IO adapters."""
-    from scistudio.blocks.code.exchange import safe_exchange_name
+    """Write *value* into port *name*'s output folder through the IO adapters.
 
+    Unlike :func:`_packaged_input`, this needs the run's manifest and says so
+    when it is missing. Reading an input only needs the file; writing an output
+    needs the port's declared file format, and the manifest is the only thing
+    that carries it — a type such as ``DataFrame`` has six registered savers and
+    the block registry refuses to pick between them, which is the right refusal
+    to inherit rather than to paper over with a guess.
+    """
     record = _manifest_port("output", name)
-    if record is not None:
-        folder = Path(str(record["folder"]))
-        extension = str(record.get("format_hint") or "") or None
-        capability_id = record.get("capability_id")
-    else:
-        folder = _required_dir(OUTPUTS_DIR_ENV_VAR) / safe_exchange_name(name, fallback="port")
-        extension = None
-        capability_id = None
+    if record is None:
+        _refuse_undeclared_port("output", name)  # raises when a manifest exists at all
+        msg = (
+            f"Cannot write the output {name!r}: this run has no exchange manifest, so the port's "
+            f"declared file format is unknown. The Code Block runtime writes "
+            f"{EXCHANGE_DIR_ENV_VAR}/manifest.json before it launches the script."
+        )
+        raise NotebookPortError(msg)
+
+    folder = Path(str(record["folder"]))
+    extension = str(record.get("format_hint") or "") or None
+    capability_id = record.get("capability_id")
     folder.mkdir(parents=True, exist_ok=True)
 
     from scistudio.blocks.io.materialisation import materialise_to_file
@@ -833,6 +844,40 @@ def _manifest_port(direction: str, name: str) -> dict[str, Any] | None:
         return None
     record = ports.get(f"{direction}:{name}")
     return record if isinstance(record, dict) else None
+
+
+def _refuse_undeclared_port(direction: str, name: str) -> None:
+    """Refuse a port the run's manifest does not declare.
+
+    Reached only when :func:`_manifest_port` found no record. If there is a
+    manifest, it is authoritative and the name is simply not a port of this
+    block, so guessing a folder for it would write a person's result somewhere
+    nothing collects it from. If there is no manifest at all — a notebook run
+    by hand against hand-made exchange folders — there is nothing to contradict
+    and the caller falls back to the folder named after the port.
+    """
+    declared = _manifest_port_names(direction)
+    if declared is None:
+        return
+    listed = ", ".join(sorted(declared)) or "none"
+    msg = f"This block has no {direction} port named {name!r}. Declared {direction} ports: {listed}."
+    raise NotebookPortError(msg)
+
+
+def _manifest_port_names(direction: str) -> set[str] | None:
+    """Every port name the manifest declares for *direction*, or ``None`` with no manifest."""
+    exchange_dir = os.environ.get(EXCHANGE_DIR_ENV_VAR, "").strip()
+    if not exchange_dir:
+        return None
+    manifest_path = Path(exchange_dir) / "manifest.json"
+    if not manifest_path.is_file():
+        return None
+    try:
+        ports = json.loads(manifest_path.read_text(encoding="utf-8"))["ports"]
+    except (OSError, ValueError, KeyError):
+        return None
+    prefix = f"{direction}:"
+    return {key[len(prefix) :] for key in ports if key.startswith(prefix)}
 
 
 def _required_dir(variable: str) -> Path:
