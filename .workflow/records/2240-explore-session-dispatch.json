@@ -1,0 +1,144 @@
+{
+  "base_ref": "origin/track/adr-054-spec2-dependency-analysis",
+  "branch": "track/adr-054-spec3-explore-session",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/planning/adr-054-spec3-explore-session-checklist.md",
+      "docs/planning/adr-054-spec3-dispatch-prompts/**",
+      "src/scistudio/explore/**",
+      "tests/explore/**",
+      "docs/audit/**",
+      ".workflow/records/2240-*.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2240,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Manager: implement ADR-054 spec 3, the Explore Session runtime, in full; dispatch a final adversarial test engineer and a no-context auditor; deliver as one PR for owner review alongside spec 2; all needed labels pre-approved by the owner",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2240-explore-session-dispatch",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T08:51:49.378163Z",
+      "pattern": "src/scistudio/__init__.py",
+      "reason": "Record the full spec 3 write surface from docs/specs/adr-054-explore-session.md section 4.2 before any agent edits it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T08:51:49.378185Z",
+      "pattern": "src/scistudio/core/versioning/_commit_ops.py",
+      "reason": "Record the full spec 3 write surface from docs/specs/adr-054-explore-session.md section 4.2 before any agent edits it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T08:51:49.378188Z",
+      "pattern": "src/scistudio/core/lineage/**",
+      "reason": "Record the full spec 3 write surface from docs/specs/adr-054-explore-session.md section 4.2 before any agent edits it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T08:51:49.378190Z",
+      "pattern": "src/scistudio/blocks/code/backends/notebook.py",
+      "reason": "Record the full spec 3 write surface from docs/specs/adr-054-explore-session.md section 4.2 before any agent edits it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T08:51:49.378191Z",
+      "pattern": "src/scistudio/blocks/base/interactive.py",
+      "reason": "Record the full spec 3 write surface from docs/specs/adr-054-explore-session.md section 4.2 before any agent edits it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T08:51:49.378193Z",
+      "pattern": "src/scistudio/engine/scheduler/_dispatch.py",
+      "reason": "Record the full spec 3 write surface from docs/specs/adr-054-explore-session.md section 4.2 before any agent edits it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T08:51:49.378194Z",
+      "pattern": "src/scistudio/api/routes/explore.py",
+      "reason": "Record the full spec 3 write surface from docs/specs/adr-054-explore-session.md section 4.2 before any agent edits it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T08:51:49.378195Z",
+      "pattern": "src/scistudio/api/ws.py",
+      "reason": "Record the full spec 3 write surface from docs/specs/adr-054-explore-session.md section 4.2 before any agent edits it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T08:51:49.378197Z",
+      "pattern": "src/scistudio/api/project_layout.py",
+      "reason": "Record the full spec 3 write surface from docs/specs/adr-054-explore-session.md section 4.2 before any agent edits it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T08:51:49.378198Z",
+      "pattern": "pyproject.toml",
+      "reason": "Record the full spec 3 write surface from docs/specs/adr-054-explore-session.md section 4.2 before any agent edits it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T08:51:49.378200Z",
+      "pattern": "tests/api/test_explore_routes.py",
+      "reason": "Record the full spec 3 write surface from docs/specs/adr-054-explore-session.md section 4.2 before any agent edits it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T08:51:49.378201Z",
+      "pattern": "tests/blocks/base/test_interaction_policy.py",
+      "reason": "Record the full spec 3 write surface from docs/specs/adr-054-explore-session.md section 4.2 before any agent edits it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T08:51:49.378202Z",
+      "pattern": "tests/core/**",
+      "reason": "Record the full spec 3 write surface from docs/specs/adr-054-explore-session.md section 4.2 before any agent edits it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T08:51:49.378204Z",
+      "pattern": "tests/architecture/test_layer_deps.py",
+      "reason": "Record the full spec 3 write surface from docs/specs/adr-054-explore-session.md section 4.2 before any agent edits it"
+    }
+  ],
+  "session_id": "8c06bfb9-2c49-447a-b286-4ed23bc35536",
+  "strictness_tier": null,
+  "task_kind": "manager",
+  "test_events": []
+}
