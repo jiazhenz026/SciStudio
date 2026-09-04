@@ -99,6 +99,8 @@ from scistudio.explore.fingerprint import (
 from scistudio.explore.fingerprint import _fingerprint_context as fingerprint_context
 from scistudio.explore.fingerprint import _flat as flat_handle
 
+from .test_fingerprint import TIMING_RUNS
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -1456,27 +1458,46 @@ def test_sc010_a_five_hundred_cell_notebook_is_analysed_and_built_under_the_boun
     cells … **builds the graph** in under five hundred milliseconds". Nothing
     here is invented.
 
-    Both halves matter because they are not the same size. Measured, the analysis
-    is ~62 ms and the build ~11 ms, so a bound on the build alone — which is what
-    both timed tests used to assert — governs a sixth of the work with forty-two
-    times the headroom it needs, and the ADR-054 spec 2 audit found this test
-    guarding the other five sixths with a **2000 ms** ceiling that appears in no
-    spec at all. Seventy-three milliseconds against five hundred is about seven
-    times over: enough that a loaded shared runner does not flake, tight enough
-    that a regression in either half has somewhere to fail. The split is reported
-    on failure so the next reader knows which half moved.
+    Both halves matter because they are not the same size. The analysis is ~57 ms
+    and the build ~9 ms, so a bound on the build alone — which is what both timed
+    tests used to assert — governs a sixth of the work with fifty times the
+    headroom it needs, and the ADR-054 spec 2 audit found this test guarding the
+    other five sixths with a **2000 ms** ceiling that appears in no spec at all.
+
+    The measurement is the fastest of ``TIMING_RUNS`` passes after a warm-up, for
+    the reason ``test_fingerprint.best_of`` sets out: the minimum is what the
+    machine can do, which is the claim a wall-clock bound makes, while a single
+    sample on a runner shared with other suites measures their load as much as
+    this code's cost. **Measured minimum: 67 ms — analyse 57, build 9 — against
+    500 ms, which is 7.5x**, and 6.2x under bursty co-tenant load, where the worst
+    single sample was 87 ms and the worst best-of-five 81 ms. That is the margin
+    the next reader has before this number starts to mean something; it is the
+    tightest wall-clock assertion on the analysis side of this delivery, and a
+    change that takes it past ~200 ms should be read as a regression long before
+    it fails. The split is reported on failure so the reader knows which half
+    moved.
     """
     cells = generated_notebook(500)
-    started = time.perf_counter()
-    facts = analyse_cells(cells)
-    analysed = time.perf_counter()
-    graph = build_graph(facts)
-    finished = time.perf_counter()
 
-    analyse_ms = (analysed - started) * 1000
-    build_ms = (finished - analysed) * 1000
-    assert len(graph.cells) == 500
-    assert analyse_ms + build_ms < 500.0, f"analyse {analyse_ms:.1f} ms + build {build_ms:.1f} ms, bound 500 ms"
+    def one_pass() -> tuple[float, float]:
+        started = time.perf_counter()
+        facts = analyse_cells(cells)
+        analysed = time.perf_counter()
+        graph = build_graph(facts)
+        finished = time.perf_counter()
+        assert len(graph.cells) == 500
+        return (analysed - started) * 1000, (finished - analysed) * 1000
+
+    one_pass()  # warm-up, unmeasured
+    runs = [one_pass() for _ in range(TIMING_RUNS)]
+    total_ms = min(analyse + build for analyse, build in runs)
+    analyse_ms = min(analyse for analyse, _ in runs)
+    build_ms = min(build for _, build in runs)
+
+    assert total_ms < 500.0, (
+        f"best of {TIMING_RUNS}: analyse {analyse_ms:.1f} ms + build {build_ms:.1f} ms "
+        f"= {total_ms:.1f} ms, bound 500 ms"
+    )
 
 
 def test_fr018_the_cost_grows_linearly_with_the_number_of_cells() -> None:
@@ -1511,15 +1532,16 @@ def test_sc007_fingerprinting_a_whole_namespace_stays_inside_the_declared_bound(
     ``max_seconds`` per name. ``max_seconds`` is the ceiling for a single call, so
     ``max_seconds x len(namespace)`` is what the budget formally permits, but at
     nine names that is 2 250 ms against a measured 6 ms and the ADR-054 spec 2
-    audit was right to call the result unfalsifiable: 476x headroom is a statement,
-    not a measurement. The claim actually worth holding is stronger and is what
-    the design rests on — nine ordinary session values together cost less than the
-    budget allows for *one* of them — and 6 ms against 250 ms is roughly the same
-    headroom (40x) as its per-call sibling
-    ``test_largest_fixture_costs_less_than_the_declared_time_bound`` (5x at its
-    worst fixture, 30x at its median), which is the calibration a shared runner
-    needs. The ``per name`` bound is asserted alongside it so the formal criterion
-    is still on the record.
+    audit was right to call the result unfalsifiable: 476x headroom is a
+    statement, not a measurement. The claim actually worth holding is stronger and
+    is what the design rests on — nine ordinary session values together cost less
+    than the budget allows for *one* of them.
+
+    **Measured: 6.1 ms against 250 ms — 41x.** That is deliberately comfortable
+    and stays a single sample: nothing here is close enough to the bound for
+    scheduler noise to reach it, so it does not need the ``best_of`` treatment
+    that ``dict_1m`` (5.4x) and the SC-010 test above (7.5x) do. The ``per name``
+    bound is asserted alongside it so the formal criterion is still on the record.
     """
     namespace = {
         "frame": pd.DataFrame({f"c{i}": np.random.default_rng(i).random(50_000) for i in range(20)}),

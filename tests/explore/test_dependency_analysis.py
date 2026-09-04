@@ -1471,11 +1471,18 @@ def test_building_the_graph_of_a_five_hundred_cell_notebook_is_fast() -> None:
     whole of what SC-010 names — "**analysing** a generated notebook of five
     hundred cells … **builds the graph** in under five hundred milliseconds". It
     used to cover only the build, and the ADR-054 spec 2 audit measured why that
-    mattered: the build is ~11 ms and the analysis ~62 ms, so the spec's number
-    was guarding the cheap sixth of the work with forty-two-fold headroom while
-    the expensive part was unbounded. Together they are ~73 ms against 500 ms,
-    which is roughly seven times over — enough for a loaded shared runner and
-    tight enough that a regression of the analysis has somewhere to fail.
+    mattered: for these one-line cells the build is ~4 ms and the analysis ~26 ms,
+    so the spec's number was guarding the cheap seventh of the work with a
+    hundred-fold headroom while the expensive part was unbounded.
+
+    **Measured: 30 ms against 500 ms — 17x**, which is comfortable enough to stay
+    a single sample. Its sibling
+    ``test_adversarial_analysis.test_sc010_a_five_hundred_cell_notebook_is_analysed_and_built_under_the_bound``
+    runs the same criterion over three-statement cells, comes in at 67 ms for 7.5x,
+    and takes the fastest of five passes for that reason. Both are here because
+    the notebook shape changes the answer by more than a factor of two: this one
+    chains every cell, which is what would expose a quadratic definer lookup, and
+    that one loads each cell more heavily, which is what sizes the analysis.
     """
     cells = [("c0", "seed = load()")]
     cells += [(f"c{index}", f"v{index} = f(v{index - 1}, seed)\n") for index in range(1, 500)]

@@ -140,13 +140,25 @@ class FingerprintBudget:
     and :attr:`max_scan_items` is the length at which that walk stops. It is the
     ``dict_1m`` fixture of
     ``tests/explore/test_fingerprint.py::test_largest_fixture_costs_less_than_the_declared_time_bound``,
-    which times it against this constant on every run and prints the number; a
-    64 MB array costs 0.04 ms and a 500k-row eight-column frame 0.7 ms beside it.
-    The measurement is machine-dependent — 10 ms on a fast developer machine,
-    45 ms on a slower one — which is why the bound is set well above it rather
-    than near it: a shared runner must not turn a timing test into a flake. It is
-    not licence for a slower algorithm, and a change that approaches it should be
-    read as a regression.
+    which times it against this constant on every run and prints the number. Each
+    fixture there is timed as the **fastest of five passes after a warm-up**, per
+    that module's ``best_of``: the minimum is what the machine can do, which is
+    what a wall-clock bound claims, while one sample on a runner shared with other
+    suites measures their load too.
+
+    That minimum is **45 ms on the reference machine against a 250 ms bound —
+    5.4x**, and it is the tightest wall-clock margin in this delivery. Best-of-N
+    narrows the spread but does not make the margin bigger than the machine: with
+    every core saturated the same fixture measures 93 ms, or 2.6x, whichever way
+    it is sampled. The number is machine-dependent too — ~10 ms on a fast
+    developer machine — so a reader on unfamiliar hardware should print it before
+    drawing a conclusion from it.
+
+    A 64 MB array costs 0.02 ms and a 500k-row eight-column frame 0.5 ms beside
+    it, so the mapping walk is what sizes this constant and nothing else comes
+    close. The bound is not licence for a slower algorithm: a change that takes
+    ``dict_1m`` past ~100 ms has halved an already thin margin and should be read
+    as a regression well before the assertion fails.
 
     Until the ADR-054 spec 2 audits, this docstring cited 10.4 ms for a
     one-million-entry dict that no committed test built — the largest mapping

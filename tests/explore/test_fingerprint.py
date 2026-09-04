@@ -32,6 +32,8 @@ import random
 import subprocess
 import sys
 import time
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +52,72 @@ from scistudio.explore.fingerprint import (
     fingerprint,
 )
 from scistudio.stability import get_stability
+
+# ---------------------------------------------------------------------------
+# Timing
+# ---------------------------------------------------------------------------
+
+#: Samples a timed assertion takes before it believes a number.
+#:
+#: Five, because the cost of the run is what sets it: the fixture set below is
+#: ~75 ms a pass, so five passes plus a warm-up is half a second, and the minimum
+#: of five has four chances to land in a window where the scheduler left the
+#: process alone. Three would be cheaper and one preemption away from a flake;
+#: twenty would buy a fraction of a millisecond for two extra seconds on every
+#: run.
+#:
+#: The two assertions that use it, and the margin each has on the reference
+#: machine when nothing else is running:
+#:
+#: * ``dict_1m`` in :func:`test_largest_fixture_costs_less_than_the_declared_time_bound`
+#:   — 45 ms against ``max_seconds`` of 250 ms, **5.4x**. The thinnest in the
+#:   delivery, and 2.6x on a fully saturated machine.
+#: * ``test_sc010_a_five_hundred_cell_notebook_is_analysed_and_built_under_the_bound``
+#:   in ``test_adversarial_analysis.py`` — 67 ms against SC-010's 500 ms, **7.5x**,
+#:   and 6.2x under bursty co-tenant load.
+#:
+#: Every other timed assertion in ``tests/explore`` clears 15x and takes a single
+#: sample deliberately: adding runs to an assertion that cannot plausibly reach
+#: its bound spends time to measure nothing.
+TIMING_RUNS = 5
+
+
+def best_of(call: Callable[[], object], runs: int = TIMING_RUNS) -> float:
+    """Seconds for the fastest of *runs* calls of *call*, after one warm-up.
+
+    A wall-clock bound is a claim about what the machine can do, and the minimum
+    is the sample that measures it: a single timing measures what the machine
+    happened to be doing, which on a shared CI runner — or this repository's own
+    development machine, which routinely has several agents running suites at
+    once — is somebody else's load as much as this code's cost. Taking the
+    minimum cannot hide a real regression, because a slower algorithm is slower
+    in its best run too; it only removes the samples where this process was
+    descheduled.
+
+    **What it buys, measured, so nobody trusts it further than it goes.** Against
+    *bursty* co-tenant load — the shape another test suite on the same machine
+    actually has — the worst of ten single samples of the SC-010 notebook was
+    87 ms and the worst of five best-of-five minima was 81 ms, so the spread
+    narrows and the outliers go. Against *sustained* saturation — every core busy
+    for the whole run — it buys nothing at all: ``dict_1m`` measured 45 ms idle
+    and 93 ms both ways, because the machine is uniformly slower and the minimum
+    is slower with it. Best-of-N is a defence against preemption, not against an
+    oversubscribed runner. The margins that survive that are the ones below the
+    ``TIMING_RUNS`` constant, and ``dict_1m``'s is the thinnest at 2.6x.
+
+    The warm-up call is separate from the count and is not measured. It exists so
+    the lazy numpy, pandas, and ``xxhash`` imports FR-035 requires are paid for
+    before the clock starts, rather than being charged to whichever fixture ran
+    first.
+    """
+    call()
+    best = float("inf")
+    for _ in range(runs):
+        start = time.perf_counter()
+        call()
+        best = min(best, time.perf_counter() - start)
+    return best
+
 
 # ---------------------------------------------------------------------------
 # SC-006: in-place mutation is detected, and an unchanged object is equal.
@@ -574,15 +642,10 @@ def test_largest_fixture_costs_less_than_the_declared_time_bound() -> None:
         "nested_containers": [{"k": [index, (index, index)]} for index in range(2000)],
     }
 
-    measured: dict[str, float] = {}
-    for name, value in fixtures.items():
-        fingerprint(value)  # warm any lazy import out of the measurement
-        start = time.perf_counter()
-        fingerprint(value)
-        measured[name] = time.perf_counter() - start
+    measured = {name: best_of(partial(fingerprint, value)) for name, value in fixtures.items()}
 
     report = "\n".join(f"  {name:24s} {seconds * 1000:8.3f} ms" for name, seconds in measured.items())
-    print(f"\nfingerprint cost, bound {FINGERPRINT_BUDGET.max_seconds * 1000:.0f} ms:\n{report}")
+    print(f"\nfingerprint cost, best of {TIMING_RUNS}, bound {FINGERPRINT_BUDGET.max_seconds * 1000:.0f} ms:\n{report}")
 
     worst_name = max(measured, key=lambda name: measured[name])
     assert measured[worst_name] < FINGERPRINT_BUDGET.max_seconds, (
