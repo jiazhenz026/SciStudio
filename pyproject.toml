@@ -37,6 +37,15 @@ dependencies = [
     "matplotlib>=3.8",  # ADR-048 SPEC 2: Python plot jobs import matplotlib in the core plot runtime.
     "pandas>=2.2",  # ADR-048 SPEC 2: Python plot jobs open DataFrame/Series inputs with pandas.
     "openpyxl>=3.1",  # #1810: core DataFrame/Series .xlsx read/write (pandas Excel engine).
+    # ADR-054 spec 3 (adr-054-explore-session) FR-007, FR-059: an Explore Session's
+    # kernel is an ipykernel process launched from the bundled interpreter and
+    # driven through jupyter_client, which is the session service's only client.
+    # These are core, not an extra: the session is part of the product, and the
+    # desktop's bundled runtime ships core's dependency set. The runtime cannot
+    # receive them over the air, so a release that ships the session must rebuild
+    # it first — spec §4.5 carries that as a release-checklist item.
+    "ipykernel>=6.29",
+    "jupyter_client>=8.6",
 ]
 
 [project.optional-dependencies]
