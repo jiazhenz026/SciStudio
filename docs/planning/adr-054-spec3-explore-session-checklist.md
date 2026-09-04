@@ -169,9 +169,14 @@ branch. Two consequences the owner must know before merging:
 | `S3-C2` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-c2-packaging.md` | T-014 packaging and the notebook backend's cell selection, T-015b the ask pause | `feat/2240-packaging` | `.worktrees/s3-c2-packaging` | `src/scistudio/explore/packaging.py`, `src/scistudio/blocks/code/backends/notebook.py`, `tests/explore/test_packaged_block.py`, and by manager amendment `src/scistudio/blocks/registry/_spec.py`, `tests/blocks/registry/**` | Every other explore module | `#2240` | `[x]` |
 | `S3-C3` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-c3-api.md` | T-017 session API routes and WebSocket events, and the FR-060 layer rule | `feat/2240-explore-api` | `.worktrees/s3-c3-api` | `src/scistudio/api/routes/explore.py`, `src/scistudio/api/ws.py`, `tests/api/test_explore_routes.py`, `tests/architecture/test_layer_deps.py` | Every explore module | `#2240` | `[x]` |
 | `S3-D1` | `test_engineer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-d1-adversarial.md` | Adversarial end-to-end coverage: kernel lifecycle against a real process, the marks, the refusals, the commits, packaging | `test/2240-adversarial` | `.worktrees/s3-d1-adversarial` | `tests/explore/**`, `tests/api/test_explore_routes.py` | Every production path. Report defects, do not fix them. | `#2240` | `[x]` |
-| `S3-E1` | `audit_reviewer` | `no-context` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-e1-audit-no-context.md` | Independent audit of the explore subsystem against the repository's own documents | `audit/2240-no-context` | `.worktrees/s3-e1-audit-nc` | `docs/audit/2026-09-04-explore-session-no-context.md` | Every implementation and test path. Read-only. | `#2240` | `[ ]` |
-| `S3-E2` | `audit_reviewer` | `with-context` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-e2-audit-with-context.md` | Audit of the delivered spec 3 work against the spec, the issue, and this checklist | `audit/2240-with-context` | `.worktrees/s3-e2-audit-wc` | `docs/audit/2026-09-04-adr-054-spec3-with-context.md` | Every implementation and test path. Read-only. | `#2240` | `[ ]` |
-| `S3-F1` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-f1-fix.md` | Fix the P1 and P2 findings the audits and the adversarial test engineer produce | `fix/2240-audit-findings` | `.worktrees/s3-f1-fix` | Every in-scope production and test path | Everything else | `#2240` | `[ ]` |
+| `S3-E1` | `audit_reviewer` | `no-context` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-e1-audit-no-context.md` | Independent audit of the explore subsystem against the repository's own documents | `audit/2240-no-context` | `.worktrees/s3-e1-audit-nc` | `docs/audit/2026-09-04-explore-session-no-context.md` | Every implementation and test path. Read-only. | `#2240` | `[x]` |
+| `S3-E2` | `audit_reviewer` | `with-context` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-e2-audit-with-context.md` | Audit of the delivered spec 3 work against the spec, the issue, and this checklist | `audit/2240-with-context` | `.worktrees/s3-e2-audit-wc` | `docs/audit/2026-09-04-adr-054-spec3-with-context.md` | Every implementation and test path. Read-only. | `#2240` | `[x]` |
+| `S3-C4` | `implementer` | `N/A` | manager dispatch, recorded in §9 | Mount the router above the SPA mount, wire FR-014 retirement to a branch switch, clear the ratchet | `feat/2240-api-wiring` | `.worktrees/s3-c4-wiring` | `src/scistudio/api/app.py`, `src/scistudio/api/routes/git.py`, `tests/api/**` | Every explore module | `#2240` | `[x]` |
+| `S3-G2` | `adr_author` | `N/A` | manager dispatch, recorded in §9 | The `planned_governs` migration, §4.2's divergence rows, and the ADR-039 call | `docs/2240-governs-migration` | `.worktrees/s3-g2-governs` | `docs/specs/adr-054-explore-session.md` | `docs/adr/**`, `src/**`, `tests/**` | `#2240` | `[x]` |
+| `S3-F2` | `implementer` | `N/A` | manager dispatch, recorded in §9 | The bridge's type vocabulary, the duplicate output declaration, the packaging queue drain, FR-051 and FR-034 | `fix/2240-packaging-typing` | `.worktrees/s3-f2-typing` | `kernel_bridge.py`, `packaging.py`, `routes/explore.py` | `session.py`, `lineage.py`, `notebook.py`, `queue.py` | `#2240` | `[x]` |
+| `S3-F3` | `implementer` | `N/A` | manager dispatch, recorded in §9 | The unwired-callable sweep and five audit P1s, including path containment | `fix/2240-unwired-sweep` | `.worktrees/s3-f3-sweep` | `src/scistudio/explore/**`, `routes/explore.py`, `core/lineage/**`, `tests/**` | `pyproject.toml` | `#2240` | `[x]` |
+| `S3-F4` | `implementer` | `N/A` | manager dispatch, recorded in §9 | `nbconvert` in the dev extra, the explore import contracts, the deferral ratchet | `fix/2240-deps-and-contracts` | `.worktrees/s3-f4-deps` | `pyproject.toml`, explore docstrings | Behaviour in any explore module | `#2240` | `[x]` |
+| `S3-F1` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-f1-fix.md` | Fix the P1 and P2 findings the audits and the adversarial test engineer produce | `fix/2240-audit-findings` | `.worktrees/s3-f1-fix` | Every in-scope production and test path | Everything else | `#2240` | `[x]` |
 
 For `test_engineer` rows, the write set should default to tests, fixtures,
 validation scripts, e2e scenarios, audit evidence, and explicitly assigned
@@ -303,20 +308,48 @@ amendment.
 
 ### 7.4 Audit
 
-- [ ] Audit agent assigned, or manager audit completed.
-- [ ] Audit report file path assigned.
-- [ ] Audit report committed.
-- [ ] Audit report merged into final PR evidence path.
-- [ ] Findings recorded.
-- [ ] P1 findings fixed before integration.
-- [ ] P2/P3 findings fixed or tracked with owner-approved rationale.
+- [x] Audit agent assigned, or manager audit completed.
+      Both modes dispatched, and neither was redundant. The no-context audit
+      closed an environment gap every other agent had accepted — the
+      kernel-capable interpreter could not collect `tests/api` until pywin32's
+      paths were added — and **the blocking P1 lived exactly in the set of tests
+      that until then ran in neither interpreter on this machine.**
+- [x] Audit report file path assigned.
+- [x] Audit report committed.
+      `docs/audit/2026-09-04-explore-session-no-context.md` (`20b1af1b2`) and
+      `docs/audit/2026-09-04-adr-054-spec3-with-context.md` (`389dd8c58`).
+- [x] Audit report merged into final PR evidence path.
+- [x] Findings recorded.
+      With-context: **block** — 6 P1, 12 P2, 11 P3, from an FR-by-FR walk of
+      FR-001 to FR-060 and a protected-path table. No-context: pass-with-fixes —
+      1 P1, 5 P2, and 30 mutations across 11 modules with none surviving, three
+      of which needed the real-kernel interpreter to be caught at all.
+- [x] P1 findings fixed before integration.
+      Two were mine and are fixed in `9bfd6077b` and `44f4e4bf3`. Five closed by
+      `S3-F3`. The sixth, FR-050's `InteractionChannel`, is **#2250**: it is not
+      a missing call site but missing spec surface — an event type and a route,
+      both enumerations asserted by tests.
+- [x] P2/P3 findings fixed or tracked with owner-approved rationale.
+      The security finding (path containment on a file source) is fixed with the
+      repository's own containment helper. Four decisions are deferred to the
+      owner as #2243, #2247, #2248 and #2242, each with its options costed.
 
 ### 7.5 Integration
 
-- [ ] Agent output reviewed by manager.
-- [ ] Scope compliance verified.
-- [ ] Conflicts resolved intentionally.
-- [ ] Track merged or integrated.
+- [x] Agent output reviewed by manager.
+      Sixteen agents; every branch reviewed before merge, and each integration
+      commit records what the agent found and what it declined to do. Four
+      agents declined a manager instruction and were right every time — the
+      cases are in §9.
+- [x] Scope compliance verified.
+      Seven scope expansions were requested by agents, granted by gate-record
+      amendment before the edit, and are listed in §2 and §9.
+- [x] Conflicts resolved intentionally.
+      Two conflicts needed a real decision rather than a side, and I got one of
+      them wrong twice — see §9. The layer test is a union: spec 2's allowlist
+      machinery, which is what makes SC-011 measurable, scoped to the modules
+      FR-035 is about, with spec 3's subsystem and depth rules intact.
+- [x] Track merged or integrated.
 
 ## 8. Verification Evidence
 
@@ -335,6 +368,16 @@ Append only.
 
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
+| 2026-09-04 | manager | I merged spec 2 forward once, early, then not again for a long stretch, so the session was built against a stale copy of the analysis and its agent implemented an `observe_namespaces` that duplicated `compare_namespaces`. | Merged forward again and reconciled. The agent's report was right about its branch and wrong about spec 2, and the cause was mine. | Which comparison is canonical is spec 2's to settle; recorded in `_as_observed_change`'s docstring. |
+| 2026-09-04 | manager | My spec-2 forward merge left **conflict markers inside a docstring** in `dependency_analysis.py`. The module parses, so every test passed and only `ruff format` noticed. Git reported three conflicts; I resolved two and ran `git add -A`, which staged the third unlooked-at. | Fixed in `9bfd6077b`, with a whole-tree marker scan. The lesson is the scan, not avoiding `git add -A` — that flag is the repository's own advice for pre-commit's stash path and will keep being used. | N/A |
+| 2026-09-04 | manager | In the same merge I scoped the FR-060 **depth** rule along with the FR-035 allowlist, via a `str.replace` that matched two call sites. It then walked 3 of 12 modules — excluding every module its own docstring names as the reason it exists. | Both audits found it independently; the no-context one proved it by planting an import in `session.py` and watching the suite stay green. Fixed in `44f4e4bf3`, with an assertion that fails if the narrowing is reapplied. | N/A |
+| 2026-09-04 | `S3-B2` | Reported that the bridge's native type names and packaging's SciStudio type names disagree, so a real session's ports cannot be typed. | I recorded it and did not assign a fix. The adversarial pass found it again as a P1 six agents later. Fixed by `S3-F2`. The delay was mine. | N/A |
+| 2026-09-04 | `S3-B2` | Refused my instruction to put `import blocks` in the generated first cell, because no such module exists and every session's first cell would raise. | It was right. I routed the reconciliation as a note and never closed it, so FR-049 and FR-039 stayed mutually exclusive until the audit caught it and `S3-F3` fixed it with a lazy export. | N/A |
+| 2026-09-04 | `S3-C2` | Declined the rule I proposed for FR-054 — 'a declared version wins' — because `AIBlock` hand-declares a version as an ordinary default and would have been silently re-stamped. | It wrote an opt-in marker instead, and a test that scans every in-tree block so one added later is covered without anyone remembering. My rule was wrong. | N/A |
+| 2026-09-04 | `S3-G2` | Declined to edit ADR-039, on the ground that the text documenting the response shape is a **supersession record** inside Addendum 1 — a dated, attributed quote of what that addendum replaced. | Right, and a reason I had not considered: appending to it would make Addendum 1 appear to have decided something it never saw. Routed as its own addendum. | #2247 |
+| 2026-09-04 | `S3-C3` | Its route tests passed for hours, then every one 404'd the moment a `frontend/dist` appeared in the checkout: the SPA mount at `/` swallows `/api/explore/...`. | Fixed with the router above the mount, pinned three ways — the rule, the behaviour, and a control that moves the routes below the mount and asserts the 404. | N/A |
+| 2026-09-04 | audits | The meta-finding: two review rounds each closed one instance of 'a module built correctly and called by nothing' and left six more. | A sweep rather than point fixes. 25 of 316 public callables had no production caller; 20 of 319 do now, and all five that closed were stated MUSTs — including the analysis codec, whose absence made this spec's FR-032 pass vacuously. | Two genuinely dead callables left in place and flagged. |
+| 2026-09-04 | `S3-F4` | A `gate_record check` running concurrently with an `amend` silently overwrote the amendment, reverting `governance_touch` to false. | The agent noticed because it checked the file on disk rather than trusting the command's success output. | #2249 |
 | 2026-09-04 | manager | The layer-test edit is claimed by spec 2's `S2-B1` and by spec 3's FR-060 rule. | Spec 3's `S3-C3` owns the layer file and lands after spec 2's version is merged forward, so the two edits never race. | N/A |
 | 2026-09-04 | manager | `ipykernel`, `jupyter_client`, and `nbconvert` are absent from the local `.venv`, and installing them was refused by the sandbox. | Real-kernel tests (FR-013, ADR-054 §5.2) skip locally and run only in CI, which installs from `pyproject.toml`. Agents were told to leave honestly-skipped tests rather than mocked-passing ones. | Verify the interrupt test actually ran in CI before calling FR-013 covered. |
 | 2026-09-04 | `S3-A3` | The four plumbing functions had no binding onto `GitEngine`, and `git_engine.py` was outside the declared scope. | Manager amended the ledger to include `src/scistudio/core/versioning/git_engine.py` and sent the agent back to add the binding, the ADR-052 stability markers, and coverage for the public surface. | N/A |
