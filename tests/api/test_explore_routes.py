@@ -55,6 +55,7 @@ from fastapi.testclient import TestClient
 from scistudio.api.routes import explore
 from scistudio.explore.fingerprint import Fingerprint, fingerprint
 from scistudio.explore.kernel_bridge import Binding, BridgeError, scistudio_type_name
+from scistudio.explore.notebook import new_code_cell, read_notebook, write_notebook
 from scistudio.explore.notebook_api import MODE_ENV_VAR, SESSION_MODE
 from scistudio.explore.session import (
     BoundRun,
@@ -634,6 +635,138 @@ def test_open_over_a_file_returns_a_session_with_a_generated_first_cell(harness:
     assert len(body["cells"]) == 1
     assert "signal.csv" in body["cells"][0]["source"]
     assert body["cells"][0]["marks"] == ["never_run"]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.param("../../../../etc/passwd", id="posix-style-traversal"),
+        pytest.param("..\\..\\..\\..\\Windows\\win.ini", id="windows-style-traversal"),
+        pytest.param("C:/Windows/win.ini", id="absolute-outside-the-project"),
+        pytest.param("/etc/passwd", id="absolute-posix"),
+    ],
+)
+def test_opening_over_a_file_outside_the_project_is_refused(harness: _Harness, path: str) -> None:
+    """FR-002 opens a session over a file **in the project's data tree** (#2240 audit P3-1).
+
+    Before this, every one of these answered 200 and wrote a notebook into
+    ``explore/`` whose first cell was ``scistudio.load("../../../../etc/passwd")``
+    — the notebook file itself was contained, because the *name* is sanitised,
+    but its data source was not. That notebook is not portable, and a project's
+    explore directory could hold one that reads outside the project.
+
+    The refusal is 403 in the documented shape, not a 500: the session raises
+    its own ``PathEscapesProjectError`` and the route's closed refusal table
+    maps it, which is what keeps it out of the "anything unrecognised is a bug"
+    branch.
+    """
+    before = (
+        sorted(p.name for p in (harness.project_dir / "explore").glob("*"))
+        if (harness.project_dir / "explore").is_dir()
+        else []
+    )
+
+    response = harness.client.post("/api/explore/sessions", json={"source": "file", "path": path})
+
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"]["error"] == "path_escapes_project"
+    after = (
+        sorted(p.name for p in (harness.project_dir / "explore").glob("*"))
+        if (harness.project_dir / "explore").is_dir()
+        else []
+    )
+    assert after == before, "a refused open must leave no notebook behind"
+
+
+def test_reopening_a_notebook_outside_the_project_is_refused(harness: _Harness) -> None:
+    """The ``notebook`` source is contained too, and for a sharper reason.
+
+    Reopening reads the file and answers with its cells, so an uncontained path
+    here is an arbitrary file read rather than only a portability problem.
+    """
+    response = harness.client.post(
+        "/api/explore/sessions",
+        json={"source": "notebook", "path": "../../../../etc/passwd"},
+    )
+
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"]["error"] == "path_escapes_project"
+
+
+def test_a_file_that_does_not_exist_is_still_openable(harness: _Harness) -> None:
+    """Containment must not swallow the documented edge case (spec §2).
+
+    A missing file opens: the first cell fails with the loader's error and the
+    notebook is the person's. Where the path *points* and whether the file is
+    *there* are different questions, and only the first one refuses.
+    """
+    body = harness.open_file_session("data/raw/not-here-yet.csv")
+
+    assert body["session_id"]
+    assert "not-here-yet.csv" in body["cells"][0]["source"]
+
+
+def test_reopening_the_project_rebuilds_the_service_rather_than_stranding_it(
+    harness: _Harness,
+    client: TestClient,
+) -> None:
+    """A project switch must not leave the cached service on a dead store (#2240 audit P1-5).
+
+    ``ApiRuntime.open_project`` re-initialises the lineage store, and doing so
+    **closes** the previous one — a closed ``LineageStore`` raises
+    ``sqlite3.ProgrammingError`` on its next connect. The registry is keyed by
+    project path, so switching away and back used to find the service built
+    against the closed store and hand it over: every FR-052 to FR-055 write for
+    that project would then be swallowed into ``provenance_degraded``, silently,
+    and the ipykernel processes the service owned would go on running with no
+    route able to list or end them.
+
+    Asserted through the routes and the runtime, not by poking the registry:
+    what matters is that the service a request gets after the switch is not the
+    one that was built against the store the runtime has since replaced.
+    """
+    harness.open_file_session()
+    before = harness.service()
+    runtime = client.app.state.runtime
+    store_before = runtime.lineage_store
+
+    project_id = runtime.active_project.id
+    # ``GET /api/projects/{id}`` is the open route: it calls
+    # ``runtime.open_project``, which is what re-initialises the store.
+    response = client.get(f"/api/projects/{project_id}")
+    assert response.status_code == 200, response.text
+    assert runtime.lineage_store is not store_before, "re-opening must have replaced the store"
+
+    listed = client.get("/api/explore/sessions")
+    assert listed.status_code == 200, listed.text
+
+    after = harness.service()
+    assert after is not before, "the service built against the closed store was handed back"
+
+
+def test_reading_cells_picks_up_an_edit_made_outside_the_session(harness: _Harness) -> None:
+    """FR-005's external-reload clause has a production caller (#2240 audit P1-6).
+
+    ``reload_if_changed`` was written, tested by calling it directly, and reached
+    from nowhere in ``src/``: no watcher, no route. A notebook edited in
+    JupyterLab or rewritten by a ``git checkout`` was never picked up by a
+    running session. External-change detection is by content digest rather than
+    by a filesystem watcher, so *something* has to ask; the route that answers
+    "what is in this notebook" is where the asking belongs.
+    """
+    session = harness.open_file_session()
+    session_id = session["session_id"]
+    notebook = harness.project_dir / session["notebook_path"]
+
+    document = read_notebook(notebook)
+    document.append_cell(new_code_cell("edited_from_outside = 1", cell_id="outside"))
+    write_notebook(notebook, document)
+
+    body = harness.client.get(f"/api/explore/sessions/{session_id}/cells").json()
+
+    sources = [cell["source"] for cell in body["cells"]]
+    assert "edited_from_outside = 1" in sources, "an external edit was never reloaded"
+    assert "explore.analysis_updated" in harness.types(), "the reload must announce itself on the hub"
 
 
 def test_open_over_block_outputs_binds_the_run_and_names_its_ports(harness: _Harness) -> None:
@@ -1932,7 +2065,13 @@ def test_a_real_kernel_runs_a_cell_and_publishes_its_events(real_harness: _Harne
     bindings = real_harness.client.get(f"/api/explore/sessions/{session_id}/bindings").json()
     by_name = {row["name"]: row for row in bindings["bindings"]}
     assert by_name["greeting"]["exists_in_kernel"] is True
-    assert by_name["greeting"]["type_name"] == "str"
+    # The bridge answers with the SciStudio type a value resolves to, not the
+    # native one: ``scistudio_type_name`` maps ``str`` to ``Text`` on purpose so
+    # packaging is handed a name that resolves against the type registry. The
+    # native reading is carried alongside it, and both are asserted here so the
+    # real-kernel case says the same thing as its fake-bridge sibling above.
+    assert by_name["greeting"]["type_name"] == "Text"
+    assert by_name["greeting"]["native_type_name"] == "str"
 
     kernels = real_harness.client.get("/api/explore/kernels").json()["kernels"]
     assert len(kernels) == 1

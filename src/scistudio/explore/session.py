@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import keyword
 import logging
+import os
 import queue as stdlib_queue
 import re
 import threading
@@ -172,6 +173,21 @@ class SessionError(RuntimeError):
 @provisional(since="0.3.4")
 class NothingToExploreError(SessionError):
     """A session was requested over outputs that have never been produced (FR-002)."""
+
+
+@provisional(since="0.3.4")
+class PathEscapesProjectError(SessionError):
+    """A session was requested over a file outside the project's data tree (FR-002).
+
+    FR-002 opens a session over "a file in the project's data tree". A path that
+    resolves outside the project is refused rather than accepted, because the
+    notebook the session writes records the path verbatim in its first cell: a
+    session over ``../../../../etc/passwd`` produces a notebook that is not
+    portable and whose data source is not in the project the notebook lives in.
+
+    A *missing* file is still not refused — that is the documented edge case
+    (spec §2) and is a different question from where the path points.
+    """
 
 
 @provisional(since="0.3.4")
@@ -1755,10 +1771,46 @@ class SessionService:
         Args:
             path: The file, absolute or project-relative.
             name: Notebook file stem; the file's stem by default.
+
+        Raises:
+            PathEscapesProjectError: *path* resolves outside the project.
         """
-        target = Path(path)
-        relative = _relative_posix(target, self._project_dir) if target.is_absolute() else target.as_posix()
+        relative = self._contained_relative(path)
         return self._create(name or PurePosixPath(relative).stem, file_path=relative)
+
+    def _contained_relative(self, path: str | Path) -> str:
+        """*path* as a project-relative posix path, or refuse it (FR-002).
+
+        The check is the repository's canonical one — ``os.path.realpath`` on
+        both sides and ``os.path.commonpath`` between them, as
+        ``api/routes/data.py::_contained_target`` and
+        ``api/routes/projects.py::_resolve_project_file`` already do — so a
+        symlink out of the tree is refused as well as a ``..`` walk, and a
+        different Windows drive (which makes ``commonpath`` raise) reads as the
+        escape it is.
+
+        It lives here rather than in the route because FR-002 is the *service*'s
+        obligation: ``open_over_file`` is reachable from the packaging reopen
+        path and from tests as well as from HTTP, and a containment rule only
+        one caller enforces is not a containment rule. The layer rule (FR-008)
+        forbids raising ``HTTPException`` here, so this raises a session refusal
+        and the route's closed refusal table maps it to 403.
+
+        The file need not exist: a missing file is the documented edge case and
+        ``realpath`` answers for a path that is not there.
+        """
+        root = os.path.realpath(self._project_dir)
+        raw = str(path)
+        candidate = os.path.realpath(raw if os.path.isabs(raw) else os.path.join(root, raw))
+        try:
+            contained = os.path.commonpath([root, candidate]) == root
+        except ValueError:  # different drives on Windows — an escape
+            contained = False
+        if not contained:
+            raise PathEscapesProjectError(
+                f"{raw!r} is outside this project, and FR-002 opens a session over a file in the project's data tree."
+            )
+        return _relative_posix(Path(candidate), self._project_dir)
 
     def open_notebook(self, path: str | Path, *, bound_run: BoundRun | None = None) -> ExploreSession:
         """Open a session on an existing notebook, or return the open one (FR-001).
@@ -1797,11 +1849,13 @@ class SessionService:
         )
 
     def _resolve(self, path: str | Path) -> Path:
-        """A notebook path as an absolute path, project-relative paths included."""
-        candidate = Path(path)
-        if not candidate.is_absolute():
-            candidate = self._project_dir / candidate
-        return candidate.resolve()
+        """A notebook path as an absolute path, project-relative paths included.
+
+        Contained the same way ``open_over_file`` is: reopening a notebook reads
+        the file and answers with its cells, so an uncontained path here is an
+        arbitrary file read rather than only a portability problem.
+        """
+        return self._project_dir / self._contained_relative(path)
 
     def _require_resolver(self, block_id: str) -> BlockOutputResolver:
         if self._block_outputs is None:
@@ -2352,6 +2406,19 @@ def first_cell_source(*, bound_run: BoundRun | None = None, file_path: str | Non
     ``tests/explore/test_explore_session.py`` pins it by running the generated
     notebook through the analysis and asserting no unresolved read.
 
+    ``blocks = scistudio.blocks`` is there for the same reason and one more.
+    The bridge binds a bare ``blocks`` into the kernel too (FR-049), and a cell
+    writing ``blocks.run("Smooth", data=x)`` against it is an unresolved read by
+    exactly the argument above — so FR-049's affordance and FR-039's refusal
+    were mutually exclusive, and the workaround (``import blocks``) raises
+    ``ModuleNotFoundError`` because there is no such module. Binding the name
+    from the package attribute fixes both halves at once: the analysis resolves
+    the read to this cell, and the *packaged* copy carries the binding, because
+    packaging's backward slice keeps the cell that binds a name the slice reads.
+    A bare ``blocks`` would not survive that trip — the bridge does not install
+    into an nbconvert run — so the attribute spelling is what makes one notebook
+    run in a session and as a block.
+
     Args:
         bound_run: The run whose ports the first cell loads.
         file_path: The project-relative file a file session was opened over.
@@ -2359,7 +2426,7 @@ def first_cell_source(*, bound_run: BoundRun | None = None, file_path: str | Non
     Returns:
         The cell's source. It does not run automatically (FR-004).
     """
-    lines = ["import scistudio", ""]
+    lines = ["import scistudio", "", "blocks = scistudio.blocks", ""]
     if bound_run is not None:
         for port in bound_run.ports:
             variable = _identifier(port.name)

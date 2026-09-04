@@ -731,12 +731,34 @@ class NotebookBlocks:
 _INJECTED_BLOCKS: NotebookBlocks | None = None
 
 
-def _inject_blocks(namespace: dict[str, Any]) -> str:
-    """Bind :data:`BLOCKS_NAME` in *namespace* and return the name bound."""
+@provisional(since="0.3.4")
+def notebook_blocks() -> NotebookBlocks:
+    """The process's :class:`NotebookBlocks`, created on first use (FR-049).
+
+    One object per process, shared by the bare ``blocks`` name a session kernel
+    is given and by ``scistudio.blocks``, which is how a notebook reaches the
+    same surface in **both** modes: the bare name is bound by the bridge and so
+    exists only in a session, while the attribute goes through the top-level
+    package and therefore exists in a packaged nbconvert run too.
+
+    That difference is the whole reason the attribute spelling is the one the
+    generated first cell binds. The dependency analysis reads *source*: a cell
+    writing ``blocks.run(...)`` against a name nothing above it binds is an
+    unresolved read, and packaging refuses a notebook that has one (FR-039) —
+    so FR-049's affordance and FR-039's refusal would be mutually exclusive.
+    Binding ``blocks = scistudio.blocks`` in the first cell resolves the read
+    *and* carries the name into the packaged copy, because packaging's backward
+    slice keeps the cell that binds it.
+    """
     global _INJECTED_BLOCKS
     if _INJECTED_BLOCKS is None:
         _INJECTED_BLOCKS = NotebookBlocks()
-    namespace[BLOCKS_NAME] = _INJECTED_BLOCKS
+    return _INJECTED_BLOCKS
+
+
+def _inject_blocks(namespace: dict[str, Any]) -> str:
+    """Bind :data:`BLOCKS_NAME` in *namespace* and return the name bound."""
+    namespace[BLOCKS_NAME] = notebook_blocks()
     return BLOCKS_NAME
 
 

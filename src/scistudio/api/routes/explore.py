@@ -78,6 +78,7 @@ from scistudio.explore.session import (
     BoundRun,
     ExploreSession,
     NothingToExploreError,
+    PathEscapesProjectError,
     SessionError,
     SessionEvent,
     SessionEventType,
@@ -99,11 +100,34 @@ EXPLORE_EVENT_PREFIX = "explore."
 # The service registry (one SessionService per project)
 # ---------------------------------------------------------------------------
 
+
 #: Resolved project directory -> the service that owns its sessions and kernels.
 #: Module state rather than runtime state because ``ApiRuntime`` belongs to
 #: another agent's write set; the registry is keyed by path so a project switch
 #: reaches a different service rather than a stale one.
 _services: dict[str, SessionService] = {}
+
+#: The same keys -> the lineage store the runtime held when that service was
+#: built. Keying the registry by path is necessary and not sufficient.
+#: ``ApiRuntime.open_project`` re-initialises the lineage store, and
+#: re-initialising **closes** the previous one — a closed ``LineageStore``
+#: raises ``sqlite3.ProgrammingError`` on its next connect. A ``SessionService``
+#: captures its store at construction and hands it to ``ExploreLineage`` for its
+#: lifetime, so switching away from a project and back would hit the registry,
+#: find the service for that path, and return one whose store is dead: every
+#: FR-052 to FR-055 write for that project would be swallowed into
+#: ``provenance_degraded``, and the ipykernel processes the service owns would
+#: go on running with no route able to list or end them.
+#:
+#: A parallel map rather than a field on the service, for two reasons. The
+#: answer must not depend on what :func:`_build_service` did with the store —
+#: the test seam hands back a service with fake factories and no store, which
+#: is not a service that has gone stale. And ``_services`` keeps the plain
+#: shape three test modules already inject into directly; a service put there
+#: by hand has no entry here and is therefore never retired, which is right:
+#: the registry only invalidates what the registry built.
+_service_stores: dict[str, Any] = {}
+
 _services_lock = threading.Lock()
 
 
@@ -150,13 +174,45 @@ def get_session_service(runtime: RuntimeDep) -> SessionService:
 
     project_dir = Path(project.path).resolve()
     key = str(project_dir)
+    store = getattr(runtime, "lineage_store", None)
+    stale: SessionService | None = None
     with _services_lock:
         service = _services.get(key)
+        if service is not None and key in _service_stores and _service_stores[key] is not store:
+            # The runtime has re-opened a project since this service was built,
+            # which closed the store the service still holds. Drop it here and
+            # shut it down below, outside the lock.
+            stale, service = service, None
+            del _services[key]
+            del _service_stores[key]
         if service is None:
             service = _build_service(project_dir, runtime)
             service.subscribe(broadcast_session_event)
             _services[key] = service
+            _service_stores[key] = store
+    if stale is not None:
+        _retire_stale_service(key, stale)
     return service
+
+
+def _retire_stale_service(key: str, service: SessionService) -> None:
+    """Shut a service down after it has been dropped from the registry.
+
+    Outside the registry lock, because shutting down closes every session and
+    terminates every kernel — seconds of work that must not hold the lock a
+    concurrent request needs. The service is already unreachable by the time
+    this runs, so nothing can open a new session on it.
+
+    Retiring rather than leaking is the other half of the fix: without it, the
+    ipykernel processes rooted in the abandoned service stay alive with no route
+    that can list or end them, and on Windows they hold the project's files open
+    against a later delete.
+    """
+    logger.info("explore: retiring the session service for %s; the lineage store it held is gone", key)
+    try:
+        service.shutdown(commit=False)
+    except Exception:  # a stale service that will not die must not fail the request
+        logger.warning("explore: the stale session service for %s failed to shut down", key, exc_info=True)
 
 
 ServiceDep = Annotated[SessionService, Depends(get_session_service)]
@@ -190,6 +246,7 @@ def shutdown_session_services(*, commit: bool = False) -> None:
     with _services_lock:
         services = list(_services.values())
         _services.clear()
+        _service_stores.clear()
     for service in services:
         try:
             service.shutdown(commit=commit)
@@ -267,6 +324,7 @@ def broadcast_session_event(event: SessionEvent) -> None:
 #: before ``SessionError``, which every session refusal derives from.
 _REFUSALS: tuple[tuple[type[BaseException], int, str], ...] = (
     (UnknownSessionError, 404, "session_not_found"),
+    (PathEscapesProjectError, 403, "path_escapes_project"),
     (NothingToExploreError, 409, "nothing_to_explore"),
     (SnippetRefusedError, 422, "snippet_refused"),
     (PanelFrozenError, 409, "panel_frozen"),
@@ -941,8 +999,23 @@ async def commit_session_to_branch(
 
 @router.get("/sessions/{session_id}/cells", response_model=CellsResponse)
 async def read_cells(service: ServiceDep, session_id: str) -> CellsResponse:
-    """The notebook's cells with their sources, enabled flags, and marks."""
+    """The notebook's cells with their sources, enabled flags, and marks.
+
+    An edit made to the notebook from outside — JupyterLab, a text editor, a
+    ``git checkout`` — is picked up here (FR-005). This is the pull that makes
+    the clause real: external-change detection is by content digest
+    (``NotebookStore.has_external_change``) rather than by a filesystem watcher,
+    so *something* has to ask, and the route that answers "what is in this
+    notebook" is the honest place to ask it. A reload keeps the marks by cell id
+    and leaves the kernel namespace alone, and publishes ``analysis_updated``
+    so an open UI learns about the edit on the same socket as everything else.
+
+    A notebook that was deleted or is no longer parseable becomes the documented
+    404/422 rather than a stale answer.
+    """
     session = await _session(service, session_id)
+    with _refusals():
+        await run_in_threadpool(session.reload_if_changed)
     return CellsResponse(session_id=session_id, cells=_cell_models(session))
 
 

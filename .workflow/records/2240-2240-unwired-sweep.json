@@ -1,0 +1,89 @@
+{
+  "base_ref": "origin/track/adr-054-spec3-explore-session",
+  "branch": "fix/2240-unwired-sweep",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2240,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Close the code half of the two ADR-054 spec-3 audits: sweep src/scistudio/explore/** for public callables with no production caller, then fix the P1/P2 findings (declare_output wiring, InteractionChannel, reload_if_changed, project-switch service invalidation, blocks/packaging reconciliation, reopen_target route, file-source path containment, the type_name CI failure, and the SC-007 shim).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2240-2240-unwired-sweep",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T18:04:10.151234Z",
+      "pattern": "src/scistudio/explore/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T18:04:10.151256Z",
+      "pattern": "src/scistudio/api/routes/explore.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T18:04:10.151260Z",
+      "pattern": "src/scistudio/core/lineage/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T18:04:10.151262Z",
+      "pattern": "tests/explore/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T18:04:10.151264Z",
+      "pattern": "tests/api/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T18:04:16.767389Z",
+      "pattern": "src/scistudio/__init__.py",
+      "reason": "FR-049/FR-039 reconciliation needs a top-level 'scistudio.blocks' so a notebook can call a block in packaged mode as well as in a session; the change is the existing four-name lazy-export list gaining a fifth entry, additive and in the shape already there."
+    }
+  ],
+  "session_id": "59a79abd-c5ae-4f88-934e-75d8bd436f31",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": []
+}

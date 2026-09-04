@@ -87,6 +87,7 @@ from scistudio.explore.packaging import (
     rewrite_load_to_input,
     slice_for_outputs,
 )
+from scistudio.explore.session import first_cell_source
 
 pytestmark = pytest.mark.timeout(300)
 
@@ -158,6 +159,23 @@ KERNEL_METADATA = {
     "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
     "language_info": {"name": "python", "pygments_lexer": "ipython3"},
 }
+
+#: What a cell that calls a block has above it — the same two lines
+#: :func:`~scistudio.explore.session.first_cell_source` generates.
+#:
+#: These tests used to open with ``import blocks``, which raises
+#: ``ModuleNotFoundError``: there is no importable top-level ``blocks`` module,
+#: and the name a session cell calls is one the kernel bridge *injects*. Written
+#: that way the tests exercised a line no live kernel could run, so the
+#: combination FR-049 (call a block from a cell) plus FR-039 (package the
+#: notebook) was never actually exercised — and could not have passed, since a
+#: bare ``blocks`` with nothing above it binding it is an unresolved read and
+#: packaging refuses on one.
+#:
+#: ``blocks = scistudio.blocks`` is the spelling that works in both places: it
+#: resolves the analysis' read, and it survives into the packaged copy, where
+#: the bridge has not run and the bare name would not exist.
+_BLOCK_CALL_PREAMBLE = "import scistudio\nblocks = scistudio.blocks\n"
 
 
 def fixture_notebook(*, kernel_name: str = "python3") -> NotebookDocument:
@@ -314,7 +332,7 @@ def test_a_slice_that_calls_an_interactive_block_refuses_and_names_the_cell() ->
     """FR-039 with FR-050: an interactive call cannot run unattended inside a block."""
     document = new_notebook(
         [
-            new_code_cell('import blocks\nimport scistudio\ntotal = blocks.run("PickOne", data=1)', cell_id="a"),
+            new_code_cell(_BLOCK_CALL_PREAMBLE + 'total = blocks.run("PickOne", data=1)', cell_id="a"),
             new_code_cell("scistudio.output(total=total)", cell_id="b"),
         ],
         metadata=KERNEL_METADATA,
@@ -335,7 +353,7 @@ def test_a_slice_calling_a_non_interactive_block_is_packageable() -> None:
     """The refusal is about interactive calls, not about block calls."""
     document = new_notebook(
         [
-            new_code_cell('import blocks\nimport scistudio\ntotal = blocks.run("Smooth", data=1)', cell_id="a"),
+            new_code_cell(_BLOCK_CALL_PREAMBLE + 'total = blocks.run("Smooth", data=1)', cell_id="a"),
             new_code_cell("scistudio.output(total=total)", cell_id="b"),
         ],
         metadata=KERNEL_METADATA,
@@ -346,13 +364,67 @@ def test_a_slice_calling_a_non_interactive_block_is_packageable() -> None:
     assert plan.is_packageable, plan.problems
 
 
+def test_the_generated_first_cell_makes_a_block_call_packageable() -> None:
+    """FR-049 and FR-039 are not mutually exclusive (#2240 audit P1-4).
+
+    The bridge injects a bare ``blocks`` into the kernel, so ``blocks.run(...)``
+    is the line a person is given — but the analysis reads source, so that line
+    against a name nothing binds is an unresolved read and packaging refuses the
+    notebook. The workaround the tests used to write, ``import blocks``, raises
+    ``ModuleNotFoundError``: there is no such module.
+
+    The fix is that ``first_cell_source`` binds ``blocks = scistudio.blocks``,
+    so this asserts against **the real generated first cell** rather than a
+    hand-written preamble: what a session actually creates must be what makes a
+    block call packageable, or the reconciliation is only true in this file.
+    """
+    document = new_notebook(
+        [
+            new_code_cell(first_cell_source(file_path="data/raw/signal.csv"), cell_id="first"),
+            new_code_cell('total = blocks.run("Smooth", data=signal)', cell_id="a"),
+            new_code_cell("scistudio.output(total=total)", cell_id="b"),
+        ],
+        metadata=KERNEL_METADATA,
+    )
+
+    plan = check_packaging(document, bindings={"total": "Text"}, is_interactive=lambda _block_id: False)
+
+    assert not [entry for entry in plan.problems if entry.kind is PackagingProblemKind.UNRESOLVED_READ], (
+        "the generated first cell must resolve the block-call name"
+    )
+    assert plan.is_packageable, plan.problems
+    assert "first" in plan.cells, "the cell that binds `blocks` must be carried into the packaged slice"
+
+
+def test_a_bare_blocks_call_with_no_binding_above_it_is_still_refused() -> None:
+    """The other half of #2240 audit P1-4: the refusal is real, not merely noisy.
+
+    A cell that calls ``blocks.run(...)`` with nothing above it binding the name
+    is refused, and must stay refused: the bridge does not install into the
+    nbconvert run a packaged block performs, so that notebook really would fail
+    with ``NameError`` if it were packaged. The reconciliation makes the working
+    spelling work; it does not make the broken one pass.
+    """
+    document = new_notebook(
+        [
+            new_code_cell('import scistudio\ntotal = blocks.run("Smooth", data=1)', cell_id="a"),
+            new_code_cell("scistudio.output(total=total)", cell_id="b"),
+        ],
+        metadata=KERNEL_METADATA,
+    )
+
+    plan = check_packaging(document, bindings={"total": "Text"}, is_interactive=lambda _block_id: False)
+
+    (problem,) = [entry for entry in plan.problems if entry.kind is PackagingProblemKind.UNRESOLVED_READ]
+    assert "blocks" in problem.names
+    assert not plan.is_packageable
+
+
 def test_a_block_call_that_cannot_be_named_refuses() -> None:
     """FR-039: an identifier that is not a literal cannot be shown to be non-interactive."""
     document = new_notebook(
         [
-            new_code_cell(
-                "import blocks\nimport scistudio\nchosen = 'PickOne'\ntotal = blocks.run(chosen, data=1)", cell_id="a"
-            ),
+            new_code_cell(_BLOCK_CALL_PREAMBLE + "chosen = 'PickOne'\ntotal = blocks.run(chosen, data=1)", cell_id="a"),
             new_code_cell("scistudio.output(total=total)", cell_id="b"),
         ],
         metadata=KERNEL_METADATA,
