@@ -191,23 +191,22 @@ amendment.
 
 ### 7.3 Implementation
 
-- [~] `S2-B1` package, layer rule, static facts, graph, queries -> implementation and
-      tests complete on `feat/2231-dep-analysis-graph` (commits `e41ebb975`,
-      `037535546`, `b2086f7d3`; branch pushed). `tests/explore/test_dependency_analysis.py`
-      162 passed, `tests/architecture/test_layer_deps.py` 10 passed,
+- [x] `S2-B1` package, layer rule, static facts, graph, queries -> merged into the
+      track branch. `tests/explore/test_dependency_analysis.py` 162 passed,
+      `tests/architecture/test_layer_deps.py` 10 passed, and the wider
       `tests/architecture tests/adr052_contract tests/stability tests/docs tests/explore`
-      870 passed / 8 skipped. **PR blocked**: `full_audit` reports nine
-      `doc_drift`/`closure` errors because creating `src/scistudio/explore/` makes the
-      ADR-054 and spec-2 `planned_governs` entries resolve and they must move into
-      `governs`. `docs/adr/ADR-054.md` carries `agent_editable: false` and
-      `docs/specs/adr-054-*.md` is out of scope per §2, so no agent can clear the check;
-      `full_audit` is owned by `ci.yml` and `--check-na` does not waive it, so
-      `scripts/scistudio_pr_create.py` refuses. Needs an owner or manager decision.
-      Gate ledger: `.workflow/records/2231-feat-2231-dep-analysis-graph.json`
-      (scope amended to include `tests/architecture/test_placement.py`, whose
+      run 870 passed / 8 skipped. The agent ran 23 mutations against its own
+      implementation and all 23 were caught. Gate ledger:
+      `.workflow/records/2231-feat-2231-dep-analysis-graph.json`, scope amended to
+      include `tests/architecture/test_placement.py`, whose
       `test_no_py_files_outside_known_packages` enumerates top-level packages
-      independently of `test_layer_deps.py`).
-- [ ] `S2-B2` fingerprint with bound and fallback -> artifact pending
+      independently of `test_layer_deps.py`.
+- [x] `S2-B2` fingerprint with bound and fallback -> merged into the track branch.
+      `tests/explore/test_fingerprint.py` 67 passed, 100% statement coverage of
+      `src/scistudio/explore/fingerprint.py`, measured worst case 10.4 ms against the
+      declared 250 ms bound. Benchmarking found and fixed a real defect: leaf handlers
+      copied a full megabyte per element before the byte ceiling truncated it.
+      Gate ledger: `.workflow/records/2231-feat-2231-fingerprint.json`.
 - [ ] `S2-C1` observation, codec, stability markers -> artifact pending
 - [ ] `S2-D1` differential harness, fixtures, adversarial tests -> artifact pending
 - [x] docs -> N/A, rationale recorded in §7.1.
