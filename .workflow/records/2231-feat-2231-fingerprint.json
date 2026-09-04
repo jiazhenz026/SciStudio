@@ -1,7 +1,156 @@
 {
   "base_ref": "origin/track/adr-054-spec2-dependency-analysis",
   "branch": "feat/2231-fingerprint",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-04T09:21:18.394681Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:17112569f337c75c161276581fbb53cf2590a8b73881e77e6deb4b9048775fdd",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T09:21:21.108109Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c7e66212ec5cbceec192b232be1917f03d75a49cca7bda51ecfffaec7f344e13",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T09:21:22.531040Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:dadcbaa6cbd32a65d0684c9158f702c492f7e1eed6a97f065ff19ab889a713c4",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T09:21:22.555290Z",
+      "command": "ruff format src/scistudio/explore/fingerprint.py tests/explore/test_fingerprint.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e6c2ca51c2c3022d19e7c4a8f9cbdcca6acd3ba4af1ffe367fcc4414c3b19f36",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T09:21:35.508255Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:67ba147f002865af07198cc2b327598acb6a70d8f6264123e74dd1cd62fcfd57",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T09:21:36.155292Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ebff5cb1037f95ed27c10c78149702b7e524639297ab9d40dd78d152803bb2c7",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T09:21:36.183367Z",
+      "command": "ruff check src/scistudio/explore/fingerprint.py tests/explore/test_fingerprint.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bec5641e52243507695b0234bf59d9ec501519d6a963182304c2f1a92d118dda",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T09:21:44.341495Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/explore tests/explore/test_fingerprint.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:764ca24ea52d26cde52a0b38a82c6d59cea1329e5cea82be36f47179547a37f8",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T09:21:45.088908Z",
+      "command": "mypy src/scistudio/explore/fingerprint.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d36ea2f9ec54128dcdf6ffb19082d52b4b752a58226dbc407e552489dd68aca9",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -17,6 +166,11 @@
       "at": "2026-09-04T09:15:01.365237Z",
       "owner_directive": "Plan: one pure fingerprint function over numpy arrays, pandas frames/series/indexes, lists, tuples, dicts, sets, strings, bytes and numbers; one declared budget dataclass holding the cost constant and the sample size; strided full-extent sampling above the bound; identity fallback marked unobservable for every other type; numpy, pandas and xxhash imported lazily inside the fingerprint per FR-035.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-09-04T09:24:24.373616Z",
+      "owner_directive": "Blocked before PR creation, per the dispatch stop condition 'you need an out-of-scope file'. (1) tests/architecture/test_placement.py::test_no_py_files_outside_known_packages needs 'explore' added to known_packages \u2014 tests/architecture/** is agent S2-B1's write set. (2) full_audit doc_drift and closure report three blocking findings: docs/adr/ADR-054.md must move src/scistudio/explore/** from planned_governs.files to governs.files, and docs/specs/adr-054-notebook-dependency-analysis.md must move src/scistudio/explore/fingerprint.py and tests/explore/test_fingerprint.py the same way. Neither document is in any agent's write set in the dispatch matrix.",
+      "reason": "Record the two out-of-scope blockers found by the pre-PR check. The implementation, tests, and every other tier-1 check are green; architecture_tests and full_audit fail only on files this agent's dispatch forbids editing."
     }
   ],
   "docs_events": [
@@ -27,10 +181,195 @@
       "path": null,
       "rationale": "the governing spec docs/specs/adr-054-notebook-dependency-analysis.md landed in PR 2228 and this change implements it without adding a documented surface",
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T09:24:24.373649Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "the governing spec docs/specs/adr-054-notebook-dependency-analysis.md landed in PR 2228 and this change implements it without adding a documented surface",
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-04T09:21:45.152955Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:21:45.167817Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:21:45.182723Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:21:45.197921Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:21:45.218044Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:21:45.242838Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:21:45.271573Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:21:45.288096Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:21:45.305685Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:21:45.321608Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:21:45.341841Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:22:25.364791Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:22:25.419438Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:22:25.466726Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:22:25.496736Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:22:25.529675Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:22:25.558898Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:22:25.693584Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:22:25.736203Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:22:25.787547Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:22:25.821035Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T09:22:25.858055Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -40,25 +379,105 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/track/adr-054-spec2-dependency-analysis",
+    "base_sha": "97d3a88ac",
+    "changed_files": [
+      ".workflow/records/2231-feat-2231-fingerprint.json",
+      "src/scistudio/explore/fingerprint.py",
+      "tests/explore/test_fingerprint.py"
+    ],
+    "diff_fingerprint": "sha256:7311616f7a86c36ab7f6936e24376d1b74bffd8e14f597ffb787f1fed3f667dd",
+    "head": "HEAD",
+    "head_sha": "793c966a4",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 1,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 2,
+      "test": 1,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Implement ADR-054 spec 2 task T-007: the bounded content fingerprint with the declared size bound and the unobservable identity fallback (FR-024, FR-025, FR-029, SC-006, SC-007), in src/scistudio/explore/fingerprint.py with tests in tests/explore/test_fingerprint.py.",
   "persona": "implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-04T09:21:45.341865Z",
+      "diff_fingerprint": "sha256:7311616f7a86c36ab7f6936e24376d1b74bffd8e14f597ffb787f1fed3f667dd",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.architecture_tests",
+        "checks.full_audit"
+      ]
+    },
+    {
+      "at": "2026-09-04T09:22:25.858087Z",
+      "diff_fingerprint": "sha256:7311616f7a86c36ab7f6936e24376d1b74bffd8e14f597ffb787f1fed3f667dd",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.architecture_tests",
+        "checks.full_audit"
+      ]
+    }
+  ],
   "record_id": "2231-feat-2231-fingerprint",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:24:24.373632Z",
+      "pattern": "docs/planning/adr-054-spec2-dependency-analysis-checklist.md",
+      "reason": "Record the two out-of-scope blockers found by the pre-PR check. The implementation, tests, and every other tier-1 check are green; architecture_tests and full_audit fail only on files this agent's dispatch forbids editing."
+    }
+  ],
   "session_id": "0de4cbb3-b467-4500-82a5-393ef9eaab3e",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "feature",
   "test_events": [
     {

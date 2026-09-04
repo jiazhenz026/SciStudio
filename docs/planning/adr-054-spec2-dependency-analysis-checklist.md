@@ -192,7 +192,7 @@ amendment.
 ### 7.3 Implementation
 
 - [ ] `S2-B1` package, layer rule, static facts, graph, queries -> artifact pending
-- [ ] `S2-B2` fingerprint with bound and fallback -> artifact pending
+- [ ] `S2-B2` fingerprint with bound and fallback -> `src/scistudio/explore/fingerprint.py`, `tests/explore/test_fingerprint.py` on `feat/2231-fingerprint` (commit `793c966a4`, pushed). 67 tests pass, 100% statement coverage of the new module; measured worst-case cost 10.4 ms against the declared 250 ms bound. PR is blocked: `gate_record check --mode pre-pr` fails `architecture_tests` and `full_audit` on two files outside this agent's write set — `tests/architecture/test_placement.py` needs `"explore"` in `known_packages`, and `docs/adr/ADR-054.md` plus `docs/specs/adr-054-notebook-dependency-analysis.md` must move the now-resolving `planned_governs` entries to `governs`. Neither path is assigned to any agent in §6; every implementer on this issue hits the same wall.
 - [ ] `S2-C1` observation, codec, stability markers -> artifact pending
 - [ ] `S2-D1` differential harness, fixtures, adversarial tests -> artifact pending
 - [x] docs -> N/A, rationale recorded in §7.1.
