@@ -141,6 +141,12 @@
       "at": "2026-09-04T09:20:20.066863Z",
       "pattern": "src/scistudio/core/versioning/git_engine.py",
       "reason": "S3-A3 reports that the four plumbing functions it added to _commit_ops.py have no binding onto GitEngine, so callers would have to reach into a package-private module; git_engine.py is where the binding block and the ADR-052 stability tier belong"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:30:15.715000Z",
+      "pattern": "tests/core/test_git_engine.py",
+      "reason": "S3-A3 proved that tests/core/test_git_engine.py's circular-import stub gives scistudio an empty __path__, which forbids every first-party leaf import in core/versioning, not just the cycle the guard exists to catch; the ADR-052 stability markers cannot be applied anywhere in the package until the stub is corrected"
     }
   ],
   "session_id": "8c06bfb9-2c49-447a-b286-4ed23bc35536",
