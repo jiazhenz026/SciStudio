@@ -62,6 +62,7 @@ from scistudio.explore.session import (
     SessionEventType,
     SessionService,
 )
+from tests.api.helpers import served_paths
 
 needs_kernel = pytest.mark.skipif(
     importlib.util.find_spec("jupyter_client") is None or importlib.util.find_spec("ipykernel") is None,
@@ -335,7 +336,7 @@ def _require_explore_routes(app: Any) -> None:
     every path, ``/api/explore/...`` included, and answers it with its own 404,
     so the router has to be included above it.
     """
-    mounted = {getattr(route, "path", "") for route in app.router.routes}
+    mounted = set(served_paths(app))
     missing = {getattr(route, "path", "") for route in explore.router.routes} - mounted
     assert not missing, f"create_app no longer mounts the explore router: {sorted(missing)}"
 

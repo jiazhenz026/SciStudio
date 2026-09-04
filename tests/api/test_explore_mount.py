@@ -25,6 +25,12 @@ So the ordering is pinned twice and the two claims are different:
   :func:`test_the_spa_mount_swallows_a_route_registered_after_it` proves that
   behaviour is not vacuous by showing the mount really does swallow the same
   route when it comes first.
+
+**The route table is read through** :func:`~tests.api.helpers.route_table`,
+because its shape is not stable across FastAPI versions: 0.136 flattens an
+included router into ``app.router.routes`` and 0.141 appends one opaque wrapper
+entry with no ``path``. Reading ``route.path`` directly passes here and reports
+an application with no routes at all under the version CI resolves.
 """
 
 from __future__ import annotations
@@ -39,6 +45,7 @@ from starlette.routing import Mount
 
 from scistudio.api import app as app_module
 from scistudio.api.routes import explore
+from tests.api.helpers import route_table, served_paths
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -59,14 +66,15 @@ def _app_with_spa(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     return app_module.create_app()
 
 
-def _explore_route_indices(app: FastAPI) -> list[int]:
-    return [i for i, route in enumerate(app.router.routes) if getattr(route, "path", "").startswith("/api/explore")]
+def _explore_entry_indices(app: FastAPI) -> set[int]:
+    """Route-table positions of the entries that serve ``/api/explore/...``."""
+    return {index for index, path in route_table(app) if path.startswith("/api/explore")}
 
 
 def _spa_mount_index(app: FastAPI) -> int | None:
-    for i, route in enumerate(app.router.routes):
+    for index, route in enumerate(app.router.routes):
         if isinstance(route, Mount) and route.path in {"", "/"}:
-            return i
+            return index
     return None
 
 
@@ -92,7 +100,7 @@ def test_create_app_includes_every_explore_route() -> None:
     registration — a second router, a prefix typo — fails as loudly as none.
     """
     app = app_module.create_app()
-    mounted = {getattr(route, "path", "") for route in app.router.routes}
+    mounted = set(served_paths(app))
     declared = {getattr(route, "path", "") for route in explore.router.routes}
 
     assert declared, "the explore router declares no routes; this test would pass vacuously"
@@ -101,8 +109,7 @@ def test_create_app_includes_every_explore_route() -> None:
 
 def test_the_explore_routes_are_registered_once() -> None:
     """No duplicate registration: ``include_router(explore.router)`` is called once."""
-    app = app_module.create_app()
-    paths = [getattr(route, "path", "") for route in app.router.routes]
+    paths = served_paths(app_module.create_app())
     assert paths.count("/api/explore/sessions") == 2, (  # one POST, one GET
         "expected exactly the open and list routes at /api/explore/sessions; "
         f"found {paths.count('/api/explore/sessions')} registrations"
@@ -115,7 +122,7 @@ def test_the_explore_routes_are_registered_once() -> None:
 
 
 def test_the_explore_router_sits_above_the_spa_mount(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The rule itself: every explore route precedes the ``/`` mount in the table.
+    """The rule itself: the explore routes precede the ``/`` mount in the table.
 
     This is the test that fails if someone moves ``include_router(explore.router)``
     below the ``app.mount("/", SPAStaticFiles(...))`` call. It asserts on
@@ -125,7 +132,7 @@ def test_the_explore_router_sits_above_the_spa_mount(tmp_path: Path, monkeypatch
     """
     app = _app_with_spa(tmp_path, monkeypatch)
     mount_index = _spa_mount_index(app)
-    explore_indices = _explore_route_indices(app)
+    explore_indices = _explore_entry_indices(app)
 
     assert mount_index is not None, "the SPA mount is missing; this test would prove nothing"
     assert explore_indices, "no explore routes are registered"
@@ -158,14 +165,15 @@ def test_the_spa_mount_swallows_a_route_registered_after_it(
 
     Without this, the two tests above could both pass on an application where the
     SPA mount never shadowed anything, and neither would be evidence of anything.
-    Here the explore routes are moved to the end of the route table — the exact
+    Here the explore entries are moved to the end of the route table — the exact
     mistake the ordering rule forbids — and the request that answered 409 above
     comes back as the SPA's 404.
     """
     app = _app_with_spa(tmp_path, monkeypatch)
-    moved = [route for route in app.router.routes if getattr(route, "path", "").startswith("/api/explore")]
-    for route in moved:
-        app.router.routes.remove(route)
+    moved = [app.router.routes[index] for index in sorted(_explore_entry_indices(app))]
+    assert moved, "no explore entries to move; the control would prove nothing"
+    for entry in moved:
+        app.router.routes.remove(entry)
     app.router.routes.extend(moved)
 
     with _isolated_client(app, tmp_path, monkeypatch) as client:
