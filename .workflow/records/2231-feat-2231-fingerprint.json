@@ -1,0 +1,73 @@
+{
+  "base_ref": "origin/track/adr-054-spec2-dependency-analysis",
+  "branch": "feat/2231-fingerprint",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/explore/fingerprint.py",
+      "tests/explore/test_fingerprint.py",
+      "docs/planning/adr-054-spec2-dependency-analysis-checklist.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-04T09:15:01.365237Z",
+      "owner_directive": "Plan: one pure fingerprint function over numpy arrays, pandas frames/series/indexes, lists, tuples, dicts, sets, strings, bytes and numbers; one declared budget dataclass holding the cost constant and the sample size; strided full-extent sampling above the bound; identity fallback marked unobservable for every other type; numpy, pandas and xxhash imported lazily inside the fingerprint per FR-035.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-04T09:15:01.365352Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "the governing spec docs/specs/adr-054-notebook-dependency-analysis.md landed in PR 2228 and this change implements it without adding a documented surface",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2231,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-054 spec 2 task T-007: the bounded content fingerprint with the declared size bound and the unobservable identity fallback (FR-024, FR-025, FR-029, SC-006, SC-007), in src/scistudio/explore/fingerprint.py with tests in tests/explore/test_fingerprint.py.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2231-feat-2231-fingerprint",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "0de4cbb3-b467-4500-82a5-393ef9eaab3e",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-04T09:15:01.365364Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_fingerprint.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
