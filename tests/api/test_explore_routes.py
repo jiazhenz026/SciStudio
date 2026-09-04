@@ -55,7 +55,7 @@ from fastapi.testclient import TestClient
 from scistudio.api.routes import explore
 from scistudio.explore.fingerprint import Fingerprint, fingerprint
 from scistudio.explore.kernel_bridge import Binding, BridgeError, scistudio_type_name
-from scistudio.explore.notebook import new_code_cell, read_notebook, write_notebook
+from scistudio.explore.notebook import new_code_cell, new_notebook, read_notebook, write_notebook
 from scistudio.explore.notebook_api import MODE_ENV_VAR, SESSION_MODE
 from scistudio.explore.session import (
     BoundRun,
@@ -1707,6 +1707,60 @@ def test_an_unknown_cell_is_a_404_rather_than_a_key_error(harness: _Harness) -> 
         response = harness.client.request(method, f"/api/explore/sessions/{session_id}{suffix}", json=body)
         assert response.status_code == 404, f"{method} {suffix} answered {response.status_code}"
         assert response.json()["detail"]["error"] == "cell_not_found"
+
+
+def test_reopening_a_packaged_block_binds_the_session_through_the_open_route(harness: _Harness) -> None:
+    """FR-042 is reachable over HTTP (#2240 audit P2-6).
+
+    ``packaging.reopen_target`` had no production caller and no route: the only
+    way to reach a block's notebook copy was ``source="notebook"``, which
+    ignores ``run_id`` and whose own docstring says it "binds to nothing", so a
+    frontend could reopen the copy or bind to a run but not both.
+
+    It is a fifth *source* on the existing open route rather than a route of its
+    own, deliberately: FR-056's operation list is what the route table is
+    asserted against, and "reopen a packaged block's notebook" is a way of
+    opening a session, not a new operation.
+    """
+    blocks_dir = harness.project_dir / "blocks"
+    blocks_dir.mkdir(parents=True, exist_ok=True)
+    (blocks_dir / "row_total.py").write_text(
+        'notebook_commit: ClassVar[str] = "0000000000000000000000000000000000000000"\n',
+        encoding="utf-8",
+    )
+    write_notebook(blocks_dir / "row_total.ipynb", new_notebook([new_code_cell("total = 1", cell_id="c1")]))
+    harness.resolver.latest = _bound_run()
+    harness.resolver.paused = _bound_run(opened_over="paused_run")
+
+    response = harness.client.post(
+        "/api/explore/sessions",
+        json={"source": "packaged_block", "block_name": "Row Total", "block_id": "loader"},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["notebook_path"] == "blocks/row_total.ipynb", "reopening landed somewhere other than the block's copy"
+    assert body["bound_run"] is not None, "the session bound to nothing, which is the half FR-042 was missing"
+    assert body["bound_run"]["opened_over"] == "packaged_block"
+    assert body["bound_run"]["run_id"] == "run-1"
+
+
+def test_reopening_a_block_that_was_never_packaged_is_a_404(harness: _Harness) -> None:
+    """A refusal in the documented shape, not the closed table's 500 branch."""
+    response = harness.client.post(
+        "/api/explore/sessions",
+        json={"source": "packaged_block", "block_name": "Never Packaged"},
+    )
+
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"]["error"] == "notebook_not_found"
+
+
+def test_reopening_a_packaged_block_without_a_name_is_refused(harness: _Harness) -> None:
+    response = harness.client.post("/api/explore/sessions", json={"source": "packaged_block"})
+
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"]["error"] == "invalid_request"
 
 
 def test_nothing_to_explore_is_a_refusal_with_a_reason(harness: _Harness) -> None:

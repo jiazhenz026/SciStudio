@@ -19,16 +19,20 @@ and these do the same, through ``SCISTUDIO_TEST_NBCONVERT`` — an executable pa
 real notebook execution there is nothing here worth asserting, so the test skips
 rather than pretending.
 
-**The notebook helpers.** ``scistudio.input`` / ``scistudio.output`` are T-004's
-module and are not on this branch yet. The fixture notebook therefore binds the
-name ``scistudio`` in its first cell to a small object that reads and writes the
-exchange folders through the ``SCISTUDIO_INPUTS_DIR`` / ``SCISTUDIO_OUTPUTS_DIR``
-variables the Code Block runtime sets — which is exactly what the packaged-mode
-helper will do once it lands. The dependency analysis reads
-``scistudio.input(...)`` and ``scistudio.output(...)`` out of the source either
-way, so the ports, the slice, and the refusals under test are the real ones.
-When T-004 lands, the first cell of the fixture is deleted and nothing else
-here changes.
+**The notebook helpers are the shipped ones.** They used not to be. T-004's
+``scistudio/explore/notebook_api.py`` has landed and ``scistudio/__init__.py``
+exports ``input``, ``load`` and ``output`` lazily, but this module went on
+injecting a five-line ``_Exchange`` shim as the fixture's first cell and a
+``_Session`` double for the comparison — so SC-007, whose whole sentence is
+"a packaged fixture notebook ... produces outputs equal to the session's",
+compared **two hand-written doubles** and neither helper ever ran through
+nbconvert. Both are gone (#2240 audit P2-5). The fixture's first cell is the
+imports, every cell is written against the real helpers, and ``run_as_session``
+sets session mode up the way the kernel bridge does — a bound artefact
+reference per port, the mode environment variable, ``declared_outputs`` read
+back afterwards. The packaged half runs the same source through a real
+nbconvert in packaged mode, which is what makes the equality claim mean
+something.
 """
 
 from __future__ import annotations
@@ -87,7 +91,7 @@ from scistudio.explore.packaging import (
     rewrite_load_to_input,
     slice_for_outputs,
 )
-from scistudio.explore.session import first_cell_source
+from scistudio.explore.session import BoundRun, PortArtefact, SessionService, first_cell_source
 
 pytestmark = pytest.mark.timeout(300)
 
@@ -119,34 +123,28 @@ class PackagingTestSource(Block):
 # The fixture notebook
 # ---------------------------------------------------------------------------
 
-#: Binds ``scistudio`` to the packaged-mode file exchange (see the module
-#: docstring). Every other cell is written exactly as it would be against the
-#: real helpers.
-SHIM_CELL = textwrap.dedent(
-    """
-    import os
-    import pathlib
+#: The fixture notebook's first cell: the imports, and nothing else.
+#:
+#: This used to be ``SHIM_CELL`` — a five-line ``_Exchange`` class that read and
+#: wrote the exchange folders by hand — on the premise, stated in this module's
+#: own docstring, that ``scistudio.input``/``output`` "are not on this branch
+#: yet". They are: ``scistudio/explore/notebook_api.py`` implements all three
+#: helpers in both modes and ``scistudio/__init__.py`` exports them lazily. With
+#: the shim in place SC-007 compared **two hand-written doubles** — the shim in
+#: the packaged run, a ``_Session`` object in the session run — so the shipped
+#: helpers never went through nbconvert at all, and the one criterion that says
+#: "a packaged notebook produces outputs equal to the session's" was measuring
+#: neither of them.
+#:
+#: ``os`` and ``pathlib`` stay because the excluded cell uses them to write its
+#: marker; that cell is what proves FR-040's slice.
+IMPORT_CELL = "import os\nimport pathlib\n\nimport scistudio"
 
-
-    class _Exchange:
-        def input(self, name):
-            folder = pathlib.Path(os.environ["SCISTUDIO_INPUTS_DIR"]) / name
-            return sorted(folder.iterdir())[0].read_text(encoding="utf-8")
-
-        def output(self, **values):
-            root = pathlib.Path(os.environ["SCISTUDIO_OUTPUTS_DIR"])
-            for name, value in values.items():
-                folder = root / name
-                folder.mkdir(parents=True, exist_ok=True)
-                (folder / (name + ".txt")).write_text(str(value), encoding="utf-8")
-
-
-    scistudio = _Exchange()
-    """
-).strip()
-
-READ_CELL = 'raw = scistudio.input("raw")'
-COMPUTE_CELL = "total = str(sum(int(line) for line in raw.split()))"
+#: The portable line the two-mode design exists for: ``load(input(...))`` means
+#: the same thing in a session and in a packaged run, which is why it is written
+#: once and run twice here.
+READ_CELL = 'raw = scistudio.load(scistudio.input("raw"))'
+COMPUTE_CELL = "total = str(sum(int(line) for line in raw.to_memory().split()))"
 EXCLUDED_CELL = textwrap.dedent(
     """
     marker = pathlib.Path(os.environ["SCISTUDIO_EXCLUDED_MARKER"])
@@ -181,15 +179,19 @@ _BLOCK_CALL_PREAMBLE = "import scistudio\nblocks = scistudio.blocks\n"
 def fixture_notebook(*, kernel_name: str = "python3") -> NotebookDocument:
     """The notebook every end-to-end test packages.
 
-    Five cells: the exchange shim, a port read, a computation, a side effect the
+    Five cells: the imports, a port read, a computation, a side effect the
     declared-output slice does not need, and the output declaration. The fourth
     cell is what proves FR-040 — a packaged run must not perform its side effect.
+
+    Every cell is written against the **shipped** helpers, so the packaged run
+    exercises ``scistudio.input``/``load``/``output`` through a real nbconvert
+    and the session run exercises the same three in session mode.
     """
     metadata = json.loads(json.dumps(KERNEL_METADATA))
     metadata["kernelspec"]["name"] = kernel_name
     return new_notebook(
         [
-            new_code_cell(SHIM_CELL, cell_id="shim"),
+            new_code_cell(IMPORT_CELL, cell_id="shim"),
             new_code_cell(READ_CELL, cell_id="read"),
             new_code_cell(COMPUTE_CELL, cell_id="compute"),
             new_code_cell(EXCLUDED_CELL, cell_id="excluded"),
@@ -202,45 +204,64 @@ def fixture_notebook(*, kernel_name: str = "python3") -> NotebookDocument:
 BINDINGS = {"raw": "Text", "total": "Text"}
 
 
-def run_as_session(document: NotebookDocument, *, raw: str, marker: Path) -> dict[str, str]:
+def run_as_session(document: NotebookDocument, *, raw: str, marker: Path, tmp_path: Path) -> dict[str, str]:
     """Run every cell in written order, the way a session runs a notebook.
 
     Returns what the notebook declared through ``scistudio.output``. This is the
-    "session's outputs" the packaged block's outputs are compared against: the
-    same source, executed in the same order, with the helper resolving to the
-    session's data instead of to the exchange folders.
+    "session's outputs" the packaged block's outputs are compared against, and
+    it now runs **the shipped helpers in session mode** rather than a
+    hand-written ``_Session`` double. That is the whole point of SC-007: with a
+    double on this side and a shim on the packaged side, the criterion compared
+    two things the product does not ship, and neither
+    ``notebook_api``'s session mode nor its packaged mode was measured by it.
+
+    Session mode is set up the way the kernel bridge sets it up — an artefact
+    reference per bound port through :func:`bind_session`, the mode environment
+    variable, and :func:`declared_outputs` read back afterwards — because a
+    setup that did anything else would be another double wearing the helpers'
+    name.
     """
-    declared: dict[str, str] = {}
+    from scistudio.core.types.text import Text
+    from scistudio.explore import notebook_api
 
-    class _Session:
-        def input(self, name: str) -> str:
-            assert name == "raw"
-            return raw
-
-        def output(self, **values: Any) -> None:
-            declared.update({key: str(value) for key, value in values.items()})
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    stored = Text(content=raw)
+    stored.save(str(tmp_path / "session-raw.txt"))
 
     namespace: dict[str, Any] = {}
-    previous = os.environ.get("SCISTUDIO_EXCLUDED_MARKER")
+    previous_marker = os.environ.get("SCISTUDIO_EXCLUDED_MARKER")
+    previous_mode = os.environ.get(notebook_api.MODE_ENV_VAR)
     os.environ["SCISTUDIO_EXCLUDED_MARKER"] = str(marker)
+    os.environ[notebook_api.MODE_ENV_VAR] = notebook_api.SESSION_MODE
+    notebook_api.clear_session()
+    notebook_api.bind_session(
+        notebook_api.SessionBinding(
+            inputs={
+                "raw": notebook_api.encode_artefact_reference(
+                    type_name="Text",
+                    backend=stored.storage_ref.backend,
+                    path=stored.storage_ref.path,
+                )
+            },
+            project_dir=str(tmp_path),
+        )
+    )
     try:
         for cell in document.cells:
             if cell.cell_type != "code":
                 continue
-            if cell.cell_id == "shim":
-                # The session supplies the helpers; the packaged run gets them
-                # from the shim cell (see the module docstring).
-                namespace["scistudio"] = _Session()
-                exec(compile(SHIM_CELL.replace("scistudio = _Exchange()", ""), "<shim>", "exec"), namespace)
-                namespace["scistudio"] = _Session()
-                continue
             exec(compile(cell.source, f"<{cell.cell_id}>", "exec"), namespace)
+        return {declared.name: str(declared.value) for declared in notebook_api.declared_outputs()}
     finally:
-        if previous is None:
-            os.environ.pop("SCISTUDIO_EXCLUDED_MARKER", None)
-        else:
-            os.environ["SCISTUDIO_EXCLUDED_MARKER"] = previous
-    return declared
+        notebook_api.clear_session()
+        for variable, value in (
+            ("SCISTUDIO_EXCLUDED_MARKER", previous_marker),
+            (notebook_api.MODE_ENV_VAR, previous_mode),
+        ):
+            if value is None:
+                os.environ.pop(variable, None)
+            else:
+                os.environ[variable] = value
 
 
 # ---------------------------------------------------------------------------
@@ -658,6 +679,82 @@ def test_reopening_a_block_that_was_never_packaged_says_so(tmp_path: Path) -> No
         reopen_target(tmp_path, "Row Total")
 
 
+def test_the_service_reopens_a_packaged_block_bound_to_its_last_run_inputs(tmp_path: Path) -> None:
+    """FR-042 has an entry point (#2240 audit P2-6 / no-context P2-4).
+
+    ``reopen_target`` resolved the copy and the declaration and was called by
+    **nothing**: ``POST /sessions`` with ``source="notebook"`` ignored ``run_id``
+    and its own docstring said it "binds to nothing", ``open_notebook`` accepted
+    a ``bound_run`` the route never passed, and nothing anywhere returned a
+    node's most recent run inputs. A frontend could reopen the copy, or bind a
+    session to a run, but not both — which is the whole of FR-042.
+
+    The binding is the node's **inputs**, not its outputs: reopening is for
+    editing the notebook that produces the outputs, so a session bound to the
+    outputs would be a session over the answer rather than over the work.
+    """
+    packaged = package_fixture(tmp_path)
+
+    class _Resolver:
+        """The one query FR-042 needs, plus the lookup that finds the run."""
+
+        def latest_block_outputs(self, block_id: str) -> BoundRun:
+            return BoundRun(run_id="run-9", block_id=block_id, opened_over="block_outputs", ports=())
+
+        def run_block_outputs(self, run_id: str, block_id: str) -> BoundRun | None:
+            return None
+
+        def paused_run_inputs(self, run_id: str, block_id: str) -> BoundRun:
+            return BoundRun(
+                run_id=run_id,
+                block_id=block_id,
+                opened_over="paused_run",
+                ports=(PortArtefact(name="raw", type_name="Text", backend="zarr", path="raw"),),
+            )
+
+    service = SessionService(tmp_path, block_outputs=_Resolver())
+    try:
+        session = service.reopen_packaged_block("Row Total", node_block_id="node-3")
+
+        assert Path(session.notebook_path) == packaged.notebook_path, (
+            "reopening must land on the block's copy, not on the exploration notebook"
+        )
+        assert session.bound_run is not None, "the session bound to nothing, which is the half FR-042 was missing"
+        assert session.bound_run.run_id == "run-9"
+        assert session.bound_run.block_id == "node-3"
+        assert session.bound_run.opened_over == "packaged_block"
+        assert [port.name for port in session.bound_run.ports] == ["raw"]
+    finally:
+        service.shutdown()
+
+
+def test_reopening_a_packaged_block_that_has_never_run_still_opens_it(tmp_path: Path) -> None:
+    """A node whose first run has not happened is exactly when somebody wants to look.
+
+    The binding is best effort: the notebook is on disk and editing it is the
+    point, so a block with no run reopens unbound rather than refusing.
+    """
+    packaged = package_fixture(tmp_path)
+
+    class _NothingRan:
+        def latest_block_outputs(self, block_id: str) -> None:
+            return None
+
+        def run_block_outputs(self, run_id: str, block_id: str) -> None:
+            return None
+
+        def paused_run_inputs(self, run_id: str, block_id: str) -> None:
+            return None
+
+    service = SessionService(tmp_path, block_outputs=_NothingRan())
+    try:
+        session = service.reopen_packaged_block("Row Total")
+        assert Path(session.notebook_path) == packaged.notebook_path
+        assert session.bound_run is None
+    finally:
+        service.shutdown()
+
+
 def test_a_file_opened_session_packages_its_load_line_as_a_port(tmp_path: Path) -> None:
     """FR-038: the copy reads a port where the session read a file."""
     document = new_notebook(
@@ -950,7 +1047,9 @@ def test_a_workflow_runs_the_packaged_block_and_reproduces_the_session(tmp_path:
 
     raw_text = "1\n2\n3\n4"
     session_marker = tmp_path / "session-marker.txt"
-    session_outputs = run_as_session(fixture_notebook(), raw=raw_text, marker=session_marker)
+    session_outputs = run_as_session(
+        fixture_notebook(), raw=raw_text, marker=session_marker, tmp_path=tmp_path / "session"
+    )
     assert session_outputs == {"total": "10"}
     assert session_marker.exists(), "the session runs every cell, including the excluded one"
 

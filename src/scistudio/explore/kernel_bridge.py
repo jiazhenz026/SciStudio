@@ -661,6 +661,18 @@ def block_call_adapter(session_id: str | None = None) -> Any:
             makes (FR-051). Ignored when an adapter is already installed, whose
             own session id stands.
 
+    The default carries **no interaction channel**, so an interactive block
+    called through it is refused rather than silently run unattended.
+
+    TODO(#2250): pass an ``interaction=`` channel here once one exists, so
+      FR-050's "opens its panel through the session service" is met rather than
+      refused. Nothing in ``src/`` implements
+      :class:`~scistudio.explore.block_call.InteractionChannel` today.
+      Out of scope per the #2240 audit fix pass: it needs a stdin-channel
+      transport, an FR-057 event type, and an FR-056 route. The protocol's own
+      marker explains why each is more than a call site.
+      Followup: https://github.com/jiazhenz026/SciStudio/issues/2250
+
     Returns:
         The :class:`~scistudio.explore.block_call.BlockCallAdapter`.
     """
@@ -901,12 +913,12 @@ def drain_block_calls() -> list[dict[str, Any]]:
 #: from, as ``id(native) -> (native, object_id, type_name)`` (FR-055).
 #:
 #: ``blocks.run(...)`` returns a **native** — a ``str``, an ``ndarray`` — so the
-#: value a notebook later names in ``scistudio.output`` carries no object
+#: value a notebook goes on to name in ``scistudio.output`` carries no object
 #: identity, while the row retention decides over is the ``DataObject`` the call
 #: produced. This is the only place both are in hand.
 #:
 #: The native is held in the tuple, not merely keyed on: a dead object's ``id``
-#: can be reused by a later allocation, and holding a reference makes the key
+#: can be reused by the next allocation, and holding a reference makes the key
 #: unambiguous for as long as it is in the map. The cost is nothing in practice,
 #: because the cell that made the call assigned the value into the namespace
 #: anyway, and the map dies with the kernel process.

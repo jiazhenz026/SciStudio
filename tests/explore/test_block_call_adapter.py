@@ -939,3 +939,40 @@ def test_a_frame_result_is_unwrapped_from_its_transient_data(registry: BlockRegi
     assert isinstance(received[0], DataObject)
     assert received[0].columns == ["mz", "intensity"]
     assert received[0].row_count == 2
+
+
+def test_the_production_adapter_has_no_interaction_channel() -> None:
+    """FR-050's panel half is not built, and this is where that is visible (#2250).
+
+    Every test above that exercises the interactive path constructs the adapter
+    with a ``RecordingChannel`` — a double for the session service. That is the
+    right shape for testing the adapter, and it is also how "``InteractionChannel``
+    has no implementer anywhere in ``src/``" stayed invisible through two rounds
+    of review: the requirement looked proved because the thing the requirement
+    demands had been supplied by the test.
+
+    So this asserts the opposite, against the adapter **production** builds:
+    ``block_call_adapter()`` is what a cell's ``blocks.run(...)`` resolves, it
+    carries no channel, and an interactive block through it is refused. When
+    #2250 lands, this test is the one that must change — which is the point of
+    writing it down rather than leaving the gap to the next audit.
+
+    What a person gets instead is already covered by
+    ``test_an_interactive_block_without_a_channel_is_refused_with_a_diagnosis``:
+    a refusal naming the block and saying the notebook is not in an Explore
+    session. Refusing is the safe answer — an interactive block exists because
+    somebody has to choose something — and FR-039 refuses the same notebook at
+    packaging, so a call that cannot open a panel cannot ship inside a block
+    either. What was missing was any statement that the **production** adapter
+    is the one without a channel.
+    """
+    from scistudio.explore import kernel_bridge
+
+    kernel_bridge.set_block_call_adapter(None)
+    try:
+        adapter = kernel_bridge.block_call_adapter("sess-production")
+        assert adapter._interaction is None, (
+            "the production adapter grew a channel; #2250 has landed and this test must be rewritten"
+        )
+    finally:
+        kernel_bridge.set_block_call_adapter(None)

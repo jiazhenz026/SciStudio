@@ -206,7 +206,7 @@ def _retire_stale_service(key: str, service: SessionService) -> None:
     Retiring rather than leaking is the other half of the fix: without it, the
     ipykernel processes rooted in the abandoned service stay alive with no route
     that can list or end them, and on Windows they hold the project's files open
-    against a later delete.
+    against a subsequent delete.
     """
     logger.info("explore: retiring the session service for %s; the lineage store it held is gone", key)
     try:
@@ -450,12 +450,30 @@ class OpenSessionRequest(BaseModel):
     * ``notebook`` — reopen the notebook at ``path``. Not a fourth source of
       FR-002: it is how a notebook the session list reported as closed is opened
       again, and it binds to nothing.
+    * ``packaged_block`` — reopen the notebook copy of the packaged block named
+      by ``block_name``, bound to the inputs its node received in its most
+      recent completed run, or in ``run_id`` when one is given. Not a source of
+      FR-002 either: it is FR-042's double-click on a packaged block's node, and
+      the only way to reach a block's own notebook copy rather than the
+      exploration notebook it was packaged from.
+
+    Neither extra source needs a route of its own, which is why both live here:
+    FR-056's operation list is what the route table is asserted against, and
+    "reopen a packaged block's notebook" is a way of opening a session rather
+    than a new operation.
     """
 
-    source: str = Field(description="block_outputs, file, paused_run, or notebook")
-    block_id: str | None = Field(default=None, description="Required for block_outputs and paused_run.")
-    run_id: str | None = Field(default=None, description="Required for paused_run; optional for block_outputs.")
+    source: str = Field(description="block_outputs, file, paused_run, notebook, or packaged_block")
+    block_id: str | None = Field(
+        default=None,
+        description="Required for block_outputs and paused_run; optional for packaged_block (the node).",
+    )
+    run_id: str | None = Field(
+        default=None,
+        description="Required for paused_run; optional for block_outputs and packaged_block.",
+    )
     path: str | None = Field(default=None, description="Required for file and notebook.")
+    block_name: str | None = Field(default=None, description="Required for packaged_block.")
     name: str | None = Field(default=None, description="Notebook file stem; defaults per source.")
 
 
@@ -918,8 +936,17 @@ async def open_session(service: ServiceDep, payload: OpenSessionRequest) -> Sess
             if not payload.path:
                 raise _bad_request("path is required to reopen a notebook.")
             return service.open_notebook(payload.path)
+        if source == "packaged_block":
+            if not payload.block_name:
+                raise _bad_request("block_name is required to reopen a packaged block's notebook.")
+            return service.reopen_packaged_block(
+                payload.block_name,
+                node_block_id=payload.block_id,
+                run_id=payload.run_id,
+            )
         raise _bad_request(
-            f"{source!r} is not a session source; expected 'block_outputs', 'file', 'paused_run', or 'notebook'."
+            f"{source!r} is not a session source; expected 'block_outputs', 'file', 'paused_run', "
+            f"'notebook', or 'packaged_block'."
         )
 
     with _refusals():

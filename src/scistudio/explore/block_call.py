@@ -472,6 +472,22 @@ class InteractionChannel(Protocol):
     methods **must return promptly** — the adapter does its waiting on the
     :class:`PendingInteraction` it hands over, and a channel that blocked in
     :meth:`open` would block the cell before the panel had been announced.
+
+    **Nothing in ``src/`` implements this protocol yet**, so in production
+    :meth:`BlockCallAdapter.call` raises :class:`InteractionUnavailableError`
+    for an interactive block. The refusal is deliberate and the message says
+    what is missing; the notebook is also refused at packaging (FR-039), so a
+    call that cannot open a panel cannot silently ship inside a block either.
+
+    TODO(#2250): FR-050's panel half — an interactive block called from a cell
+      opening its panel through the session service — is not built.
+      Out of scope per the #2240 audit fix pass: closing it is not a missing
+      call site. It needs a transport the bridge does not have (a blocked cell
+      holds the shell channel that ``KernelBridge._call`` uses, so the answer
+      has to come over stdin), plus an FR-057 event type and an FR-056 route,
+      neither of which exists — and both of those enumerations are spec surface
+      an implementer must not extend unilaterally.
+      Followup: https://github.com/jiazhenz026/SciStudio/issues/2250
     """
 
     def open(self, pending: PendingInteraction) -> None:
@@ -796,7 +812,7 @@ def native_of(data_object: Any) -> Any:
     The same unwrapping :meth:`BlockCallAdapter.call` performs on its way out,
     exposed because FR-055 has to answer a question only this mapping can:
     ``blocks.run(...)`` hands the cell a **native** value, so the name a
-    notebook later passes to ``scistudio.output`` is a ``str`` or an ``ndarray``
+    notebook goes on to pass to ``scistudio.output`` is a ``str`` or an ``ndarray``
     with no object identity on it, while the object retention decides over is
     the ``DataObject`` the call produced. Unwrapping the edge's object the way
     the call did is what lets the two be recognised as the same thing.

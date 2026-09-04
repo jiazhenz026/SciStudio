@@ -1739,7 +1739,7 @@ class SessionService:
         which execution produced it, because ``record_block_call`` fills
         ``produced_by_execution`` on every output row. Going through the store
         rather than remembering the last drain is what makes a name declared in
-        a *later* cell than the one that produced it — the ordinary shape, since
+        a *downstream* cell from the one that produced it — the ordinary shape, since
         a notebook usually computes first and declares at the end — resolve to
         the right execution.
 
@@ -1930,6 +1930,82 @@ class SessionService:
                 store=store,
                 bound_run=bound_run,
             )
+        )
+
+    def reopen_packaged_block(
+        self,
+        block_name: str,
+        *,
+        node_block_id: str | None = None,
+        run_id: str | None = None,
+    ) -> ExploreSession:
+        """Open a session on a packaged block's notebook copy, bound to a run (FR-042).
+
+        FR-042: *"Double-clicking a packaged block's node MUST open a session on
+        the block's notebook copy bound to the node's most recent run inputs,
+        and packaging again from that session MUST replace the copy and the
+        declaration in place."* The in-place half was built and proved. This is
+        the other half, which had no entry point at all:
+        :func:`~scistudio.explore.packaging.reopen_target` resolved the copy and
+        the declaration and was called by nothing, ``POST /sessions`` with
+        ``source="notebook"`` ignored ``run_id`` and bound to nothing, and
+        nothing anywhere returned a node's most recent run inputs.
+
+        **Inputs, not outputs.** Reopening is for editing the notebook that
+        *produces* the node's outputs, so what the session needs bound is what
+        the node was given — which is why this reaches for the run's input edges
+        even though finding the run goes through the output query. A session
+        bound to the node's outputs would be a session over the answer rather
+        than over the work.
+
+        The bound run is best effort. A block that has never run reopens with no
+        binding rather than refusing: the notebook is on disk and editing it is
+        the point, and a node whose first run has not happened is exactly when
+        somebody wants to look at it.
+
+        Args:
+            block_name: The packaged block's name, as its declaration records it.
+            node_block_id: The node in the workflow, when the caller knows which
+                one was double-clicked. Defaults to *block_name*.
+            run_id: Bind to this run; the node's most recent completed run by
+                default.
+
+        Returns:
+            The session on the block's notebook copy.
+
+        Raises:
+            FileNotFoundError: No packaged block of that name is in the project.
+            PathEscapesProjectError: The resolved copy is outside the project.
+        """
+        from scistudio.explore.packaging import reopen_target
+
+        target = reopen_target(self._project_dir, block_name)
+        bound = self._packaged_block_binding(node_block_id or block_name, run_id)
+        return self.open_notebook(target.notebook_path, bound_run=bound)
+
+    def _packaged_block_binding(self, block_id: str, run_id: str | None) -> BoundRun | None:
+        """The inputs *block_id* received, in *run_id* or in its most recent run (FR-042)."""
+        resolver = self._block_outputs
+        if resolver is None:
+            return None
+        try:
+            resolved_run = run_id
+            if resolved_run is None:
+                latest = resolver.latest_block_outputs(block_id)
+                if latest is None:
+                    return None
+                resolved_run = latest.run_id
+            inputs = resolver.paused_run_inputs(resolved_run, block_id)
+        except Exception:  # a resolver that cannot answer must not stop the notebook opening
+            _LOG.warning("Could not resolve the run inputs of packaged block %s", block_id, exc_info=True)
+            return None
+        if inputs is None:
+            return None
+        return BoundRun(
+            run_id=inputs.run_id,
+            block_id=inputs.block_id,
+            opened_over="packaged_block",
+            ports=inputs.ports,
         )
 
     def _resolve(self, path: str | Path) -> Path:
