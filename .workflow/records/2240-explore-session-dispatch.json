@@ -135,6 +135,12 @@
       "at": "2026-09-04T08:51:49.378204Z",
       "pattern": "tests/architecture/test_layer_deps.py",
       "reason": "Record the full spec 3 write surface from docs/specs/adr-054-explore-session.md section 4.2 before any agent edits it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:20:20.066863Z",
+      "pattern": "src/scistudio/core/versioning/git_engine.py",
+      "reason": "S3-A3 reports that the four plumbing functions it added to _commit_ops.py have no binding onto GitEngine, so callers would have to reach into a package-private module; git_engine.py is where the binding block and the ADR-052 stability tier belong"
     }
   ],
   "session_id": "8c06bfb9-2c49-447a-b286-4ed23bc35536",

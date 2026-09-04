@@ -280,6 +280,9 @@ Append only.
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
 | 2026-09-04 | manager | The layer-test edit is claimed by spec 2's `S2-B1` and by spec 3's FR-060 rule. | Spec 3's `S3-C3` owns the layer file and lands after spec 2's version is merged forward, so the two edits never race. | N/A |
+| 2026-09-04 | manager | `ipykernel`, `jupyter_client`, and `nbconvert` are absent from the local `.venv`, and installing them was refused by the sandbox. | Real-kernel tests (FR-013, ADR-054 §5.2) skip locally and run only in CI, which installs from `pyproject.toml`. Agents were told to leave honestly-skipped tests rather than mocked-passing ones. | Verify the interrupt test actually ran in CI before calling FR-013 covered. |
+| 2026-09-04 | `S3-A3` | The four plumbing functions had no binding onto `GitEngine`, and `git_engine.py` was outside the declared scope. | Manager amended the ledger to include `src/scistudio/core/versioning/git_engine.py` and sent the agent back to add the binding, the ADR-052 stability markers, and coverage for the public surface. | N/A |
+| 2026-09-04 | `S3-A3` | `_commit_ops.py` cannot import `scistudio.stability`; `tests/core/test_git_engine.py::test_no_circular_import` loads the module under a stub package. | Stability markers move to the `git_engine.py` binding block. The agent added a guard test so the constraint fails at the point of change. | N/A |
 
 ## 10. Final Readiness
 
