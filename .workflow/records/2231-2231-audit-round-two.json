@@ -14,7 +14,16 @@
     ]
   },
   "directive_events": [],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-04T12:01:31.571454Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "the governing spec text is S2-G1's write set on the track branch and landed there; this change is code, tests, and the in-code documentation that describes them, all of which is updated in place",
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
   "guard_events": [],
   "issues": [
@@ -42,9 +51,91 @@
   },
   "runtime": "Claude:claude-opus-5",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T12:01:31.571409Z",
+      "pattern": "src/scistudio/explore/dependency_analysis.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T12:01:31.571430Z",
+      "pattern": "src/scistudio/explore/fingerprint.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T12:01:31.571433Z",
+      "pattern": "tests/explore/test_dependency_analysis.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T12:01:31.571435Z",
+      "pattern": "tests/explore/test_fingerprint.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T12:01:31.571436Z",
+      "pattern": "tests/explore/test_adversarial_analysis.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T12:01:31.571438Z",
+      "pattern": "tests/explore/test_analysis_differential.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T12:01:31.571440Z",
+      "pattern": "tests/architecture/test_layer_deps.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T12:01:31.571441Z",
+      "pattern": ".workflow/records/2231-2231-audit-round-two.json",
+      "reason": "plan"
+    }
+  ],
   "session_id": "32038607-53ba-46ba-b18d-4d1b52966fd3",
   "strictness_tier": null,
   "task_kind": "bugfix",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-09-04T12:01:31.571460Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_dependency_analysis.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T12:01:31.571464Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_fingerprint.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T12:01:31.571467Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_adversarial_analysis.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T12:01:31.571468Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/architecture/test_layer_deps.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
