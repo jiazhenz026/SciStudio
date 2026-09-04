@@ -216,7 +216,7 @@ class Binding:
     can wrap it (:func:`scistudio_type_name`). A value no rule covers — an
     ``int``, a dictionary, a person's own class — keeps its native name here,
     because a name that packaging cannot resolve is better than a guess that
-    fails later at the exchange layer.
+    fails downstream at the exchange layer.
     """
 
     native_type_name: str

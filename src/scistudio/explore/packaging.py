@@ -349,7 +349,7 @@ class PackagingPlan:
         """``True`` when nothing *refuses* this notebook.
 
         A reported-but-resolved problem — the duplicate output declaration of
-        spec §2 — leaves this ``True``: the later declaration wins, so there is
+        spec §2 — leaves this ``True``: the last declaration wins, so there is
         a block to write, and the person is told about the duplicate rather
         than blocked by it.
         """
