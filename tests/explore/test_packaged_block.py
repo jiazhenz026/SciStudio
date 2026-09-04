@@ -44,6 +44,7 @@ from typing import Any
 
 import pytest
 
+import scistudio
 from scistudio.blocks.base.block import Block
 from scistudio.blocks.base.interactive import (
     INTERACTIVE_RESPONSE_KEY,
@@ -866,7 +867,10 @@ def test_a_workflow_runs_the_packaged_block_and_reproduces_the_session(tmp_path:
     if nbconvert is None:
         pytest.skip("Jupyter nbconvert is not installed in this environment.")
 
+    from scistudio.core.lineage.record import RunRecord
+    from scistudio.core.lineage.store import LineageStore
     from scistudio.engine.events import EventBus
+    from scistudio.engine.lineage_recorder import LineageRecorder
     from scistudio.engine.runners.local import LocalRunner
     from scistudio.engine.runners.process_handle import ProcessRegistry
     from scistudio.engine.scheduler import DAGScheduler
@@ -909,6 +913,21 @@ def test_a_workflow_runs_the_packaged_block_and_reproduces_the_session(tmp_path:
     _register_source_block(registry)
     bus = EventBus()
     process_registry = ProcessRegistry()
+    # A real lineage store and recorder, so FR-054's claim is checked against
+    # the ``block_executions`` row a run actually writes rather than against
+    # the resolver that computes it.
+    store = LineageStore(":memory:")
+    run_id = "run-packaged-e2e"
+    store.insert_run(
+        RunRecord(
+            run_id=run_id,
+            workflow_id=workflow.id,
+            workflow_yaml_snapshot="",
+            started_at="2026-09-04T00:00:00",
+            status="running",
+            environment_snapshot={},
+        )
+    )
     scheduler = DAGScheduler(
         workflow=workflow,
         event_bus=bus,
@@ -917,6 +936,7 @@ def test_a_workflow_runs_the_packaged_block_and_reproduces_the_session(tmp_path:
         runner=LocalRunner(event_bus=bus, registry=process_registry),
         registry=registry,
         project_dir=str(tmp_path),
+        lineage_recorder=LineageRecorder(bus, lineage_store=store, run_id=run_id),
     )
     try:
         asyncio.run(asyncio.wait_for(scheduler.execute(), timeout=480))
@@ -935,6 +955,17 @@ def test_a_workflow_runs_the_packaged_block_and_reproduces_the_session(tmp_path:
     assert not packaged_marker.exists(), (
         "the packaged run executed the excluded cell, so it ran the notebook rather than the slice"
     )
+
+    # FR-054: the run is an ordinary run whose block version is the notebook
+    # commit, which is how the step points back at the session it came from.
+    rows = {row["block_id"]: row for row in store.list_block_executions(run_id)}
+    assert set(rows) == {"source", "packaged"}, rows
+    assert rows["packaged"]["block_version"] == COMMIT, (
+        "the run recorded the distribution version, so nothing connects it to the notebook"
+    )
+    # And the upstream ordinary block is untouched by that rule.
+    assert rows["source"]["block_version"] == scistudio.__version__
+    store.close()
 
 
 # ---------------------------------------------------------------------------

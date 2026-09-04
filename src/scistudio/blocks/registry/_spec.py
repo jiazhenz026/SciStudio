@@ -12,8 +12,10 @@ Owns:
 - ``_infer_category`` / ``_type_name_for_class`` — base-category resolution.
 - ``_merge_config_schema`` — ADR-030 D1/D2 MRO merge with direction-aware
   post-processing.
-- ``_resolve_distribution_version`` + ``_packages_distributions_cached`` —
-  ADR-038 §3.3 reproducibility version stamping.
+- ``_resolve_spec_version`` / ``_resolve_distribution_version`` +
+  ``_packages_distributions_cached`` — ADR-038 §3.3 reproducibility version
+  stamping, and the ADR-054 FR-054 opt-out for a block whose version is a
+  content identity of its own.
 - ``_validate_simple_extension_declaration`` /
   ``_validate_class_capability`` / ``_subclass_declares_field`` — ADR-043
   capability sanity checks invoked from
@@ -37,6 +39,31 @@ logger = logging.getLogger(__name__)
 
 _PACKAGES_DISTRIBUTIONS_CACHE: dict[str, list[str]] | None = None
 
+#: Class attribute a block sets to say where its ``version`` comes from.
+#:
+#: ADR-038 §3.3 force-injects the version of the *distribution* that shipped a
+#: block, because a hand-written ``version = "1.2.0"`` on a class drifts and is
+#: not reproducible. A block whose version is a **content identity of the block
+#: itself** — a commit sha, a content hash — is the case that rule does not fit:
+#: such a version is strictly more reproducible than the distribution's, and it
+#: is the only thing that can point a run back at the thing it ran.
+#:
+#: ADR-054 FR-054 is the first such block: a packaged notebook block's version
+#: is the notebook commit it was packaged from, and that sha is the entire
+#: mechanism by which a run points back at the Explore session behind it.
+#:
+#: This is an opt-in a block declares, not a class the registry recognises:
+#: setting it to :data:`SELF_DECLARED_VERSION` is what changes the stamping, so
+#: any block with a content-identity version gets the behaviour and no block
+#: gets it by accident. Merely declaring ``version`` is **not** enough — every
+#: block inherits ``Block.version`` and some declare their own, and neither of
+#: those is a claim about reproducibility.
+BLOCK_VERSION_SOURCE_ATTR = "block_version_source"
+
+#: Value of :data:`BLOCK_VERSION_SOURCE_ATTR` that opts a block out of the
+#: ADR-038 §3.3 distribution stamping in favour of its own ``version``.
+SELF_DECLARED_VERSION = "self"
+
 
 def _packages_distributions_cached() -> dict[str, list[str]]:
     """Cache ``importlib.metadata.packages_distributions()`` — it walks the
@@ -48,6 +75,56 @@ def _packages_distributions_cached() -> dict[str, list[str]]:
         except Exception:
             _PACKAGES_DISTRIBUTIONS_CACHE = {}
     return _PACKAGES_DISTRIBUTIONS_CACHE
+
+
+def _self_declared_version(cls: type) -> str | None:
+    """Return *cls*'s own version when it declares one as a content identity.
+
+    ADR-054 FR-054. ``None`` for every block that does not opt in through
+    :data:`BLOCK_VERSION_SOURCE_ATTR`, which is every block written before this
+    existed — so the ADR-038 §3.3 stamping below is what they still get, byte
+    for byte.
+
+    An opted-in block with a blank version also returns ``None`` rather than an
+    empty string: a base class that carries the opt-in but no identity of its
+    own must fall through to the distribution version rather than stamp nothing.
+
+    Args:
+        cls: The block class being turned into a spec.
+
+    Returns:
+        The declared version, or ``None`` when the class did not opt in.
+    """
+    marker = getattr(cls, BLOCK_VERSION_SOURCE_ATTR, None)
+    if not isinstance(marker, str) or marker.strip().lower() != SELF_DECLARED_VERSION:
+        return None
+    declared = getattr(cls, "version", None)
+    if isinstance(declared, str) and declared.strip():
+        return declared.strip()
+    return None
+
+
+def _resolve_spec_version(cls: type) -> str:
+    """Return the version stamped on *cls*'s spec.
+
+    A block's own content identity wins when it declares one (ADR-054 FR-054);
+    otherwise the ADR-038 §3.3 distribution version is force-injected exactly as
+    before.
+
+    Args:
+        cls: The block class being turned into a spec.
+
+    Returns:
+        The version string for :attr:`BlockSpec.version`.
+
+    Raises:
+        BlockRegistrationError: From :func:`_resolve_distribution_version` when
+            no distribution can be resolved for a block that did not opt in.
+    """
+    declared = _self_declared_version(cls)
+    if declared is not None:
+        return declared
+    return _resolve_distribution_version(cls)
 
 
 def _resolve_distribution_version(cls: type) -> str:
@@ -376,7 +453,7 @@ def _spec_from_class(cls: type, source: str = "") -> BlockSpec:
     return BlockSpec(
         name=getattr(cls, "name", cls.__name__),
         description=getattr(cls, "description", "") or (cls.__doc__ or "").split("\n")[0],
-        version=_resolve_distribution_version(cls),
+        version=_resolve_spec_version(cls),
         module_path=cls.__module__,
         class_name=cls.__name__,
         base_category=base_cat,

@@ -329,6 +329,154 @@
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T11:10:33.432341Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:27f6d590bb3dbd06687c40e2be2332f1b4e3e02f89c18b7ec3a384adac50745b",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T11:10:35.794532Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bba2bfbc2c59c5c21f31be5c403675b5f68abce86ffbed364a5becc8e8dbfcaf",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T11:10:37.343492Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:78faddde88822d3cbddba8739f69b8e60604aab29280045ad3cd72dc9853004b",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T11:10:37.367985Z",
+      "command": "ruff format src/scistudio/blocks/registry/_spec.py src/scistudio/explore/packaging.py tests/blocks/registry/__init__.py tests/blocks/registry/test_block_version_source.py tests/explore/test_packaged_block.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:48709d467d00975094b47563e214f5c6a4b658c0e91e7d47b59fc05246d50375",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T11:10:50.532725Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:ec332776690fe9b0bdf65c353eb1ceb73e0b2d8202bc8190849735b8690de7cd",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T11:10:50.779635Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9487e6203759e891705e3465a2f4ed536e0f63757452d2861b9c29a6178222b7",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T11:10:50.803780Z",
+      "command": "ruff check src/scistudio/blocks/registry/_spec.py src/scistudio/explore/packaging.py tests/blocks/registry/__init__.py tests/blocks/registry/test_block_version_source.py tests/explore/test_packaged_block.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:31fd8d0042b4ed9a178f7b3a198b26432c81bb276f40b3277339fd06f9598429",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T11:11:54.085875Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/blocks/registry tests/blocks/registry/__init__.py tests/blocks/registry/test_block_version_source.py tests/explore tests/explore/test_packaged_block.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bff0f433e31fa426e43a00af1b22e4b369a147da69d69781581b480d7c3ba520",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T11:11:57.421643Z",
+      "command": "mypy src/scistudio/blocks/registry/_spec.py src/scistudio/explore/packaging.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:056549c7da6b92f405b48cb3c0134d2660015fb87c7497dd31b3d1e12e8399f8",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -670,6 +818,116 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:11:57.468525Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:11:57.484355Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/registry/_spec.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/registry/_spec.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:11:57.498985Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:11:57.513110Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:11:57.527516Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:11:57.541594Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:11:57.555548Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:11:57.569783Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:11:57.588713Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:11:57.604044Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:11:57.620537Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -683,17 +941,19 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "origin/track/adr-054-spec3-explore-session",
-    "base_sha": "f5f38aef2",
+    "base_sha": "333cc11a2",
     "changed_files": [
       ".workflow/records/2240-feat-2240-packaging.json",
       "docs/planning/adr-054-spec3-explore-session-checklist.md",
-      "src/scistudio/blocks/code/backends/notebook.py",
+      "src/scistudio/blocks/registry/_spec.py",
       "src/scistudio/explore/packaging.py",
+      "tests/blocks/registry/__init__.py",
+      "tests/blocks/registry/test_block_version_source.py",
       "tests/explore/test_packaged_block.py"
     ],
-    "diff_fingerprint": "sha256:8abc180489569b59c37e0369e19d35ea1fca4d9ed68a82b8ffdd0f08f0ebab65",
+    "diff_fingerprint": "sha256:990dd96883497f6ace5baafedcbad6ba9781669cf470e12c0e1b5e12149d33f4",
     "head": "HEAD",
-    "head_sha": "566de03fd",
+    "head_sha": "097ccdc9d",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -703,8 +963,8 @@
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 1,
-      "sentrux": 3,
-      "test": 1,
+      "sentrux": 5,
+      "test": 3,
       "workflow_ci": 0
     }
   },
@@ -747,10 +1007,27 @@
         "checks.full_audit",
         "guard.core_change_guard"
       ]
+    },
+    {
+      "at": "2026-09-04T11:11:57.620560Z",
+      "diff_fingerprint": "sha256:990dd96883497f6ace5baafedcbad6ba9781669cf470e12c0e1b5e12149d33f4",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.full_audit"
+      ]
     }
   ],
   "record_id": "2240-feat-2240-packaging",
-  "requested_admin_labels": [],
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
   "required_obligations": {
     "admin_labels": [
       "admin-approved:core-change"
@@ -812,6 +1089,24 @@
       "at": "2026-09-04T10:47:47.358780Z",
       "pattern": "docs/planning/adr-054-spec3-explore-session-checklist.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T11:09:50.896982Z",
+      "pattern": "src/scistudio/blocks/registry/_spec.py",
+      "reason": "Manager amendment: scope extended to fix FR-054 after this agent reported that a packaged block's run records the distribution version instead of the notebook commit; the manager ledger for #2240 carries the same includes with that finding as the recorded reason"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T11:09:50.897000Z",
+      "pattern": "src/scistudio/engine/scheduler/_lineage.py",
+      "reason": "Manager amendment: scope extended to fix FR-054 after this agent reported that a packaged block's run records the distribution version instead of the notebook commit; the manager ledger for #2240 carries the same includes with that finding as the recorded reason"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T11:09:50.897003Z",
+      "pattern": "tests/blocks/registry/**",
+      "reason": "Manager amendment: scope extended to fix FR-054 after this agent reported that a packaged block's run records the distribution version instead of the notebook commit; the manager ledger for #2240 carries the same includes with that finding as the recorded reason"
     }
   ],
   "session_id": "aecb5ef9-812d-4904-8450-ad5826bb52e8",
@@ -823,6 +1118,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/explore/test_packaged_block.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T11:09:50.897008Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/registry/test_block_version_source.py",
       "rationale": null,
       "verified_in_diff": null
     }
