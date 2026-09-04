@@ -653,6 +653,7 @@ def test_a_non_ascii_identifier_binds_and_reads_like_any_other() -> None:
     assert graph.backward_slice(["c3"]).cells == ("c1", "c2", "c3")
 
 
+@pytest.mark.serial
 def test_a_very_long_cell_is_analysed_in_one_pass() -> None:
     """FR-018's neighbourhood: cost is linear in names, including inside one cell.
 
@@ -1450,6 +1451,7 @@ def generated_notebook(count: int) -> list[tuple[str, str]]:
     return cells
 
 
+@pytest.mark.serial
 def test_sc010_a_five_hundred_cell_notebook_is_analysed_and_built_under_the_bound() -> None:
     """SC-010: five hundred cells, analysed and built in under five hundred milliseconds.
 
@@ -1468,14 +1470,19 @@ def test_sc010_a_five_hundred_cell_notebook_is_analysed_and_built_under_the_boun
     the reason ``test_fingerprint.best_of`` sets out: the minimum is what the
     machine can do, which is the claim a wall-clock bound makes, while a single
     sample on a runner shared with other suites measures their load as much as
-    this code's cost. **Measured minimum: 67 ms — analyse 57, build 9 — against
-    500 ms, which is 7.5x**, and 6.2x under bursty co-tenant load, where the worst
-    single sample was 87 ms and the worst best-of-five 81 ms. That is the margin
-    the next reader has before this number starts to mean something; it is the
-    tightest wall-clock assertion on the analysis side of this delivery, and a
-    change that takes it past ~200 ms should be read as a regression long before
-    it fails. The split is reported on failure so the reader knows which half
-    moved.
+    this code's cost. It also carries ``serial``, which matters more than the
+    sampling does: run inside the ``-n auto`` batch against thirty-two sibling
+    workers the worst sample was 105 ms (4.8x), and run alone in the serial phase
+    it is 67 ms.
+
+    **Measured minimum: 67 ms — analyse 57, build 9 — against 500 ms, which is
+    7.4x**, in the condition the test runs in. On a machine oversubscribed from
+    outside the run it falls to 3.0x, which is the floor neither the marker nor
+    the sampling can lift. That is the margin the next reader has before this
+    number starts to mean something; it is the tightest wall-clock assertion on
+    the analysis side of this delivery, and a change that takes it past ~200 ms
+    should be read as a regression long before it fails. The split is reported on
+    failure so the reader knows which half moved.
     """
     cells = generated_notebook(500)
 
@@ -1500,6 +1507,7 @@ def test_sc010_a_five_hundred_cell_notebook_is_analysed_and_built_under_the_boun
     )
 
 
+@pytest.mark.serial
 def test_fr018_the_cost_grows_linearly_with_the_number_of_cells() -> None:
     """FR-018: linear in cells and names, asserted by doubling rather than by a constant.
 
@@ -1521,6 +1529,7 @@ def test_fr018_the_cost_grows_linearly_with_the_number_of_cells() -> None:
     assert large < small * 16, f"250 cells: {small:.1f} ms, 1000 cells: {large:.1f} ms"
 
 
+@pytest.mark.serial
 def test_sc007_fingerprinting_a_whole_namespace_stays_inside_the_declared_bound() -> None:
     """SC-007: every name in the largest fixture's namespace, against ``max_seconds``.
 
@@ -1540,8 +1549,12 @@ def test_sc007_fingerprinting_a_whole_namespace_stays_inside_the_declared_bound(
     **Measured: 6.1 ms against 250 ms — 41x.** That is deliberately comfortable
     and stays a single sample: nothing here is close enough to the bound for
     scheduler noise to reach it, so it does not need the ``best_of`` treatment
-    that ``dict_1m`` (5.4x) and the SC-010 test above (7.5x) do. The ``per name``
-    bound is asserted alongside it so the formal criterion is still on the record.
+    that ``dict_1m`` (5.4x) and the SC-010 test above (7.4x) do. It does carry
+    ``serial``, as every timed assertion in ``tests/explore`` does — 41x today is
+    not a reason to let a wall-clock number be measured against thirty-two sibling
+    xdist workers, because the headroom is what would absorb the noise and the
+    reader would have no way to tell the two apart. The ``per name`` bound is
+    asserted alongside it so the formal criterion is still on the record.
     """
     namespace = {
         "frame": pd.DataFrame({f"c{i}": np.random.default_rng(i).random(50_000) for i in range(20)}),

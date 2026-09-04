@@ -1461,6 +1461,7 @@ def test_the_analysis_version_is_an_integer() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.serial
 def test_building_the_graph_of_a_five_hundred_cell_notebook_is_fast() -> None:
     """SC-010: under five hundred milliseconds on the CI runner, one linear pass.
 
@@ -1476,13 +1477,17 @@ def test_building_the_graph_of_a_five_hundred_cell_notebook_is_fast() -> None:
     hundred-fold headroom while the expensive part was unbounded.
 
     **Measured: 30 ms against 500 ms — 17x**, which is comfortable enough to stay
-    a single sample. Its sibling
+    a single sample. It carries ``serial`` regardless, as every timed assertion in
+    ``tests/explore`` does, because a wall-clock number measured against
+    thirty-two sibling xdist workers is measuring them rather than this code. Its
+    sibling
     ``test_adversarial_analysis.test_sc010_a_five_hundred_cell_notebook_is_analysed_and_built_under_the_bound``
-    runs the same criterion over three-statement cells, comes in at 67 ms for 7.5x,
-    and takes the fastest of five passes for that reason. Both are here because
-    the notebook shape changes the answer by more than a factor of two: this one
-    chains every cell, which is what would expose a quadratic definer lookup, and
-    that one loads each cell more heavily, which is what sizes the analysis.
+    runs the same criterion over three-statement cells, comes in at 67 ms for
+    7.4x, and takes the fastest of five passes for that reason. Both are here
+    because the notebook shape changes the answer by more than a factor of two:
+    this one chains every cell, which is what would expose a quadratic definer
+    lookup, and that one loads each cell more heavily, which is what sizes the
+    analysis.
     """
     cells = [("c0", "seed = load()")]
     cells += [(f"c{index}", f"v{index} = f(v{index - 1}, seed)\n") for index in range(1, 500)]

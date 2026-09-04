@@ -66,19 +66,20 @@ from scistudio.stability import get_stability
 #: twenty would buy a fraction of a millisecond for two extra seconds on every
 #: run.
 #:
-#: The two assertions that use it, and the margin each has on the reference
-#: machine when nothing else is running:
+#: The two assertions that use it, and the margin each has in the condition it
+#: actually runs in — the ``serial`` phase, alone, after the parallel batch:
 #:
 #: * ``dict_1m`` in :func:`test_largest_fixture_costs_less_than_the_declared_time_bound`
-#:   — 45 ms against ``max_seconds`` of 250 ms, **5.4x**. The thinnest in the
-#:   delivery, and 2.6x on a fully saturated machine.
+#:   — 46 ms against ``max_seconds`` of 250 ms, **5.4x**. The thinnest in the
+#:   delivery.
 #: * ``test_sc010_a_five_hundred_cell_notebook_is_analysed_and_built_under_the_bound``
-#:   in ``test_adversarial_analysis.py`` — 67 ms against SC-010's 500 ms, **7.5x**,
-#:   and 6.2x under bursty co-tenant load.
+#:   in ``test_adversarial_analysis.py`` — 67 ms against SC-010's 500 ms, **7.4x**.
 #:
 #: Every other timed assertion in ``tests/explore`` clears 15x and takes a single
 #: sample deliberately: adding runs to an assertion that cannot plausibly reach
-#: its bound spends time to measure nothing.
+#: its bound spends time to measure nothing. All of them carry ``serial``,
+#: including the comfortable ones — see :func:`best_of` for why the marker
+#: matters more than the sampling does.
 TIMING_RUNS = 5
 
 
@@ -94,16 +95,32 @@ def best_of(call: Callable[[], object], runs: int = TIMING_RUNS) -> float:
     in its best run too; it only removes the samples where this process was
     descheduled.
 
-    **What it buys, measured, so nobody trusts it further than it goes.** Against
-    *bursty* co-tenant load — the shape another test suite on the same machine
-    actually has — the worst of ten single samples of the SC-010 notebook was
-    87 ms and the worst of five best-of-five minima was 81 ms, so the spread
-    narrows and the outliers go. Against *sustained* saturation — every core busy
-    for the whole run — it buys nothing at all: ``dict_1m`` measured 45 ms idle
-    and 93 ms both ways, because the machine is uniformly slower and the minimum
-    is slower with it. Best-of-N is a defence against preemption, not against an
-    oversubscribed runner. The margins that survive that are the ones below the
-    ``TIMING_RUNS`` constant, and ``dict_1m``'s is the thinnest at 2.6x.
+    **What it buys, measured, so nobody trusts it further than it goes — and why
+    the ``serial`` marker on every timed test matters more.** Worst margin
+    observed over repeated samples on a 32-core reference machine, ``dict_1m``
+    against its 250 ms bound and the SC-010 notebook against its 500 ms one:
+
+    ===================================== ============ ============
+    condition                             single       best of five
+    ===================================== ============ ============
+    alone (what ``serial`` gives)         5.0x / 7.3x  5.4x / 7.4x
+    inside the ``-n auto`` batch          3.1x / 4.8x  4.1x / 6.0x
+    machine saturated from outside        2.3x / 3.3x  2.6x / 3.0x
+    ===================================== ============ ============
+
+    Read the first two rows together: the marker is worth more than the sampling.
+    Running outside the parallel batch takes ``dict_1m`` from 3.1x to 5.4x, where
+    best-of-five alone would only reach 4.1x — because the suite's own thirty-two
+    workers are the saturation, and this test is one process competing with them.
+    Sampling helps *inside* that batch (81.8 ms worst single, 61.1 ms worst
+    best-of-five) because xdist load is bursty as workers start and finish tests.
+
+    The last row is the honest limit of both mechanisms: when something outside
+    this run owns the cores — another agent's suite on a shared development
+    machine — every core is uniformly slower and the minimum is slower with it.
+    Best-of-N is a defence against preemption and ``serial`` against this suite's
+    own parallelism; neither is a defence against an oversubscribed machine, and
+    nothing in a test file can be.
 
     The warm-up call is separate from the count and is not measured. It exists so
     the lazy numpy, pandas, and ``xxhash`` imports FR-035 requires are paid for
@@ -605,6 +622,7 @@ def test_very_large_mapping_is_bounded_by_the_scan_limit() -> None:
     assert context.nodes <= budget.max_nodes
 
 
+@pytest.mark.serial
 def test_largest_fixture_costs_less_than_the_declared_time_bound() -> None:
     """SC-007: measure, do not assume. Prints the number the spec asks for.
 
@@ -1245,6 +1263,7 @@ def test_an_observed_change_is_frozen() -> None:
         observed.cell_id = "c2"  # type: ignore[misc]
 
 
+@pytest.mark.serial
 def test_the_comparison_scales_to_a_namespace_of_names() -> None:
     """SC-007's shape at the comparison level: the join is linear in the names.
 

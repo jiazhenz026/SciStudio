@@ -146,13 +146,16 @@ class FingerprintBudget:
     what a wall-clock bound claims, while one sample on a runner shared with other
     suites measures their load too.
 
-    That minimum is **45 ms on the reference machine against a 250 ms bound —
-    5.4x**, and it is the tightest wall-clock margin in this delivery. Best-of-N
-    narrows the spread but does not make the margin bigger than the machine: with
-    every core saturated the same fixture measures 93 ms, or 2.6x, whichever way
-    it is sampled. The number is machine-dependent too — ~10 ms on a fast
-    developer machine — so a reader on unfamiliar hardware should print it before
-    drawing a conclusion from it.
+    That minimum is **46 ms on the reference machine against a 250 ms bound —
+    5.4x**, and it is the tightest wall-clock margin in this delivery. The number
+    holds for the condition the test runs in: it carries the ``serial`` marker, so
+    it runs alone after the parallel batch rather than against thirty-two sibling
+    xdist workers, which is what keeps it at 5.4x instead of the 3.1x measured
+    inside that batch. On a machine oversubscribed from *outside* the run — a
+    second suite on a shared developer box — it falls to 2.6x, and no marker or
+    sampling strategy in a test file can recover that. The number is
+    machine-dependent too, ~10 ms on a fast developer machine, so a reader on
+    unfamiliar hardware should print it before drawing a conclusion from it.
 
     A 64 MB array costs 0.02 ms and a 500k-row eight-column frame 0.5 ms beside
     it, so the mapping walk is what sizes this constant and nothing else comes
