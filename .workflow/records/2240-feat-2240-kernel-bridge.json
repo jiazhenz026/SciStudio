@@ -329,6 +329,154 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T10:56:29.937787Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:09a598581b94f85143abe07b955ee2051bad5a3fb21b95c0aedaca8d645818b6",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T10:56:32.858340Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e0acfbef3b43274642860aae3164c91b66f658055fa68e110ef1c4ac35dc58c2",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T10:56:34.521971Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:fc69b28a2f45528243fba1afe046e83d0fe0a4661f00baba21aa0450850633ba",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T10:56:34.547783Z",
+      "command": "ruff format src/scistudio/explore/kernel_bridge.py tests/explore/test_kernel_bridge.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1271dd98fbc0477a75bc5a0647aba318c3cb2c4792d3499e7bcdfc8e9b8bf9d1",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T10:56:48.170994Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:ee5bd762ba496d11b279131fa757ab487d2c7bca445a77ee34ddc2dbf8410b8e",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T10:56:48.440058Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:863275ed64fb58ddd5127904f2f9126889c1ebf99899772452460c7d6549103e",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T10:56:48.462702Z",
+      "command": "ruff check src/scistudio/explore/kernel_bridge.py tests/explore/test_kernel_bridge.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ea8b2d1f46ef8913a73f9d09344ad2a711c1753a06a376d2d1c25e09c53005f9",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-04T10:57:45.427365Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/explore tests/explore/test_kernel_bridge.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5bf1799111c4c2d05aa4504d6b6976aa8761eb8b166d27af48db7a63c856f744",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-04T10:57:48.909497Z",
+      "command": "mypy src/scistudio/explore/kernel_bridge.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:dcf9427ce7135d221e457d84919f8623839590ef212e95683407f0c636e517fa",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -688,6 +836,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:48.947558Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:48.960938Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:48.974101Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:48.986887Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:49.000497Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:49.013588Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:49.027919Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:49.042168Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:49.056278Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:49.071244Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T10:57:49.087374Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -701,31 +937,26 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "origin/track/adr-054-spec3-explore-session",
-    "base_sha": "8a4d911b9",
+    "base_sha": "f5f38aef2",
     "changed_files": [
-      ".workflow/records/2240-feat-2240-kernel-bridge.json",
       "docs/planning/adr-054-spec3-explore-session-checklist.md",
-      "src/scistudio/__init__.py",
-      "src/scistudio/core/lineage/environment.py",
       "src/scistudio/explore/kernel_bridge.py",
-      "src/scistudio/explore/notebook_api.py",
-      "tests/explore/test_kernel_bridge.py",
-      "tests/explore/test_notebook_api.py"
+      "tests/explore/test_kernel_bridge.py"
     ],
-    "diff_fingerprint": "sha256:c4f0f98c176ddea79ddc4b558d7ec8539734d1e4de0e385f6eb1444d903576e1",
+    "diff_fingerprint": "sha256:587e8c2c90a2f0ecc9fe2d8b1ddbee97f7d6c209ca7e8c8ba5c615cb6916948d",
     "head": "HEAD",
-    "head_sha": "c615b969e",
+    "head_sha": "04ff1959f",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 4,
+      "implementation": 1,
       "packaging": 0,
       "protected_architecture": 0,
-      "protected_core": 1,
-      "sentrux": 6,
-      "test": 2,
+      "protected_core": 0,
+      "sentrux": 2,
+      "test": 1,
       "workflow_ci": 0
     }
   },
@@ -765,6 +996,16 @@
       "unsatisfied": [
         "checks.full_audit"
       ]
+    },
+    {
+      "at": "2026-09-04T10:57:49.087403Z",
+      "diff_fingerprint": "sha256:587e8c2c90a2f0ecc9fe2d8b1ddbee97f7d6c209ca7e8c8ba5c615cb6916948d",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.full_audit"
+      ]
     }
   ],
   "record_id": "2240-feat-2240-kernel-bridge",
@@ -777,9 +1018,7 @@
     }
   ],
   "required_obligations": {
-    "admin_labels": [
-      "admin-approved:core-change"
-    ],
+    "admin_labels": [],
     "checks": [
       "architecture_tests",
       "commit_hygiene",
