@@ -1,0 +1,960 @@
+"""Per-cell static facts and the cell-level dependency graph of an explore notebook.
+
+This module implements FR-005 to FR-023 and FR-036 of
+``docs/specs/adr-054-notebook-dependency-analysis.md`` (ADR-054 §6.1, §6.2).
+
+The unit of analysis is the **cell** (FR-001). For each cell the module records
+what the source shows it binds and what it reads, and from the cells' written
+order it builds a graph with one rule: *a cell that reads a name depends on the
+nearest enabled cell above it whose changed set contains that name.*
+
+Two standard-library tools do the work and nothing else is imported (FR-003):
+
+* :mod:`symtable` answers the scoping question — which names the module scope of
+  a cell assigns or imports, which it references, and which names a nested scope
+  resolves to the module scope. It is used instead of re-deriving Python's
+  scoping rules from the ``ast``.
+* :mod:`ast` answers the shape question — the ``scistudio.output`` and
+  ``scistudio.input`` declarations, the block calls, star imports, and the two
+  forms :mod:`symtable` does not report as reads (augmented assignment and
+  ``del``).
+
+Nothing here executes code, holds a kernel, or touches the filesystem (FR-004).
+
+**The one guarantee** (FR-002): the static estimate of what a cell changes never
+omits an assignment the code shows, and may name one that execution would not
+perform. Every consumer of the graph tolerates an extra edge; a missing edge is
+the stale number ADR-054 §6.1 exists to remove. Where a rule's outcome is
+uncertain, this module resolves toward the extra edge.
+
+**What a cell changes is observed, not recognised** (FR-007). The static
+estimate is *assignments only*: there is no list of mutating methods, no alias
+tracking, and no analysis of a called function's body. When a cell runs, the
+kernel fingerprints the namespace before and after and hands the observed
+changed set to :func:`build_graph`, which unions it with the static estimate so
+that an observation can only add a definer (FR-022, FR-030). The fingerprint and
+the comparison live in :mod:`scistudio.explore.fingerprint`; this module depends
+on neither and only accepts the result.
+"""
+
+from __future__ import annotations
+
+import ast
+import builtins
+import hashlib
+import re
+import symtable
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from dataclasses import dataclass, field
+from enum import StrEnum
+from types import MappingProxyType
+from typing import Final
+
+__all__ = [
+    "ANALYSIS_VERSION",
+    "BLOCK_CALL_PATHS",
+    "BUILTIN_NAMES",
+    "INPUT_CALL_PATH",
+    "OUTPUT_CALL_PATH",
+    "AnalysisFlag",
+    "BlockCall",
+    "CellFacts",
+    "CellFlag",
+    "DependencyGraph",
+    "Edge",
+    "EdgeOrigin",
+    "OutputDeclaration",
+    "SliceResult",
+    "UnresolvedRead",
+    "VersionEdge",
+    "VersionNode",
+    "analyse_cell",
+    "analyse_cells",
+    "build_graph",
+    "source_hash",
+]
+
+
+#: The version of the analysis that produced a record. A stored record written
+#: by an older version is re-analysed rather than trusted (FR-031).
+ANALYSIS_VERSION: Final[int] = 1
+
+#: Names in Python's builtins namespace. A read of one of these draws no edge
+#: and is *not* recorded as unresolved, so the unresolved list stays about names
+#: a run would fail on (FR-015).
+BUILTIN_NAMES: Final[frozenset[str]] = frozenset(dir(builtins))
+
+#: The dotted call paths the analysis recognises. A call matches when its dotted
+#: path *ends with* the tuple, so ``scistudio.output(...)`` and
+#: ``blocks.run(...)`` match, and so do their fully qualified spellings.
+OUTPUT_CALL_PATH: Final[tuple[str, ...]] = ("scistudio", "output")
+INPUT_CALL_PATH: Final[tuple[str, ...]] = ("scistudio", "input")
+BLOCK_CALL_PATHS: Final[tuple[tuple[str, ...], ...]] = (("blocks", "run"),)
+
+
+# ---------------------------------------------------------------------------
+# Flags (FR-036)
+# ---------------------------------------------------------------------------
+
+
+class AnalysisFlag(StrEnum):
+    """The closed set of flags the analysis can raise (FR-036).
+
+    Exactly seven members, no more: the spec names these and only these. Two of
+    them — :attr:`UNPREDICTED_CHANGE` and :attr:`UNOBSERVABLE_NAME` — are raised
+    by the runtime observation rather than by this module, and live here because
+    FR-036 requires one enumeration for every flag the analysis can raise.
+    """
+
+    SYNTAX_ERROR = "syntax_error"
+    OPAQUE_CELL_MAGIC = "opaque_cell_magic"
+    UNKNOWN_BINDINGS = "unknown_bindings"
+    UNKNOWN_BLOCK_CALL = "unknown_block_call"
+    UNPREDICTED_CHANGE = "unpredicted_change"
+    UNOBSERVABLE_NAME = "unobservable_name"
+    UNRESOLVED_READ = "unresolved_read"
+
+    @property
+    def message_template(self) -> str:
+        """The human-readable message template for this flag (FR-036)."""
+        return _FLAG_MESSAGES[self]
+
+    def message(self, **fields: object) -> str:
+        """Render :attr:`message_template` with *fields*."""
+        return self.message_template.format(**fields)
+
+
+_FLAG_MESSAGES: Final[Mapping[AnalysisFlag, str]] = MappingProxyType(
+    {
+        AnalysisFlag.SYNTAX_ERROR: "Cell {cell_id} does not parse: {detail}",
+        AnalysisFlag.OPAQUE_CELL_MAGIC: (
+            "Cell {cell_id} begins with the cell magic {magic}, so its contents are opaque to the analysis."
+        ),
+        AnalysisFlag.UNKNOWN_BINDINGS: (
+            "Cell {cell_id} binds an unknown set of names ({reason}), so a read below it that resolves to "
+            "no other cell resolves here."
+        ),
+        AnalysisFlag.UNKNOWN_BLOCK_CALL: (
+            "Cell {cell_id} calls a block whose identifier is not a string literal, so the block it runs "
+            "cannot be named without running the cell."
+        ),
+        AnalysisFlag.UNPREDICTED_CHANGE: ("Cell {cell_id} changed {name} without an assignment showing it."),
+        AnalysisFlag.UNOBSERVABLE_NAME: (
+            "The fingerprint of {name} in cell {cell_id} fell back to identity, so the observation does not "
+            "cover a change to its contents."
+        ),
+        AnalysisFlag.UNRESOLVED_READ: ("Cell {cell_id} reads {name}, which no enabled cell above it changes."),
+    }
+)
+
+
+@dataclass(frozen=True)
+class CellFlag:
+    """One raised flag, with the rendered message and, where it has one, a position."""
+
+    flag: AnalysisFlag
+    message: str
+    name: str | None = None
+    lineno: int | None = None
+    offset: int | None = None
+
+
+class EdgeOrigin(StrEnum):
+    """Why an edge exists (FR-019).
+
+    The origin is what lets the dependency view and the diagnostics explain an
+    edge rather than leaving the person to guess.
+    """
+
+    #: The definer's source assigns the name.
+    STATIC_ASSIGNMENT = "static_assignment"
+    #: The definer was observed to change the name when it ran, and its source
+    #: does not show the assignment.
+    OBSERVED_CHANGE = "observed_change"
+    #: No cell above changes the name, and the definer binds an unknown set of
+    #: names — a star import or a ``%run`` line (FR-013).
+    UNKNOWN_BINDING = "unknown_binding"
+
+
+# ---------------------------------------------------------------------------
+# Per-cell static facts (FR-005 to FR-013)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class OutputDeclaration:
+    """One ``scistudio.output(...)`` call in a cell (FR-008).
+
+    ``keywords`` holds the keyword names in written order — the block's output
+    port names once the notebook is packaged. ``arguments`` holds the names
+    passed as values: the positional arguments first, then the keyword values,
+    each in written order. An argument that is not a plain name contributes
+    nothing to ``arguments``.
+    """
+
+    keywords: tuple[str, ...]
+    arguments: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class BlockCall:
+    """One block call in a cell (FR-010).
+
+    ``block_id`` is the identifier when it was passed as a string literal, and
+    ``None`` when it was not — in which case the cell also carries
+    :attr:`AnalysisFlag.UNKNOWN_BLOCK_CALL`.
+    """
+
+    block_id: str | None
+    lineno: int
+
+
+@dataclass(frozen=True)
+class CellFacts:
+    """The static result for one cell.
+
+    ``assigned`` is the *estimate* of what the cell changes, used until the cell
+    has run (FR-005). ``read`` is what the cell reads at module scope (FR-006).
+    Neither set makes a claim about statement order inside the cell.
+    """
+
+    cell_id: str
+    source_hash: str
+    assigned: frozenset[str]
+    read: frozenset[str]
+    outputs: tuple[OutputDeclaration, ...] = ()
+    inputs: tuple[str, ...] = ()
+    block_calls: tuple[BlockCall, ...] = ()
+    flags: tuple[CellFlag, ...] = ()
+
+    @property
+    def flag_kinds(self) -> frozenset[AnalysisFlag]:
+        """The distinct flags raised on this cell."""
+        return frozenset(entry.flag for entry in self.flags)
+
+    def has_flag(self, flag: AnalysisFlag) -> bool:
+        """Return ``True`` when this cell carries *flag*."""
+        return any(entry.flag is flag for entry in self.flags)
+
+    @property
+    def is_output_cell(self) -> bool:
+        """``True`` when the cell calls ``scistudio.output`` (FR-008)."""
+        return bool(self.outputs)
+
+    @property
+    def binds_unknown_names(self) -> bool:
+        """``True`` when the cell binds an unknown set of names (FR-013)."""
+        return self.has_flag(AnalysisFlag.UNKNOWN_BINDINGS)
+
+
+# ---------------------------------------------------------------------------
+# The graph (FR-014 to FR-023)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Edge:
+    """A dependency from a reading cell to a defining cell, for one name."""
+
+    reader: str
+    definer: str
+    name: str
+    origin: EdgeOrigin
+
+
+@dataclass(frozen=True)
+class VersionNode:
+    """One name changed by one cell (FR-016)."""
+
+    cell_id: str
+    name: str
+
+
+@dataclass(frozen=True)
+class VersionEdge:
+    """An edge between version nodes, derived from the same facts as :class:`Edge`.
+
+    ``source`` is the version that is read. ``target`` is the version the read
+    contributes to, and is ``None`` when the reading cell changes nothing — a
+    display cell is a sink in the version graph but must still appear in it, so
+    the edge is kept with ``target_cell`` naming the reader.
+    """
+
+    source: VersionNode
+    target_cell: str
+    target: VersionNode | None
+    origin: EdgeOrigin
+
+
+@dataclass(frozen=True)
+class UnresolvedRead:
+    """A read no enabled cell above resolves (FR-015)."""
+
+    cell_id: str
+    name: str
+
+    def as_flag(self) -> CellFlag:
+        """Render this unresolved read as a :class:`CellFlag`."""
+        return CellFlag(
+            flag=AnalysisFlag.UNRESOLVED_READ,
+            message=AnalysisFlag.UNRESOLVED_READ.message(cell_id=self.cell_id, name=self.name),
+            name=self.name,
+        )
+
+
+@dataclass(frozen=True)
+class SliceResult:
+    """The answer to a backward-slice query (FR-021)."""
+
+    cells: tuple[str, ...]
+    unresolved_reads: tuple[UnresolvedRead, ...]
+
+
+@dataclass(frozen=True)
+class DependencyGraph:
+    """The cell-level graph over the enabled cells of a notebook.
+
+    Built by :func:`build_graph`; a deterministic function of the cells' source,
+    their order, their enabled flags, and their recorded observations (FR-017).
+    """
+
+    cells: tuple[str, ...]
+    edges: tuple[Edge, ...]
+    unresolved_reads: tuple[UnresolvedRead, ...]
+    version_nodes: tuple[VersionNode, ...]
+    version_edges: tuple[VersionEdge, ...]
+    unknown_binding_cells: tuple[str, ...]
+    changed_sets: Mapping[str, frozenset[str]]
+
+    _order: Mapping[str, int] = field(init=False, repr=False, compare=False)
+    _dependencies: Mapping[str, tuple[str, ...]] = field(init=False, repr=False, compare=False)
+    _dependents: Mapping[str, tuple[str, ...]] = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        order = {cell_id: index for index, cell_id in enumerate(self.cells)}
+        dependencies: dict[str, list[str]] = {cell_id: [] for cell_id in self.cells}
+        dependents: dict[str, list[str]] = {cell_id: [] for cell_id in self.cells}
+        for edge in self.edges:
+            if edge.definer not in dependencies[edge.reader]:
+                dependencies[edge.reader].append(edge.definer)
+            if edge.reader not in dependents[edge.definer]:
+                dependents[edge.definer].append(edge.reader)
+        object.__setattr__(self, "_order", MappingProxyType(order))
+        object.__setattr__(
+            self,
+            "_dependencies",
+            MappingProxyType({key: tuple(value) for key, value in dependencies.items()}),
+        )
+        object.__setattr__(
+            self,
+            "_dependents",
+            MappingProxyType({key: tuple(value) for key, value in dependents.items()}),
+        )
+
+    # -- queries ----------------------------------------------------------
+
+    def changed_set(self, cell_id: str) -> frozenset[str]:
+        """FR-022: the union of the cell's static estimate and its observation.
+
+        Answers for every analysed cell, enabled or not, because the panel layer
+        and the session ask about a cell rather than about the graph's shape.
+        """
+        try:
+            return self.changed_sets[cell_id]
+        except KeyError:
+            raise KeyError(f"no analysed cell {cell_id!r}") from None
+
+    def downstream(self, cell_id: str) -> tuple[str, ...]:
+        """FR-020: the enabled cells that transitively read a name this cell changes.
+
+        Returned in written order. This is what the session marks stale after a
+        re-run. The cell itself is never included: edges only ever point at a
+        cell above, so the graph is acyclic.
+        """
+        start = self._require_enabled(cell_id)
+        seen: set[str] = set()
+        frontier = [start]
+        while frontier:
+            current = frontier.pop()
+            for reader in self._dependents[current]:
+                if reader not in seen:
+                    seen.add(reader)
+                    frontier.append(reader)
+        seen.discard(start)
+        return self._in_written_order(seen)
+
+    def backward_slice(self, cell_ids: Iterable[str]) -> SliceResult:
+        """FR-021: *cell_ids* and every enabled cell they transitively depend on.
+
+        Returned in written order, together with the unresolved reads inside the
+        slice, so packaging can refuse a notebook whose slice would fail with a
+        name error.
+        """
+        seen: set[str] = set()
+        frontier = [self._require_enabled(cell_id) for cell_id in cell_ids]
+        seen.update(frontier)
+        while frontier:
+            current = frontier.pop()
+            for definer in self._dependencies[current]:
+                if definer not in seen:
+                    seen.add(definer)
+                    frontier.append(definer)
+        cells = self._in_written_order(seen)
+        unresolved = tuple(read for read in self.unresolved_reads if read.cell_id in seen)
+        return SliceResult(cells=cells, unresolved_reads=unresolved)
+
+    def definer_for(self, cell_id: str, name: str) -> str | None:
+        """FR-023: the enabled cell above *cell_id* that written order says defines *name*.
+
+        ``None`` when no cell above defines it. The resolution is the same one
+        the edges use: the nearest enabled cell above whose changed set contains
+        the name, falling back to the nearest cell above that binds an unknown
+        set of names (FR-013). The session compares the answer with the cell that
+        last bound the name in the kernel; the graph itself does not act on the
+        comparison.
+        """
+        index = self._order.get(cell_id)
+        if index is None:
+            raise KeyError(f"no enabled cell {cell_id!r} in the graph")
+        for above in reversed(self.cells[:index]):
+            if name in self.changed_sets[above]:
+                return above
+        unknown = set(self.unknown_binding_cells)
+        for above in reversed(self.cells[:index]):
+            if above in unknown:
+                return above
+        return None
+
+    # -- helpers ----------------------------------------------------------
+
+    def _require_enabled(self, cell_id: str) -> str:
+        if cell_id not in self._order:
+            raise KeyError(f"no enabled cell {cell_id!r} in the graph")
+        return cell_id
+
+    def _in_written_order(self, cell_ids: Iterable[str]) -> tuple[str, ...]:
+        return tuple(sorted(cell_ids, key=lambda cell_id: self._order[cell_id]))
+
+
+# ---------------------------------------------------------------------------
+# Source hashing (FR-027, FR-031)
+# ---------------------------------------------------------------------------
+
+
+def source_hash(source: str) -> str:
+    """The hash a per-cell record and an observation are keyed to."""
+    return hashlib.sha256(source.encode("utf-8")).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# Magic and shell lines (FR-011, FR-013)
+# ---------------------------------------------------------------------------
+
+_MAGIC_LINE = re.compile(r"^[ \t]*[%!]")
+_CELL_MAGIC_LINE = re.compile(r"^[ \t]*%%")
+_RUN_MAGIC_LINE = re.compile(r"^[ \t]*%{1,2}run\b")
+_CELL_MAGIC_NAME = re.compile(r"^[ \t]*(%%[A-Za-z_][A-Za-z0-9_]*)")
+
+
+def _first_non_blank(source: str) -> str | None:
+    for line in source.splitlines():
+        if line.strip():
+            return line
+    return None
+
+
+def _strip_magic_lines(source: str) -> tuple[str, bool]:
+    """Remove ``%`` and ``!`` lines, keeping the line count so positions survive.
+
+    Returns the stripped source and whether any removed line was a ``%run``,
+    which binds an unknown set of names (FR-013).
+    """
+    saw_run = False
+    kept: list[str] = []
+    for line in source.splitlines():
+        if _MAGIC_LINE.match(line):
+            if _RUN_MAGIC_LINE.match(line):
+                saw_run = True
+            kept.append("")
+            continue
+        kept.append(line)
+    return "\n".join(kept), saw_run
+
+
+# ---------------------------------------------------------------------------
+# The ast walk (FR-008, FR-009, FR-010, FR-013)
+# ---------------------------------------------------------------------------
+
+_SCOPE_STATEMENTS: Final = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+
+
+@dataclass
+class _AstScan:
+    outputs: list[OutputDeclaration] = field(default_factory=list)
+    inputs: list[str] = field(default_factory=list)
+    block_calls: list[BlockCall] = field(default_factory=list)
+    star_import_lines: list[int] = field(default_factory=list)
+    comprehension_targets: set[str] = field(default_factory=set)
+    explicit_bindings: set[str] = field(default_factory=set)
+    extra_reads: set[str] = field(default_factory=set)
+
+
+def _dotted_path(node: ast.expr) -> tuple[str, ...] | None:
+    """The dotted path of ``a.b.c``, or ``None`` when the base is not a plain name."""
+    parts: list[str] = []
+    current: ast.expr = node
+    while isinstance(current, ast.Attribute):
+        parts.append(current.attr)
+        current = current.value
+    if not isinstance(current, ast.Name):
+        return None
+    parts.append(current.id)
+    return tuple(reversed(parts))
+
+
+def _path_matches(path: tuple[str, ...], target: tuple[str, ...]) -> bool:
+    return len(path) >= len(target) and path[-len(target) :] == target
+
+
+def _alias_binding(alias: ast.alias) -> str:
+    """The module-scope name an ``import`` alias binds."""
+    if alias.asname:
+        return alias.asname
+    return alias.name.partition(".")[0]
+
+
+def _iter_module_level(stmts: Sequence[ast.stmt]) -> Iterator[ast.stmt]:
+    """Yield the statements that execute at module scope.
+
+    Descends into ``if``/``for``/``while``/``with``/``try``/``match`` bodies and
+    stops at a ``def`` or ``class``, whose body is a scope of its own (FR-001).
+    """
+    for node in stmts:
+        if isinstance(node, _SCOPE_STATEMENTS):
+            continue
+        yield node
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.stmt):
+                yield from _iter_module_level([child])
+            elif isinstance(child, ast.ExceptHandler | ast.match_case):
+                yield from _iter_module_level(child.body)
+
+
+def _collect_comprehension_targets(tree: ast.Module) -> tuple[set[str], set[int]]:
+    """The names bound by comprehension targets, and the id() of each such node.
+
+    A comprehension target binds a scope of its own in every supported Python
+    version. PEP 709 inlines list, set, and dict comprehensions from CPython
+    3.12, which makes :mod:`symtable` report their targets at module scope; on
+    3.11 it does not. Collecting them here lets the facts stay a function of the
+    source rather than of the interpreter (FR-017).
+    """
+    names: set[str] = set()
+    node_ids: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.comprehension):
+            for sub in ast.walk(node.target):
+                if isinstance(sub, ast.Name):
+                    names.add(sub.id)
+                    node_ids.add(id(sub))
+    return names, node_ids
+
+
+def _collect_bindings(tree: ast.Module, scan: _AstScan, comprehension_node_ids: set[int]) -> None:
+    """Record every binding form the ``ast`` shows, at any depth.
+
+    This over-approximates deliberately: it is only ever used to *keep* a name
+    that :func:`_collect_comprehension_targets` would otherwise drop, so naming
+    one binding too many is the safe direction (FR-002).
+    """
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name):
+            if isinstance(node.ctx, ast.Store | ast.Del) and id(node) not in comprehension_node_ids:
+                scan.explicit_bindings.add(node.id)
+        elif isinstance(node, ast.alias):
+            scan.explicit_bindings.add(_alias_binding(node))
+        elif isinstance(node, _SCOPE_STATEMENTS):
+            scan.explicit_bindings.add(node.name)
+        elif isinstance(node, ast.arg):
+            scan.explicit_bindings.add(node.arg)
+        elif isinstance(node, ast.ExceptHandler | ast.MatchAs | ast.MatchStar) and node.name:
+            scan.explicit_bindings.add(node.name)
+        elif isinstance(node, ast.MatchMapping) and node.rest:
+            scan.explicit_bindings.add(node.rest)
+
+
+def _collect_calls(tree: ast.Module, scan: _AstScan) -> None:
+    """Record output declarations, input declarations, and block calls (FR-008 to FR-010)."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names):
+            scan.star_import_lines.append(node.lineno)
+            continue
+        if not isinstance(node, ast.Call):
+            continue
+        path = _dotted_path(node.func)
+        if path is None:
+            continue
+        if _path_matches(path, OUTPUT_CALL_PATH):
+            scan.outputs.append(_output_declaration(node))
+        elif _path_matches(path, INPUT_CALL_PATH):
+            first = node.args[0] if node.args else None
+            if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                scan.inputs.append(first.value)
+        elif any(_path_matches(path, target) for target in BLOCK_CALL_PATHS):
+            first = node.args[0] if node.args else None
+            literal = first.value if isinstance(first, ast.Constant) and isinstance(first.value, str) else None
+            scan.block_calls.append(BlockCall(block_id=literal, lineno=node.lineno))
+
+
+def _output_declaration(node: ast.Call) -> OutputDeclaration:
+    keywords = tuple(keyword.arg for keyword in node.keywords if keyword.arg is not None)
+    arguments: list[str] = [arg.id for arg in node.args if isinstance(arg, ast.Name)]
+    arguments.extend(
+        keyword.value.id for keyword in node.keywords if keyword.arg is not None and isinstance(keyword.value, ast.Name)
+    )
+    return OutputDeclaration(keywords=keywords, arguments=tuple(arguments))
+
+
+def _collect_module_level_reads(tree: ast.Module, scan: _AstScan) -> None:
+    """Record the two reads :mod:`symtable` does not report.
+
+    ``x += 1`` and ``del x`` both require ``x`` to exist, and both are reported
+    by :mod:`symtable` as bindings only. Without the read, a backward slice
+    containing the cell would omit the cell that defines the name and fail with
+    a ``NameError`` when the slice runs (FR-006, FR-021).
+    """
+    for node in _iter_module_level(tree.body):
+        if isinstance(node, ast.AugAssign):
+            if isinstance(node.target, ast.Name):
+                scan.extra_reads.add(node.target.id)
+        elif isinstance(node, ast.Delete):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    scan.extra_reads.add(target.id)
+
+
+def _scan_ast(tree: ast.Module) -> _AstScan:
+    scan = _AstScan()
+    comprehension_names, comprehension_node_ids = _collect_comprehension_targets(tree)
+    scan.comprehension_targets = comprehension_names
+    _collect_bindings(tree, scan, comprehension_node_ids)
+    _collect_calls(tree, scan)
+    _collect_module_level_reads(tree, scan)
+    return scan
+
+
+# ---------------------------------------------------------------------------
+# The symtable walk (FR-005, FR-006)
+# ---------------------------------------------------------------------------
+
+
+def _symtable_names(table: symtable.SymbolTable) -> tuple[set[str], set[str]]:
+    """The module-scope assigned and read names of a parsed cell.
+
+    ``is_imported()`` is unioned into the assigned set because :mod:`symtable`
+    reports ``import os`` as imported and *not* as assigned, and FR-005 names
+    imports as a binding form.
+    """
+    assigned: set[str] = set()
+    read: set[str] = set()
+    for sym in table.get_symbols():
+        if sym.is_assigned() or sym.is_imported():
+            assigned.add(sym.get_name())
+        if sym.is_referenced():
+            read.add(sym.get_name())
+    _collect_nested_module_scope(table, assigned, read)
+    return assigned, read
+
+
+def _collect_nested_module_scope(table: symtable.SymbolTable, assigned: set[str], read: set[str]) -> None:
+    """Add the names a nested scope resolves to the module scope.
+
+    A name a nested scope only reads is a module-scope read (FR-006). A name a
+    nested scope declares ``global`` and assigns is a module-scope binding the
+    code shows, so FR-005's "bound only inside a nested scope" exclusion does
+    not reach it. A *free* variable resolves to an enclosing function rather
+    than to the module and is skipped.
+    """
+    for child in table.get_children():
+        for sym in child.get_symbols():
+            if not sym.is_global():
+                continue
+            if sym.is_referenced():
+                read.add(sym.get_name())
+            if sym.is_assigned() or sym.is_imported():
+                assigned.add(sym.get_name())
+        _collect_nested_module_scope(child, assigned, read)
+
+
+# ---------------------------------------------------------------------------
+# Analysing a cell (FR-005 to FR-013)
+# ---------------------------------------------------------------------------
+
+
+def _opaque_cell_facts(cell_id: str, source: str, digest: str) -> CellFacts:
+    first = _first_non_blank(source) or ""
+    match = _CELL_MAGIC_NAME.match(first)
+    magic = match.group(1) if match else first.strip()
+    flag = CellFlag(
+        flag=AnalysisFlag.OPAQUE_CELL_MAGIC,
+        message=AnalysisFlag.OPAQUE_CELL_MAGIC.message(cell_id=cell_id, magic=magic),
+        lineno=1,
+    )
+    return CellFacts(
+        cell_id=cell_id,
+        source_hash=digest,
+        assigned=frozenset(),
+        read=frozenset(),
+        flags=(flag,),
+    )
+
+
+def _syntax_error_facts(cell_id: str, digest: str, error: BaseException) -> CellFacts:
+    detail = getattr(error, "msg", None) or str(error) or type(error).__name__
+    flag = CellFlag(
+        flag=AnalysisFlag.SYNTAX_ERROR,
+        message=AnalysisFlag.SYNTAX_ERROR.message(cell_id=cell_id, detail=detail),
+        lineno=getattr(error, "lineno", None),
+        offset=getattr(error, "offset", None),
+    )
+    return CellFacts(
+        cell_id=cell_id,
+        source_hash=digest,
+        assigned=frozenset(),
+        read=frozenset(),
+        flags=(flag,),
+    )
+
+
+def analyse_cell(cell_id: str, source: str) -> CellFacts:
+    """Compute the static facts of one cell. Never raises.
+
+    A cell that begins with a cell magic is opaque; a cell that does not parse
+    carries the syntax-error flag; neither prevents any other cell from being
+    analysed (FR-011, FR-012).
+    """
+    digest = source_hash(source)
+    first = _first_non_blank(source)
+    if first is not None and _CELL_MAGIC_LINE.match(first):
+        return _opaque_cell_facts(cell_id, source, digest)
+
+    stripped, saw_run_magic = _strip_magic_lines(source)
+    filename = f"<cell {cell_id}>"
+    try:
+        tree = ast.parse(stripped, filename=filename)
+        table = symtable.symtable(stripped, filename, "exec")
+    except (SyntaxError, ValueError, RecursionError) as error:
+        # ValueError covers a source with a null byte; RecursionError covers a
+        # source nested past the parser's limit. FR-012 requires that neither
+        # stops the notebook being analysed.
+        return _syntax_error_facts(cell_id, digest, error)
+
+    scan = _scan_ast(tree)
+    assigned, read = _symtable_names(table)
+    comprehension_only = scan.comprehension_targets - scan.explicit_bindings
+    assigned -= comprehension_only
+    read |= scan.extra_reads
+    read -= comprehension_only
+
+    flags: list[CellFlag] = []
+    if scan.star_import_lines or saw_run_magic:
+        reason = "a star import" if scan.star_import_lines else "a %run line"
+        flags.append(
+            CellFlag(
+                flag=AnalysisFlag.UNKNOWN_BINDINGS,
+                message=AnalysisFlag.UNKNOWN_BINDINGS.message(cell_id=cell_id, reason=reason),
+                lineno=scan.star_import_lines[0] if scan.star_import_lines else None,
+            )
+        )
+    flags.extend(
+        CellFlag(
+            flag=AnalysisFlag.UNKNOWN_BLOCK_CALL,
+            message=AnalysisFlag.UNKNOWN_BLOCK_CALL.message(cell_id=cell_id),
+            lineno=call.lineno,
+        )
+        for call in scan.block_calls
+        if call.block_id is None
+    )
+
+    return CellFacts(
+        cell_id=cell_id,
+        source_hash=digest,
+        assigned=frozenset(assigned),
+        read=frozenset(read),
+        outputs=tuple(scan.outputs),
+        inputs=tuple(scan.inputs),
+        block_calls=tuple(scan.block_calls),
+        flags=tuple(flags),
+    )
+
+
+def analyse_cells(cells: Sequence[tuple[str, str]]) -> tuple[CellFacts, ...]:
+    """Analyse ``(cell_id, source)`` pairs in written order."""
+    return tuple(analyse_cell(cell_id, source) for cell_id, source in cells)
+
+
+# ---------------------------------------------------------------------------
+# Building the graph (FR-014 to FR-019)
+# ---------------------------------------------------------------------------
+
+
+def _observed_names(value: object) -> frozenset[str]:
+    """Read an observed changed set out of *value*.
+
+    Accepts either an iterable of names or an object exposing ``changed_names``,
+    so the runtime observation record can be handed straight to
+    :func:`build_graph` without this module importing it (FR-003, FR-035).
+    """
+    changed = getattr(value, "changed_names", None)
+    if changed is None:
+        if isinstance(value, str) or not isinstance(value, Iterable):
+            raise TypeError(
+                f"an observation must be an iterable of names or expose changed_names, got {type(value).__name__}"
+            )
+        changed = value
+    return frozenset(str(name) for name in changed)
+
+
+def _resolve_changed_sets(
+    facts: Sequence[CellFacts],
+    observations: Mapping[str, object] | None,
+) -> dict[str, frozenset[str]]:
+    changed: dict[str, frozenset[str]] = {}
+    for cell in facts:
+        observed = (
+            _observed_names(observations[cell.cell_id])
+            if observations and cell.cell_id in observations
+            else frozenset()
+        )
+        changed[cell.cell_id] = cell.assigned | observed
+    return changed
+
+
+def _edge_origin(definer: CellFacts, name: str) -> EdgeOrigin:
+    if name in definer.assigned:
+        return EdgeOrigin.STATIC_ASSIGNMENT
+    return EdgeOrigin.OBSERVED_CHANGE
+
+
+def _version_edges(
+    edges: Sequence[Edge],
+    changed_sets: Mapping[str, frozenset[str]],
+) -> tuple[VersionEdge, ...]:
+    """Derive the version-level edges from the cell-level ones (FR-016)."""
+    version_edges: list[VersionEdge] = []
+    for edge in edges:
+        source = VersionNode(cell_id=edge.definer, name=edge.name)
+        reader_versions = sorted(changed_sets[edge.reader])
+        if not reader_versions:
+            version_edges.append(VersionEdge(source=source, target_cell=edge.reader, target=None, origin=edge.origin))
+            continue
+        version_edges.extend(
+            VersionEdge(
+                source=source,
+                target_cell=edge.reader,
+                target=VersionNode(cell_id=edge.reader, name=name),
+                origin=edge.origin,
+            )
+            for name in reader_versions
+        )
+    return tuple(version_edges)
+
+
+def build_graph(
+    facts: Sequence[CellFacts],
+    *,
+    enabled: Mapping[str, bool] | None = None,
+    observations: Mapping[str, object] | None = None,
+) -> DependencyGraph:
+    """Build the dependency graph over the enabled cells of a notebook.
+
+    *facts* are the cells in written order. *enabled* is the notebook's own
+    enabled flag per cell, defaulting to enabled; a disabled cell neither
+    defines nor reads (FR-014) and the analysis never writes the flag.
+    *observations* maps a cell id to what the cell was observed to change when
+    it ran — either an iterable of names or an object exposing
+    ``changed_names``. The changed set the graph uses is the union of the static
+    estimate and the observation, so an observation can only add a definer
+    (FR-002, FR-022, FR-030).
+
+    One pass over the cells with a running map from name to latest enabled
+    definer, so the cost is linear in cells and names (FR-018).
+    """
+    seen_ids: set[str] = set()
+    for cell in facts:
+        if cell.cell_id in seen_ids:
+            raise ValueError(f"duplicate cell id {cell.cell_id!r}")
+        seen_ids.add(cell.cell_id)
+
+    changed_sets = _resolve_changed_sets(facts, observations)
+    enabled_cells = [cell for cell in facts if (enabled is None or enabled.get(cell.cell_id, True))]
+
+    by_id = {cell.cell_id: cell for cell in enabled_cells}
+    latest_definer: dict[str, str] = {}
+    latest_unknown: str | None = None
+    edges: list[Edge] = []
+    unresolved: list[UnresolvedRead] = []
+    unknown_binding_cells: list[str] = []
+
+    for cell in enabled_cells:
+        for name in sorted(cell.read):
+            definer = latest_definer.get(name)
+            if definer is not None:
+                edges.append(
+                    Edge(
+                        reader=cell.cell_id,
+                        definer=definer,
+                        name=name,
+                        origin=_edge_origin(by_id[definer], name),
+                    )
+                )
+                continue
+            if latest_unknown is not None:
+                # FR-013: a read that resolves to no enabled definer resolves to
+                # the nearest cell above that binds an unknown set of names,
+                # before it is recorded as unresolved. This runs ahead of the
+                # builtins exemption because a star import genuinely shadows a
+                # builtin, and FR-002 resolves the uncertainty toward the edge.
+                edges.append(
+                    Edge(
+                        reader=cell.cell_id,
+                        definer=latest_unknown,
+                        name=name,
+                        origin=EdgeOrigin.UNKNOWN_BINDING,
+                    )
+                )
+                continue
+            if name in BUILTIN_NAMES:
+                continue
+            if name in changed_sets[cell.cell_id]:
+                # The cell binds the name itself, so the read is not one a run
+                # would fail on. FR-015 draws no edge here because a cell must
+                # not depend on itself, and US2 scenario 5 scopes the unresolved
+                # list to "a name that no enabled cell changes" -- which this is
+                # not. Without the exception every ``import pandas as pd`` cell
+                # would report ``pd`` unresolved and packaging would refuse
+                # every notebook.
+                continue
+            unresolved.append(UnresolvedRead(cell_id=cell.cell_id, name=name))
+
+        for name in changed_sets[cell.cell_id]:
+            latest_definer[name] = cell.cell_id
+        if cell.binds_unknown_names:
+            latest_unknown = cell.cell_id
+            unknown_binding_cells.append(cell.cell_id)
+
+    version_nodes = tuple(
+        VersionNode(cell_id=cell.cell_id, name=name)
+        for cell in enabled_cells
+        for name in sorted(changed_sets[cell.cell_id])
+    )
+
+    return DependencyGraph(
+        cells=tuple(cell.cell_id for cell in enabled_cells),
+        edges=tuple(edges),
+        unresolved_reads=tuple(unresolved),
+        version_nodes=version_nodes,
+        version_edges=_version_edges(edges, changed_sets),
+        unknown_binding_cells=tuple(unknown_binding_cells),
+        changed_sets=MappingProxyType(changed_sets),
+    )

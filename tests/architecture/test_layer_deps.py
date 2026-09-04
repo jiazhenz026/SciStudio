@@ -8,6 +8,7 @@ Ensures that lower layers never import from higher layers.  The hierarchy is:
     Layer 4  ai/           (the scistudio.ai services package, NOT blocks/ai/)
     Layer 4  previewers/   (the ADR-048 preview subsystem, consumed by api/)
     Layer 4  plot/         (the first-class plot engine, #1824; consumed by api/ AND ai/)
+    Layer 4  explore/      (the ADR-054 notebook analysis; consumed by api/ AND the kernel)
     Layer 5  api/
 
 ``plot/`` is the relocated ``render(collection)`` engine (#1824, ADR-052 §9). It
@@ -17,6 +18,16 @@ so it must import NEITHER ``scistudio.api`` NOR ``scistudio.ai``; callers inject
 
 ``previewers/`` is a subsystem the API layer mounts; it may depend on core but
 must never import up into ``scistudio.api`` (ADR-048 / #1598).
+
+``explore/`` is the ADR-054 notebook dependency analysis. Its constraint is
+tighter than a layer rule and is stated as an allowlist rather than a
+forbidden-import list: ADR-054 spec 2 FR-035 requires that it import from the
+standard library and, lazily and only inside the fingerprint, numpy and pandas,
+and that it import nothing from SciStudio beyond ``scistudio.stability``. That
+is what lets the session, the API layer, and the kernel adapter all import it
+without a layering question. ``test_explore_imports_are_allowlisted`` asserts
+the allowlist; the ``explore`` entry in ``LAYER_RULES`` is the ordinary layer
+rule that comes with it.
 
 Cross-cutting packages (workflow/, utils/, cli/) are exempt from layer ordering
 but core/ still must not import workflow/.
@@ -28,6 +39,7 @@ runtime effect.
 from __future__ import annotations
 
 import ast
+import sys
 from pathlib import Path
 
 import pytest
@@ -179,6 +191,24 @@ LAYER_RULES: list[tuple[str, list[str]]] = [
             "scistudio.ai",
         ],
     ),
+    (
+        # The ADR-054 notebook dependency analysis (spec 2, FR-035). Imported by
+        # the explore session, the API layer, and the kernel adapter alike, so it
+        # must import none of them. The allowlist test below is the stronger
+        # statement; this rule keeps ``explore`` inside the same mechanism as
+        # every other subsystem.
+        "explore",
+        [
+            "scistudio.api",
+            "scistudio.ai",
+            "scistudio.engine",
+            "scistudio.blocks",
+            "scistudio.core",
+            "scistudio.previewers",
+            "scistudio.plot",
+            "scistudio.workflow",
+        ],
+    ),
 ]
 
 
@@ -207,5 +237,76 @@ def test_layer_does_not_import_forbidden(layer: str, forbidden: list[str]) -> No
 def test_layer_rules_cover_all_source_layers() -> None:
     """Sanity check: every non-cross-cutting source directory appears in at least one rule."""
     checked_layers = {rule[0] for rule in LAYER_RULES}
-    expected = {"core", "blocks", "engine", "ai", "previewers", "plot"}
+    expected = {"core", "blocks", "engine", "ai", "previewers", "plot", "explore"}
     assert expected.issubset(checked_layers), f"Missing layer rules for: {expected - checked_layers}"
+
+
+# ---------------------------------------------------------------------------
+# ADR-054 spec 2 FR-035 / SC-011: the explore subsystem's import allowlist
+# ---------------------------------------------------------------------------
+
+#: The only SciStudio modules ``scistudio.explore`` may import at module level.
+#: ``scistudio.stability`` carries the tier and ``since`` decorators (ADR-052 §5),
+#: which are no-ops at runtime; ``scistudio.explore`` itself is the package.
+EXPLORE_ALLOWED_SCISTUDIO_IMPORTS: set[str] = {"scistudio.stability", "scistudio.explore"}
+
+
+def _is_stdlib(module: str) -> bool:
+    """Return ``True`` when *module*'s top-level package ships with CPython."""
+    return module.partition(".")[0] in sys.stdlib_module_names
+
+
+def test_explore_imports_are_allowlisted() -> None:
+    """FR-035: explore imports the standard library, and SciStudio only for stability markers.
+
+    ``_get_imports_from_file`` collects **module-level** imports only — it never
+    descends into a function body — so an import written lazily inside the
+    fingerprint, which is what FR-035 permits for numpy and pandas, is invisible
+    here by construction. Anything third-party at module level is a violation,
+    and so is any SciStudio import beyond the allowlist.
+    """
+    files = _collect_py_files("explore")
+    assert files, f"No .py files found under {SRC_ROOT / 'explore'}"
+
+    violations: list[str] = []
+    for filepath in files:
+        relative = filepath.relative_to(SRC_ROOT)
+        for imp in _get_imports_from_file(filepath):
+            if _is_stdlib(imp):
+                continue
+            if imp.partition(".")[0] != "scistudio":
+                violations.append(f"  {relative}: imports third-party {imp} at module level")
+                continue
+            if not any(
+                imp == allowed or imp.startswith(allowed + ".") for allowed in EXPLORE_ALLOWED_SCISTUDIO_IMPORTS
+            ):
+                violations.append(f"  {relative}: imports {imp}, which FR-035 does not allow")
+
+    assert not violations, "explore/ violates the FR-035 import allowlist:\n" + "\n".join(violations)
+
+
+def test_explore_does_not_import_ipython_or_a_notebook_library() -> None:
+    """FR-003: the analysis depends on the standard library only.
+
+    IPython, ``nbformat``, and every static-analysis package are named by the
+    spec because the temptation is real: IPython would transform magics and
+    ``nbformat`` would parse the notebook. Both are refused, so this assertion
+    names them rather than relying on the allowlist alone to catch a
+    reintroduction.
+    """
+    forbidden = {"IPython", "nbformat", "nbclient", "jupyter_client", "astroid", "jedi", "libcst", "parso"}
+    violations: list[str] = []
+    for filepath in _collect_py_files("explore"):
+        source = filepath.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(filepath))
+        for node in ast.walk(tree):
+            names: list[str] = []
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                names = [node.module]
+            for name in names:
+                if name.partition(".")[0] in forbidden:
+                    violations.append(f"  {filepath.relative_to(SRC_ROOT)}: imports {name}")
+
+    assert not violations, "explore/ imports a package FR-003 forbids:\n" + "\n".join(violations)

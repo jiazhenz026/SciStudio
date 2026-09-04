@@ -1,0 +1,80 @@
+{
+  "base_ref": "origin/track/adr-054-spec2-dependency-analysis",
+  "branch": "feat/2231-dep-analysis-graph",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [
+      "src/scistudio/explore/fingerprint.py"
+    ],
+    "include": [
+      "src/scistudio/explore/__init__.py",
+      "src/scistudio/explore/dependency_analysis.py",
+      "tests/explore/**",
+      "tests/architecture/test_layer_deps.py",
+      "docs/planning/adr-054-spec2-dependency-analysis-checklist.md",
+      ".workflow/records/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-04T08:51:50.739325Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "the governing spec docs/specs/adr-054-notebook-dependency-analysis.md landed in PR 2228 and this change implements it without adding a documented surface",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2231,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-054 spec 2 tasks T-001 to T-006: the scistudio.explore package, the architecture layer rule, per-cell static facts from symtable and ast, magic/syntax/star-import flags, the dependency graph over enabled cells, and the four queries.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2231-feat-2231-dep-analysis-graph",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "974fc41e-3139-4ce6-bfda-4804fa4457ad",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-04T08:51:50.739348Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_dependency_analysis.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T08:51:50.739355Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/architecture/test_layer_deps.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
