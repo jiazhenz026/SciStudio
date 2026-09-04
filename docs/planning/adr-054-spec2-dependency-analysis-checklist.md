@@ -132,7 +132,7 @@ branch and issue.
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `S2-B1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-b1-graph.md` | T-001 to T-006: the package, the layer rule, per-cell static facts, flags, declarations, the graph, the four queries | `feat/2231-dep-analysis-graph` | `.worktrees/s2-b1-graph` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `tests/explore/test_dependency_analysis.py`, `tests/architecture/test_layer_deps.py` | `src/scistudio/explore/fingerprint.py`, `tests/explore/test_fingerprint.py`, everything outside `src/scistudio/explore/` and `tests/explore/` | `#2231` | `[ ]` |
+| `S2-B1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-b1-graph.md` | T-001 to T-006: the package, the layer rule, per-cell static facts, flags, declarations, the graph, the four queries | `feat/2231-dep-analysis-graph` | `.worktrees/s2-b1-graph` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `tests/explore/test_dependency_analysis.py`, `tests/architecture/test_layer_deps.py`, `tests/architecture/test_placement.py` (amended) | `src/scistudio/explore/fingerprint.py`, `tests/explore/test_fingerprint.py`, everything outside `src/scistudio/explore/` and `tests/explore/` | `#2231` | `[!]` |
 | `S2-B2` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-b2-fingerprint.md` | T-007: the fingerprint, the size bound, the unobservable fallback | `feat/2231-fingerprint` | `.worktrees/s2-b2-fingerprint` | `src/scistudio/explore/fingerprint.py`, `tests/explore/test_fingerprint.py` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `tests/architecture/**` | `#2231` | `[ ]` |
 | `S2-C1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-c1-observation.md` | T-008, T-009, T-011: the namespace comparison, the observation record with source-hash invalidation, the metadata codec, stability markers | `feat/2231-observation-codec` | `.worktrees/s2-c1-observation` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `src/scistudio/explore/fingerprint.py`, `tests/explore/test_dependency_analysis.py`, `tests/explore/test_fingerprint.py` | `tests/architecture/**`, everything outside `src/scistudio/explore/` and `tests/explore/` | `#2231` | `[ ]` |
 | `S2-D1` | `test_engineer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-d1-adversarial.md` | T-010 and adversarial coverage: the differential harness, the fixtures, and tests that try to break the analysis rather than confirm it | `test/2231-adversarial` | `.worktrees/s2-d1-adversarial` | `tests/explore/**` | Every production path. Report defects, do not fix them. | `#2231` | `[ ]` |
@@ -191,7 +191,22 @@ amendment.
 
 ### 7.3 Implementation
 
-- [ ] `S2-B1` package, layer rule, static facts, graph, queries -> artifact pending
+- [~] `S2-B1` package, layer rule, static facts, graph, queries -> implementation and
+      tests complete on `feat/2231-dep-analysis-graph` (commits `e41ebb975`,
+      `037535546`, `b2086f7d3`; branch pushed). `tests/explore/test_dependency_analysis.py`
+      162 passed, `tests/architecture/test_layer_deps.py` 10 passed,
+      `tests/architecture tests/adr052_contract tests/stability tests/docs tests/explore`
+      870 passed / 8 skipped. **PR blocked**: `full_audit` reports nine
+      `doc_drift`/`closure` errors because creating `src/scistudio/explore/` makes the
+      ADR-054 and spec-2 `planned_governs` entries resolve and they must move into
+      `governs`. `docs/adr/ADR-054.md` carries `agent_editable: false` and
+      `docs/specs/adr-054-*.md` is out of scope per §2, so no agent can clear the check;
+      `full_audit` is owned by `ci.yml` and `--check-na` does not waive it, so
+      `scripts/scistudio_pr_create.py` refuses. Needs an owner or manager decision.
+      Gate ledger: `.workflow/records/2231-feat-2231-dep-analysis-graph.json`
+      (scope amended to include `tests/architecture/test_placement.py`, whose
+      `test_no_py_files_outside_known_packages` enumerates top-level packages
+      independently of `test_layer_deps.py`).
 - [ ] `S2-B2` fingerprint with bound and fallback -> artifact pending
 - [ ] `S2-C1` observation, codec, stability markers -> artifact pending
 - [ ] `S2-D1` differential harness, fixtures, adversarial tests -> artifact pending
