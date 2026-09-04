@@ -446,6 +446,72 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:41:56.589534Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:41:56.602452Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:41:56.615822Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:41:56.629546Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:41:56.642820Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:41:56.655694Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:41:56.668746Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:41:56.681465Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:41:56.693992Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:41:56.707325Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T11:41:56.720502Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -459,17 +525,13 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "origin/track/adr-054-spec2-dependency-analysis",
-    "base_sha": "e7c81b5cb",
-    "changed_files": [
-      ".workflow/records/2231-docs-2231-governs-migration.json",
-      "docs/planning/adr-054-spec2-dependency-analysis-checklist.md",
-      "docs/specs/adr-054-notebook-dependency-analysis.md"
-    ],
-    "diff_fingerprint": "sha256:2ee8d13adcb21553bb9788c7c497577a5365fef4238063a714c7995d042f95b5",
+    "base_sha": "f89c287e1",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "head": "HEAD",
-    "head_sha": "aa4f9d4a4",
+    "head_sha": "f89c287e1",
     "surfaces": {
-      "docs": 2,
+      "docs": 0,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
@@ -477,7 +539,7 @@
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 1,
+      "sentrux": 0,
       "test": 0,
       "workflow_ci": 0
     }
@@ -513,6 +575,14 @@
     {
       "at": "2026-09-04T10:55:21.806114Z",
       "diff_fingerprint": "sha256:2ee8d13adcb21553bb9788c7c497577a5365fef4238063a714c7995d042f95b5",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-04T11:41:56.720548Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "mode": "local",
       "result": "pass",
       "tier": 3,
