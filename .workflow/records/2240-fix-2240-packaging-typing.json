@@ -1,0 +1,114 @@
+{
+  "base_ref": "origin/track/adr-054-spec3-explore-session",
+  "branch": "fix/2240-packaging-typing",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-04T14:46:07.899921Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR-054 spec 3 (docs/specs/adr-054-explore-session.md) already states FR-038's SciStudio-type ports, spec section 2's later-declaration-wins edge case, and FR-039's wait-for-drain; this change makes the code match the spec that is already written, so no doc text changes.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2240,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix the packaging-side findings from the ADR-054 spec 3 adversarial pass: P1-2 the bridge reports native type names so packaging cannot type a real session's ports, P2-2 a duplicate output declaration resolves to the earlier one, P2-3 nothing waits for the queue to drain before packaging (FR-039).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2240-fix-2240-packaging-typing",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T14:46:07.899868Z",
+      "pattern": "src/scistudio/explore/kernel_bridge.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T14:46:07.899897Z",
+      "pattern": "src/scistudio/explore/packaging.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T14:46:07.899901Z",
+      "pattern": "src/scistudio/api/routes/explore.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T14:46:07.899903Z",
+      "pattern": "tests/explore/test_adversarial_session.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T14:46:07.899905Z",
+      "pattern": "tests/explore/test_packaging.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T14:46:07.899906Z",
+      "pattern": "tests/explore/test_kernel_bridge.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T14:46:07.899908Z",
+      "pattern": "tests/api/test_explore_routes.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "ca1819a4-3ae0-4148-a043-5fc4b875d596",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-04T14:46:07.899929Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_adversarial_session.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T14:46:07.899933Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_explore_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

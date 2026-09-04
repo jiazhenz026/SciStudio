@@ -101,6 +101,7 @@ __all__ = [
     "environment_snapshot",
     "fingerprints",
     "memory_bytes",
+    "scistudio_type_name",
     "session_kernel_env",
     "set_block_call_adapter",
     "variable_window",
@@ -205,13 +206,30 @@ class Binding:
     """The name as it is bound in the namespace."""
 
     type_name: str
-    """``type(value).__name__``."""
+    """The **SciStudio** type of the object, or :attr:`native_type_name` when it has none.
+
+    FR-038 types a packaged port by "the SciStudio type of the object bound to
+    that name at packaging", and this is where that answer comes from: the
+    bridge is the only side that holds the object, so it is the only side that
+    can wrap it (:func:`scistudio_type_name`). A value no rule covers — an
+    ``int``, a dictionary, a person's own class — keeps its native name here,
+    because a name that packaging cannot resolve is better than a guess that
+    fails later at the exchange layer.
+    """
+
+    native_type_name: str
+    """``type(value).__name__``, kept whole for the bindings panel.
+
+    ``x = "hello"`` is a ``str`` to the person reading their namespace and a
+    ``Text`` to packaging, and both readings are true. This field is the
+    person's one.
+    """
 
     type_module: str
-    """The module the type came from, so ``DataFrame`` says which one it is."""
+    """The module the *native* type came from, so ``DataFrame`` says which one it is."""
 
     summary: str
-    """A short, bounded description — a length, a shape, or the type name."""
+    """A short, bounded description — a length, a shape, or the native type name."""
 
 
 # ---------------------------------------------------------------------------
@@ -251,8 +269,80 @@ def fingerprints(namespace: Mapping[str, Any]) -> dict[str, Fingerprint]:
 
 
 @provisional(since="0.3.4")
+def scistudio_type_name(value: object) -> str | None:
+    """The name of the SciStudio type *value* would be wrapped into, or ``None`` (FR-009, FR-038).
+
+    Packaging types every port by "the SciStudio type of the object bound to
+    that name at packaging" (FR-038), and only this side of the bridge holds
+    the object. Answering with ``type(value).__name__`` instead would hand
+    packaging a *native* name — ``str``, ``ndarray`` — that resolves against
+    nothing, and the person would be told their port "is bound to nothing in
+    the kernel" when what is missing is the translation.
+
+    The rules are :func:`~scistudio.explore.notebook_api.wrap_native`'s, and
+    this answers *which* type without building one: a bindings list is drawn on
+    every namespace change, and ``wrap_native`` on a pandas frame converts it to
+    an Arrow table, which is a copy of the person's data per redraw. The two
+    are pinned to each other by a test rather than left to drift.
+
+    Args:
+        value: The live object.
+
+    Returns:
+        The SciStudio type name, or ``None`` when no rule covers *value* — an
+        ``int``, a dictionary, a person's own class. ``None`` is the honest
+        answer: a port of that type cannot be materialised, and saying so at
+        packaging beats failing at the exchange layer.
+    """
+    from pathlib import Path
+
+    from scistudio.core.types.base import DataObject
+
+    if isinstance(value, DataObject):
+        return type(value).__name__
+    if isinstance(value, str):
+        return "Text"
+    if isinstance(value, Path):
+        return "Artifact"
+
+    # pandas, pyarrow and numpy are consulted only when they are already
+    # imported: an object cannot be a DataFrame if pandas was never imported,
+    # so this is a ``sys.modules`` lookup rather than an import cost paid on
+    # every redraw of the bindings list. The discipline is ``wrap_native``'s.
+    pandas = sys.modules.get("pandas")
+    if pandas is not None:
+        if isinstance(value, pandas.DataFrame):
+            return "DataFrame"
+        if isinstance(value, pandas.Series):
+            return "Series"
+    arrow = sys.modules.get("pyarrow")
+    if arrow is not None and isinstance(value, arrow.Table):
+        return "DataFrame"
+    numpy = sys.modules.get("numpy")
+    if numpy is not None and isinstance(value, numpy.ndarray):
+        return "Array"
+    return None
+
+
+def _safe_scistudio_type_name(value: object) -> str | None:
+    """:func:`scistudio_type_name`, without trusting the object to survive an ``isinstance``.
+
+    A metaclass with a hostile ``__instancecheck__`` is a value in somebody's
+    namespace, not a reason for the whole bindings list to fail.
+    """
+    try:
+        return scistudio_type_name(value)
+    except Exception:  # pragma: no cover - a value that will not answer isinstance
+        return None
+
+
+@provisional(since="0.3.4")
 def bindings(namespace: Mapping[str, Any]) -> list[Binding]:
     """List the top-level bindings with their type names (FR-009).
+
+    Each binding carries both readings of "type": the SciStudio type packaging
+    needs (FR-038) and the native one the person sees in their own namespace.
+    See :class:`Binding` and :func:`scistudio_type_name`.
 
     Args:
         namespace: The kernel's user namespace.
@@ -266,10 +356,12 @@ def bindings(namespace: Mapping[str, Any]) -> list[Binding]:
         if _is_hidden(name, value):
             continue
         value_type = type(value)
+        native = _safe_type_name(value)
         listed.append(
             Binding(
                 name=name,
-                type_name=_safe_type_name(value),
+                type_name=_safe_scistudio_type_name(value) or native,
+                native_type_name=native,
                 type_module=getattr(value_type, "__module__", "") or "",
                 summary=_summarise(value),
             )
@@ -881,6 +973,7 @@ def _handle(namespace: dict[str, Any], payload: Mapping[str, Any]) -> Any:
             {
                 "name": binding.name,
                 "type_name": binding.type_name,
+                "native_type_name": binding.native_type_name,
                 "type_module": binding.type_module,
                 "summary": binding.summary,
             }
@@ -1001,12 +1094,18 @@ class KernelBridge:
         }
 
     def bindings(self) -> tuple[Binding, ...]:
-        """The top-level bindings with their type names (FR-009)."""
+        """The top-level bindings with their SciStudio and native type names (FR-009).
+
+        :attr:`Binding.type_name` is the SciStudio type, which is what
+        packaging's ports are typed by (FR-038); the native name travels
+        alongside it for the panel.
+        """
         raw = self._call({"action": "bindings"})
         return tuple(
             Binding(
                 name=str(entry["name"]),
                 type_name=str(entry["type_name"]),
+                native_type_name=str(entry["native_type_name"]),
                 type_module=str(entry["type_module"]),
                 summary=str(entry["summary"]),
             )

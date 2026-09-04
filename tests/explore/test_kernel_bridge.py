@@ -355,6 +355,80 @@ def test_bindings_report_the_type_and_a_bounded_summary(frame: Any) -> None:
     assert by_name["count"].summary == "int 3"
 
 
+def test_bindings_carry_the_scistudio_type_and_the_native_one(frame: Any) -> None:
+    """FR-038's answer and the person's, side by side (#2240).
+
+    A packaged port is typed by "the SciStudio type of the object bound to that
+    name at packaging", and this side of the bridge is the only one holding the
+    object. Reporting only ``type(value).__name__`` handed packaging a name that
+    resolves against nothing, and the person was told their ``str`` output "is
+    bound to nothing in the kernel".
+
+    The native name has to survive the translation: ``text`` is a ``str`` in the
+    namespace the person is reading, whatever a port would call it.
+    """
+    namespace = {"text": "hello", "df": frame, "count": 3}
+    by_name = {binding.name: binding for binding in bindings(namespace)}
+
+    assert by_name["text"].type_name == "Text"
+    assert by_name["text"].native_type_name == "str"
+    assert by_name["df"].type_name == "DataFrame"
+    assert by_name["df"].native_type_name == "DataFrame"
+    assert by_name["count"].type_name == "int", "a value with no SciStudio type keeps its own name"
+    assert by_name["count"].native_type_name == "int"
+
+
+def test_the_type_name_is_the_one_wrap_native_would_produce(frame: Any) -> None:
+    """The translation and the wrapping must not drift apart.
+
+    :func:`~scistudio.explore.kernel_bridge.scistudio_type_name` answers *which*
+    SciStudio type a value would become without building one, because a bindings
+    list is redrawn on every namespace change and
+    :func:`~scistudio.explore.notebook_api.wrap_native` on a pandas frame copies
+    the person's data into Arrow. Two implementations of one mapping is exactly
+    the shape of the bug this replaced, so they are pinned to each other here
+    rather than trusted to stay in step.
+    """
+    import numpy
+
+    from scistudio.core.types.text import Text
+    from scistudio.explore.kernel_bridge import scistudio_type_name
+    from scistudio.explore.notebook_api import wrap_native
+
+    values: list[Any] = [
+        "hello",
+        Path("some/file.txt"),
+        frame,
+        frame["value"],
+        pyarrow.table({"value": [1, 2]}),
+        numpy.arange(6).reshape(2, 3),
+        Text(content="already typed"),
+    ]
+    for value in values:
+        assert scistudio_type_name(value) == type(wrap_native(value)).__name__, (
+            f"the two disagree about {type(value).__name__}"
+        )
+
+
+def test_a_value_with_no_scistudio_type_is_answered_as_none() -> None:
+    """``None`` where ``wrap_native`` would raise, which is the honest answer.
+
+    A port of that type cannot be materialised, and saying so at packaging —
+    where the cell can still be named — beats guessing a type that fails at the
+    exchange layer.
+    """
+    from scistudio.explore.kernel_bridge import scistudio_type_name
+    from scistudio.explore.notebook_api import wrap_native
+
+    class Bespoke:
+        pass
+
+    for value in (3, {"a": 1}, [1, 2], Bespoke()):
+        assert scistudio_type_name(value) is None
+        with pytest.raises(TypeError):
+            wrap_native(value)
+
+
 def test_a_summary_never_calls_repr() -> None:
     """A binding summary must not run a person's ``__repr__``; it is drawn constantly."""
 

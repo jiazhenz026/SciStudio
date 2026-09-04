@@ -149,7 +149,15 @@ _IDENTIFIER_RE = re.compile(r"[^0-9a-zA-Z_]+")
 
 @provisional(since="0.3.4")
 class PackagingProblemKind(StrEnum):
-    """The closed set of reasons packaging refuses a notebook (FR-039)."""
+    """The closed set of things packaging reports about a notebook (FR-039).
+
+    All but one of these refuse. :attr:`DUPLICATE_OUTPUT_DECLARATION` is
+    reported without refusing, because spec §2's edge case resolves it —
+    "the later declaration in written order wins" — rather than rejecting it,
+    and a resolved ambiguity the person is not told about is the failure that
+    edge case is guarding against. :attr:`PackagingProblem.refuses` says which
+    a given problem is.
+    """
 
     NO_DECLARED_OUTPUT = "no_declared_output"
     """The notebook declares no ``scistudio.output``, so there is no slice to package."""
@@ -177,6 +185,18 @@ class PackagingProblemKind(StrEnum):
     cannot show that it is not an interactive one.
     """
 
+    DUPLICATE_OUTPUT_DECLARATION = "duplicate_output_declaration"
+    """The same port name was declared as an output more than once.
+
+    Spec §2's edge case: "The same name is declared as output twice. The later
+    declaration in written order wins, and packaging reports the duplicate."
+    This is the report, and it does not refuse — the later declaration is a
+    person refining an output, and refusing would turn a resolved ambiguity
+    into a dead end. What must not happen is the silent version: a second
+    ``scistudio.output(table=better)`` that leaves the port wired to ``worse``,
+    with ``worse``'s type, and says nothing.
+    """
+
     UNTYPED_PORT = "untyped_port"
     """A declared port names something the caller reported no bound type for.
 
@@ -190,21 +210,28 @@ class PackagingProblemKind(StrEnum):
 @provisional(since="0.3.4")
 @dataclass(frozen=True)
 class PackagingProblem:
-    """One reason packaging refuses, with the cells it is about.
+    """One thing packaging found, with the cells it is about.
 
-    :attr:`cell_ids` is what makes a refusal actionable, and it is never empty
+    :attr:`cell_ids` is what makes a report actionable, and it is never empty
     except for :attr:`PackagingProblemKind.NO_DECLARED_OUTPUT`, which is about
     the notebook rather than about any cell in it.
     """
 
     kind: PackagingProblemKind
-    """Which refusal this is."""
+    """Which problem this is."""
     message: str
     """Human-readable text naming the cells and, where it has them, the names."""
     cell_ids: tuple[str, ...] = ()
     """The offending cells, in the notebook's written order."""
     names: tuple[str, ...] = ()
     """The names or block identifiers the problem is about, where it has any."""
+    refuses: bool = True
+    """Whether this problem stops the notebook being packaged.
+
+    Every refusal of FR-039 sets this. The one problem that does not is the
+    duplicate output declaration of spec §2, which packaging resolves and
+    reports rather than rejects.
+    """
 
 
 @provisional(since="0.3.4")
@@ -309,12 +336,24 @@ class PackagingPlan:
     outputs: tuple[PackagedPort, ...] = ()
     """The output ports the generated block would declare."""
     problems: tuple[PackagingProblem, ...] = ()
-    """Every refusal reason found, empty when the notebook can be packaged."""
+    """Everything packaging found, refusals and reports alike.
+
+    Empty when the notebook is clean. Not every entry refuses: see
+    :attr:`PackagingProblem.refuses`, and
+    :attr:`PackagingProblemKind.DUPLICATE_OUTPUT_DECLARATION` for the one that
+    does not.
+    """
 
     @property
     def is_packageable(self) -> bool:
-        """``True`` when nothing refuses this notebook."""
-        return not self.problems
+        """``True`` when nothing *refuses* this notebook.
+
+        A reported-but-resolved problem — the duplicate output declaration of
+        spec §2 — leaves this ``True``: the later declaration wins, so there is
+        a block to write, and the person is told about the duplicate rather
+        than blocked by it.
+        """
+        return not any(problem.refuses for problem in self.problems)
 
 
 # ---------------------------------------------------------------------------
@@ -500,12 +539,24 @@ def _build_ports(
     registry: Any | None,
     extra_inputs: Mapping[str, str],
 ) -> tuple[tuple[PackagedPort, ...], tuple[PackagedPort, ...], list[PackagingProblem]]:
-    """Turn the slice's declarations into ports, collecting the ones that cannot be typed."""
+    """Turn the slice's declarations into ports, collecting the ones that cannot be typed.
+
+    An input name read in two cells is one port and the first read names it:
+    the port is the notebook's *read* of a name, and a second read of the same
+    name is the same port. An **output** name declared twice is the opposite
+    case — two declarations that disagree — and spec §2 resolves it to the
+    later one in written order, which is also what
+    :func:`scistudio.explore.notebook_api.output` does in the kernel. The two
+    implementations of that one sentence must agree, so this pops the earlier
+    entry rather than keeping it, which gives the winner the later *position*
+    as well as the later value.
+    """
     by_id = {cell.cell_id: cell for cell in facts}
     problems: list[PackagingProblem] = []
 
     input_specs: dict[str, tuple[str, str]] = {}
     output_specs: dict[str, tuple[str, str]] = {}
+    duplicated: dict[str, list[str]] = {}
     for cell_id in slice_cells:
         cell = by_id.get(cell_id)
         if cell is None:
@@ -514,9 +565,32 @@ def _build_ports(
             input_specs.setdefault(name, (name, cell_id))
         for declaration in cell.outputs:
             for port_name, bound_name in _port_pairs(declaration):
-                output_specs.setdefault(port_name, (bound_name, cell_id))
+                if port_name in output_specs:
+                    superseded = output_specs.pop(port_name)
+                    duplicated.setdefault(port_name, [superseded[1]]).append(cell_id)
+                output_specs[port_name] = (bound_name, cell_id)
     for port_name, bound_name in extra_inputs.items():
         input_specs.setdefault(port_name, (bound_name, ""))
+
+    if duplicated:
+        cells = _ordered({cell_id for cell_ids in duplicated.values() for cell_id in cell_ids}, slice_cells)
+        problems.append(
+            PackagingProblem(
+                kind=PackagingProblemKind.DUPLICATE_OUTPUT_DECLARATION,
+                message=(
+                    "These output names carry a duplicate declaration; the later one in written order "
+                    "wins, and the earlier one is not packaged: "
+                    + ", ".join(
+                        f"{port_name} in cells {', '.join(_ordered(cell_ids, slice_cells))}"
+                        for port_name, cell_ids in sorted(duplicated.items())
+                    )
+                    + "."
+                ),
+                cell_ids=cells,
+                names=tuple(sorted(duplicated)),
+                refuses=False,
+            )
+        )
 
     def make(port_name: str, bound_name: str, cell_id: str, direction: str) -> PackagedPort | None:
         data_type = bindings.get(bound_name) or bindings.get(port_name)
@@ -834,6 +908,15 @@ class PackagedBlock:
     """The block's output ports."""
     on_new_input: str = "replay"
     """The generated block's ``on_new_input`` default (FR-044)."""
+    problems: tuple[PackagingProblem, ...] = ()
+    """What packaging resolved on the way past, empty for a clean notebook.
+
+    Never a refusal — a refusal raises :class:`PackagingRefusedError` and
+    writes nothing. This carries the problems whose
+    :attr:`PackagingProblem.refuses` is ``False``, so a duplicate output
+    declaration is still reported to the person who packaged rather than only
+    to the person who ran the check first (spec §2, edge cases).
+    """
 
 
 @provisional(since="0.3.4")
@@ -1018,6 +1101,7 @@ def package_notebook(
         inputs=plan.inputs,
         outputs=plan.outputs,
         on_new_input=policy,
+        problems=plan.problems,
     )
 
 

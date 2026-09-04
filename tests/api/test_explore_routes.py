@@ -54,7 +54,7 @@ from fastapi.testclient import TestClient
 
 from scistudio.api.routes import explore
 from scistudio.explore.fingerprint import Fingerprint, fingerprint
-from scistudio.explore.kernel_bridge import Binding, BridgeError
+from scistudio.explore.kernel_bridge import Binding, BridgeError, scistudio_type_name
 from scistudio.explore.notebook_api import MODE_ENV_VAR, SESSION_MODE
 from scistudio.explore.session import (
     BoundRun,
@@ -211,13 +211,6 @@ class _FakeKernel:
         )
 
 
-#: Native type name -> SciStudio type name. The real bridge does this
-#: translation because it is the only side holding the object; the fake does the
-#: same for the one type the packaging tests use, so a packaged port is typed the
-#: way FR-038 types it rather than by a name packaging cannot resolve.
-_SCISTUDIO_TYPE_NAMES = {"str": "Text"}
-
-
 class _FakeBridge:
     """Answers fingerprints, bindings, and windows from the fake kernel's namespace."""
 
@@ -251,10 +244,19 @@ class _FakeBridge:
         return {name: fingerprint(value) for name, value in self._visible().items()}
 
     def bindings(self) -> tuple[Binding, ...]:
+        """The bindings, typed by the *real* translation.
+
+        ``scistudio_type_name`` is the production function the real bridge runs
+        inside the kernel, called here rather than mirrored by a table of the
+        harness's own: a fake that keeps its own name mapping is a fake that can
+        assert a translation the real bridge does not do, which is exactly how
+        the missing translation of #2240 stayed invisible for a release.
+        """
         return tuple(
             Binding(
                 name=name,
-                type_name=_SCISTUDIO_TYPE_NAMES.get(type(value).__name__, type(value).__name__),
+                type_name=scistudio_type_name(value) or type(value).__name__,
+                native_type_name=type(value).__name__,
                 type_module=type(value).__module__,
                 summary=repr(value)[:60],
             )
@@ -2142,27 +2144,52 @@ def test_packaging_a_session_with_no_commit_is_a_refusal_that_writes_nothing(har
     assert after == before, "a refused packaging wrote files"
 
 
-@pytest.mark.xfail(
-    reason=(
-        "#2240: FR-039's 'Packaging MUST wait for the queue to drain before checking' is not "
-        "implemented anywhere — check_packaging is pure, package_notebook does not wait, and "
-        "neither route calls ExploreSession.wait_until_idle."
-    ),
-    strict=False,
-)
+#: How long the held cell stays held before a timer thread releases it, in the
+#: two tests below. Long enough that a route which did not wait would have
+#: answered several times over inside it, short enough to stay well clear of
+#: the suite's per-test timeout.
+_HOLD_SECONDS = 2.0
+
+
+def _release_after(harness: _Harness, seconds: float) -> float:
+    """Release the held cell from a timer thread, and return when it will fire.
+
+    The request under test blocks the calling thread for as long as the queue
+    is busy, which is the point of it, so the release cannot come from this
+    thread afterwards — it has to be already scheduled when the request goes
+    out.
+    """
+    fires_at = time.monotonic() + seconds
+
+    def release() -> None:
+        time.sleep(seconds)
+        harness.kernels[0].block_on = None
+        harness.kernels[0].released.set()
+
+    threading.Thread(target=release, name="release-held-cell", daemon=True).start()
+    return fires_at
+
+
+@pytest.mark.serial
 def test_a_packaging_check_waits_for_the_queue_to_drain(harness: _Harness) -> None:
     """FR-039, last sentence, and the edge case in spec §2 that explains it.
 
     "Packaging is requested while a cell is queued or running. Packaging waits
     for the queue to drain, because the slice's marks are not final until it
     has." Here a cell is held mid-run whose completion makes the output cell
-    stale. Answered now, the check says the notebook is packageable; answered
-    after the queue drains, it says the slice contains a stale cell. Today it
-    answers now.
+    stale. Answered while it is held, the check would call the notebook
+    packageable; answered after the queue drains, it says the slice contains a
+    stale cell.
 
-    The failure is not a crash. It is a person being told their notebook is
-    ready and packaging a block whose slice was stale by the time the file was
-    written.
+    The route is what waits: ``check_packaging`` stays a pure function of the
+    notebook and the marks it is handed. So the request is issued while the
+    cell is held and a timer thread releases it a moment later — the answer
+    that comes back is the answer from *after* the drain, which is the only way
+    the stale mark can be in it.
+
+    The failure this guards against is not a crash. It is a person being told
+    their notebook is ready and packaging a block whose slice was stale by the
+    time the file was written.
     """
     session = harness.open_file_session()
     session_id = session["session_id"]
@@ -2187,8 +2214,11 @@ def test_a_packaging_check_waits_for_the_queue_to_drain(harness: _Harness) -> No
     harness.client.post(f"/api/explore/sessions/{session_id}/cells/{first}/run")
     assert harness.kernels[0].entered.wait(timeout=_IDLE_TIMEOUT), "the held cell never started"
 
+    _release_after(harness, _HOLD_SECONDS)
     try:
+        issued = time.monotonic()
         answered = harness.client.post(f"/api/explore/sessions/{session_id}/packaging/check", json={})
+        elapsed = time.monotonic() - issued
     finally:
         harness.kernels[0].block_on = None
         harness.kernels[0].released.set()
@@ -2200,38 +2230,59 @@ def test_a_packaging_check_waits_for_the_queue_to_drain(harness: _Harness) -> No
         "packaging answered before the queue drained, so it read marks that were not final"
     )
     assert any(problem["kind"] == "stale_cell" for problem in body["problems"]), body["problems"]
+    assert elapsed >= _HOLD_SECONDS * 0.5, (
+        f"the check returned in {elapsed:.2f}s, well inside the {_HOLD_SECONDS:.1f}s the cell was "
+        f"held: it did not wait for the queue, it read marks that happened to be right"
+    )
 
 
-def test_a_packaging_check_answers_from_the_marks_as_they_stand_today(harness: _Harness) -> None:
-    """The behaviour as delivered, pinned. See the xfail above for why it is wrong."""
-    session = harness.open_file_session()
+@pytest.mark.serial
+def test_packaging_waits_for_the_queue_before_it_writes_anything(git_harness: _Harness) -> None:
+    """The same wait on the route that writes files (FR-039).
+
+    A check that waits and a package that does not would let the person read a
+    truthful refusal and then write the block anyway. Here the held cell makes
+    the slice stale, so packaging must come back as the documented 409 refusal
+    naming the stale cell, and the blocks directory must be untouched.
+    """
+    session = git_harness.open_file_session()
     session_id = session["session_id"]
     first = session["cells"][0]["cell_id"]
-    _set_source(harness, session_id, first, "value = 'one'")
-    declare = harness.client.post(
+    _set_source(git_harness, session_id, first, "value = 'one'")
+    declare = git_harness.client.post(
         f"/api/explore/sessions/{session_id}/cells",
         json={"source": "import scistudio\nscistudio.output(table=value)", "after": first},
     )
+    assert declare.status_code == 200, declare.text
     declared_id = declare.json()["cells"][-1]["cell_id"]
-    _run(harness, session_id, first)
-    _run(harness, session_id, declared_id)
+    _run(git_harness, session_id, first)
+    _run(git_harness, session_id, declared_id)
+    git_harness.client.post(f"/api/explore/sessions/{session_id}/commit", json={"message": "checkpoint"})
 
-    harness.kernels[0].block_on = "two"
-    harness.kernels[0].released.clear()
-    harness.kernels[0].entered.clear()
-    _set_source(harness, session_id, first, "value = 'two'")
-    harness.client.post(f"/api/explore/sessions/{session_id}/cells/{first}/run")
-    assert harness.kernels[0].entered.wait(timeout=_IDLE_TIMEOUT)
+    git_harness.kernels[0].block_on = "two"
+    git_harness.kernels[0].released.clear()
+    git_harness.kernels[0].entered.clear()
+    _set_source(git_harness, session_id, first, "value = 'two'")
+    git_harness.client.post(f"/api/explore/sessions/{session_id}/cells/{first}/run")
+    assert git_harness.kernels[0].entered.wait(timeout=_IDLE_TIMEOUT), "the held cell never started"
 
+    blocks = git_harness.project_dir / "blocks"
+    before = sorted(path.name for path in blocks.glob("*")) if blocks.is_dir() else []
+
+    _release_after(git_harness, _HOLD_SECONDS)
     try:
-        body = harness.client.post(f"/api/explore/sessions/{session_id}/packaging/check", json={}).json()
+        answered = git_harness.client.post(
+            f"/api/explore/sessions/{session_id}/package",
+            json={"block_name": "Too Early"},
+        )
     finally:
-        harness.kernels[0].block_on = None
-        harness.kernels[0].released.set()
-        harness.wait_idle()
+        git_harness.kernels[0].block_on = None
+        git_harness.kernels[0].released.set()
+        git_harness.wait_idle()
 
-    assert body["is_packageable"], "the check no longer answers mid-run; update the xfail above"
-
-    after = harness.client.post(f"/api/explore/sessions/{session_id}/packaging/check", json={}).json()
-    assert not after["is_packageable"], "and once the queue has drained the same notebook is refused"
-    assert any(problem["kind"] == "stale_cell" for problem in after["problems"])
+    assert answered.status_code == 422, answered.text
+    detail = answered.json()["detail"]
+    assert detail["error"] == "packaging_refused"
+    assert any(problem["kind"] == "stale_cell" for problem in detail["problems"]), detail
+    after = sorted(path.name for path in blocks.glob("*")) if blocks.is_dir() else []
+    assert after == before, "packaging wrote a block from marks that were not final"
