@@ -73,6 +73,14 @@ from scistudio.blocks.base.interactive import (
 from scistudio.blocks.base.state import ExecutionMode
 from scistudio.blocks.code.backends.notebook import NOTEBOOK_CELL_SELECTION_KEY
 from scistudio.blocks.code.code_block import CodeBlock
+
+# ADR-054 FR-054: the opt-in marker that makes a block's own version — here a
+# notebook commit — win over the ADR-038 §3.3 distribution stamping. It is
+# imported from ``_spec`` because that is the module that reads it: ADR-047 §C9
+# keeps every module-level registry helper there and leaves ``registry``'s
+# ``__init__`` for the class alone, so there is no public re-export to reach for
+# without widening the registry's surface, which this change does not do.
+from scistudio.blocks.registry._spec import SELF_DECLARED_VERSION
 from scistudio.explore.dependency_analysis import (
     AnalysisFlag,
     CellFacts,
@@ -1078,6 +1086,19 @@ def _render_declaration(
     blocks_dirname: str,
 ) -> str:
     """Render the generated block declaration the tier-1 scan discovers (FR-037)."""
+    # The two generators diverge here, and the choice is deliberate (FR-044,
+    # FR-046). §4.1 says "on new data the block replays; **set to ask**, it
+    # pauses", so ``replay`` — the packaged default — generates a plain Code
+    # Block that is not interactive at all and therefore cannot pause, and
+    # ``ask`` generates the interactive subclass whose panel is the Explore tab.
+    #
+    # The alternative reading is that a packaged block is *always* interactive
+    # and declares ``on_new_input = replay``. That reading needs one more thing
+    # this dispatch cannot decide: the engine's dispatch pauses any interactive
+    # block that carries no remembered decision in its **node** config, so
+    # "replay without pausing" would require someone to write the packaging
+    # commit into the node's ``interactive_memory`` when the node is created —
+    # a frontend/node-creation contract, and an owner's call, not packaging's.
     base = "AskingPackagedNotebookBlock" if on_new_input == "ask" else "PackagedNotebookBlock"
     input_ports = ",\n        ".join(
         f"InputPort(name={port.name!r}, accepted_types=[{port.data_type}], description={_port_doc(port)!r})"
@@ -1234,6 +1255,29 @@ class PackagedNotebookBlock(CodeBlock):
     """File name of the notebook copy inside the blocks directory."""
     notebook_commit: ClassVar[str] = ""
     """The commit the notebook was packaged from; the block's version (FR-041)."""
+    version: ClassVar[str] = ""
+    """Blank on the base, a notebook commit on every generated subclass (FR-041).
+
+    Blank rather than inherited so that the base — which was packaged from no
+    notebook — falls through to the ADR-038 §3.3 distribution version instead of
+    stamping the ``Block.version`` default as if it were a commit.
+    """
+    block_version_source: ClassVar[str] = SELF_DECLARED_VERSION
+    """FR-054: this block's version is its notebook commit, not its distribution's.
+
+    ADR-038 §3.3 force-injects the distribution version onto every block spec,
+    because a hand-written version drifts. A packaged block is the case that
+    rule does not fit: its version is a commit sha, which is more reproducible
+    than the distribution's and is the only thing that lets a run point back at
+    the Explore session it came from. Declaring this attribute is the opt-in the
+    registry reads (:data:`~scistudio.blocks.registry._spec.BLOCK_VERSION_SOURCE_ATTR`);
+    it is not a rule about packaged blocks, and any block whose version is a
+    content identity may declare it.
+
+    The base class itself carries no commit, so it falls back to the injected
+    default; only a generated subclass, which always sets ``version``, stamps a
+    sha.
+    """
     blocks_dirname: ClassVar[str] = BLOCKS_DIRNAME
     """The project's blocks directory, relative to the project root."""
     slice_cells: ClassVar[tuple[str, ...]] = ()
