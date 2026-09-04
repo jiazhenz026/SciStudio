@@ -121,9 +121,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "193d70b6ffc58c12ad47072fd23dd36ebfb42b9b",
+    "sha": "d474cc5f730e041a8daabd92a317be6e04498616",
     "shas": [
-      "193d70b6ffc58c12ad47072fd23dd36ebfb42b9b"
+      "d474cc5f730e041a8daabd92a317be6e04498616"
     ],
     "trailers": []
   },
@@ -625,6 +625,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:33:11.727501Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:33:11.741754Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:33:11.755902Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:33:11.770450Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:33:11.785046Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:33:11.800700Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:33:11.815464Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:33:11.829803Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:33:11.844196Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:33:11.857868Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-04T13:33:11.910982Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -648,6 +736,7 @@
       ".workflow/records/2231-feat-2231-fingerprint.json",
       ".workflow/records/2231-feat-2231-observation-codec.json",
       ".workflow/records/2231-fix-2231-audit-findings.json",
+      ".workflow/records/2231-fix-2231-ci-failures.json",
       ".workflow/records/2231-test-2231-adversarial.json",
       "docs/adr/ADR-054.md",
       "docs/audit/2026-09-04-adr-054-spec2-with-context.md",
@@ -684,9 +773,9 @@
       "tests/explore/test_dependency_analysis.py",
       "tests/explore/test_fingerprint.py"
     ],
-    "diff_fingerprint": "sha256:02018b21ae1675728e33ad88d11459c60531a8999f8fd33caf81651977e1ebe1",
+    "diff_fingerprint": "sha256:03a33b9496c8bbca439b7c78bef283eef50d54d8c8235ea887be14cc5293b963",
     "head": "HEAD",
-    "head_sha": "193d70b6f",
+    "head_sha": "d474cc5f7",
     "surfaces": {
       "docs": 13,
       "frontend": 0,
@@ -751,6 +840,22 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-04T13:33:11.911014Z",
+      "diff_fingerprint": "sha256:03a33b9496c8bbca439b7c78bef283eef50d54d8c8235ea887be14cc5293b963",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": [
+        "checks.commit_hygiene",
+        "checks.format_check",
+        "checks.full_audit",
+        "checks.import_contracts",
+        "checks.lint_format",
+        "checks.python_tests",
+        "checks.type_check"
+      ]
     }
   ],
   "record_id": "2231-adr-054-spec2-restart",
