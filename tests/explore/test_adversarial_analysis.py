@@ -51,11 +51,13 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import pytest
 
+from scistudio.explore import fingerprint as fingerprint_module
 from scistudio.explore.dependency_analysis import (
     AnalysisFlag,
     DependencyGraph,
@@ -75,6 +77,7 @@ from scistudio.explore.fingerprint import (
     fingerprint,
 )
 from scistudio.explore.fingerprint import _fingerprint_context as fingerprint_context
+from scistudio.explore.fingerprint import _flat as flat_handle
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -1168,6 +1171,149 @@ def test_survivor_a_long_string_is_sampled_to_its_last_character() -> None:
     assert fingerprint("b" + text[1:]) != before
 
 
+@pytest.mark.parametrize(
+    ("label", "source"),
+    [
+        ("except", "try:\n    risky()\nexcept Exception:\n    total += 1\n"),
+        ("except del", "try:\n    risky()\nexcept Exception:\n    del total\n"),
+        ("match case", "match value:\n    case 1:\n        total += 1\n"),
+        ("match case del", "match value:\n    case 1:\n        del total\n"),
+    ],
+)
+def test_survivor_an_augmented_assignment_inside_an_except_or_match_body_is_a_read(label: str, source: str) -> None:
+    """Mutation survivor: ``_iter_module_level``'s descent into the two non-``stmt`` bodies.
+
+    ``ast.ExceptHandler`` and ``ast.match_case`` are not statements, so
+    ``iter_child_nodes`` does not reach their bodies through the ``ast.stmt``
+    branch and ``_iter_module_level`` names them explicitly. Deleting that branch
+    left the whole suite green while ``total += 1`` inside an ``except`` stopped
+    being a read of ``total``.
+
+    The consequence is the one the differential harness exists to catch. A cell
+    whose ``except`` body increments a counter is a definer of it that reads
+    nothing, the backward slice stops there, the cell that gave the counter its
+    initial value is dropped, and the slice raises ``NameError`` — the same
+    failure ``global_counter.ipynb`` was written for, in a body nothing walks
+    into. Both bodies get both forms, because a repair aimed at ``AugAssign``
+    alone would leave ``del`` standing.
+    """
+    facts = analyse_cell("c2", source)
+    assert "total" in facts.read, f"{label}: the body's read of total is not recorded"
+
+    graph = graph_of(("c1", "total = 0"), ("c2", source), ("c3", "scistudio.output(n=total)"))
+    assert graph.backward_slice(["c3"]).cells == ("c1", "c2", "c3"), f"{label}: the slice dropped the initialiser"
+
+
+def test_survivor_a_long_string_is_sampled_across_its_stride_not_its_prefix() -> None:
+    """Mutation survivor: the string *stride* was covered by nothing, only its tail.
+
+    ``_digest_text`` takes ``obj[::step]`` and then the final character. The test
+    above pins the tail, and the array and frame strides have tests of their own,
+    but replacing the string stride with a plain ``obj[:keep]`` prefix left the
+    whole suite green — a change anywhere in the middle of a long string was
+    invisible to every assertion in it.
+
+    The changed position is a multiple of the step, which is what the stride
+    visits, and lies far beyond ``sample_bytes`` characters, which is where a
+    prefix stops.
+    """
+    length = 2 * FINGERPRINT_BUDGET.whole_content_bytes
+    step = length // FINGERPRINT_BUDGET.sample_bytes
+    position = step * (FINGERPRINT_BUDGET.sample_bytes // 2)
+    assert position > FINGERPRINT_BUDGET.sample_bytes, "a prefix of the sample must not reach the change"
+
+    text = "a" * length
+    before = fingerprint(text)
+    mutated = text[:position] + "b" + text[position + 1 :]
+    assert len(mutated) == length
+    assert fingerprint(mutated) != before, "a change on the stride, past the prefix, was missed"
+
+
+def test_survivor_the_whole_content_clamp_bounds_the_bytes_offered_not_just_accepted() -> None:
+    """Mutation survivor: every cost assertion read ``hashed_bytes``, which cannot see this.
+
+    ``_feed`` truncates unconditionally, so ``hashed_bytes`` is bounded however
+    much content was *materialised* to produce it — which is why removing
+    ``_whole_limit``'s clamp against ``_remaining`` left the suite green. The
+    clamp's whole purpose is that a call which has nearly spent its byte ceiling
+    takes the sampled route rather than calling ``tobytes()`` on another whole
+    megabyte first, and the only way to see that is to watch what is handed to
+    ``_feed``.
+
+    Six 0.7 MiB arrays: five fit inside the 4 MiB ceiling whole, and the sixth
+    must be sampled because only ~0.6 MiB of the ceiling is left. Without the
+    clamp the sixth is copied whole and the bytes offered pass the ceiling.
+    """
+    offered: list[int] = []
+    real_feed = fingerprint_module._feed
+
+    def recording_feed(ctx: Any, data: Any) -> None:
+        offered.append(len(data))
+        real_feed(ctx, data)
+
+    arrays = [np.zeros(89_600, dtype=np.float64) for _ in range(6)]
+    assert arrays[0].nbytes < FINGERPRINT_BUDGET.whole_content_bytes, "each array must take the whole route"
+
+    monkeypatched = pytest.MonkeyPatch()
+    try:
+        monkeypatched.setattr(fingerprint_module, "_feed", recording_feed)
+        context = fingerprint_context(arrays)
+    finally:
+        monkeypatched.undo()
+
+    assert context.hashed_bytes <= FINGERPRINT_BUDGET.max_total_bytes, "the accepted bytes are bounded either way"
+    assert sum(offered) <= FINGERPRINT_BUDGET.max_total_bytes, (
+        f"{sum(offered)} bytes were materialised for a {FINGERPRINT_BUDGET.max_total_bytes}-byte ceiling"
+    )
+
+
+def test_survivor_the_flat_handle_reads_an_array_rather_than_copying_it() -> None:
+    """Mutation survivor: ``_flat``'s copy-avoidance had no assertion at all.
+
+    ``reshape(-1)`` is a view for C-contiguous data and a **full copy** otherwise,
+    which is why ``_flat`` hands back ``arr.flat`` — an iterator that materialises
+    only the positions the stride selects — for anything else. Replacing the
+    branch with an unconditional ``reshape(-1)`` blew that guarantee on exactly
+    the large strided arrays the budget exists for, and left the suite green,
+    because every cost assertion in the suite reads ``hashed_bytes`` and the
+    copy happens before a single byte is fed.
+    """
+
+    def reads_the_buffer_of(handle: Any, array: np.ndarray) -> bool:
+        buffer = handle if isinstance(handle, np.ndarray) else handle.base
+        return bool(np.shares_memory(buffer, array))
+
+    contiguous = np.arange(1_000_000, dtype=np.float64)
+    assert reads_the_buffer_of(flat_handle(contiguous), contiguous), "a contiguous array reshapes to a view"
+
+    strided = np.arange(2_000_000, dtype=np.float64)[::2]
+    assert not strided.flags["C_CONTIGUOUS"]
+    handle = flat_handle(strided)
+    assert not isinstance(handle, np.ndarray), "a non-contiguous array must not be reshaped into a copy"
+    assert reads_the_buffer_of(handle, strided)
+
+
+def test_survivor_a_name_that_only_exists_after_the_run_is_reported_unobservable() -> None:
+    """Mutation survivor: FR-029's check on the *after* snapshot was untested.
+
+    ``compare_namespaces`` tests ``observable`` on both mappings, and every test
+    of the unobservable report used a name present in both. Dropping the check on
+    the ``after`` side left the suite green — so a name a cell *creates*, whose
+    value the fingerprint cannot inspect, was reported as changed and not
+    reported as uncovered, which is precisely the pair FR-029 exists to keep
+    together.
+    """
+    opaque = fingerprint(object())
+    assert opaque.observable is False
+
+    observed = compare_namespaces({}, {"handle": opaque}, cell_id="c1", source_hash="h")
+    assert observed.changed_names == frozenset({"handle"})
+    assert observed.unobservable_names == frozenset({"handle"}), "a name that appeared is still uncovered"
+
+    disappeared = compare_namespaces({"handle": opaque}, {}, cell_id="c1", source_hash="h")
+    assert disappeared.unobservable_names == frozenset({"handle"})
+
+
 def test_survivor_a_removed_element_changes_a_sampled_container() -> None:
     """Mutation survivor, reclassified: the ``len`` feed in ``_digest_sequence`` is redundant.
 
@@ -1267,12 +1413,22 @@ def generated_notebook(count: int) -> list[tuple[str, str]]:
 
 
 def test_sc010_a_five_hundred_cell_notebook_is_analysed_and_built_under_the_bound() -> None:
-    """SC-010: five hundred cells, graph built in under five hundred milliseconds.
+    """SC-010: five hundred cells, analysed and built in under five hundred milliseconds.
 
-    The existing timing test measures :func:`build_graph` alone. A notebook load
-    pays for the static analysis as well, and FR-018's linearity claim is about
-    the pass over cells and names, so this measures the whole of it — analyse and
-    build — and reports the split when it fails.
+    The ceiling is SC-010's own number and it covers both halves, which is what
+    the criterion says: "**analysing** a generated notebook of five hundred
+    cells … **builds the graph** in under five hundred milliseconds". Nothing
+    here is invented.
+
+    Both halves matter because they are not the same size. Measured, the analysis
+    is ~62 ms and the build ~11 ms, so a bound on the build alone — which is what
+    both timed tests used to assert — governs a sixth of the work with forty-two
+    times the headroom it needs, and the ADR-054 spec 2 audit found this test
+    guarding the other five sixths with a **2000 ms** ceiling that appears in no
+    spec at all. Seventy-three milliseconds against five hundred is about seven
+    times over: enough that a loaded shared runner does not flake, tight enough
+    that a regression in either half has somewhere to fail. The split is reported
+    on failure so the next reader knows which half moved.
     """
     cells = generated_notebook(500)
     started = time.perf_counter()
@@ -1284,8 +1440,7 @@ def test_sc010_a_five_hundred_cell_notebook_is_analysed_and_built_under_the_boun
     analyse_ms = (analysed - started) * 1000
     build_ms = (finished - analysed) * 1000
     assert len(graph.cells) == 500
-    assert build_ms < 500.0, f"build_graph took {build_ms:.1f} ms"
-    assert analyse_ms + build_ms < 2000.0, f"analyse {analyse_ms:.1f} ms + build {build_ms:.1f} ms"
+    assert analyse_ms + build_ms < 500.0, f"analyse {analyse_ms:.1f} ms + build {build_ms:.1f} ms, bound 500 ms"
 
 
 def test_fr018_the_cost_grows_linearly_with_the_number_of_cells() -> None:
@@ -1312,10 +1467,23 @@ def test_fr018_the_cost_grows_linearly_with_the_number_of_cells() -> None:
 def test_sc007_fingerprinting_a_whole_namespace_stays_inside_the_declared_bound() -> None:
     """SC-007: every name in the largest fixture's namespace, against ``max_seconds``.
 
-    The bound is per call, so a namespace of *n* names is allowed *n* times it.
     The namespace here is what a working session holds: a large frame, a large
     array, containers, scalars, and a handful of values the fingerprint cannot
     inspect at all.
+
+    The bound is one ``max_seconds`` — 250 ms — for the *whole* namespace, not
+    ``max_seconds`` per name. ``max_seconds`` is the ceiling for a single call, so
+    ``max_seconds x len(namespace)`` is what the budget formally permits, but at
+    nine names that is 2 250 ms against a measured 6 ms and the ADR-054 spec 2
+    audit was right to call the result unfalsifiable: 476x headroom is a statement,
+    not a measurement. The claim actually worth holding is stronger and is what
+    the design rests on — nine ordinary session values together cost less than the
+    budget allows for *one* of them — and 6 ms against 250 ms is roughly the same
+    headroom (40x) as its per-call sibling
+    ``test_largest_fixture_costs_less_than_the_declared_time_bound`` (5x at its
+    worst fixture, 30x at its median), which is the calibration a shared runner
+    needs. The ``per name`` bound is asserted alongside it so the formal criterion
+    is still on the record.
     """
     namespace = {
         "frame": pd.DataFrame({f"c{i}": np.random.default_rng(i).random(50_000) for i in range(20)}),
@@ -1332,6 +1500,10 @@ def test_sc007_fingerprinting_a_whole_namespace_stays_inside_the_declared_bound(
     snapshot = {name: fingerprint(value) for name, value in namespace.items()}
     elapsed = time.perf_counter() - started
 
-    budget = FINGERPRINT_BUDGET.max_seconds * len(namespace)
-    assert elapsed < budget, f"{elapsed * 1000:.1f} ms for {len(namespace)} names, bound {budget * 1000:.0f} ms"
+    formal = FINGERPRINT_BUDGET.max_seconds * len(namespace)
+    assert elapsed < formal, f"{elapsed * 1000:.1f} ms for {len(namespace)} names, bound {formal * 1000:.0f} ms"
+    assert elapsed < FINGERPRINT_BUDGET.max_seconds, (
+        f"the whole namespace took {elapsed * 1000:.1f} ms, which is more than one call is allowed "
+        f"({FINGERPRINT_BUDGET.max_seconds * 1000:.0f} ms)"
+    )
     assert compare_namespaces(snapshot, snapshot, cell_id="c1", source_hash="h").changed_names == frozenset()

@@ -419,6 +419,65 @@ def test_the_sample_spans_the_full_extent_of_a_container() -> None:
     assert fingerprint(values) != before, "a change at the end was missed"
 
 
+@pytest.mark.parametrize("length", [1000, 1024, 1536, 2048])
+def test_the_sample_spans_the_full_extent_of_a_mapping(length: int) -> None:
+    """FR-025 for the one container kind that had neither half of the guarantee.
+
+    Every indexable container takes an explicit tail — ``_stride_indices`` appends
+    ``length - 1``, ``_digest_ndarray`` feeds ``flat[-1:]``, ``_digest_text`` feeds
+    ``obj[-1]`` — and until the ADR-054 spec 2 audit measured it, the dict and set
+    path did not. A plain ``islice`` with a step stops at the last multiple of the
+    step, so a change to the last-inserted entry of a 1024-entry dict moved no
+    digest at all, at any length. The lengths here are the audit's own: 1000 is
+    the shape a notebook actually holds, and 1024, 1536 and 2048 are the multiples
+    and non-multiples of ``container_items`` around it.
+    """
+    assert length > FINGERPRINT_BUDGET.container_items
+    mapping = {index: 0 for index in range(length)}
+    before = fingerprint(mapping)
+
+    mapping[0] = 1
+    assert fingerprint(mapping) != before, "a change at the start was missed"
+
+    mapping[0] = 0
+    mapping[length - 1] = 1
+    assert fingerprint(mapping) != before, "a change at the end was missed"
+
+
+def test_the_sample_of_a_mapping_stays_inside_the_declared_item_bound() -> None:
+    """FR-025's count half, which the floor step broke in the other direction.
+
+    ``container_items`` declares 512 entries. With ``step = length // keep`` a
+    1000-entry dict took a step of 1 and walked and digested all thousand — twice
+    the declared bound in entries, and 2001 nodes against a list's 502 at the same
+    length. ``ceil`` bounds it: at most ``keep`` strided entries plus the tail,
+    which for a dict is two nodes each plus the mapping itself.
+    """
+    keep = FINGERPRINT_BUDGET.container_items
+    ceiling = 2 * (keep + 1) + 1
+    for length in (1000, 1024, 1536, 2048, 200_000):
+        context = _fingerprint_context({index: index for index in range(length)})
+        assert context.nodes <= ceiling, f"a {length}-entry dict visited {context.nodes} nodes, bound {ceiling}"
+
+    for length in (1000, 200_000):
+        context = _fingerprint_context(set(range(length)))
+        assert context.nodes <= ceiling, f"a {length}-entry set visited {context.nodes} nodes, bound {ceiling}"
+
+
+def test_a_swapped_member_of_a_large_set_moves_the_fingerprint() -> None:
+    """The set half of the same repair, over integers so iteration order is stable.
+
+    ``test_fr024_a_large_set_fingerprints_differently_in_two_processes`` records
+    that a large set of *strings* samples differently per process; a set of small
+    integers iterates in a fixed order, so a change to the member the walk reaches
+    last is a deterministic assertion rather than a seeded one.
+    """
+    members = set(range(1024))
+    before = fingerprint(members)
+    walked_last = list(members)[-1]
+    assert fingerprint((members - {walked_last}) | {-1}) != before
+
+
 def test_the_sample_spans_the_full_extent_of_a_frame() -> None:
     """A tall frame is sampled by row and still notices its last row."""
     frame = pd.DataFrame({"value": np.zeros(500_000)})
@@ -484,6 +543,15 @@ def test_largest_fixture_costs_less_than_the_declared_time_bound() -> None:
     A fingerprint slower than the cell it follows is one the first person to
     notice would switch off, so this is the criterion the design is actually
     accountable to.
+
+    ``dict_1m`` is here because ``max_seconds``' docstring names a
+    one-million-entry dict as the worst case and, until the ADR-054 spec 2 audit,
+    no committed test built one: the largest mapping fixture was ``dict_200k``,
+    and the only test that reached ``max_scan_items`` overrode it to 1000, so the
+    budget's own worst-case branch was never timed. A dict just under
+    ``max_scan_items`` takes the strided walk, which has to *step over* every
+    entry it does not hash because a mapping cannot be indexed; that walk is what
+    the constant is sized for.
     """
     fixtures: dict[str, Any] = {
         "array_64mb": np.arange(8_000_000, dtype=np.float64),
@@ -500,6 +568,7 @@ def test_largest_fixture_costs_less_than_the_declared_time_bound() -> None:
         ),
         "list_200k": list(range(200_000)),
         "dict_200k": {index: index for index in range(200_000)},
+        "dict_1m": {index: index for index in range(1_000_000)},
         "set_200k": set(range(200_000)),
         "str_16mb": "x" * 16_000_000,
         "nested_containers": [{"k": [index, (index, index)]} for index in range(2000)],

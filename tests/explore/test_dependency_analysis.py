@@ -161,7 +161,8 @@ def test_assigned_walrus_target_inside_a_comprehension(label: str, source: str) 
     only one of them cannot pass.
     """
     namespace: dict[str, object] = {}
-    exec(source, namespace)  # noqa: S102 - the interpreter is the oracle for what the cell binds
+    # The interpreter is the oracle here: what it binds is what FR-002 says must not be omitted.
+    exec(source, namespace)
     bound = {name for name in namespace if not name.startswith("__")}
     assert bound == {"vals", "y"}, f"{label}: the fixture must bind y at module scope"
     assert bound <= assigned(source), f"{label}: FR-002 forbids omitting an assignment the code shows"
