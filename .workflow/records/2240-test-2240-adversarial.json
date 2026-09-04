@@ -1,0 +1,94 @@
+{
+  "base_ref": "origin/track/adr-054-spec3-explore-session",
+  "branch": "test/2240-adversarial",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "tests/explore/**",
+      "tests/api/test_explore_routes.py",
+      ".workflow/records/2240-test-2240-adversarial.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-04T14:17:47.671767Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "test-only change against the spec that landed in PR 2228",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2240,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Adversarial test engineering against ADR-054 spec 3 explore session runtime; break the implementation and report defects with failing tests",
+  "persona": "test_engineer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2240-test-2240-adversarial",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T14:17:47.671730Z",
+      "pattern": "tests/explore/test_adversarial_session.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T14:17:47.671752Z",
+      "pattern": "tests/api/test_explore_routes.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T14:17:47.671755Z",
+      "pattern": ".workflow/records/2240-test-2240-adversarial.json",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "b255d7d1-738b-4ac4-836e-0c09d847a295",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-04T14:17:47.671776Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_adversarial_session.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T14:17:47.671781Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_explore_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

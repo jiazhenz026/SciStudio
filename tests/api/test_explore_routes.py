@@ -1990,3 +1990,248 @@ def test_interrupting_a_real_kernel_ends_a_hung_cell_through_the_route(
     assert outputs[-1]["data"]["status"] == "error"
     assert outputs[-1]["data"]["outputs"][0]["ename"] == "KeyboardInterrupt"
     assert real_harness.client.delete(f"/api/explore/kernels/{session_id}").status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# FR-058, adversarial: the shapes a route answers when the state is wrong
+# (added by the ADR-054 spec 3 adversarial pass, #2240)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("method", "suffix", "body"), SESSION_SCOPED_ROUTES, ids=lambda v: str(v))
+def test_a_dead_kernel_never_answers_a_route_with_a_500(
+    harness: _Harness,
+    method: str,
+    suffix: str,
+    body: dict[str, Any] | None,
+) -> None:
+    """FR-015 and FR-058 on *every* route, not on the three a test happened to pick.
+
+    ``test_a_dead_kernel_surfaces_as_a_refusal_not_a_500`` asks three routes.
+    The rest are where an unhandled ``KernelDiedError`` would surface as a bare
+    500 — the shape that tells a frontend nothing and, in this repository's
+    history, the shape that leaves an orphan behind. Any documented refusal is
+    an acceptable answer here; a 500, or a body with no ``error``, is not.
+    """
+    session = harness.open_file_session()
+    session_id = session["session_id"]
+    first = session["cells"][0]["cell_id"]
+    _set_source(harness, session_id, first, "value = 1")
+    _run(harness, session_id, first)
+
+    harness.kernels[0].die()
+    harness.service().session_for(session_id).report_kernel_died()
+
+    url = f"/api/explore/sessions/{session_id}{suffix.replace('c1', first)}"
+    response = harness.client.request(method, url, json=body)
+    harness.wait_idle()
+
+    assert response.status_code != 500, f"{method} {suffix} answered a bare 500: {response.text}"
+    if response.status_code >= 400:
+        detail = response.json().get("detail")
+        assert isinstance(detail, dict) and detail.get("error"), (
+            f"{method} {suffix} refused without saying what it refused: {response.text}"
+        )
+
+
+@pytest.mark.parametrize(("method", "suffix"), [(m, s) for m, s, b in SESSION_SCOPED_ROUTES if b is not None])
+def test_a_body_of_the_wrong_json_type_is_a_422_on_every_route_that_takes_one(
+    harness: _Harness,
+    method: str,
+    suffix: str,
+) -> None:
+    """Validation, on every route with a body rather than on the six a list names.
+
+    A JSON array where a model is expected is the shape a client sends when it
+    serialises the wrong variable, and it must be refused by validation rather
+    than reaching the session and becoming an ``AttributeError``.
+    """
+    session = harness.open_file_session()
+    session_id = session["session_id"]
+    first = session["cells"][0]["cell_id"]
+
+    url = f"/api/explore/sessions/{session_id}{suffix.replace('c1', first)}"
+    response = harness.client.request(method, url, json=["not", "a", "model"])
+
+    assert response.status_code == 422, f"{method} {suffix} answered {response.status_code}: {response.text}"
+    assert "detail" in response.json()
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param(["file", "a.csv"], id="a-list"),
+        pytest.param("file", id="a-string"),
+        pytest.param(7, id="a-number"),
+        pytest.param(None, id="null"),
+    ],
+)
+def test_opening_a_session_with_a_body_that_is_not_an_object_is_a_422(harness: _Harness, body: Any) -> None:
+    """The open route is the one an unauthenticated client reaches first."""
+    response = harness.client.post("/api/explore/sessions", json=body)
+
+    assert response.status_code == 422, response.text
+    assert "detail" in response.json()
+
+
+def test_ending_a_kernel_for_an_unknown_session_is_a_404_not_a_500(harness: _Harness) -> None:
+    """The kernel routes are session-scoped too, and are not in SESSION_SCOPED_ROUTES."""
+    response = harness.client.delete("/api/explore/kernels/no-such-session")
+
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"]["error"] == "session_not_found"
+
+
+def test_ending_a_kernel_that_is_already_gone_is_not_an_error(harness: _Harness) -> None:
+    """US7 scenario 2 pressed twice: ending a kernel is a state, not a transition.
+
+    The person's list is a moment old by the time they click, so the second
+    click has to be harmless rather than a refusal about a kernel that has
+    already gone.
+    """
+    session = harness.open_file_session()
+    session_id = session["session_id"]
+    first = session["cells"][0]["cell_id"]
+    _set_source(harness, session_id, first, "value = 1")
+    _run(harness, session_id, first)
+
+    assert harness.client.delete(f"/api/explore/kernels/{session_id}").status_code == 200
+    second = harness.client.delete(f"/api/explore/kernels/{session_id}")
+
+    assert second.status_code == 200, second.text
+    assert harness.client.get("/api/explore/kernels").json()["kernels"] == []
+
+
+def test_closing_a_session_twice_is_a_404_the_second_time_and_leaves_no_kernel(harness: _Harness) -> None:
+    """FR-006: closing removes the session, so the second close is about a session that is not open."""
+    session = harness.open_file_session()
+    session_id = session["session_id"]
+    first = session["cells"][0]["cell_id"]
+    _set_source(harness, session_id, first, "value = 1")
+    _run(harness, session_id, first)
+
+    assert harness.client.delete(f"/api/explore/sessions/{session_id}").status_code == 200
+    assert harness.kernels[0].stopped >= 1, "closing a session must end its kernel"
+
+    second = harness.client.delete(f"/api/explore/sessions/{session_id}")
+    assert second.status_code == 404
+    assert second.json()["detail"]["error"] == "session_not_found"
+    assert harness.client.get("/api/explore/kernels").json()["kernels"] == []
+
+
+def test_packaging_a_session_with_no_commit_is_a_refusal_that_writes_nothing(harness: _Harness) -> None:
+    """FR-041 through the route: a block's version is the commit it was packaged from.
+
+    The harness has no git engine, so no commit is ever recorded — which is the
+    state a project in a directory that is not a repository is permanently in.
+    The refusal must name the reason and leave the blocks directory alone.
+    """
+    session = harness.open_file_session()
+    session_id = session["session_id"]
+    blocks = harness.project_dir / "blocks"
+    before = sorted(path.name for path in blocks.glob("*")) if blocks.is_dir() else []
+
+    response = harness.client.post(
+        f"/api/explore/sessions/{session_id}/package",
+        json={"block_name": "Nothing Doing"},
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"]["error"] == "no_notebook_commit"
+    after = sorted(path.name for path in blocks.glob("*")) if blocks.is_dir() else []
+    assert after == before, "a refused packaging wrote files"
+
+
+@pytest.mark.xfail(
+    reason=(
+        "#2240: FR-039's 'Packaging MUST wait for the queue to drain before checking' is not "
+        "implemented anywhere — check_packaging is pure, package_notebook does not wait, and "
+        "neither route calls ExploreSession.wait_until_idle."
+    ),
+    strict=False,
+)
+def test_a_packaging_check_waits_for_the_queue_to_drain(harness: _Harness) -> None:
+    """FR-039, last sentence, and the edge case in spec §2 that explains it.
+
+    "Packaging is requested while a cell is queued or running. Packaging waits
+    for the queue to drain, because the slice's marks are not final until it
+    has." Here a cell is held mid-run whose completion makes the output cell
+    stale. Answered now, the check says the notebook is packageable; answered
+    after the queue drains, it says the slice contains a stale cell. Today it
+    answers now.
+
+    The failure is not a crash. It is a person being told their notebook is
+    ready and packaging a block whose slice was stale by the time the file was
+    written.
+    """
+    session = harness.open_file_session()
+    session_id = session["session_id"]
+    first = session["cells"][0]["cell_id"]
+    _set_source(harness, session_id, first, "value = 'one'")
+    declare = harness.client.post(
+        f"/api/explore/sessions/{session_id}/cells",
+        json={"source": "import scistudio\nscistudio.output(table=value)", "after": first},
+    )
+    assert declare.status_code == 200, declare.text
+    declared_id = declare.json()["cells"][-1]["cell_id"]
+    _run(harness, session_id, first)
+    _run(harness, session_id, declared_id)
+
+    clean = harness.client.post(f"/api/explore/sessions/{session_id}/packaging/check", json={}).json()
+    assert clean["is_packageable"], f"the fixture is not packageable to begin with: {clean['problems']}"
+
+    harness.kernels[0].block_on = "two"
+    harness.kernels[0].released.clear()
+    harness.kernels[0].entered.clear()
+    _set_source(harness, session_id, first, "value = 'two'")
+    harness.client.post(f"/api/explore/sessions/{session_id}/cells/{first}/run")
+    assert harness.kernels[0].entered.wait(timeout=_IDLE_TIMEOUT), "the held cell never started"
+
+    try:
+        answered = harness.client.post(f"/api/explore/sessions/{session_id}/packaging/check", json={})
+    finally:
+        harness.kernels[0].block_on = None
+        harness.kernels[0].released.set()
+        harness.wait_idle()
+
+    assert answered.status_code == 200, answered.text
+    body = answered.json()
+    assert not body["is_packageable"], (
+        "packaging answered before the queue drained, so it read marks that were not final"
+    )
+    assert any(problem["kind"] == "stale_cell" for problem in body["problems"]), body["problems"]
+
+
+def test_a_packaging_check_answers_from_the_marks_as_they_stand_today(harness: _Harness) -> None:
+    """The behaviour as delivered, pinned. See the xfail above for why it is wrong."""
+    session = harness.open_file_session()
+    session_id = session["session_id"]
+    first = session["cells"][0]["cell_id"]
+    _set_source(harness, session_id, first, "value = 'one'")
+    declare = harness.client.post(
+        f"/api/explore/sessions/{session_id}/cells",
+        json={"source": "import scistudio\nscistudio.output(table=value)", "after": first},
+    )
+    declared_id = declare.json()["cells"][-1]["cell_id"]
+    _run(harness, session_id, first)
+    _run(harness, session_id, declared_id)
+
+    harness.kernels[0].block_on = "two"
+    harness.kernels[0].released.clear()
+    harness.kernels[0].entered.clear()
+    _set_source(harness, session_id, first, "value = 'two'")
+    harness.client.post(f"/api/explore/sessions/{session_id}/cells/{first}/run")
+    assert harness.kernels[0].entered.wait(timeout=_IDLE_TIMEOUT)
+
+    try:
+        body = harness.client.post(f"/api/explore/sessions/{session_id}/packaging/check", json={}).json()
+    finally:
+        harness.kernels[0].block_on = None
+        harness.kernels[0].released.set()
+        harness.wait_idle()
+
+    assert body["is_packageable"], "the check no longer answers mid-run; update the xfail above"
+
+    after = harness.client.post(f"/api/explore/sessions/{session_id}/packaging/check", json={}).json()
+    assert not after["is_packageable"], "and once the queue has drained the same notebook is refused"
+    assert any(problem["kind"] == "stale_cell" for problem in after["problems"])
