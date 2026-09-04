@@ -152,8 +152,8 @@ class PackagingProblemKind(StrEnum):
     """The closed set of things packaging reports about a notebook (FR-039).
 
     All but one of these refuse. :attr:`DUPLICATE_OUTPUT_DECLARATION` is
-    reported without refusing, because spec §2's edge case resolves it —
-    "the later declaration in written order wins" — rather than rejecting it,
+    reported without refusing, because spec §2's edge case resolves it — the
+    declaration written last in the notebook wins — rather than rejecting it,
     and a resolved ambiguity the person is not told about is the failure that
     edge case is guarding against. :attr:`PackagingProblem.refuses` says which
     a given problem is.
@@ -188,9 +188,9 @@ class PackagingProblemKind(StrEnum):
     DUPLICATE_OUTPUT_DECLARATION = "duplicate_output_declaration"
     """The same port name was declared as an output more than once.
 
-    Spec §2's edge case: "The same name is declared as output twice. The later
-    declaration in written order wins, and packaging reports the duplicate."
-    This is the report, and it does not refuse — the second declaration is a
+    Spec §2's edge case covers the same name being declared as output twice:
+    the declaration written last in the notebook wins, and packaging reports
+    the duplicate. This is the report, and it does not refuse — the second declaration is a
     person refining an output, and refusing would turn a resolved ambiguity
     into a dead end. What must not happen is the silent version: a second
     ``scistudio.output(table=better)`` that leaves the port wired to ``worse``,
@@ -578,7 +578,7 @@ def _build_ports(
             PackagingProblem(
                 kind=PackagingProblemKind.DUPLICATE_OUTPUT_DECLARATION,
                 message=(
-                    "These output names carry a duplicate declaration; the later one in written order "
+                    "These output names carry a duplicate declaration; the one written last "
                     "wins, and the earlier one is not packaged: "
                     + ", ".join(
                         f"{port_name} in cells {', '.join(_ordered(cell_ids, slice_cells))}"

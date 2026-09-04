@@ -742,7 +742,7 @@ class PackagingProblemModel(BaseModel):
 
     ``refuses`` says whether it stops the notebook being packaged. Every
     refusal of FR-039 does; the duplicate output declaration of spec §2 does
-    not, because packaging resolves it to the later declaration and reports it.
+    not, because packaging resolves it to the last declaration and reports it.
     """
 
     kind: str

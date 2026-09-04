@@ -42,9 +42,10 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import os
 import threading
 import time
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -637,16 +638,57 @@ def test_open_over_a_file_returns_a_session_with_a_generated_first_cell(harness:
     assert body["cells"][0]["marks"] == ["never_run"]
 
 
+def _native_separator_traversal(_project_dir: Path) -> str:
+    """A ``..`` walk written with the **running** platform's separator.
+
+    This case used to be the literal ``..\\..\\..\\..\\Windows\\win.ini``, which
+    only escapes on Windows: on POSIX the backslash is an ordinary filename
+    character, so that string is a single file name sitting directly in the
+    project and the 403 the test demanded was the wrong answer. Deriving the
+    separator makes the same *claim* — a walk out of the tree in the notation
+    the platform actually parses — true wherever the suite runs.
+    """
+    return os.sep.join(["..", "..", "..", "..", "walked-out-of-the-tree", "secret.txt"])
+
+
+def _absolute_outside_the_project(project_dir: Path) -> str:
+    """An absolute path on the project's own volume, pointing outside it.
+
+    The literal this replaces was ``C:/Windows/win.ini``, which is absolute only
+    under ``ntpath``; ``posixpath.isabs`` says no, so on Linux the service
+    resolved it *relative to the project* into a directory named ``C:`` and
+    contained it correctly. Building the path from ``project_dir.anchor`` (``/``
+    on POSIX, ``C:\\`` or whichever volume the tmp project landed on under
+    Windows) keeps it absolute and outside on both.
+    """
+    return str(Path(Path(project_dir).anchor) / "outside-the-project" / "secret.txt")
+
+
 @pytest.mark.parametrize(
-    "path",
+    "make_path",
     [
-        pytest.param("../../../../etc/passwd", id="posix-style-traversal"),
-        pytest.param("..\\..\\..\\..\\Windows\\win.ini", id="windows-style-traversal"),
-        pytest.param("C:/Windows/win.ini", id="absolute-outside-the-project"),
-        pytest.param("/etc/passwd", id="absolute-posix"),
+        pytest.param(lambda _project_dir: "../../../../etc/passwd", id="posix-style-traversal"),
+        pytest.param(_native_separator_traversal, id="native-separator-traversal"),
+        pytest.param(_absolute_outside_the_project, id="absolute-outside-the-project"),
+        pytest.param(lambda _project_dir: "/etc/passwd", id="rooted-absolute"),
+        pytest.param(
+            lambda _project_dir: "Z:\\elsewhere\\win.ini",
+            id="windows-other-volume",
+            marks=pytest.mark.skipif(
+                os.name != "nt",
+                reason=(
+                    "drive letters exist only on Windows: 'Z:\\elsewhere\\win.ini' is one "
+                    "relative filename under POSIX, not a second volume, so it cannot exercise "
+                    "the commonpath ValueError branch there"
+                ),
+            ),
+        ),
     ],
 )
-def test_opening_over_a_file_outside_the_project_is_refused(harness: _Harness, path: str) -> None:
+def test_opening_over_a_file_outside_the_project_is_refused(
+    harness: _Harness,
+    make_path: Callable[[Path], str],
+) -> None:
     """FR-002 opens a session over a file **in the project's data tree** (#2240 audit P3-1).
 
     Before this, every one of these answered 200 and wrote a notebook into
@@ -659,7 +701,17 @@ def test_opening_over_a_file_outside_the_project_is_refused(harness: _Harness, p
     its own ``PathEscapesProjectError`` and the route's closed refusal table
     maps it, which is what keeps it out of the "anything unrecognised is a bug"
     branch.
+
+    The cases are **built** rather than written as literals because "outside the
+    project" is a claim about path *semantics*, and those differ by platform. A
+    hard-coded Windows spelling asserts a refusal that the POSIX resolver is
+    right to withhold, which is a defect in the test rather than a hole in the
+    containment. Four of the five cases are therefore genuine escapes on every
+    platform, so Linux CI — the only place this suite runs unattended — proves
+    the property rather than skipping past it; the fifth is the one semantic
+    that has no POSIX equivalent at all.
     """
+    path = make_path(harness.project_dir)
     before = (
         sorted(p.name for p in (harness.project_dir / "explore").glob("*"))
         if (harness.project_dir / "explore").is_dir()
@@ -668,7 +720,7 @@ def test_opening_over_a_file_outside_the_project_is_refused(harness: _Harness, p
 
     response = harness.client.post("/api/explore/sessions", json={"source": "file", "path": path})
 
-    assert response.status_code == 403, response.text
+    assert response.status_code == 403, f"{path!r} was not refused: {response.text}"
     assert response.json()["detail"]["error"] == "path_escapes_project"
     after = (
         sorted(p.name for p in (harness.project_dir / "explore").glob("*"))
