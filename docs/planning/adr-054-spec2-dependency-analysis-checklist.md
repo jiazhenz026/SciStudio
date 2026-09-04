@@ -256,10 +256,18 @@ amendment.
       are cleared, and the 88 informational findings from other documents are
       unchanged. `phase: planning` deliberately left as is — `phase: implementation`
       makes `doc_drift` demand an *active* related spec, and spec 2 is `Draft`, so
-      the change trades 13 errors for one. `AnalysisRecord`, `ObservedChange`,
-      `tests/explore/test_analysis_differential.py`, and `tests/explore/fixtures/**`
-      stay in `planned_governs`; the first two do not exist under those names in the
-      delivered modules. Gate ledger:
+      the change trades 13 errors for one. Second pass, after `S2-C1` and `S2-D1`
+      merged: `full_audit` `fail` (3 error, 85 info) to `pass` (0 error, 84 info).
+      `ObservedChange`, `tests/explore/test_analysis_differential.py`, and
+      `tests/explore/fixtures/**` moved into `governs`, and
+      `tests/explore/test_adversarial_analysis.py`, which was in neither list, was
+      added. `AnalysisRecord` was dropped rather than moved, with the reason left
+      as a comment where it stood: Key Entities defines it as the JSON shape in
+      cell metadata and FR-033 requires unrecognised keys to survive, which no
+      closed Python type expresses. The spec's `planned_governs` is now empty.
+      The same pass narrowed FR-011 from a textual first-character test to a
+      lexical one, which is the `S2-D1` P1 finding
+      `test_sc003_wrapped_operator_slice_reproduces_the_notebook`. Gate ledger:
       `.workflow/records/2231-docs-2231-governs-migration.json`.
 - [x] docs -> N/A, rationale recorded in §7.1.
 
@@ -303,6 +311,8 @@ Append only.
 | 2026-09-04 | `S2-G1` | ADR-054's `governs.contracts` is `[]` while spec 2's names three. `doc_drift`'s `missing-adr-governance` rule is silent only because it counts a spec active at status `Planned` or `Implemented`, and every ADR-054 spec is `Draft`. | Left the statuses at `Draft`, which matches `docs/specs/adr-053-personal-tool-library.md`'s precedent, and opened a follow-up so the coupling is visible in the repository rather than in one agent's report. | #2242 |
 | 2026-09-04 | `S2-G1` | The spec's `planned_governs` names contracts `AnalysisRecord` and `ObservedChange`, which no delivered module defines. | Sequencing, not drift: both are `S2-C1`'s (the observation record and the metadata codec). A second migration pass moves them, and `S2-D1`'s differential test and fixtures, once those land. | N/A |
 | 2026-09-04 | `S2-B2` | Raised that SC-011 names only numpy and pandas as permitted lazy third-party imports while §4.1 directs arrays through `xxhash`. | Resolved by the shape of `S2-B1`'s allowlist test, which reads module-level imports only, so a lazy `xxhash` inside the fingerprint is permitted on the same terms as numpy and pandas. No document change needed. | N/A |
+| 2026-09-04 | `S2-D1`, `S2-G1` | FR-011 as written ("a line whose first non-blank character is `%` or `!` MUST be removed") is too broad. A formatter-wrapped `    % count` is such a line, so it was stripped, the cell still parsed as `ratio = (total)`, no flag was raised, and `count` vanished from the read set; the slice then ran the original source and raised `NameError`. `!=` and a magic-looking line inside a triple-quoted string share the root cause. | The implementation obeyed FR-011 exactly, so the defect is the spec's. `S2-G1` narrowed FR-011 to identify a magic line lexically — a `%` or `!` token that is the first token of a logical line — rather than by the first character of a physical line. The rule was prototyped against both acceptance tests and eleven other shapes before it was written. | `S2-F1` implements it. `tests/explore/test_adversarial_analysis.py::test_fr011_a_magic_line_inside_a_string_literal_is_stripped_too` asserts the old behaviour in its P3 half and must be updated with the fix. |
+| 2026-09-04 | `S2-G1` | Superseding the `AnalysisRecord` row above: `ObservedChange` was sequencing and has landed, but `AnalysisRecord` is not a Python type at all. Key Entities defines it as the JSON shape stored in cell metadata and FR-033 requires unrecognised keys to survive a rewrite. | Dropped from `planned_governs.contracts` on the manager's direction rather than satisfied by a type invented to fill a manifest line, with the reason kept as a front-matter comment where the entry stood. `S2-C1` was right to refuse to invent it. | N/A |
 
 ## 10. Final Readiness
 
