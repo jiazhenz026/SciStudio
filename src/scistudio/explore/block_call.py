@@ -344,12 +344,12 @@ class PendingInteraction:
 
     The adapter creates one, hands it to the session's
     :class:`InteractionChannel`, and then blocks the calling thread in
-    :meth:`await_value`. The session service opens the panel, and later — from
+    :meth:`await_value`. The session service opens the panel, and then — from
     whatever thread its transport runs on — calls :meth:`submit` with the
     person's decision or :meth:`cancel` if the panel was dismissed. Both are
     safe to call from another thread, and both are idempotent-by-first-caller:
-    the first to settle the interaction wins and later calls are ignored, so a
-    cancel racing an arriving value cannot corrupt the result.
+    the first to settle the interaction wins and every call after it is
+    ignored, so a cancel racing an arriving value cannot corrupt the result.
 
     The wait is a single blocking :meth:`threading.Event.wait`, not a poll —
     which is what FR-050 asks for, and what :attr:`wait_count` exists to make

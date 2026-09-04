@@ -317,8 +317,8 @@ def encode_artefact_reference(
     The session service calls this when it binds a run's output ports to a new
     session. The reference is a URI rather than an opaque token so that a
     person who prints it in a cell sees where their data is, and so that a
-    reference recorded in lineage can be read a year later without the object
-    that produced it.
+    reference recorded in lineage can be read a year afterwards without the
+    object that produced it.
 
     Args:
         type_name: The SciStudio type recorded for the artefact, e.g. ``"DataFrame"``.
@@ -492,8 +492,8 @@ def output(**names: Any) -> None:
     for name, value in names.items():
         if mode == SESSION_MODE:
             # "The later declaration in written order wins" (spec §2, Edge
-            # Cases): drop the earlier entry so the winner also takes the
-            # later position rather than inheriting the first one's.
+            # Cases): drop the earlier entry so the winner also takes its own
+            # position rather than inheriting the first one's.
             _DECLARED.pop(name, None)
             _DECLARED[name] = DeclaredOutput(name=name, value=value, type_name=type(value).__name__)
         else:

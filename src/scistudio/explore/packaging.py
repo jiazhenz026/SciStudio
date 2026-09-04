@@ -190,7 +190,7 @@ class PackagingProblemKind(StrEnum):
 
     Spec §2's edge case: "The same name is declared as output twice. The later
     declaration in written order wins, and packaging reports the duplicate."
-    This is the report, and it does not refuse — the later declaration is a
+    This is the report, and it does not refuse — the second declaration is a
     person refining an output, and refusing would turn a resolved ambiguity
     into a dead end. What must not happen is the silent version: a second
     ``scistudio.output(table=better)`` that leaves the port wired to ``worse``,
@@ -349,7 +349,7 @@ class PackagingPlan:
         """``True`` when nothing *refuses* this notebook.
 
         A reported-but-resolved problem — the duplicate output declaration of
-        spec §2 — leaves this ``True``: the later declaration wins, so there is
+        spec §2 — leaves this ``True``: the last declaration wins, so there is
         a block to write, and the person is told about the duplicate rather
         than blocked by it.
         """
@@ -545,11 +545,11 @@ def _build_ports(
     the port is the notebook's *read* of a name, and a second read of the same
     name is the same port. An **output** name declared twice is the opposite
     case — two declarations that disagree — and spec §2 resolves it to the
-    later one in written order, which is also what
+    last one in written order, which is also what
     :func:`scistudio.explore.notebook_api.output` does in the kernel. The two
     implementations of that one sentence must agree, so this pops the earlier
-    entry rather than keeping it, which gives the winner the later *position*
-    as well as the later value.
+    entry rather than keeping it, which gives the winner its own *position*
+    as well as its value.
     """
     by_id = {cell.cell_id: cell for cell in facts}
     problems: list[PackagingProblem] = []
