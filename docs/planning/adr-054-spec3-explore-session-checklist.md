@@ -234,7 +234,7 @@ amendment.
 
 - [ ] `S3-A1` dependencies and the notebook store -> artifact pending
 - [ ] `S3-A2` kernel handle -> artifact pending
-- [x] `S3-A3` plumbing commits to a ref -> branch `feat/2240-explore-commits`; `src/scistudio/core/versioning/_commit_ops.py`, `src/scistudio/core/versioning/git_engine.py` (binding block only, added under a manager scope amendment recorded in the ledger), `tests/core/versioning/test_explore_ref_commits.py`; `PYTHONPATH=./src python -m pytest tests/core/versioning/ tests/core/test_git_engine.py tests/api/test_workflow_run_git.py tests/api/test_open_project_degraded_modes.py tests/integration/test_race_lineage_restore.py --no-cov` -> 168 passed; gate ledger `.workflow/records/2240-feat-2240-explore-commits.json`
+- [x] `S3-A3` plumbing commits to a ref -> branch `feat/2240-explore-commits`; `src/scistudio/core/versioning/_commit_ops.py`, `src/scistudio/core/versioning/git_engine.py` (binding block and ADR-052 markers only) and `tests/core/test_git_engine.py` (no-cycle stub narrowed), both added under manager scope amendments recorded in the ledger, `tests/core/versioning/test_explore_ref_commits.py`; `PYTHONPATH=./src python -m pytest tests/core/versioning/ tests/core/test_git_engine.py tests/api/test_workflow_run_git.py tests/api/test_open_project_degraded_modes.py tests/integration/test_race_lineage_restore.py --no-cov` -> 173 passed; gate ledger `.workflow/records/2240-feat-2240-explore-commits.json`
 - [ ] `S3-A4` `on_new_input` and the remap policy -> artifact pending
 - [ ] `S3-B1` bridge, helpers, windows, environment snapshot -> artifact pending
 - [ ] `S3-B2` session, queue, marks, kernel list -> artifact pending

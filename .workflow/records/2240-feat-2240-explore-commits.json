@@ -933,6 +933,12 @@
       "at": "2026-09-04T09:22:10.908039Z",
       "pattern": "src/scistudio/core/versioning/git_engine.py",
       "reason": "Manager scope amendment for #2240: S3-A3 reported that T-009's plumbing functions had no public surface because git_engine.py held the GitEngine binding block and was outside the original write set. The manager amended the #2240 manager ledger to include src/scistudio/core/versioning/git_engine.py and directed S3-A3 to add the binding block plus its ADR-052 stability markers. Scope is the binding block only; no other line of git_engine.py changes."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:31:16.753217Z",
+      "pattern": "tests/core/test_git_engine.py",
+      "reason": "Manager scope amendment for #2240: S3-A3 found that tests/core/test_git_engine.py::test_no_circular_import stubs 'scistudio' and 'scistudio.core' with an empty __path__, which makes every first-party leaf import unresolvable anywhere in scistudio.core.versioning and blocked the ADR-052 stability markers. scistudio.stability is a stdlib-only leaf and cannot join the git_binary/git_engine cycle the test guards, so the stub is over-broad. The manager amended the #2240 manager ledger to include the test file and directed S3-A3 to narrow the stub, prove the guard still refuses scistudio.core.* outside versioning, and document why."
     }
   ],
   "session_id": "2dbafb2e-cff1-4d8e-96c0-15ebe650b569",

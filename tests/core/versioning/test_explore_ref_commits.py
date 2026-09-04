@@ -20,12 +20,14 @@ import inspect
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
-from scistudio.core.versioning import _commit_ops
+from scistudio.core.versioning import _commit_ops, git_engine
 from scistudio.core.versioning.errors import GitError
 from scistudio.core.versioning.git_engine import GitEngine
+from scistudio.stability import get_stability
 
 _NOTEBOOK = "explore/analysis.ipynb"
 
@@ -41,9 +43,10 @@ def engine(tmp_path: Path) -> GitEngine:
     repo = tmp_path / "project"
     repo.mkdir()
     (repo / "workflow.json").write_text('{"blocks": []}\n', encoding="utf-8")
-    git_engine = GitEngine(repo)
-    git_engine.init_repository(repo)
-    return git_engine
+    # Not named ``git_engine``: that is the module imported above.
+    created = GitEngine(repo)
+    created.init_repository(repo)
+    return created
 
 
 def _git(engine: GitEngine, *args: str) -> str:
@@ -753,18 +756,22 @@ def test_new_symbols_follow_the_sibling_convention(symbol_name: str) -> None:
         assert parameters[0] == "engine", f"{symbol_name} must take the GitEngine first"
 
 
-def test_the_module_imports_nothing_first_party_beyond_its_own_package() -> None:
-    """The no-cycle contract (#1337, PR #1344) forbids a wider first-party import.
+@pytest.mark.parametrize("module", [_commit_ops, git_engine])
+def test_the_package_never_reaches_sideways_under_scistudio_core(module: ModuleType) -> None:
+    """The layering rule ``test_no_circular_import`` enforces, asserted at the source.
 
-    ``test_no_circular_import`` loads ``git_binary`` and ``git_engine`` in
-    either order under a stub ``scistudio`` package with an empty ``__path__``.
-    Any ``import scistudio.<anything-else>`` in this module makes that load
-    fail — which is why the new functions carry no ``scistudio.stability``
-    decorator. Assert it here so the reason is visible at the point of change
-    rather than only in a distant test's traceback.
+    That test loads ``git_binary`` and ``git_engine`` under a stub where
+    ``scistudio.core`` has an empty ``__path__``, so an import of a sibling
+    core subpackage — lineage, storage, types — fails there. The failure
+    arrives as a ``ModuleNotFoundError`` inside a subprocess, several frames
+    from the line that caused it, so assert the rule here too where the diff
+    is.
+
+    Stdlib-only leaves such as ``scistudio.stability`` are fine and are how
+    ``git_engine`` carries its ADR-052 §5 markers; only the sideways reach
+    under ``scistudio.core`` is refused.
     """
-    source = (Path(_commit_ops.__file__)).read_text(encoding="utf-8")
-    tree = ast.parse(source)
+    tree = ast.parse(Path(module.__file__ or "").read_text(encoding="utf-8"))
     imported: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.module:
@@ -772,11 +779,12 @@ def test_the_module_imports_nothing_first_party_beyond_its_own_package() -> None
         elif isinstance(node, ast.Import):
             imported.update(alias.name for alias in node.names)
 
-    first_party = {name for name in imported if name.split(".")[0] == "scistudio"}
-    assert first_party <= {
-        "scistudio.core.versioning.errors",
-        "scistudio.core.versioning.git_engine",  # TYPE_CHECKING only
-    }, f"unexpected first-party imports: {sorted(first_party)}"
+    sideways = {
+        name
+        for name in imported
+        if name.startswith("scistudio.core.") and not name.startswith("scistudio.core.versioning")
+    }
+    assert not sideways, f"{module.__name__} reaches under scistudio.core outside versioning: {sorted(sideways)}"
 
 
 # ---------------------------------------------------------------------------
@@ -882,3 +890,17 @@ def test_the_engine_method_refuses_a_branch_ref(engine: GitEngine) -> None:
         engine.commit_entries_to_ref("refs/heads/main", {_NOTEBOOK: b"x"}, "nope")
     with pytest.raises(ValueError):
         engine.commit_entries_to_ref(engine.explore_session_ref("s1"), {".git/config": b"x"}, "nope")
+
+
+@pytest.mark.parametrize("method_name", sorted(_BOUND_METHODS))
+def test_every_bound_method_declares_a_stability_tier(method_name: str) -> None:
+    """ADR-052 §5: the public symbol carries its tier and its ``since``.
+
+    Read through :func:`get_stability`, the single read path the contract
+    validator, the surface-freeze test and the reference generator share, so
+    this asserts what those three will see.
+    """
+    info = get_stability(inspect.getattr_static(GitEngine, method_name))
+    assert info is not None, f"GitEngine.{method_name} carries no ADR-052 stability marker"
+    assert info.tier == "provisional"
+    assert info.since == "0.3.4"
