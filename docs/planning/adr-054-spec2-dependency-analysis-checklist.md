@@ -134,11 +134,12 @@ branch and issue.
 |---|---|---|---|---|---|---|---|---|---|---|
 | `S2-B1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-b1-graph.md` | T-001 to T-006: the package, the layer rule, per-cell static facts, flags, declarations, the graph, the four queries | `feat/2231-dep-analysis-graph` | `.worktrees/s2-b1-graph` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `tests/explore/test_dependency_analysis.py`, `tests/architecture/test_layer_deps.py`, `tests/architecture/test_placement.py` (amended) | `src/scistudio/explore/fingerprint.py`, `tests/explore/test_fingerprint.py`, everything outside `src/scistudio/explore/` and `tests/explore/` | `#2231` | `[!]` |
 | `S2-B2` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-b2-fingerprint.md` | T-007: the fingerprint, the size bound, the unobservable fallback | `feat/2231-fingerprint` | `.worktrees/s2-b2-fingerprint` | `src/scistudio/explore/fingerprint.py`, `tests/explore/test_fingerprint.py` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `tests/architecture/**` | `#2231` | `[ ]` |
-| `S2-C1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-c1-observation.md` | T-008, T-009, T-011: the namespace comparison, the observation record with source-hash invalidation, the metadata codec, stability markers | `feat/2231-observation-codec` | `.worktrees/s2-c1-observation` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `src/scistudio/explore/fingerprint.py`, `tests/explore/test_dependency_analysis.py`, `tests/explore/test_fingerprint.py` | `tests/architecture/**`, everything outside `src/scistudio/explore/` and `tests/explore/` | `#2231` | `[ ]` |
-| `S2-D1` | `test_engineer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-d1-adversarial.md` | T-010 and adversarial coverage: the differential harness, the fixtures, and tests that try to break the analysis rather than confirm it | `test/2231-adversarial` | `.worktrees/s2-d1-adversarial` | `tests/explore/**` | Every production path. Report defects, do not fix them. | `#2231` | `[ ]` |
+| `S2-C1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-c1-observation.md` | T-008, T-009, T-011: the namespace comparison, the observation record with source-hash invalidation, the metadata codec, stability markers | `feat/2231-observation-codec` | `.worktrees/s2-c1-observation` | `src/scistudio/explore/__init__.py`, `src/scistudio/explore/dependency_analysis.py`, `src/scistudio/explore/fingerprint.py`, `tests/explore/test_dependency_analysis.py`, `tests/explore/test_fingerprint.py` | `tests/architecture/**`, everything outside `src/scistudio/explore/` and `tests/explore/` | `#2231` | `[x]` |
+| `S2-D1` | `test_engineer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-d1-adversarial.md` | T-010 and adversarial coverage: the differential harness, the fixtures, and tests that try to break the analysis rather than confirm it | `test/2231-adversarial` | `.worktrees/s2-d1-adversarial` | `tests/explore/**` | Every production path. Report defects, do not fix them. | `#2231` | `[x]` |
 | `S2-E1` | `audit_reviewer` | `no-context` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-e1-audit-no-context.md` | Independent audit of the explore analysis subsystem against the repository's own documents | `audit/2231-no-context` | `.worktrees/s2-e1-audit-nc` | `docs/audit/2026-09-04-explore-dependency-analysis-no-context.md` | Every implementation and test path. Read-only. | `#2231` | `[ ]` |
 | `S2-E2` | `audit_reviewer` | `with-context` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-e2-audit-with-context.md` | Audit of the delivered spec 2 work against the spec, the issue, and this checklist | `audit/2231-with-context` | `.worktrees/s2-e2-audit-wc` | `docs/audit/2026-09-04-adr-054-spec2-with-context.md` | Every implementation and test path. Read-only. | `#2231` | `[ ]` |
-| `S2-F1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-f1-fix.md` | Fix the P1 and P2 findings the audits and the adversarial test engineer produce | `fix/2231-audit-findings` | `.worktrees/s2-f1-fix` | `src/scistudio/explore/**`, `tests/explore/**` | Everything else | `#2231` | `[ ]` |
+| `S2-G1` | `adr_author` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-g1-governs-migration.md` | Move the ADR-054 and spec-2 `planned_governs` entries that now resolve into `governs`, and correct the one §11 sentence the move makes false | `docs/2231-governs-migration` | `.worktrees/s2-g1-governs` | `docs/adr/ADR-054.md` (front matter and one sentence), `docs/specs/adr-054-notebook-dependency-analysis.md` (front matter) | Every path under `src/` and `tests/`; every other ADR-054 spec; `docs/architecture/**` | `#2231` | `[x]` |
+| `S2-F1` | `implementer` | `N/A` | `docs/planning/adr-054-spec2-dispatch-prompts/s2-f1-fix.md` | Fix the P1 and P2 findings the audits and the adversarial test engineer produce | `fix/2231-audit-findings` | `.worktrees/s2-f1-fix` | `src/scistudio/explore/**`, `tests/explore/**` | Everything else | `#2231` | `[x]` |
 
 For `test_engineer` rows, the write set should default to tests, fixtures,
 validation scripts, e2e scenarios, audit evidence, and explicitly assigned
@@ -207,8 +208,67 @@ amendment.
       declared 250 ms bound. Benchmarking found and fixed a real defect: leaf handlers
       copied a full megabyte per element before the byte ceiling truncated it.
       Gate ledger: `.workflow/records/2231-feat-2231-fingerprint.json`.
-- [ ] `S2-C1` observation, codec, stability markers -> artifact pending
-- [ ] `S2-D1` differential harness, fixtures, adversarial tests -> artifact pending
+- [x] `S2-C1` observation, codec, stability markers -> delivered on
+      `feat/2231-observation-codec`. `tests/explore` 311 passed, of which 82 are
+      new (`test_dependency_analysis.py` 162 -> 227, `test_fingerprint.py`
+      67 -> 84); `scistudio.explore.fingerprint` 100% and
+      `scistudio.explore.dependency_analysis` 99% statement coverage (the one
+      uncovered line, the `MatchMapping` rest binding, predates this branch).
+      `tests/architecture/test_layer_deps.py`, `test_placement.py`,
+      `tests/api/test_public_surface.py`, and `tests/api/test_stability_decorators.py`
+      456 passed together; `tests/adr052_contract tests/stability tests/docs`
+      202 passed / 7 skipped, so A-009 holds and the frozen surface inventory is
+      unchanged. Two integration facts the manager should carry forward: the
+      package facade does **not** re-export the `fingerprint` function, because
+      the name would shadow the submodule of the same name and break
+      `from scistudio.explore import fingerprint`; and
+      `dependency_analysis` now imports `ObservedChange` from `fingerprint` for
+      the codec, which the FR-035 allowlist already permits
+      (`EXPLORE_ALLOWED_SCISTUDIO_IMPORTS` includes `scistudio.explore`).
+      Gate ledger: `.workflow/records/2231-feat-2231-observation-codec.json`.
+- [x] `S2-D1` differential harness, fixtures, adversarial tests -> delivered on
+      `test/2231-adversarial`. `tests/explore` **8 failed, 399 passed**; 96 tests are
+      new (`test_analysis_differential.py` 32, `test_adversarial_analysis.py` 64) and
+      ten fixture notebooks landed under `tests/explore/fixtures/`. The eight failures
+      are the deliverable, not a regression: each is a defect with a named test, and
+      no pre-existing test changed. **Two are P1 and both are proven by execution, not
+      by assertion** — the backward slice of `global_counter.ipynb` and of
+      `wrapped_operator.ipynb` raises `NameError` when it runs, which is the SC-003
+      failure User Story 2 exists to prevent, and in both cases FR-021's unresolved-read
+      list is empty so packaging would have accepted the notebook. A third P1 is in the
+      fingerprint: `_stride_indices` truncates its index list after the stride is
+      chosen, so a list of 513 to 2047 elements has an unsampled middle region and a
+      write into it is not observed. Fifty-one mutations were run against the delivered
+      modules with only the implementers' tests in place: 42 killed, 9 survived, of
+      which 5 were genuine coverage holes (now closed) and 4 equivalent mutants (now
+      documented). SC-010 measured on this runner: 500 cells analyse in 49 ms and build
+      in 11 ms, 60 ms total against the 500 ms bound; 1000 cells cost 139 ms, so the
+      cost is linear. `full_audit` reports 6 errors, all of the expected
+      `planned-*-is-resolved` shape on the spec front matter — `ObservedChange` plus the
+      two entries this agent's files made resolve; `test_adversarial_analysis.py` is in
+      neither `governs` nor `planned_governs` and the second migration pass should add
+      it. `tests/architecture` and `tests/api/test_public_surface.py` 540 passed / 1
+      skipped. Gate ledger: `.workflow/records/2231-test-2231-adversarial.json`.
+- [ ] `S2-G1` the `planned_governs` migration -> branch `docs/2231-governs-migration`
+      pushed, awaiting integration. `full_audit` went from `fail` (13 error, 88 info)
+      to `pass` (0 error, 88 info): the 13 `planned-*-is-resolved` errors on
+      `docs/adr/ADR-054.md` and `docs/specs/adr-054-notebook-dependency-analysis.md`
+      are cleared, and the 88 informational findings from other documents are
+      unchanged. `phase: planning` deliberately left as is — `phase: implementation`
+      makes `doc_drift` demand an *active* related spec, and spec 2 is `Draft`, so
+      the change trades 13 errors for one. Second pass, after `S2-C1` and `S2-D1`
+      merged: `full_audit` `fail` (3 error, 85 info) to `pass` (0 error, 84 info).
+      `ObservedChange`, `tests/explore/test_analysis_differential.py`, and
+      `tests/explore/fixtures/**` moved into `governs`, and
+      `tests/explore/test_adversarial_analysis.py`, which was in neither list, was
+      added. `AnalysisRecord` was dropped rather than moved, with the reason left
+      as a comment where it stood: Key Entities defines it as the JSON shape in
+      cell metadata and FR-033 requires unrecognised keys to survive, which no
+      closed Python type expresses. The spec's `planned_governs` is now empty.
+      The same pass narrowed FR-011 from a textual first-character test to a
+      lexical one, which is the `S2-D1` P1 finding
+      `test_sc003_wrapped_operator_slice_reproduces_the_notebook`. Gate ledger:
+      `.workflow/records/2231-docs-2231-governs-migration.json`.
 - [x] docs -> N/A, rationale recorded in §7.1.
 
 ### 7.4 Audit
@@ -246,6 +306,13 @@ Append only.
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
 | 2026-09-04 | manager | The earlier spec 2 dispatch left a checklist and three prompts with no implementation behind them. | Owner directed a full restart. Replaced the checklist and the prompt directory; retained and amended the gate ledger. | N/A |
+| 2026-09-04 | `S2-B1`, `S2-B2`, `S3-A1` | Three agents independently hit the same blocker and each correctly refused to widen its own scope: creating `src/scistudio/explore/` makes the ADR-054 and spec `planned_governs` entries resolve, and `full_audit` requires a resolved entry to move into `governs`. No implementer's write set covers governance front matter, and the move cannot be pre-applied on a branch without the package. | Manager added agent `S2-G1` (`adr_author`) to make the move once, as its own reviewable change, and amended the ledger to include the two documents. | A second short pass moves `tests/explore/test_analysis_differential.py` and `tests/explore/fixtures/**` once `S2-D1` creates them. |
+| 2026-09-04 | `S2-B1` | `tests/architecture/test_placement.py::test_no_py_files_outside_known_packages` enumerates top-level packages independently of the layer test and fails for whichever branch first creates the subsystem. | Scope amended; `S2-B1` added the one line. | N/A |
+| 2026-09-04 | `S2-G1` | ADR-054's `governs.contracts` is `[]` while spec 2's names three. `doc_drift`'s `missing-adr-governance` rule is silent only because it counts a spec active at status `Planned` or `Implemented`, and every ADR-054 spec is `Draft`. | Left the statuses at `Draft`, which matches `docs/specs/adr-053-personal-tool-library.md`'s precedent, and opened a follow-up so the coupling is visible in the repository rather than in one agent's report. | #2242 |
+| 2026-09-04 | `S2-G1` | The spec's `planned_governs` names contracts `AnalysisRecord` and `ObservedChange`, which no delivered module defines. | Sequencing, not drift: both are `S2-C1`'s (the observation record and the metadata codec). A second migration pass moves them, and `S2-D1`'s differential test and fixtures, once those land. | N/A |
+| 2026-09-04 | `S2-B2` | Raised that SC-011 names only numpy and pandas as permitted lazy third-party imports while §4.1 directs arrays through `xxhash`. | Resolved by the shape of `S2-B1`'s allowlist test, which reads module-level imports only, so a lazy `xxhash` inside the fingerprint is permitted on the same terms as numpy and pandas. No document change needed. | N/A |
+| 2026-09-04 | `S2-D1`, `S2-G1` | FR-011 as written ("a line whose first non-blank character is `%` or `!` MUST be removed") is too broad. A formatter-wrapped `    % count` is such a line, so it was stripped, the cell still parsed as `ratio = (total)`, no flag was raised, and `count` vanished from the read set; the slice then ran the original source and raised `NameError`. `!=` and a magic-looking line inside a triple-quoted string share the root cause. | The implementation obeyed FR-011 exactly, so the defect is the spec's. `S2-G1` narrowed FR-011 to identify a magic line lexically — a `%` or `!` token that is the first token of a logical line — rather than by the first character of a physical line. The rule was prototyped against both acceptance tests and eleven other shapes before it was written. | `S2-F1` implements it. `tests/explore/test_adversarial_analysis.py::test_fr011_a_magic_line_inside_a_string_literal_is_stripped_too` asserts the old behaviour in its P3 half and must be updated with the fix. |
+| 2026-09-04 | `S2-G1` | Superseding the `AnalysisRecord` row above: `ObservedChange` was sequencing and has landed, but `AnalysisRecord` is not a Python type at all. Key Entities defines it as the JSON shape stored in cell metadata and FR-033 requires unrecognised keys to survive a rewrite. | Dropped from `planned_governs.contracts` on the manager's direction rather than satisfied by a type invented to fill a manifest line, with the reason kept as a front-matter comment where the entry stood. `S2-C1` was right to refuse to invent it. | N/A |
 
 ## 10. Final Readiness
 

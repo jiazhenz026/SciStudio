@@ -24,27 +24,45 @@ and selects; the session decides what to do with that.
 
 The analysis is pure Python over the standard library — no IPython, no notebook
 format library, no static-analysis package — and imports nothing from SciStudio
-beyond stability markers, so the session, the API layer, and the kernel adapter
-can all import it without a layering question.
+beyond the stability markers and its own two modules, so the session, the API
+layer, and the kernel adapter can all import it without a layering question.
 ``tests/architecture/test_layer_deps.py`` asserts the constraint.
 
-**The runtime** (ADR-054 §4 to §7, and
-``docs/specs/adr-054-explore-session.md``) is the session itself: a notebook in
-the project's ``explore/`` directory plus an optional ipykernel, with the
-notebook store, the kernel handle and its in-kernel bridge, the execution queue,
-the marks, packaging, and the session service that owns them. The subsystem sits
-beside the engine and must not import the API, AI, or engine layers.
+What this façade re-exports, and what it deliberately does not: the static facts,
+the graph, the queries, and the metadata codec are re-exported here; the
+fingerprint half is imported from :mod:`scistudio.explore.fingerprint` instead.
+That module is named after its main function, so re-exporting ``fingerprint``
+here would rebind the package attribute of the same name from the module to the
+function and quietly break ``from scistudio.explore import fingerprint``. The
+observation types travel with the function they belong to rather than being split
+across two spellings::
 
-Only the analysis is re-exported here, because it is pure and cheap. The runtime
-submodules are imported directly, so importing the analysis never drags a kernel
-or a queue in with it.
+    from scistudio.explore import build_graph, decode_cell_record
+    from scistudio.explore.fingerprint import ObservedChange, compare_namespaces, fingerprint
+
+The spec names both module paths among its contracts, so neither import is a
+second-class route.
+
+**The runtime** (ADR-054 §4 to §7, and ``docs/specs/adr-054-explore-session.md``)
+is the session itself: a notebook in the project's ``explore/`` directory plus an
+optional ipykernel, with the notebook store, the kernel handle and its in-kernel
+bridge, the execution queue, the marks, packaging, the lineage anchor, and the
+session service that owns them. The subsystem sits beside the engine and must not
+import the API, AI, or engine layers.
+
+None of the runtime is re-exported here. Its submodules are imported directly, so
+importing the analysis never drags a kernel or a queue in with it.
 """
 
 from __future__ import annotations
 
 from scistudio.explore.dependency_analysis import (
     ANALYSIS_VERSION,
+    BLOCK_CALL_PATHS,
     BUILTIN_NAMES,
+    CELL_RECORD_KEY,
+    INPUT_CALL_PATH,
+    OUTPUT_CALL_PATH,
     AnalysisFlag,
     BlockCall,
     CellFacts,
@@ -52,6 +70,7 @@ from scistudio.explore.dependency_analysis import (
     DependencyGraph,
     Edge,
     EdgeOrigin,
+    LoadedCell,
     OutputDeclaration,
     SliceResult,
     UnresolvedRead,
@@ -60,12 +79,21 @@ from scistudio.explore.dependency_analysis import (
     analyse_cell,
     analyse_cells,
     build_graph,
+    decode_cell_record,
+    encode_cell_record,
+    encode_notebook_record,
+    notebook_record_version,
+    observation_flags,
     source_hash,
 )
 
 __all__ = [
     "ANALYSIS_VERSION",
+    "BLOCK_CALL_PATHS",
     "BUILTIN_NAMES",
+    "CELL_RECORD_KEY",
+    "INPUT_CALL_PATH",
+    "OUTPUT_CALL_PATH",
     "AnalysisFlag",
     "BlockCall",
     "CellFacts",
@@ -73,6 +101,7 @@ __all__ = [
     "DependencyGraph",
     "Edge",
     "EdgeOrigin",
+    "LoadedCell",
     "OutputDeclaration",
     "SliceResult",
     "UnresolvedRead",
@@ -81,5 +110,10 @@ __all__ = [
     "analyse_cell",
     "analyse_cells",
     "build_graph",
+    "decode_cell_record",
+    "encode_cell_record",
+    "encode_notebook_record",
+    "notebook_record_version",
+    "observation_flags",
     "source_hash",
 ]

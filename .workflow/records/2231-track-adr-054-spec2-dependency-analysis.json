@@ -44,6 +44,22 @@
       "path": "docs/planning/adr-054-spec2-dispatch-prompts/a-impl.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T11:36:45.981300Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-04-explore-dependency-analysis-no-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T11:36:45.981304Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-04-adr-054-spec2-with-context.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -91,6 +107,12 @@
       "at": "2026-09-04T09:25:34.086289Z",
       "pattern": "docs/specs/adr-054-notebook-dependency-analysis.md",
       "reason": "S2-B1 reports two surfaces the original scope missed: tests/architecture/test_placement.py enumerates top-level packages independently of the layer test and fails when a subsystem is added, and the ADR-054 and spec front matter must move planned_governs entries into governs in the same commit range that creates the package or full_audit errors either way"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T11:36:45.981279Z",
+      "pattern": "tests/architecture/**",
+      "reason": "Both audits found that the FR-035/SC-011 allowlist test cannot see lazy imports by construction, so a lazy third-party import would pass; strengthening it needs tests/architecture in the fix agent's write set"
     }
   ],
   "session_id": "172b5b7b-49d5-4461-abba-a645e9f606d4",

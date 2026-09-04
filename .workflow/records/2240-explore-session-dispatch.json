@@ -147,6 +147,24 @@
       "at": "2026-09-04T09:30:15.715000Z",
       "pattern": "tests/core/test_git_engine.py",
       "reason": "S3-A3 proved that tests/core/test_git_engine.py's circular-import stub gives scistudio an empty __path__, which forbids every first-party leaf import in core/versioning, not just the cycle the guard exists to catch; the ADR-052 stability markers cannot be applied anywhere in the package until the stub is corrected"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T11:01:55.952655Z",
+      "pattern": "src/scistudio/blocks/registry/_spec.py",
+      "reason": "S3-C2 found that a generated packaged block declares version = <notebook commit> but _spec_from_class force-injects the distribution version and _resolve_block_version prefers the spec, so lineage stamps the SciStudio version instead of the commit; FR-054 makes the commit sha the link from a run back to its session, so the requirement is unmet without a fix in the registry spec or the scheduler's lineage"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T11:01:55.952675Z",
+      "pattern": "src/scistudio/engine/scheduler/_lineage.py",
+      "reason": "S3-C2 found that a generated packaged block declares version = <notebook commit> but _spec_from_class force-injects the distribution version and _resolve_block_version prefers the spec, so lineage stamps the SciStudio version instead of the commit; FR-054 makes the commit sha the link from a run back to its session, so the requirement is unmet without a fix in the registry spec or the scheduler's lineage"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T11:01:55.952677Z",
+      "pattern": "tests/blocks/registry/**",
+      "reason": "S3-C2 found that a generated packaged block declares version = <notebook commit> but _spec_from_class force-injects the distribution version and _resolve_block_version prefers the spec, so lineage stamps the SciStudio version instead of the commit; FR-054 makes the commit sha the link from a run back to its session, so the requirement is unmet without a fix in the registry spec or the scheduler's lineage"
     }
   ],
   "session_id": "8c06bfb9-2c49-447a-b286-4ed23bc35536",

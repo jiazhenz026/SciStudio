@@ -34,14 +34,6 @@ scope:
     - Statement-order precision inside a cell and control-flow precision, which are the model's stated limit, as ADR-054 section 6.2 states it.
     - Human documentation revision, which is specified separately in adr-054-documentation.
 governs:
-  modules: []
-  contracts: []
-  entry_points: []
-  files:
-    - docs/specs/adr-054-notebook-dependency-analysis.md
-    - tests/architecture/test_layer_deps.py
-  excludes: []
-planned_governs:
   modules:
     - scistudio.explore
     - scistudio.explore.dependency_analysis
@@ -49,18 +41,33 @@ planned_governs:
   contracts:
     - scistudio.explore.dependency_analysis.CellFacts
     - scistudio.explore.dependency_analysis.DependencyGraph
-    - scistudio.explore.dependency_analysis.AnalysisRecord
     - scistudio.explore.fingerprint.Fingerprint
     - scistudio.explore.fingerprint.ObservedChange
   entry_points: []
   files:
+    - docs/specs/adr-054-notebook-dependency-analysis.md
     - src/scistudio/explore/__init__.py
     - src/scistudio/explore/dependency_analysis.py
     - src/scistudio/explore/fingerprint.py
+    - tests/architecture/test_layer_deps.py
+    - tests/explore/fixtures/**
+    - tests/explore/test_adversarial_analysis.py
+    - tests/explore/test_analysis_differential.py
     - tests/explore/test_dependency_analysis.py
     - tests/explore/test_fingerprint.py
-    - tests/explore/test_analysis_differential.py
-    - tests/explore/fixtures/**
+  excludes: []
+planned_governs:
+  modules: []
+  # No contract is planned. `scistudio.explore.dependency_analysis.AnalysisRecord`
+  # was listed here and is deliberately gone rather than resolved: Key Entities
+  # defines the analysis record as the JSON shape stored in cell metadata, and
+  # FR-033 requires keys the analysis does not recognise to survive a rewrite,
+  # which no closed Python type expresses. The codec of FR-031 to FR-034 defines
+  # the shape; there is no class to govern, and one added to satisfy this list
+  # would constrain nothing.
+  contracts: []
+  entry_points: []
+  files: []
   excludes: []
 tests:
   - tests/explore/test_dependency_analysis.py
@@ -391,10 +398,35 @@ graph rebuilt from the loaded record equals the graph built from source.
 - **FR-010**: The analysis MUST record, for each cell, the block identifier
   passed as a string literal to a block call, and MUST flag a block call whose
   identifier is not a literal as an unknown block call.
-- **FR-011**: A line whose first non-blank character is `%` or `!` MUST be
-  removed before parsing and MUST NOT by itself produce an error flag. A cell
-  whose first non-blank line begins with `%%` MUST be recorded as opaque:
-  assigning nothing, reading nothing, and carrying the opaque-cell-magic flag.
+- **FR-011**: A cell whose first non-blank line begins with `%%` MUST be
+  recorded as opaque: assigning nothing, reading nothing, and carrying the
+  opaque-cell-magic flag. This test is textual and precedes everything below.
+  Otherwise, magic and shell lines MUST be identified lexically rather than by
+  the first character of a line, because `%` and `!` are also Python operators
+  and a kernel tokenises before it decides what a magic is. The analysis MUST
+  tokenise the cell source with the standard library's tokeniser, consuming
+  tokens until they end or the tokeniser stops on an error. A `%` or `!` token
+  begins a **magic line** when it is the first token of a logical line: at the
+  start of the cell, or after the tokeniser's logical-newline token, with
+  indent, dedent, and comment tokens ignored in making that determination. The
+  tokeniser's other newline — the one it emits inside an open bracket and after
+  a blank or comment-only line — does not terminate a logical line and MUST NOT
+  be treated as though it did; that distinction is the whole of this rule, and
+  a reading that collapses the two restores the defect this narrowing repairs.
+  Every physical line the magic's logical line spans MUST be removed before
+  parsing. A `%` or `!` anywhere else is not a magic and MUST be left in place:
+  within an open bracket, after a backslash continuation, inside a string
+  literal or a comment, or after any other token on its logical line. A wrapped
+  expression whose continuation line begins with `% count` or `!= count` is
+  therefore the modulo and the inequality operator, the cell parses whole, and
+  `count` MUST be recorded as read under FR-006. Where the tokeniser stops on
+  an error, every physical line from the one it stopped on onward MUST be
+  classified by the older textual test — first non-blank character `%` or `!` —
+  so that a magic in a cell that cannot be tokenised is still removed.
+  Removing a magic line MUST NOT by itself produce an error flag, and a cell
+  that still does not parse after removal is FR-012's case: it carries the
+  syntax-error flag rather than raising. This definition of a magic line
+  governs every other reference to one in this spec, FR-013's `%run` included.
 - **FR-012**: A cell that does not parse MUST be recorded as assigning
   nothing, reading nothing, and carrying the syntax-error flag with the
   parser's message and position. It MUST NOT prevent any other cell from being

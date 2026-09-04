@@ -15,13 +15,18 @@ docstring says which way it was resolved and why.
 
 from __future__ import annotations
 
+import json
 import time
+from collections.abc import Mapping, Sequence
 
 import pytest
 
+from scistudio import explore as explore_package
+from scistudio.explore import dependency_analysis
 from scistudio.explore.dependency_analysis import (
     ANALYSIS_VERSION,
     BUILTIN_NAMES,
+    CELL_RECORD_KEY,
     AnalysisFlag,
     BlockCall,
     CellFacts,
@@ -32,8 +37,15 @@ from scistudio.explore.dependency_analysis import (
     analyse_cell,
     analyse_cells,
     build_graph,
+    decode_cell_record,
+    encode_cell_record,
+    encode_notebook_record,
+    notebook_record_version,
+    observation_flags,
     source_hash,
 )
+from scistudio.explore.fingerprint import ObservedChange
+from scistudio.stability import get_stability
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -365,10 +377,51 @@ def test_del_target_is_read() -> None:
     assert "df" in read("del df")
 
 
-def test_augmented_assignment_inside_a_nested_scope_is_not_a_module_read() -> None:
-    """The extra read is taken at module level only; a function's local is its own."""
+def test_augmented_assignment_on_a_nested_scope_local_is_not_a_module_read() -> None:
+    """A function's own local is its own, however it is written.
+
+    ``running`` is bound and then augmented inside ``tally``; nothing resolves it
+    to the module scope, so FR-006 does not reach it. This is the boundary of the
+    rule the test below states, and the two belong together: the extra read
+    follows the *scope a name resolves to*, not the depth the statement sits at.
+    """
     source = "def tally():\n    running = 0\n    running += 1\n    return running\n"
     assert "running" not in read(source)
+
+
+def test_augmented_assignment_on_a_global_inside_a_function_is_a_module_read() -> None:
+    """FR-006: a nested-scope read that resolves to the module scope is a module read.
+
+    ``counter += 1`` under ``global counter`` reads ``counter``. :mod:`symtable`
+    reports the symbol as assigned and global but not as referenced, so without
+    this the cell would be a definer of ``counter`` that reads nothing, and a
+    backward slice through it would drop the cell that gave ``counter`` its
+    initial value and fail with a ``NameError`` (FR-021, SC-003).
+    """
+    source = "def bump():\n    global counter\n\n    counter += 1\n"
+    assert "counter" in read(source)
+    assert "counter" in facts_for(source).assigned
+
+
+def test_del_of_a_global_inside_a_function_is_a_module_read() -> None:
+    """``del counter`` under ``global`` needs ``counter`` to exist, exactly as ``+=`` does."""
+    assert "counter" in read("def drop():\n    global counter\n\n    del counter\n")
+
+
+def test_a_global_declaration_does_not_reach_a_function_defined_inside_the_one_that_made_it() -> None:
+    """The declaration governs its own scope, and the extra read follows it exactly.
+
+    ``inner`` never declares ``counter`` global, so ``counter += 1`` there is a
+    read of ``inner``'s own local — a ``NameError`` at run time and not a
+    module-scope read the graph should draw an edge for.
+    """
+    source = "def outer():\n    global counter\n\n    def inner():\n        counter += 1\n\n    return inner\n"
+    assert "counter" not in read(source)
+
+
+def test_an_augmented_assignment_on_a_global_inside_a_class_body_is_a_module_read() -> None:
+    """A class body is a scope too, and ``global`` means the same thing in it."""
+    assert "tally" in read("class Counter:\n    global tally\n\n    tally += 1\n")
 
 
 def test_augmented_assignment_inside_a_module_level_loop_is_a_read() -> None:
@@ -519,16 +572,101 @@ def test_shell_line_is_stripped() -> None:
 
 
 def test_an_indented_magic_line_is_stripped() -> None:
-    """FR-011 keys on the first non-blank character, not on column zero."""
+    """FR-011: the first token of a logical line, not the first token in column zero.
+
+    The indent token says nothing about where the logical line begins, so a magic
+    inside a block is still the first token of its own.
+    """
     facts = facts_for("if True:\n    %time\n    df = load()\n")
     assert "df" in facts.assigned
     assert facts.flags == ()
 
 
 def test_a_modulo_expression_is_not_a_magic_line() -> None:
-    """FR-011 strips a line that *begins* with ``%``; arithmetic does not."""
+    """FR-011: ``%`` after another token on the same logical line is the operator."""
     facts = facts_for("remainder = total % 3")
     assert "remainder" in facts.assigned
+    assert facts.flags == ()
+
+
+def test_a_wrapped_modulo_is_the_operator_and_its_right_hand_name_is_read() -> None:
+    """FR-011 / FR-006: what ``black`` and ``ruff format`` emit is not a magic.
+
+    The continuation line's first non-blank character is ``%``, and a textual
+    rule removes it: the cell still parses, as ``ratio = (total)``, no flag is
+    raised, and ``count`` vanishes from the read set — a silently smaller
+    backward slice that raises ``NameError`` when it runs. The tokeniser puts
+    that ``%`` inside an open bracket, where it is the operator.
+    """
+    facts = facts_for("ratio = (\n    total\n    % count\n)\n")
+    assert facts.read >= {"total", "count"}
+    assert facts.assigned == frozenset({"ratio"})
+    assert facts.flags == ()
+
+
+def test_a_wrapped_inequality_is_the_operator_and_its_right_hand_name_is_read() -> None:
+    """The ``!`` half of the same shape: ``!=`` opening a continuation line."""
+    facts = facts_for("ok = (\n    a\n    != b\n)\n")
+    assert facts.read >= {"a", "b"}
+    assert facts.flags == ()
+
+
+def test_a_modulo_after_a_backslash_continuation_is_not_a_magic() -> None:
+    """FR-011: a backslash joins two physical lines into one logical line."""
+    facts = facts_for("ratio = total \\\n    % count\n")
+    assert facts.read >= {"total", "count"}
+    assert facts.flags == ()
+
+
+def test_a_magic_after_a_comment_only_line_is_still_a_magic() -> None:
+    """FR-011: a comment-only line does not end a logical line, and none was open.
+
+    The tokeniser's ``NL`` after the comment is not a logical newline, so the
+    rule cannot lean on it — the magic is the first token of the logical line
+    because nothing has opened one yet, which is the case that distinguishes this
+    from the wrapped operator above.
+    """
+    facts = facts_for("# set the backend\n%matplotlib inline\ndf = load()\n")
+    assert "df" in facts.assigned
+    assert facts.flags == ()
+
+
+def test_a_magic_after_a_blank_line_is_still_a_magic() -> None:
+    """The other ``NL``-emitting shape, for the same reason."""
+    facts = facts_for("df = load()\n\n%matplotlib inline\npeaks = find(df)\n")
+    assert facts.assigned >= {"df", "peaks"}
+    assert facts.flags == ()
+
+
+def test_a_magic_inside_a_string_literal_is_left_in_place() -> None:
+    """FR-011: a ``%`` inside a literal is part of that token, not the start of a line."""
+    facts = facts_for('notes = """\n%matplotlib"""\ndf = load()\n')
+    assert facts.assigned == frozenset({"notes", "df"})
+    assert facts.flags == ()
+
+
+def test_a_shell_line_the_tokeniser_cannot_read_is_still_stripped() -> None:
+    """FR-011's error-recovery clause: the older textual test from the stop onward.
+
+    ``!cat it's-a-file`` stops the tokeniser on the apostrophe, which opens a
+    string literal that never closes. Every physical line from there on is
+    classified textually, so the shell line still goes and the cell below it
+    still parses.
+    """
+    facts = facts_for("df = load()\n!cat it's-a-file\npeaks = find(df)\n")
+    assert facts.assigned >= {"df", "peaks"}
+    assert facts.flags == ()
+
+
+def test_a_magic_whose_logical_line_spans_two_physical_lines_is_removed_whole() -> None:
+    """FR-011: *every* physical line the magic's logical line spans is removed.
+
+    Removing only the first would leave the continuation behind as a fragment
+    that does not parse, which is the syntax-error flag FR-011 forbids the strip
+    to produce on its own.
+    """
+    facts = facts_for("%time load(\n    'a.csv'\n)\ndf = 1\n")
+    assert facts.assigned == frozenset({"df"})
     assert facts.flags == ()
 
 
@@ -665,6 +803,19 @@ def test_run_magic_binds_an_unknown_set_of_names() -> None:
 def test_an_ordinary_magic_does_not_bind_unknown_names() -> None:
     """FR-011: a stripped magic line does not by itself produce a flag."""
     assert not facts_for("%matplotlib inline\ndf = load()\n").binds_unknown_names
+
+
+def test_a_run_that_is_not_the_first_token_of_a_logical_line_binds_nothing_unknown() -> None:
+    """FR-011's definition of a magic line governs FR-013's ``%run`` as well.
+
+    Inside an open bracket ``%run`` is a modulo by a name called ``run``. Reading
+    it as a ``%run`` magic would mark the cell as binding an unknown set, which
+    resolves every otherwise-unresolved read below it to this cell and hides the
+    ones packaging exists to refuse.
+    """
+    facts = facts_for("total = (\n    seconds\n    %run\n)\n")
+    assert not facts.binds_unknown_names
+    assert facts.read >= {"seconds", "run"}
 
 
 def test_a_plain_from_import_does_not_bind_unknown_names() -> None:
@@ -1225,3 +1376,659 @@ def test_building_the_graph_of_a_five_hundred_cell_notebook_is_fast() -> None:
 
     assert len(graph.cells) == 500
     assert elapsed < 0.5, f"graph build took {elapsed:.3f}s"
+
+
+# ---------------------------------------------------------------------------
+# FR-027 / FR-030 (T-008): joining an observation to the graph.
+#
+# The union of FR-030 is the invariant the whole design rests on: an
+# observation may add a definer and may never remove one. The two directions
+# that could break it are a *smaller* observation, which must not shrink the
+# changed set, and a *stale* observation, which must not contribute at all.
+# ---------------------------------------------------------------------------
+
+OBSERVED_SOURCE = "if flag:\n    df = load()\nlookup = build()\n"
+
+
+def observation_for(
+    source: str,
+    changed: set[str],
+    *,
+    cell_id: str = "c1",
+    unobservable: set[str] | None = None,
+    source_text: str | None = None,
+) -> ObservedChange:
+    """An observation of *changed* keyed to the hash of *source_text* (default *source*)."""
+    return ObservedChange(
+        cell_id=cell_id,
+        changed_names=frozenset(changed),
+        unobservable_names=frozenset(unobservable or set()),
+        source_hash=source_hash(source_text if source_text is not None else source),
+    )
+
+
+def test_fr030_an_observation_smaller_than_the_estimate_leaves_the_union_standing() -> None:
+    """FR-030 / SC-008: the observation reports *less* and the changed set does not shrink.
+
+    The cell assigns ``df`` on an untaken branch and ``lookup`` unconditionally.
+    The run observed only ``lookup``. If the observation replaced the estimate,
+    ``df``'s edge would vanish and cell 2 would keep showing a number computed
+    from a value nothing marked stale — the exact failure ADR-054 §6.1 was
+    written to remove. The union means the observed set being a strict subset of
+    the static one changes nothing at all.
+    """
+    cells = [("c1", OBSERVED_SOURCE), ("c2", "peaks = find(df)")]
+    observed = observation_for(OBSERVED_SOURCE, {"lookup"})
+    assert observed.changed_names < analyse_cell("c1", OBSERVED_SOURCE).assigned, "the test needs a strict subset"
+
+    without = build_graph(analyse_cells(cells))
+    with_observation = build_graph(analyse_cells(cells), observations={"c1": observed})
+
+    assert with_observation.changed_set("c1") == frozenset({"df", "lookup"})
+    assert edge_tuples(with_observation) == edge_tuples(without)
+    assert ("c2", "c1", "df") in edge_tuples(with_observation)
+    assert with_observation.definer_for("c2", "df") == "c1"
+
+
+def test_fr030_an_empty_observation_removes_nothing() -> None:
+    """The degenerate subset: the cell was observed to change nothing at all."""
+    cells = [("c1", OBSERVED_SOURCE), ("c2", "peaks = find(df)")]
+    graph = build_graph(analyse_cells(cells), observations={"c1": observation_for(OBSERVED_SOURCE, set())})
+
+    assert graph.changed_set("c1") == frozenset({"df", "lookup"})
+    assert ("c2", "c1", "df") in edge_tuples(graph)
+
+
+def test_fr030_an_observation_of_a_name_the_estimate_lacks_adds_a_definer() -> None:
+    """FR-028 / US3 scenario 3: the in-place mutation the source does not show."""
+    cells = [("c1", "normalise(df)"), ("c2", "peaks = find(df)")]
+    graph = build_graph(
+        analyse_cells(cells),
+        observations={"c1": observation_for("normalise(df)", {"df"})},
+    )
+
+    assert graph.changed_set("c1") == frozenset({"df"})
+    assert graph.definer_for("c2", "df") == "c1"
+    assert ("c2", "c1", "df") in edge_tuples(graph)
+
+
+def test_fr019_an_observed_definer_carries_the_observed_change_origin() -> None:
+    """FR-019: the edge says why it exists, so the view can explain it."""
+    graph = build_graph(
+        analyse_cells([("c1", "normalise(df)"), ("c2", "peaks = find(df)")]),
+        observations={"c1": observation_for("normalise(df)", {"df"})},
+    )
+    origins = {(edge.reader, edge.name): edge.origin for edge in graph.edges}
+
+    assert origins[("c2", "df")] is EdgeOrigin.OBSERVED_CHANGE
+
+
+def test_fr027_an_observation_for_other_source_is_discarded() -> None:
+    """FR-027 / US3 scenario 4 / SC-008: the cell was edited, so the observation goes.
+
+    The observation says cell 1 changed ``df`` in place. The person then edits
+    the cell. The statement is now about code that no longer exists, so it must
+    not keep drawing an edge, and the static estimate alone governs until the
+    cell runs again.
+    """
+    cells = [("c1", "normalise(df)"), ("c2", "peaks = find(df)")]
+    stale = observation_for("normalise(df)", {"df"}, source_text="denoise(df)")
+
+    graph = build_graph(analyse_cells(cells), observations={"c1": stale})
+
+    assert graph.changed_set("c1") == frozenset()
+    assert graph.definer_for("c2", "df") is None
+    assert ("c2", "df") in unresolved_tuples(graph)
+
+
+def test_fr027_a_current_observation_survives_the_same_check() -> None:
+    """The other direction: the hash matches, so the observation counts."""
+    cells = [("c1", "normalise(df)"), ("c2", "peaks = find(df)")]
+    graph = build_graph(
+        analyse_cells(cells),
+        observations={"c1": observation_for("normalise(df)", {"df"})},
+    )
+
+    assert graph.definer_for("c2", "df") == "c1"
+
+
+def test_an_observation_without_a_source_hash_is_taken_at_face_value() -> None:
+    """The seam stays open for a caller that hands over a bare set of names.
+
+    ``build_graph`` reads ``source_hash`` when it is there and trusts the caller
+    when it is not, so the plain-set form the graph agent's tests use keeps
+    working and the keyed form gains the FR-027 check.
+    """
+    cells = [("c1", "normalise(df)"), ("c2", "peaks = find(df)")]
+    graph = build_graph(analyse_cells(cells), observations={"c1": {"df"}})
+
+    assert graph.definer_for("c2", "df") == "c1"
+
+
+def test_an_observation_of_none_is_read_as_no_observation() -> None:
+    """``LoadedCell.observation`` is ``None`` for a cell that has not run.
+
+    Handing the mapping straight from a load to ``build_graph`` must not have to
+    filter the ``None`` entries out first.
+    """
+    graph = build_graph(analyse_cells([("c1", "df = load()")]), observations={"c1": None})
+
+    assert graph.changed_set("c1") == frozenset({"df"})
+
+
+# ---------------------------------------------------------------------------
+# FR-028 / FR-029 (T-008): the two flags only the observation can raise.
+# ---------------------------------------------------------------------------
+
+
+def test_fr028_an_unpredicted_change_names_the_cell_and_the_name() -> None:
+    """FR-028 / US2 scenario 4: ``clean(df)`` changed ``df`` without an assignment showing it."""
+    facts = analyse_cell("c4", "clean(df)")
+    flags = observation_flags(facts, observation_for("clean(df)", {"df"}, cell_id="c4"))
+
+    assert [flag.flag for flag in flags] == [AnalysisFlag.UNPREDICTED_CHANGE]
+    assert flags[0].name == "df"
+    assert flags[0].message == "Cell c4 changed df without an assignment showing it."
+
+
+def test_fr028_a_change_the_estimate_predicted_raises_nothing() -> None:
+    """The diagnostic is about the *gap* between the source and the run."""
+    facts = analyse_cell("c1", "df = load()")
+
+    assert observation_flags(facts, observation_for("df = load()", {"df"})) == ()
+
+
+def test_fr028_one_flag_per_unpredicted_name_in_sorted_order() -> None:
+    """Two names changed without an assignment produce two flags, deterministically."""
+    facts = analyse_cell("c1", "clean(df, lookup)")
+    flags = observation_flags(facts, observation_for("clean(df, lookup)", {"lookup", "df"}))
+
+    assert [flag.name for flag in flags] == ["df", "lookup"]
+
+
+def test_fr029_an_unobservable_name_is_reported_once_for_the_run() -> None:
+    """FR-029 / US3 scenario 5: once per cell run, naming the cell and the name."""
+    facts = analyse_cell("c5", "df = load()")
+    flags = observation_flags(facts, observation_for("df = load()", {"df"}, cell_id="c5", unobservable={"handle"}))
+
+    assert [flag.flag for flag in flags] == [AnalysisFlag.UNOBSERVABLE_NAME]
+    assert flags[0].name == "handle"
+    assert "handle" in flags[0].message and "c5" in flags[0].message
+
+
+def test_the_observation_flags_of_a_cell_that_has_not_run_are_empty() -> None:
+    """No observation, no diagnostic."""
+    assert observation_flags(analyse_cell("c1", "clean(df)"), None) == ()
+
+
+def test_a_stale_observation_raises_no_diagnostic() -> None:
+    """FR-027: a message about code the person has since edited is noise."""
+    facts = analyse_cell("c1", "clean(df)")
+    stale = observation_for("clean(df)", {"df"}, unobservable={"handle"}, source_text="scrub(df)")
+
+    assert observation_flags(facts, stale) == ()
+
+
+def test_an_observation_for_another_cell_is_refused() -> None:
+    """Silently renaming the cell would put the wrong id in front of the person."""
+    facts = analyse_cell("c1", "clean(df)")
+
+    with pytest.raises(ValueError, match="c9"):
+        observation_flags(facts, observation_for("clean(df)", {"df"}, cell_id="c9"))
+
+
+def test_fr036_the_two_observation_flags_are_members_of_the_one_enumeration() -> None:
+    """FR-036: seven flags, and the two raised here are among them, not beside them."""
+    assert AnalysisFlag.UNPREDICTED_CHANGE in set(AnalysisFlag)
+    assert AnalysisFlag.UNOBSERVABLE_NAME in set(AnalysisFlag)
+    assert len(set(AnalysisFlag)) == 7
+
+
+# ---------------------------------------------------------------------------
+# FR-031 to FR-034 (T-009): the metadata codec.
+# ---------------------------------------------------------------------------
+
+CODEC_NOTEBOOK: list[tuple[str, str]] = [
+    ("c1", "import pandas as pd\ndf = pd.read_csv(path)\n"),
+    ("c2", "%time df = df.dropna()\n"),
+    ("c3", "lookup = build()\n"),
+    ("c4", "clean(df)\n"),
+    ("c5", "df.head()\n"),
+    ("c6", "peaks = find(df, lookup)\nscistudio.output(peaks=peaks)\n"),
+    ("c7", "scistudio.input('threshold')\nblocks.run('smooth')\nblocks.run(chosen)\n"),
+    ("c8", "from numpy import *\n"),
+    ("c9", "%%time\ndf = broken(\n"),
+    ("c10", "df = broken(\n"),
+]
+
+
+def stored_notebook(
+    cells: Sequence[tuple[str, str]],
+    observations: Mapping[str, ObservedChange] | None = None,
+) -> dict[str, dict[str, object]]:
+    """Analyse *cells*, write each record, and return them keyed by cell id."""
+    return {
+        facts.cell_id: encode_cell_record(facts, (observations or {}).get(facts.cell_id))
+        for facts in analyse_cells(cells)
+    }
+
+
+def reload_notebook(
+    cells: Sequence[tuple[str, str]],
+    records: Mapping[str, Mapping[str, object]],
+    notebook_record: Mapping[str, object] | None = None,
+) -> tuple[list[CellFacts], dict[str, ObservedChange]]:
+    """Decode every cell the way a notebook load would (FR-032)."""
+    version = notebook_record_version(notebook_record if notebook_record is not None else encode_notebook_record())
+    loaded = [
+        decode_cell_record(cell_id, source, records.get(cell_id), analysis_version=version) for cell_id, source in cells
+    ]
+    facts = [entry.facts for entry in loaded]
+    observations = {entry.facts.cell_id: entry.observation for entry in loaded if entry.observation is not None}
+    return facts, observations
+
+
+def test_sc009_a_round_trip_through_cell_metadata_yields_an_identical_graph() -> None:
+    """SC-009 / FR-032 / US5 scenario 5: the rebuilt graph equals the one built from source.
+
+    Every flag-raising shape in the notebook is present — a magic line, an
+    opaque cell magic, a star import, a non-literal block call, a syntax error,
+    an output declaration, an input declaration — so the round trip is over the
+    whole record and not just its easy half.
+    """
+    observations = {"c4": observation_for("clean(df)\n", {"df"}, cell_id="c4", unobservable={"handle"})}
+    source_facts = analyse_cells(CODEC_NOTEBOOK)
+    source_graph = build_graph(source_facts, observations=observations)
+
+    records = stored_notebook(CODEC_NOTEBOOK, observations)
+    loaded_facts, loaded_observations = reload_notebook(CODEC_NOTEBOOK, records)
+
+    assert loaded_facts == list(source_facts)
+    assert loaded_observations == observations
+    assert build_graph(loaded_facts, observations=loaded_observations) == source_graph
+
+
+def test_sc009_the_round_trip_survives_json_itself() -> None:
+    """FR-033 / FR-034: the record is JSON, so a real serialise/parse changes nothing.
+
+    Asserting on a dict alone would pass for a record holding tuples, sets, or a
+    ``CellFlag``; only a trip through :mod:`json` proves the primitives claim.
+    """
+    observations = {"c4": observation_for("clean(df)\n", {"df"}, cell_id="c4")}
+    records = stored_notebook(CODEC_NOTEBOOK, observations)
+
+    reparsed = json.loads(json.dumps(records))
+    loaded_facts, loaded_observations = reload_notebook(CODEC_NOTEBOOK, reparsed)
+
+    assert build_graph(loaded_facts, observations=loaded_observations) == build_graph(
+        analyse_cells(CODEC_NOTEBOOK), observations=observations
+    )
+
+
+def test_fr033_the_record_holds_only_json_primitives() -> None:
+    """FR-033: object, array, string, integer, or null — nothing else, at any depth."""
+    records = stored_notebook(CODEC_NOTEBOOK, {"c4": observation_for("clean(df)\n", {"df"}, cell_id="c4")})
+
+    def walk(value: object, path: str) -> None:
+        assert type(value) in (dict, list, str, int, bool, type(None)), f"{path}: {type(value).__name__}"
+        if isinstance(value, dict):
+            for key, item in value.items():
+                assert type(key) is str, f"{path}: non-string key {key!r}"
+                walk(item, f"{path}.{key}")
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                walk(item, f"{path}[{index}]")
+
+    walk(records, "records")
+
+
+def test_fr032_edges_are_not_stored() -> None:
+    """FR-032: a second copy of the graph could only ever disagree with the first."""
+    record = encode_cell_record(analyse_cell("c1", "df = load()"))
+
+    assert "edges" not in record
+    assert "version_edges" not in record
+    assert not any("edge" in key for key in json.loads(json.dumps(record)))
+
+
+def test_fr032_a_record_whose_source_hash_does_not_match_is_discarded() -> None:
+    """FR-032 / SC-008: the cell is re-analysed, and from its current source."""
+    stored = encode_cell_record(analyse_cell("c1", "df = load()"))
+
+    loaded = decode_cell_record("c1", "peaks = find(df)", stored)
+
+    assert loaded.reanalysed is True
+    assert loaded.facts == analyse_cell("c1", "peaks = find(df)")
+    assert loaded.facts.assigned == frozenset({"peaks"})
+    assert loaded.facts.source_hash == source_hash("peaks = find(df)")
+
+
+def test_fr032_a_matching_record_is_reused_rather_than_recomputed() -> None:
+    """The other direction, so the discard test above is not vacuously true."""
+    stored = encode_cell_record(analyse_cell("c1", "df = load()"))
+
+    loaded = decode_cell_record("c1", "df = load()", stored)
+
+    assert loaded.reanalysed is False
+    assert loaded.facts == analyse_cell("c1", "df = load()")
+
+
+def test_fr032_a_cell_with_no_record_is_analysed_from_source() -> None:
+    """A notebook written by Jupyter alone carries no record, and must still load."""
+    loaded = decode_cell_record("c1", "df = load()", None)
+
+    assert loaded.reanalysed is True
+    assert loaded.facts == analyse_cell("c1", "df = load()")
+    assert loaded.observation is None
+
+
+def test_fr027_a_stored_observation_for_other_source_is_discarded_on_load() -> None:
+    """FR-027: the codec discards it too, so a stale one never reaches the graph."""
+    facts = analyse_cell("c1", "clean(df)")
+    stored = encode_cell_record(facts, observation_for("clean(df)", {"df"}))
+
+    loaded = decode_cell_record("c1", "scrub(df)", stored)
+
+    assert loaded.reanalysed is True
+    assert loaded.observation is None
+
+
+def test_a_stored_observation_for_the_current_source_survives_a_reanalysis() -> None:
+    """The two hashes are resolved independently, as the record stores them.
+
+    A record whose facts were written by an older pass but whose observation is
+    keyed to the source now on screen keeps the observation: it is a true
+    statement about the code as it stands.
+    """
+    facts = analyse_cell("c1", "clean(df)")
+    stored = encode_cell_record(facts, observation_for("clean(df)", {"df"}))
+    stored["source_hash"] = source_hash("something else entirely")
+
+    loaded = decode_cell_record("c1", "clean(df)", stored)
+
+    assert loaded.reanalysed is True
+    assert loaded.observation is not None
+    assert loaded.observation.changed_names == frozenset({"df"})
+
+
+def test_fr033_a_key_the_analysis_does_not_recognise_survives_a_rewrite() -> None:
+    """FR-033: another tool's metadata under the same key is not this analysis's to drop."""
+    existing = {
+        "another_tool": {"cursor": 4, "notes": ["keep", "me"]},
+        "source_hash": "an old value this analysis owns and replaces",
+    }
+    facts = analyse_cell("c1", "df = load()")
+
+    record = encode_cell_record(facts, existing=existing)
+
+    assert record["another_tool"] == {"cursor": 4, "notes": ["keep", "me"]}
+    assert record["source_hash"] == facts.source_hash
+    # And the unknown key is still there after the record has been read back.
+    loaded = decode_cell_record("c1", "df = load()", record)
+    assert loaded.facts == facts
+    assert encode_cell_record(loaded.facts, existing=record)["another_tool"] == existing["another_tool"]
+
+
+def test_fr033_an_unknown_key_survives_beside_a_record_the_codec_writes() -> None:
+    """The dispatch's shape: a record written *beside* an unheard-of key, both read back."""
+    existing = {"jupyterlab_extension": {"pinned": True}}
+    facts = analyse_cell("c1", "df = load()")
+    observation = observation_for("df = load()", {"df"})
+
+    record = encode_cell_record(facts, observation, existing=existing)
+    reparsed = json.loads(json.dumps(record))
+    loaded = decode_cell_record("c1", "df = load()", reparsed)
+
+    assert reparsed["jupyterlab_extension"] == {"pinned": True}
+    assert loaded.facts == facts
+    assert loaded.observation == observation
+
+
+def test_an_observation_that_no_longer_applies_is_dropped_from_the_rewritten_record() -> None:
+    """The recognised keys are rewritten wholesale, so a stale one cannot linger."""
+    facts = analyse_cell("c1", "clean(df)")
+    with_observation = encode_cell_record(facts, observation_for("clean(df)", {"df"}))
+
+    rewritten = encode_cell_record(facts, None, existing=with_observation)
+
+    assert "observation" not in rewritten
+
+
+def test_the_record_does_not_store_the_cell_id() -> None:
+    """The id belongs to the notebook cell; a second copy is one more thing to disagree."""
+    record = encode_cell_record(analyse_cell("c1", "df = load()"))
+
+    assert "cell_id" not in record
+    assert decode_cell_record("renamed", "df = load()", record).facts.cell_id == "renamed"
+
+
+def test_encoding_an_observation_for_another_cell_is_refused() -> None:
+    """A record is written onto one cell; an observation of another does not belong on it."""
+    facts = analyse_cell("c1", "clean(df)")
+
+    with pytest.raises(ValueError, match="c9"):
+        encode_cell_record(facts, observation_for("clean(df)", {"df"}, cell_id="c9"))
+
+
+def test_the_flags_of_a_cell_round_trip_with_their_positions() -> None:
+    """FR-031: the record holds the flags, message and position included."""
+    facts = analyse_cell("c1", "df = broken(\n")
+    assert facts.has_flag(AnalysisFlag.SYNTAX_ERROR)
+
+    loaded = decode_cell_record("c1", "df = broken(\n", json.loads(json.dumps(encode_cell_record(facts))))
+
+    assert loaded.reanalysed is False
+    assert loaded.facts.flags == facts.flags
+    assert loaded.facts.flags[0].lineno == facts.flags[0].lineno
+
+
+def test_the_declarations_and_block_calls_round_trip() -> None:
+    """FR-008 to FR-010 survive the record, including the non-literal block id."""
+    source = "scistudio.input('threshold')\nblocks.run('smooth')\nblocks.run(chosen)\nscistudio.output(peaks=peaks)\n"
+    facts = analyse_cell("c1", source)
+
+    loaded = decode_cell_record("c1", source, json.loads(json.dumps(encode_cell_record(facts))))
+
+    assert loaded.facts.outputs == facts.outputs
+    assert loaded.facts.inputs == facts.inputs
+    assert loaded.facts.block_calls == facts.block_calls
+    assert loaded.facts.block_calls[1].block_id is None
+
+
+@pytest.mark.parametrize(
+    ("record", "reason"),
+    [
+        ({"source_hash": source_hash("df = load()"), "assigned": "df"}, "a string where an array belongs"),
+        ({"source_hash": source_hash("df = load()"), "assigned": [1]}, "a non-string name"),
+        (
+            {"source_hash": source_hash("df = load()"), "flags": [{"flag": "not_a_flag", "message": "x"}]},
+            "an unknown flag",
+        ),
+        ({"source_hash": source_hash("df = load()"), "flags": [{"message": "x"}]}, "a flag with no kind"),
+        ({"source_hash": source_hash("df = load()"), "outputs": [{"keywords": ["a"]}]}, "an output with no arguments"),
+        ({"source_hash": source_hash("df = load()"), "block_calls": [{"block_id": "b"}]}, "a block call with no line"),
+        (
+            {"source_hash": source_hash("df = load()"), "block_calls": [{"lineno": "3"}]},
+            "a line number that is a string",
+        ),
+        (
+            {"source_hash": source_hash("df = load()"), "flags": [{"flag": "syntax_error", "message": 3}]},
+            "a flag message that is not a string",
+        ),
+        (
+            {
+                "source_hash": source_hash("df = load()"),
+                "flags": [{"flag": "syntax_error", "message": "x", "name": 3}],
+            },
+            "a flag name that is neither a string nor null",
+        ),
+        ({"source_hash": source_hash("df = load()"), "flags": "syntax_error"}, "flags that are not an array"),
+        ({"source_hash": source_hash("df = load()"), "outputs": 3}, "outputs that are not an array"),
+        ({"source_hash": source_hash("df = load()"), "observation": []}, "an observation that is not an object"),
+        (
+            {"source_hash": source_hash("df = load()"), "observation": {"source_hash": 3}},
+            "an observation source hash that is not a string",
+        ),
+        (
+            {"source_hash": source_hash("df = load()"), "observation": {"changed_names": ["df"]}},
+            "an observation with no source hash",
+        ),
+        ("not an object at all", "a record that is not an object"),
+        (42, "a record that is a number"),
+    ],
+)
+def test_a_malformed_record_costs_a_reanalysis_and_never_an_exception(record: object, reason: str) -> None:
+    """FR-032: a record lives in a file a person can edit, so it must fail soft.
+
+    A notebook that raised on load because one cell's metadata was hand-edited
+    would be a notebook the person cannot open — the failure mode US5 exists to
+    rule out.
+    """
+    loaded = decode_cell_record("c1", "df = load()", record)  # type: ignore[arg-type]
+
+    assert loaded.reanalysed is True, reason
+    assert loaded.facts == analyse_cell("c1", "df = load()")
+    assert loaded.observation is None
+
+
+def test_fr031_the_notebook_record_holds_the_analysis_version() -> None:
+    """FR-031: one notebook-level record under the same key, holding the version."""
+    record = encode_notebook_record()
+
+    assert record == {"analysis_version": ANALYSIS_VERSION}
+    assert notebook_record_version(record) == ANALYSIS_VERSION
+
+
+def test_fr033_the_notebook_record_preserves_unknown_keys() -> None:
+    """FR-033 applies at the notebook level too."""
+    record = encode_notebook_record({"analysis_version": 0, "another_tool": {"seen": True}})
+
+    assert record["analysis_version"] == ANALYSIS_VERSION
+    assert record["another_tool"] == {"seen": True}
+
+
+@pytest.mark.parametrize("record", [None, {}, {"analysis_version": "1"}, {"analysis_version": True}, []])
+def test_a_notebook_with_no_readable_version_reports_none(record: object) -> None:
+    """``None`` means the same thing for every unreadable shape: re-analyse."""
+    assert notebook_record_version(record) is None  # type: ignore[arg-type]
+
+
+def test_a_record_from_another_analysis_version_is_discarded() -> None:
+    """FR-031: a record this release cannot vouch for is re-analysed, not trusted."""
+    stored = encode_cell_record(analyse_cell("c1", "df = load()"))
+
+    loaded = decode_cell_record("c1", "df = load()", stored, analysis_version=ANALYSIS_VERSION + 1)
+
+    assert loaded.reanalysed is True
+    assert loaded.observation is None
+
+
+def test_a_notebook_with_no_version_record_re_analyses_every_cell() -> None:
+    """A notebook Jupyter wrote carries no version, so nothing stored is trusted."""
+    records = stored_notebook(CODEC_NOTEBOOK)
+    loaded = [
+        decode_cell_record(cell_id, source, records[cell_id], analysis_version=notebook_record_version(None))
+        for cell_id, source in CODEC_NOTEBOOK
+    ]
+
+    assert all(entry.reanalysed for entry in loaded)
+    # Re-analysed, but not wrong: the facts are the ones the source produces.
+    assert [entry.facts for entry in loaded] == list(analyse_cells(CODEC_NOTEBOOK))
+
+
+def test_encoding_the_same_facts_twice_produces_the_same_record() -> None:
+    """A re-save must not churn the notebook in git: sets are written sorted."""
+    facts = analyse_cell("c1", "a, b, c = f(x, y, z)")
+    observation = observation_for("a, b, c = f(x, y, z)", {"c", "a", "b"})
+
+    first = json.dumps(encode_cell_record(facts, observation), sort_keys=False)
+    second = json.dumps(encode_cell_record(analyse_cell("c1", "a, b, c = f(x, y, z)"), observation))
+
+    assert first == second
+
+
+def test_the_codec_does_not_mutate_the_record_it_was_given() -> None:
+    """FR-004: the codec is pure over the mapping it reads."""
+    facts = analyse_cell("c1", "df = load()")
+    existing = {"another_tool": {"cursor": 4}}
+    snapshot = json.dumps(existing)
+
+    encode_cell_record(facts, existing=existing)
+    decode_cell_record("c1", "df = load()", encode_cell_record(facts, existing=existing))
+
+    assert json.dumps(existing) == snapshot
+
+
+def test_the_metadata_key_is_the_one_the_spec_names() -> None:
+    """FR-031: the record lives under the ``scistudio`` key of cell metadata."""
+    assert CELL_RECORD_KEY == "scistudio"
+
+
+# ---------------------------------------------------------------------------
+# T-011 — stability markers (ADR-052 §5, spec A-009).
+# ---------------------------------------------------------------------------
+
+#: Public names that cannot carry a runtime marker (ADR-052 §15): a ``str``, an
+#: ``int``, a ``frozenset``, and two tuples. ``get_stability`` returns ``None``
+#: for each by design, which the stability module's own docstring calls the
+#: honest result.
+NON_MARKABLE: frozenset[str] = frozenset(
+    {"ANALYSIS_VERSION", "BLOCK_CALL_PATHS", "BUILTIN_NAMES", "CELL_RECORD_KEY", "INPUT_CALL_PATH", "OUTPUT_CALL_PATH"}
+)
+
+
+def test_t011_every_markable_public_symbol_carries_a_tier_and_a_since() -> None:
+    """ADR-052 §5: tier and Since on every public symbol of the module."""
+    undecorated: list[str] = []
+    for name in dependency_analysis.__all__:
+        if name in NON_MARKABLE:
+            continue
+        info = get_stability(getattr(dependency_analysis, name))
+        if info is None or info.tier != "provisional" or info.since != "0.3.4":
+            undecorated.append(f"{name}: {info}")
+
+    assert not undecorated, "missing or wrong stability markers:\n  " + "\n  ".join(undecorated)
+
+
+def test_t011_the_non_markable_list_has_not_drifted() -> None:
+    """A symbol that gains a markable type must gain a marker, not stay on the list."""
+    assert set(dependency_analysis.__all__) >= NON_MARKABLE
+    for name in NON_MARKABLE:
+        value = getattr(dependency_analysis, name)
+        assert isinstance(value, (str, int, frozenset, tuple)), name
+        assert get_stability(value) is None, f"{name} can carry a marker now; take it off the list"
+
+
+def test_t011_the_package_facade_exports_what_the_module_does() -> None:
+    """The façade must not become a second, smaller surface that drifts from the module."""
+    assert set(explore_package.__all__) == set(dependency_analysis.__all__)
+    for name in explore_package.__all__:
+        assert getattr(explore_package, name) is getattr(dependency_analysis, name), name
+
+
+def test_t011_the_package_attribute_named_fingerprint_is_still_the_module() -> None:
+    """The façade deliberately does not re-export the ``fingerprint`` function.
+
+    Re-exporting it would rebind ``scistudio.explore.fingerprint`` from the
+    module to the function, and ``import scistudio.explore.fingerprint as m``
+    would then bind the function — a trap for every later caller, including the
+    tests in ``test_fingerprint.py``.
+    """
+    from types import ModuleType
+
+    assert isinstance(explore_package.fingerprint, ModuleType)
+    assert explore_package.fingerprint.__name__ == "scistudio.explore.fingerprint"
+
+
+def test_a009_the_explore_package_is_not_a_canonical_public_root() -> None:
+    """A-009: the frozen surface inventory is unchanged because this is not a root.
+
+    Confirmed against the two lists that define the frozen surface rather than
+    assumed, so a later promotion to a root is a listing change caught here and
+    not a silent one.
+    """
+    from tests.api.test_public_surface import CANONICAL_ROOTS as SURFACE_ROOTS
+    from tests.api.test_stability_decorators import CANONICAL_ROOTS as DECORATOR_ROOTS
+
+    assert not [root for root in SURFACE_ROOTS if root.startswith("scistudio.explore")]
+    assert not [root for root in DECORATOR_ROOTS if root.startswith("scistudio.explore")]
