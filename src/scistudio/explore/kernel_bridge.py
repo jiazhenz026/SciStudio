@@ -14,10 +14,24 @@ one protocol and keeping them together is what stops them drifting:
 
 * **In the kernel.** :func:`_dispatch` is the entry point a bridge call runs.
   It answers namespace fingerprints, the bindings list, the process's memory, a
-  variable window, the session's declared outputs, and an environment snapshot.
+  variable window, the session's declared outputs, an environment snapshot, and
+  a block call.
 * **In the service.** :class:`KernelBridge` wraps a
   :class:`~scistudio.explore.kernel.KernelHandle` and turns each of those into a
   method.
+
+**The block call is answered here and performed next door.** Spec §4.2's table
+puts FR-049 and FR-050 in this module, and it is right that the bridge is where
+a block call is *answered*: this is the protocol boundary, and a caller outside
+the kernel has no other way in. The adapter's body lives in
+:mod:`scistudio.explore.block_call` all the same, because putting it here would
+make one module the kernel protocol, the fingerprint plumbing, the window
+renderer, the helpers' backend, *and* a block runner, which is the opposite of
+the narrow modules AGENTS.md §3.5 asks for. Delegation satisfies both readings
+and it is deliberate — please do not "fix" the split. What lives here is the
+wiring: resolving each declared input to a variable in this kernel's namespace,
+binding the outputs back into it, and rendering the call's lineage facts into
+something that survives the frame.
 
 **Why the answer travels on stdout.** ``execute_silent`` suppresses
 ``execute_input``, ``execute_result``, the history, and the execution counter —
@@ -71,11 +85,13 @@ __all__ = [
     "BridgeProtocolError",
     "KernelBridge",
     "bindings",
+    "block_call_adapter",
     "cell_installs_packages",
     "environment_snapshot",
     "fingerprints",
     "memory_bytes",
     "session_kernel_env",
+    "set_block_call_adapter",
     "variable_window",
 ]
 
@@ -478,6 +494,167 @@ def session_kernel_env(mode: str = "session") -> dict[str, str]:
     return {MODE_ENV_VAR: mode}
 
 
+# ---------------------------------------------------------------------------
+# Calling a block from outside the kernel (FR-049, FR-051)
+# ---------------------------------------------------------------------------
+
+#: The adapter this kernel's block calls go through. Built on first use with a
+#: freshly scanned registry, which is correct but slow; a session that already
+#: holds a scanned registry, or a test that holds a hand-made one, installs it
+#: with :func:`set_block_call_adapter`. It is process state because a kernel
+#: serves one session (FR-001), which is the same reason the notebook helpers
+#: keep their binding in a module global.
+_ADAPTER: Any = None
+
+
+@provisional(since="0.3.4")
+def set_block_call_adapter(adapter: Any) -> None:
+    """Install the :class:`~scistudio.explore.block_call.BlockCallAdapter` to use.
+
+    Called *inside the kernel* — a registry and an interaction channel are
+    objects and cannot cross the bridge frame, so the adapter has to be built
+    on this side. Passing ``None`` drops the installed adapter and the next
+    call builds a default one.
+
+    Args:
+        adapter: The adapter to use, or ``None`` to reset.
+    """
+    global _ADAPTER
+    _ADAPTER = adapter
+
+
+@provisional(since="0.3.4")
+def block_call_adapter(session_id: str | None = None) -> Any:
+    """The installed adapter, building a default one on first use.
+
+    Args:
+        session_id: Carried into the lineage of every call this default adapter
+            makes (FR-051). Ignored when an adapter is already installed, whose
+            own session id stands.
+
+    Returns:
+        The :class:`~scistudio.explore.block_call.BlockCallAdapter`.
+    """
+    global _ADAPTER
+    if _ADAPTER is None:
+        from scistudio.explore.block_call import BlockCallAdapter
+
+        _ADAPTER = BlockCallAdapter(session_id=session_id)
+    return _ADAPTER
+
+
+def _block_call(namespace: dict[str, Any], payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Run a block in this kernel on a caller's behalf (FR-049, FR-051).
+
+    The values never cross the frame in either direction, which is the whole
+    shape of this action: inputs are named by the kernel variable that holds
+    them, outputs are bound back into the kernel by name, and what comes back
+    is a description. A cell that wants the value itself calls
+    ``blocks.run(...)`` and gets the object, which is
+    :meth:`BlockCallAdapter.call`'s job, not this one's.
+
+    Args:
+        namespace: The kernel's user namespace.
+        payload: ``identifier``, plus ``inputs`` mapping each port to the name
+            of the variable holding its value, ``config``, ``session_id``, and
+            ``bind`` — either one name for a single-output block or a mapping
+            of port name to variable name.
+
+    Returns:
+        The names bound, the output type names, and the call's lineage facts.
+
+    Raises:
+        KeyError: An input names a variable this kernel does not have.
+        ValueError: ``bind`` is a single name and the block has more than one
+            output port, so which one it meant is not knowable.
+    """
+    identifier = str(payload["identifier"])
+    inputs = {
+        str(port): _named_value(namespace, str(variable)) for port, variable in (payload.get("inputs") or {}).items()
+    }
+    adapter = block_call_adapter(payload.get("session_id"))
+    result = adapter.call_detailed(identifier, inputs=inputs, config=dict(payload.get("config") or {}))
+    return {
+        "identifier": identifier,
+        "bound": _bind_outputs(namespace, result.outputs, payload.get("bind")),
+        "outputs": {port: _safe_type_name(value) for port, value in result.outputs.items()},
+        "lineage": _lineage_payload(result.lineage),
+    }
+
+
+def _named_value(namespace: dict[str, Any], variable: str) -> Any:
+    """The value bound to *variable*, refusing a name the kernel does not have."""
+    if variable not in namespace or _is_hidden(variable):
+        msg = f"{variable!r} is not a variable in this kernel, so it cannot be an input to a block call."
+        raise KeyError(msg)
+    return namespace[variable]
+
+
+def _bind_outputs(namespace: dict[str, Any], outputs: Mapping[str, Any], bind: Any) -> dict[str, str]:
+    """Bind the call's outputs into the kernel namespace as *bind* asks.
+
+    Returns the port-to-variable mapping actually bound, which is empty when
+    the caller asked for nothing — a call made only for its lineage.
+    """
+    if bind is None:
+        return {}
+    if isinstance(bind, str):
+        if len(outputs) != 1:
+            msg = (
+                f"bind={bind!r} names one variable but the block produced {len(outputs)} outputs "
+                f"({', '.join(sorted(outputs)) or 'none'}); pass a mapping of port name to variable name."
+            )
+            raise ValueError(msg)
+        port = next(iter(outputs))
+        namespace[bind] = outputs[port]
+        return {port: bind}
+    bound: dict[str, str] = {}
+    for port, variable in dict(bind).items():
+        if str(port) not in outputs:
+            msg = f"bind names the output port {port!r}, which this block does not produce."
+            raise ValueError(msg)
+        namespace[str(variable)] = outputs[str(port)]
+        bound[str(port)] = str(variable)
+    return bound
+
+
+def _lineage_payload(lineage: Any) -> dict[str, Any] | None:
+    """Render :class:`BlockCallLineage` into something the frame can carry.
+
+    Every field of a ``BlockExecutionRecord`` survives; each edge's
+    ``data_object`` deliberately does not. The object exists only in the kernel
+    and no serialisation of it would be the same object, so a caller that needs
+    it takes it from the adapter's own ``on_call`` inside the kernel rather
+    than from this reply, which carries facts.
+    """
+    if lineage is None:
+        return None
+    return {
+        "session_id": lineage.session_id,
+        "block_identifier": lineage.block_identifier,
+        "block_type": lineage.block_type,
+        "block_version": lineage.block_version,
+        "block_config_resolved": dict(lineage.block_config_resolved),
+        "started_at": lineage.started_at,
+        "finished_at": lineage.finished_at,
+        "duration_ms": lineage.duration_ms,
+        "termination": lineage.termination,
+        "termination_detail": lineage.termination_detail,
+        "interactive": lineage.interactive,
+        "interactive_response": lineage.interactive_response,
+        "edges": [
+            {
+                "direction": edge.direction,
+                "port_name": edge.port_name,
+                "object_id": edge.object_id,
+                "position": edge.position,
+                "type_name": edge.type_name,
+            }
+            for edge in lineage.edges
+        ],
+    }
+
+
 def _is_hidden(name: str) -> bool:
     """Whether *name* is the interpreter's rather than the notebook's."""
     if name.startswith("__") and name.endswith("__"):
@@ -598,6 +775,8 @@ def _handle(namespace: dict[str, Any], payload: Mapping[str, Any]) -> Any:
             query=payload.get("query"),
             project_dir=payload.get("project_dir"),
         )
+    if action == "block_call":
+        return _block_call(namespace, payload)
     msg = f"Unknown bridge action: {action!r}."
     raise ValueError(msg)
 
@@ -762,6 +941,60 @@ class KernelBridge:
             payload["query"] = dict(query)
         if project_dir is not None:
             payload["project_dir"] = project_dir
+        return dict(self._call(payload))
+
+    def block_call(
+        self,
+        identifier: str,
+        *,
+        inputs: Mapping[str, str] | None = None,
+        config: Mapping[str, Any] | None = None,
+        bind: str | Mapping[str, str] | None = None,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Run a block inside the kernel and leave its results there (FR-049, FR-051).
+
+        The body of the call is
+        :class:`~scistudio.explore.block_call.BlockCallAdapter`'s; this is the
+        way in from outside the kernel. Values never cross the frame: an input
+        is named by the kernel variable holding it and an output is bound back
+        into the kernel, so calling a block over a gigabyte array costs one
+        JSON message either way.
+
+        A cell that wants the object itself calls ``blocks.run(...)`` and gets
+        it, which is the adapter's own surface and does not come through here.
+
+        Args:
+            identifier: The block's display name or stable type name.
+            inputs: Port name to the name of the kernel variable holding its value.
+            config: The block's configuration — JSON-safe values only, since
+                this half does cross the frame.
+            bind: Where to put the results: one variable name for a
+                single-output block, or a mapping of port name to variable name.
+                Omit it to run the block for its lineage alone.
+            session_id: The explore session the call belongs to, carried into
+                its lineage. Ignored once an adapter is installed in the kernel.
+
+        Returns:
+            The port-to-variable names bound, the output type names, and the
+            call's lineage facts — every field of a ``BlockExecutionRecord``
+            and its ``block_io`` edges except each edge's data object, which
+            exists only in the kernel.
+
+        Raises:
+            BridgeError: The block was not found, a port was violated, the
+                block raised, an interactive call was cancelled, or an input
+                named a variable the kernel does not have.
+        """
+        payload: dict[str, Any] = {"action": "block_call", "identifier": identifier}
+        if inputs is not None:
+            payload["inputs"] = dict(inputs)
+        if config is not None:
+            payload["config"] = dict(config)
+        if bind is not None:
+            payload["bind"] = bind if isinstance(bind, str) else dict(bind)
+        if session_id is not None:
+            payload["session_id"] = session_id
         return dict(self._call(payload))
 
     # -- protocol -----------------------------------------------------------

@@ -21,6 +21,21 @@ The two tests that matter most:
 * :func:`test_a_window_equals_the_preview_provider` renders the same object
   through the preview provider directly and compares, rather than against a
   golden file that would still match if both sides drifted together.
+
+Two things live here that a reader might expect to find elsewhere.
+
+The **environment snapshot's** reference and store are
+:mod:`scistudio.core.lineage.environment`'s code, and their tests are here
+because they are T-011's evidence and T-011 is this module's task: the snapshot
+is captured through the bridge, from inside the kernel, and stored once per
+distinct environment. Splitting the capture from what is done with it would put
+the two halves of one requirement in two files.
+
+The **block call** is answered by this module and performed by
+:mod:`scistudio.explore.block_call` (spec §4.2; see that split's rationale in
+the bridge's own docstring). The adapter's behaviour is
+``tests/explore/test_block_call_adapter.py``'s subject and is not repeated
+here; what is tested here is the wiring across the frame.
 """
 
 from __future__ import annotations
@@ -38,6 +53,7 @@ import sys
 import time
 import zipfile
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -411,6 +427,290 @@ def test_the_call_source_is_one_expression_that_binds_nothing() -> None:
     assert len(module.body) == 1
     assert isinstance(module.body[0], ast.Expr)
     assert not any(isinstance(node, (ast.Assign, ast.Import, ast.ImportFrom)) for node in ast.walk(module))
+
+
+# ---------------------------------------------------------------------------
+# The block-call action (FR-049, FR-051)
+#
+# The adapter's behaviour is ``tests/explore/test_block_call_adapter.py``'s
+# subject and is not repeated here. What is tested here is the *wiring*: that a
+# payload's shape is understood, that inputs resolve to this kernel's
+# variables, that outputs land back in it, and that a result and a failure both
+# survive the base64 frame this module's protocol travels in.
+# ---------------------------------------------------------------------------
+
+
+class _Doubler:
+    """A stand-in adapter: enough of the block-call surface for the wiring under test.
+
+    A real :class:`~scistudio.explore.block_call.BlockCallAdapter` needs a
+    registry and a registered block, and reaching for one here would test that
+    module a second time. What the action needs from an adapter is one method
+    and one result shape, so that is what this provides — and the assertions
+    below are then about the bridge alone.
+    """
+
+    def __init__(self, outputs: dict[str, Any] | None = None, raises: Exception | None = None) -> None:
+        self.outputs = outputs if outputs is not None else {"doubled": [2, 4, 6]}
+        self.raises = raises
+        self.seen: dict[str, Any] = {}
+
+    def call_detailed(self, identifier: str, /, *, inputs: Any = None, config: Any = None) -> Any:
+        """Record the call, then fail or return a result carrying lineage."""
+        self.seen = {"identifier": identifier, "inputs": dict(inputs or {}), "config": dict(config or {})}
+        if self.raises is not None:
+            raise self.raises
+        return _Result(outputs=dict(self.outputs), lineage=_lineage_for(identifier))
+
+
+@dataclass(frozen=True)
+class _Result:
+    """The two fields of ``BlockCallResult`` the action reads."""
+
+    outputs: dict[str, Any]
+    lineage: Any
+
+
+def _lineage_for(identifier: str) -> Any:
+    """A real :class:`BlockCallLineage` with one edge, to render across the frame."""
+    from scistudio.explore.block_call import BlockCallEdge, BlockCallLineage
+
+    return BlockCallLineage(
+        session_id="session-1",
+        block_identifier=identifier,
+        block_type="doubler",
+        block_version="1.0.0",
+        block_config_resolved={"factor": 2},
+        started_at="2026-09-04T00:00:00Z",
+        finished_at="2026-09-04T00:00:01Z",
+        duration_ms=1000,
+        termination="completed",
+        edges=(
+            BlockCallEdge(
+                direction="output",
+                port_name="doubled",
+                object_id="object-1",
+                position=0,
+                type_name="Array",
+                # An object that could never be JSON: the point of the assertion below.
+                data_object=object(),
+            ),
+        ),
+    )
+
+
+@pytest.fixture
+def stub_adapter() -> Iterator[Callable[..., _Doubler]]:
+    """Install a stand-in adapter for the duration of one test, then drop it."""
+
+    def install(**kwargs: Any) -> _Doubler:
+        adapter = _Doubler(**kwargs)
+        kernel_bridge.set_block_call_adapter(adapter)
+        return adapter
+
+    try:
+        yield install
+    finally:
+        kernel_bridge.set_block_call_adapter(None)
+
+
+def test_a_block_call_reads_its_inputs_from_the_kernel_namespace(
+    capsys: pytest.CaptureFixture[str], stub_adapter: Callable[..., _Doubler]
+) -> None:
+    """An input names a variable, and the object behind that name is what runs (FR-049).
+
+    Values cannot cross the frame, so the payload carries names. This is the
+    half of the wiring that turns one into the other.
+    """
+    adapter = stub_adapter()
+    values = [1, 2, 3]
+    namespace: dict[str, Any] = {"data": values}
+
+    kernel_bridge._dispatch(
+        namespace,
+        _request(action="block_call", identifier="Doubler", inputs={"img": "data"}, config={"factor": 2}),
+    )
+    response = _decode_frame(capsys.readouterr().out)
+
+    assert response["ok"] is True
+    assert adapter.seen["identifier"] == "Doubler"
+    assert adapter.seen["inputs"]["img"] is values, "the adapter got a copy, not the kernel's own object"
+    assert adapter.seen["config"] == {"factor": 2}
+
+
+def test_a_block_call_binds_its_result_back_into_the_kernel(
+    capsys: pytest.CaptureFixture[str], stub_adapter: Callable[..., _Doubler]
+) -> None:
+    """The output stays in the kernel under the name the caller asked for."""
+    stub_adapter()
+    namespace: dict[str, Any] = {"data": [1, 2, 3]}
+
+    kernel_bridge._dispatch(
+        namespace,
+        _request(action="block_call", identifier="Doubler", inputs={"img": "data"}, bind="result"),
+    )
+    response = _decode_frame(capsys.readouterr().out)
+
+    assert namespace["result"] == [2, 4, 6]
+    assert response["result"]["bound"] == {"doubled": "result"}
+    assert response["result"]["outputs"] == {"doubled": "list"}
+
+
+def test_a_block_call_binds_several_outputs_by_port(
+    capsys: pytest.CaptureFixture[str], stub_adapter: Callable[..., _Doubler]
+) -> None:
+    """A block with two outputs is bound by a mapping, one variable per port."""
+    stub_adapter(outputs={"left": "L", "right": "R"})
+    namespace: dict[str, Any] = {}
+
+    kernel_bridge._dispatch(
+        namespace,
+        _request(action="block_call", identifier="Two", bind={"left": "a", "right": "b"}),
+    )
+    _decode_frame(capsys.readouterr().out)
+
+    assert (namespace["a"], namespace["b"]) == ("L", "R")
+
+
+def test_a_block_call_refuses_one_name_for_several_outputs(
+    capsys: pytest.CaptureFixture[str], stub_adapter: Callable[..., _Doubler]
+) -> None:
+    """One name and two outputs is ambiguous, so it is refused rather than guessed."""
+    stub_adapter(outputs={"left": "L", "right": "R"})
+    namespace: dict[str, Any] = {}
+
+    kernel_bridge._dispatch(namespace, _request(action="block_call", identifier="Two", bind="result"))
+    response = _decode_frame(capsys.readouterr().out)
+
+    assert response["ok"] is False
+    assert response["error"]["type"] == "ValueError"
+    assert "left, right" in response["error"]["message"]
+    assert namespace == {}
+
+
+def test_a_block_call_that_binds_nothing_still_reports(
+    capsys: pytest.CaptureFixture[str], stub_adapter: Callable[..., _Doubler]
+) -> None:
+    """A call made for its lineage alone leaves the namespace untouched."""
+    stub_adapter()
+    namespace: dict[str, Any] = {"data": [1, 2, 3]}
+
+    kernel_bridge._dispatch(namespace, _request(action="block_call", identifier="Doubler"))
+    response = _decode_frame(capsys.readouterr().out)
+
+    assert response["result"]["bound"] == {}
+    assert list(namespace) == ["data"]
+
+
+def test_a_block_calls_lineage_survives_the_frame(
+    capsys: pytest.CaptureFixture[str], stub_adapter: Callable[..., _Doubler]
+) -> None:
+    """FR-051's facts reach the caller; the edge's data object deliberately does not.
+
+    The reply has been through ``json.dumps`` and base64 by the time it is read
+    here, so this asserts what actually survives rather than what the dataclass
+    holds. The data object exists only in the kernel and no serialisation of it
+    would be the same object, so the frame carries facts and the caller takes
+    objects from the adapter's own callback inside the kernel.
+    """
+    stub_adapter()
+
+    kernel_bridge._dispatch({"data": [1]}, _request(action="block_call", identifier="Doubler"))
+    lineage = _decode_frame(capsys.readouterr().out)["result"]["lineage"]
+
+    assert lineage["session_id"] == "session-1"
+    assert lineage["block_type"] == "doubler"
+    assert lineage["block_version"] == "1.0.0"
+    assert lineage["block_config_resolved"] == {"factor": 2}
+    assert lineage["termination"] == "completed"
+    assert lineage["duration_ms"] == 1000
+    assert lineage["edges"] == [
+        {
+            "direction": "output",
+            "port_name": "doubled",
+            "object_id": "object-1",
+            "position": 0,
+            "type_name": "Array",
+        }
+    ]
+
+
+def test_a_block_call_names_an_input_the_kernel_does_not_have(
+    capsys: pytest.CaptureFixture[str], stub_adapter: Callable[..., _Doubler]
+) -> None:
+    """An input naming an unbound variable is refused before the block runs."""
+    adapter = stub_adapter()
+
+    kernel_bridge._dispatch({}, _request(action="block_call", identifier="Doubler", inputs={"img": "missing"}))
+    response = _decode_frame(capsys.readouterr().out)
+
+    assert response["ok"] is False
+    assert "missing" in response["error"]["message"]
+    assert adapter.seen == {}, "the block ran despite an unresolvable input"
+
+
+def test_a_block_call_failure_comes_back_as_an_answer(
+    capsys: pytest.CaptureFixture[str], stub_adapter: Callable[..., _Doubler]
+) -> None:
+    """A block that raises reaches the caller as a named error, not a lost traceback."""
+    from scistudio.explore.block_call import BlockNotFoundError
+
+    stub_adapter(raises=BlockNotFoundError("no block named 'Nope'"))
+
+    kernel_bridge._dispatch({}, _request(action="block_call", identifier="Nope"))
+    response = _decode_frame(capsys.readouterr().out)
+
+    assert response["ok"] is False
+    assert response["error"]["type"] == "BlockNotFoundError"
+    assert "Nope" in response["error"]["message"]
+
+
+def test_the_adapter_is_built_once_and_replaceable() -> None:
+    """The kernel keeps one adapter, because a kernel serves one session (FR-001).
+
+    A registry and an interaction channel are objects, so they cannot cross the
+    frame; the adapter has to be built kernel-side and installed there.
+    """
+    kernel_bridge.set_block_call_adapter(None)
+    try:
+        stand_in = object()
+        kernel_bridge.set_block_call_adapter(stand_in)
+        assert kernel_bridge.block_call_adapter() is stand_in
+        assert kernel_bridge.block_call_adapter("another-session") is stand_in
+    finally:
+        kernel_bridge.set_block_call_adapter(None)
+
+
+def test_the_driver_sends_only_what_it_was_given(stub_adapter: Callable[..., _Doubler]) -> None:
+    """``KernelBridge.block_call`` builds the payload the dispatcher reads.
+
+    The driver and the dispatcher are the two ends of one contract, so this
+    runs the payload the driver would send straight into the dispatcher rather
+    than asserting on its shape.
+    """
+    from scistudio.explore.kernel_bridge import KernelBridge
+
+    sent: dict[str, Any] = {}
+
+    class _Recorder:
+        def execute_silent(self, code: str, *, timeout: float | None = None) -> Any:
+            sent["code"] = code
+            raise AssertionError("not reached: the payload is decoded below instead")
+
+    bridge = KernelBridge(_Recorder())  # type: ignore[arg-type]
+    with contextlib.suppress(AssertionError):
+        bridge.block_call("Doubler", inputs={"img": "data"}, bind="result", session_id="s1")
+
+    encoded = re.search(r'_dispatch\(globals\(\), "([A-Za-z0-9+/=]*)"\)', sent["code"])
+    assert encoded is not None
+    payload = json.loads(base64.b64decode(encoded.group(1)).decode("utf-8"))
+    assert payload == {
+        "action": "block_call",
+        "identifier": "Doubler",
+        "inputs": {"img": "data"},
+        "bind": "result",
+        "session_id": "s1",
+    }
 
 
 def test_session_kernel_env_names_the_mode_variable() -> None:

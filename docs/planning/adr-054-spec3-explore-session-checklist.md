@@ -250,13 +250,21 @@ amendment.
   `src/scistudio/explore/kernel_bridge.py`, `src/scistudio/explore/notebook_api.py`,
   `src/scistudio/__init__.py` (the three helpers, lazily), and
   `src/scistudio/core/lineage/environment.py` (snapshot by reference, FR-034).
-  `tests/explore/test_kernel_bridge.py` + `tests/explore/test_notebook_api.py` 80 passed
-  **against a real ipykernel 7.3.0** in the isolated venv outside the repo, and 72 passed /
+  The bridge also carries the `block_call` action, which answers FR-049 at the protocol
+  boundary spec §4.2 names and delegates the body to `src/scistudio/explore/block_call.py`
+  (manager decision; the rationale is in the bridge's module docstring so the split is not
+  "fixed" later). Values never cross the frame: an input names the kernel variable holding
+  it, an output is bound back into the kernel, and the reply carries FR-051's lineage facts.
+  `tests/explore/test_kernel_bridge.py` + `tests/explore/test_notebook_api.py` 90 passed
+  **against a real ipykernel 7.3.0** in the isolated venv outside the repo, and 82 passed /
   8 skipped under the repository venv, where the kernel tests skip and the pure ones still
-  run. The two load-bearing tests: one fixture notebook source executed in session mode and
-  in packaged mode with the outputs compared, and a bridge call proved to leave no cell by
-  reading the kernel's own input history and execution counter back out of it. `%pip` is
-  exercised as a real offline install into a throwaway virtual environment.
+  run; `tests/explore` + `tests/architecture` 1027 passed / 2 skipped on the kernel
+  interpreter and 972 passed / 10 skipped on the repository venv. The three load-bearing
+  tests: one fixture notebook source executed in session mode and in packaged mode with the
+  outputs compared, a bridge call proved to leave no cell by reading the kernel's own input
+  history and execution counter back out of it, and a window compared against the preview
+  provider's own output for the same object. `%pip` is exercised as a real offline install
+  into a throwaway virtual environment.
   Gate ledger: `.workflow/records/2240-feat-2240-kernel-bridge.json`.
 - [ ] `S3-B2` session, queue, marks, kernel list -> artifact pending
 - [x] `S3-B3` block-call adapter -> `feat/2240-block-calls` @ `0dddd1a94`; `src/scistudio/explore/block_call.py`, `tests/explore/test_block_call_adapter.py` (38 passed), `tests/explore` 353 passed, `tests/architecture` 509 passed 1 skipped, `tests/blocks` 1511 passed 8 skipped. Open for the manager: the `explore` entry in `LAYER_RULES` (`tests/architecture/test_layer_deps.py`) forbids `scistudio.blocks` and `scistudio.core`, which FR-008 and FR-060 do not; the adapter defers those imports so it is green either way, and S3-C3 owns narrowing the list to api/ai/engine.
