@@ -799,3 +799,121 @@ def test_a_disabled_cell_is_refused_rather_than_run(
     with pytest.raises(SessionError, match="disabled"):
         session.run_cell(first)
     assert session.queue.pending == ()
+
+
+@pytest.fixture
+def chain_session(services: Callable[..., SessionService]) -> tuple[ExploreSession, tuple[str, str, str]]:
+    """A three-cell chain where each cell binds a name the next one reads.
+
+    Unlike the A, B, C fixture, no two cells bind the same name, so a re-run of
+    the top cell leaves the two below stale *without* moving the name either of
+    them last bound. That is the input the first clause of FR-024's skip rule
+    exists for.
+    """
+    service = services()
+    session = service.open_over_file("data/raw/signal.csv")
+    first = session.cells()[0].cell_id
+    assert first is not None
+    session.set_cell_source(first, "k = 2")
+    middle = session.insert_cell("m = k + 1", after=first)
+    last = session.insert_cell("out = m * 2", after=middle)
+    for cell_id in (first, middle, last):
+        session.run_cell(cell_id)
+    assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+    assert session.questionable_cells() == ()
+    return session, (first, middle, last)
+
+
+@needs_kernel
+@pytest.mark.serial
+def test_run_with_upstream_runs_a_stale_upstream_cell_that_still_owns_its_names(
+    chain_session: tuple[ExploreSession, tuple[str, str, str]],
+) -> None:
+    """FR-024's *first* clause, on the only input that isolates it.
+
+    After the top cell re-runs, the middle cell is stale — and ``m`` is still
+    last bound by it, so the second clause alone would skip it and the bottom
+    cell would compute from a value the middle cell has not refreshed. It runs
+    because it is stale.
+    """
+    session, (first, middle, last) = chain_session
+    session.run_cell(first)
+    assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+
+    assert CellMark.STALE in session.marks(middle)
+    assert session.last_bound_by["m"] == middle, "the middle cell still owns the name it binds"
+
+    enqueued = _enqueued(lambda: session.run_with_upstream(last))
+    assert enqueued == [middle, last], f"a stale upstream cell was skipped: {enqueued}"
+
+
+@needs_kernel
+@pytest.mark.serial
+def test_run_stale_enqueues_the_stale_cells_in_written_order(
+    chain_session: tuple[ExploreSession, tuple[str, str, str]],
+) -> None:
+    """FR-024: 'enqueues the stale cells **in written order**'.
+
+    Two stale cells, so the order is an assertion rather than a coincidence.
+    """
+    session, (first, middle, last) = chain_session
+    session.run_cell(first)
+    assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+
+    assert session.stale_cells() == (middle, last)
+    assert _enqueued(session.run_stale) == [middle, last]
+    assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+    assert session.questionable_cells() == ()
+
+
+@needs_kernel
+@pytest.mark.serial
+def test_a_name_a_cell_unbinds_leaves_the_last_bound_by_map(
+    services: Callable[..., SessionService],
+) -> None:
+    """FR-020: the map says what is bound *in the kernel*, so an unbind removes it."""
+    service = services()
+    session = service.open_over_file("data/raw/signal.csv")
+    first = session.cells()[0].cell_id
+    assert first is not None
+    session.set_cell_source(first, "doomed = 1")
+    remover = session.insert_cell("del doomed", after=first)
+    session.run_cell(first)
+    assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+    assert session.last_bound_by["doomed"] == first
+
+    session.run_cell(remover)
+    assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+    assert "doomed" not in session.last_bound_by
+    assert session.observations[remover].disappeared == {"doomed"}
+
+
+@needs_kernel
+@pytest.mark.serial
+def test_re_running_a_cell_that_reads_the_name_it_binds_is_marked_out_of_order(
+    services: Callable[..., SessionService],
+) -> None:
+    """FR-019 applied literally to an accumulator, which is a decision, not an accident.
+
+    ``counter = counter + 1`` reads a name no cell above defines, so the graph's
+    definer is ``None`` while the kernel's last binder is the cell itself. They
+    differ, so FR-019 marks it — and the mark is true: the re-run computed from
+    a value the notebook's written order does not account for. On a fresh kernel
+    neither side names a cell, so the first run is not marked.
+    """
+    service = services()
+    session = service.open_over_file("data/raw/signal.csv")
+    first = session.cells()[0].cell_id
+    assert first is not None
+    session.set_cell_source(first, "counter = counter + 1 if 'counter' in dir() else 1")
+
+    session.run_cell(first)
+    assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+    assert session.marks(first) == frozenset(), "the first run resolves to nothing on either side"
+
+    session.run_cell(first)
+    assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+    assert CellMark.OUT_OF_ORDER in session.marks(first)
+    assert [(read.name, read.definer, read.last_binder) for read in session.out_of_order_reads(first)] == [
+        ("counter", None, first)
+    ]

@@ -928,6 +928,22 @@ class ExploreSession:
         self._emit_kernel_state()
         self._emit(SessionEventType.CELL_STATE, {"reason": "kernel_restarted", "marks": self._marks_payload()})
 
+    def report_kernel_died(self) -> None:
+        """The kernel process died without being stopped by us (FR-015).
+
+        Passed to the handle as its ``on_death`` callback, so a kernel killed
+        from outside is noticed the first time anything reads its state — a
+        status poll for the kernel list, or the request that was in flight. The
+        marks reset to never-run because the namespace they describe is gone,
+        and the session reports that it needs a restart. Nothing is re-run.
+        """
+        with self._state_lock:
+            self._last_bound_by.clear()
+            self._reasons.clear()
+            self._reset_marks_to_never_run()
+            self._needs_restart = True
+        self._emit(SessionEventType.KERNEL_STATE, {"state": "dead", "needs_restart": True})
+
     def stop_kernel(self, *, needs_restart: bool = False) -> None:
         """Terminate the kernel process (FR-013, FR-014, FR-016).
 
@@ -1325,6 +1341,7 @@ class SessionService:
             working_directory=self._project_dir,
             env=session_kernel_env(),
             kernel_id=session.session_id,
+            on_death=session.report_kernel_died,
         )
 
     def build_bridge(self, handle: KernelHandle) -> KernelBridge:

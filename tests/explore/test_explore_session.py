@@ -804,3 +804,40 @@ def test_a_failing_commit_is_reported_once_and_never_blocks_a_run(
     failures = [report for report in reports if report.get("error")]
     assert len(failures) == 1, f"the failure must be reported once, not per run: {failures}"
     assert "locked" in failures[0]["error"]
+
+
+@needs_kernel
+@pytest.mark.serial
+def test_a_kernel_killed_from_outside_is_reported_dead_and_offers_a_restart(
+    services: Callable[..., SessionService],
+) -> None:
+    """FR-015 and US7 scenario 4, wired through the handle's death callback.
+
+    The death is noticed the first time anything reads the kernel's state — here
+    a status poll, which is what the kernel list does. The marks reset because
+    the namespace they describe is gone, and nothing is re-run.
+    """
+    service = services()
+    session = service.open_over_file("data/raw/one.csv")
+    session.start_kernel()
+    first = session.cells()[0].cell_id
+    assert first is not None
+    session.set_cell_source(first, "k = 5")
+    session.run_cell(first)
+    assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+    assert session.marks(first) == frozenset()
+
+    pid = session.kernel_status().pid
+    assert pid is not None
+    psutil.Process(pid).kill()
+    assert _process_gone(pid)
+
+    assert session.kernel_status().state == "dead"
+    assert session.needs_restart is True
+    assert session.marks(first) == {CellMark.NEVER_RUN}
+    assert session.last_bound_by == {}
+    assert service.kernels() == ()
+    assert session.queue.pending == ()
+
+    session.restart_kernel()
+    assert session.needs_restart is False
