@@ -33,6 +33,14 @@ wiring: resolving each declared input to a variable in this kernel's namespace,
 binding the outputs back into it, and rendering the call's lineage facts into
 something that survives the frame.
 
+Installing the bridge also binds :data:`BLOCKS_NAME` — ``blocks`` — in the
+kernel's user namespace, which is what makes ``blocks.run("some.block", ...)``
+a line a cell can run at all (FR-049). Spec §4.1 makes the bridge the thing the
+service injects at kernel start, so the session decides *when* a kernel starts
+and the bridge decides *what is in it*. The name is not a notebook variable and
+is left out of the fingerprints, the bindings list, and the window offer —
+until a cell rebinds it, at which point it is one; see :func:`_is_hidden`.
+
 **Why the answer travels on stdout.** ``execute_silent`` suppresses
 ``execute_input``, ``execute_result``, the history, and the execution counter —
 which is exactly what "must not appear as a cell" means, and which also means
@@ -71,6 +79,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Final
 
+from scistudio.explore.dependency_analysis import BLOCK_CALL_PATHS
 from scistudio.explore.fingerprint import Fingerprint, fingerprint
 from scistudio.stability import provisional
 
@@ -78,12 +87,14 @@ if TYPE_CHECKING:  # pragma: no cover - imported for annotations only
     from scistudio.explore.kernel import KernelHandle
 
 __all__ = [
+    "BLOCKS_NAME",
     "BRIDGE_PROTOCOL_VERSION",
     "INSTALL_PROBE",
     "Binding",
     "BridgeError",
     "BridgeProtocolError",
     "KernelBridge",
+    "NotebookBlocks",
     "bindings",
     "block_call_adapter",
     "cell_installs_packages",
@@ -115,6 +126,18 @@ _FRAME_PATTERN: Final[re.Pattern[str]] = re.compile(
 
 INSTALL_PROBE: Final[str] = "install"
 """The action the service sends at kernel start to install the bridge (FR-009)."""
+
+BLOCKS_NAME: Final[str] = BLOCK_CALL_PATHS[0][0]
+"""The name a cell calls a block through: ``blocks``, as in ``blocks.run(...)``.
+
+Read out of the analysis's own
+:data:`~scistudio.explore.dependency_analysis.BLOCK_CALL_PATHS` rather than
+spelled a second time here. The analysis matches that dotted path to decide a
+cell contains a block call, and this module binds the name it resolves to; a
+constant written twice is a constant that eventually says two different things,
+and the failure would be silent — the graph recording calls to a name nothing
+binds.
+"""
 
 #: Names the interactive shell puts in the user namespace itself. None of them
 #: is a notebook variable, so none of them is fingerprinted, listed as a
@@ -218,7 +241,7 @@ def fingerprints(namespace: Mapping[str, Any]) -> dict[str, Fingerprint]:
     """
     result: dict[str, Fingerprint] = {}
     for name, value in list(namespace.items()):
-        if _is_hidden(name):
+        if _is_hidden(name, value):
             continue
         try:
             result[name] = fingerprint(value)
@@ -240,7 +263,7 @@ def bindings(namespace: Mapping[str, Any]) -> list[Binding]:
     """
     listed: list[Binding] = []
     for name, value in list(namespace.items()):
-        if _is_hidden(name):
+        if _is_hidden(name, value):
             continue
         value_type = type(value)
         listed.append(
@@ -333,7 +356,7 @@ def variable_window(
 
     from scistudio.previewers import get_preview_service
 
-    if name not in namespace or _is_hidden(name):
+    if name not in namespace or _is_hidden(name, namespace[name]):
         msg = f"{name!r} is not a variable in this kernel."
         raise KeyError(msg)
 
@@ -543,6 +566,74 @@ def block_call_adapter(session_id: str | None = None) -> Any:
     return _ADAPTER
 
 
+@provisional(since="0.3.4")
+class NotebookBlocks:
+    """The ``blocks`` name a cell calls (FR-049).
+
+    Bound into the kernel's user namespace at bridge install, so that::
+
+        peaks = blocks.run("imaging.find_peaks", img=img, sigma=2.0)
+
+    is a line a cell can actually run. The name is the one the dependency
+    analysis matches — :data:`BLOCKS_NAME` is read out of
+    :data:`~scistudio.explore.dependency_analysis.BLOCK_CALL_PATHS` rather than
+    written twice — so what the graph records as a block call and what the
+    kernel resolves cannot drift apart.
+
+    It holds no adapter of its own and resolves one per call. That is what
+    keeps kernel start cheap: a default
+    :class:`~scistudio.explore.block_call.BlockCallAdapter` scans the whole
+    block registry, and paying for that at install would put it in front of the
+    person's first cell. It also means a session that installs its own adapter
+    with :func:`set_block_call_adapter` — with its registry already scanned and
+    its interaction channel attached, which is what an interactive block called
+    from a cell needs (FR-050) — takes effect for calls made after it, without
+    rebinding anything in the namespace.
+    """
+
+    __slots__ = ()
+
+    @provisional(since="0.3.4")
+    def run(self, identifier: str, /, **kwargs: Any) -> Any:
+        """Run a block and return its result as a native object (FR-049).
+
+        Args:
+            identifier: The block's display name or stable type name.
+            **kwargs: The block's inputs and configuration, mixed; the adapter
+                splits them by the block's own declared port names.
+
+        Returns:
+            The single output port's native value, or a mapping of port name to
+            native value when the block declares a number of outputs other than
+            one.
+
+        Raises:
+            BlockCallError: Any of the adapter's failures — block not found, a
+                port violated, the block raised, an interactive call cancelled,
+                or an interactive block with no channel to open a panel on.
+        """
+        return block_call_adapter().call(identifier, **kwargs)
+
+    def __repr__(self) -> str:
+        """Describe the name rather than the object, since a cell may print it."""
+        return "<scistudio blocks: call blocks.run('<block identifier>', ...)>"
+
+
+#: The object bound into the namespace, held so that :func:`_is_hidden` can ask
+#: whether the ``blocks`` name still refers to *ours*. ``None`` until an install
+#: has run in this process.
+_INJECTED_BLOCKS: NotebookBlocks | None = None
+
+
+def _inject_blocks(namespace: dict[str, Any]) -> str:
+    """Bind :data:`BLOCKS_NAME` in *namespace* and return the name bound."""
+    global _INJECTED_BLOCKS
+    if _INJECTED_BLOCKS is None:
+        _INJECTED_BLOCKS = NotebookBlocks()
+    namespace[BLOCKS_NAME] = _INJECTED_BLOCKS
+    return BLOCKS_NAME
+
+
 def _block_call(namespace: dict[str, Any], payload: Mapping[str, Any]) -> dict[str, Any]:
     """Run a block in this kernel on a caller's behalf (FR-049, FR-051).
 
@@ -584,7 +675,7 @@ def _block_call(namespace: dict[str, Any], payload: Mapping[str, Any]) -> dict[s
 
 def _named_value(namespace: dict[str, Any], variable: str) -> Any:
     """The value bound to *variable*, refusing a name the kernel does not have."""
-    if variable not in namespace or _is_hidden(variable):
+    if variable not in namespace or _is_hidden(variable, namespace.get(variable)):
         msg = f"{variable!r} is not a variable in this kernel, so it cannot be an input to a block call."
         raise KeyError(msg)
     return namespace[variable]
@@ -655,12 +746,43 @@ def _lineage_payload(lineage: Any) -> dict[str, Any] | None:
     }
 
 
-def _is_hidden(name: str) -> bool:
-    """Whether *name* is the interpreter's rather than the notebook's."""
+#: Sentinel for :func:`_is_hidden`'s optional value, so that ``None`` — a
+#: perfectly ordinary thing for a name to be bound to — is not mistaken for
+#: "no value was passed".
+_NO_VALUE: Final[object] = object()
+
+
+def _is_hidden(name: str, value: object = _NO_VALUE) -> bool:
+    """Whether *name* is the interpreter's or ours, rather than the notebook's.
+
+    Three groups are hidden: dunders, the names the interactive shell injects,
+    and its numbered history. All three are decided by the name alone.
+
+    :data:`BLOCKS_NAME` is the fourth and is decided by the *value*, because a
+    cell may rebind it. While ``blocks`` still holds the object the bridge
+    injected it is not a notebook variable — the person did not put it there,
+    so it is not fingerprinted, not listed as a binding, and not offered as a
+    window. The moment a cell writes ``blocks = something``, their assignment
+    wins: the namespace is theirs, Jupyter's semantics are that a cell binds
+    what it binds, and the name now holds a value they created, so it stops
+    being hidden and shows up like any other variable they made. The cost of
+    that is their own — ``blocks.run`` no longer reaches a block — and it is
+    the same cost as shadowing ``list`` or ``id``.
+
+    Args:
+        name: The name as it is bound in the namespace.
+        value: What it is bound to. Omit it to ask about the name alone, which
+            answers for the first three groups and never hides ``blocks``.
+
+    Returns:
+        Whether the name should be left out of what the session reports.
+    """
     if name.startswith("__") and name.endswith("__"):
         return True
     if name in _SHELL_NAMES:
         return True
+    if name == BLOCKS_NAME and value is not _NO_VALUE:
+        return _INJECTED_BLOCKS is not None and value is _INJECTED_BLOCKS
     return bool(_HISTORY_PATTERN.match(name))
 
 
@@ -744,7 +866,11 @@ def _handle(namespace: dict[str, Any], payload: Mapping[str, Any]) -> Any:
         )
         if payload.get("mode"):
             os.environ[notebook_api.MODE_ENV_VAR] = str(payload["mode"])
-        return {"python": sys.executable, "pid": os.getpid()}
+        # FR-049's cell-facing surface. Bound here rather than by the session
+        # because spec §4.1 makes the bridge what the service injects at kernel
+        # start: the session decides when a kernel starts, the bridge decides
+        # what is in it.
+        return {"python": sys.executable, "pid": os.getpid(), "blocks": _inject_blocks(namespace)}
     if action == "fingerprints":
         return {
             name: {"digest": value.digest, "observable": value.observable, "type_name": value.type_name}

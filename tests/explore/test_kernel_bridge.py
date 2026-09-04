@@ -462,6 +462,13 @@ class _Doubler:
             raise self.raises
         return _Result(outputs=dict(self.outputs), lineage=_lineage_for(identifier))
 
+    def call(self, identifier: str, /, **kwargs: Any) -> Any:
+        """The notebook-facing form ``blocks.run`` delegates to."""
+        self.seen = {"identifier": identifier, "kwargs": dict(kwargs)}
+        if self.raises is not None:
+            raise self.raises
+        return next(iter(self.outputs.values()))
+
 
 @dataclass(frozen=True)
 class _Result:
@@ -663,6 +670,91 @@ def test_a_block_call_failure_comes_back_as_an_answer(
     assert response["ok"] is False
     assert response["error"]["type"] == "BlockNotFoundError"
     assert "Nope" in response["error"]["message"]
+
+
+@pytest.fixture
+def injected_blocks() -> Iterator[Any]:
+    """Install the ``blocks`` binding into a bare namespace and hand both back."""
+    namespace: dict[str, Any] = {}
+    kernel_bridge._inject_blocks(namespace)
+    try:
+        yield namespace
+    finally:
+        kernel_bridge.set_block_call_adapter(None)
+
+
+def test_the_bound_name_is_the_one_the_analysis_matches() -> None:
+    """The graph records calls to ``blocks.run``; the kernel binds that name (FR-049).
+
+    Read from the analysis's own constant rather than spelled twice, so the two
+    cannot drift into recording calls to a name nothing binds.
+    """
+    from scistudio.explore.dependency_analysis import BLOCK_CALL_PATHS
+
+    assert kernel_bridge.BLOCKS_NAME == BLOCK_CALL_PATHS[0][0] == "blocks"
+
+
+def test_installing_the_bridge_binds_blocks(capsys: pytest.CaptureFixture[str]) -> None:
+    """A cell can call a block because install put the name there (FR-049)."""
+    namespace: dict[str, Any] = {}
+    kernel_bridge._dispatch(namespace, _request(action=kernel_bridge.INSTALL_PROBE))
+    response = _decode_frame(capsys.readouterr().out)
+
+    assert response["ok"] is True
+    assert response["result"]["blocks"] == "blocks"
+    assert hasattr(namespace["blocks"], "run")
+    kernel_bridge.set_block_call_adapter(None)
+
+
+def test_the_blocks_binding_is_not_a_notebook_variable(injected_blocks: dict[str, Any]) -> None:
+    """All three reports leave it out: the person did not put it there.
+
+    Asserted on the three surfaces separately, because they are three call
+    sites and a fix applied to one of them would leave the others leaking.
+    """
+    injected_blocks["df"] = [1, 2, 3]
+
+    assert set(fingerprints(injected_blocks)) == {"df"}
+    assert [binding.name for binding in bindings(injected_blocks)] == ["df"]
+    with pytest.raises(KeyError, match="blocks"):
+        variable_window(injected_blocks, "blocks")
+
+
+def test_a_cells_own_blocks_wins_and_stops_being_hidden(injected_blocks: dict[str, Any]) -> None:
+    """A rebound ``blocks`` is the person's variable, and is reported as one.
+
+    Their assignment wins because the namespace is theirs and Jupyter's
+    semantics are that a cell binds what it binds. The consequence is that the
+    name stops being hidden: at that point it holds a value they created, so
+    leaving it out of the bindings list would hide one of their own variables
+    from them — a worse failure than losing ``blocks.run``, which is the same
+    cost as shadowing ``list``.
+    """
+    injected_blocks["blocks"] = "mine now"
+
+    assert set(fingerprints(injected_blocks)) == {"blocks"}
+    listed = bindings(injected_blocks)
+    assert [binding.name for binding in listed] == ["blocks"]
+    assert listed[0].summary == "str of 8"
+    window = variable_window(injected_blocks, "blocks")
+    assert window.get("error") is None
+    assert window["payload"]["content"] == "mine now"
+
+
+def test_the_blocks_binding_resolves_its_adapter_per_call(
+    injected_blocks: dict[str, Any], stub_adapter: Callable[..., _Doubler]
+) -> None:
+    """Kernel start binds a name, not an adapter, so installing one later still works.
+
+    Binding an adapter at install would scan the whole block registry in front
+    of the person's first cell; this is what keeps that off the start path and
+    what lets a session attach its own registry and interaction channel
+    afterwards (FR-050).
+    """
+    adapter = stub_adapter(outputs={"out": "ran"})
+
+    assert injected_blocks["blocks"].run("Doubler", value=1) == "ran"
+    assert adapter.seen["identifier"] == "Doubler"
 
 
 def test_the_adapter_is_built_once_and_replaceable() -> None:
@@ -976,6 +1068,115 @@ def test_the_helpers_answer_the_installed_binding(
     assert result.status == "ok", result.error
     assert printed.strip().endswith("3")
     assert bridge.declared_outputs() == ("result",)
+
+
+#: A block, and the registration that makes it findable, written into a
+#: directory the kernel is given on ``PYTHONPATH``. The kernel is a separate
+#: process and cannot import this test module, and the registry resolves a spec
+#: to ``module_path`` + ``class_name`` at instantiation time, so the block has
+#: to live in a module the kernel can import under exactly that name.
+_PROBE_BLOCK_MODULE = '''
+"""A block and its registration, for the cell-facing block call (FR-049)."""
+
+from typing import Any, ClassVar
+
+from scistudio.blocks.base import Block, BlockConfig, OutputPort
+from scistudio.blocks.registry import BlockRegistry, BlockSpec
+from scistudio.core.types import Text
+from scistudio.explore.block_call import BlockCallAdapter
+from scistudio.explore.kernel_bridge import set_block_call_adapter
+
+
+class Greeter(Block):
+    """Returns its ``greeting`` configuration as a Text output."""
+
+    name = "Greeter"
+    version = "1.0.0"
+    input_ports: ClassVar[list] = []
+    output_ports: ClassVar[list[OutputPort]] = [OutputPort(name="out", accepted_types=[Text])]
+
+    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
+        """Return the configured greeting."""
+        return {"out": Text(content=config.get("greeting", "hello"))}
+
+
+def install() -> None:
+    """Register Greeter and hand the kernel an adapter that can resolve it."""
+    registry = BlockRegistry()
+    spec = BlockSpec(
+        name=Greeter.name,
+        type_name=Greeter.name.lower(),
+        version=Greeter.version,
+        module_path=__name__,
+        class_name=Greeter.__name__,
+        base_category="process",
+        input_ports=[],
+        output_ports=list(Greeter.output_ports),
+        execution_mode=Greeter.execution_mode.value,
+    )
+    registry._registry[spec.name] = spec
+    registry._aliases[spec.type_name] = spec.name
+    set_block_call_adapter(BlockCallAdapter(registry=registry, session_id="session-1"))
+'''
+
+
+@requires_kernel
+@pytest.mark.serial
+def test_a_cell_calls_a_block_through_the_bound_name(kernels: Callable[..., Any], tmp_path: Path) -> None:
+    """FR-049 end to end: a cell writes ``blocks.run(...)`` and gets an object back.
+
+    The point of the binding is a cell reaching a block, so this is a cell —
+    executed on a real kernel, with a real block in a real registry — rather
+    than a unit test of the binding. It also pins the two exclusions that
+    matter once the name exists: ``blocks`` is not reported as one of the
+    person's variables, and the value the cell bound is.
+    """
+    from scistudio.explore.kernel_bridge import KernelBridge
+
+    module_dir = tmp_path / "probe"
+    module_dir.mkdir()
+    (module_dir / "scistudio_probe_block.py").write_text(_PROBE_BLOCK_MODULE, encoding="utf-8")
+    inherited = os.environ.get("PYTHONPATH", "")
+    handle = kernels(env={"PYTHONPATH": os.pathsep.join(filter(None, [str(module_dir), inherited]))})
+    handle.start()
+    bridge = KernelBridge(handle, timeout=_EXEC_TIMEOUT)
+    bridge.install(mode="session")
+
+    prepared = handle.execute("import scistudio_probe_block\nscistudio_probe_block.install()", timeout=_EXEC_TIMEOUT)
+    assert prepared.status == "ok", prepared.error
+
+    result = handle.execute(
+        'greeting = blocks.run("Greeter", greeting="from a cell")\nprint(greeting)',
+        timeout=_EXEC_TIMEOUT,
+    )
+    printed = "".join(output.text or "" for output in result.outputs if output.output_type == "stream")
+
+    assert result.status == "ok", result.error
+    assert printed.strip() == "from a cell"
+
+    listed = {binding.name: binding for binding in bridge.bindings()}
+    assert "greeting" in listed, "the cell's own variable is missing from the bindings list"
+    assert "blocks" not in listed, "the injected name was reported as one of the person's variables"
+    assert "blocks" not in bridge.fingerprints()
+
+
+@requires_kernel
+@pytest.mark.serial
+def test_a_cell_that_rebinds_blocks_keeps_its_own_value(bridge_over_kernel: Callable[..., Any]) -> None:
+    """The person's assignment wins, and the name is then reported as theirs.
+
+    Jupyter's semantics are that a cell binds what it binds, and this is their
+    namespace. Once ``blocks`` holds a value they made, hiding it would hide
+    one of their own variables from them.
+    """
+    bridge = bridge_over_kernel()
+
+    assert "blocks" not in {binding.name for binding in bridge.bindings()}, "it starts hidden"
+    bridge.handle.execute("blocks = [1, 2, 3]", timeout=_EXEC_TIMEOUT)
+
+    listed = {binding.name: binding for binding in bridge.bindings()}
+    assert listed["blocks"].summary == "list of 3"
+    assert "blocks" in bridge.fingerprints()
 
 
 @requires_kernel
