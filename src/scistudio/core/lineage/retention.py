@@ -24,6 +24,24 @@ Two consequences follow from that wording and are intentional:
 
 Storage layout is unchanged: artifacts stay under
 ``data/zarr/<workflow_id>/<block_id>/``.
+
+Explore sessions (ADR-054 FR-055)
+---------------------------------
+
+A session is the second lineage anchor, and its objects have their own rule,
+which is simpler than the run rule because a session has no notion of a "last
+successful" one:
+
+    An object a cell named through ``scistudio.output`` is durable. Every other
+    object a session produced is a reclaim candidate.
+
+The two rules meet in the same sweep. A session's artifacts are recognised by
+their lineage rows rather than by where they sit on disk, so they are decided
+before the per-workflow guards run and are excluded from the per-workflow
+counting those guards do — a workflow's floor invariant is about a workflow's
+own runs. The parallel to the run rule that *is* kept is the in-progress guard:
+an open session blocks the whole plan for the same reason an executing run does,
+which is also what makes a freshness bound unnecessary on this side.
 """
 
 from __future__ import annotations
@@ -79,11 +97,13 @@ class RetentionPlan:
     retained_runs: dict[str, str] = field(default_factory=dict)
     """``workflow_id`` → the run id whose artifacts are kept."""
     live_paths: frozenset[str] = frozenset()
-    """Storage paths protected by the retained runs."""
+    """Storage paths protected by the retained runs, plus the sessions' declared outputs."""
     candidates: tuple[ReclaimCandidate, ...] = ()
     """Artifacts that would be removed, newest-first ordering not guaranteed."""
     protected_workflows: dict[str, str] = field(default_factory=dict)
     """``workflow_id`` → why its directory was skipped entirely."""
+    durable_session_paths: frozenset[str] = frozenset()
+    """Paths a session declared through ``scistudio.output`` and retention must keep (FR-055)."""
     blocked_reason: str | None = None
     """Non-``None`` when the whole plan refuses to run; ``candidates`` is empty."""
 
@@ -176,6 +196,13 @@ def plan_retention(store: LineageStore, project_root: str | Path) -> RetentionPl
       bounds the sweep; that holds for a run of any duration.
     * A plan that would reclaim *every* artifact a workflow has protects that
       workflow instead. Retention always leaves one complete run on disk.
+    * An open Explore session blocks the whole plan, for the same reason an
+      executing run does (ADR-054 FR-055).
+
+    Objects a session produced follow FR-055 rather than the run rule: the ones
+    a cell named through ``scistudio.output`` are durable and every other one is
+    a candidate. They are matched by lineage row, not by directory, so they are
+    settled before the per-workflow guards and are not counted by them.
 
     Args:
         store: The project's lineage store.
@@ -194,7 +221,18 @@ def plan_retention(store: LineageStore, project_root: str | Path) -> RetentionPl
             )
         )
 
-    if store.count("runs") == 0:
+    open_sessions = store.sessions_in_progress()
+    if open_sessions:
+        return RetentionPlan(
+            blocked_reason=(
+                f"{len(open_sessions)} explore session(s) still open; "
+                "retention will not sweep while a session can still produce objects."
+            )
+        )
+
+    # A project with sessions but no runs is not an empty lineage database. With
+    # no sessions this is the pre-#2240 condition unchanged.
+    if store.count("runs") == 0 and store.count("explore_sessions") == 0:
         return RetentionPlan(
             blocked_reason="lineage database records no runs; refusing to treat every artifact as reclaimable."
         )
@@ -227,11 +265,34 @@ def plan_retention(store: LineageStore, project_root: str | Path) -> RetentionPl
         if len(parts) >= 3 and Path(path).exists():
             per_workflow_live.setdefault(parts[-3], set()).add(path)
 
+    # FR-055. ``session_durable`` wins over ``session_reclaimable`` by
+    # construction (it is subtracted), and an object a retained run also
+    # produced stays live under the run rule.
+    session_durable = {str(Path(p).resolve()) for p in store.session_declared_output_paths()}
+    session_reclaimable = (
+        {str(Path(p).resolve()) for p in store.artifact_paths_produced_by_sessions()} - session_durable - live_resolved
+    )
+
     protected: dict[str, str] = {}
     candidates: list[ReclaimCandidate] = []
+    session_candidates: list[ReclaimCandidate] = []
     scanned_per_workflow: dict[str, int] = {}
     for artifact_root in ARTIFACT_ROOTS:
         for workflow_id, block_id, entry in _iter_artifact_entries(root / artifact_root):
+            if session_durable or session_reclaimable:
+                resolved_entry = str(entry.resolve())
+                if resolved_entry in session_durable:
+                    continue
+                if resolved_entry in session_reclaimable:
+                    session_candidates.append(
+                        ReclaimCandidate(
+                            path=entry,
+                            size_bytes=artifact_size_bytes(str(entry)) or 0,
+                            workflow_id=workflow_id,
+                            block_id=block_id,
+                        )
+                    )
+                    continue
             scanned_per_workflow[workflow_id] = scanned_per_workflow.get(workflow_id, 0) + 1
             if workflow_id not in retained_runs:
                 protected.setdefault(
@@ -283,9 +344,10 @@ def plan_retention(store: LineageStore, project_root: str | Path) -> RetentionPl
 
     return RetentionPlan(
         retained_runs=retained_runs,
-        live_paths=frozenset(live_resolved),
-        candidates=tuple(candidates),
+        live_paths=frozenset(live_resolved | session_durable),
+        candidates=tuple(candidates) + tuple(session_candidates),
         protected_workflows=protected,
+        durable_session_paths=frozenset(session_durable),
     )
 
 

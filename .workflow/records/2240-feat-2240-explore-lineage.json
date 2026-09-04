@@ -1,0 +1,139 @@
+{
+  "base_ref": "origin/track/adr-054-spec3-explore-session",
+  "branch": "feat/2240-explore-lineage",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-04T09:41:12.186460Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "the governing spec docs/specs/adr-054-explore-session.md landed in PR 2228 and this change implements one of its tasks without adding a separately documented surface",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2240,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-054 spec 3 T-013: the explore_sessions lineage anchor, cell-run and block-call records, and retention hooks (FR-051 to FR-055).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2240-feat-2240-explore-lineage",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:41:12.186415Z",
+      "pattern": "src/scistudio/core/lineage/record.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:41:12.186436Z",
+      "pattern": "src/scistudio/core/lineage/store.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:41:12.186439Z",
+      "pattern": "src/scistudio/core/lineage/retention.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:41:12.186441Z",
+      "pattern": "src/scistudio/core/lineage/__init__.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:41:12.186443Z",
+      "pattern": "src/scistudio/explore/lineage.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:41:12.186444Z",
+      "pattern": "tests/explore/test_explore_lineage.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:41:12.186446Z",
+      "pattern": "tests/core/lineage/__init__.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:41:12.186447Z",
+      "pattern": "tests/core/lineage/test_explore_sessions_table.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:41:12.186449Z",
+      "pattern": "docs/planning/adr-054-spec3-explore-session-checklist.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-04T09:41:12.186450Z",
+      "pattern": ".workflow/records/2240-feat-2240-explore-lineage.json",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "e9909e0b-d656-4174-9bf2-bfe4a84b8d3b",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-04T09:41:12.186465Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_explore_lineage.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T09:41:12.186468Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/core/lineage/test_explore_sessions_table.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

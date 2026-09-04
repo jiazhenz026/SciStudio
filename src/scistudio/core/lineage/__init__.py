@@ -10,8 +10,10 @@ Exports:
 * :class:`LineageStore` — the SQLite-backed store holding the four tables.
 * :class:`LineageRecorder` — the engine-side writer that listens for block
   events and fills the store as a run proceeds.
-* :class:`RunRecord`, :class:`BlockExecutionRecord`, :class:`DataObjectRow`,
-  :class:`BlockIORow` — dataclasses mirroring the four tables.
+* :class:`RunRecord`, :class:`ExploreSessionRecord`,
+  :class:`BlockExecutionRecord`, :class:`DataObjectRow`, :class:`BlockIORow` —
+  dataclasses mirroring the tables. ``runs`` and ``explore_sessions`` are the
+  two anchors (ADR-054 FR-052); the three below them are shared.
 * :class:`EnvironmentSnapshot` — a capture of the Python and package versions a
   run used.
 * :class:`RunContext` (with :func:`get_run_context`, :func:`set_run_context`,
@@ -27,6 +29,7 @@ from scistudio.core.lineage.record import (
     BlockExecutionRecord,
     BlockIORow,
     DataObjectRow,
+    ExploreSessionRecord,
     RunRecord,
 )
 from scistudio.core.lineage.recorder import LineageRecorder
@@ -43,6 +46,7 @@ __all__ = [
     "BlockIORow",
     "DataObjectRow",
     "EnvironmentSnapshot",
+    "ExploreSessionRecord",
     "LineageRecorder",
     "LineageStore",
     "RunContext",
