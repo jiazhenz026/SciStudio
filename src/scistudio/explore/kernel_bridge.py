@@ -133,10 +133,10 @@ BLOCKS_NAME: Final[str] = BLOCK_CALL_PATHS[0][0]
 Read out of the analysis's own
 :data:`~scistudio.explore.dependency_analysis.BLOCK_CALL_PATHS` rather than
 spelled a second time here. The analysis matches that dotted path to decide a
-cell contains a block call, and this module binds the name it resolves to; a
-constant written twice is a constant that eventually says two different things,
-and the failure would be silent — the graph recording calls to a name nothing
-binds.
+cell contains a block call, and this module binds the name it resolves to. A
+constant written in two places is one that ends up saying two different things,
+and this particular disagreement would be silent — the graph recording calls to
+a name nothing binds.
 """
 
 #: Names the interactive shell puts in the user namespace itself. None of them
