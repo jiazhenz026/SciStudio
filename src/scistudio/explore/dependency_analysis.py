@@ -1619,11 +1619,7 @@ def encode_notebook_record(existing: Mapping[str, Any] | None = None) -> dict[st
     """Build the notebook-level record for the ``scistudio`` key (FR-031).
 
     It holds the analysis version and nothing else: the version is what lets a
-<<<<<<< HEAD
-    subsequent release refuse records it cannot read, and everything else about a
-=======
     newer release refuse records it cannot read, and everything else about a
->>>>>>> origin/track/adr-054-spec2-dependency-analysis
     notebook is per-cell. Unknown keys in *existing* are preserved (FR-033).
     """
     record: dict[str, Any] = {"analysis_version": ANALYSIS_VERSION}
