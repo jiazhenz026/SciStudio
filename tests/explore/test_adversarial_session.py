@@ -51,6 +51,7 @@ import threading
 import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Any
 
 import psutil
 import pytest
@@ -1548,3 +1549,218 @@ def test_a_freshly_opened_session_inserts_a_panel_emission_after_its_first_cell(
 
     ids = [cell.cell_id for cell in session.cells()]
     assert ids == [first, cell_id, last], f"the emission did not land after the current cell: {ids}"
+
+
+@needs_kernel
+@pytest.mark.serial
+def test_two_separate_failing_runs_report_the_failure_once(
+    services: Callable[..., SessionService],
+    repository: GitEngine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FR-030's "reported once", over two runs that really are two runs.
+
+    The delivered test for this submits the same cell twice in a row and counts
+    the reports. Two submissions of a cell that is still queued **coalesce**
+    (FR-017), so that test runs the cell once, queues one commit, and would read
+    "once" however the reporting were written — removing the de-duplication
+    entirely left it green. Draining the queue between the two submissions is
+    what makes them two runs, and counting the writer's own attempts is what
+    proves it rather than assuming it.
+    """
+    from scistudio.explore.session import SessionEventType
+
+    service = services(repository.project_path, git_engine=repository)
+    reports: list[dict[str, Any]] = []
+    service.subscribe(
+        lambda event: reports.append(dict(event.payload)) if event.type is SessionEventType.COMMIT_RECORDED else None
+    )
+    session = service.open_over_file("data/raw/signal.csv")
+    first = session.cells()[0].cell_id
+    assert first is not None
+
+    attempts: list[str] = []
+
+    def refuse(ref: str, *args: object, **kwargs: object) -> str:
+        attempts.append(ref)
+        raise RuntimeError("the repository is locked")
+
+    monkeypatch.setattr(repository, "commit_entries_to_ref", refuse)
+
+    for source in ("k = 1", "k = 2"):
+        session.set_cell_source(first, source)
+        session.run_cell(first)
+        assert session.wait_until_idle(timeout=_IDLE_TIMEOUT), "a failing commit must not block the queue"
+    assert service.wait_for_commits(timeout=_IDLE_TIMEOUT)
+
+    assert len(attempts) >= 2, f"the two runs did not queue two commits: {len(attempts)} attempt(s)"
+    failures = [report for report in reports if report.get("error")]
+    assert len(failures) == 1, f"the failure must be reported once, not per run: {failures}"
+    assert "locked" in failures[0]["error"]
+
+
+@needs_kernel
+@pytest.mark.serial
+def test_a_failure_after_a_recovery_is_never_reported_again(
+    services: Callable[..., SessionService],
+    repository: GitEngine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The behaviour as delivered, pinned: "once" is once per session, for ever.
+
+    ``SessionService._reported_commit_failure`` is a set of session ids that is
+    never cleared, so the first failure is the only one a session will ever
+    report. A repository that was locked this morning, recovered, and is locked
+    again this afternoon costs the person their afternoon's commits in silence.
+
+    FR-030 says "a run whose commit could not be written MUST be reported once",
+    which reads as once per run rather than once per session; the two readings
+    differ only after a recovery, which is exactly when it matters. Pinned here
+    rather than argued: the behaviour should be visible either way.
+    """
+    from scistudio.explore.session import SessionEventType
+
+    service = services(repository.project_path, git_engine=repository)
+    reports: list[dict[str, Any]] = []
+    service.subscribe(
+        lambda event: reports.append(dict(event.payload)) if event.type is SessionEventType.COMMIT_RECORDED else None
+    )
+    session = service.open_over_file("data/raw/signal.csv")
+    first = session.cells()[0].cell_id
+    assert first is not None
+    working = repository.commit_entries_to_ref
+
+    def refuse(*args: object, **kwargs: object) -> str:
+        raise RuntimeError("the repository is locked")
+
+    def run(source: str) -> None:
+        session.set_cell_source(first, source)
+        session.run_cell(first)
+        assert session.wait_until_idle(timeout=_IDLE_TIMEOUT)
+        assert service.wait_for_commits(timeout=_IDLE_TIMEOUT)
+
+    monkeypatch.setattr(repository, "commit_entries_to_ref", refuse)
+    run("k = 1")
+    assert len([report for report in reports if report.get("error")]) == 1
+
+    monkeypatch.setattr(repository, "commit_entries_to_ref", working)
+    run("k = 2")
+    assert [report for report in reports if report.get("sha")], "the recovered commit was written"
+
+    monkeypatch.setattr(repository, "commit_entries_to_ref", refuse)
+    run("k = 3")
+
+    assert len([report for report in reports if report.get("error")]) == 1, (
+        "the second outage was reported; update this pin and the finding it records"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Spec section 2 edge case: an output declaration in a disabled cell
+# ---------------------------------------------------------------------------
+
+
+def test_an_output_declared_in_a_disabled_cell_is_not_an_output() -> None:
+    """The spec's edge case: "It is not an output; the analysis builds over enabled cells only".
+
+    No delivered test disables a cell that declares an output, so the filter
+    that implements this — ``_output_cell_ids`` intersecting the declarations
+    with the graph's cells — could be removed without anything noticing. A
+    notebook whose only declaration is disabled has nothing to package, and
+    saying so is the refusal FR-039 already has for a notebook that declares no
+    output at all.
+    """
+    from scistudio.explore.notebook import new_code_cell, new_notebook
+    from scistudio.explore.packaging import PackagingProblemKind, check_packaging
+
+    document = new_notebook(
+        [
+            new_code_cell("import scistudio\nvalue = 'a result'"),
+            new_code_cell("scistudio.output(table=value)"),
+        ]
+    )
+    declaring = document.cells[1].cell_id
+    assert declaring is not None
+    document.set_cell_enabled(declaring, enabled=False)
+
+    plan = check_packaging(document, bindings={"value": "Text"})
+
+    assert not plan.is_packageable
+    assert [problem.kind for problem in plan.problems] == [PackagingProblemKind.NO_DECLARED_OUTPUT]
+    assert plan.outputs == ()
+
+
+def test_disabling_one_of_two_declarations_leaves_the_other_a_port() -> None:
+    """The same rule where it has to discriminate rather than refuse everything."""
+    from scistudio.explore.notebook import new_code_cell, new_notebook
+    from scistudio.explore.packaging import check_packaging
+
+    document = new_notebook(
+        [
+            new_code_cell("import scistudio\nkept = 'one'\ndropped = 'two'"),
+            new_code_cell("scistudio.output(kept=kept)"),
+            new_code_cell("scistudio.output(dropped=dropped)"),
+        ]
+    )
+    disabled = document.cells[2].cell_id
+    assert disabled is not None
+    document.set_cell_enabled(disabled, enabled=False)
+
+    plan = check_packaging(document, bindings={"kept": "Text", "dropped": "Text"})
+
+    assert plan.is_packageable, [problem.message for problem in plan.problems]
+    assert [port.name for port in plan.outputs] == ["kept"]
+    assert disabled not in plan.cells, "a disabled cell is not in the slice a packaged block runs"
+
+
+# ---------------------------------------------------------------------------
+# FR-038: the load line a file-opened session's packaging rewrites, and only it
+# ---------------------------------------------------------------------------
+
+
+def test_the_load_rewrite_leaves_a_named_variable_that_is_not_a_load_alone() -> None:
+    """FR-038 rewrites ``x = scistudio.load(...)``, not every assignment to ``x``.
+
+    The delivered test for this checks a variable the port mapping does not
+    name, which the ``ports.get`` lookup already rejects. The other half — a
+    variable the mapping *does* name, bound by something that is not a load —
+    is what ``_is_load_call`` is for, and making that function answer ``True``
+    for everything left the whole ``tests/explore`` run green.
+
+    It matters because the rewrite is silent and destructive: the packaged copy
+    would read a port where the person wrote their preprocessing, and the block
+    would produce a different answer from the session it came from with nothing
+    to show why.
+    """
+    from scistudio.explore.packaging import rewrite_load_to_input
+
+    source = 'raw = scistudio.load("data/raw.csv")\nspectra = preprocess(raw)\n'
+
+    rewritten = rewrite_load_to_input(source, {"spectra": "spectra"})
+
+    assert rewritten == source, "the rewrite replaced a line that was not a load"
+
+
+def test_the_load_rewrite_leaves_a_load_that_is_not_the_whole_expression_alone() -> None:
+    """A load wrapped in another call is not the load line FR-038 names.
+
+    ``x = normalise(scistudio.load(...))`` binds the *normalised* object;
+    replacing the line with a port read would drop the normalisation, and the
+    port would carry data the notebook never worked with.
+    """
+    from scistudio.explore.packaging import rewrite_load_to_input
+
+    source = 'spectra = normalise(scistudio.load("data/raw.csv"))\n'
+
+    assert rewrite_load_to_input(source, {"spectra": "spectra"}) == source
+
+
+def test_the_load_rewrite_replaces_the_line_it_does_name() -> None:
+    """The positive case beside the two negatives, so the pair cannot both be vacuous."""
+    from scistudio.explore.packaging import rewrite_load_to_input
+
+    source = 'raw = scistudio.load("data/raw.csv")\nspectra = preprocess(raw)\n'
+
+    rewritten = rewrite_load_to_input(source, {"raw": "signal"})
+
+    assert rewritten == 'raw = scistudio.input("signal")\nspectra = preprocess(raw)\n'
