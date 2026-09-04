@@ -477,12 +477,12 @@ class InteractionChannel(Protocol):
     def open(self, pending: PendingInteraction) -> None:
         """Announce the panel described by ``pending.request`` and return at once.
 
-        The service is expected to settle *pending* later, from another thread,
+        The service is expected to settle *pending* afterwards, from another thread,
         with :meth:`PendingInteraction.submit` or
         :meth:`PendingInteraction.cancel`.
 
         Args:
-            pending: The interaction to open a panel for and settle later.
+            pending: The interaction to open a panel for and settle afterwards.
         """
         ...
 

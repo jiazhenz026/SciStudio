@@ -782,7 +782,7 @@ class NotebookStore:
         Raises:
             FileNotFoundError: The notebook has been deleted.
             NotebookStoreError: The file on disk is no longer a notebook — the
-                store keeps its previous digest, so a later well-formed write
+                store keeps its previous digest, so the next well-formed write
                 still reads as a change.
         """
         payload = self._path.read_bytes()

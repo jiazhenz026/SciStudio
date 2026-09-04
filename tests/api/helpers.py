@@ -113,3 +113,43 @@ def build_linear_workflow(
         ],
         "metadata": {"kind": "linear"},
     }
+
+
+# ---------------------------------------------------------------------------
+# Route-table introspection (#2240)
+# ---------------------------------------------------------------------------
+
+
+def route_table(app: Any) -> list[tuple[int, str]]:
+    """Every path the application serves, paired with its route-table position.
+
+    FastAPI changed the shape of that table between the version pinned here and
+    the one CI resolves. Through 0.136 ``include_router`` flattened a router's
+    routes into ``app.router.routes``; from 0.141 it appends one wrapper entry
+    that keeps the router intact, and those entries carry no ``path`` at all. A
+    test that reads ``route.path`` off the table therefore passes on one and
+    reports an application with no routes on the other.
+
+    Both shapes preserve registration order, which is the only thing an ordering
+    assertion is about, so this flattens whichever one is installed.
+
+    Returns:
+        ``(index, path)`` pairs. The index is the position of the *table entry*,
+        so every path one included router serves shares a single index — which
+        is what makes "this router is registered before that mount" expressible.
+    """
+    pairs: list[tuple[int, str]] = []
+    for index, entry in enumerate(app.router.routes):
+        included = getattr(entry, "original_router", None)
+        if included is None:
+            pairs.append((index, getattr(entry, "path", "")))
+            continue
+        prefix = getattr(getattr(entry, "include_context", None), "prefix", "") or ""
+        for route in included.routes:
+            pairs.append((index, prefix + getattr(route, "path", "")))
+    return pairs
+
+
+def served_paths(app: Any) -> list[str]:
+    """Every path the application serves, in registration order. See :func:`route_table`."""
+    return [path for _, path in route_table(app)]
