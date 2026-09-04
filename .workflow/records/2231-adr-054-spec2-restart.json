@@ -1,0 +1,121 @@
+{
+  "base_ref": null,
+  "branch": "track/adr-054-spec2-dependency-analysis",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/explore/**",
+      "tests/explore/**",
+      "tests/architecture/**",
+      "docs/planning/adr-054-spec2-dependency-analysis-checklist.md",
+      "docs/planning/adr-054-spec2-dispatch-prompts/**",
+      "docs/audit/**",
+      "docs/adr/ADR-054.md",
+      "docs/specs/adr-054-notebook-dependency-analysis.md",
+      ".workflow/records/2231-*.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-04T12:35:10.581848Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-spec2-dependency-analysis-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T12:35:10.581867Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-notebook-dependency-analysis.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T12:35:10.581870Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-054.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T12:35:10.581872Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-04-explore-dependency-analysis-no-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T12:35:10.581874Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-04-adr-054-spec2-with-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2231,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-054 spec 2 in full, restarting from scratch after an earlier dispatch produced no implementation; dispatch a final adversarial test engineer and a no-context auditor; deliver as one PR for owner review. All labels and approvals pre-approved by the owner (chat, 2026-09-04).",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2231-adr-054-spec2-restart",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "6ae2a48f-22f5-4fe3-a849-63fc9ac6a8cc",
+  "strictness_tier": null,
+  "task_kind": "manager",
+  "test_events": [
+    {
+      "at": "2026-09-04T12:35:10.581878Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T12:35:10.581882Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/architecture/test_layer_deps.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-04T12:35:10.581884Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/architecture/test_placement.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

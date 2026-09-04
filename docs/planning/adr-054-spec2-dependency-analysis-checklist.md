@@ -22,7 +22,7 @@ language_source: en
 - Task kind: `manager`
 - Manager persona: `manager`
 - Issue: `#2231`
-- Gate record: `.workflow/records/2231-track-adr-054-spec2-dependency-analysis.json`
+- Gate record: `.workflow/records/2231-adr-054-spec2-restart.json`
 - Branch/worktree plan: manager on `track/adr-054-spec2-dependency-analysis` in
   `.worktrees/mgr-2231-spec2-dep-analysis`; agents on `feat/2231-*`,
   `test/2231-*`, `audit/2231-*` branches, one dedicated worktree each under
@@ -43,9 +43,23 @@ language_source: en
 
 An earlier dispatch of this spec produced a checklist, three prompt files, and
 a gate ledger, and no implementation. The owner directed a full restart. The
-earlier checklist and prompt files are replaced by this dispatch; the gate
-ledger is retained and amended, because it is the append-only record for this
-branch and issue.
+earlier checklist and prompt files are replaced by this dispatch.
+
+The earlier **gate ledger was retained and amended** for most of this work, on
+the reasoning that it was the append-only record for this branch and issue. That
+was wrong, and the pre-PR check caught it: the ledger recorded
+`runtime: kimi`, so forty commits of Claude-authored work carried a false
+attribution, and `guard.persona_policy` refused it because `kimi` maps to no
+ADR-042 runtime config root. `gate_record` cannot correct a runtime — `init`
+sets it only when the file does not exist and `amend` has no `--runtime` — and
+hand-editing committed gate evidence is forbidden. The ledger was therefore
+replaced with `.workflow/records/2231-adr-054-spec2-restart.json`, carrying the
+correct runtime and the full scope, docs, and test plan. The tooling gap is
+#2245.
+
+What is lost in the replacement is the amendment event log. The narrative it
+carried is in §9 below, which is the human-readable record of the same
+decisions and was written as they were made.
 
 ## 2. Scope
 
@@ -111,7 +125,7 @@ branch and issue.
 - [x] Existing issue linked, or new issue created only if none exists.
       `#2231` already tracked this work; no new issue created.
 - [x] Gate record started.
-      `.workflow/records/2231-track-adr-054-spec2-dependency-analysis.json`.
+      `.workflow/records/2231-adr-054-spec2-restart.json`.
 - [x] Scope include/exclude recorded in the gate record.
 - [x] Umbrella branch created.
 - [x] Umbrella PR opened. `#2232`.
@@ -368,6 +382,7 @@ Append only.
 | 2026-09-04 | manager | I instructed `S2-F1` to delete `test_augmented_assignment_inside_a_nested_scope_is_not_a_module_read`, relaying the test engineer's claim that it pinned behaviour the spec contradicts. It does not — its body has no `global` declaration, so the name is a function local FR-006 never reaches. | The agent declined, kept the assertion, rewrote its genuinely-wrong docstring, and added four contrast cases. My instruction was wrong and I had not verified the claim before relaying it. | N/A |
 | 2026-09-04 | `S2-E1`, `S2-E2` | Both audits independently found that `xxhash` is directed by §4.1 and forbidden by FR-003, FR-035 and SC-011, and that SC-011's named measurement cannot see lazy imports **by construction** — so the criterion had no test that could fail. An earlier drift-log row had closed this same conflict as "No document change needed". | `S2-G1` named the exception in FR-003 and fenced it to the fingerprint, and rewrote SC-011 to require imports collected at any depth, stating why a module-level reader does not measure it. `S2-F2` strengthens the test. The earlier row is superseded. | N/A |
 | 2026-09-04 | `S2-E2` | Found a defect neither the 51-mutation nor the 57-mutation campaign caught: a walrus target inside a comprehension is not recorded as assigned, so the reader is never marked stale and packaging refuses a working notebook. PEP 709 inlines those comprehensions and `symtable` reports the target as neither assigned nor local. | Assigned to `S2-F2`. Also worth noting the shape: the with-context audit found what the mutation campaigns could not, because no mutation of existing code produces a case the code never handled. | N/A |
+| 2026-09-04 | manager | The pre-PR check refused the branch on `guard.persona_policy`: the manager ledger, inherited from the abandoned dispatch, recorded `runtime: kimi` for work Claude authored, and `kimi` maps to no ADR-042 runtime config root. | Replaced the ledger rather than hand-editing committed gate evidence, which the rules forbid. Every agent ledger already carried a valid Claude runtime; only the inherited manager one was wrong. Retaining it at restart was my call and this is its cost. | #2245 |
 | 2026-09-04 | `S2-E2` | F-04: §2 of this checklist still declared `docs/specs/adr-054-*.md` out of scope while the spec was being materially rewritten under §6 and drift-log authorisation, making the PR's own scope statement false. | §2 corrected above, with the correction itself recorded rather than made silently. | N/A |
 | 2026-09-04 | manager | The earlier spec 2 dispatch left a checklist and three prompts with no implementation behind them. | Owner directed a full restart. Replaced the checklist and the prompt directory; retained and amended the gate ledger. | N/A |
 | 2026-09-04 | `S2-B1`, `S2-B2`, `S3-A1` | Three agents independently hit the same blocker and each correctly refused to widen its own scope: creating `src/scistudio/explore/` makes the ADR-054 and spec `planned_governs` entries resolve, and `full_audit` requires a resolved entry to move into `governs`. No implementer's write set covers governance front matter, and the move cannot be pre-applied on a branch without the package. | Manager added agent `S2-G1` (`adr_author`) to make the move once, as its own reviewable change, and amended the ledger to include the two documents. | A second short pass moves `tests/explore/test_analysis_differential.py` and `tests/explore/fixtures/**` once `S2-D1` creates them. |
