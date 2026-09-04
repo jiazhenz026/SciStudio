@@ -317,16 +317,31 @@ def _stride_indices(length: int, keep: int) -> list[int]:
     Fixed stride, and the last index is always included, so FR-025's "across its
     full extent" holds literally: a change to the final element of a sampled
     container is always seen.
+
+    The step is ``ceil(length / keep)`` rather than ``length // keep``, so the
+    stride *reaches* the end instead of being cut short there. Rounding down and
+    then truncating the index list to *keep* entries stops the sample at
+    ``(keep - 1) * step`` and leaves the whole span from there to the final index
+    unvisited — for a 1000-element list and a *keep* of 512 the step would be 1
+    and positions 512 to 998 would never be looked at, which is not a stride
+    across the extent and not the miss §4.5 admits. Rounding up cannot overrun
+    the count either: ``ceil(length / ceil(length / keep)) <= keep``, so the
+    result stays inside the declared bound without a truncation.
     """
     if length <= 0:
         return []
     if length <= keep:
         return list(range(length))
-    step = max(1, length // keep)
-    indices = list(range(0, length, step))[:keep]
+    step = _sample_step(length, keep)
+    indices = list(range(0, length, step))
     if indices[-1] != length - 1:
         indices.append(length - 1)
     return indices
+
+
+def _sample_step(length: int, keep: int) -> int:
+    """The stride that visits at most *keep* of *length* positions and reaches the end."""
+    return max(1, -(-length // keep))
 
 
 # ---------------------------------------------------------------------------

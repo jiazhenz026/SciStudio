@@ -377,10 +377,51 @@ def test_del_target_is_read() -> None:
     assert "df" in read("del df")
 
 
-def test_augmented_assignment_inside_a_nested_scope_is_not_a_module_read() -> None:
-    """The extra read is taken at module level only; a function's local is its own."""
+def test_augmented_assignment_on_a_nested_scope_local_is_not_a_module_read() -> None:
+    """A function's own local is its own, however it is written.
+
+    ``running`` is bound and then augmented inside ``tally``; nothing resolves it
+    to the module scope, so FR-006 does not reach it. This is the boundary of the
+    rule the test below states, and the two belong together: the extra read
+    follows the *scope a name resolves to*, not the depth the statement sits at.
+    """
     source = "def tally():\n    running = 0\n    running += 1\n    return running\n"
     assert "running" not in read(source)
+
+
+def test_augmented_assignment_on_a_global_inside_a_function_is_a_module_read() -> None:
+    """FR-006: a nested-scope read that resolves to the module scope is a module read.
+
+    ``counter += 1`` under ``global counter`` reads ``counter``. :mod:`symtable`
+    reports the symbol as assigned and global but not as referenced, so without
+    this the cell would be a definer of ``counter`` that reads nothing, and a
+    backward slice through it would drop the cell that gave ``counter`` its
+    initial value and fail with a ``NameError`` (FR-021, SC-003).
+    """
+    source = "def bump():\n    global counter\n\n    counter += 1\n"
+    assert "counter" in read(source)
+    assert "counter" in facts_for(source).assigned
+
+
+def test_del_of_a_global_inside_a_function_is_a_module_read() -> None:
+    """``del counter`` under ``global`` needs ``counter`` to exist, exactly as ``+=`` does."""
+    assert "counter" in read("def drop():\n    global counter\n\n    del counter\n")
+
+
+def test_a_global_declaration_does_not_reach_a_function_defined_inside_the_one_that_made_it() -> None:
+    """The declaration governs its own scope, and the extra read follows it exactly.
+
+    ``inner`` never declares ``counter`` global, so ``counter += 1`` there is a
+    read of ``inner``'s own local — a ``NameError`` at run time and not a
+    module-scope read the graph should draw an edge for.
+    """
+    source = "def outer():\n    global counter\n\n    def inner():\n        counter += 1\n\n    return inner\n"
+    assert "counter" not in read(source)
+
+
+def test_an_augmented_assignment_on_a_global_inside_a_class_body_is_a_module_read() -> None:
+    """A class body is a scope too, and ``global`` means the same thing in it."""
+    assert "tally" in read("class Counter:\n    global tally\n\n    tally += 1\n")
 
 
 def test_augmented_assignment_inside_a_module_level_loop_is_a_read() -> None:
@@ -531,16 +572,101 @@ def test_shell_line_is_stripped() -> None:
 
 
 def test_an_indented_magic_line_is_stripped() -> None:
-    """FR-011 keys on the first non-blank character, not on column zero."""
+    """FR-011: the first token of a logical line, not the first token in column zero.
+
+    The indent token says nothing about where the logical line begins, so a magic
+    inside a block is still the first token of its own.
+    """
     facts = facts_for("if True:\n    %time\n    df = load()\n")
     assert "df" in facts.assigned
     assert facts.flags == ()
 
 
 def test_a_modulo_expression_is_not_a_magic_line() -> None:
-    """FR-011 strips a line that *begins* with ``%``; arithmetic does not."""
+    """FR-011: ``%`` after another token on the same logical line is the operator."""
     facts = facts_for("remainder = total % 3")
     assert "remainder" in facts.assigned
+    assert facts.flags == ()
+
+
+def test_a_wrapped_modulo_is_the_operator_and_its_right_hand_name_is_read() -> None:
+    """FR-011 / FR-006: what ``black`` and ``ruff format`` emit is not a magic.
+
+    The continuation line's first non-blank character is ``%``, and a textual
+    rule removes it: the cell still parses, as ``ratio = (total)``, no flag is
+    raised, and ``count`` vanishes from the read set — a silently smaller
+    backward slice that raises ``NameError`` when it runs. The tokeniser puts
+    that ``%`` inside an open bracket, where it is the operator.
+    """
+    facts = facts_for("ratio = (\n    total\n    % count\n)\n")
+    assert facts.read >= {"total", "count"}
+    assert facts.assigned == frozenset({"ratio"})
+    assert facts.flags == ()
+
+
+def test_a_wrapped_inequality_is_the_operator_and_its_right_hand_name_is_read() -> None:
+    """The ``!`` half of the same shape: ``!=`` opening a continuation line."""
+    facts = facts_for("ok = (\n    a\n    != b\n)\n")
+    assert facts.read >= {"a", "b"}
+    assert facts.flags == ()
+
+
+def test_a_modulo_after_a_backslash_continuation_is_not_a_magic() -> None:
+    """FR-011: a backslash joins two physical lines into one logical line."""
+    facts = facts_for("ratio = total \\\n    % count\n")
+    assert facts.read >= {"total", "count"}
+    assert facts.flags == ()
+
+
+def test_a_magic_after_a_comment_only_line_is_still_a_magic() -> None:
+    """FR-011: a comment-only line does not end a logical line, and none was open.
+
+    The tokeniser's ``NL`` after the comment is not a logical newline, so the
+    rule cannot lean on it — the magic is the first token of the logical line
+    because nothing has opened one yet, which is the case that distinguishes this
+    from the wrapped operator above.
+    """
+    facts = facts_for("# set the backend\n%matplotlib inline\ndf = load()\n")
+    assert "df" in facts.assigned
+    assert facts.flags == ()
+
+
+def test_a_magic_after_a_blank_line_is_still_a_magic() -> None:
+    """The other ``NL``-emitting shape, for the same reason."""
+    facts = facts_for("df = load()\n\n%matplotlib inline\npeaks = find(df)\n")
+    assert facts.assigned >= {"df", "peaks"}
+    assert facts.flags == ()
+
+
+def test_a_magic_inside_a_string_literal_is_left_in_place() -> None:
+    """FR-011: a ``%`` inside a literal is part of that token, not the start of a line."""
+    facts = facts_for('notes = """\n%matplotlib"""\ndf = load()\n')
+    assert facts.assigned == frozenset({"notes", "df"})
+    assert facts.flags == ()
+
+
+def test_a_shell_line_the_tokeniser_cannot_read_is_still_stripped() -> None:
+    """FR-011's error-recovery clause: the older textual test from the stop onward.
+
+    ``!cat it's-a-file`` stops the tokeniser on the apostrophe, which opens a
+    string literal that never closes. Every physical line from there on is
+    classified textually, so the shell line still goes and the cell below it
+    still parses.
+    """
+    facts = facts_for("df = load()\n!cat it's-a-file\npeaks = find(df)\n")
+    assert facts.assigned >= {"df", "peaks"}
+    assert facts.flags == ()
+
+
+def test_a_magic_whose_logical_line_spans_two_physical_lines_is_removed_whole() -> None:
+    """FR-011: *every* physical line the magic's logical line spans is removed.
+
+    Removing only the first would leave the continuation behind as a fragment
+    that does not parse, which is the syntax-error flag FR-011 forbids the strip
+    to produce on its own.
+    """
+    facts = facts_for("%time load(\n    'a.csv'\n)\ndf = 1\n")
+    assert facts.assigned == frozenset({"df"})
     assert facts.flags == ()
 
 
@@ -677,6 +803,19 @@ def test_run_magic_binds_an_unknown_set_of_names() -> None:
 def test_an_ordinary_magic_does_not_bind_unknown_names() -> None:
     """FR-011: a stripped magic line does not by itself produce a flag."""
     assert not facts_for("%matplotlib inline\ndf = load()\n").binds_unknown_names
+
+
+def test_a_run_that_is_not_the_first_token_of_a_logical_line_binds_nothing_unknown() -> None:
+    """FR-011's definition of a magic line governs FR-013's ``%run`` as well.
+
+    Inside an open bracket ``%run`` is a modulo by a name called ``run``. Reading
+    it as a ``%run`` magic would mark the cell as binding an unknown set, which
+    resolves every otherwise-unresolved read below it to this cell and hides the
+    ones packaging exists to refuse.
+    """
+    facts = facts_for("total = (\n    seconds\n    %run\n)\n")
+    assert not facts.binds_unknown_names
+    assert facts.read >= {"seconds", "run"}
 
 
 def test_a_plain_from_import_does_not_bind_unknown_names() -> None:

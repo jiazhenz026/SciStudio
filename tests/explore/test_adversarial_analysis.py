@@ -668,28 +668,30 @@ def test_fr012_a_cell_holding_an_unpaired_surrogate_is_flagged_rather_than_raisi
     assert facts[1].assigned == frozenset({"df"})
 
 
-def test_fr011_a_magic_line_inside_a_string_literal_is_stripped_too() -> None:
-    """FINDING P3 — stripping is textual, so it reaches inside a string literal.
+def test_fr011_a_magic_line_inside_a_string_literal_is_left_alone() -> None:
+    """The finding above, closed: the strip is lexical, so it stops at a string literal.
 
-    FR-011 says the line "MUST be removed before parsing and MUST NOT by itself
-    produce an error flag". The removal is a line filter over the raw source, so
-    a line that begins with ``%`` inside a triple-quoted string is removed as
-    well, and where that line also carried the closing quotes the cell stops
-    parsing — the flag FR-011 forbids, produced by the strip alone.
+    This test was written to record a defect and asserted it: while the strip was
+    a line filter over the raw source, a line beginning with ``%`` inside a
+    triple-quoted string was removed with the rest, and where that line also
+    carried the closing quotes the cell stopped parsing — the very error flag
+    FR-011 forbids the strip to produce on its own. Its own docstring said the
+    general repair was the one the wrapped-operator finding asked for, and that
+    it was recorded here so the repair would be known to cover both.
 
-    Documented rather than failed: the harmful shape needs the closing delimiter
-    on the stripped line, which is rare, and the general repair is the same one
-    the wrapped-operator finding asks for — decide what a magic is by tokenising
-    rather than by the first character of a line. Recorded here so that the
-    repair is known to cover both.
+    It does. FR-011 now identifies a magic by tokenising, and a ``%`` inside a
+    string literal is part of that literal's token rather than the first token of
+    a logical line. Both halves of the cell survive: the assertions below are the
+    inverse of the ones this test was born with, and they are what the narrowed
+    rule requires.
     """
     harmless = analyse_cell("c1", 'notes = """\n%matplotlib inline goes here\n"""\ndf = load()\n')
     assert harmless.assigned == frozenset({"notes", "df"})
     assert harmless.flags == ()
 
-    harmful = analyse_cell("c2", 'notes = """\n%matplotlib"""\ndf = load()\n')
-    assert harmful.flag_kinds == frozenset({AnalysisFlag.SYNTAX_ERROR})
-    assert harmful.assigned == frozenset(), "df is lost, and nothing below it can resolve its reads"
+    once_harmful = analyse_cell("c2", 'notes = """\n%matplotlib"""\ndf = load()\n')
+    assert once_harmful.flags == (), "the strip no longer reaches inside the literal, so it raises nothing"
+    assert once_harmful.assigned == frozenset({"notes", "df"}), "df survives, and a read of it below resolves"
 
 
 def test_fr036_the_seven_flags_are_reachable_and_each_renders_its_own_fields() -> None:
