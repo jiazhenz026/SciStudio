@@ -26,13 +26,8 @@ registry, both counts and membership.
 (``src/scistudio/_skills/scistudio/SKILL.md`` and
 ``docs/specs/embedded-coding-agent-spec.md``). Nothing else moves.
 
-TODO(#2254): ADR-054 spec 5 adds a seventh group, the seven Explore session
-  tools (``open_explore_session``, ``read_notebook``, ``append_cell``,
-  ``run_cell``, ``get_bindings``, ``check_packaging``, ``package_notebook``),
-  landing with ``src/scistudio/ai/agent/mcp/tools_explore/**``. They are not on
-  this branch, so they are not asserted here; the total becomes 47 when they
-  register.
-  Followup: docs/planning/adr-054-assembly-followups.md, "#### F-B4-2".
+Both tool groups ADR-054 spec 5 adds are here: the panel group (S5-B2) and the
+Explore session group (S5-B3). The registry holds 47 tools in eight groups.
 """
 
 from __future__ import annotations
@@ -117,6 +112,21 @@ PANEL_TOOLS: frozenset[str] = frozenset(
     }
 )
 
+#: The Explore session tools (ADR-054 spec 5 FR-019 to FR-024). Note the tag is
+#: ``category:session`` while the module is ``tools_explore`` -- the group is
+#: named for what the agent acts on, the module for the subsystem it calls.
+SESSION_TOOLS: frozenset[str] = frozenset(
+    {
+        "open_explore_session",
+        "read_notebook",
+        "append_cell",
+        "run_cell",
+        "get_bindings",
+        "check_packaging",
+        "package_notebook",
+    }
+)
+
 #: Expected registry contents per ``category:`` tag.
 EXPECTED_TOOL_GROUPS: dict[str, frozenset[str]] = {
     "workflow": WORKFLOW_TOOLS,
@@ -126,6 +136,7 @@ EXPECTED_TOOL_GROUPS: dict[str, frozenset[str]] = {
     "plot": PLOT_TOOLS,
     "library": LIBRARY_TOOLS,
     "panel": PANEL_TOOLS,
+    "session": SESSION_TOOLS,
 }
 
 #: Every tool the MCP server is expected to register.
@@ -155,5 +166,6 @@ __all__ = [
     "PANEL_TOOLS",
     "PLOT_TOOLS",
     "QA_TOOLS",
+    "SESSION_TOOLS",
     "WORKFLOW_TOOLS",
 ]

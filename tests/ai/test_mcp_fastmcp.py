@@ -66,26 +66,21 @@ def test_fastmcp_lists_every_expected_tool() -> None:
 
 
 def test_write_class_tools_have_next_step() -> None:
-    """ADR-040 §3.2: every write-class tool's result model has next_step: str."""
-    write_class = {
-        "write_workflow",
-        "edit_workflow",
-        "run_workflow",
-        "cancel_run",
-        "finish_ai_block",
-        "scaffold_block",
-        "reload_blocks",
-        "run_block_tests",
-        "update_block_config",
-        # ADR-048 SPEC 2 plot write/run-class.
-        "scaffold_plot",
-        "run_plot_job",
-        # ADR-053 FR-011 library write-class.
-        "promote_to_user_library",
-    }
+    """ADR-040 §3.2: every write-class tool's result model has next_step: str.
+
+    The list is **taken from the registry's ``write`` tag**, not written out
+    here. It used to be a hand-kept set, and by the time ADR-054 spec 5 landed
+    it was missing six tools — the two write-class panel tools and four of the
+    seven session tools — so it passed while covering less than its name
+    claims. A test whose subject list is maintained by hand tests whatever
+    someone last remembered to add (S5-B3's F-B3-7).
+    """
     tools = _run(mcp.list_tools())
+    write_class = {t.name for t in tools if "write" in (t.tags or set())}
+    assert write_class, "no tool carries the 'write' tag; the tag convention has moved"
+
     by_name = {t.name: t for t in tools}
-    for name in write_class:
+    for name in sorted(write_class):
         tool = by_name[name]
         if name == "finish_ai_block":
             # Union[FinishAIBlockOK, FinishAIBlockError]; next_step lives on OK.

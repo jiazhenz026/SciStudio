@@ -371,7 +371,260 @@ way to name an already-finalized one.
 
 ### S5-B3
 
-_No entries yet._
+PR #2261's CI, run 33958351227: **9 jobs pass** (Lint & Format, Type Check,
+Import Contracts, Architecture Tests, Full Audit, Deferral discipline ratchet,
+Desktop, Wheel Release Smoke, Verify Workflow Compliance). Three fail, none of
+them this branch's code: Test (3.11) is **6 failed, 9443 passed** and every
+failure is a `36`-tool count assertion (F-B3-8, S5-B4's row); Test (3.13) hit
+the same two count failures and then `pytest parallel phase exceeded 600s`
+at 96% (S5-B1's F-B1-4); Frontend is F-B3-11 below.
+
+#### F-B3-1 — The MCP context cannot reach the person's live session service
+
+- **Severity**: P1 — under the topology the desktop app actually runs, the
+  agent's session tools act on a *second* `SessionService` over the same
+  notebooks as the person's.
+- **Found by**: S5-B3, implementing T-006.
+- **Evidence**: `scistudio.ai.agent.mcp._context.MCPContext` declares
+  `block_registry`, `type_registry`, `project_dir`, `active_workflow_id` and
+  `workspace_focus` and nothing else. The production implementation
+  (`_RuntimeAdapter` in `src/scistudio/api/app.py:120`) forwards exactly those
+  members plus `workflow_runs`, `event_bus`, `start_workflow` and
+  `register_plot_artifact`. The session service registry is
+  `_services` in `src/scistudio/api/routes/explore.py:108`, and the AI layer
+  must not import it: the import-linter contract "AI must not depend on api"
+  (`pyproject.toml`) forbids the edge with no carve-out.
+
+**What the tools do instead.**
+`src/scistudio/ai/agent/mcp/tools_explore/_service.py::session_service` asks the
+context for `get_session_service` / `session_service` by name — nothing
+implements either today — and otherwise builds a service of its own over the
+open project, cached per project directory.
+
+**Why it matters.** `scistudio mcp-bridge` first tries the running GUI's
+project-local socket (`_try_connect_attached` in
+`src/scistudio/cli/mcp_bridge.py:68`) and proxies the agent's stdio into the
+FastAPI process's in-process MCP server. So in the ordinary desktop case the
+tools execute *inside* the process that already holds the person's
+`SessionService`, and the fallback stands up a second one beside it. Two
+services over one notebook means two `NotebookStore` documents over one file,
+and an appended cell that reaches the person only when their own session next
+reloads — which is exactly the "appears through the same events the person's
+own edits produce" claim FR-024 is written to guarantee.
+
+**Mitigations already in place** (they reduce the harm; they do not close it):
+the fallback is cached per project so a process never holds more than one, and
+`_service.session_for` calls `ExploreSession.reload_if_changed()` — the session
+API's own answer to an outside edit — before any tool reads or writes.
+
+**What would close it**: add `get_session_service` to `_RuntimeAdapter` (the
+route's `get_session_service(runtime)` is already the right callable) and to the
+`MCPContext` Protocol as an optional member, then assert against a real
+`ApiRuntime` that a tool-appended cell lands in the session the HTTP routes
+serve. The fallback and the accessor lookup can both stay: the standalone bridge
+still has no API process to ask.
+
+- **Suggested title**: `fix(#2254): the MCP context cannot reach the running backend's explore SessionService`
+
+#### F-B3-2 — A bridge with no lineage store cannot open a session over a block's outputs
+
+- **Severity**: P2 — `open_explore_session(source='block_outputs')` fails in a
+  standalone bridge; `source='file'` works.
+- **Found by**: S5-B3.
+- **Evidence**: `SessionService._require_resolver`
+  (`src/scistudio/explore/session.py:2073`) raises `NothingToExploreError`
+  when the service was built without `block_outputs` or `lineage_store`. The
+  fallback in `tools_explore/_service.py::_build_service` takes the store from
+  `scistudio.core.metadata_store._active_lineage_store()`, which the API
+  publishes when it opens a project (`api/runtime/_projects.py:203`). In a
+  standalone `scistudio mcp-bridge` process nothing has published one, so the
+  resolver is absent.
+- **Why it is here and not fixed**: opening a second `LineageStore` on
+  `<project>/.scistudio/lineage.db` from the bridge would make a second writer
+  to a database the backend already owns, which is a bigger decision than a tool
+  wiring change. It is also downstream of F-B3-1: a context that carried the
+  service would carry a service that already has the store.
+- **Suggested title**: `fix(#2254): the standalone MCP bridge cannot resolve a block's outputs for an explore session`
+
+#### F-B3-3 — `run_cell` has no way to follow a run it stopped waiting for
+
+- **Severity**: P3.
+- **Found by**: S5-B3.
+- **Evidence**: `ExploreSession` exposes `run_cell` (returns an
+  `ExecutionRequest`) and `wait_until_idle`, and nothing that answers "what is
+  the state of request X now". `RunCellResult.completed=False` therefore hands
+  the agent a `request_id` it cannot look up; its only recourse is to call
+  `read_notebook` again and read the cell's outputs.
+- **What would close it**: a session-API read that answers one request's state
+  by id — the WebSocket already publishes `cell_state`, so the state exists; it
+  is only not readable by a caller that is not subscribed.
+- **Suggested title**: `feat(#2254): let a caller read one execution request's state by id`
+
+#### F-B3-4 — Cell outputs are bounded by the tool, and the HTTP route returns none at all
+
+- **Severity**: P3 — a divergence, not a defect.
+- **Found by**: S5-B3.
+- **Evidence**: `CellModel` in `src/scistudio/api/routes/explore.py:820` carries
+  `cell_id`, `cell_type`, `source`, `enabled` and `marks` — no outputs; the
+  frontend reads them from the notebook it already has. FR-020 requires the
+  session tool to return outputs, so
+  `tools_explore/_models.py::CellOutputModel` renders them: stream text, the
+  `text/plain` representation, and the error name/value/traceback, each bounded
+  at `OUTPUT_TEXT_LIMIT` (4000 chars), with every other MIME type reported by
+  name rather than by value so a base64 PNG never reaches the agent's context.
+- **Why it is here**: the bound is the tool's own policy and lives in the AI
+  layer, so two clients could disagree about what an output is. If a second
+  client ever needs the same thing, the rendering belongs beside the session.
+- **Suggested title**: `refactor(#2254): move the bounded cell-output rendering beside the session API`
+
+#### F-B3-5 — The spec still says `server.py` registers the tool groups
+
+- **Severity**: P3 — documentation drift, already found by S5-B2 as F-5.
+- **Found by**: S5-B3, confirming it independently.
+- **Evidence**: ADR-054 spec 5 §4.2 has the row
+  `src/scistudio/ai/agent/mcp/server.py | modify | Registers the two groups.`
+  `server.py` owns the module-scope `FastMCP` instance and imports no tool
+  module; the eager side-effect imports live in
+  `src/scistudio/ai/agent/mcp/__init__.py`. This branch adds `tools_explore` to
+  that import list and two lines to the module docstring, and does not touch
+  `server.py` — the same resolution S5-B2 took, so the two lines land two apart
+  in one alphabetically-ordered list and the merge keeps both.
+- **What would close it**: correct the §4.2 row and the dispatch template's
+  "registers the two groups" wording.
+- **Suggested title**: N/A — folded into S5-B2's F-5.
+
+#### F-B3-6 — The packaging tools re-scan the block registry the runtime already holds
+
+- **Severity**: P3 — a latency cost, not a wrong answer.
+- **Found by**: S5-B3.
+- **Evidence**: `check_packaging` and `package_notebook`
+  (`src/scistudio/explore/packaging.py:645`, `:987`) take an optional
+  `registry`, and default to scanning a fresh block registry to resolve port
+  extensions and interactive block ids. Neither
+  `api/routes/explore.py`'s packaging routes nor these tools pass one, so every
+  check pays for a full registry scan — while `MCPContext.block_registry` is a
+  scanned registry sitting right there.
+- **Why it is here and not done**: passing it would make the tool's answer
+  differ from the HTTP route's for the same notebook whenever the two registries
+  disagree, and the route is the fact. Both callers should start passing one, or
+  neither should.
+- **Suggested title**: `perf(#2254): pass the runtime's block registry to the packaging check instead of re-scanning`
+
+#### F-B3-7 — `test_write_class_tools_have_next_step` names its write-class tools by hand
+
+- **Severity**: P2 for S5-B4 — it is not only the *counts* that move.
+- **Found by**: S5-B3.
+- **Evidence**: `tests/ai/test_mcp_fastmcp.py:105` builds `write_class` as a
+  literal set. It does not contain the two panel write tools (`scaffold_panel`,
+  `reload_panels`) that S5-B2 landed, and will not contain the four session
+  write tools (`open_explore_session`, `append_cell`, `run_cell`,
+  `package_notebook`) this branch lands. The assertion therefore passes while
+  silently covering fewer tools than it claims to.
+- **Note**: the four session result models each carry `next_step`, and
+  `tests/ai/test_mcp_tools_explore.py::test_every_write_class_session_tool_result_carries_a_next_step`
+  asserts it locally — so adding the six names to the shared set is safe.
+- **What would close it**: derive `write_class` from the registered `write` tag
+  rather than restating it, which is the tag every group already sets.
+- **Suggested title**: `test(#2254): derive the write-class tool set from the registered tag`
+
+#### F-B3-8 — Confirmed: five count-assertion sites fail at 47 tools, not three
+
+- **Severity**: P2 for S5-B4 — corroborates S5-B2's F-2 with the run.
+- **Found by**: S5-B3, on this branch with both tool groups present.
+- **Evidence**: `PYTHONPATH=./src python -m pytest tests/ai tests/architecture
+  tests/contracts tests/cli/test_mcp_bridge.py
+  tests/integration/test_phase2_mcp_end_to_end.py` fails exactly five tests, all
+  of them the number `36`:
+  `tests/ai/test_mcp_fastmcp.py::test_fastmcp_lists_36_tools` (asserts 47 now),
+  `tests/ai/test_finish_ai_block_skeleton.py::test_registry_now_has_36_tools`,
+  `tests/contracts/test_runtime_import_contract.py::test_mcp_server_exposes_36_tools`,
+  `tests/cli/test_mcp_bridge.py::test_run_standalone_mode_returns_tools_list`,
+  `tests/cli/test_mcp_bridge.py::test_run_attached_mode_proxies_to_backend`, and
+  `tests/integration/test_phase2_mcp_end_to_end.py::test_mcp_server_initialize_tools_list_and_call`
+  — six test functions across five files. `36 + 4 panel + 7 session = 47` is the
+  arithmetic, and `await mcp.list_tools()` returns 47 on this branch.
+- **Suggested title**: N/A — this is S5-B4's T-009 row, recorded so it is not
+  re-derived.
+
+#### F-B3-9 — `deferral_scan.py --diff` crashes on Windows before it can report anything
+
+- **Severity**: P2 — the diff gate every agent trips is unrunnable locally on
+  Windows, so it is only ever discovered in CI.
+- **Found by**: S5-B3, trying to reproduce the CI failure locally.
+- **Evidence**:
+
+  ```
+  python scripts/deferral_scan.py --diff "track/adr-054-spec5-agent-enablement"
+  File "scripts/deferral_scan.py", line 235, in _diff_added_lines
+    for raw in out.splitlines():
+  AttributeError: 'NoneType' object has no attribute 'splitlines'
+  ```
+
+  The real error is upstream and is swallowed into `stdout=None`:
+  `_diff_added_lines` runs `subprocess.run(..., text=True)` without an
+  `encoding`, so Python decodes git's output with the console codepage. On a
+  machine whose default is GBK, a diff carrying an em dash raises
+  `UnicodeDecodeError` on the reader thread and `.stdout` comes back `None`.
+  Passing `encoding="utf-8", errors="replace"` fixes it; the same call in
+  `_run_diff_gate`'s sibling scan paths deserves the same.
+- **Why it is here**: `scripts/deferral_scan.py` is CI surface and outside every
+  S5 write set.
+- **Workaround used**: the gate was reproduced by driving `deferral_scan`'s own
+  `_COMPILED`, `TRACKING_RE` and `EXCLUSIONS` over a `git diff` decoded
+  explicitly.
+- **Suggested title**: `fix(ci): deferral_scan --diff decodes git output with the console codepage and dies on Windows`
+
+#### F-B3-10 — A PR that conflicts with its base gets no CI at all, and reads as unverified rather than failing
+
+- **Severity**: P2 for this dispatch — several stacked branches will hit it as
+  the track moves under them.
+- **Found by**: S5-B3, when PR #2261 sat with zero check runs.
+- **Evidence**: `gh pr view 2261 --json mergeable` returned `CONFLICTING`, and
+  `gh api repos/.../commits/<sha>/check-suites` listed `claude`,
+  `cloudflare-workers-and-pages` and `codacy-production` but **no
+  `github-actions` suite**. GitHub cannot build the merge commit a
+  `pull_request` event runs against, so `ci.yml` never fires — the PR shows no
+  failing check, it shows no check. Merging the base into the branch made it
+  `MERGEABLE` and all three workflows started within seconds.
+- **Why it matters here**: the track branch moves while agents work on it, so
+  "the PR is green" and "the PR has not run" look the same in the PR list. An
+  agent that reports CI status without checking `mergeable` will report a
+  branch as unverified-but-fine.
+- **What would close it**: nothing in the code — a line in the dispatch
+  preamble telling agents to check `mergeable` before reading CI, and to merge
+  the track branch in when it has moved.
+- **Suggested title**: N/A — a note for `docs/planning/adr-054-assembly-dispatch-prompts/_common.md`.
+
+
+#### F-B3-11 — `OpenAsDialog.test.tsx` fails on the spec 5 track, and it is not the eslint flake
+
+- **Severity**: P2 — the Frontend job is red on this track for a reason nobody
+  has claimed, and it is a real assertion failure rather than a timeout.
+- **Found by**: S5-B3, reading PR #2261's CI.
+- **Evidence**: run 33958351227, Frontend job 101285657534,
+  **2315 passed, 1 failed (198 files)**:
+
+  ```
+  FAIL src/components/__tests__/OpenAsDialog.test.tsx > OpenAsDialog (#2112)
+       > lists every candidate with its tier and preselects the most specific
+  AssertionError: expected false to be true
+    src/components/__tests__/OpenAsDialog.test.tsx:110
+      expect(radioFor("SRSImage").checked).toBe(true);
+  ```
+
+- **Why it is not this branch's**: `git diff track/adr-054-spec5-agent-enablement...HEAD`
+  on `feat/2254-session-tools` names **no** `frontend/**` path. The branch cannot
+  change what this test does.
+- **Why it is not M-002**: M-002 is `eslint-config.test.ts` timing out at 5000ms
+  under load. This is a different file, a different failure mode (a checked
+  radio that is not checked), and it reproduced on a runner that was not
+  otherwise loaded — the same suite's other 2315 tests passed in 70s.
+- **What it probably is**: the dialog preselects "the most specific" candidate,
+  and spec 1's panel/previewer rename or spec 3's packaged-notebook block
+  changes the tier or the candidate ordering `#2112` assumed. Someone who owns
+  the panel tiers should read it against `OpenAsDialog.tsx`.
+- **Suggested title**: `fix(frontend): OpenAsDialog no longer preselects the most specific candidate on the ADR-054 track`
+
 
 ### S5-B4
 
@@ -400,29 +653,23 @@ readability aid over it.
 **What would close it**: fold the real list into spec §4.2, or accept the shared
 module as the answer and note it there.
 
-#### F-B4-2 — The eleven-tool move is seven tools short until S5-B3 lands
+#### F-B4-2 — RESOLVED: the eleven tools are counted
 
-Spec 5 adds eleven tools. Four (`scaffold_panel`, `read_panel_source`,
-`list_panel_examples`, `reload_panels`) landed with S5-B2 and are counted here:
-the registry reports **40** tools in seven groups. The seven session tools
-(`open_explore_session`, `read_notebook`, `append_cell`, `run_cell`,
-`get_bindings`, `check_packaging`, `package_notebook`) are S5-B3's and were not
-on any branch when this landed, so their names are not asserted anywhere —
-guessing one is exactly what the dispatch forbids.
+Recorded while S5-B3's group was still in flight; closed when it landed. Spec 5's
+eleven tools are all in the registry — four panel (S5-B2) and seven session
+(S5-B3) — and `await mcp.list_tools()` returns **47** in eight groups. The five
+count-assertion sites, the two unguarded catalogs, and the per-group counts all
+say so.
 
-When they register, the total becomes **47** and these move together:
+Adding the session group moved exactly one declaration,
+`tests/mcp_tool_expectations.py`, plus the two catalogs — which is what F-B4-1's
+consolidation was for. Left in the register as the worked example of that claim
+rather than deleted.
 
-1. `tests/mcp_tool_expectations.py` — the seven names as an `EXPLORE_TOOLS`
-   frozenset, and its row in `EXPECTED_TOOL_GROUPS`. The total and the group
-   counts are derived from that, so they need no edit.
-2. Nothing in the five count-assertion files: all five now read the shared
-   declaration rather than a literal.
-3. `src/scistudio/_skills/scistudio/SKILL.md` — a session group in the static
-   fallback, and the two "40 tools" statements.
-4. `docs/specs/embedded-coding-agent-spec.md` §1.1 — the same.
-
-`tests/ai/test_tool_catalogs.py` needs no edit for step 3 and 4 to be caught:
-it reads the live registry and fails naming the tools each catalog is missing.
+One naming note for whoever reads the code next: the group's `category:` tag is
+`session` while its module is `tools_explore`. Both spellings are correct — the
+tag names what the agent acts on, the module the subsystem it calls — but a
+reader looking for `category:explore` will not find it.
 
 #### F-B4-3 — `docs/architecture/ARCHITECTURE.md` still carries a stale tool table
 
@@ -557,6 +804,33 @@ Verified on `.worktrees/s5-track` at `fe42da327` and on
 **What would close it**: spec 3's owner diagnosing the bridge call, and — worth
 doing either way — making the runner run the serial phase even when the parallel
 phase failed, so one flake cannot mask a whole batch.
+
+
+#### F-B4-10 — Two repo-wide QA tests crash their xdist worker
+
+`tests/qa/test_audit_full_audit.py::test_full_audit_renders_human_readable_facts_summary`
+and `tests/qa/test_generate_facts_cli.py::test_generate_facts_write_and_check_round_trip`
+fail in the parallel phase with `[gwN] node down: Not properly terminated` — the
+worker process dies rather than an assertion failing. Both pass in isolation,
+every time.
+
+They are the class `pyproject.toml` already describes: the first runs the entire
+audit in-process over the whole repository, the second spawns
+`scripts/audit/generate_facts.py` as a subprocess over the whole repository.
+Neither carries the `serial` marker, so both run under `-n auto`, where
+`pytest.ini_options`'s own comment says such tests "can leak a thread/subprocess
+that hangs or crashes an xdist worker (#1867, #1896)".
+
+Observed four times on this branch across two virtualenvs, and once as a pair of
+`worker crashed` entries in the very first gate run here, before most of this
+branch existed. Not fixed because `tests/qa/**` is outside the S5-B4 write set.
+
+**What would close it**: mark both `serial`. They then run in the second phase,
+alone, where a heavy repo-wide subprocess belongs.
+
+**Why it matters beyond the flake**: with F-B4-9, a `serial` failure is invisible
+whenever the parallel phase fails, and these two are the most reliable way to
+make the parallel phase fail. The two defects hide each other.
 
 
 ### S4-D1 / S5-D1 (adversarial testing)

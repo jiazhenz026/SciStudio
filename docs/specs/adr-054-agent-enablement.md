@@ -40,6 +40,7 @@ scope:
 governs:
   modules:
     - scistudio.ai.agent.mcp
+    - scistudio.ai.agent.mcp.tools_explore
     - scistudio.ai.agent.mcp.tools_panels
     - scistudio.agent_provisioning
   contracts:
@@ -60,6 +61,7 @@ governs:
     - src/scistudio/_skills/scistudio/SKILL.md
     - src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md
     - src/scistudio/_skills/scistudio/scistudio-write-panel/**
+    - src/scistudio/ai/agent/mcp/tools_explore/**
     - src/scistudio/ai/agent/mcp/tools_panels/**
     - src/scistudio/_agent_reference/README.md
     - src/scistudio/_agent_reference/block-contract.md
@@ -68,6 +70,7 @@ governs:
     - src/scistudio/_agent_reference/data-types.md
     - docs/specs/embedded-coding-agent-spec.md
     - tests/ai/test_workspace_focus.py
+    - tests/ai/test_mcp_tools_explore.py
     - tests/ai/test_mcp_tools_panels.py
     - tests/ai/test_mcp_fastmcp.py
     - tests/ai/test_mcp_server_skeleton.py
@@ -79,13 +82,10 @@ governs:
     - docs/architecture/**
     - docs/user/**
 planned_governs:
-  modules:
-    - scistudio.ai.agent.mcp.tools_explore
+  modules: []
   contracts: []
   entry_points: []
-  files:
-    - src/scistudio/ai/agent/mcp/tools_explore/**
-    - tests/ai/test_mcp_tools_explore.py
+  files: []
   excludes: []
 tests:
   - tests/ai/test_workspace_focus.py

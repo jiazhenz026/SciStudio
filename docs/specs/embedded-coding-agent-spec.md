@@ -92,10 +92,19 @@ openable on its own, `read_panel_source` reads one back from whichever tier it
 resolved from, `list_panel_examples` returns the worked panels in the examples
 corpus, and `reload_panels` rebuilds the registry.
 
-**Total: 40.**
+**Session (7)** — `open_explore_session`, `read_notebook`, `append_cell`,
+`run_cell`, `get_bindings`, `check_packaging`, `package_notebook` (ADR-054
+spec 5 FR-019 to FR-024).
 
-ADR-054 spec 5 adds seven more — the Explore session tools — which land with
-`src/scistudio/ai/agent/mcp/tools_explore/**` and take the total to 47.
+The group's `category:` tag is `session` while its module is `tools_explore`:
+the tag names what the agent acts on, the module the subsystem it calls. Every
+tool goes through the Explore session API and reaches neither the kernel, the
+notebook file, nor the queue directly — the session service is the one door, and
+a tool that opened a second one would make "every execution passes through the
+session" false. Each acts on the focused session by default, accepts an explicit
+session path, and refuses with a recovery message when neither resolves.
+
+**Total: 47.**
 
 **Where a group is registered.** Each tool module decorates its functions onto
 the module-scope `FastMCP` instance in

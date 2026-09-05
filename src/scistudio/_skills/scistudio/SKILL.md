@@ -123,9 +123,9 @@ plugins). Trust the rendered values; do not invent project metadata.
 ## Tool catalog
 
 The injected block below is replaced at prompt-composition time with
-the live MCP tool catalog (40 tools across workflow / authoring /
-inspection / qa / plot / library / panel). Use tool names and descriptions
-from the rendered catalog; do not type from memory if uncertain.
+the live MCP tool catalog (47 tools across workflow / authoring /
+inspection / qa / plot / library / panel / session). Use tool names and
+descriptions from the rendered catalog; do not type from memory if uncertain.
 
 Depending on how your client received this prompt, the block between the
 markers below is either the live catalog spliced from FastMCP
@@ -141,7 +141,7 @@ skill (`scistudio-build-workflow`, `scistudio-write-block`,
 sequence.
 
 <!-- tool_catalog:begin -->
-**Static fallback (40 tools — shown when the live catalog was not
+**Static fallback (47 tools — shown when the live catalog was not
 re-spliced at compose time).**
 
 - **Workflow (12)** — `list_blocks`, `get_block_schema`, `list_types`,
@@ -180,6 +180,15 @@ re-spliced at compose time).**
   in a browser to see it render over stub data; `reload_panels` is the
   one trigger that turns a directory on disk into a registered panel.
   Load `scistudio-write-panel` before using these.
+- **Session (7)** — `open_explore_session`, `read_notebook`,
+  `append_cell`, `run_cell`, `get_bindings`, `check_packaging`,
+  `package_notebook`. Work inside the user's explore session: read the
+  notebook with its cell marks, bindings and dependency graph, append a
+  cell after their current one and run it, then check and package the
+  notebook into a block. Every one of these acts on the **focused**
+  session by default and REFUSES when no session is active — read the
+  workspace focus first (see the rule above). They also accept an
+  explicit session path, for a session the user is not looking at.
 
 For each tool: every write-class result envelope carries `next_step`
 (read and follow it); `scaffold_block` additionally carries
