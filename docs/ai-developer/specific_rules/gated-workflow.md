@@ -254,6 +254,65 @@ the transcript with a header stating how many of the log's lines are shown and
 where the whole log is. Read the hint before re-running: it is meant to state
 the whole failure in one pass, not a slice of it (#2143).
 
+#### Only A Passing Check Discharges Its Obligation
+
+A check event records one of five statuses, and exactly one of them satisfies
+the obligation:
+
+| Status | Meaning | Discharges the obligation |
+|---|---|---|
+| `pass` | The check ran and exited 0 | Yes |
+| `fail` | The check ran and exited nonzero | No |
+| `skipped` | Its tool could not be resolved | No |
+| `timeout` | It ran past its wall-clock budget | No |
+| `unknown` | It could not be executed at all | No |
+
+The last three are the **absence of a result**, not a good one. A check nobody
+has the result of is not a check that passed.
+
+`timeout` and `unknown` used to be the same status, and `check` used to treat
+both as satisfied while `finalize` — which reads the same event back off the
+ledger — called it missing or stale. So a Python suite that ran past ten
+minutes produced `reconciliation passed` from `check` and a refusal from
+`finalize` on identical evidence, and the prescribed
+check → finalize → PR path had no terminating state on a slow machine (#2253).
+Both commands ask one predicate now, so they cannot disagree.
+
+`skipped`, `timeout` and `unknown` are unsatisfied in the PR-readiness modes
+(`pre-pr`, `ci`) and are recorded without blocking in the WIP modes, which is
+the fail-closed posture `skipped` already had.
+
+#### The Per-Check Timeout Budget
+
+Each check runs as a subprocess under a wall-clock cap. **This is the gate
+CLI's own budget and is not the shell `timeout` `ci.yml` wraps its pytest
+phases in** — two separate walls that happen to share a number.
+
+| | |
+|---|---|
+| Environment variable | `SCISTUDIO_GATE_CHECK_TIMEOUT` |
+| Unit | Seconds |
+| Default | `600` — the value that was hardcoded before #2253 |
+| Ignored when | Not a positive finite number; the default applies instead |
+
+```bash
+SCISTUDIO_GATE_CHECK_TIMEOUT=1800 \
+  python -m scistudio.qa.governance.gate_record check --mode pre-pr ...
+```
+
+Raise it when the suite honestly takes longer than the budget on your machine.
+That is the intended use: a timed-out check is unsatisfied, so a machine whose
+suite legitimately runs long needs a bigger budget rather than a looser gate.
+Raising it never makes a check easier to satisfy — the check must still exit 0
+— and lowering it can only turn a pass into an unsatisfied timeout. The
+`timeout` event's summary names the budget it exceeded, and whatever the
+process printed before being killed is kept in its raw log under
+`.workflow/local/**`.
+
+A timeout is **not** grounds for an N/A. Raise the budget, narrow the diff, or
+reduce machine load. `--check-na` remains for a check that genuinely does not
+apply, and it does not waive a `ci.yml`-owned check in any case.
+
 The `--mode` argument dispatches behavior for different callers:
 
 | Mode | Caller | Behavior |
@@ -345,6 +404,13 @@ Pre-PR `finalize` re-observes the diff, validates the intended PR body's issue
 closure, and reruns reconciliation by reusing existing check evidence. It does
 not execute tier-selected checks unless `--force-checks` is passed. It records
 that the candidate is ready to open a PR if all non-PR-state obligations pass.
+
+Because it reuses evidence rather than running checks, `finalize` accepts only
+a `pass`. That is the same rule `check` applies to the events it has just
+produced (§2.4), so the two cannot reach different verdicts on the same ledger
+event. A `finalize` that reports a check as missing or stale means there is no
+passing event for the current diff — including the case where the check ran and
+timed out, which records a `timeout` event rather than a pass.
 
 Post-PR `finalize` records the PR URL or number and reruns reconciliation by
 reusing existing check evidence. Local post-PR finalize records PR provenance

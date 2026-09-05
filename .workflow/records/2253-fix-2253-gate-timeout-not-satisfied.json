@@ -1,0 +1,105 @@
+{
+  "base_ref": "origin/track/adr-054-integration",
+  "branch": "fix/2253-gate-timeout-not-satisfied",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/qa/governance/gate_record/**",
+      "tests/qa/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-05T11:03:55.803626Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/specific_rules/gated-workflow.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T11:03:55.803633Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/gate-cli-command-set.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2253,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "A gate check that times out is recorded as unknown and read as satisfied; make it a distinct, unsatisfied outcome, make the budget configurable, and make check and finalize agree",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2253-fix-2253-gate-timeout-not-satisfied",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-05T11:03:55.803587Z",
+      "pattern": "src/scistudio/qa/governance/gate_record/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T11:03:55.803611Z",
+      "pattern": "tests/qa/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T11:03:55.803614Z",
+      "pattern": "docs/ai-developer/specific_rules/gated-workflow.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T11:03:55.803616Z",
+      "pattern": "docs/ai-developer/gate-cli-command-set.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T11:03:55.803618Z",
+      "pattern": "docs/planning/adr-054-assembly-followups.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "b91b4830-ea2f-4cd8-a6c1-c7140ed1005f",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-09-05T11:03:55.803640Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_check_timeout.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

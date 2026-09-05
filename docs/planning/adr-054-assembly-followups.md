@@ -84,8 +84,11 @@ issues the directive permits:
      `test_a_branch_switch_kills_the_real_kernel_process`, genuinely red on
      the spec 5 track, was never reported at all. Registered as **F-B4-9**.
      A red test that cannot be seen is worse than a red test.
-  3. When the run instead exceeds its `timeout 600` wall, **the gate records
-     `python_tests` as satisfied**. Registered as **F-B4-8**.
+  3. When the run instead exceeds the gate CLI's own 600-second
+     `subprocess.run(timeout=...)` budget, **the gate records `python_tests` as
+     satisfied**. Registered as **F-B4-8** (and independently as **F-A1-009**).
+     **FIXED** on `fix/2253-gate-timeout-not-satisfied` — see the `fix-gate`
+     section below. Do not open an issue for it.
 - **Why the manager is elevating it here.** Step 3 means a `gate_record`
   reconciliation can pass on a test run that never finished. Every branch in
   this dispatch went through that path, so it bears on how much the gate
@@ -97,7 +100,15 @@ issues the directive permits:
   change the meaning of evidence already recorded under the old behaviour.
 - **What was done instead**: S5-B4 marks the two `tests/qa/**` tests `serial`
   under a manager scope amendment, which breaks link 1 and therefore link 2.
-  Link 3 is untouched and is the owner's call.
+- **Link 3 is now closed**, on its own branch and under its own gate record so
+  the change is reviewable in isolation: `fix/2253-gate-timeout-not-satisfied`
+  makes a timeout its own recorded outcome, makes it unsatisfied, gives the
+  budget an env knob defaulting to today's 600s, and makes `check` and
+  `finalize` share one predicate. **Evidence already recorded under the old
+  behaviour was left exactly as it stands** — no ledger event was rewritten or
+  re-evaluated — so the manager's reservation above still applies to every gate
+  record written before that branch, and this fix does not retroactively make
+  any of it worth more.
 - **Status of the hidden red test**: on the integration branch, which carries
   the kernel-death fix (#2262), `-k "branch_switch or branch_change"` runs
   4 tests and all 4 pass on Windows — they run, they are not skipped. So
@@ -364,6 +375,90 @@ left, plus what the fix could not reach from this branch.
   `.github/workflows/ci.yml`, which is outside this fix's write set.
 - **Suggested title**: `Test (Python 3.13) stalls its parallel phase under
   coverage and is killed at the 600 s shell timeout`
+
+### fix-gate
+
+The repair of M-005's link 3 — the gate counting a timed-out check as a passing
+one — on `fix/2253-gate-timeout-not-satisfied`. **F-B4-8** and **F-A1-009** are
+the same defect found twice and are fixed by this branch; the entries are marked
+in place so neither becomes an issue.
+
+#### FG-000 — What the fix changed, for the record
+
+Not a follow-up. Written down so a later reader can tell what this branch did
+from what it deliberately left alone.
+
+- A `subprocess.TimeoutExpired` is now `status="timeout"` with the budget in its
+  summary, not `status="unknown"` / `"execution error: TimeoutExpired"`. The
+  `unknown` branch keeps its own meaning for a check that could not be launched.
+- Only a `pass` discharges a check obligation. `skipped`, `timeout` and
+  `unknown` are unsatisfied in `pre-pr` / `ci`, recorded-not-blocking in the WIP
+  modes — the posture `skipped` already had.
+- `SCISTUDIO_GATE_CHECK_TIMEOUT` (seconds, default `600`, unusable values
+  ignored) makes the budget configurable. Named after `SCISTUDIO_GATE_BASE`.
+- `check` and `finalize` now call one predicate,
+  `checks.event_discharges_obligation`. They diverged because each carried its
+  own idea of what counted: the executing path treated everything that was not
+  `fail` as satisfied, the evidence-reuse path required `pass`.
+- **Nothing was made easier to satisfy.** No command was shortened, no test
+  skipped, no scope narrowed. A run that legitimately passed before still
+  passes; runs that falsely passed now correctly fail.
+- **No existing ledger event was rewritten or re-evaluated.** The change applies
+  to events recorded from here on.
+
+#### FG-001 — `run_python_tests` skips the serial phase when the parallel phase fails
+
+- **Severity**: P2 — a red test in the serial phase goes unexecuted and
+  unreported, which is worse than a red test.
+- **Found by**: fix-gate, reading M-005's chain. S5-B4 named it first, in a
+  closing line of its own entry, and it was never registered on its own.
+- **Evidence**: `src/scistudio/qa/testing/run_python_tests.py:67-69` —
+  `rc = _run(parallel)` then `if rc not in (0, _NO_TESTS_COLLECTED): return rc`.
+  The serial phase at line 71 is never reached. There is no dependency between
+  the phases; they are split so PTY/subprocess tests cannot crash an xdist
+  worker. Link 2 of M-005's chain is entirely this, and it is what hid
+  `test_a_branch_switch_kills_the_real_kernel_process`.
+- **Why it is not fixed here**: `src/scistudio/qa/testing/**` is outside this
+  branch's write set, and the change wants its own reasoning about exit-code
+  aggregation across two phases rather than a drive-by edit inside a governance
+  fix.
+- **Suggested title**: `run_python_tests must run the serial phase even when the
+  parallel phase failed`
+
+#### FG-002 — The gate's timeout and CI's `timeout 600` are two different walls with one number
+
+- **Severity**: P3 — documentation and diagnosis, not behaviour.
+- **Found by**: fix-gate, and the confusion is already in this file: FK-005 and
+  the first draft of M-005's link 3 both say "`timeout 600`" for what are two
+  unrelated mechanisms.
+- **The two**: the gate CLI's `subprocess.run(timeout=...)` around a whole check
+  (now `SCISTUDIO_GATE_CHECK_TIMEOUT`, this branch's), and `ci.yml`'s shell
+  `timeout 600` around each pytest phase inside the CI job (FK-005's, a
+  different agent's). They fire in different processes, produce different
+  evidence, and want different fixes. Raising one does nothing for the other.
+- **Why it is worth recording**: FK-005's diagnosis depends on the distinction —
+  its point is that the shell wall hard-kills the phase before pytest-timeout
+  can print a traceback, which is a property of the CI wall specifically. The
+  gate CLI's docs now say which wall they mean; `ci.yml` says nothing about
+  either.
+- **Suggested title**: `chore(ci): name the pytest phase timeout so it is not
+  confused with the gate CLI's per-check budget`
+
+#### FG-003 — The `timeout` status is a ledger vocabulary addition, and old readers do not know it
+
+- **Severity**: P3 — no known break; recorded because it is a schema change to
+  the file ADR-042 Addendum 6 makes the single source of truth.
+- **Found by**: fix-gate, making the change.
+- **Evidence**: `CheckEvent.status` gains `"timeout"`. Ledgers written by this
+  code and read by an older checkout would fail pydantic validation on that
+  member. Nothing outside `gate_record` reads the field — the whole vocabulary
+  is confined to `checks.py` and `evaluator.py`, and the frontend and CI never
+  see it — so the blast radius is one repository at two different commits.
+- **Why it is not a problem in practice**: CI runs the branch's own code against
+  the branch's own ledger. It would only bite someone checking out an older
+  commit to read a newer record.
+- **Suggested title**: `chore(qa): gate ledger readers should tolerate an
+  unknown CheckEvent status rather than refuse the record`
 
 ## Already-Tracked Follow-Ups Inherited From Specs 1 To 3
 

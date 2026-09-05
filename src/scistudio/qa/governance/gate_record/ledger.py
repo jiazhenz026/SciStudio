@@ -165,7 +165,13 @@ class CheckEvent(BaseModel):
     scope: Literal["repo", "diff"] = "repo"
     input_fingerprint: str | None = None
     exit_code: int | None = None
-    status: Literal["pass", "fail", "skipped", "unknown"] = "unknown"
+    # ``timeout`` is separate from ``unknown`` on purpose: "the check ran out of
+    # wall clock" and "the check could not be executed at all" are different
+    # facts and want different advice (raise the budget vs. fix the environment).
+    # Collapsing them, which is what a shared ``unknown`` did before #2253, also
+    # hid the more common of the two behind the rarer one's wording. Neither
+    # discharges an obligation — see ``checks.event_discharges_obligation``.
+    status: Literal["pass", "fail", "skipped", "unknown", "timeout"] = "unknown"
     summary: str = ""
     raw_log_ref: str | None = None
     pr_only: bool = False
