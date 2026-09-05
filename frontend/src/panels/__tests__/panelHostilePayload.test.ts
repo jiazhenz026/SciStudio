@@ -15,6 +15,15 @@
  * listener as it registers, hand it `init` — is the same one
  * `App.parts/InteractiveModals.parts/__tests__/tutorialReviewPanel.test.ts`
  * uses; what is different here is only the payload.
+ *
+ * **The plot-panel cases carry a load this file would not normally carry.**
+ * CodeQL reports `js/xss` and `js/client-side-unvalidated-url-redirection` at
+ * `core.plot.basic`'s two `setAttribute("src", ...)` calls and does not stop
+ * reporting them when the allowlist is added, because the allowlist returns
+ * the string it validated and the dataflow survives the check. The reasoning
+ * is written out beside `safeAssetUrl` in that document; what matters here is
+ * that the scanner is not the thing standing behind that boundary — these
+ * tests are. Do not weaken them to make a refactor pass.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

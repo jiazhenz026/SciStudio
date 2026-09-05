@@ -1,0 +1,86 @@
+{
+  "base_ref": "origin/track/adr-054-integration",
+  "branch": "fix/2229-codeql-barrier",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/panels/**",
+      "frontend/src/panels/**",
+      "docs/planning/adr-054-assembly-followups.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-05T10:57:03.379572Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Decide whether the plot panel's CodeQL taint path can be broken honestly, settle the py/path-injection set against main, and record what suppression mechanisms this repository actually honours",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-fix-2229-codeql-barrier",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-05T10:57:03.379535Z",
+      "pattern": "src/scistudio/panels/builtin/core.plot.basic/index.html",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T10:57:03.379556Z",
+      "pattern": "frontend/src/panels/__tests__/panelHostilePayload.test.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T10:57:03.379559Z",
+      "pattern": "docs/planning/adr-054-assembly-followups.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "2aafecfa-c8e2-4c5d-bb0c-a89ea93cfa31",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-05T10:57:03.379581Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/__tests__/panelHostilePayload.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
