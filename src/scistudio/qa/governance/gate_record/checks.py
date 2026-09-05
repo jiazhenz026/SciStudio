@@ -441,6 +441,50 @@ def select_checks(
     return selection
 
 
+# Wall-clock budget for a single check subprocess, in seconds. This is the gate
+# CLI's own ``subprocess.run(timeout=...)`` cap and is NOT the shell ``timeout``
+# ci.yml wraps its pytest phases in; the two are separate walls that happen to
+# share a number.
+#
+# 600s was the hardcoded value before #2253 and stays the default so no machine
+# changes behaviour without opting in. It is a knob because the correct handling
+# of a timeout — leaving the obligation unsatisfied — is only survivable if a
+# machine whose suite honestly takes longer than the budget can raise it instead
+# of being blocked outright (follow-up F-B4-8 / F-A1-009).
+#
+# Raising it never makes a check easier to satisfy: the check must still exit 0.
+# Lowering it can only turn a pass into an unsatisfied timeout. Neither direction
+# can discharge an obligation the check did not earn.
+DEFAULT_CHECK_TIMEOUT_SECONDS = 600.0
+
+# Environment override, named after the ``SCISTUDIO_GATE_BASE`` convention in
+# ``io.py``.
+CHECK_TIMEOUT_ENV_VAR = "SCISTUDIO_GATE_CHECK_TIMEOUT"
+
+
+def resolve_check_timeout(env: Mapping[str, str] | None = None) -> float:
+    """Return the per-check subprocess budget in seconds.
+
+    Reads ``SCISTUDIO_GATE_CHECK_TIMEOUT`` and falls back to
+    ``DEFAULT_CHECK_TIMEOUT_SECONDS``. A value that is not a positive number is
+    ignored rather than honored: a typo must not silently remove the wall
+    (``0``/negative would make ``subprocess.run`` raise immediately or, worse,
+    read as "no limit" to a reader) nor silently install an unintended one.
+    """
+
+    source = os.environ if env is None else env
+    raw = str(source.get(CHECK_TIMEOUT_ENV_VAR, "")).strip()
+    if not raw:
+        return DEFAULT_CHECK_TIMEOUT_SECONDS
+    try:
+        value = float(raw)
+    except ValueError:
+        return DEFAULT_CHECK_TIMEOUT_SECONDS
+    if value <= 0 or value != value or value == float("inf"):
+        return DEFAULT_CHECK_TIMEOUT_SECONDS
+    return value
+
+
 # Signatures in check output that indicate an ENVIRONMENT-PARITY cause (a local
 # environment that is not CI-equivalent), NOT a genuine code/assertion failure.
 # A pytest collection ``ImportError``/``ModuleNotFoundError`` means an optional
@@ -628,6 +672,7 @@ def run_check(
             summary=f"tool unavailable: {spec.command[0] if spec.command else '(none)'}",
         )
 
+    budget = resolve_check_timeout()
     try:
         completed = subprocess.run(
             argv,
@@ -637,7 +682,33 @@ def run_check(
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=600,
+            timeout=budget,
+        )
+    except subprocess.TimeoutExpired as exc:
+        # A run that exceeded its wall is a DIFFERENT fact from a run that could
+        # not be started, and it used to be recorded as the same one:
+        # ``TimeoutExpired`` is a ``SubprocessError``, so it fell into the
+        # handler below as ``status="unknown"`` / "execution error", which the
+        # evaluator's executing path then read as discharging the obligation
+        # (#2253, follow-ups F-B4-8 / F-A1-009). It is its own status now, and
+        # the summary carries the budget so the reader knows which number to
+        # raise. Whatever the process managed to print before being killed is
+        # still written to the raw log: a timed-out suite's partial output is
+        # usually the only clue about what was slow.
+        return CheckEvent(
+            name=name,
+            command=repo_relative_command,
+            tool_versions=versions,
+            covered_surface=spec.covered_surface,
+            scope=event_scope,
+            input_fingerprint=input_fp,
+            exit_code=None,
+            status="timeout",
+            summary=(
+                f"timed out after {budget:g}s "
+                f"(raise with {CHECK_TIMEOUT_ENV_VAR}, default {DEFAULT_CHECK_TIMEOUT_SECONDS:g}s)"
+            ),
+            raw_log_ref=_write_timeout_log(repo_root, name, exc, budget=budget),
         )
     except (subprocess.SubprocessError, OSError) as exc:
         return CheckEvent(
@@ -692,12 +763,77 @@ def run_check(
 
 
 def _write_raw_log(repo_root: Path, name: str, completed: subprocess.CompletedProcess[str]) -> str:
+    return _write_log_body(
+        repo_root,
+        name,
+        header=f"# {name} (exit {completed.returncode})",
+        stdout=completed.stdout,
+        stderr=completed.stderr,
+    )
+
+
+def _write_timeout_log(repo_root: Path, name: str, exc: subprocess.TimeoutExpired, *, budget: float) -> str | None:
+    """Write whatever a killed check printed before its wall, or None.
+
+    ``TimeoutExpired`` carries the output captured up to the kill. It is the
+    only evidence a timed-out check leaves, so it is kept rather than dropped.
+    """
+
+    try:
+        return _write_log_body(
+            repo_root,
+            name,
+            header=f"# {name} (TIMED OUT after {budget:g}s, no exit code)",
+            stdout=_as_text(exc.stdout),
+            stderr=_as_text(exc.stderr),
+        )
+    except OSError:
+        # The event must still be recorded even if the log cannot be written.
+        return None
+
+
+def _as_text(stream: str | bytes | None) -> str:
+    """Normalize a captured stream to text.
+
+    ``TimeoutExpired.stdout`` follows the call's ``text=True``, but the type is
+    declared loosely enough that a bytes payload is possible; decode rather than
+    interpolate ``b'...'`` into the log.
+    """
+
+    if stream is None:
+        return ""
+    if isinstance(stream, bytes):
+        return stream.decode("utf-8", errors="replace")
+    return stream
+
+
+def _write_log_body(repo_root: Path, name: str, *, header: str, stdout: str, stderr: str) -> str:
     logs_dir = repo_root / LOCAL_LOGS_DIR
     logs_dir.mkdir(parents=True, exist_ok=True)
     log_path = logs_dir / f"{name}.log"
-    body = f"# {name} (exit {completed.returncode})\n--- stdout ---\n{completed.stdout}\n--- stderr ---\n{completed.stderr}\n"
+    body = f"{header}\n--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}\n"
     log_path.write_text(body, encoding="utf-8", errors="replace")
     return f"{LOCAL_LOGS_DIR}/{name}.log"
+
+
+def event_discharges_obligation(event: CheckEvent) -> bool:
+    """Return True when this event is evidence that its check obligation is met.
+
+    THE single predicate for "does this check event count". Only a ``pass``
+    does: ``fail`` is a failure, and ``skipped`` / ``unknown`` / ``timeout`` are
+    all the absence of a result rather than a good one. A check nobody has the
+    result of is not a check that passed.
+
+    It exists as one function because the two callers used to disagree. The
+    evaluator's executing path (``check``) treated anything that was not
+    ``fail`` as satisfied while ``event_is_valid_for`` (the evidence-reuse path
+    ``finalize`` takes) required ``pass``, so a timed-out ``python_tests``
+    produced "reconciliation passed" from ``check`` and "missing or stale" from
+    ``finalize`` on the identical ledger event, and the prescribed workflow had
+    no terminating state (#2253, follow-up F-B4-8). Both paths call this now.
+    """
+
+    return event.status == "pass"
 
 
 def event_is_valid_for(
@@ -716,7 +852,7 @@ def event_is_valid_for(
     CI-mirror obligation (spec gate-local-incremental-checks FR-008).
     """
 
-    if event.status != "pass":
+    if not event_discharges_obligation(event):
         return False
     if require_repo_scope and event.scope != "repo":
         return False

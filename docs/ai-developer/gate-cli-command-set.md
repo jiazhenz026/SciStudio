@@ -245,6 +245,15 @@ validates existing check evidence for the current diff;
 applicable guards through the shared evaluator; (7) records a reconciliation
 event; (8) exits nonzero when required obligations remain unsatisfied.
 
+Two environment variables affect `check`: `SCISTUDIO_GATE_BASE` (the diff base
+when `--base` is omitted, see above) and `SCISTUDIO_GATE_CHECK_TIMEOUT` (the
+per-check subprocess budget in seconds, default `600`). See §9 for both.
+
+Only a `pass` satisfies `checks.<name>`. A required check that comes back
+`skipped`, `timeout` or `unknown` is unsatisfied in `pre-pr` / `ci` with a
+repair hint naming its cause — `finalize` applies the same rule to the same
+event (§9).
+
 Ledger discovery is deterministic: exactly one current-branch ledger is
 accepted; zero ledgers reports "run init"; multiple ledgers reports the
 candidate paths and asks for `--record`.
@@ -720,6 +729,37 @@ PR body must close every gate-listed issue with a GitHub closing keyword
   have current passing evidence for the observed diff. If evidence is absent or
   stale, the command prints a "RECOVERY MODE … NOT final PR readiness" banner
   and tells the agent to run the pre-PR check once.
+
+- **Only a `pass` discharges a check obligation.** A check event carries one of
+  `pass`, `fail`, `skipped`, `timeout` or `unknown`, and only `pass` satisfies
+  `checks.<name>`. `skipped` (tool unresolvable), `timeout` (ran past its wall)
+  and `unknown` (could not be executed) are the absence of a result, not a good
+  one; in `pre-pr` / `ci` they are unsatisfied with a repair hint, and in the WIP
+  modes they are recorded without blocking. `check` and `finalize` ask the same
+  predicate, so they cannot reach different verdicts on the same ledger event.
+  Before #2253 they could: a timed-out `python_tests` was recorded as `unknown`
+  and read as satisfied by `check` while `finalize` called it missing or stale,
+  so a run that never finished printed `reconciliation passed` and the workflow
+  had no terminating state on a slow machine.
+
+- **The per-check timeout is configurable: `SCISTUDIO_GATE_CHECK_TIMEOUT`.**
+  Each check runs as a subprocess under a wall-clock cap in seconds, defaulting
+  to `600` — the value hardcoded before #2253. A value that is not a positive
+  finite number is ignored and the default applies. **This is the gate CLI's own
+  `subprocess.run(timeout=...)` budget, not the shell `timeout` `ci.yml` wraps
+  its pytest phases in**; the two are separate walls that share a number. Raise
+  it when the suite honestly takes longer than the budget on your machine:
+
+  ```bash
+  SCISTUDIO_GATE_CHECK_TIMEOUT=1800 \
+    python -m scistudio.qa.governance.gate_record check --mode pre-pr ...
+  ```
+
+  Raising it cannot make a check easier to satisfy (the check must still exit 0)
+  and lowering it can only turn a pass into an unsatisfied timeout. A `timeout`
+  event names the budget it exceeded and keeps whatever the process printed
+  before the kill in its raw log under `.workflow/local/**`. A timeout is not
+  grounds for an N/A — raise the budget, narrow the diff, or reduce machine load.
 
 - **Default base is the merge-base.** When `--base` is omitted, the diff base is
   `git merge-base origin/main HEAD`, falling back to raw `origin/main` if the
