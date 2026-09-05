@@ -32,7 +32,6 @@ governs:
     - src/scistudio/engine/runners/worker.py
     - src/scistudio/engine/runners/local.py
     - frontend/src/lib/interactiveMemory.ts
-    - frontend/src/App.parts/InteractiveModals.tsx
     - frontend/src/components/BottomPanel.parts/ConfigPanel.tsx
   excludes: []
 

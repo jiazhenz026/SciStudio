@@ -640,7 +640,296 @@ and the cell commands (ADR-054 spec 4, T-004 to T-007).
 
 ### S4-A3
 
-_No entries yet._
+Owner: the variable strip, the panel slots, the emission path, the pause tab,
+and the retirement of the interactive modal (ADR-054 spec 4, T-008 to T-011).
+
+#### F-A3-001 — A producing request for a type has no HTTP surface
+
+- **Severity**: P1 — FR-019 is implemented against a listing rather than
+  against the resolver spec 1 wrote for it.
+- **Found by**: S4-A3, building the variable strip.
+- **Evidence**: `src/scistudio/panels/router.py::PreviewRouter.resolve_request`
+  is the capability-aware entry point FR-048 and FR-049 describe: it filters the
+  candidates to those declaring at least the required capability, runs the
+  FR-003 specificity ladder, applies the per-type **per-capability** user choice
+  from `src/scistudio/panels/choices.py`, and falls back to the displaying
+  resolution when nothing produces for the type. No route reaches it with a
+  *type name*: `GET /api/panels?target_type=` returns the catalogue in tier
+  order with no ladder and no choice, and `POST /api/previews/sessions` hardcodes
+  `granted_capability=PanelCapability.DISPLAYING` in
+  `src/scistudio/api/routes/panels.py::envelope_response`.
+- **What was built instead**: `resolveProducingPanel` in
+  `frontend/src/explore/PanelSlots.tsx` reads `GET /api/panels?target_type=<T>`
+  and takes the first row whose declared capability satisfies `producing`, using
+  the contract's own `capabilitySatisfies`; with no producing row it takes the
+  first row, which is FR-049's display fallback with no outbound path. That is
+  one line of selection over a backend-ordered list rather than a second
+  resolver — but it is **not** the ladder, and it silently ignores a producing
+  choice a person has recorded for the type.
+- **Consequence today**: a person who chose a preferred producing panel for
+  `DataFrame` gets whichever producing panel is highest in tier order instead.
+  A type served by a specific-parent panel and a general one resolves by tier
+  and priority rather than by specificity.
+- **Fix**: add a capability parameter to the panel resolution surface — either
+  `GET /api/panels/resolve?target_type=<T>&capability=producing` returning a
+  `PanelDescriptorModel` plus `fell_back_to_display`, or a `capability` query on
+  the existing listing that makes the backend order by `resolve_request` — then
+  delete the selection in `resolveProducingPanel` and mount what it answers.
+  That is a `src/scistudio/**` change, which no agent in this dispatch may make.
+- **Cited by**: `frontend/src/explore/PanelSlots.tsx` (`resolveProducingPanel`,
+  `TODO(#2253)`).
+- **Suggested title**: `feat(panels): expose capability-aware panel resolution over HTTP so the Explore strip can make a producing request`
+
+#### F-A3-002 — `PanelSpecSummary` is missing the `descriptor` the backend sends
+
+- **Severity**: P2 — a wire field the frontend cannot see without a cast.
+- **Found by**: S4-A3, resolving a panel for a variable's type.
+- **Evidence**: `scistudio.api.schemas.PanelSpecModel` carries
+  `descriptor: PanelDescriptorModel | None` and
+  `src/scistudio/api/routes/panels.py::_list_entry` fills it for every panel
+  with a directory. `PanelSpecSummary` in `frontend/src/types/api.ts` (line 787)
+  declares every other field of that model and not this one.
+- **Consequence**: `PanelSlots.tsx` declares the field structurally
+  (`PanelCatalogueRow`) to read the descriptor it is being sent, so the type is
+  described in two places and only one of them is checked.
+- **Fix**: add `descriptor?: PanelDescriptorResponse | null` to
+  `PanelSpecSummary` and drop `PanelCatalogueRow`. `frontend/src/types/api.ts`
+  is S4-A1's file in this dispatch. This is one more instance of `#2237`
+  (nothing checks the API wire between `schemas.py` and `types/api.ts`).
+- **Suggested title**: `fix(frontend): PanelSpecSummary omits the descriptor GET /api/panels sends`
+
+#### F-A3-003 — `interactive_prompt` carries no run id, so the escalation has to guess one
+
+- **Severity**: P1 — FR-026 and FR-027 open a session over "the paused run" and
+  nothing on the wire names that run.
+- **Found by**: S4-A3, building the pause tab's notebook control.
+- **Evidence**: the event's `data` is built in
+  `src/scistudio/engine/scheduler/_dispatch.py` (`INTERACTIVE_PROMPT`) and
+  carries `workflow_id`, `block_type`, `panel_manifest`, `panel_descriptor`,
+  `panel_payload` and `input_signature` — no run id. `serialise_event` in
+  `src/scistudio/api/ws.py` hoists `block_id` and `workflow_id` and nothing
+  else. But `POST /api/explore/sessions` with `source: "paused_run"` requires
+  **both** `block_id` and `run_id`
+  (`src/scistudio/api/routes/explore.py`, and
+  `SessionService.open_over_paused_run` -> `resolver.paused_run_inputs(run_id, block_id)`,
+  which queries `block_executions` by `(run_id, block_id)`).
+- **What was built instead**: `openPausedRunNotebook` in
+  `frontend/src/explore/ExploreTab.tsx` reads `prompt.data.run_id` when it is
+  there and otherwise takes the newest run of the prompt's own workflow from
+  `GET /api/runs?workflow_id=...&limit=1`. The run that is paused is by
+  construction the one that is running, so this is right in every ordinary case
+  and wrong for two concurrent runs of the same workflow.
+- **Fix**: put `run_id` on the `interactive_prompt` event's data beside
+  `workflow_id`, and read it in
+  `frontend/src/hooks/useWebSocket.parts/handleLifecycle.ts::handleInteractivePrompt`.
+  Both halves are outside this agent's write set.
+- **Cited by**: `frontend/src/explore/ExploreTab.tsx` (`openPausedRunNotebook`,
+  `TODO(#2253)`).
+- **Suggested title**: `fix(engine): the interactive_prompt event carries no run_id, so the Explore pause cannot open a session over the paused run`
+
+#### F-A3-004 — A settled pause leaves its tab on screen, because closing it would lose the remembered decision
+
+- **Severity**: P2 — clutter now, a data loss if it is "fixed" naively.
+- **Found by**: S4-A3, writing the confirm path's interaction-memory test.
+- **Evidence**: `createCloseTab` in
+  `frontend/src/store/tabSlice.parts/workflowTabActions.ts` sets
+  `EMPTY_TAB_STATE` when the closed tab was the last one, and otherwise calls
+  `restoreTab(nextTab)`, which overwrites the live workflow slice with that
+  tab's captured snapshot. `PauseControls.onConfirm` writes the remembered
+  decision into the node's config through `updateNodeConfig`, which writes the
+  **live** slice — so closing the pause tab immediately afterwards discards it.
+  The retired modal never switched tabs and so never had the problem; the test
+  that caught it is `records the emission as the remembered decision when the
+  node opted in` in `frontend/src/explore/PauseTab.test.tsx`, which failed with
+  `expected null` when confirm closed the tab.
+- **What was built instead**: `settle()` clears the prompt and leaves the tab.
+  `PausePanel` then renders "This block is no longer waiting for a decision."
+  and the person closes the tab.
+- **Fix**: make `closeTab` capture the live workflow slice into the tab that
+  owns it before restoring the next one (which is what `syncActiveTab` already
+  does for a preview or Explore tab), then have `settle()` close the tab.
+  `tabSlice.parts/**` is S4-A1's in this dispatch.
+- **Cited by**: `frontend/src/explore/PanelSlots.tsx` (`settle`, `TODO(#2253)`).
+- **Suggested title**: `fix(frontend): closeTab restores the next tab's snapshot over unsaved live workflow state`
+
+#### F-A3-005 — FR-020's declared outputs are only knowable after a packaging check
+
+- **Severity**: P2 — the auto-pin is correct but usually has nothing to act on.
+- **Found by**: S4-A3, implementing FR-020.
+- **Evidence**: the only surface that reports which names a notebook declares as
+  outputs is `POST /api/explore/sessions/{id}/packaging/check`, whose
+  `outputs[].bound_name` names them (`PackagedPortModel`). Neither
+  `BindingsResponse` nor `GraphResponse` carries a "declared" flag, and
+  `explore.analysis_updated` carries only a reason.
+- **What was built instead**: `declaredOutputNames` in
+  `frontend/src/explore/VariableStrip.tsx` unions
+  `session.lastReport.outputs[].bound_name` with the bound run's port names when
+  the session was opened over a block's outputs. Until something requests a
+  packaging check — S4-A4's package control, T-013 — the first source is empty,
+  so a file-opened or notebook-opened session pins nothing.
+- **Fix**: report the declared output names on `BindingsResponse` (the analysis
+  already computes them for `slice_for_outputs`), or have the shell request a
+  packaging check on open. The first is a `src/scistudio/**` change; the second
+  writes on a surface the person did not ask to write on.
+- **Suggested title**: `feat(explore): report a notebook's declared output names on the bindings response`
+
+#### F-A3-006 — FR-023's shell-side freeze is dark until the graph is fetched
+
+- **Severity**: P2 — the behaviour is still correct, just late.
+- **Found by**: S4-A3, implementing the submission freeze.
+- **Evidence**: `frozenNamesOf` in `frontend/src/explore/PanelSlots.tsx` reads
+  the running cell's changed set from `session.graph.changedSets`, which is
+  written only by `applyExploreGraph`. Nothing in the merged frontend calls
+  `exploreApi.getExploreGraph` yet — `grep -rn "getExploreGraph" frontend/src`
+  finds only the client and the slice. Until T-014's graph view lands and
+  fetches it, the freeze falls back to the names the cell was last *observed* to
+  change, and for a cell that has never run that set is empty.
+- **Consequence**: the emission is then sent, and the backend refuses it with
+  `409 panel_frozen`, whose message the slot renders as the same note. The
+  person sees the same refusal one round trip later.
+- **Fix**: fetch the graph when the analysis moves, as the strip now fetches the
+  bindings. It belongs with T-014's graph view (S4-A4) rather than in a second
+  place.
+- **Suggested title**: `fix(explore): nothing fetches the dependency graph, so the shell-side submission freeze never fires`
+
+#### F-A3-007 — Two partial mocks of `lib/api/explore` had to gain the methods the real components call
+
+- **Severity**: P3 — the same fragility S4-A1 recorded as F-A1-007.
+- **Found by**: S4-A3, replacing the region placeholders with real components.
+- **Evidence**: `frontend/src/explore/ExploreTab.test.tsx` mocks
+  `../lib/api/explore` with a hand-written object holding `openExploreSession`
+  alone. Landing the real `PanelSlotRegion` and `VariableStripRegion` made
+  `mounts one slot per open panel so two can be compared` fail with
+  `TypeError: exploreApi.windowExploreVariable is not a function`; the strip's
+  bindings read would have been the next one.
+- **Fixed by**: adding `windowExploreVariable` and `getExploreBindings` to that
+  mock. The underlying fragility is not fixed: the next method a region calls
+  breaks it again.
+- **Fix**: convert it to the `importOriginal` form
+  (`store/__tests__/panelCatalogInvalidation.test.ts` is the repository's model).
+- **Suggested title**: `test(frontend): explore suites hand-write partial API mocks that break on every new call`
+
+#### F-A3-008 — A pause tab reports its kernel as "opening"
+
+- **Severity**: P3 — cosmetic.
+- **Found by**: S4-A3, rendering the pause tab.
+- **Evidence**: `kernelLabel` in `frontend/src/explore/SessionToolbar.tsx`
+  answers `"opening"` for `session === undefined`, which is right for a session
+  tab whose open is in flight and wrong for a pause tab, which has no session at
+  all until FR-026's escalation and is not waiting for one.
+- **Fix**: one branch in `kernelLabel` on `tab.mode === "pause" &&
+  tab.sessionId === null` — "no kernel", or no badge at all. Left alone because
+  `kernelLabel` is the toolbar's shared rendering and S4-A4 owns the kernel half
+  of that toolbar (T-012, T-013); two agents editing the same function in the
+  same wave is the conflict this dispatch is arranged to avoid.
+- **Suggested title**: `polish(explore): a pause tab shows its kernel as "opening" when it has no session`
+
+#### F-A3-009 — `tutorialReviewPanel.test.ts` had to move out of the deleted modal's directory
+
+- **Severity**: P3 — recorded so the move is not read as a deletion.
+- **Found by**: S4-A3, deleting `App.parts/InteractiveModals.parts/**`.
+- **Evidence**: the file tested the shipped `core.interactive.review_labels`
+  panel *document* — it reads the asset off disk and drives the frame handshake
+  — and had nothing to do with the modal beyond living under its directory.
+  Deleting the directory would have deleted a test of a shipped tutorial asset.
+- **Fixed by**: `git mv` to `frontend/src/panels/__tests__/`, beside the other
+  panel-document suites. It uses `process.cwd()` rather than a path relative to
+  itself, so nothing in it needed changing, and it passes there.
+- **Suggested title**: N/A — done, recorded for the audit.
+
+
+#### F-A3-010 — Deleting the modal forced a governance correction in three ADR-051 documents
+
+- **Severity**: P2 — done, recorded because it left this agent's write set.
+- **Found by**: S4-A3, from `gate_record check`'s `full_audit` failure.
+- **Evidence**: `docs/adr/ADR-051.md`, `docs/adr/ADR-051-addendum1.md` and
+  `docs/specs/adr-051-interactive-blocks.md` each list
+  `frontend/src/App.parts/InteractiveModals.tsx` under `governs.files`. FR-024
+  requires that file deleted, so the audit reported six errors —
+  `doc-drift.phantom-file` and `closure.unresolved-file-claim`, one pair per
+  document — and `full_audit` is a merge-blocking check, so the branch could not
+  pass its gate and the failure would have followed the merge onto the track
+  branch and every sibling.
+- **What was done**: the one line was removed from each document's
+  `governs.files`, and the spec's affected-files table row now says the file was
+  deleted by ADR-054 spec 4 FR-024. No decision, requirement or prose in ADR-051
+  changed, and its two sibling frontend files (`DataRouterModal.tsx`,
+  `PairEditorModal.tsx`) still exist and are still governed.
+- **Why it is here**: `docs/adr/**` and `docs/specs/**` are outside the S4-A3
+  write set. The alternative was to stop with the branch un-gateable, leaving a
+  correction the manager would have had to make anyway. Recorded with a
+  `gate_record amend` naming the reason.
+- **Worth an owner's eye**: whether a *retired* governed file should be
+  expressible in the frontmatter (a `retired_governs`, or a note beside the
+  path) rather than simply dropped, so the record still says the document once
+  owned it.
+- **Suggested title**: `chore(docs): ADR-051 governs a frontend file ADR-054 spec 4 deletes`
+
+#### F-A3-011 — A timed-out check is recorded `unknown` and then satisfies its obligation
+
+- **Severity**: P1 — the gate reports "reconciliation passed" over a check that
+  never produced a result.
+- **Found by**: S4-A3, on the second `gate_record check --mode pre-pr` run.
+- **Evidence**: the ledger
+  `.workflow/records/2253-feat-2253-panels-and-pause.json` holds
+
+  ```json
+  {"name": "python_tests", "status": "unknown", "exit_code": null,
+   "summary": "execution error: TimeoutExpired", "raw_log_ref": null}
+  ```
+
+  and the reconcile event written 0.4s later is
+  `{"result": "pass", "unsatisfied": []}`. The first run of the same check,
+  which did complete, was recorded `fail` and correctly listed
+  `checks.python_tests` as unsatisfied. So a check that *ran and failed* blocks
+  and a check that *never finished* does not.
+- **Why it happened here**: the machine is carrying several agents' test runs at
+  once and the Python suite takes ~7 minutes of its own; the subprocess wrapper's
+  deadline expired before pytest did.
+- **Consequence**: an agent that does not read the ledger event by event would
+  report a green gate on no evidence. The suite was re-run by hand for this
+  branch rather than trusted.
+- **Fix**: treat `unknown` as unsatisfied in the reconciler — a check with no
+  exit code is not a check that passed — and say so in the repair hint
+  ("python_tests timed out; re-run it") rather than printing "reconciliation
+  passed".
+- **Suggested title**: `fix(gate): a check that times out is recorded unknown and then counts as satisfied`
+
+#### F-A3-012 — `PYTHONPATH=./src` is relative, and the explore kernel starts somewhere else
+
+- **Severity**: P2 — one Python test fails for every agent that follows the
+  dispatch preamble literally.
+- **Found by**: S4-A3, re-running the Python suite by hand after F-A3-011.
+- **Evidence**: with `export PYTHONPATH=./src` (the preamble's own line, and
+  what `gate_record check` inherits),
+  `tests/api/test_explore_branch_switch.py::test_a_branch_switch_kills_the_real_kernel_process`
+  fails with
+
+  ```
+  BridgeProtocolError: The kernel bridge did not answer:
+  ModuleNotFoundError: No module named 'scistudio'.
+  ```
+
+  The session's ipykernel is a real subprocess started under the temporary
+  project directory, so the relative `./src` on the inherited `PYTHONPATH`
+  resolves against *that* directory and finds nothing. With
+  `PYTHONPATH=<repo>/src` spelled absolutely, the same file is `5 passed`.
+- **Why it appeared now**: the test is new — ADR-054 spec 3 landed the real
+  kernel — and it is the first test in the repository that spawns an interpreter
+  which has to import `scistudio` for itself.
+- **Fix**: say `PYTHONPATH=$(pwd)/src` in `docs/ai-developer/rules.md`, the
+  dispatch preamble and the gate CLI reference, or have
+  `scistudio.explore.kernel` absolutise the `PYTHONPATH` entries it passes to
+  the kernel it launches. The second is the durable one: the kernel is launched
+  with a cwd of the project, and a relative entry inherited from the server's
+  environment can never mean what it meant there.
+- **Also relevant to**: the whole Python suite otherwise passed on this branch
+  (`9312 passed, 80 skipped, 8 xfailed`), and the two failures the first gate run
+  reported — `test_system_vertical.py::test_execute_broadcasts_runtime_lifecycle_events_to_websocket`
+  and `test_audit_full_audit.py::test_full_audit_renders_human_readable_facts_summary`
+  — did not recur and pass in isolation. That is the contention S4-A1 recorded as
+  F-A1-008, seen again.
+- **Suggested title**: `fix(explore): the launched kernel inherits a relative PYTHONPATH and cannot import scistudio`
 
 ### S4-A4
 
