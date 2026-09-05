@@ -98,7 +98,7 @@ class PanelExampleEntry(BaseModel):
     description: str = Field(default="", description="One line saying what the example demonstrates.")
     path: str = Field(description="Absolute path of the example's directory.")
     document_path: str = Field(description="Absolute path of the example's entry document.")
-    source: str = Field(description="Where the example came from: 'corpus' or the tier name.")
+    source: str = Field(description="Where the example came from. Always 'corpus' today.")
 
 
 class ListPanelExamplesResult(BaseModel):
