@@ -178,6 +178,24 @@ _No entries yet._
 - **Suggested title**: `Make the explore kernel-death end-to-end test
   deterministic rather than load-dependent`
 
+#### FK-004 — the app-block file watcher reads liveness the same untrustworthy way
+
+- **Severity**: P3 — different subsystem, and its failure mode is bounded.
+- **Found by**: fix-kernel, sweeping for the same pattern after #2240.
+- **Evidence**: `src/scistudio/blocks/app/watcher.py:191` `_handle_is_alive()`
+  answers `poll() is None` for a plain `Popen`, which is exactly the reading
+  that reported a dead explore kernel as healthy — on Linux `waitpid`
+  withholds a killed multi-threaded process while its sibling threads exit,
+  so `poll()` returns `None` about a corpse.
+- **Why it is here and not done**: `src/scistudio/blocks/**` is outside this
+  fix's write set, and the consequence there is milder — the docstring says a
+  handle whose liveness is unknown is treated as alive "so the watcher relies
+  on its timeout instead", so a false "alive" costs a delay rather than a
+  wrong answer to the person. Worth aligning on the same pid-aware reading if
+  the watcher ever grows a tighter deadline.
+- **Suggested title**: `Give the app-block watcher the same pid-aware liveness
+  reading as the explore kernel`
+
 ## Already-Tracked Follow-Ups Inherited From Specs 1 To 3
 
 These already have issues. They are listed so the owner sees the whole
