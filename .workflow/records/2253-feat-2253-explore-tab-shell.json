@@ -709,6 +709,54 @@
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T10:48:54.464485Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:790824db60eb8a0af858cc87618bd5d8eb71d7fd5d787e38fb69a6f851293984",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T10:49:18.969489Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8c9f5394c1382edbe6f761535c40d38085fcb1f0945b23cbbcace284624e23ed",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T10:56:47.649898Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1977,6 +2025,72 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:56:47.746227Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:56:47.762579Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:56:47.778538Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:56:47.794435Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:56:47.811740Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:56:47.827962Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:56:47.845156Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:56:47.860730Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:56:47.875976Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:56:47.891622Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:56:47.914309Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1996,9 +2110,9 @@
       "docs/planning/adr-054-assembly-checklist.md",
       "docs/planning/adr-054-assembly-followups.md"
     ],
-    "diff_fingerprint": "sha256:90ea45b953b89f821bc8cc7c2eb206cdb30fc7e49091c729175f33f2d9e97e91",
+    "diff_fingerprint": "sha256:46c946ff77e18d62288d207ec510ae814e0509e1e97b816d74a0d47428de00c7",
     "head": "HEAD",
-    "head_sha": "4ef6c1638",
+    "head_sha": "970d771f3",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -2187,6 +2301,16 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-05T10:56:47.914353Z",
+      "diff_fingerprint": "sha256:46c946ff77e18d62288d207ec510ae814e0509e1e97b816d74a0d47428de00c7",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
     }
   ],
   "record_id": "2253-feat-2253-explore-tab-shell",
