@@ -9,7 +9,10 @@
 //                              close,
 //   - ProjectWorkspace       — three-column ResizablePanelGroup tree
 //                              shown when a project is open,
-//   - InteractiveModals      — DataRouter / PairEditor pause-prompts.
+//
+// ADR-054 spec 4 FR-024: `InteractiveModals` is gone. An interactive
+// block's pause opens an Explore tab in pause mode instead of an overlay,
+// so there is nothing app-level left to mount for it.
 //
 // Wave 1 (#1420 / #1421) discipline preserved:
 //   - Every callback that is referenced by a useEffect or another
@@ -33,7 +36,6 @@ import type { WorkflowResponse } from "./types/api";
 import { AppLevelMergeFlow } from "./App.parts/AppLevelMergeFlow";
 import { AppDialogs } from "./App.parts/AppDialogs";
 import { closeCurrentProject } from "./App.parts/closeProject";
-import { InteractiveModals } from "./App.parts/InteractiveModals";
 import { ProjectWorkspace, type LeftTab } from "./App.parts/ProjectWorkspace";
 import { WelcomePane } from "./App.parts/WelcomePane";
 import { useActiveTab } from "./App.parts/useActiveTab";
@@ -576,8 +578,6 @@ export default function App() {
 
           {/* ADR-053 FR-082 … FR-088 — mounted once; the toolbar only opens it. */}
           <LearningCenter />
-
-          <InteractiveModals />
 
           <GlobalBusyIndicator busy={busy} />
 

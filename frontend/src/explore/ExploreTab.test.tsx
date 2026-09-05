@@ -27,6 +27,18 @@ const openExploreSession = vi.fn();
 vi.mock("../lib/api/explore", () => ({
   exploreApi: {
     openExploreSession: (...args: unknown[]) => openExploreSession(...args),
+    /*
+     * ADR-054 spec 4 T-009 (S4-A3): a mounted panel slot reads its variable
+     * through the session API as soon as it is on screen. These layout tests
+     * assert only that a slot exists per open panel, so the read is stubbed to
+     * an empty envelope rather than driven; `PanelSlots.test.tsx` owns what a
+     * slot does with the answer.
+     */
+    windowExploreVariable: () =>
+      Promise.resolve({ session_id: "sess-tab", name: "", envelope: {} }),
+    /* The variable strip re-reads the bindings whenever the analysis moves. */
+    getExploreBindings: () =>
+      Promise.resolve({ session_id: "sess-tab", has_kernel: true, bindings: [] }),
   },
 }));
 

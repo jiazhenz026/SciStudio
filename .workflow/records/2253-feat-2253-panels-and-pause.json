@@ -1,0 +1,191 @@
+{
+  "base_ref": "origin/track/adr-054-spec4-explore-frontend",
+  "branch": "feat/2253-panels-and-pause",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/explore/VariableStrip.tsx",
+      "frontend/src/explore/VariableStrip.test.tsx",
+      "frontend/src/explore/PanelSlots.tsx",
+      "frontend/src/explore/PanelSlots.test.tsx",
+      "frontend/src/explore/PauseTab.test.tsx",
+      "frontend/src/explore/SessionToolbar.tsx",
+      "frontend/src/explore/ExploreTab.tsx",
+      "frontend/src/explore/regions/ExploreRegions.tsx",
+      "frontend/src/App.tsx",
+      "frontend/src/App.parts/InteractiveModals.tsx",
+      "frontend/src/App.parts/InteractiveModals.test.tsx",
+      "frontend/src/App.parts/InteractiveModals.parts/**",
+      "frontend/src/App.parts/__tests__/interactiveModalsConfirm.test.tsx",
+      "frontend/src/hooks/useWebSocket.parts/dispatchEvent.ts",
+      "frontend/src/hooks/useWebSocket.parts/dispatchEvent.test.ts",
+      "frontend/src/panels/__tests__/tutorialReviewPanel.test.ts",
+      "docs/planning/adr-054-assembly-followups.md",
+      "docs/planning/adr-054-assembly-checklist.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-05T08:50:56.071747Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T09:14:18.397715Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2253,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Build ADR-054 spec 4's panel half - the variable strip, the panel slots on the panel-contract host, the emission path, and the pause tab that replaces the interactive modal (T-008 to T-011, FR-018 to FR-027).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2253-feat-2253-panels-and-pause",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:50:56.071698Z",
+      "pattern": "frontend/src/explore/VariableStrip.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:50:56.071720Z",
+      "pattern": "frontend/src/explore/PanelSlots.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:50:56.071724Z",
+      "pattern": "frontend/src/explore/SessionToolbar.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:50:56.071726Z",
+      "pattern": "frontend/src/explore/ExploreTab.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:50:56.071728Z",
+      "pattern": "frontend/src/explore/regions/ExploreRegions.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:50:56.071730Z",
+      "pattern": "frontend/src/App.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:50:56.071731Z",
+      "pattern": "frontend/src/App.parts/InteractiveModals.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:50:56.071733Z",
+      "pattern": "frontend/src/App.parts/InteractiveModals.parts/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:50:56.071734Z",
+      "pattern": "frontend/src/hooks/useWebSocket.parts/dispatchEvent.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T09:14:12.822287Z",
+      "pattern": "frontend/src/explore/ExploreTab.test.tsx",
+      "reason": "the real regions replaced S4-A1's placeholders, so S4-A1's layout suite had to gain the API methods the real components call (F-A3-007); the panel-document suite under the deleted modal directory was moved rather than deleted (F-A3-009)"
+    }
+  ],
+  "session_id": "6be45d2c-ed6b-453e-986a-f5b3d17f68de",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-05T08:50:56.071755Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/explore/VariableStrip.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T08:50:56.071760Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/explore/PanelSlots.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T08:50:56.071762Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/explore/PauseTab.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T08:50:56.071763Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/hooks/useWebSocket.parts/dispatchEvent.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T08:50:56.071765Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/__tests__/tutorialReviewPanel.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T09:14:12.822326Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/explore/ExploreTab.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

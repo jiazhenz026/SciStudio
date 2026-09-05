@@ -12,7 +12,8 @@
 import type { VersionedWorkflowResponse } from "../../lib/api";
 import { useAppStore } from "../../store";
 import { TUTORIAL_SYNC_EVENT_TYPES } from "../../store/learningCenterSlice";
-import type { InteractivePrompt } from "../../store/types";
+import { exploreTabIdFor, placeExploreTab } from "../../store/tabSlice.parts/exploreTabActions";
+import type { ExploreTab, InteractivePrompt } from "../../store/types";
 import { invalidatePanelCatalog } from "../../store/usePanelCatalog";
 import { invalidateTypeCatalog } from "../../store/useTypeCatalog";
 import { isExploreSessionEvent } from "../../store/exploreSlice";
@@ -31,6 +32,53 @@ export interface DispatchDeps {
   appendLog: (entry: LogEntry) => void;
   setInteractivePrompt: (prompt: InteractivePrompt | null) => void;
   setWorkflow: (workflow: VersionedWorkflowResponse | null) => void;
+}
+
+/**
+ * ADR-054 spec 4 FR-024 — the tab key of a pause that has no session yet.
+ *
+ * An Explore tab is keyed by its notebook path, and a paused interactive block
+ * has no notebook: FR-026's escalation is what opens one, and until the person
+ * asks for it the pause is a tab over one block's decision. The prefix carries
+ * a colon so it can never collide with a project-relative notebook path.
+ */
+export const PAUSE_TAB_PATH_PREFIX = "pause:";
+
+export function pauseTabNotebookPath(blockId: string): string {
+  return `${PAUSE_TAB_PATH_PREFIX}${blockId}`;
+}
+
+/**
+ * FR-024 — put the paused block's Explore tab on screen.
+ *
+ * This is what replaces `<InteractiveModals />`. The prompt itself still lands
+ * in the execution slice, because it carries the descriptor, the payload and
+ * the workflow scoping the tab renders and answers from; what changed is where
+ * it is drawn, and that a person can now leave it on screen and keep working
+ * in another tab, which an overlay covering the Stop control could not allow.
+ *
+ * Placed rather than opened through `openExploreTab`: that call opens a session
+ * first and takes the tab's identity off its response, and a pause has no
+ * session until FR-026's escalation makes one.
+ */
+export function openPauseTab(prompt: InteractivePrompt): ExploreTab {
+  const notebookPath = pauseTabNotebookPath(prompt.blockId);
+  const tab: ExploreTab = {
+    kind: "explore",
+    id: exploreTabIdFor(notebookPath),
+    notebookPath,
+    sessionId: null,
+    displayName: prompt.blockType?.trim() ? prompt.blockType.trim() : prompt.blockId,
+    mode: "pause",
+    boundRunId: null,
+    pauseNodeId: prompt.blockId,
+    // FR-024 — the notebook pane is absent until the person asks for one.
+    notebookVisible: false,
+    restoring: false,
+    openedAt: Date.now(),
+  };
+  useAppStore.setState(placeExploreTab(useAppStore.getState(), tab));
+  return tab;
 }
 
 /**
@@ -80,7 +128,23 @@ export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: Dispa
   }
 
   if (payload.type === "interactive_prompt") {
-    handleInteractivePrompt(payload, { setInteractivePrompt: deps.setInteractivePrompt });
+    /*
+     * ADR-054 spec 4 FR-024 — the prompt opens an Explore tab, not a modal.
+     *
+     * The prompt still reaches the execution slice unchanged: it carries the
+     * panel descriptor the backend resolved, the block's window-sized payload,
+     * and the workflow the response must be scoped to, and the pause tab reads
+     * all three from there. `InteractiveModals` and its host are deleted; this
+     * line is the whole of what replaced them.
+     */
+    const seen: { prompt: InteractivePrompt | null } = { prompt: null };
+    handleInteractivePrompt(payload, {
+      setInteractivePrompt: (prompt) => {
+        seen.prompt = prompt;
+        deps.setInteractivePrompt(prompt);
+      },
+    });
+    if (seen.prompt) openPauseTab(seen.prompt);
     return true;
   }
   if (payload.type === "workflow_started") {

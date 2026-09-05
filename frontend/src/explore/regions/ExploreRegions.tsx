@@ -27,6 +27,8 @@
  */
 
 import type { ExploreSessionState, ExploreTab, PanelSlot } from "../../store/types";
+import { ExplorePanelSlot, PauseControls } from "../PanelSlots";
+import { VariableStrip } from "../VariableStrip";
 
 /** What every region is handed. */
 export interface ExploreRegionProps {
@@ -90,30 +92,14 @@ export function NotebookRegion({ tab, session }: ExploreRegionProps) {
   );
 }
 
-/** FR-018 to FR-020 — the variable strip above the panel host. */
-export function VariableStripRegion({ session }: ExploreRegionProps) {
-  return (
-    <div
-      className="flex items-center gap-2 overflow-x-auto rounded border border-dashed border-stone-300 bg-white/40 px-3 py-2 text-xs text-stone-500 scrollbar-thin"
-      data-testid="explore-variable-strip-region"
-    >
-      <span className="font-medium text-stone-600">Variables</span>
-      <span className="text-[11px] text-stone-400">
-        ADR-054 spec 4 T-008 — VariableStrip ({session?.bindings.length ?? 0})
-      </span>
-    </div>
-  );
+/** FR-018 to FR-020 — the variable strip above the panel host (S4-A3, T-008). */
+export function VariableStripRegion({ tab, session }: ExploreRegionProps) {
+  return <VariableStrip tab={tab} session={session} />;
 }
 
 /** FR-019, FR-021 to FR-023 — one mounted panel host, bound to one name. */
-export function PanelSlotRegion({ slot }: PanelSlotRegionProps) {
-  return (
-    <Placeholder
-      testId={`explore-panel-slot-${slot.panelId}`}
-      title={slot.boundName}
-      owner="ADR-054 spec 4 T-009 — PanelSlots"
-    />
-  );
+export function PanelSlotRegion({ tab, session, slot }: PanelSlotRegionProps) {
+  return <ExplorePanelSlot tab={tab} session={session} slot={slot} />;
 }
 
 /** FR-032 — the secondary dependency-graph view. */
@@ -154,11 +140,7 @@ export function ToolbarKernelControls(_props: ExploreRegionProps) {
   );
 }
 
-/** FR-024, FR-025 — confirm and cancel, shown only in pause mode. */
-export function ToolbarPauseControls(_props: ExploreRegionProps) {
-  return (
-    <span className="text-[11px] text-stone-400" data-testid="explore-toolbar-pause-controls">
-      ADR-054 spec 4 T-011 — confirm, cancel
-    </span>
-  );
+/** FR-024, FR-025 — confirm and cancel, shown only in pause mode (S4-A3, T-010). */
+export function ToolbarPauseControls({ tab, session }: ExploreRegionProps) {
+  return <PauseControls tab={tab} session={session} />;
 }
