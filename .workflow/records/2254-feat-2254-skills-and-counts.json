@@ -905,6 +905,30 @@
       "at": "2026-09-05T08:21:59.569294Z",
       "pattern": "docs/specs/adr-054-agent-enablement.md",
       "reason": "the audit's doc-drift/closure error demands it: src/scistudio/_skills/scistudio/scistudio-write-panel/** now resolves, so the spec must move that one glob from planned_governs to governs; nothing else in the spec is touched"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:30:22.515284Z",
+      "pattern": "tests/contracts/test_runtime_import_contract.py",
+      "reason": "the spec names three count-assertion sites; S5-B2 observed five, and the manager assigned the other three to S5-B4. The expectation is consolidated into tests/mcp_tool_expectations.py so the next group moves one declaration."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:30:22.515302Z",
+      "pattern": "tests/cli/test_mcp_bridge.py",
+      "reason": "the spec names three count-assertion sites; S5-B2 observed five, and the manager assigned the other three to S5-B4. The expectation is consolidated into tests/mcp_tool_expectations.py so the next group moves one declaration."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:30:22.515304Z",
+      "pattern": "tests/integration/test_phase2_mcp_end_to_end.py",
+      "reason": "the spec names three count-assertion sites; S5-B2 observed five, and the manager assigned the other three to S5-B4. The expectation is consolidated into tests/mcp_tool_expectations.py so the next group moves one declaration."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:30:22.515306Z",
+      "pattern": "tests/mcp_tool_expectations.py",
+      "reason": "the spec names three count-assertion sites; S5-B2 observed five, and the manager assigned the other three to S5-B4. The expectation is consolidated into tests/mcp_tool_expectations.py so the next group moves one declaration."
     }
   ],
   "session_id": "9947be45-ef32-4978-80fc-0761f47544d2",
@@ -964,6 +988,38 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_user_docs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T08:30:22.515312Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/mcp_tool_expectations.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T08:30:22.515315Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/contracts/test_runtime_import_contract.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T08:30:22.515317Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/cli/test_mcp_bridge.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T08:30:22.515318Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/integration/test_phase2_mcp_end_to_end.py",
       "rationale": null,
       "verified_in_diff": null
     }

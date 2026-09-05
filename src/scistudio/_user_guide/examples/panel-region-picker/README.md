@@ -1,13 +1,11 @@
 # Panel example — a producing panel
 
-`example.series.region_picker` ([panel.json](panel.json),
-[index.html](index.html)) draws a `Series` and lets the user drag a region
-across it. When they let go, it emits **one line of code** — the decision —
-which the host inserts on their behalf.
+Draws a `Series`, lets the user drag a region across it, and emits the picked region as one line of code.
 
-That emission is the whole difference between this panel and
-[panel-series-view/](../panel-series-view/), which renders the same data and
-declares `displaying`.
+`example.series.region_picker` is [panel.json](panel.json) plus
+[index.html](index.html). That emission is the whole difference between this
+panel and [panel-series-view/](../panel-series-view/), which renders the same
+data and declares `displaying`.
 
 ## Why `producing`
 

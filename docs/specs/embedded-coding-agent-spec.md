@@ -83,7 +83,27 @@ block's pause.
 
 **Library (1)** — `promote_to_user_library` (ADR-053 FR-011).
 
-**Total: 36.**
+**Panel (4)** — `scaffold_panel`, `read_panel_source`, `list_panel_examples`,
+`reload_panels` (ADR-054 spec 5 FR-014 to FR-018).
+
+The authoring loop ADR-054 §8.5 asks for: `scaffold_panel` writes a panel
+directory into a tier together with the harness page that makes the document
+openable on its own, `read_panel_source` reads one back from whichever tier it
+resolved from, `list_panel_examples` returns the worked panels in the examples
+corpus, and `reload_panels` rebuilds the registry.
+
+**Total: 40.**
+
+ADR-054 spec 5 adds seven more — the Explore session tools — which land with
+`src/scistudio/ai/agent/mcp/tools_explore/**` and take the total to 47.
+
+**Where a group is registered.** Each tool module decorates its functions onto
+the module-scope `FastMCP` instance in
+`src/scistudio/ai/agent/mcp/server.py`, but the *import* that makes those
+decorators run is in `src/scistudio/ai/agent/mcp/__init__.py`, which eagerly
+imports every tool module so `await mcp.list_tools()` is complete by the time
+anything calls it. A new group is added to that import list, not to
+`server.py`.
 
 The other catalogs of the same set are the base skill's static fallback
 (`src/scistudio/_skills/scistudio/SKILL.md`, between the `tool_catalog`

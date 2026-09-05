@@ -1,8 +1,9 @@
 # Panel example — a displaying panel
 
-`example.series.sparkline` ([panel.json](panel.json), [index.html](index.html))
-draws a `Series` as a sparkline with its range underneath. It is the simplest
-kind of panel: it **displays**, and sends nothing back.
+Draws a `Series` as a sparkline with its range underneath — the simplest kind of panel: it displays, and sends nothing back.
+
+`example.series.sparkline` is [panel.json](panel.json) plus
+[index.html](index.html), and that is the whole panel.
 
 ## Why `displaying`
 

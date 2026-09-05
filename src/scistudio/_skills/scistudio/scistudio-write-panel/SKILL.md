@@ -27,10 +27,12 @@ guess:
   producing panel's emitted code must satisfy. This is the contract.
 - **`.scistudio/agent-reference/data-types.md`** — what the data you are handed
   looks like for each target type.
-- **Worked patterns:** call `mcp__scistudio__list_panel_examples`, then
-  `mcp__scistudio__read_panel_source` on the example whose capability matches
-  yours. The corpus carries at least one **displaying** and one **producing**
-  panel. Copy the shape it shows; do not invent one the examples already have.
+- **Worked patterns:** call `mcp__scistudio__list_panel_examples` — pass
+  `capability` to get just the kind you are writing — and read the example's
+  `document_path`. The corpus carries a **displaying** panel and a
+  **producing** one. `mcp__scistudio__read_panel_source` does the same for a
+  *registered* panel, which is how you read a built-in before replacing it.
+  Copy the shape they show; do not invent one the examples already have.
 
 ## The flow — five steps, in this order
 
@@ -52,14 +54,18 @@ guess:
    no build step, no bundler, no import from the host page.
 4. **Check it in the harness.** The scaffold ships a harness page that loads
    the document over representative data for the declared target types and
-   stands in for the host side of the message contract. Open it — take the URL
-   from `mcp__scistudio__open_gui` and use your own browser path — and confirm
-   it renders, and, for a producing panel, that the emission is captured and
-   shown. Do not skip this: it is the only way you see your own work.
+   stands in for the host side of the message contract. Open it in a browser:
+   `harness_path` is a file you can open directly, and `harness_url` is the
+   same page on the running GUI once the panel is registered (it is `null`
+   when no GUI is reachable — use the path). Confirm it renders, and, for a
+   producing panel, that the emission is captured and shown. Do not skip this:
+   it is the only way you see your own work.
 5. **Register it.** `mcp__scistudio__reload_panels` rebuilds the registry and
-   returns the discovered panels with their tiers, capabilities, and any
-   discovery diagnostics. Read the diagnostics — a panel that failed to
-   register says why there.
+   returns the discovered panels with their tiers and capabilities, what it
+   `added` and `removed`, what got `shadowed`, and its `diagnostics`. **Read
+   the diagnostics.** A broken panel is a diagnostic there, never a failed
+   reload — so a reload that "succeeded" while your panel is missing has
+   already told you why.
 
 ## Mandatory rules
 

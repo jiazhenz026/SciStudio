@@ -33,6 +33,7 @@ from typing import Any
 import pytest
 
 from scistudio.ai.agent.mcp import mcp
+from tests.mcp_tool_expectations import EXPECTED_GROUP_COUNTS, EXPECTED_TOOL_GROUPS
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -111,25 +112,28 @@ def test_tool_group_counts_match_the_declared_breakdown() -> None:
 
     A group is the ``category:`` tag the server reports on ``tools/list``, so
     this reads the same breakdown the catalogs are written from. Adding a tool
-    to an existing group moves one number here; adding a *group* adds a row.
-
-    TODO(#2254): ADR-054 spec 5 adds two groups — ``panels`` (four tools) and
-      ``explore`` (seven session tools) — which land with
-      ``tools_panels/**`` and ``tools_explore/**``. Their rows are added with
-      those modules, together with the total in ``test_mcp_fastmcp.py``; this
-      branch does not carry the tools, so asserting their counts here would
-      fail against the registry rather than describe it.
-      Followup: docs/planning/adr-054-assembly-followups.md, "## S5-B4".
+    to an existing group moves one number in
+    ``tests/mcp_tool_expectations.py``; adding a *group* adds a row there.
+    Nothing moves here.
     """
-    expected = {
-        "workflow": 12,
-        "authoring": 5,
-        "inspection": 7,
-        "qa": 5,
-        "plot": 6,
-        "library": 1,
-    }
-    assert _tool_groups() == expected
+    assert _tool_groups() == EXPECTED_GROUP_COUNTS
+
+
+def test_group_membership_matches_the_declared_breakdown() -> None:
+    """Counting right while grouping wrong is a real failure mode.
+
+    A tool that moved between groups keeps every count intact and still
+    breaks the catalogs, which are organised by group.
+    """
+    actual: dict[str, set[str]] = {}
+    for tool in _run(mcp.list_tools()):
+        category = next(
+            (tag.split(":", 1)[1] for tag in (tool.tags or set()) if tag.startswith("category:")),
+            "uncategorised",
+        )
+        actual.setdefault(category, set()).add(tool.name)
+    expected = {group: set(names) for group, names in EXPECTED_TOOL_GROUPS.items()}
+    assert actual == expected
 
 
 def test_every_registered_tool_declares_a_category() -> None:

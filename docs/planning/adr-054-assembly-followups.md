@@ -353,7 +353,7 @@ The five sites, all moved from 36 to 40 with S5-B2's panel group:
 | `tests/integration/test_phase2_mcp_end_to_end.py` | the total, over the wire |
 
 Four of the five now derive the number from one place —
-`tests.ai._tool_expectations.EXPECTED_TOOL_NAMES` — so the next group moves the
+`tests/mcp_tool_expectations.py` — so the next group moves the
 set and nothing else. The set is the assertion that has teeth; the total is a
 readability aid over it.
 
@@ -372,13 +372,11 @@ guessing one is exactly what the dispatch forbids.
 
 When they register, the total becomes **47** and these move together:
 
-1. `tests/ai/_tool_expectations.py` — the seven names into `EXPECTED_TOOL_NAMES`
-   and `"explore": 7` into `EXPECTED_TOOL_GROUPS`.
-2. `tests/ai/test_mcp_fastmcp.py`, `test_finish_ai_block_skeleton.py`,
-   `tests/contracts/test_runtime_import_contract.py`,
-   `tests/cli/test_mcp_bridge.py`,
-   `tests/integration/test_phase2_mcp_end_to_end.py` — any total still spelled
-   as a literal.
+1. `tests/mcp_tool_expectations.py` — the seven names as an `EXPLORE_TOOLS`
+   frozenset, and its row in `EXPECTED_TOOL_GROUPS`. The total and the group
+   counts are derived from that, so they need no edit.
+2. Nothing in the five count-assertion files: all five now read the shared
+   declaration rather than a literal.
 3. `src/scistudio/_skills/scistudio/SKILL.md` — a session group in the static
    fallback, and the two "40 tools" statements.
 4. `docs/specs/embedded-coding-agent-spec.md` §1.1 — the same.
