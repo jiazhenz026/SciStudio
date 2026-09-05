@@ -344,7 +344,10 @@ Rows are added for fix agents as findings land.
 
 ### 8.3 Implementation
 
-- [ ] `S5-B1` workspace focus: route, persistence, runtime, context tool, refusal -> `<artifact>`
+- [~] `S5-B1` workspace focus: route, persistence, runtime, context tool, refusal ->
+      `PR_PLACEHOLDER`, commit `SHA_PLACEHOLDER`, gate record
+      `.workflow/records/2254-feat-2254-workspace-focus.json`,
+      `PYTHONPATH=./src python -m pytest tests/ai/test_workspace_focus.py -q`
 - [ ] `S5-B2` panel reference, block-contract rewrite, panel tools, harness -> `<artifact>`
 - [ ] `S5-B3` session tools over the session API -> `<artifact>`
 - [ ] `S5-B4` skills, provisioning counts, examples, catalogs -> `<artifact>`
