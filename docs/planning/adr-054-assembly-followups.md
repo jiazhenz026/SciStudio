@@ -465,6 +465,38 @@ the corpus is quieter than its neighbours.
 **What would close it**: a packaged-notebook section in `block-contract.md` in
 the spec 6 batch, or an owner named for it in FR-011's next revision.
 
+#### F-B4-8 — `gate_record check` reports a timed-out `python_tests` as satisfied
+
+`checks.py` runs every check with a hard-coded `timeout=600`. On this machine
+the full Python suite takes longer than that — the parallel batch is about five
+minutes and the serial batch (`-n 0 -m serial`, which spec 3's Explore session
+tests fill with real ipykernels) adds ten or more. The check records
+
+```json
+{"name": "python_tests", "status": "unknown", "exit_code": null,
+ "summary": "execution error: TimeoutExpired"}
+```
+
+and then **exits 0 with "reconciliation passed" and no unsatisfied
+obligations**: `unknown` is not `fail`, so the obligation is treated as met.
+An agent that trusted the exit code would report a green suite it never saw.
+
+Twice on this branch the same run reported `python_tests` under
+"Unsatisfied obligations" *and* left the ledger event at `unknown`, so the
+behaviour is not consistent either.
+
+Worked around here by running
+`python -m scistudio.qa.testing.run_python_tests --timeout=60
+--timeout-method=thread` directly and reporting that result.
+
+**What would close it**: make the per-check timeout configurable (an env knob
+beside the existing `SCISTUDIO_GATE_BASE`), or treat `unknown` as unsatisfied so
+a timed-out check cannot pass silently. The second is the safer default: a check
+whose result nobody has is not a check that passed.
+
+Related to F-8 (the ledger discovery defect), and the same class: the gate's exit
+code is being read as evidence when the ledger event says otherwise.
+
 ### S4-D1 / S5-D1 (adversarial testing)
 
 _No entries yet._

@@ -161,8 +161,8 @@ re-spliced at compose time).**
 - **QA / project (5)** — `get_project_info`, `list_data`,
   `search_docs`, `get_doc`, `open_gui`. Project structure, raw-asset
   listing, doc search; `open_gui` returns the running GUI's URL so you
-  can open the live frontend in a browser and self-debug plots,
-  previewers, and interactive block panels.
+  can open the live frontend in a browser and self-debug plots and
+  panels, including a scaffolded panel's harness.
 - **Plot (6)** — `list_plot_targets`, `scaffold_plot`,
   `list_plot_examples`, `read_plot_source`, `validate_plot`,
   `run_plot_job`. Author and run PREVIEW-ONLY plots (matplotlib /
