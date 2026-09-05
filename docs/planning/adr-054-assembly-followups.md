@@ -632,6 +632,25 @@ still has no API process to ask.
 
 ### fix-sessvc (the F-B3-1 fix)
 
+PR #2264's CI, run 33960305383: **ten jobs pass** — Lint & Format, Type Check,
+Import Contracts, Architecture Tests, Full Audit, Frontend, Desktop, Wheel
+Release Smoke, Deferral discipline ratchet, Verify Workflow Compliance. Two
+fail, and both are rows this branch does not own:
+
+- **Test (Python 3.11)**, 6 failures, every one of them an `assert 47 == 36`
+  tool-count assertion (F-B3-8, S5-B4's row):
+  `test_registry_now_has_36_tools`, `test_fastmcp_lists_36_tools`,
+  `test_run_attached_mode_proxies_to_backend`,
+  `test_run_standalone_mode_returns_tools_list`,
+  `test_mcp_server_exposes_36_tools`, and
+  `test_mcp_server_initialize_tools_list_and_call`.
+- **Test (Python 3.13)**, `pytest parallel phase exceeded 600s shell timeout`
+  at **96%** with `exit code 124` and **zero** `FAILED` lines — F-B1-4, at the
+  same 96% mark it reached on the track before this branch existed.
+
+The PR was `MERGEABLE` / `CLEAN` before CI was read, so F-B3-10's absent-checks
+trap does not apply here.
+
 **What the fix did.** `MCPContext` now declares `get_session_service`, the
 `_RuntimeAdapter` in `src/scistudio/api/app.py` implements it, and
 `src/scistudio/api/routes/explore.py` exposes `live_session_service(runtime)` —
