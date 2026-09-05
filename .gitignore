@@ -18,6 +18,12 @@ env/
 # Testing
 .pytest_cache/
 .coverage
+# pytest-cov under xdist writes one shard per worker as
+# `.coverage.<host>.<pid>.<random>`, which the bare `.coverage` line above does
+# not match. Agents are told to `git add -A` before every commit so the gate
+# ledger lands with the code, so an unignored shard is committed by a rule the
+# workflow itself mandates (F-A1-010).
+.coverage.*
 htmlcov/
 .mypy_cache/
 .ruff_cache/
