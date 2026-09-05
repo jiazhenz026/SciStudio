@@ -334,6 +334,31 @@ discharge it.
 - **Suggested title**: `gate_record check treats a TimeoutExpired check as
   satisfied`
 
+#### F-A1-010 - `.gitignore` covers `.coverage` but not the parallel shards
+
+`pytest-cov` under xdist writes `.coverage.<host>.<pid>.<random>` files beside
+`.coverage`, and a killed run leaves them there. `.gitignore` line 20 is the
+literal `.coverage`, which does not match them, so the `git add -A` that
+`docs/ai-developer/specific_rules/gated-workflow.md` requires before every
+commit swept three of them into `53241d18c`. The next commit deleted them and
+they are absent from the branch's three-dot diff, but `gate_record check` still
+reported them under `scope.out-of-scope`, because it looks at every path the
+commit range touches rather than the net diff.
+
+Two small things, either of which would prevent it:
+
+- add `.coverage.*` to `.gitignore`;
+- have the gate's `scope` check compare the net three-dot diff rather than the
+  union of touched paths, so an artifact added and removed inside a branch is
+  not a scope violation.
+
+- **Severity**: P3 - noise, but noise that costs a gate cycle to clear.
+- **Evidence**: `gate_record check` output naming
+  `.coverage.Jiazhen.pid70960.Xvf3OiRx.HE0prOJoP7gh` and two siblings after
+  they had been deleted from the tree.
+- **Suggested title**: `.gitignore misses pytest-cov's parallel shards, so
+  git add -A commits them`
+
 
 
 ### S4-A2

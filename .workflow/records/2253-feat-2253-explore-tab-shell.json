@@ -533,6 +533,54 @@
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T09:28:26.931448Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cca895977a23500282c2d9f4e2b0065b7dd606f53cbe270992a8199e95514b0c",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T09:28:59.315378Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f0681e55038ad40dad36d2fe90763b6fec584709f116968e783963db08a2eb2f",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T09:34:17.502744Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1273,6 +1321,72 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:34:17.614775Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:34:17.653162Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:34:17.679262Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:34:17.724303Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:34:17.747186Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:34:17.779312Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:34:17.801137Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:34:17.834369Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:34:17.878455Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:34:17.925371Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:34:17.995608Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1288,16 +1402,13 @@
     "base": "track/adr-054-spec4-explore-frontend",
     "base_sha": "336c6a738",
     "changed_files": [
-      ".coverage.Jiazhen.pid70960.Xvf3OiRx.HE0prOJoP7gh",
-      ".coverage.Jiazhen.pid74924.XwBjvyIx.HqSbof0u3xBh",
-      ".coverage.Jiazhen.pid78904.XukeVShx.Hynv10qklNeh",
       ".workflow/records/2253-feat-2253-explore-tab-shell.json",
       "docs/planning/adr-054-assembly-checklist.md",
       "docs/planning/adr-054-assembly-followups.md"
     ],
-    "diff_fingerprint": "sha256:2902fa7a07b12a7afdc75e388da3bbde74be7297bb6a9873373c5a3f57950d38",
+    "diff_fingerprint": "sha256:7ee997c47fd0757f3ecb14f8ef08ebbfd22d13aa3d3c9a1bb8ad6ee13a9e59d5",
     "head": "HEAD",
-    "head_sha": "53241d18c",
+    "head_sha": "a1a926311",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -1411,6 +1522,17 @@
         "checks.python_tests",
         "scope.out-of-scope"
       ]
+    },
+    {
+      "at": "2026-09-05T09:34:17.995678Z",
+      "diff_fingerprint": "sha256:7ee997c47fd0757f3ecb14f8ef08ebbfd22d13aa3d3c9a1bb8ad6ee13a9e59d5",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
+        "scope.out-of-scope"
+      ]
     }
   ],
   "record_id": "2253-feat-2253-explore-tab-shell",
@@ -1512,6 +1634,12 @@
       "at": "2026-09-05T08:33:30.842044Z",
       "pattern": "frontend/src/components/BottomPanel.parts/SubworkflowConfigEditor.test.tsx",
       "reason": "the coordinator dispatched ADR-054 spec 5 FR-001's frontend half to this agent after the backend channel landed on track/adr-054-spec5-agent-enablement; the report needs the ai client and the three test mocks of it that now omit the new export"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T09:35:20.807965Z",
+      "pattern": ".coverage.*",
+      "reason": "coverage shards a killed gate run left behind; .gitignore covers '.coverage' but not '.coverage.<host>.<pid>.*', so the 'git add -A before every commit' the gate workflow mandates picked three of them up in 53241d18c and the next commit deleted them - they are absent from the branch's three-dot diff and from the tree"
     }
   ],
   "session_id": "447bf4a9-96d5-4e23-96ee-f3c8df2bfe3b",
