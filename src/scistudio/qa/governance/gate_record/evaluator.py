@@ -676,11 +676,10 @@ def _unproven_check_hint(name: str, event: CheckEvent) -> str:
     rather than sharing one vague line.
     """
 
-    common_out = (
-        f"  Record an explicit N/A "
-        f"(gate_record amend --reason '<why>' --check-na '{name}:<rationale>'), or rely on CI.\n"
-        f"  {event.command}"
+    na_and_command = (
+        f"(gate_record amend --reason '<why>' --check-na '{name}:<rationale>'), or rely on CI.\n  {event.command}"
     )
+    common_out = f"  Record an explicit N/A {na_and_command}"
     if event.status == "timeout":
         partial = f"\n  Partial output up to the kill: {event.raw_log_ref}" if event.raw_log_ref else ""
         return (
@@ -701,10 +700,7 @@ def _unproven_check_hint(name: str, event: CheckEvent) -> str:
     return (
         f"- checks.{name}\n"
         f"  Required check was SKIPPED (tool unavailable): {event.summary}\n"
-        f"  Make the tool available and re-run, "
-        f"record an explicit N/A "
-        f"(gate_record amend --reason '<why>' --check-na '{name}:<rationale>'), or rely on CI.\n"
-        f"  {event.command}"
+        f"  Make the tool available and re-run, record an explicit N/A {na_and_command}"
     )
 
 
@@ -1158,21 +1154,27 @@ def reconcile(
             )
             check_events.append(event)
             ledger.check_events.append(event)
-            if event.status != "fail" and not checks.event_discharges_obligation(event):
-                # FAIL CLOSED (§7.5): a REQUIRED check that comes back with
-                # anything other than a pass or a fail — ``skipped`` (its tool is
-                # genuinely unavailable, and the skip is NOT a recorded parity
-                # gap, NOT an explicit --check-na, since those are already
-                # removed from ``to_run`` above), ``timeout`` (it ran past its
-                # wall), ``unknown`` (it could not be executed) — is UNPROVEN,
+            if checks.event_discharges_obligation(event):
+                # The ONLY outcome that proves the obligation, and the same
+                # predicate ``finalize`` applies to this event when it reads it
+                # back off the ledger. Asking one function is what keeps the two
+                # from drifting apart again (#2253).
+                continue
+            if event.status != "fail":
+                # FAIL CLOSED (§7.5): a REQUIRED check that came back neither
+                # passing nor failing — ``skipped`` (its tool is genuinely
+                # unavailable, and the skip is NOT a recorded parity gap, NOT an
+                # explicit --check-na, since those are already removed from
+                # ``to_run`` above), ``timeout`` (it ran past its wall) or
+                # ``unknown`` (it could not be executed at all) — is UNPROVEN,
                 # not proven passing.
                 #
                 # ``unknown`` and ``timeout`` used to fall through this loop and
                 # discharge the obligation, so a ``python_tests`` run that never
                 # finished produced "reconciliation passed" here while
-                # ``finalize`` — which reads the same event through
-                # ``event_discharges_obligation`` — called it missing or stale.
-                # Both paths ask the one predicate now (#2253, F-B4-8/F-A1-009).
+                # ``finalize`` called the identical event missing or stale, and
+                # the prescribed workflow had no terminating state on a slow
+                # machine (#2253, F-B4-8 / F-A1-009).
                 #
                 # For PR-readiness modes this is unsatisfied with a repair hint;
                 # non-PR-readiness local modes still record the event but do not
@@ -1180,8 +1182,6 @@ def reconcile(
                 if pr_readiness_mode:
                     unsatisfied.append(f"checks.{name}")
                     repair_hints.append(_unproven_check_hint(name, event))
-                continue
-            if event.status != "fail":
                 continue
             if event.parity_gap:
                 # ENVIRONMENT-PARITY cause, not a code failure (§7.10): the local
