@@ -684,7 +684,8 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
                       selectedSchema.dynamic_ports?.source_config_key
                         ? (((selectedNode.config.params as Record<string, unknown> | undefined) ??
                             {})[selectedSchema.dynamic_ports.source_config_key] as
-                            string | undefined)
+                            | string
+                            | undefined)
                         : undefined,
                       resolveVariadicPorts(
                         selectedSchema.input_ports,
@@ -703,7 +704,8 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
                       selectedSchema.dynamic_ports?.source_config_key
                         ? (((selectedNode.config.params as Record<string, unknown> | undefined) ??
                             {})[selectedSchema.dynamic_ports.source_config_key] as
-                            string | undefined)
+                            | string
+                            | undefined)
                         : undefined,
                       resolveVariadicPorts(
                         selectedSchema.output_ports,

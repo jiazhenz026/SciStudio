@@ -16,11 +16,7 @@ import type { InteractivePrompt } from "../../store/types";
 import { invalidatePanelCatalog } from "../../store/usePanelCatalog";
 import { invalidateTypeCatalog } from "../../store/useTypeCatalog";
 import { isExploreSessionEvent } from "../../store/exploreSlice";
-import type {
-  ExploreSessionEventMessage,
-  LogEntry,
-  WorkflowEventMessage,
-} from "../../types/api";
+import type { ExploreSessionEventMessage, LogEntry, WorkflowEventMessage } from "../../types/api";
 
 import { handleBlockPtyClosed, handleBlockPtyOpened } from "./handleBlockPty";
 import { handleFileChanged } from "./handleFileChanged";

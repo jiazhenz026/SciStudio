@@ -278,14 +278,7 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
       // flattened run ids `<parentPrefix><nodeId>__<innerId>`.
       onOpenSubworkflow?.(refPath, `${runScopePrefix}${node.id}__`);
     },
-    [
-      nodes,
-      runScopePrefix,
-      onOpenSubworkflow,
-      onLocateSubworkflow,
-      blocks,
-      onOpenPackagedNotebook,
-    ],
+    [nodes, runScopePrefix, onOpenSubworkflow, onLocateSubworkflow, blocks, onOpenPackagedNotebook],
   );
 
   /**
