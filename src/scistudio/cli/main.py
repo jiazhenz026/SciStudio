@@ -141,7 +141,7 @@ def init(name: str = typer.Argument("my_project", help="Project workspace name")
     # #2095: the list is shared with ``ApiRuntime.create_project`` rather than
     # restated here. The two had drifted -- this one was missing
     # ``data/processed`` while claiming to be symmetric with it, and neither
-    # created the previewer or tutorial drop-in directories.
+    # created the panel or tutorial drop-in directories.
     from scistudio.api.project_layout import PROJECT_SUBDIRS
 
     for subdir in PROJECT_SUBDIRS:

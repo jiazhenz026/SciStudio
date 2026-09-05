@@ -13,7 +13,7 @@ change could slip through (the exact gap this work targets):
 - ``ApiRuntime.register_output_payload`` (preview registration): a single
   value must register as a ``data_ref`` (frontend single-item viewer), not
   a ``kind="collection"`` payload that the frontend reroutes to a grid
-  previewer.
+  panel.
 - ``scistudio.plot.targets._looks_like_collection`` (plot target hint): a
   single value must report ``is_collection=False``.
 
@@ -70,7 +70,7 @@ class TestPreviewRegistrationSingleValue:
     def test_single_value_registers_as_data_ref_not_collection(self, tmp_path, monkeypatch) -> None:
         """A single block output should register as a ``data_ref`` so the
         frontend opens the single-item viewer — not a ``kind="collection"``
-        payload that reroutes to a collection/grid previewer.
+        payload that reroutes to a collection/grid panel.
 
         Green today (bare wire -> ``data_ref``). When the engine wraps single
         values it becomes a length-one ``_collection`` and

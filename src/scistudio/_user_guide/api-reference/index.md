@@ -21,6 +21,6 @@ The public API you may rely on, generated from the code's docstrings and `scistu
 - [`scistudio.blocks.io`](scistudio.blocks.io.md) — 12 symbols
 - [`scistudio.blocks.app`](scistudio.blocks.app.md) — 7 symbols
 - [`scistudio.blocks.code`](scistudio.blocks.code.md) — 60 symbols
-- [`scistudio.previewers.models`](scistudio.previewers.models.md) — 21 symbols
-- [`scistudio.previewers.data_access`](scistudio.previewers.data_access.md) — 11 symbols
+- [`scistudio.panels.models`](scistudio.panels.models.md) — 21 symbols
+- [`scistudio.panels.data_access`](scistudio.panels.data_access.md) — 11 symbols
 - [`scistudio.tutorials`](scistudio.tutorials.md) — 16 symbols

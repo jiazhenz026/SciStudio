@@ -7,7 +7,7 @@ change" note); ADR-052 §2 (public = canonical-root ``__all__`` membership), §5
 For each of the nine canonical roots, this asserts the live ``__all__`` matches
 ``expected_surface.json`` and that every symbol's stability tier + Since match.
 Roots in "exact" mode require set equality (count + names); roots in "subset"
-mode (blocks.code, previewers.models -- owner-deferred / count-discrepant per the
+mode (blocks.code, panels.models -- owner-deferred / count-discrepant per the
 JSON ``ambiguity`` note) require every expected symbol present with the right
 tier, tolerating extra live exports.
 

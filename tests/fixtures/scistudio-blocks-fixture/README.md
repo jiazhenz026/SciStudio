@@ -14,7 +14,7 @@ spectroscopy / srs):
 
 ...but carries **zero** real scientific behaviour. It exists so that core
 machinery tests (serialization round-trip, registry / type discovery, IO
-capability dispatch, previewer routing) have a plugin stand-in after the
+capability dispatch, panel routing) have a plugin stand-in after the
 real domain packages are decoupled out of the core repo (issue #1770).
 
 ## How it is discovered in tests

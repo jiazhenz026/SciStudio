@@ -321,7 +321,7 @@ export interface TypeSourceResponse {
  * ADR-053 FR-006 — which user library directory a write or read addresses.
  *
  * Named by the caller and never inferred from file content: `blocks` is
- * `~/.scistudio/blocks/`, `types` is `~/.scistudio/types/`, and `previewers`
+ * `~/.scistudio/blocks/`, `types` is `~/.scistudio/types/`, and `panels`
  * is `~/.scistudio/previewers/` (Learning Center #2086). Inside a tutorial
  * project the backend swaps the library root for the tutorial-scoped one; the
  * target names the tier, never the root.
@@ -535,10 +535,10 @@ export interface DataOpenAsListResponse {
 }
 
 // ---------------------------------------------------------------------------
-// ADR-048 SPEC 1 — routed previewer session API wire types (FR-020 .. FR-024).
+// ADR-048 SPEC 1 — routed panel session API wire types (FR-020 .. FR-024).
 //
 // These mirror `scistudio.api.schemas` Pydantic models / the canonical
-// `scistudio.previewers.models` dataclasses on the wire. The legacy
+// `scistudio.panels.models` dataclasses on the wire. The legacy
 // `DataPreviewResponse` / `DataPreviewQuery` REST-preview wire types and the
 // `GET /api/data/{ref}/preview` adapter were removed under ADR-048 no-compat
 // (#1604); pagination/sort now flows through the routed session API below.
@@ -546,7 +546,7 @@ export interface DataOpenAsListResponse {
 
 /** Canonical fallback kinds carried by a {@link PreviewEnvelope} (backend
  *  `EnvelopeKind`). The frontend routes core fallback viewers by this value
- *  when no validated previewer manifest is present. */
+ *  when no validated panel manifest is present. */
 export type EnvelopeKind =
   | "dataframe"
   | "array"
@@ -579,11 +579,11 @@ export interface PreviewTarget {
   source?: PreviewSource | null;
 }
 
-/** Same-origin descriptor for a dynamically loaded previewer ESM module
+/** Same-origin descriptor for a dynamically loaded panel ESM module
  *  (backend `FrontendManifest.to_dict()` — note: NO `asset_root`). A package
- *  or project previewer surfaces this in `envelope.metadata.frontend_manifest`
+ *  or project panel surfaces this in `envelope.metadata.frontend_manifest`
  *  so {@link PreviewHost} can validate + import + mount it (FR-022/FR-024). */
-export interface PreviewerManifest {
+export interface PanelFrontendManifest {
   previewer_id: string;
   /** Backend-relative URL the host imports the ESM module from, e.g.
    *  `/api/previews/assets/<previewer_id>/<path>`. Remote (http/https/`//`)
@@ -593,11 +593,42 @@ export interface PreviewerManifest {
   export_name: string;
   /** Optional backend-relative CSS asset URLs. */
   css?: string[];
-  /** Previewer bundle version (fingerprint or semver). */
+  /** Panel bundle version (fingerprint or semver). */
   version?: string;
-  /** Previewer API compatibility version; must match the host
-   *  {@link PREVIEWER_HOST_API_VERSION} to mount without a diagnostic. */
+  /** Panel API compatibility version. The host compares it against the
+   *  `accepted_api_version` the backend sends; nothing in the frontend spells
+   *  a version literal of its own (ADR-054 FR-004, D-010, SC-001). */
   api_version?: string;
+}
+
+/**
+ * ADR-054 D-016.3 / D-020 — everything the host needs to mount one panel,
+ * exactly as `scistudio.panels.descriptor.PanelDescriptor.to_dict()` emits it.
+ *
+ * The frontend invents none of it. The accepted API version, the granted
+ * capability, the entry document, the asset base and the read limits are the
+ * backend's answers, carried on the response the caller is already reading; a
+ * descriptor missing `accepted_api_version` or `read_limits` is a backend
+ * defect and the host refuses to mount rather than inventing a bound or a
+ * version.
+ */
+export interface PanelDescriptorResponse {
+  panel_id: string;
+  display_name: string;
+  /** The version this panel's declaration states. */
+  api_version: string;
+  /** The backend's `PANEL_API_VERSION` — the one definition in the tree. */
+  accepted_api_version: string;
+  capability: "displaying" | "producing";
+  /** Same-origin path of the entry document on the merged asset route. */
+  document_url: string;
+  /** Same-origin base the panel fetches its own bulk assets from. */
+  asset_base_url: string;
+  read_limits: { max_rows: number; max_bytes: number; [key: string]: number };
+  /** Which of the four tiers this panel resolved from. Diagnostics only. */
+  tier?: string;
+  features?: string[];
+  supports_collection?: boolean;
 }
 
 /** Descriptor for a bounded follow-up resource read (backend `PreviewResource`). */
@@ -610,7 +641,7 @@ export interface PreviewResource {
 }
 
 /** Display + state metadata on every envelope (backend `PreviewMetadata`).
- *  The six boolean flags are mandatory (FR-011); previewer-owned shape/type/
+ *  The six boolean flags are mandatory (FR-011); panel-owned shape/type/
  *  axis metadata and the optional `frontend_manifest` ride alongside them
  *  (the backend spreads `extra` into this object on the wire). */
 export interface PreviewMetadata {
@@ -620,10 +651,10 @@ export interface PreviewMetadata {
   derived?: boolean;
   complete?: boolean;
   failed?: boolean;
-  /** Same-origin manifest a package/project previewer asks the host to mount.
+  /** Same-origin manifest a package/project panel asks the host to mount.
    *  Absent for core fallbacks → the host renders the core viewer for `kind`. */
-  frontend_manifest?: PreviewerManifest;
-  /** Previewer-owned extra metadata (shape, dtype, axes, total_rows, ...). */
+  frontend_manifest?: PanelFrontendManifest;
+  /** Panel-owned extra metadata (shape, dtype, axes, total_rows, ...). */
   [key: string]: unknown;
 }
 
@@ -657,10 +688,37 @@ export interface PreviewEnvelope {
   metadata: PreviewMetadata;
   diagnostics: string[];
   error: PreviewErrorInfo | null;
-  /** First-class same-origin previewer manifest, framework-stamped by the
-   *  session manager from the resolved PreviewerSpec (ADR-048 §4 / #1579).
-   *  Absent for core fallbacks. Prefer this over `metadata.frontend_manifest`. */
-  frontend_manifest?: PreviewerManifest | null;
+  /** First-class same-origin panel manifest, framework-stamped by the
+   *  session manager from the resolved PanelSpec (ADR-048 §4 / #1579).
+   *  Absent for core fallbacks. Prefer this over `metadata.frontend_manifest`.
+   *
+   *  ADR-054 FR-036: the host no longer mounts from this. It is the ADR-048
+   *  module form, kept on the wire for the compatibility shim (FR-044). */
+  frontend_manifest?: PanelFrontendManifest | null;
+  /**
+   * ADR-054 D-020 — the descriptor for the panel the *backend* chose for this
+   * target. The host mounts what it was told; it holds no mapping from a
+   * response's kind to a panel (FR-036, SC-010).
+   */
+  panel?: PanelDescriptorResponse | null;
+  /**
+   * ADR-054 FR-015, D-013 — the id of the panel to mount when the chosen one
+   * fails. Named by the backend, never chosen here.
+   */
+  fallback_panel_id?: string | null;
+  /**
+   * The fallback panel's own descriptor.
+   *
+   * FR-015 names the fallback by id, but an id alone cannot be mounted: a mount
+   * needs the entry document, the asset base, the granted capability and the
+   * read limits, and every one of those is the backend's to state (D-016.3).
+   * Deriving them here from the id would be the frontend re-deciding what the
+   * backend already decided, which is the thing SC-010 measures the absence of.
+   * So the host mounts the fallback when the response carries its descriptor
+   * and, when it carries only the id, says which panel it could not reach
+   * instead of guessing at a URL.
+   */
+  fallback_panel?: PanelDescriptorResponse | null;
 }
 
 /** Request body for `POST /api/previews/sessions`. */
@@ -697,62 +755,142 @@ export interface PreviewResourceSaveResponse {
 }
 
 // ---------------------------------------------------------------------------
-// #2095 / #2049 — previewer discovery, reload, and per-type choice (#2113
-// surfaces all three in the left-panel Previewers tab).
+// #2095 / #2049 — panel discovery, reload, and per-type choice (#2113
+// surfaces all three in the left-panel Panels tab).
 // ---------------------------------------------------------------------------
 
-/** Where a previewer was discovered from (backend `OwnerKind`; sets the
+/** Where a panel was discovered from (backend `OwnerKind`; sets the
  *  FR-003 routing precedence project → user → package → core). */
-export type PreviewerOwnerKind = "project" | "user" | "package" | "core";
+export type PanelOwnerKind = "project" | "user" | "package" | "core";
 
-/** One registered previewer (backend `PreviewerSpecModel`). */
-export interface PreviewerSpecSummary {
-  previewer_id: string;
-  owner_kind: PreviewerOwnerKind;
+/** One registered panel (backend `PanelSpecModel`).
+ *
+ *  The id field is `panel_id`. It was `previewer_id` until ADR-054 renamed the
+ *  subsystem, and the backend model was renamed with it (`schemas.py`
+ *  `PanelSpecModel`) — this shape follows the wire, not the history. */
+export interface PanelSpecSummary {
+  panel_id: string;
+  display_name: string;
+  owner_kind: PanelOwnerKind;
   owner_name: string;
   target_type: string;
+  target_types: string[];
   supports_collection: boolean;
   priority: number;
-  capabilities: string[];
+  features: string[];
+  /** `displaying` or `producing`, as the panel declares it (FR-005). */
+  capability: string;
   backend_provider: string | null;
-  frontend_manifest: PreviewerManifest | null;
+  frontend_manifest: PanelFrontendManifest | null;
   api_version: string;
+  /** The tier the panel's directory was found in, or `null` for a routing
+   *  entry with no on-disk document. */
+  tier: PanelOwnerKind | null;
+  /** The tier of the panel this one shadows, or `null`. What tells a caller
+   *  whether `DELETE /api/panels/{panel_id}/override` has anything to
+   *  restore (FR-029). */
+  shadows: PanelOwnerKind | null;
 }
 
-/** `GET /api/previews/previewers` response (#2095). */
-export interface PreviewerListResponse {
-  previewers: PreviewerSpecSummary[];
+/** `GET /api/panels` response (#2095, moved under the panel naming by
+ *  ADR-054 D-020). */
+export interface PanelListResponse {
+  /** Registered panels, ordered project -> user -> package -> core. The
+   *  backend field is `panels` (ADR-054 FR-023); it was `previewers` before
+   *  the endpoint moved under the panel naming. */
+  panels: PanelSpecSummary[];
   /** Discovery problems recorded during the scan (duplicate ids, refused
    *  drop-ins, broken entry points). */
   diagnostics: string[];
 }
 
-/** `POST /api/previews/reload` response (#2095). */
-export interface PreviewerReloadResponse {
+/** `POST /api/panels/reload` response (#2095, ADR-054 D-020). */
+export interface PanelReloadResponse {
   reloaded: number;
   added: string[];
   removed: string[];
   diagnostics: string[];
 }
 
-/** Which layer a per-type previewer choice lives at (#2049). */
-export type PreviewerChoiceScope = "user" | "project";
+/** Which layer a per-type panel choice lives at (#2049). */
+export type PanelChoiceScope = "user" | "project";
 
-/** One effective per-type previewer choice (backend `PreviewerChoiceModel`). */
-export interface PreviewerChoice {
+/** One effective per-type panel choice (backend `PanelChoiceModel`). */
+export interface PanelChoice {
   target_type: string;
-  previewer_id: string;
+  /** Renamed from `previewer_id` with the subsystem; the request body of
+   *  `PUT /api/panels/choices/{target_type}` takes the same key. */
+  panel_id: string;
+  /** Which of the two preferences this records — `displaying` or
+   *  `producing` (FR-049). */
+  capability: string;
   /** Which layer this effective choice came from; a project-layer choice
    *  overrides the user-layer choice for the same type. */
-  scope: PreviewerChoiceScope;
-  /** False when the chosen previewer is not registered right now — the choice
+  scope: PanelChoiceScope;
+  /** False when the chosen panel is not registered right now — the choice
    *  stays recorded and routing falls back to the FR-003 ladder. */
   available: boolean;
 }
 
-/** `GET /api/previews/choices` response (#2049). */
-export interface PreviewerChoiceListResponse {
-  choices: PreviewerChoice[];
+/** `GET /api/panels/choices` response (#2049, ADR-054 D-020). */
+export interface PanelChoiceListResponse {
+  choices: PanelChoice[];
+}
+
+// ---------------------------------------------------------------------------
+// ADR-054 T-010 / D-020 — reading a panel, saving it, and reverting (FR-024
+// to FR-030). The host consumes all three; `PanelPalette` opens a panel's
+// source and `PanelErrorSurface` offers the revert FR-028 requires.
+// ---------------------------------------------------------------------------
+
+/** `GET /api/panels/{panel_id}/source` response (FR-024). */
+export interface PanelSourceResponse {
+  panel_id: string;
+  /** The tier the panel resolved from, which is also where a save lands
+   *  (FR-025) — unless it is read-only, in which case a save copies it into
+   *  the open project (FR-026). */
+  tier: PanelOwnerKind;
+  /** The entry document's file name inside the panel directory. */
+  entry: string;
+  /** The entry document's text. */
+  source: string;
+  /** The `panel.json` text. */
+  declaration: string;
+  /** Whether a save writes in place. `false` means a save copies the panel
+   *  into the project first. Reported so the interface can *say* what a save
+   *  will do — not so it can offer a choice; FR-025 forbids asking. */
+  editable: boolean;
+  /** The tier of the panel this one shadows, or `null`. */
+  shadows: PanelOwnerKind | null;
+  descriptor: PanelDescriptorResponse | null;
+}
+
+/** `PUT /api/panels/{panel_id}/source` request body (FR-025). */
+export interface PanelSourceSaveRequest {
+  source: string;
+  /** An optional replacement `panel.json`. It must parse and must keep the
+   *  panel's id (FR-027). */
+  declaration?: string | null;
+}
+
+/** `PUT /api/panels/{panel_id}/source` response (FR-025 to FR-027, FR-030). */
+export interface PanelSourceSaveResponse {
+  panel_id: string;
+  /** The tier that was written. */
+  tier: PanelOwnerKind;
+  /** `true` when the save copied a read-only panel into the project. */
+  copied: boolean;
+  descriptor: PanelDescriptorResponse | null;
+}
+
+/** `DELETE /api/panels/{panel_id}/override` response (FR-029). */
+export interface PanelOverrideRevertResponse {
+  panel_id: string;
+  /** The tier the deleted copy lived in. */
+  removed_tier: PanelOwnerKind;
+  /** The tier of the panel the copy was shadowing, now resolving again. */
+  restored_tier: PanelOwnerKind;
+  descriptor: PanelDescriptorResponse | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -835,7 +973,7 @@ export interface PlotRunRequest {
  *
  *  On success, `data_ref` is the catalog id passed to
  *  {@link PreviewTarget.ref} (with `kind: "plot_artifact"`) to render the
- *  produced figure through the core PlotPreviewer. It is `null` when the run
+ *  produced figure through the core PlotPanel. It is `null` when the run
  *  failed / produced no artifact — `status` + `errors` then explain why. */
 export interface PlotRunResponse {
   status: "succeeded" | "failed" | "cancelled" | "timed_out";

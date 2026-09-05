@@ -1,0 +1,27 @@
+<title>Fixture Image Viewer</title>
+<style>
+  body { font: 13px system-ui, sans-serif; margin: 0; padding: 12px; }
+  #shape { font-variant-numeric: tabular-nums; }
+</style>
+<h1>Fixture Image Viewer</h1>
+<p id="shape">waiting for init</p>
+<script>
+  // SC-014: this package registers a panel with a directory and no Python
+  // object. The document is self-contained (FR-034) and speaks only the
+  // ADR-054 message contract, so it needs nothing from the host beyond the
+  // per-mount token it is handed in `init`.
+  var token = null;
+  window.addEventListener("message", function (event) {
+    var message = event.data;
+    if (!message || message.scistudio_panel !== 1) return;
+    if (message.type === "init") {
+      token = message.token;
+      document.getElementById("shape").textContent =
+        "panel " + message.payload.panel_id + " granted " + message.payload.capability;
+      window.parent.postMessage(
+        { scistudio_panel: 1, token: token, type: "ready", payload: { api_version: message.payload.api_version } },
+        "*"
+      );
+    }
+  });
+</script>

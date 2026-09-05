@@ -1,0 +1,12 @@
+{
+  "panel_id": "core.array.basic",
+  "display_name": "Array",
+  "target_types": ["Array"],
+  "capability": "displaying",
+  "entry": "index.html",
+  "api_version": "1",
+  "features": ["shape", "slice", "matrix", "colormap"],
+  "priority": 0,
+  "supports_collection": false,
+  "provider": "scistudio.panels.fallbacks:array_panel"
+}

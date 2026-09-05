@@ -31,8 +31,8 @@ from scistudio.blocks.base.state import ExecutionMode
 from scistudio.blocks.process.process_block import ProcessBlock
 from scistudio.blocks.registry import BlockRegistry
 from scistudio.blocks.registry._spec import _spec_from_class
-from scistudio.previewers.assets import resolve_asset
-from scistudio.previewers.models import MissingBundleError
+from scistudio.panels.assets import resolve_asset
+from scistudio.panels.models import MissingBundleError
 from tests.fixtures.interactive_blocks import EmitNumbersBlock, SelectOptionBlock
 
 # ===========================================================================

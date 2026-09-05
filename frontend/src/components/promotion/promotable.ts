@@ -108,9 +108,9 @@ export function promotableType(type: TypeSummary): PromotableItem | null {
 const DROPIN_DIRS: ReadonlyArray<{ prefix: string; target: UserLibraryTarget }> = [
   { prefix: "blocks/", target: "blocks" },
   { prefix: "types/", target: "types" },
-  // Learning Center #2086: a project previewer promotes through the same
+  // Learning Center #2086: a project panel promotes through the same
   // door as blocks and types. The editor tab is its one entry point — a
-  // previewer has no palette card and no canvas node to hang E2/E5 on.
+  // panel has no palette card and no canvas node to hang E2/E5 on.
   { prefix: "previewers/", target: "previewers" },
 ];
 

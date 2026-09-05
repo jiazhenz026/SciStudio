@@ -1,0 +1,11 @@
+{
+  "panel_id": "fixture.image.viewer",
+  "display_name": "Fixture Image Viewer",
+  "target_types": ["FixtureImage"],
+  "capability": "displaying",
+  "entry": "index.html",
+  "api_version": "1",
+  "features": ["zoom"],
+  "priority": 0,
+  "supports_collection": false
+}

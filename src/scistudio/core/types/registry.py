@@ -312,7 +312,7 @@ class TypeRegistry:
 
         ADR-053 FR-028. Same shape and same reason as
         :attr:`scistudio.blocks.registry.BlockRegistry.diagnostics` and
-        :attr:`scistudio.previewers.registry.PreviewerRegistry.diagnostics`: a
+        :attr:`scistudio.panels.registry.PanelRegistry.diagnostics`: a
         package that contributed nothing has to be distinguishable from a
         package that had nothing to contribute, and a log line the user never
         sees does not distinguish them.
@@ -614,7 +614,7 @@ class TypeRegistry:
 
         ADR-053 FR-025/FR-026: enumeration, load, payload shape, and
         diagnostics come from :mod:`scistudio.core.entry_points`, shared with
-        the block and previewer registries. This pass used to call
+        the block and panel registries. This pass used to call
         ``importlib.metadata.entry_points(group=...)`` unguarded and was the
         only group able to raise an enumeration failure into its caller — for
         a registry scan, that is the whole process's type catalogue lost to
@@ -625,7 +625,7 @@ class TypeRegistry:
         from scistudio.core.types.base import DataObject
 
         diagnostics: list[EntryPointDiagnostic] = []
-        # FR-030: the same plugin import-root activation the previewer and
+        # FR-030: the same plugin import-root activation the panel and
         # block scans use, so one installed package resolves for every group
         # rather than for whichever registry happened to prepare sys.path.
         with prepared_plugin_import_roots():
@@ -732,7 +732,7 @@ class TypeRegistry:
 
         Holders of an :class:`~scistudio.api.runtime.ApiRuntime` should call
         ``refresh_all_registries()`` instead: it also rebuilds the block and
-        previewer registries, and it can swap in a fresh instance. This method
+        panel registries, and it can swap in a fresh instance. This method
         exists for a caller that holds only the registry — the MCP
         ``reload_blocks`` tool receives an ``MCPContext`` whose registries are
         read-only properties over the live runtime, so refreshing in place is

@@ -55,7 +55,7 @@ from ._helpers import _now_iso, _rmtree_force, _safe_parent_dir, _slugify
 
 # ADR-048 / #1598: the DataFrame table cache and the raster preview pipeline
 # moved down into ``scistudio.previewers`` (``_table_cache`` / ``_raster``) so the
-# previewer subsystem no longer imports up into the API layer. Only the
+# panel subsystem no longer imports up into the API layer. Only the
 # API-specific ``_infer_type_name_from_ref`` remains here.
 from ._preview_image import _infer_type_name_from_ref
 
@@ -786,13 +786,13 @@ class ApiRuntime:
     # Data catalog + preview (_data)
     register_data_ref = _data.register_data_ref
     # ADR-048 SPEC 2 / #1606: register a produced plot artifact so the routed
-    # PreviewService can reach the core PlotPreviewer at runtime.
+    # PreviewService can reach the core PlotPanel at runtime.
     register_plot_artifact = _data.register_plot_artifact
     register_output_payload = _data.register_output_payload
     get_data_record = _data.get_data_record
     describe_ref = _data.describe_ref
     _resolve_record_class = _data._resolve_record_class
-    # ADR-048 SPEC 1: previewer subsystem accessors.
+    # ADR-048 SPEC 1: panel subsystem accessors.
     get_preview_service = _data.get_preview_service
     refresh_preview_service = _data.refresh_preview_service
     enrich_preview_query = _data.enrich_preview_query

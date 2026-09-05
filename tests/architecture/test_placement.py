@@ -149,7 +149,11 @@ def test_no_py_files_outside_known_packages() -> None:
         "testing",
         "qa",  # ADR-042: documentation/frontmatter/fact-registry audit tooling
         "agent_provisioning",  # ADR-040 §3.5-3.8: prod-env agent provisioning module
-        "previewers",  # ADR-048: extensible type previewer subsystem (scistudio.previewers)
+        "panels",  # ADR-048/ADR-054: the extensible panel subsystem (scistudio.panels)
+        # ADR-054 spec 1 T-001 / D-001: the retired ``scistudio.previewers`` path
+        # survives as a re-export shim so the entry-point group and on-disk
+        # drop-ins keep resolving (FR-045, FR-020).
+        "previewers",
         "plot",  # #1824 / ADR-052 §9: first-class plot render(collection) engine (scistudio.plot)
         "desktop",  # ADR-037: desktop distribution path/resource helpers
         "stability",  # ADR-052 §5: public-API stability decorators (scistudio.stability)

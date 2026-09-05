@@ -78,8 +78,8 @@ CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.blocks.io",
     "scistudio.blocks.app",
     "scistudio.blocks.code",
-    "scistudio.previewers.models",
-    "scistudio.previewers.data_access",
+    "scistudio.panels.models",
+    "scistudio.panels.data_access",
     "scistudio.tutorials",
 )
 

@@ -108,9 +108,9 @@ def _refresh_active_project_package_docs(runtime: ApiRuntime) -> None:
 def _after_package_change(runtime: ApiRuntime) -> None:
     """Re-discover everything an install, update, rollback, or delete moved.
 
-    ADR-053 FR-063 + #2009: a package can ship blocks, types, and previewers,
+    ADR-053 FR-063 + #2009: a package can ship blocks, types, and panels,
     and all four routes below used to refresh only the block registry — so a
-    package's types and previewers stayed invisible until the user switched
+    package's types and panels stayed invisible until the user switched
     projects, with no error to explain it.
 
     Learning Center FR-078 is deliberately **not** here. All four routes call
@@ -160,7 +160,7 @@ async def install_local_package_route(
     body: LocalPackageInstallRequest,
     runtime: RuntimeDep,
 ) -> LocalPackageInstallResponse:
-    """Install a local package and refresh the block, type, and previewer registries."""
+    """Install a local package and refresh the block, type, and panel registries."""
 
     if not _is_bundled_desktop_run():
         raise HTTPException(

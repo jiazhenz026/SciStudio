@@ -291,13 +291,22 @@ def _validate_interactive_capability(cls: type) -> None:
     biconditional between ``execution_mode == ExecutionMode.INTERACTIVE`` and
     inheriting :class:`~scistudio.blocks.base.interactive.InteractiveMixin`, and
     that an interactive block defines ``prepare_prompt`` and declares a valid
-    :class:`~scistudio.blocks.base.interactive.PanelManifest`. A no-op for the
+    :class:`~scistudio.core.panels.PanelManifest`. A no-op for the
     common AUTO/EXTERNAL case (neither half present).
+
+    ADR-054 spec 1 FR-050 adds one clause: the declared panel must declare the
+    **producing** capability. A block opens its panel to take a decision back,
+    so a block pointing at a displaying-only panel is a block whose dialog can
+    never answer. The check belongs here, at discovery, rather than at the point
+    the block first pauses — by then a person is already waiting on a window
+    that will not work, and the diagnostic reaches them as a failed run instead
+    of as a rejected block (SC-016).
     """
     # Local imports keep this registry helper import-light and avoid a cycle
     # with blocks.base (mirrors the lazy-import style used across this module).
-    from scistudio.blocks.base.interactive import InteractiveMixin, PanelManifest
+    from scistudio.blocks.base.interactive import InteractiveMixin
     from scistudio.blocks.base.state import ExecutionMode
+    from scistudio.core.panels import PanelCapability, PanelManifest
 
     cls_name = cls.__name__
     is_interactive_mode = getattr(cls, "execution_mode", None) == ExecutionMode.INTERACTIVE
@@ -327,6 +336,13 @@ def _validate_interactive_capability(cls: type) -> None:
         raise ValueError(
             f"{cls_name}: INTERACTIVE block must declare a valid interactive_panel "
             f"PanelManifest with a non-empty panel_id (ADR-051 FR-002)."
+        )
+    if panel.capability is not PanelCapability.PRODUCING:
+        raise ValueError(
+            f"{cls_name}: interactive_panel {panel.panel_id!r} declares the "
+            f"{panel.capability.value} capability, but a panel a block opens must declare "
+            f"producing — the block pauses to take a decision back, and a displaying panel "
+            f"has no outbound path to give it one (ADR-054 spec 1 FR-050)."
         )
 
 

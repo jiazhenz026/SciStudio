@@ -19,26 +19,18 @@ import { extractRefEntries, type RefEntry } from "./DataPreview.parts/refEntries
 export { extractRefEntries } from "./DataPreview.parts/refEntries";
 export type { RefEntry } from "./DataPreview.parts/refEntries";
 
-// ADR-048 SPEC 1 — the routed PreviewHost container and core fallback viewers.
-// As of #1592 the live DataPreview mounts PreviewHost directly: every selected
-// output ref creates a routed preview session (POST /api/previews/sessions) and
-// renders either a validated dynamic previewer (package/project) or the core
-// fallback viewer for the envelope kind. The legacy one-shot `previewCache`
-// path is gone.
+// ADR-054 spec 1 — the routed PreviewHost container, merged with the panel
+// host. Every selected output ref creates a routed preview session
+// (POST /api/previews/sessions) and mounts the panel the backend named for it
+// inside a sandboxed frame; there is no kind-to-viewer dispatch left to fall
+// back to (FR-015, FR-036, SC-010).
+//
+// The ADR-048 host-API re-exports that used to sit here are gone with the
+// module loader they described (SC-002), and with them the frontend's second
+// panel API version constant: the one definition is `PANEL_API_VERSION` in
+// `scistudio.core.panels` and it reaches the host on the descriptor (D-010).
 export { PreviewHost } from "./DataPreview.parts/PreviewHost";
 export type { PreviewHostProps } from "./DataPreview.parts/PreviewHost";
-export {
-  PREVIEWER_HOST_API_VERSION,
-  isApiVersionCompatible,
-  isPreviewerModule,
-} from "./DataPreview.parts/previewerHostApi";
-export type {
-  PreviewHostApi,
-  PreviewProviderIdentity,
-  PreviewExportRequest,
-  PreviewerInstance,
-  PreviewerModule,
-} from "./DataPreview.parts/previewerHostApi";
 
 interface DataPreviewProps {
   selectedNodeId: string | null;
@@ -95,10 +87,10 @@ export function DataPreview({
   const previewEnvelopeCache = useAppStore((s) => s.previewEnvelopeCache);
   const cachePreviewEnvelope = useAppStore((s) => s.cachePreviewEnvelope);
   const workflowId = useAppStore((s) => s.workflowId);
-  // #2113 — the routing epoch: a per-type previewer choice change bumps it,
+  // #2113 — the routing epoch: a per-type panel choice change bumps it,
   // and PreviewHost re-creates the open session so the new choice applies to
   // the preview already on screen rather than only to the next one.
-  const previewerChoiceVersion = useAppStore((s) => s.previewerChoiceVersion);
+  const panelChoiceVersion = useAppStore((s) => s.panelChoiceVersion);
 
   const target: PreviewTarget | null = activeEntry
     ? {
@@ -191,7 +183,7 @@ export function DataPreview({
     <PreviewHost
       target={activePlot ?? target}
       initialQuery={activePlot ? undefined : activeEntry?.initialQuery}
-      routingEpoch={previewerChoiceVersion}
+      routingEpoch={panelChoiceVersion}
       getCachedEnvelope={(key) => previewEnvelopeCache[key]}
       cacheEnvelope={cachePreviewEnvelope}
       buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}

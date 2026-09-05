@@ -1,7 +1,7 @@
 """Data catalog + routed-preview helper implementations.
 
 ADR-048 SPEC 1 (no-compat, #1594/#1604): the catalog is previewed exclusively
-through the routed previewer session API (``POST/GET/PATCH
+through the routed panel session API (``POST/GET/PATCH
 /api/previews/sessions`` -> registry -> router -> selected provider ->
 :class:`PreviewEnvelope`). The legacy one-shot ``GET /api/data/{ref}/preview``
 REST adapter (``preview_data`` + ``_envelope_to_legacy_preview``) was deleted
@@ -27,7 +27,7 @@ import pyarrow.parquet as pq
 
 from scistudio.core.meta._display_name import resolve_display_name
 from scistudio.core.storage.ref import StorageReference
-from scistudio.previewers import (
+from scistudio.panels import (
     PreviewService,
     PreviewSource,
     PreviewTarget,
@@ -54,7 +54,7 @@ def _type_chain_from_registry(type_registry: Any, type_name: str) -> list[str]:
 
     #2112: a file registered straight off disk carries no ``type_chain``, and a
     single-entry chain is not routable — :class:`PreviewRouter` walks the chain
-    to reach a previewer registered for an *ancestor*, so a ``.tif`` recorded as
+    to reach a panel registered for an *ancestor*, so a ``.tif`` recorded as
     a project's ``SRSImage`` with chain ``["SRSImage"]`` could never reach the
     imaging package's ``Image`` viewer and fell through to the artifact
     fallback. Filling the chain in is what makes the recorded type routable.
@@ -133,15 +133,15 @@ def register_plot_artifact(
     This is the producer -> consumer link the original SPEC 2 implementation
     left dead-wired (#1606): ``run_plot_job`` writes a display artifact to the
     preview cache but nothing registered it so the routed
-    :class:`~scistudio.previewers.PreviewService` could reach the core
-    ``PlotPreviewer`` (``core.plot.basic``) at runtime.
+    :class:`~scistudio.panels.PreviewService` could reach the core
+    ``PlotPanel`` (``core.plot.basic``) at runtime.
 
     The record is stamped with ``metadata["plot_artifact"]`` and
     ``type_name="PlotArtifact"`` so :func:`_target_kind_for_record` classifies
     the routed target as :attr:`TargetKind.PLOT_ARTIFACT` and
     :func:`enrich_preview_query` supplies the ``_storage`` ref the
-    ``PlotPreviewer`` reads. The optional workflow/node/output identity is
-    stored as display-only :class:`~scistudio.previewers.PreviewSource`
+    ``PlotPanel`` reads. The optional workflow/node/output identity is
+    stored as display-only :class:`~scistudio.panels.PreviewSource`
     metadata (it carries no workflow truth — a plot job never registers a DAG
     node or lineage, FR-025).
 
@@ -173,7 +173,7 @@ def register_plot_artifact(
         metadata=ref_metadata,
     )
     record_metadata = self.describe_ref(ref)
-    # describe_ref folds ref.metadata in, but be explicit so the previewer
+    # describe_ref folds ref.metadata in, but be explicit so the panel
     # routing flags survive even if a backend strips ref metadata.
     record_metadata["plot_artifact"] = True
     record_metadata["source"] = source
@@ -220,7 +220,7 @@ def register_output_payload(self: ApiRuntime, payload: Any) -> Any:
         # #1811 Option 2: a length-one Collection is the canonical
         # representation of a single value (ADR-020 §3). Register it as a
         # single ``data_ref`` so the frontend opens the single-item viewer
-        # rather than rerouting to a collection/grid previewer. Genuine
+        # rather than rerouting to a collection/grid panel. Genuine
         # multi-item collections keep the ``kind="collection"`` payload.
         if isinstance(raw_items, list) and len(raw_items) == 1:
             return self.register_output_payload(raw_items[0])
@@ -279,9 +279,9 @@ def get_preview_service(self: ApiRuntime) -> PreviewService:
     """Return (building on first use) this runtime's :class:`PreviewService`.
 
     ADR-048 SPEC 1: the runtime owns a per-process preview service loaded with
-    core + package + project previewers. It is built lazily and rebuilt on
+    core + package + project panels. It is built lazily and rebuilt on
     project switch via :meth:`refresh_preview_service` so project-local
-    previewers and defaults track the active project.
+    panels and defaults track the active project.
     """
     service = getattr(self, "_preview_service", None)
     if service is None:
@@ -306,7 +306,7 @@ def refresh_preview_service(self: ApiRuntime) -> PreviewService:
 
 
 def _target_kind_for_record(record: DataRecord, resolved_cls: type | None) -> TargetKind:
-    """Classify a DataRecord into a previewer :class:`TargetKind`.
+    """Classify a DataRecord into a panel :class:`TargetKind`.
 
     Plot artifacts are detected by a ``plot_artifact`` metadata flag or a
     plot-style suffix; everything non-collection is a ``data_ref``.

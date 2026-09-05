@@ -1,9 +1,9 @@
 """Desktop source-package discovery coverage for non-block plugin surfaces.
 
 Covers both the bundled desktop app (``SCISTUDIO_BUNDLED=1``) and the
-non-bundled desktop runtime. Issue #1885: type and previewer module-glob
+non-bundled desktop runtime. Issue #1885: type and panel module-glob
 discovery must run unconditionally, matching block discovery, so plugin types
-and previewers are not silently dropped when the bundled flag is absent.
+and panels are not silently dropped when the bundled flag is absent.
 """
 
 from __future__ import annotations
@@ -15,8 +15,8 @@ import pytest
 
 from scistudio.core.types.registry import TypeRegistry
 from scistudio.desktop import paths as desktop_paths
-from scistudio.previewers.models import OwnerKind
-from scistudio.previewers.registry import PreviewerRegistry
+from scistudio.panels.models import OwnerKind
+from scistudio.panels.registry import PanelRegistry
 
 
 def _write_type_package(packages_dir: Path) -> Path:
@@ -46,7 +46,7 @@ typeprobe = "scistudio_blocks_typeprobe:get_types"
     return package_root / "src"
 
 
-def _write_previewer_package(packages_dir: Path) -> Path:
+def _write_panel_package(packages_dir: Path) -> Path:
     package_root = packages_dir / "scistudio-blocks-previewprobe-0.1.0"
     module_dir = package_root / "src" / "scistudio_blocks_previewprobe"
     module_dir.mkdir(parents=True)
@@ -61,11 +61,11 @@ previewprobe = "scistudio_blocks_previewprobe:get_previewers"
         encoding="utf-8",
     )
     (module_dir / "__init__.py").write_text(
-        "from scistudio.previewers.models import OwnerKind, PreviewerSpec\n"
+        "from scistudio.panels.models import OwnerKind, PanelSpec\n"
         "\n"
         "def get_previewers():\n"
         "    return [\n"
-        "        PreviewerSpec(\n"
+        "        PanelSpec(\n"
         "            previewer_id='desktop.typeprobe.viewer',\n"
         "            owner_kind=OwnerKind.PACKAGE,\n"
         "            owner_name='scistudio-blocks-previewprobe',\n"
@@ -94,7 +94,7 @@ def desktop_packages(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """Point desktop plugin dirs at a temp install *without* ``SCISTUDIO_BUNDLED``.
 
     Issue #1885: the non-bundled desktop runtime is the case where plugin type
-    and previewer discovery used to silently fail — the module-glob scan was
+    and panel discovery used to silently fail — the module-glob scan was
     gated behind ``SCISTUDIO_BUNDLED == "1"`` while blocks scanned
     unconditionally. This fixture mirrors :func:`bundled_desktop_packages`
     with the bundled flag explicitly absent.
@@ -122,13 +122,13 @@ def test_type_registry_discovers_bundled_desktop_source_package_types(
     assert str(src_dir.resolve()) not in sys.path
 
 
-def test_previewer_registry_discovers_bundled_desktop_source_package_previewers(
+def test_panel_registry_discovers_bundled_desktop_source_package_panels(
     bundled_desktop_packages: Path,
 ) -> None:
     """Bundled desktop source packages must register ``get_previewers()`` payloads."""
-    src_dir = _write_previewer_package(bundled_desktop_packages)
+    src_dir = _write_panel_package(bundled_desktop_packages)
 
-    registry = PreviewerRegistry()
+    registry = PanelRegistry()
     registry.load_packages()
 
     spec = registry.get("desktop.typeprobe.viewer")
@@ -160,13 +160,13 @@ def test_type_registry_discovers_non_bundled_desktop_source_package_types(
     assert str(src_dir.resolve()) not in sys.path
 
 
-def test_previewer_registry_discovers_non_bundled_desktop_source_package_previewers(
+def test_panel_registry_discovers_non_bundled_desktop_source_package_panels(
     desktop_packages: Path,
 ) -> None:
-    """#1885: plugin previewers must register in a non-bundled desktop run too."""
-    src_dir = _write_previewer_package(desktop_packages)
+    """#1885: plugin panels must register in a non-bundled desktop run too."""
+    src_dir = _write_panel_package(desktop_packages)
 
-    registry = PreviewerRegistry()
+    registry = PanelRegistry()
     registry.load_packages()
 
     spec = registry.get("desktop.typeprobe.viewer")

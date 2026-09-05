@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Plot &mdash; SciStudio panel</title>
+<!--
+  ADR-054 spec 1, T-009 (#2229) — the built-in plot panel.
+
+  Replaces frontend/src/components/DataPreview.parts/PlotViewer.tsx. Renders the
+  `core.plot.basic` provider's PLOT envelope: an inline sanitized SVG, or a
+  PNG/JPEG image, or a PDF, with zoom controls and the Save-as format menu.
+
+  FR-034 / A-004: this document is strictly self-contained. Markup, styles and
+  script live in this one file — no <script src>, no <link rel=stylesheet>, no
+  shared runtime import, no CDN. Several built-in panels repeat the same
+  envelope plumbing and the same colour tokens; that duplication is accepted so
+  that this file can be opened directly in a browser to see whether it works and
+  so a person forking it gets everything in the file they opened.
+
+  Outbound: this is a *displaying* panel, so it never sends `emit` (ADR-054 3.6).
+  It sends `host_action` with the action "export" when the person saves, and
+  `error`. Saving is host chrome: the frame is granted `allow-scripts` and
+  nothing else, so it has no `allow-downloads` and could not write a file even if
+  it held the bytes. The host answers `host_action_result`.
+
+  It sends no `read`: a plot arrives whole, and this panel patches no query state
+  of its own.
+
+  TODO(#2212): the plot panel gains the producing capability (drag an axis or a
+    region and have the plot re-render from emitted code) later. This document
+    declares `displaying` only and its Python provider is unchanged (FR-033).
+    Followup: https://github.com/jiazhenz026/SciStudio/issues/2212
+-->
+<style>
+  :root {
+    --ink: #1c211b;
+    --canvas: #f5f1e8;
+    --ember: #f06a44;
+    --amber-border: #fcd34d;
+    --amber-bg: #fffbeb;
+    --amber-text: #92400e;
+    --danger: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--ink);
+    font: 12px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  body { padding: 8px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .card {
+    border: 1px solid rgba(28, 33, 27, 0.1);
+    border-radius: 1rem;
+    background: #fff;
+    padding: 12px;
+  }
+  .banner {
+    border: 1px solid var(--amber-border);
+    background: var(--amber-bg);
+    color: var(--amber-text);
+    border-radius: 1rem;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+  .banner p { margin: 0 0 4px; }
+  .banner p:last-child { margin-bottom: 0; }
+  .error {
+    border: 1px solid rgba(179, 38, 30, 0.3);
+    background: rgba(179, 38, 30, 0.08);
+    color: var(--danger);
+    border-radius: 1rem;
+    padding: 12px;
+  }
+  .surface {
+    width: 100%;
+    max-height: 78vh;
+    overflow: auto;
+    border-radius: 0.5rem;
+    background: #fff;
+  }
+  .zoom-layer { width: 100%; transform-origin: top left; }
+  .zoom-layer img { display: block; width: 100%; }
+  .zoom-layer iframe { display: block; width: 100%; border: 0; background: #fff; }
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: rgba(28, 33, 27, 0.7);
+  }
+  .toolbar .spacer { margin-left: auto; }
+  .format-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(28, 33, 27, 0.45);
+  }
+  button, select {
+    font: inherit;
+    color: inherit;
+    background: #fff;
+    border: 1px solid rgba(28, 33, 27, 0.2);
+    border-radius: 6px;
+    padding: 3px 8px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button:hover:not(:disabled) { border-color: var(--ember); }
+  .zoom-level {
+    width: 44px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .badges { display: flex; flex-wrap: wrap; gap: 4px; }
+  .badge {
+    border-radius: 999px;
+    background: #fef3c7;
+    color: var(--amber-text);
+    padding: 1px 8px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .muted { color: rgba(28, 33, 27, 0.6); }
+</style>
+</head>
+<body>
+<div class="stack" id="root">
+  <p class="muted" id="boot">Waiting for the host&hellip;</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------------- */
+  /* The D-011 envelope. Duplicated per FR-034; do not factor it out.        */
+  /* ---------------------------------------------------------------------- */
+
+  var PANEL_MESSAGE_MARKER = 1;
+  var PANEL_API_VERSION = "1";
+
+  var token = null;
+  var context = null;
+  var requestSeq = 0;
+  var pending = Object.create(null);
+  var torndown = false;
+
+  function post(type, payload) {
+    if (token === null || torndown) return false;
+    try {
+      window.parent.postMessage(
+        { scistudio_panel: PANEL_MESSAGE_MARKER, token: token, type: type, payload: payload },
+        "*"
+      );
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function reportError(message, detail) {
+    post("error", { message: String(message), detail: detail || null });
+  }
+
+  /**
+   * One bounded request/response round trip. The three outbound request types
+   * differ in what they ask for, not in how they are answered (D-017): each
+   * carries a request id, and the host answers with the matching `*_result` or
+   * with an `error` carrying the same id (D-016), so a failed request ends here
+   * rather than waiting out a timeout of its own.
+   */
+  function request(type, body) {
+    return new Promise(function (resolve, reject) {
+      requestSeq += 1;
+      var id = "r" + requestSeq;
+      pending[id] = { resolve: resolve, reject: reject };
+      var payload = { request_id: id };
+      Object.keys(body).forEach(function (key) { payload[key] = body[key]; });
+      if (!post(type, payload)) {
+        delete pending[id];
+        reject(new Error("the host could not be reached"));
+      }
+    });
+  }
+
+  function settle(id, value) {
+    var waiting = pending[id];
+    if (!waiting) return false;
+    delete pending[id];
+    waiting.resolve(value);
+    return true;
+  }
+
+  function failRequest(id, message) {
+    var waiting = pending[id];
+    if (!waiting) return false;
+    delete pending[id];
+    waiting.reject(new Error(message));
+    return true;
+  }
+
+  /**
+   * `host_action` — chrome the frame cannot perform for itself (D-017). It is
+   * granted `allow-scripts` and nothing else, so it has neither
+   * `allow-downloads` nor any reach into the application. The host does the
+   * thing and answers `host_action_result`.
+   */
+  function hostAction(action, params) {
+    return request("host_action", { action: action, params: params });
+  }
+
+  /**
+   * Normalise whatever the host handed us into the envelope shape the provider
+   * produces. `init.target` and a `read_result.window` are accepted either as a
+   * full envelope or as a bare payload.
+   */
+  function envelopeOf(value) {
+    var empty = { payload: {}, metadata: {}, resources: [], diagnostics: [], error: null };
+    if (!value || typeof value !== "object") return empty;
+    if (value.payload && typeof value.payload === "object") {
+      return {
+        payload: value.payload,
+        metadata: value.metadata && typeof value.metadata === "object" ? value.metadata : {},
+        resources: Array.isArray(value.resources) ? value.resources : [],
+        diagnostics: Array.isArray(value.diagnostics) ? value.diagnostics : [],
+        error: value.error && typeof value.error === "object" ? value.error : null
+      };
+    }
+    return {
+      payload: value,
+      metadata: {},
+      resources: [],
+      diagnostics: [],
+      error: value.error && typeof value.error === "object" ? value.error : null
+    };
+  }
+
+  function asString(value, fallback) {
+    return typeof value === "string" ? value : fallback === undefined ? "" : fallback;
+  }
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  /** Metadata flag chips, so the reader always sees whether data is bounded. */
+  function badges(metadata) {
+    var flags = [
+      ["sampled", metadata.sampled],
+      ["truncated", metadata.truncated],
+      ["cached", metadata.cached],
+      ["derived", metadata.derived],
+      ["incomplete", metadata.complete === false]
+    ];
+    var active = flags.filter(function (entry) { return entry[1] === true; });
+    if (active.length === 0) return null;
+    var box = el("div", "badges");
+    active.forEach(function (entry) { box.appendChild(el("span", "badge", entry[0])); });
+    return box;
+  }
+
+  function diagnosticsBanner(diagnostics) {
+    if (!diagnostics || diagnostics.length === 0) return null;
+    var box = el("div", "banner");
+    box.setAttribute("role", "status");
+    diagnostics.forEach(function (line) { box.appendChild(el("p", null, line)); });
+    return box;
+  }
+
+  function errorCard(error) {
+    var box = el("div", "error");
+    box.setAttribute("role", "alert");
+    box.appendChild(el("p", null, "Plot preview failed"));
+    if (error && error.code) box.appendChild(el("p", "muted", String(error.code)));
+    box.appendChild(el("p", null, error && error.message ? String(error.message) : "An unknown error occurred."));
+    return box;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Plot rendering                                                          */
+  /* ---------------------------------------------------------------------- */
+
+  var PLOT_EXPORT_FORMAT_ORDER = ["svg", "pdf", "png", "jpeg"];
+
+  var view = { zoom: 1, saveFormat: null };
+  var current = envelopeOf(null);
+
+  function canonicalFormat(name) {
+    var value = String(name || "").toLowerCase().replace(/^\./, "");
+    return value === "jpg" ? "jpeg" : value;
+  }
+
+  /** Formats the run actually rendered, in the canonical Save-as order. */
+  function availableFormats(payload) {
+    var found = Object.create(null);
+    if (Array.isArray(payload.available_formats)) {
+      payload.available_formats.forEach(function (entry) {
+        if (typeof entry === "string" && entry) found[canonicalFormat(entry)] = true;
+      });
+    }
+    var primary = canonicalFormat(payload.format);
+    if (primary) found[primary] = true;
+    var ordered = PLOT_EXPORT_FORMAT_ORDER.filter(function (fmt) { return found[fmt]; });
+    if (ordered.length > 0) return ordered;
+    return primary ? [primary] : [];
+  }
+
+  /** Aspect ratio (w/h) parsed from the SVG, so the frame fills its width. */
+  function svgAspectRatio(svg) {
+    var viewBox = svg.match(/viewBox\s*=\s*["']\s*[-\d.]+\s+[-\d.]+\s+([\d.]+)\s+([\d.]+)/i);
+    if (viewBox) {
+      var vw = parseFloat(viewBox[1]);
+      var vh = parseFloat(viewBox[2]);
+      if (vw > 0 && vh > 0) return vw / vh;
+    }
+    var w = svg.match(/\bwidth\s*=\s*["']([\d.]+)/i);
+    var h = svg.match(/\bheight\s*=\s*["']([\d.]+)/i);
+    if (w && h) {
+      var pw = parseFloat(w[1]);
+      var ph = parseFloat(h[1]);
+      if (pw > 0 && ph > 0) return pw / ph;
+    }
+    return null;
+  }
+
+  function svgDocument(svg) {
+    return (
+      "<!doctype html><html><head><meta charset=\"utf-8\" />" +
+      "<style>html,body{width:100%;margin:0;padding:0;background:#fff;}" +
+      "svg{display:block;width:100%;height:auto;}</style></head><body>" +
+      svg +
+      "</body></html>"
+    );
+  }
+
+  /**
+   * Where the bulk bytes come from. The provider inlines a small artifact as a
+   * data URI; anything over its bound arrives with only a path, and the panel
+   * fetches it from the asset route the host named in `init` (D-008).
+   */
+  function bulkSource(payload) {
+    var src = asString(payload.src);
+    if (src) return src;
+    var path = asString(payload.path);
+    var base = context ? asString(context.asset_base_url) : "";
+    if (!path || !base) return "";
+    var name = path.split(/[\\/]/).pop();
+    return base.replace(/\/+$/, "") + "/" + encodeURIComponent(name);
+  }
+
+  function renderFigure(payload) {
+    var format = canonicalFormat(payload.format);
+    var svg = asString(payload.svg);
+    var src = bulkSource(payload);
+
+    if (format === "svg" && svg) {
+      // A nested frame with no sandbox permissions at all. The backend already
+      // sanitized this markup (FR-019); the nesting keeps that defence in depth
+      // even though this document is itself at an opaque origin.
+      var frame = document.createElement("iframe");
+      frame.setAttribute("sandbox", "");
+      frame.setAttribute("title", "Plot SVG");
+      frame.setAttribute("srcdoc", svgDocument(svg));
+      var ratio = svgAspectRatio(svg);
+      if (ratio) frame.style.aspectRatio = String(ratio);
+      else frame.style.height = "70vh";
+      return frame;
+    }
+    if (format === "pdf" && src) {
+      var pdf = document.createElement("iframe");
+      pdf.setAttribute("title", "Plot PDF");
+      pdf.setAttribute("src", src.indexOf("#") >= 0 ? src : src + "#view=Fit");
+      pdf.style.height = "70vh";
+      return pdf;
+    }
+    if (src) {
+      var img = document.createElement("img");
+      img.setAttribute("alt", "Plot " + (format || "figure"));
+      img.setAttribute("src", src);
+      return img;
+    }
+    return el("p", "muted", "No renderable plot artifact.");
+  }
+
+  function render() {
+    var root = document.getElementById("root");
+    root.textContent = "";
+
+    if (current.error) {
+      root.appendChild(errorCard(current.error));
+      var errDiag = diagnosticsBanner(current.diagnostics);
+      if (errDiag) root.appendChild(errDiag);
+      return;
+    }
+
+    var payload = current.payload;
+    var diag = diagnosticsBanner(current.diagnostics);
+    if (diag) root.appendChild(diag);
+
+    var card = el("div", "card");
+    var surface = el("div", "surface");
+    var layer = el("div", "zoom-layer");
+    layer.style.transform = "scale(" + view.zoom + ")";
+    layer.appendChild(renderFigure(payload));
+    surface.appendChild(layer);
+    card.appendChild(surface);
+    root.appendChild(card);
+
+    var formats = availableFormats(payload);
+    var format = canonicalFormat(payload.format);
+    if (view.saveFormat === null || formats.indexOf(view.saveFormat) < 0) {
+      view.saveFormat = formats.length > 0 ? formats[0] : format;
+    }
+
+    var toolbar = el("div", "toolbar");
+    toolbar.appendChild(el("span", "format-label", format || asString(payload.mime_type, "artifact")));
+
+    var hasFigure = Boolean((format === "svg" && payload.svg) || bulkSource(payload));
+    if (hasFigure) {
+      toolbar.appendChild(zoomButton("−", "Zoom out", function () { setZoom(view.zoom - 0.25); }));
+      toolbar.appendChild(el("span", "zoom-level", Math.round(view.zoom * 100) + "%"));
+      toolbar.appendChild(zoomButton("+", "Zoom in", function () { setZoom(view.zoom + 0.25); }));
+      toolbar.appendChild(zoomButton("Reset", "Reset zoom", function () { setZoom(1); }));
+    }
+
+    var spacer = el("span", "spacer");
+    toolbar.appendChild(spacer);
+
+    if (formats.length > 1) {
+      var select = document.createElement("select");
+      select.setAttribute("aria-label", "Save format");
+      formats.forEach(function (fmt) {
+        var option = document.createElement("option");
+        option.value = fmt;
+        option.textContent = fmt.toUpperCase();
+        if (fmt === view.saveFormat) option.selected = true;
+        select.appendChild(option);
+      });
+      select.addEventListener("change", function () {
+        view.saveFormat = select.value;
+      });
+      toolbar.appendChild(select);
+    }
+
+    var save = el("button", null, "Save");
+    save.type = "button";
+    save.setAttribute("aria-label", "Save plot as " + (view.saveFormat || "file"));
+    save.disabled = formats.length === 0;
+    save.addEventListener("click", function () {
+      // A download is host chrome: the frame is granted `allow-scripts` and
+      // nothing else, so it cannot save a file itself.
+      hostAction("export", { format: view.saveFormat }).catch(function (err) {
+        reportError("the plot could not be exported: " + err.message, { format: view.saveFormat });
+      });
+    });
+    toolbar.appendChild(save);
+    root.appendChild(toolbar);
+
+    var chips = badges(current.metadata);
+    if (chips) root.appendChild(chips);
+  }
+
+  function zoomButton(label, ariaLabel, onClick) {
+    var button = el("button", null, label);
+    button.type = "button";
+    button.setAttribute("aria-label", ariaLabel);
+    button.addEventListener("click", onClick);
+    return button;
+  }
+
+  function setZoom(next) {
+    view.zoom = Math.min(4, Math.max(0.5, Math.round(next * 4) / 4));
+    render();
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The handshake                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  function onMessage(event) {
+    var data = event.data;
+    if (!data || typeof data !== "object") return;
+    if (data.scistudio_panel !== PANEL_MESSAGE_MARKER) return;
+    if (typeof data.type !== "string") return;
+    var payload = data.payload && typeof data.payload === "object" ? data.payload : {};
+
+    if (token === null) {
+      // The token arrives with `init` and is the only one this mount answers.
+      if (data.type !== "init" || typeof data.token !== "string" || data.token === "") return;
+      token = data.token;
+      context = payload;
+      current = envelopeOf(payload.target);
+      if (payload.restored_state && typeof payload.restored_state === "object") {
+        if (typeof payload.restored_state.zoom === "number") view.zoom = payload.restored_state.zoom;
+        if (typeof payload.restored_state.saveFormat === "string") {
+          view.saveFormat = payload.restored_state.saveFormat;
+        }
+      }
+      post("ready", { api_version: PANEL_API_VERSION });
+      render();
+      return;
+    }
+
+    if (data.token !== token) return;
+
+    switch (data.type) {
+      case "update":
+        if (payload.changed && typeof payload.changed === "object" && "target" in payload.changed) {
+          current = envelopeOf(payload.changed.target);
+          render();
+        }
+        break;
+      case "host_action_result":
+        if (payload.ok === false) {
+          failRequest(payload.request_id, asString(payload.detail, "the host declined the action"));
+        } else {
+          settle(payload.request_id, payload.detail);
+        }
+        break;
+      case "error": {
+        var id = payload.request_id;
+        if (typeof id === "string" && failRequest(id, asString(payload.message, "the request failed"))) {
+          break;
+        }
+        current = envelopeOf({
+          payload: current.payload,
+          metadata: current.metadata,
+          resources: current.resources,
+          diagnostics: current.diagnostics,
+          error: { code: asString(payload.code, "host_error"), message: asString(payload.message) }
+        });
+        render();
+        break;
+      }
+      case "state_request":
+        post("state", { state: { zoom: view.zoom, saveFormat: view.saveFormat } });
+        break;
+      case "teardown":
+        torndown = true;
+        window.removeEventListener("message", onMessage);
+        break;
+      default:
+        break;
+    }
+  }
+
+  window.addEventListener("message", onMessage);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1078 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "feat/2229-panel-core-contract",
+  "check_events": [
+    {
+      "at": "2026-09-03T06:23:15.876227Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3423b5357299e15696ba0c332b2c09781045884df9ae1c4e2cc8d720a60f5606",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:23:18.406861Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:71fdf16c969553f8b02c8e3643d9455c9ec59f693d2b7d790e6e64944eef051d",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:23:19.821779Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e596a7d38d22c4b0f4647177e93da61a3066fa7455c5eaf245f86a817195818d",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:23:19.848406Z",
+      "command": "ruff format src/scistudio/blocks/base/__init__.py src/scistudio/blocks/base/interactive.py src/scistudio/blocks/process/builtins/data_router.py src/scistudio/blocks/process/builtins/pair_editor.py src/scistudio/blocks/registry/_capability.py src/scistudio/core/dropins.py src/scistudio/core/entry_points.py src/scistudio/core/panels.py src/scistudio/panels/__init__.py src/scistudio/panels/choices.py src/scistudio/panels/descriptor.py src/scistudio/panels/discovery.py src/scistudio/panels/models.py src/scistudio/panels/project.py src/scistudio/panels/providers.py src/scistudio/panels/registry.py src/scistudio/panels/router.py tests/adr052_contract/_spec_data.py tests/architecture/test_layer_deps.py tests/packages/test_entry_point_symmetry.py tests/panels/conftest.py tests/panels/test_panel_capability_gate.py tests/panels/test_panel_contract.py tests/panels/test_panel_registration.py tests/panels/test_panel_resolution.py tests/panels/test_panel_tiers.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e57209fdd65cd54874655eeb1c236457e874e181bf687ec6a6335fa3b117dc84",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-03T06:23:33.799731Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:1c498447c9044ea4aa3d889974379568cf2c1a2371b09e389a6869abacc1b8f8",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:23:34.286517Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a56c35e3edcfac14dc3e9e22075e8496a38c57e96bc8cace1cf1adfd51aa4743",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:23:34.308996Z",
+      "command": "ruff check src/scistudio/blocks/base/__init__.py src/scistudio/blocks/base/interactive.py src/scistudio/blocks/process/builtins/data_router.py src/scistudio/blocks/process/builtins/pair_editor.py src/scistudio/blocks/registry/_capability.py src/scistudio/core/dropins.py src/scistudio/core/entry_points.py src/scistudio/core/panels.py src/scistudio/panels/__init__.py src/scistudio/panels/choices.py src/scistudio/panels/descriptor.py src/scistudio/panels/discovery.py src/scistudio/panels/models.py src/scistudio/panels/project.py src/scistudio/panels/providers.py src/scistudio/panels/registry.py src/scistudio/panels/router.py tests/adr052_contract/_spec_data.py tests/architecture/test_layer_deps.py tests/packages/test_entry_point_symmetry.py tests/panels/conftest.py tests/panels/test_panel_capability_gate.py tests/panels/test_panel_contract.py tests/panels/test_panel_registration.py tests/panels/test_panel_resolution.py tests/panels/test_panel_tiers.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:01cecd4ab05eb79a73c70e52202b3723aff2a1297e9ddd400d66bbf830cbed33",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-03T06:26:09.131595Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:50e7fad5e80d1b8ff5d92e30a9016fb65109026c2119b50af5bf208a2212007f",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:26:12.249376Z",
+      "command": "mypy src/scistudio/blocks/base/__init__.py src/scistudio/blocks/base/interactive.py src/scistudio/blocks/process/builtins/data_router.py src/scistudio/blocks/process/builtins/pair_editor.py src/scistudio/blocks/registry/_capability.py src/scistudio/core/dropins.py src/scistudio/core/entry_points.py src/scistudio/core/panels.py src/scistudio/panels/__init__.py src/scistudio/panels/choices.py src/scistudio/panels/descriptor.py src/scistudio/panels/discovery.py src/scistudio/panels/models.py src/scistudio/panels/project.py src/scistudio/panels/providers.py src/scistudio/panels/registry.py src/scistudio/panels/router.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:992488750d537599eab95f5c05fa12facae78cb1178e9a7b55c1ea085635692b",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:39:45.576123Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3104c46f5492184d16c20bf93f1b6ad26a0631816f0e79e3e543cbb30ba20ae4",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:39:47.574599Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7f053c0ea2dbf5bb55f2873ad4e1022895fbc2d1c1631fdcf44cf09d6f7f081a",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:39:48.993903Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:35ae2e7a7b34e6f1aa177eac8ca6891cfdef06e314d961c79f5f28f8402498d9",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:39:49.017117Z",
+      "command": "ruff format src/scistudio/blocks/base/interactive.py src/scistudio/blocks/process/builtins/data_router.py src/scistudio/blocks/process/builtins/pair_editor.py src/scistudio/blocks/registry/_capability.py src/scistudio/core/dropins.py src/scistudio/core/entry_points.py src/scistudio/core/panels.py src/scistudio/panels/__init__.py src/scistudio/panels/choices.py src/scistudio/panels/descriptor.py src/scistudio/panels/discovery.py src/scistudio/panels/models.py src/scistudio/panels/open_as.py src/scistudio/panels/project.py src/scistudio/panels/providers.py src/scistudio/panels/registry.py src/scistudio/panels/router.py tests/adr052_contract/_spec_data.py tests/api/test_panel_choice_routes.py tests/api/test_registry_reload_symmetry.py tests/architecture/test_layer_deps.py tests/packages/test_entry_point_symmetry.py tests/panels/conftest.py tests/panels/test_panel_capability_gate.py tests/panels/test_panel_choice.py tests/panels/test_panel_contract.py tests/panels/test_panel_registration.py tests/panels/test_panel_resolution.py tests/panels/test_panel_tiers.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7a94b58eab00509423b197214a2c7b4abef786a2cf3aa9ec2e8309f92acd9bb6",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-03T06:40:00.363508Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:f88e6aaf147ce686111b6fdeebd7bdfbab6f59c716d2f423d9b4d5a7aa093d70",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:40:00.614730Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ecbfe9a94bf48ff7058c02847bd19b13c185fb72623094469e60dc9fb4b42c7b",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:40:00.640025Z",
+      "command": "ruff check src/scistudio/blocks/base/interactive.py src/scistudio/blocks/process/builtins/data_router.py src/scistudio/blocks/process/builtins/pair_editor.py src/scistudio/blocks/registry/_capability.py src/scistudio/core/dropins.py src/scistudio/core/entry_points.py src/scistudio/core/panels.py src/scistudio/panels/__init__.py src/scistudio/panels/choices.py src/scistudio/panels/descriptor.py src/scistudio/panels/discovery.py src/scistudio/panels/models.py src/scistudio/panels/open_as.py src/scistudio/panels/project.py src/scistudio/panels/providers.py src/scistudio/panels/registry.py src/scistudio/panels/router.py tests/adr052_contract/_spec_data.py tests/api/test_panel_choice_routes.py tests/api/test_registry_reload_symmetry.py tests/architecture/test_layer_deps.py tests/packages/test_entry_point_symmetry.py tests/panels/conftest.py tests/panels/test_panel_capability_gate.py tests/panels/test_panel_choice.py tests/panels/test_panel_contract.py tests/panels/test_panel_registration.py tests/panels/test_panel_resolution.py tests/panels/test_panel_tiers.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6c299fbae6e6c8dc8f194b804f6ce4b1aa98f7d109407191169c583397a0f5b2",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-03T06:44:52.295104Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:52eb22e5d1fb05c1e8cea101e883af541af4999c778ac2cea0c24e6f755d44c9",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T06:44:52.867335Z",
+      "command": "mypy src/scistudio/blocks/base/interactive.py src/scistudio/blocks/process/builtins/data_router.py src/scistudio/blocks/process/builtins/pair_editor.py src/scistudio/blocks/registry/_capability.py src/scistudio/core/dropins.py src/scistudio/core/entry_points.py src/scistudio/core/panels.py src/scistudio/panels/__init__.py src/scistudio/panels/choices.py src/scistudio/panels/descriptor.py src/scistudio/panels/discovery.py src/scistudio/panels/models.py src/scistudio/panels/open_as.py src/scistudio/panels/project.py src/scistudio/panels/providers.py src/scistudio/panels/registry.py src/scistudio/panels/router.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2038abe3f72b5fdf1f2b841bff54be576b4216ef087d9f440385282a2483183d",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [
+      "src/scistudio/panels/builtin/**",
+      "tests/panels/test_builtin_panels.py"
+    ],
+    "include": [
+      "src/scistudio/core/panels.py",
+      "src/scistudio/core/dropins.py",
+      "src/scistudio/core/entry_points.py",
+      "src/scistudio/panels/**",
+      "src/scistudio/blocks/base/interactive.py",
+      "src/scistudio/blocks/registry/_capability.py",
+      "src/scistudio/blocks/process/builtins/data_router.py",
+      "src/scistudio/blocks/process/builtins/pair_editor.py",
+      "tests/panels/**",
+      "tests/architecture/test_layer_deps.py",
+      "tests/adr052_contract/**",
+      "tests/fixtures/**",
+      "tests/packages/test_entry_point_symmetry.py"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-03T05:55:44.550330Z",
+      "class": "docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the ADR-054 spec and ADR are the docs of record for this change and are owner/manager-owned (D-014); no doc under this agent's scope describes the panel contract",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-09-03T06:26:12.306614Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:26:12.322123Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/base/__init__.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/base/__init__.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/base/interactive.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/base/interactive.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/process/builtins/data_router.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/process/builtins/data_router.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/process/builtins/pair_editor.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/process/builtins/pair_editor.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/registry/_capability.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/registry/_capability.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/dropins.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/dropins.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/entry_points.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/entry_points.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/panels.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/panels.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:26:12.335696Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:26:12.349447Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:26:12.362832Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:26:12.375947Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:26:12.389766Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:26:12.403489Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:26:12.418516Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:26:12.433131Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:26:12.456501Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:44:52.920433Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:44:52.934387Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/base/interactive.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/base/interactive.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/process/builtins/data_router.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/process/builtins/data_router.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/process/builtins/pair_editor.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/process/builtins/pair_editor.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/registry/_capability.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/registry/_capability.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/dropins.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/dropins.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/entry_points.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/entry_points.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/panels.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/panels.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:44:52.948533Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:44:52.962271Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:44:52.975998Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:44:52.990614Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:44:53.004678Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:44:53.018664Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:44:53.033089Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:44:53.046816Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T06:44:53.072043Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "track/adr-054-spec1-panel-contract",
+    "base_sha": "c5a70f1cf",
+    "changed_files": [
+      ".workflow/records/2229-feat-2229-panel-core-contract.json",
+      "src/scistudio/blocks/base/interactive.py",
+      "src/scistudio/blocks/process/builtins/data_router.py",
+      "src/scistudio/blocks/process/builtins/pair_editor.py",
+      "src/scistudio/blocks/registry/_capability.py",
+      "src/scistudio/core/dropins.py",
+      "src/scistudio/core/entry_points.py",
+      "src/scistudio/core/panels.py",
+      "src/scistudio/panels/__init__.py",
+      "src/scistudio/panels/choices.py",
+      "src/scistudio/panels/descriptor.py",
+      "src/scistudio/panels/discovery.py",
+      "src/scistudio/panels/models.py",
+      "src/scistudio/panels/open_as.py",
+      "src/scistudio/panels/project.py",
+      "src/scistudio/panels/providers.py",
+      "src/scistudio/panels/registry.py",
+      "src/scistudio/panels/router.py",
+      "tests/adr052_contract/_spec_data.py",
+      "tests/adr052_contract/expected_surface.json",
+      "tests/api/test_panel_choice_routes.py",
+      "tests/api/test_registry_reload_symmetry.py",
+      "tests/architecture/test_layer_deps.py",
+      "tests/fixtures/scistudio-blocks-fixture/pyproject.toml",
+      "tests/fixtures/scistudio-blocks-fixture/src/scistudio_blocks_fixture/panels/fixture.image.viewer/index.html",
+      "tests/fixtures/scistudio-blocks-fixture/src/scistudio_blocks_fixture/panels/fixture.image.viewer/panel.json",
+      "tests/packages/test_entry_point_symmetry.py",
+      "tests/panels/conftest.py",
+      "tests/panels/test_panel_capability_gate.py",
+      "tests/panels/test_panel_choice.py",
+      "tests/panels/test_panel_contract.py",
+      "tests/panels/test_panel_registration.py",
+      "tests/panels/test_panel_resolution.py",
+      "tests/panels/test_panel_tiers.py"
+    ],
+    "diff_fingerprint": "sha256:b1878e45546eb02c68b180cdc989ba456dd8048971f1e8bb1699a8c9b1284fa5",
+    "head": "HEAD",
+    "head_sha": "36869cac4",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 17,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 7,
+      "sentrux": 33,
+      "test": 16,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Move the panel contract into the core layer, define the on-disk panel form, discover it across four tiers, add the entry-point group and directory registration, and make resolution capability-aware: tasks T-002, T-003, T-013, T-015 and T-016 of docs/specs/adr-054-panel-contract.md.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-09-03T06:26:12.456531Z",
+      "diff_fingerprint": "sha256:2d4cb0a1aa2da2ef485bd1ecc0f4b1968a27293da8a8aaa57dcafb5ac71fff64",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.full_audit",
+        "checks.python_tests",
+        "checks.type_check",
+        "scope.out-of-scope"
+      ]
+    },
+    {
+      "at": "2026-09-03T06:44:53.072066Z",
+      "diff_fingerprint": "sha256:b1878e45546eb02c68b180cdc989ba456dd8048971f1e8bb1699a8c9b1284fa5",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.full_audit"
+      ]
+    }
+  ],
+  "record_id": "2229-feat-2229-panel-core-contract",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [
+      "admin-approved:core-change"
+    ],
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:37:42.167373Z",
+      "pattern": "src/scistudio/blocks/base/__init__.py",
+      "reason": "Moving PanelManifest into the core layer and adding the scistudio.panels entry-point group breaks declared sets and frozen surfaces that live outside the original include: tests/api/public_surface.snapshot.json and its three readers, tests/api/test_registry_reload_symmetry.py's refresh map, the two route tests that read the choices file on disk, and src/scistudio/blocks/base/__init__.py's re-export list. Each is a governance declaration the change makes false, and each fails loudly by design; none is a behaviour change to the API layer, which W3-api owns."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:37:42.167392Z",
+      "pattern": "tests/api/public_surface.snapshot.json",
+      "reason": "Moving PanelManifest into the core layer and adding the scistudio.panels entry-point group breaks declared sets and frozen surfaces that live outside the original include: tests/api/public_surface.snapshot.json and its three readers, tests/api/test_registry_reload_symmetry.py's refresh map, the two route tests that read the choices file on disk, and src/scistudio/blocks/base/__init__.py's re-export list. Each is a governance declaration the change makes false, and each fails loudly by design; none is a behaviour change to the API layer, which W3-api owns."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:37:42.167394Z",
+      "pattern": "tests/api/test_registry_reload_symmetry.py",
+      "reason": "Moving PanelManifest into the core layer and adding the scistudio.panels entry-point group breaks declared sets and frozen surfaces that live outside the original include: tests/api/public_surface.snapshot.json and its three readers, tests/api/test_registry_reload_symmetry.py's refresh map, the two route tests that read the choices file on disk, and src/scistudio/blocks/base/__init__.py's re-export list. Each is a governance declaration the change makes false, and each fails loudly by design; none is a behaviour change to the API layer, which W3-api owns."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:37:42.167396Z",
+      "pattern": "tests/api/test_panel_choice_routes.py",
+      "reason": "Moving PanelManifest into the core layer and adding the scistudio.panels entry-point group breaks declared sets and frozen surfaces that live outside the original include: tests/api/public_surface.snapshot.json and its three readers, tests/api/test_registry_reload_symmetry.py's refresh map, the two route tests that read the choices file on disk, and src/scistudio/blocks/base/__init__.py's re-export list. Each is a governance declaration the change makes false, and each fails loudly by design; none is a behaviour change to the API layer, which W3-api owns."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:37:42.167397Z",
+      "pattern": "tests/api/test_stability_decorators.py",
+      "reason": "Moving PanelManifest into the core layer and adding the scistudio.panels entry-point group breaks declared sets and frozen surfaces that live outside the original include: tests/api/public_surface.snapshot.json and its three readers, tests/api/test_registry_reload_symmetry.py's refresh map, the two route tests that read the choices file on disk, and src/scistudio/blocks/base/__init__.py's re-export list. Each is a governance declaration the change makes false, and each fails loudly by design; none is a behaviour change to the API layer, which W3-api owns."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T06:37:42.167399Z",
+      "pattern": "tests/api/test_public_surface.py",
+      "reason": "Moving PanelManifest into the core layer and adding the scistudio.panels entry-point group breaks declared sets and frozen surfaces that live outside the original include: tests/api/public_surface.snapshot.json and its three readers, tests/api/test_registry_reload_symmetry.py's refresh map, the two route tests that read the choices file on disk, and src/scistudio/blocks/base/__init__.py's re-export list. Each is a governance declaration the change makes false, and each fails loudly by design; none is a behaviour change to the API layer, which W3-api owns."
+    }
+  ],
+  "session_id": "14a7cdf4-a7dc-457c-a7f8-26f363a367e1",
+  "strictness_tier": 1,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-03T05:55:44.550353Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_contract.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T05:55:44.550360Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_capability_gate.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T05:55:44.550363Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_tiers.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T05:55:44.550364Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_registration.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T05:55:44.550366Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_resolution.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T05:55:44.550368Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/architecture/test_layer_deps.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T05:55:44.550369Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/adr052_contract/test_surface_inventory.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T06:37:42.167405Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packages/test_entry_point_symmetry.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

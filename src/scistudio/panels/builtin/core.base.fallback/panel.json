@@ -1,0 +1,12 @@
+{
+  "panel_id": "core.base.fallback",
+  "display_name": "Data",
+  "target_types": ["DataObject"],
+  "capability": "displaying",
+  "entry": "index.html",
+  "api_version": "1",
+  "features": ["download"],
+  "priority": -100,
+  "supports_collection": false,
+  "provider": "scistudio.panels.fallbacks:base_fallback_panel"
+}

@@ -9,7 +9,7 @@ import { createLearningCenterSlice } from "./learningCenterSlice";
 import { createLineageSlice } from "./lineageSlice";
 import { createPaletteSlice } from "./paletteSlice";
 import { createPreviewSlice } from "./previewSlice";
-import { createPreviewerCatalogSlice } from "./previewerCatalogSlice";
+import { createPanelCatalogSlice } from "./panelCatalogSlice";
 import { createProjectSlice } from "./projectSlice";
 import { createTabSlice } from "./tabSlice";
 import { createTerminalTabsSlice, rehydrateTerminalTabs } from "./terminalTabsSlice";
@@ -52,7 +52,17 @@ function partializeTabs(tabs: TabState[]): TabState[] {
       // ADR-053 FR-032: user-library tabs are dropped for the same reason.
       // Their file lives outside every project root, so the project-file
       // rehydrate path cannot restore it either.
-      .filter((tab) => !(tab.kind === "file" && (tab.blockSourceType || tab.userLibraryTarget)))
+      //
+      // ADR-054 FR-024: panel-source tabs are dropped for the same reason
+      // again. A panel is addressed by panel id rather than by project path,
+      // so the rehydrate has no path to re-read.
+      .filter(
+        (tab) =>
+          !(
+            tab.kind === "file" &&
+            (tab.blockSourceType || tab.userLibraryTarget || tab.panelSourceId)
+          ),
+      )
       .map((tab) => (tab.kind === "file" ? partializeFileTab(tab) : tab))
   );
 }
@@ -78,8 +88,8 @@ export const useAppStore = create<AppStore>()(
       ...createPaletteSlice(...args),
       // ADR-053 §7 — registered data type catalogue (FR-026 / FR-027).
       ...createTypesSlice(...args),
-      // #2113 — registered previewer catalogue + per-type choices.
-      ...createPreviewerCatalogSlice(...args),
+      // #2113 — registered panel catalogue + per-type choices.
+      ...createPanelCatalogSlice(...args),
       ...createTabSlice(...args),
       ...createTerminalTabsSlice(...args),
       // ADR-038 §3.8 — Lineage tab state.

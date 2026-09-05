@@ -140,7 +140,7 @@ def _isolate_desktop_user_data_dirs(tmp_path_factory: pytest.TempPathFactory) ->
     ``_scan_package_src_dirs``) scans the platform user-data plugins directory
     for installed domain packages. A developer's machine has real packages there
     (imaging / lcms / spectroscopy) that leak into the registry and fail
-    domain-prefix / previewer tests locally, even though CI — with a clean user
+    domain-prefix / panel tests locally, even though CI — with a clean user
     profile — discovers nothing. Pointing the platform dir at an empty session
     temp root reproduces CI's clean state.
 

@@ -16,6 +16,7 @@ import type { StoreApi } from "zustand";
 import { ApiError, api, createClientSourceId } from "../../lib/api";
 import type { UserLibraryTarget } from "../../types/api";
 import type { AppStore, FileTab, TabSlice } from "../types";
+import { invalidatePanelCatalog } from "../usePanelCatalog";
 import { invalidateTypeCatalog } from "../useTypeCatalog";
 import {
   basename,
@@ -408,6 +409,152 @@ export function createOpenUserLibraryFileTab(
 }
 
 /**
+ * ADR-054 FR-024, FR-025 — open (or focus) an editable tab on a panel's source.
+ *
+ * The panel-side sibling of {@link createOpenUserLibraryFileTab}, and editable
+ * for the same kind of reason: a tab a person cannot save through would make
+ * the affordance worse than useless. What differs is that the tab is editable
+ * for *every* tier. FR-025 forbids asking where a save goes and FR-026 answers
+ * for the read-only tiers — a save on a core or package panel copies it into
+ * the open project under the same id and writes the copy. The tab's name
+ * carries the tier so the person can see, before saving, which of those two a
+ * save will be; after a copying save the name follows the panel into the
+ * project tier.
+ *
+ * The declaration (`panel.json`) is read but not edited here. FR-027 requires a
+ * saved declaration to keep the panel's id, and offering the file for editing
+ * beside the document would put the one field that must not change in front of
+ * someone whose intent is the document.
+ */
+function panelSourceTabName(panelId: string, tier: string): string {
+  return `${panelId} (${tier})`;
+}
+
+export function createOpenPanelSourceTab(
+  set: StoreSetter,
+  get: StoreGetter,
+): TabSlice["openPanelSourceTab"] {
+  return (panelId) => {
+    const state = get();
+    const id = `panel-source:${panelId}`;
+
+    const existing = state.tabs.find((t) => t.id === id);
+    const needsRefetch = Boolean(existing && existing.kind === "file" && existing.loading);
+    if (existing && !needsRefetch) {
+      state.switchTab(id);
+      return;
+    }
+
+    if (!existing) {
+      if (state.tabs.length >= 50) {
+        window.alert("Maximum 50 tabs reached.");
+        return;
+      }
+      const placeholder: FileTab = {
+        kind: "file",
+        id,
+        // Replaced with the entry document's name once the fetch resolves.
+        filePath: panelId,
+        displayName: panelId,
+        language: "html",
+        content: "",
+        contentLoadedAt: 0,
+        baseVersion: null,
+        pendingVersion: null,
+        pendingSourceId: null,
+        conflict: null,
+        dirty: false,
+        readOnly: false,
+        loading: true,
+        panelSourceId: panelId,
+      };
+      const currentActive = state.tabs.find((t) => t.id === state.activeTabId) ?? null;
+      const updatedTabs = currentActive
+        ? state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t))
+        : [...state.tabs];
+      // #2112 — focusing the new tab retires any active preview tab.
+      set({ tabs: dropInactivePreviewTabs([...updatedTabs, placeholder], id), activeTabId: id });
+    } else {
+      state.switchTab(id);
+    }
+
+    api
+      .readPanelSource(panelId)
+      .then((response) => {
+        const after = get();
+        const current = after.tabs.find((t) => t.id === id);
+        if (!current || current.kind !== "file") return;
+        const populated: FileTab = {
+          ...current,
+          filePath: response.entry,
+          displayName: panelSourceTabName(panelId, response.tier),
+          language: languageForPath(response.entry),
+          content: response.source,
+          contentLoadedAt: 0,
+          loading: false,
+        };
+        set(replaceTab(after, id, populated));
+      })
+      .catch((err) => {
+        const message = err instanceof ApiError ? err.message : String(err);
+        window.alert(`Failed to open the source of panel ${panelId}: ${message}`);
+        removeFailedTab(get, set, id);
+      });
+  };
+}
+
+/**
+ * ADR-054 FR-025 to FR-027, FR-030 — save a panel tab through the panel PUT.
+ *
+ * The route decides the destination, not this function and not the person: a
+ * project or user-library panel is written in place, a core or package panel is
+ * copied into the open project under the same id, and `copied` in the response
+ * says which happened. A refusal — no project open for a read-only panel, a
+ * declaration that renames the panel, a document over the asset route's size
+ * bound — surfaces as it does for every other save in this module rather than
+ * leaving the person with a tab that looks saved.
+ *
+ * **The reload (FR-030).** `notePanelDocumentChanged` is the one hot-reload
+ * trigger `usePanelReloadToken` reads, and this writes the same counter the
+ * `file.changed` dispatcher writes rather than adding a second path. It is
+ * written here as well because the watcher cannot be relied on for exactly the
+ * case FR-026 introduces: the first save of a core panel *creates* the project
+ * directory, and a save to a user-library panel lands outside every project
+ * root. Two bumps for the same save are two remounts of a panel that was just
+ * rewritten, which costs nothing; a missing bump is SC-004's "without
+ * reopening the view" unmet.
+ */
+async function savePanelSourceTab(
+  set: StoreSetter,
+  get: StoreGetter,
+  id: string,
+  tab: FileTab,
+  panelId: string,
+): Promise<void> {
+  const sentContent = tab.content;
+  try {
+    const response = await api.savePanelSource(panelId, sentContent);
+    get().notePanelDocumentChanged(panelId);
+    // The write rebuilt the panel registry server-side, so the cached listing
+    // still answers with the tier the panel had before a copy moved it.
+    invalidatePanelCatalog();
+    const after = get();
+    const latest = after.tabs.find((t) => t.id === id);
+    if (!latest || latest.kind !== "file") return;
+    set(
+      replaceTab(after, id, {
+        ...latest,
+        dirty: latest.content !== sentContent,
+        displayName: panelSourceTabName(panelId, response.tier),
+      }),
+    );
+  } catch (err) {
+    const message = err instanceof ApiError ? err.message : String(err);
+    window.alert(`Failed to save panel ${panelId}: ${message}`);
+  }
+}
+
+/**
  * ADR-053 FR-032 — save a user-library tab through the library endpoint.
  *
  * `overwrite: true` is correct and is not the FR-008 silent overwrite: the tab
@@ -454,6 +601,14 @@ async function performSaveFileTab(set: StoreSetter, get: StoreGetter, id: string
   const tab = state.tabs.find((t) => t.id === id);
   if (!tab || tab.kind !== "file") return;
   if (tab.readOnly) return;
+
+  // ADR-054 FR-025 — a panel tab is addressed by panel id, not by path, and
+  // its destination is the route's decision. Before the library branch and the
+  // project one, both of which take a path this tab does not have.
+  if (tab.panelSourceId) {
+    await savePanelSourceTab(set, get, id, tab, tab.panelSourceId);
+    return;
+  }
 
   // ADR-053 FR-032 — a library tab's file is outside every project root, so it
   // saves through the library endpoint and never through the project one

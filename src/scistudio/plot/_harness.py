@@ -383,7 +383,7 @@ def _apply_default_matplotlib_style(matplotlib):
             "font.family": ["sans-serif"],
             "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
             # Larger default font sizes so plots stay legible in the in-app
-            # previewer (owner UX). Paired with PlotViewer's zoom/pan controls
+            # panel (owner UX). Paired with PlotViewer's zoom/pan controls
             # this keeps small-screen plots readable; print quality is unchanged
             # since savefig.dpi stays at 600.
             "font.size": 20,
@@ -465,7 +465,7 @@ def _export_formats(preferred, allowed):
 
     Re-render-on-save is impossible (the figure is closed right after render),
     so every allowed format is saved to a sibling file up front and the
-    previewer resolves the file matching the user's chosen export format (#1918).
+    panel resolves the file matching the user's chosen export format (#1918).
     """
     order = [preferred]
     for fmt in allowed:
@@ -846,7 +846,7 @@ safe_artifact_path <- function(path) {
 
 # Ordered export formats for a returned ggplot: preferred first, then the rest
 # of the manifest allowed set (deduped). Re-render-on-save is impossible, so
-# every allowed format is ggsave'd to a sibling file up front and the previewer
+# every allowed format is ggsave'd to a sibling file up front and the panel
 # resolves the file matching the user's chosen export format (#1918).
 export_formats <- function() {
   order <- preferred

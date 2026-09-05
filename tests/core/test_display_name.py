@@ -2,7 +2,7 @@
 
 The resolver is the one precedence authority shared by the interactive-panel
 label path (``interactive_item_label`` on a live ``DataObject``) and the
-previewer/API path (the serialized wire ``metadata`` dict stamped onto each
+panel/API path (the serialized wire ``metadata`` dict stamped onto each
 item descriptor). These tests pin the precedence order and the dual input-shape
 contract (live object vs wire mapping).
 """

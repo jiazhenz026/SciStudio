@@ -6,7 +6,7 @@ Ensures that lower layers never import from higher layers.  The hierarchy is:
     Layer 2  blocks/
     Layer 3  engine/
     Layer 4  ai/           (the scistudio.ai services package, NOT blocks/ai/)
-    Layer 4  previewers/   (the ADR-048 preview subsystem, consumed by api/)
+    Layer 4  panels/   (the ADR-048 preview subsystem, consumed by api/)
     Layer 4  plot/         (the first-class plot engine, #1824; consumed by api/ AND ai/)
     Layer 5  api/
 
@@ -15,8 +15,17 @@ is a first-class feature consumed by both the REST route and the MCP plot tools,
 so it must import NEITHER ``scistudio.api`` NOR ``scistudio.ai``; callers inject a
 ``PlotRuntimeContext`` instead.
 
-``previewers/`` is a subsystem the API layer mounts; it may depend on core but
+``panels/`` is a subsystem the API layer mounts; it may depend on core but
 must never import up into ``scistudio.api`` (ADR-048 / #1598).
+
+``core/panels.py`` is the shared panel contract (ADR-054 spec 1 FR-001, FR-040,
+D-009). It is in Layer 1 for a layering reason rather than a filing one: the
+block layer declares a manifest on a block class, the panel subsystem validates
+manifests above it, and the API layer routes them above that, so the one type
+all three read has to sit below all three.
+:func:`test_the_panel_contract_is_reachable_downward_from_every_consumer`
+checks that directly, because the per-layer rules above would still pass if the
+contract were duplicated instead of shared.
 
 Cross-cutting packages (workflow/, utils/, cli/) are exempt from layer ordering
 but core/ still must not import workflow/.
@@ -164,7 +173,7 @@ LAYER_RULES: list[tuple[str, list[str]]] = [
         ],
     ),
     (
-        "previewers",
+        "panels",
         [
             "scistudio.api",
         ],
@@ -204,8 +213,60 @@ def test_layer_does_not_import_forbidden(layer: str, forbidden: list[str]) -> No
     assert not violations, f"Layer '{layer}/' has forbidden imports:\n" + "\n".join(violations)
 
 
+#: The module the ADR-054 panel contract lives in (FR-001, D-009), and the
+#: layers whose modules read it.
+PANEL_CONTRACT_MODULE = "scistudio.core.panels"
+PANEL_CONTRACT_CONSUMERS = ("blocks", "panels")
+
+
+def test_the_panel_contract_module_is_in_the_core_layer() -> None:
+    """FR-040: the layer enumeration names the module the contract lives in."""
+    contract = SRC_ROOT / "core" / "panels.py"
+    assert contract.is_file(), f"the panel contract must live at {contract}"
+    assert PANEL_CONTRACT_MODULE.split(".")[1] == "core"
+
+
+@pytest.mark.parametrize("layer", PANEL_CONTRACT_CONSUMERS)
+def test_the_panel_contract_is_reachable_downward_from_every_consumer(layer: str) -> None:
+    """Each consumer imports the contract from core rather than restating it.
+
+    The point of FR-001 is not that ``core/panels.py`` exists; it is that
+    nothing above it defines a second manifest, capability set, or version
+    constant of its own. The per-layer forbidden-import rules cannot see that —
+    a duplicated contract breaks no import direction at all — so the property is
+    asserted here: at least one module in each consuming layer imports the
+    contract, and no module in any of them defines the version constant.
+    """
+    files = _collect_py_files(layer)
+    assert files, f"No .py files found under {SRC_ROOT / layer}"
+
+    importers = [
+        path.relative_to(SRC_ROOT).as_posix()
+        for path in files
+        if any(imp == PANEL_CONTRACT_MODULE for imp in _get_imports_from_file(path))
+    ]
+    assert importers, f"layer {layer!r} must read the panel contract from {PANEL_CONTRACT_MODULE}"
+
+
+def test_the_block_layer_does_not_import_the_panel_subsystem() -> None:
+    """ADR-054 9.2: the block layer sits below the panel subsystem.
+
+    ``panels/`` is not in the block layer's forbidden list above, because
+    ``panels/`` was never below it — the two are unordered siblings for
+    everything except this contract. Since the contract moved to core, the block
+    layer has no remaining reason to reach into ``panels/`` at all, and an edge
+    appearing there would be the first sign of the duplication FR-001 removes.
+    """
+    violations: list[str] = []
+    for path in _collect_py_files("blocks"):
+        for imp in _get_imports_from_file(path):
+            if imp == "scistudio.panels" or imp.startswith("scistudio.panels."):
+                violations.append(f"  {path.relative_to(SRC_ROOT).as_posix()}: imports {imp}")
+    assert not violations, "the block layer must not import the panel subsystem:\n" + "\n".join(violations)
+
+
 def test_layer_rules_cover_all_source_layers() -> None:
     """Sanity check: every non-cross-cutting source directory appears in at least one rule."""
     checked_layers = {rule[0] for rule in LAYER_RULES}
-    expected = {"core", "blocks", "engine", "ai", "previewers", "plot"}
+    expected = {"core", "blocks", "engine", "ai", "panels", "plot"}
     assert expected.issubset(checked_layers), f"Missing layer rules for: {expected - checked_layers}"
