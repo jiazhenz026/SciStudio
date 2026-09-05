@@ -537,6 +537,28 @@ whose result nobody has is not a check that passed.
 Related to F-8 (the ledger discovery defect), and the same class: the gate's exit
 code is being read as evidence when the ledger event says otherwise.
 
+#### F-B4-9 — `test_a_branch_switch_kills_the_real_kernel_process` fails on the track
+
+`tests/api/test_explore_branch_switch.py::test_a_branch_switch_kills_the_real_kernel_process`
+fails in the serial batch with `BridgeError: The call failed inside the kernel.`
+It fails identically on the spec 5 track worktree with no branch changes
+applied, so it is not S5-B4's — recorded here because an agent running the full
+suite on any spec 5 branch will hit it and needs to know it is not theirs.
+
+It is a spec 3 test over a real ipykernel, and it is `serial`-marked, so it only
+runs in the second phase — which the shared runner **skips entirely** when the
+parallel phase exits nonzero (`run_python_tests.main` returns early). A flaky
+xdist worker in the parallel phase therefore hides it. That is how it can be red
+on the track without anyone seeing it.
+
+Verified on `.worktrees/s5-track` at `fe42da327` and on
+`feat/2254-skills-and-counts`, same failure both times, and passing nowhere.
+
+**What would close it**: spec 3's owner diagnosing the bridge call, and — worth
+doing either way — making the runner run the serial phase even when the parallel
+phase failed, so one flake cannot mask a whole batch.
+
+
 ### S4-D1 / S5-D1 (adversarial testing)
 
 _No entries yet._
