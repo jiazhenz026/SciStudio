@@ -15,8 +15,11 @@ than written down beside it, so the two can never disagree.
 
 :data:`EXPECTED_TOOL_GROUPS` is the same statement per ``category:`` tag, which
 is the grouping the server reports on ``tools/list`` and the one the catalog
-documents are organised by. Its values sum to :data:`EXPECTED_TOOL_COUNT`, and
-``tests/ai/test_tool_catalogs.py`` asserts that they do.
+documents are organised by. A module-level assertion below checks that its
+counts sum to :data:`EXPECTED_TOOL_COUNT`, which catches the one way these
+three can drift apart: a name claimed by two groups.
+``tests/ai/test_tool_catalogs.py`` checks the declaration against the live
+registry, both counts and membership.
 
 **Adding a tool group**: add its names below, add its row to
 ``EXPECTED_TOOL_GROUPS``, and add it to the catalogs
