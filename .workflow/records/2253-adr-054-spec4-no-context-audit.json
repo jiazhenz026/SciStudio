@@ -1,0 +1,227 @@
+{
+  "base_ref": "origin/track/adr-054-integration",
+  "branch": "audit/2253-no-context",
+  "check_events": [
+    {
+      "at": "2026-09-05T23:54:25.630750Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9b935023602517cf8fbf3f2be6716addf984e1651d26195148a1108a5b189183",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T23:54:46.577564Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ab6be0dffba559d4f1264483db07acd77d19af128134a05feeb6c1dffc081cd5",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-05T23:53:19.880307Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-05-adr-054-spec4-no-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T23:53:26.016245Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-05-adr-054-spec4-no-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-09-05T23:54:46.644642Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T23:54:46.661738Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T23:54:46.679589Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T23:54:46.696575Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T23:54:46.713365Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T23:54:46.729090Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T23:54:46.778801Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T23:54:46.796959Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T23:54:46.814357Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T23:54:46.831201Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T23:54:46.850246Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2253,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "track/adr-054-integration",
+    "base_sha": "0ac74e125",
+    "changed_files": [
+      "docs/audit/2026-09-05-adr-054-spec4-no-context.md"
+    ],
+    "diff_fingerprint": "sha256:1c47b2cf82a69e0a7ca29f83a2437d0b37a417d2c22d3a97475e209bf20f03d8",
+    "head": "HEAD",
+    "head_sha": "4ef0c4006",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "S4-E1 no-context audit of the ADR-054 spec 4 Explore frontend; write the report to docs/audit/<date>-adr-054-spec4-no-context.md and commit it.",
+  "persona": "audit_reviewer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-09-05T23:54:46.850290Z",
+      "diff_fingerprint": "sha256:1c47b2cf82a69e0a7ca29f83a2437d0b37a417d2c22d3a97475e209bf20f03d8",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2253-adr-054-spec4-no-context-audit",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "commit_hygiene",
+      "full_audit"
+    ],
+    "docs": [],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "8dd0e220-a3f4-4c8a-90cd-0fc29d90ee97",
+  "strictness_tier": 3,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-09-05T23:53:19.880337Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "audit report only; no implementation file was touched, so there is no behaviour to test",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T23:53:26.016269Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "audit report only; no implementation file was touched, so there is no behaviour to test",
+      "verified_in_diff": null
+    }
+  ]
+}
