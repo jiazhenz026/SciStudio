@@ -28,6 +28,10 @@
 
 import type { ExploreSessionState, ExploreTab, PanelSlot } from "../../store/types";
 
+import { GraphView } from "../GraphView";
+import { KernelList } from "../KernelList";
+import { PackagingControl } from "../PackagingReport";
+
 /** What every region is handed. */
 export interface ExploreRegionProps {
   /** The tab this region is rendered in. */
@@ -116,18 +120,19 @@ export function PanelSlotRegion({ slot }: PanelSlotRegionProps) {
   );
 }
 
-/** FR-032 — the secondary dependency-graph view. */
-export function GraphViewRegion({ session }: ExploreRegionProps) {
+/**
+ * FR-032 — the secondary dependency-graph view (T-014).
+ *
+ * The wrapper is not decoration: `explore-graph-region` is the id the tab's
+ * own layout test looks for, and the region contract is what that test asserts
+ * against. Keeping it here means the view inside can be renamed, split or
+ * replaced without the layout suite having to be edited by whoever does it.
+ */
+export function GraphViewRegion({ tab, session }: ExploreRegionProps) {
   return (
-    <Placeholder
-      testId="explore-graph-region"
-      title="Dependency graph"
-      owner="ADR-054 spec 4 T-014 — GraphView"
-    >
-      <p className="mt-2 text-[11px] text-stone-400">
-        {session?.graph ? `${session.graph.edges.length} edges` : "no analysis yet"}
-      </p>
-    </Placeholder>
+    <div className="h-full min-h-0" data-testid="explore-graph-region">
+      <GraphView session={session} tab={tab} />
+    </div>
   );
 }
 
@@ -145,11 +150,19 @@ export function ToolbarRunControls({ session }: ExploreRegionProps) {
   );
 }
 
-/** FR-014 to FR-016, FR-028 — the kernel list and the package control. */
-export function ToolbarKernelControls(_props: ExploreRegionProps) {
+/**
+ * FR-014 to FR-016, FR-028 — the kernel list and the package control (T-012,
+ * T-013).
+ *
+ * The kernel list takes no props on purpose: FR-015 is about every kernel in
+ * the *project*, so it reads the slice rather than the one session this
+ * toolbar belongs to.
+ */
+export function ToolbarKernelControls({ session }: ExploreRegionProps) {
   return (
-    <span className="text-[11px] text-stone-400" data-testid="explore-toolbar-kernel-controls">
-      ADR-054 spec 4 T-012/T-013 — kernel list, package
+    <span className="flex items-center gap-2" data-testid="explore-toolbar-kernel-controls">
+      <KernelList />
+      <PackagingControl session={session} />
     </span>
   );
 }

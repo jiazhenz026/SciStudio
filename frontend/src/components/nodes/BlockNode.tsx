@@ -19,9 +19,11 @@
 // contracts as before, minus the deleted inline-config path.
 
 import { type Node, type NodeProps } from "@xyflow/react";
+import { NotebookPen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { isPackagedNotebookBlock } from "../../explore/packagedBlock";
 import type { BlockNodeData } from "../../types/ui";
 import {
   computeEffectivePorts,
@@ -159,6 +161,21 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   );
   const actionsVisible = hovered || selected === true;
 
+  // ADR-054 FR-030 — the notebook badge. `isPackagedNotebookBlock` is the one
+  // definition of "packaged", shared with FR-004's double-click, so the badge
+  // is on exactly the nodes whose double-click reopens a notebook and on no
+  // others. It is a marker, not a control: the way back is the double-click
+  // the canvas already handles.
+  //
+  // TODO(#2253): the badge is not clickable, and it renders on nothing until
+  //   the backend puts `notebook_filename` on `BlockSummary`.
+  //   Out of scope per the ADR-054 assembly dispatch: a clickable badge needs a
+  //   callback threaded through `WorkflowCanvas.parts/flowNodeBuilder.ts` into
+  //   `BlockNodeData`, and the wire field is a `src/scistudio/**` change.
+  //   Followup: docs/planning/adr-054-assembly-followups.md, `F-A4-003`,
+  //   `F-A1-001`.
+  const packagedFromNotebook = isPackagedNotebookBlock(summary);
+
   return (
     <div
       ref={shellRef}
@@ -242,6 +259,20 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
           strokeWidth={1.75}
           aria-hidden="true"
         />
+
+        {/* ADR-054 FR-030 — the notebook badge, top-left so it never meets the
+            status surface in the bottom-right corner or the first port handle
+            at `PORT_RAIL_TOP_INSET`. Absolute and pointer-events-none, so it
+            changes no measured geometry (ADR-050 FR-011). */}
+        {packagedFromNotebook ? (
+          <span
+            className="pointer-events-none absolute left-1 top-1 flex h-4 w-4 items-center justify-center rounded-full border border-stone-300 bg-white/90 shadow-sm"
+            data-testid="block-node-notebook-badge"
+            title={`Packaged from ${summary?.notebook_filename ?? "a notebook"} — double-click to open it`}
+          >
+            <NotebookPen aria-hidden="true" color="#7c5c3b" size={10} strokeWidth={2} />
+          </span>
+        ) : null}
 
         {/* Unified status surface — corner glyph, zero geometry impact. */}
         <NodeStatusSurface

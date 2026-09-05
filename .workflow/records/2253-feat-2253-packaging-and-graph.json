@@ -1,0 +1,137 @@
+{
+  "base_ref": "origin/track/adr-054-spec4-explore-frontend",
+  "branch": "feat/2253-packaging-and-graph",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/explore/PackagingReport.tsx",
+      "frontend/src/explore/GraphView.tsx",
+      "frontend/src/explore/SessionToolbar.tsx",
+      "frontend/src/explore/regions/ExploreRegions.tsx",
+      "frontend/src/explore/KernelList.tsx",
+      "frontend/src/components/nodes/BlockNode.tsx",
+      "frontend/src/components/BlockPalette.tsx",
+      "frontend/src/components/BlockPalette.parts/**",
+      "frontend/src/explore/*.test.tsx",
+      "frontend/src/components/nodes/__tests__/BlockNode/**",
+      "docs/planning/adr-054-assembly-followups.md",
+      "docs/planning/adr-054-assembly-checklist.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-05T08:42:52.099013Z",
+      "owner_directive": "T-012 packaging report + packaged event + node badge; T-013 kernel list; T-014 graph view on @xyflow/react + elkjs already in the bundle; T-015 palette insert-call while an Explore tab is active.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-05T08:42:52.099049Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T09:02:50.715438Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2253,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Build ADR-054 spec 4's remaining surfaces - packaging as a toolbar button with its report, the packaged node's badge, the kernel list, the dependency-graph secondary view, and the palette's insert-call action (T-012 to T-015).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2253-feat-2253-packaging-and-graph",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-05T09:02:50.276042Z",
+      "pattern": "frontend/vitest.setup.ts",
+      "reason": "the graph view mounts @xyflow/react, which constructs a ResizeObserver jsdom does not have; the polyfill belongs in the shared vitest setup beside matchMedia rather than in each suite, and it unblocks S4-A1's ExploreTab graph-toggle test without editing a sibling agent's file"
+    }
+  ],
+  "session_id": "27a902a3-e1f6-4eb9-a541-43c01a68a516",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-05T08:42:52.099060Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/explore/PackagingReport.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T08:42:52.099066Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/explore/GraphView.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T08:42:52.099068Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/explore/KernelList.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T08:42:52.099070Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/BlockPalette.explore.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T08:42:52.099072Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/nodes/__tests__/BlockNode/notebookBadge.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T09:02:50.276072Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/vitest.setup.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
