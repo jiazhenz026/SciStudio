@@ -469,6 +469,70 @@
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T09:14:52.742484Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": null,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "scope": "repo",
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T09:15:46.953172Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2b819adddeb2244bb4122b40cd13d68145fb1999686253d0ce46edcdecaefc76",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T09:16:48.675011Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:90732770cabb356d0b6564dcda2d351c4a76cc7d22482ed54ff0d7e302ad1be9",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T09:26:27.678940Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1077,6 +1141,138 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:14:52.866870Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:14:52.895687Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:14:52.925997Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:14:52.953658Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:14:52.983881Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:14:53.010633Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:14:53.037203Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:14:53.065741Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:14:53.104278Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:14:53.130485Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:14:53.159799Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:26:28.121877Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:26:28.190779Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:26:28.254508Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:26:28.294941Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:26:28.328531Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:26:28.359691Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:26:28.391665Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:26:28.429479Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:26:28.451901Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:26:28.473128Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:26:28.496548Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1092,14 +1288,18 @@
     "base": "track/adr-054-spec4-explore-frontend",
     "base_sha": "336c6a738",
     "changed_files": [
+      ".coverage.Jiazhen.pid70960.Xvf3OiRx.HE0prOJoP7gh",
+      ".coverage.Jiazhen.pid74924.XwBjvyIx.HqSbof0u3xBh",
+      ".coverage.Jiazhen.pid78904.XukeVShx.Hynv10qklNeh",
       ".workflow/records/2253-feat-2253-explore-tab-shell.json",
+      "docs/planning/adr-054-assembly-checklist.md",
       "docs/planning/adr-054-assembly-followups.md"
     ],
-    "diff_fingerprint": "sha256:0a3ca4a2cfad8f5b76bd885733ec01f3d9efba70aeea222e56aa5496b70714f7",
+    "diff_fingerprint": "sha256:2902fa7a07b12a7afdc75e388da3bbde74be7297bb6a9873373c5a3f57950d38",
     "head": "HEAD",
-    "head_sha": "0b431f4be",
+    "head_sha": "53241d18c",
     "surfaces": {
-      "docs": 1,
+      "docs": 2,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
@@ -1191,6 +1391,25 @@
       "tier": 1,
       "unsatisfied": [
         "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-09-05T09:14:53.159880Z",
+      "diff_fingerprint": "sha256:0a3ca4a2cfad8f5b76bd885733ec01f3d9efba70aeea222e56aa5496b70714f7",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-05T09:26:28.496600Z",
+      "diff_fingerprint": "sha256:2902fa7a07b12a7afdc75e388da3bbde74be7297bb6a9873373c5a3f57950d38",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
+        "scope.out-of-scope"
       ]
     }
   ],

@@ -298,6 +298,43 @@ Recorded rather than dismissed: if either recurs in CI, where the machine is
 not shared, it is a real defect and not contention, and `#2244` is the issue
 that already says what to do about the second.
 
+The failure count tracked the machine's load rather than the diff: one failure,
+then one, then four, then six, over four `gate_record check` runs of the same
+tree, with a different set each time. The others seen were
+`tests/api/test_panel_document_events.py::test_the_file_route_accepts_a_panel_document`
+(`[WinError 5] Access is denied` on the atomic-rename step of a temp-dir
+write), `tests/qa/test_audit_full_audit.py::test_full_audit_renders_human_readable_facts_summary`,
+`tests/workflow/test_serializer_property.py::test_relativify_inverts_absolutify`
+and `tests/tutorials/test_core_tutorial_what_is_a_type.py::test_the_whole_tutorial_walks_through_the_real_runtime`.
+All four named here passed together in one isolated run
+(`4 passed in 64.55s`).
+
+#### F-A1-009 - `gate_record check` counts a timed-out check as satisfied
+
+Running the suite with `PYTEST_XDIST_AUTO_NUM_WORKERS=4` to reduce contention
+made it slower than the gate's own per-check budget. The ledger recorded
+
+```json
+{"name": "python_tests", "exit_code": null, "status": "unknown",
+ "summary": "execution error: TimeoutExpired"}
+```
+
+and the same `check` invocation **exited 0 and reported no unsatisfied
+obligations**. A check that did not finish is not a check that passed, and a
+`status: "unknown"` event should leave its obligation unsatisfied rather than
+discharge it.
+
+- **Severity**: P1 for the gate itself - it is the difference between evidence
+  and the absence of evidence, and this is the ledger ADR-042 Addendum 6 makes
+  the single source of truth.
+- **Evidence**: `.workflow/records/2253-feat-2253-explore-tab-shell.json`,
+  `check_events` entry at `2026-09-05T09:14:52Z`, beside a `check` run whose
+  stdout was `mode=pre-pr tier=1 checks=[...]` / `reconciliation passed` /
+  `exit=0`.
+- **Suggested title**: `gate_record check treats a TimeoutExpired check as
+  satisfied`
+
+
 
 ### S4-A2
 
