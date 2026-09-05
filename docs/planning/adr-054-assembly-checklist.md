@@ -436,7 +436,7 @@ Work a fix agent identified but could not execute, because the target file
 lives on a branch it was not allowed to touch. Each is the manager's to apply
 when the branches meet.
 
-- [ ] **FC-002 — carry the safe asset-URL pattern into the panel scaffold.**
+- [x] **FC-002 — carry the safe asset-URL pattern into the panel scaffold.**
       `fix/2229-panel-codeql-findings` fixed a real `javascript:`-URL hole in
       `core.plot.basic/index.html` with a `safeAssetUrl(value, dataPrefixes)`
       allowlist chosen per element. The same pattern belongs in

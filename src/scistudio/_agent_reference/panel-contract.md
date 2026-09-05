@@ -221,7 +221,30 @@ declaration missing a field names the field.
 - **Self-contained.** Markup, styles and script in the one file. No
   `<script src>`, no external stylesheet, no CDN, no bundler.
 - **Escape nothing into the DOM.** The payload is a person's data. Use
-  `textContent`, never `innerHTML`.
+  `textContent`, never `innerHTML`. The scaffolded skeleton does this
+  throughout; keep it that way.
+- **Gate every URL that comes from the payload.** If you render an artifact —
+  `<img src>`, an `<iframe>` for a PDF, a link — the value has arrived over
+  `postMessage` from a provider that need not be a built-in one, and
+  `javascript:` in an `<iframe src>` executes *inside your panel's frame*,
+  holding your own postMessage token. So it can `emit` as you. Accept only:
+  - a `data:` URI whose media type you named, chosen **per element** — an
+    `<img>` takes `image/png` and `image/jpeg`; a frame takes
+    `application/pdf`; **neither takes `image/svg+xml` or `text/html`**,
+    because a frame executes those; or
+  - a root-relative path on this application's own origin, which is the only
+    kind the asset route produces.
+
+  Strip TAB, LF and CR **before** you check, because a browser strips them
+  before it parses a URL: `/	/evil.example` is `//evil.example` by the time it
+  is fetched. Anything else renders nothing, and says so rather than looking
+  like an artifact that was never produced.
+
+  `core.plot.basic`, `core.artifact.basic` and `core.base.fallback` all gate
+  their `src` this way; read `safeAssetUrl` in the first of them for the shape.
+  CodeQL will still flag the sink, because an allowlist returns the string it
+  validated and the analyser follows the flow rather than the condition — that
+  is expected and is not a reason to drop the gate.
 - **Answer `init` with `ready`,** then render. A panel that never sends `ready`
   is treated as a failed load and the host mounts a fallback over your data.
 - **Ignore what is not yours.** Drop any message whose `scistudio_panel` marker
