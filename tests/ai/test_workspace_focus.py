@@ -19,9 +19,12 @@ this surface has already been bitten by:
 * FR-002 restores the focus "exactly as it restores the active workflow id",
   which is a claim about a real project open, not about a helper call.
 
-The fixtures are the three from ``tests/api/conftest.py``, restated here because
-this file lives under ``tests/ai/`` — where the spec's affected-files table puts
-it, since what is under test is what the agent is told.
+The fixtures resemble the three in ``tests/api/conftest.py``, restated here
+because this file lives under ``tests/ai/`` — where the spec's affected-files
+table puts it, since what is under test is what the agent is told — and scoped
+differently: one app for the module, one project per test. The CI parallel phase
+runs under a 600s cap that the ADR-054 track is already close to, and thirty-one
+app startups is a second each for a fixture whose value is per-process.
 """
 
 from __future__ import annotations
@@ -30,7 +33,7 @@ import asyncio
 import json
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import pytest
 from fastapi.testclient import TestClient
@@ -63,32 +66,92 @@ NOTEBOOK = "explore/qc.ipynb"
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture()
-def fake_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Point the runtime's user-level registry at an isolated home.
-
-    Exposed rather than folded into ``client`` because the restart test builds a
-    second app and must land in the *same* home — that is what makes the second
-    runtime know the project the first one created.
-    """
-    home = tmp_path / "home"
-    home.mkdir()
+def _point_home_at(target: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Send the runtime's user-level project registry to *target*."""
     from scistudio.api import runtime as runtime_module
 
-    monkeypatch.setattr(runtime_module.Path, "home", classmethod(lambda cls: home))
-    return home
+    monkeypatch.setattr(runtime_module.Path, "home", classmethod(lambda cls: target))
 
 
-@pytest.fixture()
-def client(fake_home: Path) -> Iterator[TestClient]:
-    """A live app whose lifespan installs the production MCP context."""
+@pytest.fixture(scope="module")
+def _module_home(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
+    """One isolated SciStudio home for the whole module."""
+    home = tmp_path_factory.mktemp("focus-home")
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        _point_home_at(home, monkeypatch)
+        yield home
+
+
+@pytest.fixture(scope="module")
+def client(_module_home: Path) -> Iterator[TestClient]:
+    """One live app for the whole module, lifespan and all.
+
+    Module-scoped deliberately. What each test needs from the app is the
+    production ``MCPContext`` — the ``_RuntimeAdapter`` that ``api.app.lifespan``
+    installs — and that is per-process, not per-test. Standing one up per test
+    cost a second of startup each, and the CI parallel phase is on a 600s budget
+    the ADR-054 track is already close to. Per-test isolation comes from the
+    ``project`` fixture instead: every test opens a project of its own, and
+    opening one reloads the active workflow id and the focus from *that*
+    project's disk, which is the isolation FR-002 already guarantees.
+
+    The one test that must not share this app is the restart case, which needs
+    the first process to be gone before the second starts; it builds its own
+    pair (see :func:`test_the_focus_survives_a_backend_restart`).
+    """
     with TestClient(create_app()) as test_client:
         yield test_client
+
+
+@pytest.fixture(autouse=True)
+def _keep_the_module_context(client: TestClient) -> Iterator[None]:
+    """Put the module app's MCP context back after every test.
+
+    ``api.app.lifespan`` installs its ``_RuntimeAdapter`` into a *process-global*
+    slot on the way up and clears it on the way down. That is right for a
+    process with one app and wrong for a test module that stands up a second one
+    — the restart test's apps clear the slot when they close, and every later
+    call to a tool would then raise "invoked without an active runtime context".
+
+    Snapshotting around each test keeps that coupling local to the test that
+    causes it, rather than making the module's pass/fail depend on its order.
+    """
+    from scistudio.ai.agent.mcp import _context as mcp_context
+
+    installed = mcp_context.get_optional_context()
+    try:
+        yield
+    finally:
+        mcp_context.set_context(installed)
 
 
 def _runtime_of(test_client: TestClient) -> ApiRuntime:
     """The ``ApiRuntime`` behind a client (``TestClient.app`` is typed as ASGI)."""
     return test_client.app.state.runtime  # type: ignore[attr-defined,no-any-return]
+
+
+class Project(NamedTuple):
+    """A project opened through the API: where it is, and what it is called.
+
+    The id is carried beside the path because the module-scoped app accumulates
+    every project the module creates, so "the project" cannot be recovered by
+    reaching into ``known_projects``.
+    """
+
+    path: Path
+    id: str
+
+
+def _create_project(test_client: TestClient, parent: Path, name: str) -> Project:
+    """Create and open a project through the public API."""
+    parent.mkdir(parents=True, exist_ok=True)
+    response = test_client.post(
+        "/api/projects/",
+        json={"name": name, "description": "spec 5 focus", "path": str(parent)},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    return Project(Path(body["path"]), body["id"])
 
 
 @pytest.fixture()
@@ -97,15 +160,23 @@ def runtime(client: TestClient) -> ApiRuntime:
 
 
 @pytest.fixture()
-def project(client: TestClient, tmp_path: Path) -> Path:
-    parent = tmp_path / "projects"
-    parent.mkdir()
-    response = client.post(
-        "/api/projects/",
-        json={"name": "Focus Project", "description": "spec 5 focus", "path": str(parent)},
-    )
-    assert response.status_code == 200
-    return Path(response.json()["path"])
+def project(client: TestClient, tmp_path: Path, request: pytest.FixtureRequest) -> Path:
+    """A fresh project, opened, for this test alone.
+
+    Named after the test so a failure in the module-scoped app names the test
+    that left the state, and so two tests can never collide on a project id.
+    """
+    return _create_project(client, tmp_path / "projects", f"Focus {request.node.name}").path
+
+
+@pytest.fixture()
+def project_id(client: TestClient, project: Path) -> str:
+    """The id of the project the ``project`` fixture opened."""
+    runtime = _runtime_of(client)
+    for known in runtime.known_projects.values():
+        if Path(known.path) == project:
+            return str(known.id)
+    raise AssertionError(f"no known project at {project}")
 
 
 # ---------------------------------------------------------------------------
@@ -213,22 +284,36 @@ def test_each_mode_round_trips_through_the_route_and_the_file(
     assert _persisted(project)["workflow_id"] == "calibration"
 
 
-def test_the_focus_survives_a_backend_restart(client: TestClient, fake_home: Path, project: Path) -> None:
+def test_the_focus_survives_a_backend_restart(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """FR-002: a second runtime over the same project restores the focus.
 
-    A genuine restart — a new app, a new ``ApiRuntime``, the same home and the
-    same project directory — rather than a helper call, because "restores it on
-    project open and on backend restart exactly as it restores the active
-    workflow id" is a claim about the open path.
+    A genuine restart — the first app shut down, then a new app and a new
+    ``ApiRuntime`` over the same home and the same project directory — rather
+    than a helper call, because "restores it on project open and on backend
+    restart exactly as it restores the active workflow id" is a claim about the
+    open path.
+
+    The two apps are sequential rather than nested. A restart means the first
+    process is *gone*, and two live apps over one project would both bind an MCP
+    transport into the same ``.scistudio/`` and both install themselves as the
+    global MCP context — which is not a restart, it is a race.
+
+    This test therefore builds its own home rather than sharing the module's:
+    the module's app is still running.
     """
-    _write_notebook(project)
-    reported = client.post(ACTIVE_CONTEXT, json={"workflow_id": "calibration", "focus": EXPLORE_REPORT})
-    reported_at = reported.json()["focus"]["reported_at"]
+    home = tmp_path / "home"
+    home.mkdir()
+    _point_home_at(home, monkeypatch)
+
+    with TestClient(create_app()) as first:
+        opened = _create_project(first, tmp_path / "projects", "Focus Restart")
+        _write_notebook(opened.path)
+        reported = first.post(ACTIVE_CONTEXT, json={"workflow_id": "calibration", "focus": EXPLORE_REPORT})
+        reported_at = reported.json()["focus"]["reported_at"]
 
     with TestClient(create_app()) as restarted:
         runtime = _runtime_of(restarted)
-        project_id = next(iter(runtime.known_projects.keys()))
-        assert restarted.get(f"/api/projects/{project_id}").status_code == 200
+        assert restarted.get(f"/api/projects/{opened.id}").status_code == 200
 
         assert runtime.active_workflow_id == "calibration"
         assert runtime.workspace_focus is not None
@@ -295,15 +380,13 @@ def test_an_unreadable_mode_is_not_persisted(client: TestClient, runtime: ApiRun
 
 
 def test_a_malformed_persistence_file_does_not_break_project_open(
-    client: TestClient, fake_home: Path, project: Path
+    client: TestClient, runtime: ApiRuntime, project: Path, project_id: str
 ) -> None:
     """A file a newer build wrote, or a corrupted one, must not break the open."""
     target = project / ".scistudio" / "active_workflow.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text('{"workflow_id": "calibration", "focus": ["not", "a", "record"]}', encoding="utf-8")
 
-    runtime = _runtime_of(client)
-    project_id = next(iter(runtime.known_projects.keys()))
     assert client.get(f"/api/projects/{project_id}").status_code == 200
 
     assert runtime.active_workflow_id == "calibration"
@@ -381,14 +464,14 @@ def test_a_never_reported_focus_reads_as_canvas_over_the_persisted_workflow(clie
     assert result.paused_run_id is None
 
 
-def test_the_pre_focus_file_still_loads(client: TestClient, project: Path) -> None:
+def test_the_pre_focus_file_still_loads(
+    client: TestClient, runtime: ApiRuntime, project: Path, project_id: str
+) -> None:
     """A persistence file written before this build behaves exactly as it did."""
     target = project / ".scistudio" / "active_workflow.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps({"workflow_id": "calibration"}), encoding="utf-8")
 
-    runtime = _runtime_of(client)
-    project_id = next(iter(runtime.known_projects.keys()))
     assert client.get(f"/api/projects/{project_id}").status_code == 200
 
     assert runtime.active_workflow_id == "calibration"
@@ -535,10 +618,16 @@ def test_the_refusal_holds_with_no_context_installed() -> None:
     """No project, no app, no context: the tools still refuse rather than raise.
 
     The standalone MCP bridge is in exactly this state, and the refusal is what
-    makes FR-005 hold there by construction.
+    makes FR-005 hold there by construction. The context is cleared explicitly
+    rather than assumed absent, so this asserts the state it names whatever
+    order the module runs in; ``_keep_the_module_context`` puts it back.
     """
+    from scistudio.ai.agent.mcp import _context as mcp_context
+
+    mcp_context.set_context(None)
+
     with pytest.raises(NoExploreSessionError):
-        resolve_session_path(ctx=None)
+        resolve_session_path()
 
     assert refusal_message() == refusal_message(stale_path=None)
     assert "no longer exists" in refusal_message(stale_path="explore/gone.ipynb")
