@@ -81,17 +81,51 @@ language_source: en
   ```
 - **Readiness probe**:
   ```powershell
-  until curl -s http://127.0.0.1:8123/api/health | Select-String '"ok"'; do Start-Sleep 0.5; done
+  until curl -s http://127.0.0.1:8123/api/version | Select-String 'semver'; do Start-Sleep 0.5; done
   ```
+  **There is no `/api/health`** — it 404s. The manager checked: the server's
+  liveness endpoints are `/api/version`, `/version`, and `/api/runs/_health`.
+  A probe on `/api/health` returns `{"detail":"Not Found"}` immediately, which
+  a naive `until` loop reads as success and a `Select-String` loop hangs on.
 - **Cleanup commands** (run at end, even on failure):
   ```powershell
   Get-CimInstance Win32_Process |
-    Where-Object { $_.CommandLine -match '5183|8123' } |
-    ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+    Where-Object { $_.Name -in 'python.exe','node.exe' -and $_.CommandLine -match '5183|8123' } |
+    ForEach-Object { "stopping $($_.ProcessId) $($_.Name)"; Stop-Process -Id $_.ProcessId -Force }
   ```
-  Match on **this session's ports**, not on `vite` or `scistudio`. Several
-  agents and the owner's own app run on this machine; a broad kill takes
-  down work that is not this session's.
+  Two constraints, both learned the hard way while writing this file.
+
+  **Match on this session's ports, not on `vite` or `scistudio`.** Several
+  agents and the owner's own app run on this machine; a broad kill takes down
+  work that is not this session's.
+
+  **Constrain by process name as well.** A port-only match also catches the
+  shell that launched the server and the PowerShell running the cleanup —
+  the manager killed its own shell this way, and the command exited 255
+  because it reached itself. Print each pid before stopping it, and read what
+  the command says it killed.
+
+### 3.1 Already Proved By The Manager's Readiness Check
+
+Run on `track/adr-054-integration` before specs 4 and 5 landed, so these are
+facts about the assembled backend rather than expectations of it:
+
+- The merged server starts and serves **135 routes**.
+- The full spec 3 session API is mounted: `/api/explore/sessions`,
+  `/api/explore/sessions/{id}/cells`, `/cells/{cell_id}`,
+  `/cells/{cell_id}/enabled`, `/bindings`, and `/api/explore/kernels`.
+- The unified spec 1 panel surface is mounted: `/api/panels`,
+  `/api/panels/choices`, `/api/panels/choices/{target_type}`,
+  `/api/panels/reload`, `/api/panels/assets/{panel_id}/{asset_path}` and the
+  block-scoped `/api/blocks/panels/{panel_id}/{asset_path}`.
+- `/api/panels` answers with a populated registry.
+
+One environment wart to expect in the log, which is **not** a defect in this
+work: `ModuleNotFoundError: No module named
+'scistudio.blocks.process.builtins.split_collection'` at startup. That module
+exists neither on this branch nor on `main`; it is a stale entry point left in
+an installed distribution on this machine. The server starts anyway. Do not
+chase it, and do not let it be reported as an ADR-054 regression.
 
 ## 4. Affordances Under Test
 
