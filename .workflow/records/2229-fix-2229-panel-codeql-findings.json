@@ -200,7 +200,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "0a1f7235d73fff1146473f05503c3cd696e1831f",
+    "shas": [
+      "0a1f7235d73fff1146473f05503c3cd696e1831f"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -663,6 +669,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:16.134601Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:16.172387Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:16.212452Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:16.255783Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:16.331587Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:16.440274Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:16.478081Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:16.504126Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:16.537882Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:16.568604Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:16.605696Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -686,9 +780,9 @@
       "src/scistudio/tutorials/core/what-is-a-type/assets/panels/review_labels/index.html",
       "tests/panels/test_panel_asset_route.py"
     ],
-    "diff_fingerprint": "sha256:c522f062a9184948b7ef2bfc20490b2fc841f2f45cee27e9bb7dc1e4c3eac707",
+    "diff_fingerprint": "sha256:3991266a796f1f53aec9f0b0df98638fc789a39803e82d9b7c812679fd4e666b",
     "head": "HEAD",
-    "head_sha": "19c29506b",
+    "head_sha": "0a1f7235d",
     "surfaces": {
       "docs": 1,
       "frontend": 1,
@@ -705,7 +799,14 @@
   },
   "owner_directive": "Triage and fix the CodeQL findings the ADR-054 assembly surfaced in the new panel documents and the panel asset route",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2229
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-05T08:50:50.577162Z",
@@ -744,6 +845,14 @@
     {
       "at": "2026-09-05T08:54:52.340528Z",
       "diff_fingerprint": "sha256:c522f062a9184948b7ef2bfc20490b2fc841f2f45cee27e9bb7dc1e4c3eac707",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-05T08:55:16.605744Z",
+      "diff_fingerprint": "sha256:3991266a796f1f53aec9f0b0df98638fc789a39803e82d9b7c812679fd4e666b",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
