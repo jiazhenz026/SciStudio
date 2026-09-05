@@ -60,13 +60,13 @@ class TeachingProbeType(DataObject):
     """Type saved to My Library during a tutorial."""
 '''
 
-TEACHING_PREVIEWER = """\
-from scistudio.previewers.models import OwnerKind, PreviewerSpec
+TEACHING_PANEL = """\
+from scistudio.panels.models import OwnerKind, PanelSpec
 
 
 def get_previewers():
     return [
-        PreviewerSpec(
+        PanelSpec(
             previewer_id="test.teaching.viewer",
             owner_kind=OwnerKind.USER,
             owner_name="tutorial-library",
@@ -147,20 +147,18 @@ def test_a_type_save_from_a_tutorial_lands_in_the_scoped_library(client: TestCli
     assert not (dropins.user_types_dir() / "teaching_probe_type.py").exists()
 
 
-def test_a_previewer_save_from_a_tutorial_lands_in_the_scoped_library(
-    client: TestClient, tutorial_project: Path
-) -> None:
-    """The third tier swaps too (#2086) — the scenario saves a *previewer*.
+def test_a_panel_save_from_a_tutorial_lands_in_the_scoped_library(client: TestClient, tutorial_project: Path) -> None:
+    """The third tier swaps too (#2086) — the scenario saves a *panel*.
 
-    Tutorial 3 reuses tutorial 2's previewer through the scoped library; a save
+    Tutorial 3 reuses tutorial 2's panel through the scoped library; a save
     that landed in ``~/.scistudio/previewers`` would both pollute the user's
     real library and leave the next tutorial project unable to find it.
     """
-    response = _put(client, target="previewers", filename="teaching_viewer.py", content=TEACHING_PREVIEWER)
+    response = _put(client, target="previewers", filename="teaching_viewer.py", content=TEACHING_PANEL)
 
     assert response.status_code == 200, response.text
     assert (dropins.tutorial_library_dir() / "previewers" / "teaching_viewer.py").is_file()
-    assert not (dropins.user_previewers_dir() / "teaching_viewer.py").exists()
+    assert not (dropins.user_panels_dir() / "teaching_viewer.py").exists()
 
 
 def test_a_save_from_a_real_project_still_lands_in_the_real_library(client: TestClient, real_project: Path) -> None:
@@ -192,8 +190,8 @@ def test_the_write_root_is_the_directory_the_registry_scans(
     for project, target, scan_dirs, source, filename in (
         (real_project, "blocks", dropins.block_scan_dirs, TEACHING_BLOCK, "from_real.py"),
         (tutorial_project, "blocks", dropins.block_scan_dirs, TEACHING_BLOCK, "from_tutorial.py"),
-        (real_project, "previewers", dropins.previewer_scan_dirs, TEACHING_PREVIEWER, "viewer_from_real.py"),
-        (tutorial_project, "previewers", dropins.previewer_scan_dirs, TEACHING_PREVIEWER, "viewer_from_tutorial.py"),
+        (real_project, "previewers", dropins.panel_scan_dirs, TEACHING_PANEL, "viewer_from_real.py"),
+        (tutorial_project, "previewers", dropins.panel_scan_dirs, TEACHING_PANEL, "viewer_from_tutorial.py"),
     ):
         assert client.get(f"/api/projects/{project}").status_code == 200
         response = _put(client, target=target, filename=filename, content=source)
@@ -297,24 +295,22 @@ def test_library_contains_sees_a_type_saved_during_a_tutorial(
     assert evaluate(parse_condition({"library_contains": {"kind": "type", "name": "TeachingProbeType"}}), state)
 
 
-def test_library_contains_sees_a_previewer_saved_during_a_tutorial(
+def test_library_contains_sees_a_panel_saved_during_a_tutorial(
     client: TestClient, runtime: ApiRuntime, tutorial_project: Path
 ) -> None:
     """The kind #2086 made judgeable, proved end to end.
 
     The save goes through the HTTP endpoint and the judgement through the real
-    product state. A previewer spec carries no source file path, so membership
+    product state. A panel spec carries no source file path, so membership
     rides the swap itself: while the tutorial project is open, its user tier
-    *is* the scoped library, and the saved previewer registers as the user
+    *is* the scoped library, and the saved panel registers as the user
     tier — matched by its id and by its target type, mirroring the two names a
     block answers to.
     """
     from scistudio.api.routes.tutorials import _ApiProductState, _RecordedSignals
     from scistudio.tutorials.conditions import evaluate, parse_condition
 
-    assert (
-        _put(client, target="previewers", filename="teaching_viewer.py", content=TEACHING_PREVIEWER).status_code == 200
-    )
+    assert _put(client, target="previewers", filename="teaching_viewer.py", content=TEACHING_PANEL).status_code == 200
 
     state = _ApiProductState(
         runtime=runtime,
@@ -356,12 +352,12 @@ def test_library_contains_stays_false_for_a_save_from_a_real_project(
     assert not evaluate(parse_condition({"library_contains": {"kind": "block", "name": "test.teaching_probe"}}), state)
 
 
-def test_library_contains_previewer_stays_false_for_a_save_from_a_real_project(
+def test_library_contains_panel_stays_false_for_a_save_from_a_real_project(
     client: TestClient, runtime: ApiRuntime, real_project: Path
 ) -> None:
-    """FR-071 for the previewer kind.
+    """FR-071 for the panel kind.
 
-    A previewer saved to the user's real library registers as the user tier
+    A panel saved to the user's real library registers as the user tier
     too — that is #2017's behaviour and it must keep working — but it is not
     *in the scoped library*, so the condition stays false while a real project
     is open. The owner-kind test alone would get this wrong, which is why
@@ -371,10 +367,8 @@ def test_library_contains_previewer_stays_false_for_a_save_from_a_real_project(
     from scistudio.api.routes.tutorials import _ApiProductState, _RecordedSignals
     from scistudio.tutorials.conditions import evaluate, parse_condition
 
-    assert (
-        _put(client, target="previewers", filename="teaching_viewer.py", content=TEACHING_PREVIEWER).status_code == 200
-    )
-    assert (dropins.user_previewers_dir() / "teaching_viewer.py").is_file()
+    assert _put(client, target="previewers", filename="teaching_viewer.py", content=TEACHING_PANEL).status_code == 200
+    assert (dropins.user_panels_dir() / "teaching_viewer.py").is_file()
 
     state = _ApiProductState(
         runtime=runtime,

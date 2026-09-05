@@ -1,0 +1,12 @@
+{
+  "panel_id": "core.text.basic",
+  "display_name": "Text",
+  "target_types": ["Text"],
+  "capability": "displaying",
+  "entry": "index.html",
+  "api_version": "1",
+  "features": ["text", "truncate", "editor_handoff"],
+  "priority": 0,
+  "supports_collection": false,
+  "provider": "scistudio.panels.fallbacks:text_panel"
+}

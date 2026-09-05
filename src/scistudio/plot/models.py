@@ -535,7 +535,7 @@ class PlotRunResult(BaseModel):
     """Reasons the run failed, when ``status`` is not ``"succeeded"``."""
     next_step: str = Field(
         default=(
-            "On success, the artifact shows through the core PlotPreviewer in the preview "
+            "On success, the artifact shows through the core PlotPanel in the preview "
             "panel. To change the figure, edit the render script and re-run. To keep the "
             "artifact, explicitly export/save it — the preview cache is not a result path."
         ),

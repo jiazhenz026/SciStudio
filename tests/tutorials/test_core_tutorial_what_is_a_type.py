@@ -19,7 +19,7 @@ shipped tutorial gets. This file checks what only tutorial 2 promises
   mode, panel manifest with a served module URL and a path-confined
   ``asset_root`` beside the block — and its panel is the shipped, hand-written
   ES module implementing the ADR-051 PanelModule contract;
-* the previewer registers for ``Image`` and paints the pixels as an
+* the panel registers for ``Image`` and paints the pixels as an
   indexed-color PNG, and it derives its tier from where it sits, so the same
   file works in the project and, after "Move to My Library", in the library's
   user-tier slot;
@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import re
 import sys
 from pathlib import Path, PurePosixPath
 from types import ModuleType
@@ -234,7 +235,7 @@ def _label_plane(image: Any) -> np.ndarray:
     """The label channel of a Segment Cells output.
 
     The block emits two channels on one grid — the micrograph it read on
-    ``c=0``, the labels on ``c=1`` — so the previewer can draw one over the
+    ``c=0``, the labels on ``c=1`` — so the panel can draw one over the
     other. Anything counting objects wants the second. Counting the array whole
     would count grey levels as label ids.
     """
@@ -404,7 +405,10 @@ def test_the_we_write_it_beats_write_what_their_step_teaches(manifest: TutorialM
         "teach-it-to-load": {"blocks/load_tiff_image.py"},
         "why-numbers": {"previewers/image_preview.py"},
         "segment-the-cells": {"blocks/segment_cells.py"},
-        "blocks-can-be-interactive": {"blocks/review_labels.py", "blocks/review_labels_panel"},
+        # The panel lands under the project's ``panels/`` root, named for the id
+        # its declaration carries: that is where four-tier discovery looks, and
+        # a directory beside the block would never be found (ADR-054 spec 1).
+        "blocks-can-be-interactive": {"blocks/review_labels.py", "panels/tutorial.review_labels"},
         "a-histogram-for-your-labmate": {"plots/cell_size_histogram"},
     }
 
@@ -464,15 +468,15 @@ def test_the_promotion_bridge_judges_the_type_and_the_block(manifest: TutorialMa
     """The ending judges two of the three promotions, and says why the third is not judged.
 
     Tutorial 3 stands on all three — its fresh project finds Image, Segment
-    Cells, and the Image previewer already in the library — but only two of the
-    three moves are things ``library_contains`` can see. The Previewers tab's
+    Cells, and the Image panel already in the library — but only two of the
+    three moves are things ``library_contains`` can see. The Panels tab's
     card offers Auto / This project / All projects, which records *scope*
-    rather than moving the file, so the previewer step asks for something the
+    rather than moving the file, so the panel step asks for something the
     term cannot judge and is deliberately left unjudged with a TODO explaining
     the gap.
 
     This test exists so that stays a decision rather than an accident. Dropping
-    the previewer step's condition without the TODO, or quietly re-judging it
+    the panel step's condition without the TODO, or quietly re-judging it
     on a term the step does not ask for, both fail here.
     """
     judged: list[tuple[str, str]] = []
@@ -484,10 +488,10 @@ def test_the_promotion_bridge_judges_the_type_and_the_block(manifest: TutorialMa
         judged.append((str(condition.args["kind"]), str(condition.args["name"])))
     assert judged == [("type", "Image"), ("block", "segment_cells")]
 
-    previewer_step = manifest.step_by_id("save-the-previewer")
-    assert previewer_step is not None
-    assert previewer_step.done_when is None, "the previewer promotion is unjudged on purpose; see the TODO"
-    assert "All projects" in say_text(previewer_step), "the step still asks for the Previewers tab's own control"
+    panel_step = manifest.step_by_id("save-the-previewer")
+    assert panel_step is not None
+    assert panel_step.done_when is None, "the panel promotion is unjudged on purpose; see the TODO"
+    assert "All projects" in say_text(panel_step), "the step still asks for the Previewers tab's own control"
 
     source = (TUTORIAL_DIR / "tutorial.yaml").read_text(encoding="utf-8")
     assert "TODO(#2135)" in source, "an unjudged step must carry the tracked reason it is unjudged"
@@ -561,7 +565,7 @@ def test_the_image_type_is_the_array_subclass_the_step_describes(
 
     That claim is checked against the mechanism that produces it. Subclassing
     is what makes an Image acceptable anywhere an Array is, which is the whole
-    reason the core Array previewer can render one at all.
+    reason the core Array panel can render one at all.
     """
     from scistudio.core.types import Array
 
@@ -802,7 +806,9 @@ def test_the_step_texts_stand_on_what_the_pixels_do(manifest: TutorialManifest) 
 def test_the_review_block_is_a_real_interactive_block(assets: dict[str, ModuleType]) -> None:
     """Mixin + execution mode + panel manifest: the registry's own validation gate."""
     from scistudio.blocks.base import ExecutionMode, InteractiveMixin
+    from scistudio.blocks.registry._capability import _validate_interactive_capability
     from scistudio.blocks.registry._spec import _spec_from_class
+    from scistudio.core.panels import PanelCapability
 
     cls = assets["review"].ReviewLabelsBlock
     assert issubclass(cls, InteractiveMixin)
@@ -813,27 +819,133 @@ def test_the_review_block_is_a_real_interactive_block(assets: dict[str, ModuleTy
     assert spec.execution_mode == "interactive"
     assert spec.panel_manifest is not None
     assert spec.panel_manifest["panel_id"] == "tutorial.review_labels"
-    assert spec.panel_asset_root is not None and spec.panel_asset_root.endswith("review_labels_panel")
+    # ADR-054 spec 1 FR-050: a panel a block opens declares the producing
+    # capability, and the registry refuses the block otherwise. Run the gate
+    # itself rather than restating what it checks.
+    assert cls.interactive_panel.capability is PanelCapability.PRODUCING
+    _validate_interactive_capability(cls)
+    # FR-017 / section 4.2: the block names the panel by id and confines no
+    # asset root of its own. The retired module form carried a filesystem
+    # directory here for the ``/api/blocks/panels/...`` route to serve out of;
+    # the panel directory is discovered from the project's ``panels/`` root now,
+    # so a block that grew one back would be reaching around discovery.
+    assert spec.panel_asset_root is None
 
 
-def test_the_panel_manifest_names_the_served_module(assets: dict[str, ModuleType]) -> None:
-    """module_url points at the panel-asset route for this panel id, .mjs file included."""
+def test_the_panel_manifest_names_the_panel_by_id_alone(assets: dict[str, ModuleType]) -> None:
+    """The manifest is an id, a capability and a version — no hand-written URL.
+
+    ADR-054 spec 1 section 4.2 names this block as one the change fixes: it
+    hard-coded ``/api/blocks/panels/tutorial.review_labels/panel.mjs``. A URL a
+    block spells for itself is a URL that goes stale the moment the route it
+    names moves, which is exactly what happened. The document is now addressed
+    through the merged asset route, built from the panel id by
+    ``panel_descriptor``, so the manifest must carry no URL at all — and the
+    directory it addresses must exist, in the on-disk form, in this tutorial's
+    assets.
+    """
+    from scistudio.core.panels import PANEL_API_VERSION
+    from scistudio.panels.descriptor import panel_descriptor
+
     panel = assets["review"].ReviewLabelsBlock.interactive_panel
-    assert panel.module_url == f"/api/blocks/panels/{panel.panel_id}/panel.mjs"
-    # The asset the URL names is the one the tutorial copies beside the block.
-    assert (ASSETS / "panels" / "review_labels" / "panel.mjs").is_file()
+    assert panel.panel_id == "tutorial.review_labels"
+    assert panel.module_url == ""
+    assert panel.css == ()
+    assert panel.entry == "index.html"
+    assert panel.api_version == PANEL_API_VERSION
+
+    # The descriptor the paused block hands the host: the merged route, this
+    # panel's id, this manifest's entry.
+    descriptor = panel_descriptor(panel).to_dict()
+    assert descriptor["document_url"] == "/api/panels/assets/tutorial.review_labels/index.html"
+    assert descriptor["asset_base_url"] == "/api/panels/assets/tutorial.review_labels/"
+    assert descriptor["capability"] == "producing"
+
+    # The directory the id resolves to is the one the tutorial copies into the
+    # project, and it is a panel directory: a declaration plus one document.
+    panel_dir = ASSETS / "panels" / "review_labels"
+    assert (panel_dir / "panel.json").is_file()
+    assert (panel_dir / "index.html").is_file()
+    assert not (panel_dir / "panel.mjs").exists(), "the retired ADR-051 module form is gone"
 
 
-def test_the_panel_module_implements_the_panel_contract() -> None:
-    """A dependency-free ES module: default export, apiVersion "1", mount()."""
-    source = (ASSETS / "panels" / "review_labels" / "panel.mjs").read_text(encoding="utf-8")
-    assert "export default" in source
-    assert 'const API_VERSION = "1"' in source
-    assert "mount(container, host)" in source
-    assert "host.confirm(" in source and "host.cancel(" in source
-    assert "unmount()" in source
-    for banned in ("import ", "require(", "fetch("):
-        assert banned not in source, f"the panel must stay dependency-free and offline; found {banned!r}"
+def test_the_panel_declaration_is_the_on_disk_form() -> None:
+    """``panel.json`` reads as a valid producing declaration for this panel id.
+
+    Read through :func:`read_panel_declaration` rather than ``json.loads``: the
+    point is not that the file parses but that the discovery walk which will
+    find it in the reader's project accepts it, with every field FR-003 requires.
+    """
+    from scistudio.core.panels import PANEL_API_VERSION, PanelCapability, read_panel_declaration
+
+    manifest = read_panel_declaration(ASSETS / "panels" / "review_labels")
+    assert manifest.panel_id == "tutorial.review_labels"
+    assert manifest.display_name == "Review Labels"
+    assert manifest.capability is PanelCapability.PRODUCING
+    assert manifest.entry == "index.html"
+    assert manifest.api_version == PANEL_API_VERSION
+    # Addressed by the block that opens it, never by a data type (FR-017).
+    assert manifest.target_types == ()
+
+
+def test_the_panel_document_implements_the_panel_contract() -> None:
+    from scistudio.core.panels import PANEL_API_VERSION
+
+    """A strictly self-contained producing document: the envelope, and one emission.
+
+    The replacement for the assertions that pinned the ES-module form
+    (``export default`` / ``mount(container, host)`` / ``host.confirm(`` /
+    ``host.cancel(``). Every one of those named a thing the contract retired, so
+    each is replaced by the thing that now does its job: the D-011 envelope and
+    the token check instead of ``mount``'s two arguments, the ``emit`` of a
+    ``scistudio.output`` call instead of ``host.confirm``, and the host's own
+    Confirm/Cancel chrome (D-018) instead of ``host.cancel``. FR-034's
+    self-containment is checked here too, which the module form never had to be.
+    """
+    panel_dir = ASSETS / "panels" / "review_labels"
+    source = (panel_dir / "index.html").read_text(encoding="utf-8")
+    # Comments stripped before the self-containment scan, exactly as
+    # ``tests/panels/test_builtin_panels.py`` does it: a document that
+    # *documents* the rule it obeys must not fail on the rule it describes.
+    # What is measured is what the document loads, and a comment loads nothing.
+    executable = re.sub(r"<!--.*?-->", "", source, flags=re.DOTALL)
+    executable = re.sub(r"/\*.*?\*/", "", executable, flags=re.DOTALL)
+    executable = re.sub(r"^[ \t]*//.*$", "", executable, flags=re.MULTILINE)
+
+    # FR-034 / A-004: markup, styles and script in one file.
+    assert "<style>" in source and "<script>" in source and "<body>" in source
+    assert re.search(r"<script\b[^>]*\bsrc\b", executable) is None
+    assert re.search(r"<link\b[^>]*stylesheet", executable, flags=re.IGNORECASE) is None
+    assert re.search(r"@import\b", executable, flags=re.IGNORECASE) is None
+    assert re.search(r"\bimport\s*\(", executable) is None
+    assert re.search(r"^\s*import\s+[\w{*]", executable, flags=re.MULTILINE) is None
+    assert re.findall(r"\bhttps?://(?!www\.w3\.org/)", executable) == [], "no CDN, nothing off this origin"
+    for banned in ("require(", "fetch(", "XMLHttpRequest", "WebSocket"):
+        assert banned not in executable, f"the panel must stay dependency-free and offline; found {banned!r}"
+
+    # D-011: the envelope, the one API version, and the per-mount token check.
+    assert "var PANEL_MESSAGE_MARKER = 1;" in executable
+    # #2229: the constant, not the value spelled again. FR-034 forbids the
+    # shared import that would let this document read it, so this assertion is
+    # the whole coupling between the twelfth panel document and SC-001's one
+    # constant -- a literal here would have survived a version bump green.
+    assert f'var PANEL_API_VERSION = "{PANEL_API_VERSION}";' in executable
+    assert "if (data.scistudio_panel !== PANEL_MESSAGE_MARKER) return;" in executable
+    assert "if (data.token !== token) return;" in executable
+    # D-017: it answers `init` with `ready` and honours `teardown`.
+    assert 'post("ready", { api_version: PANEL_API_VERSION });' in executable
+    assert 'case "teardown":' in executable
+
+    # FR-012 / FR-050: the one outbound path is `emit`, and what it emits is the
+    # decision `ReviewLabelsBlock.run` reads back out of `interactive_response`.
+    assert 'post("emit", { code: code });' in executable
+    assert '"removed = "' in executable
+    assert '"scistudio.output(removed=removed)"' in executable
+    # D-018: Confirm and Cancel are host chrome, so the panel re-emits its whole
+    # decision rather than emitting what moved. It must say so, and it must not
+    # have grown a Confirm of its own.
+    assert "Confirm and Cancel are host chrome" in source
+    assert "host.confirm(" not in executable and "host.cancel(" not in executable
 
 
 def test_the_prompt_payload_is_window_sized_and_complete(assets: dict[str, ModuleType]) -> None:
@@ -915,7 +1027,7 @@ def test_an_unreviewed_run_keeps_every_label(assets: dict[str, ModuleType]) -> N
 
 
 # ---------------------------------------------------------------------------
-# The previewer
+# The panel
 # ---------------------------------------------------------------------------
 
 
@@ -939,7 +1051,7 @@ class _StubRequest:
 def _png_chunks(png: bytes) -> list[tuple[bytes, bytes]]:
     """Every chunk of a PNG as ``(tag, body)``, in file order.
 
-    Written out rather than pulled from a library because the previewer encodes
+    Written out rather than pulled from a library because the panel encodes
     its PNG by hand, and a test that decoded with Pillow would be checking that
     Pillow is forgiving rather than that the bytes are right.
     """
@@ -967,14 +1079,14 @@ def _png_indices(width: int, height: int, idat: bytes) -> np.ndarray:
     return np.array(rows, dtype=np.uint8)
 
 
-def test_the_previewer_claims_image_and_paints_the_pixels_in_color(assets: dict[str, ModuleType]) -> None:
+def test_the_panel_claims_image_and_paints_the_pixels_in_color(assets: dict[str, ModuleType]) -> None:
     """The payoff beat shows a fluorescence image, so the PNG must actually be one.
 
-    "There they are!" is the line that opens the step after this previewer
+    "There they are!" is the line that opens the step after this panel
     lands, and it is only earned if the reader is looking at something that
     reads as cells at a glance. A grayscale ramp would satisfy "renders a real
     PNG" and would still leave the reader squinting at a gray smear, so this
-    test checks the encoding the previewer chose and what that encoding does to
+    test checks the encoding the panel chose and what that encoding does to
     the two pixels that matter.
 
     Indexed color (IHDR color type 3) is the choice: one byte per pixel plus a
@@ -988,7 +1100,7 @@ def test_the_previewer_claims_image_and_paints_the_pixels_in_color(assets: dict[
     """
     import base64
 
-    from scistudio.previewers.models import EnvelopeKind
+    from scistudio.panels.models import EnvelopeKind
 
     specs = assets["preview"].get_previewers()
     assert len(specs) == 1 and specs[0].target_type == "Image"
@@ -1043,24 +1155,24 @@ def test_the_previewer_claims_image_and_paints_the_pixels_in_color(assets: dict[
     assert len(green_forward) > 64, "a fluorescence LUT, not a gray ramp: green leads over most of the range"
 
 
-def test_the_previewer_reports_failure_as_an_envelope(assets: dict[str, ModuleType]) -> None:
-    from scistudio.previewers.models import EnvelopeKind
+def test_the_panel_reports_failure_as_an_envelope(assets: dict[str, ModuleType]) -> None:
+    from scistudio.panels.models import EnvelopeKind
 
     envelope = assets["preview"].render_image(_StubRequest(None))
     assert envelope.kind is EnvelopeKind.ERROR
     assert envelope.error is not None
 
 
-def test_the_previewer_derives_its_tier_from_where_it_sits(tmp_path: Path) -> None:
+def test_the_panel_derives_its_tier_from_where_it_sits(tmp_path: Path) -> None:
     """The same bytes answer PROJECT beside a project.yaml and USER in a library.
 
     "Move to My Library" relocates the file verbatim, and the drop-in scans
     refuse a spec whose declared tier disagrees with the directory being
-    scanned — so a previewer that hard-coded either tier would break on one
+    scanned — so a panel that hard-coded either tier would break on one
     side of the move. Deriving the tier from the location is what makes the
     promotion the tutorial teaches actually work.
     """
-    from scistudio.previewers.models import OwnerKind
+    from scistudio.panels.models import OwnerKind
 
     source = (ASSETS / "code" / "image_preview.py").read_text(encoding="utf-8")
 
@@ -1152,7 +1264,7 @@ def _rescan(product: Any, written: Any) -> None:
 
     blocks = set(product.block_types)
     types = set(product.data_types)
-    previewers = set(product.previewer_types)
+    panels = set(product.panel_types)
     for raw in written:
         path = Path(raw)
         if path.suffix != ".py":
@@ -1165,10 +1277,10 @@ def _rescan(product: Any, written: Any) -> None:
         elif path.parent.name == "previewers":
             match = re.search(r'target_type="([^"]+)"', source)
             if match:
-                previewers.add(match.group(1))
+                panels.add(match.group(1))
     product.block_types = frozenset(blocks)
     product.data_types = frozenset(types)
-    product.previewer_types = frozenset(previewers)
+    product.panel_types = frozenset(panels)
 
 
 def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1177,7 +1289,7 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     The runtime, session store, and progress store are the real ones; the
     product-state port is stood in exactly as the API layer stands it in. The
     walk asserts what the level exists for: the wall is met before the loader
-    exists, the number table is met before the previewer exists, the judged
+    exists, the number table is met before the panel exists, the judged
     conditions demand the reader's own clicks and runs, and the promotions land
     before the tutorial completes — without firing the work-import milestone,
     which belongs to tutorial 4.
@@ -1368,7 +1480,7 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     _run(succeeded=True)
     assert _live_step(runtime.evaluate_active()).satisfied is True
 
-    # Why the micrograph came out as numbers, and the previewer that fixes it,
+    # Why the micrograph came out as numbers, and the panel that fixes it,
     # are one step: the explanation carries the button that writes the file.
     # The instruction to open a file is judged; the verdict on what it shows is
     # the step after it.
@@ -1380,7 +1492,7 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     assert _live_step(runtime.active_session()).satisfied is False
     view = runtime.trigger_active()
     assert (project / "previewers" / "image_preview.py").is_file()
-    assert "Image" in product.previewer_types, "the previewers/ re-scan registered the previewer live (#2086)"
+    assert "Image" in product.panel_types, "the previewers/ re-scan registered the panel live (#2086)"
     assert _live_step(view).satisfied is True, "registration is all this step asks for"
 
     _advance("look-again")
@@ -1459,7 +1571,20 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     _advance("blocks-can-be-interactive")
     view = runtime.trigger_active()
     assert (project / "blocks" / "review_labels.py").is_file()
-    assert (project / "blocks" / "review_labels_panel" / "panel.mjs").is_file(), "the panel traveled beside the block"
+    # The panel traveled with the block. Asserted through the discovery walk
+    # rather than as a file that exists, because "the file is on disk" is
+    # precisely what stayed true of the retired ADR-051 module form after the
+    # loader that mounted it was deleted. What the block actually needs is the
+    # id its manifest names resolving, in the tier the reader's project owns, to
+    # a panel directory whose entry document is there to serve.
+    from scistudio.core.panels import PanelCapability, PanelTier
+    from scistudio.panels.discovery import discover_panels
+
+    discovered = discover_panels(project_roots=[project / "panels"]).get("tutorial.review_labels")
+    assert discovered is not None, "the panel the block opens must be discoverable in the project"
+    assert discovered.tier is PanelTier.PROJECT
+    assert discovered.manifest.capability is PanelCapability.PRODUCING
+    assert discovered.entry_path.name == "index.html" and discovered.entry_path.is_file()
     assert _live_step(view).satisfied is True, "this step judges the file its own trigger writes"
 
     # The second wiring write, and the same rule: the review node is on the
@@ -1503,7 +1628,7 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     product.library = product.library | {("block", "segment_cells")}
     assert _live_step(runtime.evaluate_active()).satisfied is True
 
-    # The previewer promotion judges nothing (TODO(#2135) on the step): the
+    # The panel promotion judges nothing (TODO(#2135) on the step): the
     # control it asks for records a scope rather than moving the file, so the
     # reader continues by hand and the walk does too.
     _advance("save-the-previewer")

@@ -16,7 +16,7 @@ Payload shape                 class or callable      callable -> sequence    cal
 Adding a fourth group to three that disagree would make the disagreement the
 convention, so this module states the contract once and all four groups use it.
 Each registry keeps its own *registration* logic — what a block spec is, what a
-``Meta`` must declare, which previewer id wins a duplicate — and keeps none of
+``Meta`` must declare, which panel id wins a duplicate — and keeps none of
 its own enumeration, error containment, or diagnostic reporting (FR-025).
 
 **The live group set (FR-034).** :data:`LIVE_ENTRY_POINT_GROUPS` is the one
@@ -71,31 +71,40 @@ that gives way. Everything else — enumeration, error containment (FR-026,
 FR-027), diagnostics (FR-028), and import-root preparation (FR-030) — applies
 to ``scistudio.tutorials`` unchanged.
 
+``scistudio.panels`` (ADR-054 spec 1 FR-045) is the second member of that
+exemption, and it is there for its own reason rather than by analogy. A panel is
+a directory holding a declaration and a self-contained document, and the spec
+states that a package MUST NOT need to construct a Python object to register
+one — because the people and agents who write those files would otherwise be
+put behind an import. Its value therefore names a directory of panel
+directories, resolved by the same metadata-only path. See
+:data:`METADATA_ONLY_GROUPS`.
+
 **Import roots (FR-030).** :func:`prepared_plugin_import_roots` activates the
 user-installed plugin import roots for the duration of a scan. This used to be
-done by the previewer registry alone, which made the same installed package
-resolve for previewers and fail for blocks: the plugin's ``site-packages``
+done by the panel registry alone, which made the same installed package
+resolve for panels and fail for blocks: the plugin's ``site-packages``
 carries its ``dist-info``, so with the roots off ``sys.path`` the canonical
 entry-point path finds nothing (#1752). If the preparation is needed for one
 group it is needed for all of them, so it is applied here rather than per
 registry.
 
-**The one permitted asymmetry (FR-032).** The previewer registry also scans the
+**The one permitted asymmetry (FR-032).** The panel registry also scans the
 ``scistudio.blocks`` and ``scistudio.types`` groups for a conventional
 ``get_previewers()`` when a package declares no ``scistudio.previewers`` group.
 That fallback stays where it lives, in
-:mod:`scistudio.previewers.registry`, with its reason recorded there: it
-compensates for installed metadata that predates the previewer group, which is
+:mod:`scistudio.panels.registry`, with its reason recorded there: it
+compensates for installed metadata that predates the panel group, which is
 a history rather than a design. It is not a pattern to copy and is not extended
 to ``scistudio.tutorials``.
 
 This module lives under ``core/`` for the reasons ``core/dropins.py`` does: it
-is imported by the block, type, and previewer registries and must sit where all
+is imported by the block, type, and panel registries and must sit where all
 three reach it without a cycle, and the import-linter contract forbidding
 ``scistudio.core`` from importing ``blocks``/``engine``/``api``/``ai``/
 ``workflow`` is satisfied because it needs none of them. It deliberately knows
 nothing about ``PackageInfo``, ``BlockSpec``, ``TypeSpec``, or
-``PreviewerSpec``: interpreting a payload into registrations is each registry's
+``PanelSpec``: interpreting a payload into registrations is each registry's
 own job.
 """
 
@@ -117,6 +126,7 @@ BLOCKS_ENTRY_POINT_GROUP = "scistudio.blocks"
 TYPES_ENTRY_POINT_GROUP = "scistudio.types"
 PREVIEWERS_ENTRY_POINT_GROUP = "scistudio.previewers"
 TUTORIALS_ENTRY_POINT_GROUP = "scistudio.tutorials"
+PANELS_ENTRY_POINT_GROUP = "scistudio.panels"
 
 #: Every live ``scistudio.*`` entry-point group (FR-034).
 #:
@@ -135,6 +145,7 @@ LIVE_ENTRY_POINT_GROUPS: tuple[str, ...] = (
     TYPES_ENTRY_POINT_GROUP,
     PREVIEWERS_ENTRY_POINT_GROUP,
     TUTORIALS_ENTRY_POINT_GROUP,
+    PANELS_ENTRY_POINT_GROUP,
 )
 
 #: Groups whose entry point value may name a class directly (FR-029).
@@ -147,7 +158,19 @@ BARE_CLASS_GROUPS: frozenset[str] = frozenset({BLOCKS_ENTRY_POINT_GROUP})
 #:
 #: Resolved through :func:`resolve_entry_point_directory` from distribution
 #: metadata, never by importing the value's module.
-METADATA_ONLY_GROUPS: frozenset[str] = frozenset({TUTORIALS_ENTRY_POINT_GROUP})
+#:
+#: Two members, and each has its own reason rather than a shared taste for
+#: directories. ``scistudio.tutorials`` cannot satisfy the callable contract:
+#: implementing it means importing the entry point's target, and ADR-053 FR-018
+#: forbids importing a package module while listing the catalogue, which happens
+#: every time the Learning Center opens. ``scistudio.panels`` must not satisfy
+#: it: ADR-054 spec 1 FR-045 states that a package MUST NOT need to construct a
+#: Python object to register a panel, because a panel is a directory holding a
+#: declaration and a document (FR-002) and requiring Python to announce one
+#: would put the agent and the person who write those files behind an import.
+#: Both resolve to a directory; neither is an invitation for a third group to
+#: join without an argument of its own.
+METADATA_ONLY_GROUPS: frozenset[str] = frozenset({TUTORIALS_ENTRY_POINT_GROUP, PANELS_ENTRY_POINT_GROUP})
 
 STAGE_ENUMERATE = "enumerate"
 STAGE_LOAD = "load"
@@ -177,7 +200,7 @@ class EntryPointDiagnostic:
     def __str__(self) -> str:
         """Render as the one-line string the registries' surfaces carry.
 
-        The registries expose ``list[str]`` because the previewer registry
+        The registries expose ``list[str]`` because the panel registry
         already did and other code reads that shape; this keeps all three
         equally surfaceable without changing it.
         """
@@ -294,7 +317,7 @@ def resolve_payload(
     The contract is one callable returning the contributed objects, so *loaded*
     is invoked and its return value handed back untouched. What that value is
     allowed to contain — a list of block classes, a ``(PackageInfo, list)``
-    pair, a list of previewer specs — is each registry's own business and is
+    pair, a list of panel specs — is each registry's own business and is
     deliberately not decided here.
 
     ``allow_bare_class=True`` accepts a class as the payload itself instead of
@@ -365,7 +388,7 @@ def plugin_import_roots() -> tuple[Path, ...]:
 def prepared_plugin_import_roots() -> Iterator[None]:
     """Activate the plugin import roots for the duration of a scan (FR-030).
 
-    Wrap every entry-point scan in this, not only the previewer one. A plugin's
+    Wrap every entry-point scan in this, not only the panel one. A plugin's
     ``site-packages`` carries the ``dist-info`` that makes its entry points
     visible at all, so a group scanned without the roots active reports the
     package as absent rather than as broken.
@@ -483,6 +506,7 @@ __all__ = [
     "BLOCKS_ENTRY_POINT_GROUP",
     "LIVE_ENTRY_POINT_GROUPS",
     "METADATA_ONLY_GROUPS",
+    "PANELS_ENTRY_POINT_GROUP",
     "PREVIEWERS_ENTRY_POINT_GROUP",
     "STAGE_ENUMERATE",
     "STAGE_INVOKE",

@@ -356,7 +356,7 @@ def _scan_tier2(registry: BlockRegistry) -> None:
     ADR-053 FR-025: enumeration, per-entry-point error containment, payload
     shape, diagnostics, and ``sys.path`` preparation are
     :mod:`scistudio.core.entry_points`'s answer, shared with the type and
-    previewer registries. What stays here is registration: what a
+    panel registries. What stays here is registration: what a
     :class:`PackageInfo` means, which classes are eligible, and what a
     ``BlockSpec`` carries. ``allow_bare_class=True`` below is the FR-029
     compatibility affordance for this group alone; the reason it exists and
@@ -365,9 +365,9 @@ def _scan_tier2(registry: BlockRegistry) -> None:
     """
     diagnostics: list[EntryPointDiagnostic] = []
     # FR-030: the plugin import roots carry the ``dist-info`` that makes a
-    # user-installed package's entry points visible at all. The previewer
+    # user-installed package's entry points visible at all. The panel
     # registry has always activated them; scanning this group without them is
-    # what let the same package resolve for previewers and vanish for blocks.
+    # what let the same package resolve for panels and vanish for blocks.
     with prepared_plugin_import_roots():
         block_eps = enumerate_group(BLOCKS_ENTRY_POINT_GROUP, diagnostics=diagnostics)
         for ep in block_eps:

@@ -5,7 +5,7 @@ import type { PreviewTarget } from "../types/api";
 import type { AppStore, PreviewSlice } from "./types";
 
 export interface PreviewCacheKeyOptions {
-  previewerId?: string | null;
+  panelId?: string | null;
   sessionId?: string | null;
   dataVersion?: string | number | null;
 }
@@ -28,7 +28,7 @@ function stablePreviewCacheValue(value: unknown): string {
 /**
  * ADR-048 SPEC 1 cache key construction (FR-021).
  *
- * Keys the session-envelope cache by data/collection reference, previewer id
+ * Keys the session-envelope cache by data/collection reference, panel id
  * (when known), session id (when known), every public query parameter that
  * can change the rendered envelope, and the data version when the caller can
  * provide one. Private `_`-prefixed enrichment keys (`_storage`,
@@ -46,7 +46,7 @@ export function buildPreviewCacheKey(
   return [
     `ref=${target.ref}`,
     `kind=${target.kind}`,
-    opts?.previewerId ? `previewer=${opts.previewerId}` : "",
+    opts?.panelId ? `panel=${opts.panelId}` : "",
     opts?.sessionId ? `session=${opts.sessionId}` : "",
     opts?.dataVersion !== undefined && opts.dataVersion !== null
       ? `version=${opts.dataVersion}`

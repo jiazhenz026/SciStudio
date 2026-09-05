@@ -5,7 +5,7 @@ Two entry points create projects — ``ApiRuntime.create_project`` (the GUI's
 they each carried their own hand-written list. They had already drifted: the
 CLI omitted ``data/processed`` while claiming in a comment to be "Symmetric
 with ``api/runtime.py::create_project``", and neither created the drop-in
-directories for previewers or tutorials even though both tiers are discovered
+directories for panels or tutorials even though both tiers are discovered
 from a project (:mod:`scistudio.core.dropins`).
 
 The drop-in directory names are imported from :mod:`scistudio.core.dropins`

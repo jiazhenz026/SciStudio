@@ -111,7 +111,7 @@ RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 _TARGET_DIR_NAMES = {
     "blocks": BLOCKS_DIR_NAME,
     "types": TYPES_DIR_NAME,
-    # Learning Center FR-070 / #2086: the previewer tier promotes through the
+    # Learning Center FR-070 / #2086: the panel tier promotes through the
     # same door, and the same library-root swap, as blocks and types.
     "previewers": PREVIEWERS_DIR_NAME,
 }
@@ -514,7 +514,7 @@ async def _announce_reload(runtime: ApiRuntime, target: Path) -> None:
     Refreshing is only half of it. Every other caller that rebuilds the
     registries — a save under ``blocks/`` or ``types/``, a branch switch, a
     tutorial step's write — follows it with this event, and the frontend hangs
-    real behaviour off it: the block palette and the type and previewer
+    real behaviour off it: the block palette and the type and panel
     catalogues re-read themselves, and the Learning Center re-judges the
     conditions that turn on what the registries hold.
 

@@ -1,9 +1,9 @@
 """API-side helpers for image/type inference on catalog registration.
 
-Historically this module also held previewer-facing image helpers; those moved
+Historically this module also held panel-facing image helpers; those moved
 up into the API layer. The API-specific ``_infer_type_name_from_ref`` stays
 here — it infers a recorded type name from API storage metadata and has no
-previewer consumer.
+panel consumer.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ def _specific_type_for_extension(registry: Any, extension: str) -> str | None:
     #2112: a file registered straight off disk (the data-tree preview tab, an
     upload) carries no ``type_chain``, so the extension heuristic below is all
     the router has to go on. Hardcoding it to core types recorded ``.tif`` as
-    :class:`Artifact` and routed the generic artifact previewer even with the
+    :class:`Artifact` and routed the generic artifact panel even with the
     imaging package installed and declaring ``Image`` for ``.tif``.
 
     The ADR-043 load capability table already states which type each extension

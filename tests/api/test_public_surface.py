@@ -58,8 +58,8 @@ CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.blocks.io",
     "scistudio.blocks.app",
     "scistudio.blocks.code",
-    "scistudio.previewers.models",
-    "scistudio.previewers.data_access",
+    "scistudio.panels.models",
+    "scistudio.panels.data_access",
     "scistudio.tutorials",
 )
 
@@ -84,10 +84,10 @@ NON_MARKABLE_PUBLIC_SYMBOLS: frozenset[tuple[str, str]] = frozenset(
         ("scistudio.blocks.io", "CapabilityDirection"),
         ("scistudio.blocks.io", "MetadataFidelityLevel"),
         ("scistudio.blocks.code", "InterpreterFamily"),
-        ("scistudio.previewers.models", "PREVIEWER_API_VERSION"),
-        ("scistudio.previewers.models", "PreviewProvider"),
-        ("scistudio.previewers.models", "PreviewResourceProvider"),
-        ("scistudio.previewers.models", "PreviewerSpecList"),
+        ("scistudio.panels.models", "PANEL_API_VERSION"),
+        ("scistudio.panels.models", "PreviewProvider"),
+        ("scistudio.panels.models", "PreviewResourceProvider"),
+        ("scistudio.panels.models", "PanelSpecList"),
         ("scistudio.tutorials", "Action"),
         ("scistudio.tutorials", "VOCABULARY"),
     }

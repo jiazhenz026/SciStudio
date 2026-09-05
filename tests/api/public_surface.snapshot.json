@@ -443,7 +443,7 @@
       "since": "0.3.1"
     }
   },
-  "scistudio.previewers.models": {
+  "scistudio.panels.models": {
     "EnvelopeKind": {
       "tier": "provisional",
       "since": "0.3.1"
@@ -456,7 +456,7 @@
       "tier": "provisional",
       "since": "0.3.1"
     },
-    "PREVIEWER_API_VERSION": {
+    "PANEL_API_VERSION": {
       "tier": "provisional",
       "since": "0.3.1"
     },
@@ -508,15 +508,15 @@
       "tier": "provisional",
       "since": "0.3.1"
     },
-    "PreviewerEntryPoint": {
+    "PanelEntryPoint": {
       "tier": "provisional",
       "since": "0.3.1"
     },
-    "PreviewerSpec": {
+    "PanelSpec": {
       "tier": "provisional",
       "since": "0.3.1"
     },
-    "PreviewerSpecList": {
+    "PanelSpecList": {
       "tier": "provisional",
       "since": "0.3.1"
     },
@@ -529,7 +529,7 @@
       "since": "0.3.1"
     }
   },
-  "scistudio.previewers.data_access": {
+  "scistudio.panels.data_access": {
     "ArrayPlane": {
       "tier": "provisional",
       "since": "0.3.1"

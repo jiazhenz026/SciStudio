@@ -4,7 +4,7 @@ Two commands create a project workspace -- ``ApiRuntime.create_project`` behind
 the GUI's "New project", and ``scistudio init`` on the CLI -- and they each used
 to carry a hand-written directory list. The lists had drifted: the CLI omitted
 ``data/processed`` while a comment above it claimed symmetry with the API, and
-neither created the previewer or tutorial drop-in directories even though both
+neither created the panel or tutorial drop-in directories even though both
 tiers are discovered from a project.
 
 These tests pin the shared definition and, more importantly, pin the *agreement*
@@ -47,7 +47,7 @@ def test_dropin_dirs_are_named_by_the_module_that_scans_them() -> None:
 
 
 def test_every_dropin_tier_has_a_scaffolded_directory() -> None:
-    """Previewers and tutorials were the two missing before #2095."""
+    """Panels and tutorials were the two missing before #2095."""
     for name in (BLOCKS_DIR_NAME, TYPES_DIR_NAME, PREVIEWERS_DIR_NAME, TUTORIALS_DIR_NAME):
         assert name in PROJECT_SUBDIRS
 

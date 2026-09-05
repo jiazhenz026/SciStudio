@@ -45,7 +45,7 @@ def test_public_symbols_importable() -> None:
         # raster pipeline (``_downsample_matrix`` / ``_image_data_uri_from_matrix``
         # / ``_load_preview_matrix``) moved down into ``scistudio.previewers``
         # (ADR-048 / #1598) and are deliberately NO LONGER part of the api.runtime
-        # surface — see tests/previewers/test_table_cache_surface.py.
+        # surface — see tests/panels/test_table_cache_surface.py.
         "_infer_type_name_from_ref",
         "_now_iso",
         "_rmtree_force",

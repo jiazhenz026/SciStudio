@@ -36,7 +36,7 @@ governs:
     - scistudio.blocks.base.state.ExecutionMode
     - scistudio.blocks.base.interactive.InteractiveMixin
     - scistudio.blocks.base.interactive.InteractivePrompt
-    - scistudio.blocks.base.interactive.PanelManifest
+    - scistudio.core.panels.PanelManifest
     - scistudio.engine.runners.local.LocalRunner
     - scistudio.engine.runners.worker.main
   entry_points: []

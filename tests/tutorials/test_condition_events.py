@@ -118,7 +118,7 @@ _TERMS: dict[str, tuple[dict[str, Any], Callable[[StubProductState], None]]] = {
     ),
     "previewer_registered": (
         {"previewer_registered": {"type_name": "CellTable"}},
-        lambda state: setattr(state, "previewer_types", frozenset({"CellTable"})),
+        lambda state: setattr(state, "panel_types", frozenset({"CellTable"})),
     ),
     "library_contains": (
         {"library_contains": {"kind": "type", "name": "CellTable"}},

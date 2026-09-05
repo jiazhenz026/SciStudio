@@ -35,8 +35,8 @@ from scistudio.api.schemas import (
 )
 from scistudio.blocks.base.ports import InputPort, OutputPort, validate_connection
 from scistudio.blocks.io._config_enrichment import enrich_io_config_schema, io_capable_type_names
-from scistudio.previewers.assets import resolve_asset
-from scistudio.previewers.models import MissingBundleError
+from scistudio.panels.assets import panel_asset_security_headers, resolve_asset
+from scistudio.panels.models import MissingBundleError
 
 logger = logging.getLogger(__name__)
 
@@ -504,6 +504,15 @@ async def serve_panel_asset(
     path-confined under the root with the same suffix allowlist ADR-048 uses, so
     the server never leaks arbitrary filesystem reads. Core panels are bundled
     (no ``asset_root``) and resolve from the frontend registry, not this route.
+
+    ADR-054 spec 1 FR-022 keeps this route serving its existing clients for the
+    duration of the migration. It is not a second implementation: ``resolve_asset``
+    now defers to :func:`scistudio.panels.assets.resolve_confined_asset`, the one
+    confinement check the merged route ``GET /api/panels/assets/...`` also uses
+    (FR-021, SC-008). Only the root differs — a manifest's ``asset_root`` here, a
+    discovered panel's own directory there. This route answers same-origin only;
+    the cross-origin headers a framed panel needs belong to the merged route and
+    to nothing else (A-008).
     """
     asset_root: str | None = None
     for spec in registry.all_specs().values():
@@ -523,7 +532,15 @@ async def serve_panel_asset(
         )
     except MissingBundleError as exc:
         raise HTTPException(status_code=404, detail=exc.message) from exc
-    return FileResponse(path=Path(served.path), media_type=served.media_type)
+    # #2229: the same boundary the merged route carries. This route answers
+    # same-origin only, so it gains no cross-origin grant -- but it serves the
+    # same `text/html` documents, and a boundary that held on one of the three
+    # routes would be one a document reaches around by being asked for here.
+    return FileResponse(
+        path=Path(served.path),
+        media_type=served.media_type,
+        headers=panel_asset_security_headers(served.media_type),
+    )
 
 
 def _resolve_effective_port(

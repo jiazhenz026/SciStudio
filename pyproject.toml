@@ -62,7 +62,7 @@ dev = [
     "setuptools>=68.0",
     "build>=1.2",
     # The in-repo test fixture package (tests/fixtures/scistudio-blocks-fixture)
-    # performs minimal real TIFF round-trips so core IO/previewer machinery
+    # performs minimal real TIFF round-trips so core IO/panel machinery
     # tests can exercise a package-owned capability. Keep this test-only helper
     # out of the core runtime dependency set.
     "tifffile>=2024.8",
@@ -160,6 +160,14 @@ scistudio = [
     # the SPA bundle only. Same failure class as #824 and #2032.
     "tutorials/schema/*.json",
     "tutorials/core/**/*",
+    # ADR-054 spec 1 FR-002/FR-033: the eleven built-in panels are directories
+    # of data files (``panel.json`` + a self-contained ``index.html``), not
+    # importable packages — a panel directory is named for its panel id, which
+    # carries dots (``core.plot.basic``) precisely because a panel id is not a
+    # module path. ``packages.find`` cannot see them, so without this pattern an
+    # installed wheel discovers no built-in panel at all and every preview
+    # degrades to a load failure. Same failure class as #824 and #2032.
+    "panels/builtin/**/*",
 ]
 
 [tool.ruff]
@@ -407,6 +415,10 @@ forbidden_modules = [
     "scistudio.workflow",
     "scistudio.ai",
     "scistudio.api",
+    "scistudio.panels",
+    # ADR-054 spec 1 T-001: the retired ``scistudio.previewers`` path survives as
+    # a re-export shim (FR-045); it stays named here so the contract cannot be
+    # satisfied by importing the old alias instead of the renamed subsystem.
     "scistudio.previewers",
 ]
 # #1729: ``utils.axis_iter`` (ADR-027 D3 ``iterate_over_axes``) is documented
@@ -440,9 +452,11 @@ source_modules = ["scistudio.ai"]
 forbidden_modules = ["scistudio.api"]
 
 [[tool.importlinter.contracts]]
-name = "Previewers must not depend on engine, blocks, workflow, ai, or api"
+name = "Panels must not depend on engine, blocks, workflow, ai, or api"
 type = "forbidden"
-source_modules = ["scistudio.previewers"]
+# The second entry is the ADR-054 spec 1 re-export shim for the retired
+# ``scistudio.previewers`` path (FR-045); both are held to the same rule.
+source_modules = ["scistudio.panels", "scistudio.previewers"]
 forbidden_modules = [
     "scistudio.engine",
     "scistudio.blocks",

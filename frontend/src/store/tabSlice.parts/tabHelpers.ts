@@ -89,6 +89,9 @@ export function languageForPath(filePath: string): FileTab["language"] {
   if (lower.endsWith(".yaml") || lower.endsWith(".yml")) return "yaml";
   if (lower.endsWith(".json")) return "json";
   if (lower.endsWith(".md")) return "markdown";
+  // ADR-054 FR-002 — a panel's entry document is HTML, which is the first file
+  // type a person edits in this product that is neither code nor config.
+  if (lower.endsWith(".html") || lower.endsWith(".htm")) return "html";
   return "text";
 }
 

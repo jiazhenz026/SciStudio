@@ -2,7 +2,7 @@
 
 Spec: ADR-052 §3.1 ("Core internal data flow must not use the ergonomic
 accessors. Loaders, savers, auto-flush, worker serialization/reconstruction,
-checkpointing, the scheduler/engine, and previewers' bounded reads operate on
+checkpointing, the scheduler/engine, and panels' bounded reads operate on
 the canonical form via to_memory() only") and §8 (the audit), with the Excel
 ``.xlsx`` reader/writer (#1810, PR #1815) as the SINGLE sanctioned pandas
 exception.
@@ -54,8 +54,8 @@ _DATAFLOW_TARGETS = (
     "blocks/io/io_block.py",  # IO dispatch auto-flush safety net
     "blocks/io/loaders",  # loaders (xlsx reader sanctioned within)
     "blocks/io/savers",  # savers (xlsx writer sanctioned within)
-    "previewers/data_access.py",  # previewer bounded reads
-    "previewers/session.py",
+    "panels/data_access.py",  # panel bounded reads
+    "panels/session.py",
 )
 
 
