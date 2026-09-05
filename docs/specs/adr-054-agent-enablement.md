@@ -58,6 +58,7 @@ governs:
     - src/scistudio/agent_provisioning/templates/claude_agents_md.md
     - src/scistudio/_skills/scistudio/SKILL.md
     - src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md
+    - src/scistudio/_skills/scistudio/scistudio-write-panel/**
     - src/scistudio/_agent_reference/README.md
     - src/scistudio/_agent_reference/block-contract.md
     - src/scistudio/_agent_reference/public-api.md
@@ -79,7 +80,6 @@ planned_governs:
   files:
     - src/scistudio/ai/agent/mcp/tools_panels/**
     - src/scistudio/ai/agent/mcp/tools_explore/**
-    - src/scistudio/_skills/scistudio/scistudio-write-panel/**
     - src/scistudio/_agent_reference/panel-contract.md
     - frontend/src/explore/**
     - tests/ai/test_mcp_tools_panels.py

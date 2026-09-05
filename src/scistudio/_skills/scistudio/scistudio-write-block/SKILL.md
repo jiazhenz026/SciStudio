@@ -77,9 +77,9 @@ genuinely helps the user. See `block-contract.md` for how to author each.
   nobody can check, while a notebook lets the user watch each cell before any of
   it becomes a block. Once the computation *is* understood, write the block
   directly — a packaged notebook is not the better default, it is the answer to
-  not knowing yet. See `block-contract.md` for the packaged form and
-  `.scistudio/agent-reference/` for the cell conventions the session tools point
-  at.
+  not knowing yet. Call `mcp__scistudio__list_block_examples(category="notebook")`
+  for a worked one: the notebook a person wrote, the declaration packaging
+  generated from it, and the cell conventions that make the two agree.
 
 ### When the user wants a window, not a step
 

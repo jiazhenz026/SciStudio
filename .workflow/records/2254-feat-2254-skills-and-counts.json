@@ -297,6 +297,106 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:07:47.952474Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e285f2a2e465634e1cf46e38aa5a52d6116f405b42d29bb7734a9584a0901193",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:07:51.359392Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e4d80983b3b456c9e6f813711f46f6e54a21c83fd74bf91b3392eaab70332760",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:07:51.424838Z",
+      "command": "ruff format src/scistudio/_user_guide/examples/notebook-find-peaks/block.py src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/mcp/tools_authoring.py tests/agent_provisioning/test_orchestrate.py tests/agent_provisioning/test_skills.py tests/ai/test_mcp_tools_authoring.py tests/ai/test_tool_catalogs.py tests/api/test_user_docs.py tests/cli/test_install.py tests/packaging/test_wheel_skills.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:fe84016d2848ccef5b59644fba69ecbc10a02e9f46b1c2e9545d5141cc63505f",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-05T08:08:20.908340Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:99146611eba2ef5858679544516120cc1744462f2c22dae044724bff3971ee2f",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:08:20.960708Z",
+      "command": "ruff check src/scistudio/_user_guide/examples/notebook-find-peaks/block.py src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/mcp/tools_authoring.py tests/agent_provisioning/test_orchestrate.py tests/agent_provisioning/test_skills.py tests/ai/test_mcp_tools_authoring.py tests/ai/test_tool_catalogs.py tests/api/test_user_docs.py tests/cli/test_install.py tests/packaging/test_wheel_skills.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a12168d78e320079eb2cc65a34c0bdb4302fb2a96f67acfa843dbf18144f22fa",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-05T08:20:49.909167Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": null,
+      "input_fingerprint": "sha256:5a80d9b23b0b0e7f51476ce384a404e6275fcefd25abcfac906b4ca43bcb83de",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "scope": "repo",
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -359,6 +459,14 @@
       "kind": "na",
       "path": null,
       "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T08:21:59.569315Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-agent-enablement.md",
+      "rationale": null,
       "verified_in_diff": null
     }
   ],
@@ -539,6 +647,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:20:49.986824Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:20:50.001613Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:20:50.016253Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:20:50.030830Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:20:50.045477Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:20:50.060508Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:20:50.075683Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:20:50.089525Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:20:50.104172Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:20:50.118443Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:20:50.140363Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -585,9 +781,9 @@
       "tests/cli/test_install.py",
       "tests/packaging/test_wheel_skills.py"
     ],
-    "diff_fingerprint": "sha256:f0deee9535f76230d7ad642809f39f634eb734a0c34e62e651e3680ddaf87d1a",
+    "diff_fingerprint": "sha256:c0f38944ac963e8f260d9179697992d62f94b0a0b0de1ecf0ef677f66c8c8d8f",
     "head": "HEAD",
-    "head_sha": "b3f41657d",
+    "head_sha": "0561a769a",
     "surfaces": {
       "docs": 3,
       "frontend": 0,
@@ -629,6 +825,16 @@
         "checks.full_audit",
         "checks.lint_format",
         "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-09-05T08:20:50.140390Z",
+      "diff_fingerprint": "sha256:c0f38944ac963e8f260d9179697992d62f94b0a0b0de1ecf0ef677f66c8c8d8f",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.full_audit"
       ]
     }
   ],
@@ -693,6 +899,12 @@
       "at": "2026-09-05T07:58:28.630854Z",
       "pattern": "tests/api/test_user_docs.py",
       "reason": "the user-guide navigation is derived from the shipped docs tree, so adding three worked examples to the corpus moves the published-sidebar pin in tests/api/test_user_docs.py"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:21:59.569294Z",
+      "pattern": "docs/specs/adr-054-agent-enablement.md",
+      "reason": "the audit's doc-drift/closure error demands it: src/scistudio/_skills/scistudio/scistudio-write-panel/** now resolves, so the spec must move that one glob from planned_governs to governs; nothing else in the spec is touched"
     }
   ],
   "session_id": "9947be45-ef32-4978-80fc-0761f47544d2",

@@ -30,6 +30,7 @@ import pytest
 
 from scistudio.ai.agent.mcp import _context, tools_authoring
 from scistudio.blocks.registry import BlockRegistry
+from scistudio.core.panels import read_panel_declaration
 from scistudio.core.types.registry import TypeRegistry
 
 _T = TypeVar("_T")
@@ -107,7 +108,7 @@ def test_list_block_examples_unknown_category_raises(ctx: _StubRuntime) -> None:
 
 
 def test_list_block_examples_returns_the_packaged_notebook(ctx: _StubRuntime) -> None:
-    """FR-027: a packaged-notebook worked example is listed and on disk."""
+    """FR-027: a packaged-notebook worked example is listed, on disk, and real."""
     examples = _run(tools_authoring.list_block_examples(category="notebook"))
     assert examples, "the notebook category must return at least one worked example"
     entry = examples[0]
@@ -115,9 +116,23 @@ def test_list_block_examples_returns_the_packaged_notebook(ctx: _StubRuntime) ->
     assert directory.is_dir(), entry.path
     # The two halves packaging produces: the notebook a person wrote, and the
     # block declaration generated from it.
-    assert list(directory.glob("*.ipynb")), f"{entry.name} carries no notebook"
+    notebooks = list(directory.glob("*.ipynb"))
+    assert notebooks, f"{entry.name} carries no notebook"
     assert (directory / "block.py").is_file(), f"{entry.name} carries no generated declaration"
     assert (directory / "README.md").is_file()
+
+    # Every cell must compile. A worked example whose cells do not is worse
+    # than none: the agent copies the shape and inherits the syntax error.
+    notebook = json.loads(notebooks[0].read_text(encoding="utf-8"))
+    for cell in notebook["cells"]:
+        compile("".join(cell["source"]), cell["id"], "exec")
+
+    # And the declaration must name the notebook beside it and the three
+    # helpers' declarations as ports.
+    declaration = (directory / "block.py").read_text(encoding="utf-8")
+    assert notebooks[0].name in declaration, "the declaration does not name its own notebook"
+    assert "PackagedNotebookBlock" in declaration
+    assert "slice_cells" in declaration
 
 
 def test_list_block_examples_returns_displaying_and_producing_panels(ctx: _StubRuntime) -> None:
@@ -129,12 +144,12 @@ def test_list_block_examples_returns_displaying_and_producing_panels(ctx: _StubR
     for entry in examples:
         directory = Path(entry.path)
         assert directory.is_dir(), entry.path
-        manifest_path = directory / "panel.json"
-        assert manifest_path.is_file(), f"{entry.name} carries no panel.json"
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        capabilities.add(manifest["capability"])
+        # Read through the real declaration reader, not json.loads: an example
+        # the panel registry would refuse is not an example.
+        manifest = read_panel_declaration(directory)
+        capabilities.add(manifest.capability.value)
         # A panel is a self-contained document; the declared entry must exist.
-        assert (directory / manifest["entry"]).is_file(), f"{entry.name} entry document missing"
+        assert (directory / manifest.entry).is_file(), f"{entry.name} entry document missing"
         assert (directory / "README.md").is_file()
 
     assert {"displaying", "producing"} <= capabilities, (

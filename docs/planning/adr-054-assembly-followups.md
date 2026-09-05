@@ -142,3 +142,22 @@ truth would make it look maintained without making it run. The live per-group
 assertion landed in `tests/ai/test_tool_catalogs.py` instead, reading the
 `category:` tags the server actually reports. The re-author of the skeleton file
 is already tracked by #1012 / #1539; nothing here changes that.
+
+### F-B4-7 — Nobody owns the packaged-notebook section of `block-contract.md`
+
+ADR-054 §8.2 says "`block-contract.md` gains the packaged-notebook shape beside
+the shapes it already names", but no requirement assigns it. FR-011 covers only
+the *panel* section rewrite, which is S5-B2's; FR-007 puts the packaged-notebook
+shape in the block *skill*, which is here. The reference document itself was
+left alone because it is not in the S5-B4 write set and half of it belongs to
+another agent this wave.
+
+`scistudio-write-block` therefore points the agent at
+`list_block_examples(category="notebook")` for the packaged form rather than at
+a section of `block-contract.md` that may not exist. That is not wrong — the
+worked example carries the notebook, the generated declaration, and the cell
+conventions, and ADR-054 §8.2 says worked patterns are fetched rather than
+pasted. But the reference document is where an agent looks for "what shapes can
+a block be", and a shape that is only in the examples corpus is quieter than the
+others. Worth a section in `block-contract.md` in the spec 6 documentation batch,
+or a line in FR-011's next revision naming an owner for it.

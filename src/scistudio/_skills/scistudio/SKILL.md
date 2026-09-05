@@ -97,10 +97,11 @@ underscore module.
   `mcp__scistudio__get_active_workflow_context` and read the
   **workspace focus**: mode `canvas` with a workflow, mode `explore` with
   a session's notebook, its bound run, and the current cell, or mode
-  `pause` with the paused node and its run. "Drop the rows with missing intensity" means
-  *append and run a cell* when the mode is explore, and *propose a block or
-  a workflow edit* when the mode is canvas. Getting this wrong is not a
-  slow answer; it is a confident change in the wrong place.
+  `pause` with the paused node and its run. "Drop the rows with missing
+  intensity" means *append and run a cell* when the mode is explore, and
+  *propose a block or a workflow edit* when the mode is canvas. Getting
+  this wrong is not a slow answer; it is a confident change in the wrong
+  place.
 
   This rule is **advice, and the tools' refusal is the guarantee**. A
   session tool called with no session focused and none named refuses and
