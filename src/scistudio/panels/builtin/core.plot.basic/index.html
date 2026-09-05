@@ -401,8 +401,8 @@
    * data URI; anything over its bound arrives with only a path, and the panel
    * fetches it from the asset route the host named in `init` (D-008).
    *
-   * Both ways in go through :func:`safeAssetUrl` with the prefixes the element
-   * that will hold the result accepts.
+   * Both ways in go through `safeAssetUrl` with the prefixes the element that
+   * will hold the result accepts.
    */
   function bulkSource(payload, dataPrefixes) {
     var src = safeAssetUrl(payload.src, dataPrefixes);
