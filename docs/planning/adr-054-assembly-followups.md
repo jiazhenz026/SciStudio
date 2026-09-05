@@ -70,6 +70,48 @@ issues the directive permits:
   the same from the PR page.
 - **Suggested title**: N/A — this is an owner action, not an issue.
 
+#### M-004 - The frontend's `ActiveContextResponse` does not declare the `focus` the server echoes
+
+- **Severity**: P3 - not a break; the frontend ignores the extra field and
+  nothing reads it today.
+- **Found by**: manager, checking the spec 4 / spec 5 focus wire field by field.
+- **Evidence**: `frontend/src/lib/api/ai.ts` declares
+  `interface ActiveContextResponse { workflow_id: string | null }`. The server's
+  `ActiveContextResponse` in `src/scistudio/api/routes/ai.py` returns
+  `{workflow_id, focus}`, where `focus` is the **stored** record including the
+  backend-stamped `reported_at`.
+- **Why it is worth recording**: the request half of this wire is exact - the
+  manager diffed `WorkspaceFocusPayload` against `WorkspaceFocusModel` and all
+  seven fields match with nothing extra on either side. The response half is
+  the one place the two descriptions differ, and it differs by omission rather
+  than by disagreement, which is the benign direction. It is listed so that
+  whoever first wants to read the echo back - to show a stale focus in the UI,
+  say - finds the type already waiting rather than discovering the field by
+  accident.
+- **Suggested title**: `chore(frontend): ActiveContextResponse omits the focus the server returns`
+
+#### M-003 - A stale `split_collection` entry point breaks block discovery at startup
+
+- **Severity**: P3 - environment, not code; the server starts anyway.
+- **Found by**: manager, launching the merged backend for the e2e readiness
+  check.
+- **Evidence**: the server logs
+  `ModuleNotFoundError: No module named 'scistudio.blocks.process.builtins.split_collection'`
+  during startup, then reaches `Application startup complete` and serves 135
+  routes. The module exists **neither on this branch nor on `origin/main`** -
+  `git cat-file -e origin/main:src/scistudio/blocks/process/builtins/split_collection.py`
+  reports absent, and `grep -rn split_collection src/ pyproject.toml` finds
+  nothing.
+- **Reading**: a stale entry point in an installed distribution on this
+  machine, left by an earlier install of a version that had the module. It is
+  not an ADR-054 regression and nothing in this dispatch caused it.
+- **Why it is worth recording**: it will keep appearing in every local
+  startup log and in every e2e transcript, where it reads like a defect in
+  whatever work is being tested. The e2e scenario now names it so it is not
+  reported as one. Worth an environment clean-up, or a startup log line that
+  distinguishes a stale registration from a broken import.
+- **Suggested title**: `chore(env): a stale split_collection entry point logs a ModuleNotFoundError at every startup`
+
 #### M-002 - `eslint-config.test.ts` flakes under machine load on a 5s timeout
 
 - **Severity**: P3 - pre-existing, unrelated to ADR-054, and green in isolation.
@@ -127,6 +169,70 @@ _No entries yet._
 ### S4-E1 / S5-E1 / INT-E1 (audits)
 
 _No entries yet._
+
+### fix-codeql
+
+Triage of the 12 CodeQL alerts the assembly branch adds over `main`. Nine were
+fixed on `fix/2229-panel-codeql-findings`; the three entries below are what was
+left, plus what the fix could not reach from this branch.
+
+#### FC-001 — 22 `py/path-injection` alerts in `plot/**`, `desktop/**` and `api/routes/data.py` are inherited from `main`
+
+- **Severity**: P3 — not new, not this branch's, and not a regression. Whether
+  any of them is real is unexamined.
+- **Found by**: fix-codeql.
+- **Evidence**: the code-scanning API says these are already open on the
+  default branch, so the PR check counts them only because the assembly's diff
+  moved their line numbers:
+
+  ```bash
+  gh api "repos/jiazhenz026/SciStudio/code-scanning/alerts?state=open&ref=refs/heads/main" \
+    --jq '.[]|"\(.rule.id) \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'
+  ```
+
+  returns 55 alerts including every `plot/_context.py`, `plot/scaffold.py`,
+  `plot/targets.py`, `desktop/package_manager.py` and
+  `tests/desktop/test_package_manager.py` line the PR annotates.
+  `git diff --quiet origin/main HEAD -- <path>` is clean for all of them, and
+  `api/routes/data.py:506` is `main`'s `data.py:770` after the assembly deleted
+  288 lines above it.
+- **Why it is here and not done**: fixing them would turn a scoped security fix
+  into a repo-wide sweep across three subsystems the ADR-054 dispatch does not
+  own, on a branch that has to merge.
+- **Suggested title**: `Triage the 33 inherited py/path-injection alerts CodeQL reports on main`
+
+#### FC-002 — the `scaffold_panel` skeleton and the agent-facing panel contract do not exist on this base, so the safe URL pattern is not in them yet
+
+- **Severity**: P2 — the next authored panel reintroduces the finding this PR
+  fixed in `core.plot.basic`.
+- **Found by**: fix-codeql.
+- **Evidence**: `src/scistudio/ai/agent/mcp/tools_panels/` and
+  `src/scistudio/_agent_reference/panel-contract.md` are both absent from
+  `track/adr-054-integration`; they are S5-B2's work on PR #2257, which targets
+  `track/adr-054-spec5-agent-enablement`. The pattern this PR establishes is
+  `safeAssetUrl` in
+  `src/scistudio/panels/builtin/core.plot.basic/index.html` (an allowlist of
+  `data:` media types per element plus a root-relative path, with TAB/LF/CR
+  stripped before the check) and `idMap()` in
+  `src/scistudio/tutorials/core/what-is-a-type/assets/panels/review_labels/index.html`
+  (`Object.create(null)` for any map keyed by something out of the payload).
+- **Why it is here and not done**: editing files that do not exist on this
+  branch is not possible, and creating them here would collide with #2257.
+- **Suggested title**: `Carry the panel URL allowlist and null-prototype map pattern into the scaffold_panel skeleton and the agent panel contract`
+
+#### FC-003 — one `py/stack-trace-exposure` alert in `api/routes/git.py` is new on the assembly branch and outside the panel dispatch's scope
+
+- **Severity**: P3 — medium severity, not among the 46 the PR check calls high,
+  and untriaged.
+- **Found by**: fix-codeql.
+- **Evidence**: alert 270, `src/scistudio/api/routes/git.py:685`, present on
+  `refs/pull/2255/head` and absent from `refs/heads/main`;
+  `git diff --stat origin/main HEAD -- src/scistudio/api/routes/git.py` shows
+  `+52` lines on this branch. It was not in the annotation set the dispatch
+  named, and `api/routes/git.py` is in no agent's write set.
+- **Why it is here and not done**: out of scope for this fix, and whichever
+  spec added those 52 lines should own it.
+- **Suggested title**: `Triage the py/stack-trace-exposure alert the assembly adds at api/routes/git.py:685`
 
 ### fix-kernel
 

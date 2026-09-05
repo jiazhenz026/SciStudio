@@ -340,25 +340,91 @@
     );
   }
 
+  /* The two families of `data:` URI this document ever renders, one per
+     element it renders them into. `<img>` and `<iframe>` are not the same
+     question and do not get the same answer: an `<img>` cannot execute what it
+     loads whatever the media type says, while an `<iframe>` executes an SVG or
+     an HTML document as script in this frame. So the raster list is the one the
+     `<img>` accepts and `application/pdf` is the one the frame accepts, and
+     neither list contains `image/svg+xml` — the SVG path is `srcdoc` with an
+     empty sandbox, above, and never a `src`. */
+  var IMAGE_DATA_PREFIXES = ["data:image/png", "data:image/jpeg"];
+  var PDF_DATA_PREFIXES = ["data:application/pdf"];
+
+  /**
+   * The one gate every URL this document puts in a `src` passes through.
+   *
+   * A payload reaches this panel over `postMessage` from the host, and the
+   * provider that filled it is not necessarily a built-in one: a package can
+   * ship a provider that answers a PLOT envelope, and the whole point of the
+   * panel contract is that the document renders whatever arrives. So `src` is
+   * an untrusted string, and an untrusted string in a `src` is three separate
+   * problems: `javascript:` in an `<iframe>` runs script inside this frame and
+   * inherits its `postMessage` token, so it can `emit` and `host_action` as the
+   * panel; an absolute URL naming another host is, in either element, an
+   * outbound request that leaves the application carrying whatever the attacker
+   * put in the path; and `//host/x` is that second one wearing a relative
+   * path's clothes.
+   *
+   * The sandbox does not answer any of those. The frame is granted
+   * `allow-scripts`, a nested frame inherits that, and nothing in
+   * `sandbox allow-scripts` stops a subresource load.
+   *
+   * So this is an allowlist, not a denylist: either an inline `data:` URI whose
+   * media type is one the caller named, or a root-relative path on this
+   * application's own origin — which is the only kind of URL the asset route
+   * ever produces. Everything else returns "" and the figure does not render.
+   * `core.artifact.basic` and `core.base.fallback` already gate their `src`
+   * this way; this is the same rule, written once and stated.
+   */
+  function safeAssetUrl(value, dataPrefixes) {
+    // A browser strips TAB, LF and CR out of a URL before it parses it, so the
+    // check has to run on the string the browser will see rather than on the
+    // one that arrived: `/\t/evil.example` is `//evil.example` by the time it
+    // is fetched.
+    var url = asString(value).replace(/[\t\r\n]/g, "").trim();
+    if (!url) return "";
+    var lower = url.toLowerCase();
+    for (var i = 0; i < dataPrefixes.length; i += 1) {
+      var prefix = dataPrefixes[i];
+      // The character after the media type must end it, or `data:image/pngX`
+      // would pass as `data:image/png`.
+      var next = url.charAt(prefix.length);
+      if (lower.indexOf(prefix) === 0 && (next === "," || next === ";")) return url;
+    }
+    if (url.charAt(0) === "/" && url.charAt(1) !== "/" && url.charAt(1) !== "\\") return url;
+    return "";
+  }
+
   /**
    * Where the bulk bytes come from. The provider inlines a small artifact as a
    * data URI; anything over its bound arrives with only a path, and the panel
    * fetches it from the asset route the host named in `init` (D-008).
+   *
+   * Both ways in go through `safeAssetUrl` with the prefixes the element that
+   * will hold the result accepts.
    */
-  function bulkSource(payload) {
-    var src = asString(payload.src);
+  function bulkSource(payload, dataPrefixes) {
+    var src = safeAssetUrl(payload.src, dataPrefixes);
     if (src) return src;
     var path = asString(payload.path);
     var base = context ? asString(context.asset_base_url) : "";
     if (!path || !base) return "";
     var name = path.split(/[\\/]/).pop();
-    return base.replace(/\/+$/, "") + "/" + encodeURIComponent(name);
+    return safeAssetUrl(base.replace(/\/+$/, "") + "/" + encodeURIComponent(name), dataPrefixes);
+  }
+
+  /** The gated URL for this payload's format, or "" when there is not one. */
+  function figureSource(payload) {
+    return canonicalFormat(payload.format) === "pdf"
+      ? bulkSource(payload, PDF_DATA_PREFIXES)
+      : bulkSource(payload, IMAGE_DATA_PREFIXES);
   }
 
   function renderFigure(payload) {
     var format = canonicalFormat(payload.format);
     var svg = asString(payload.svg);
-    var src = bulkSource(payload);
+    var src = figureSource(payload);
 
     if (format === "svg" && svg) {
       // A nested frame with no sandbox permissions at all. The backend already
@@ -385,6 +451,16 @@
       img.setAttribute("alt", "Plot " + (format || "figure"));
       img.setAttribute("src", src);
       return img;
+    }
+    // A payload that named a source the gate refused says so, rather than
+    // reading as a plot that was never produced. The two are different
+    // failures and a person debugging a provider needs to be able to tell.
+    if (asString(payload.src)) {
+      return el(
+        "p",
+        "muted",
+        "This plot was not rendered: its source is neither an inline image or PDF nor a path on this application."
+      );
     }
     return el("p", "muted", "No renderable plot artifact.");
   }
@@ -422,7 +498,7 @@
     var toolbar = el("div", "toolbar");
     toolbar.appendChild(el("span", "format-label", format || asString(payload.mime_type, "artifact")));
 
-    var hasFigure = Boolean((format === "svg" && payload.svg) || bulkSource(payload));
+    var hasFigure = Boolean((format === "svg" && payload.svg) || figureSource(payload));
     if (hasFigure) {
       toolbar.appendChild(zoomButton("−", "Zoom out", function () { setZoom(view.zoom - 0.25); }));
       toolbar.appendChild(el("span", "zoom-level", Math.round(view.zoom * 100) + "%"));
