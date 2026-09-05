@@ -153,9 +153,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "e6b6affcf0753f11bb2b435d41f1d30bde80d21b",
+    "sha": "243ed127737087237687b51c558906fe938a69e6",
     "shas": [
-      "e6b6affcf0753f11bb2b435d41f1d30bde80d21b"
+      "243ed127737087237687b51c558906fe938a69e6"
     ],
     "trailers": []
   },
@@ -182,6 +182,14 @@
       "kind": "na",
       "path": null,
       "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T08:54:41.790920Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-assembly-checklist.md",
+      "rationale": null,
       "verified_in_diff": null
     }
   ],
@@ -362,6 +370,182 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:16.753944Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:16.775866Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:16.796565Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:16.818176Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:16.839875Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:16.864944Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:16.891410Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:16.914934Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:16.936108Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:16.957427Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:16.980228Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:25.942435Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:25.967253Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:25.991664Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:26.014532Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:26.038373Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:26.061754Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:26.084532Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:26.108333Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:26.133907Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:26.158943Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:26.185992Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -374,16 +558,16 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "track/adr-054-spec5-agent-enablement",
+    "base": "5fd503bc43eab2813aaa0b3924bed36e915f5a0a",
     "base_sha": "5fd503bc4",
     "changed_files": [
       ".workflow/records/2254-focus-test-cost.json",
       "docs/planning/adr-054-assembly-followups.md",
       "tests/ai/test_workspace_focus.py"
     ],
-    "diff_fingerprint": "sha256:10543ceeae50f28b87e99fe2fdac03d59fb06b7703d4f82364166122851bbb5d",
+    "diff_fingerprint": "sha256:e550d7f98d3f97a64b6e4594cd2421c8973f5a2842f6970b915065f39b00ac87",
     "head": "HEAD",
-    "head_sha": "e6b6affcf",
+    "head_sha": "243ed1277",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -405,7 +589,7 @@
     "closes": [
       2254
     ],
-    "number": null,
+    "number": 2259,
     "url": null
   },
   "reconcile_events": [
@@ -420,6 +604,22 @@
     {
       "at": "2026-09-05T08:54:00.989498Z",
       "diff_fingerprint": "sha256:10543ceeae50f28b87e99fe2fdac03d59fb06b7703d4f82364166122851bbb5d",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-05T08:54:16.980272Z",
+      "diff_fingerprint": "sha256:e550d7f98d3f97a64b6e4594cd2421c8973f5a2842f6970b915065f39b00ac87",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-05T08:54:26.186023Z",
+      "diff_fingerprint": "sha256:e550d7f98d3f97a64b6e4594cd2421c8973f5a2842f6970b915065f39b00ac87",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
@@ -459,7 +659,14 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:54:41.790895Z",
+      "pattern": "docs/planning/adr-054-assembly-checklist.md",
+      "reason": "record the follow-up PR on the agent's own checklist rows, which the dispatch requires and which the shared preamble scopes to this agent"
+    }
+  ],
   "session_id": "7c30bb23-6ba2-4149-9972-5fc0f893a08e",
   "strictness_tier": 1,
   "task_kind": "feature",
