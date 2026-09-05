@@ -776,15 +776,40 @@ the spec 6 batch, or an owner named for it in FR-011's next revision.
   "Unsatisfied obligations" *while* leaving the ledger event at `unknown` — so
   the treatment is not even consistent between invocations.
 
-- **Why it matters**: an agent that trusts the exit code reports a green suite
-  it never watched. This branch did not: the suite was run directly instead, and
-  that is what its PR body reports. Nothing forces the next agent to do the same.
+- **`check` and `finalize` disagree about the same event.** This is the sharper
+  form, found after F-B4-10 was fixed. With the parallel phase no longer
+  failing, every run reaches the serial phase and exceeds the cap, so the
+  outcome is now deterministic on this machine:
+
+  | Parallel phase | Total | Ledger event | `check` says | `finalize` says |
+  |---|---|---|---|---|
+  | fails (F-B4-10) | ~300-500s | `fail`, `exit 1` | unsatisfied | unsatisfied |
+  | passes | >600s | `unknown`, `TimeoutExpired` | **"reconciliation passed"** | **"missing or stale"** |
+
+  Four consecutive ledger events on this branch: `fail`, `unknown`, `fail`,
+  `unknown`. So fixing the flake made `check` start passing and left `finalize`
+  refusing — on identical evidence. `gate_record check --mode pre-pr` is
+  documented as "the single local preflight"; it now green-lights a state the
+  next command in the same workflow rejects.
+
+- **Consequence**: `finalize` cannot succeed on a machine where the suite takes
+  longer than ten minutes, so the prescribed
+  check → finalize → `scistudio_pr_create.py` path has no terminating state.
+  S5-B4's PR could not be opened through it.
+- **Why it matters**: an agent that trusts `check`'s exit code reports a green
+  suite it never watched. This branch did not: the suite was run directly
+  instead, and that is what its PR body reports. Nothing forces the next agent
+  to do the same, and the one command that *would* have caught it — `finalize` —
+  is the one an agent reaches only after `check` has already said yes.
 - **Suggested title**: `gate_record: treat an unknown check result as
   unsatisfied, and make the per-check timeout configurable`
 - **What would close it**: treat `unknown` as unsatisfied — a check whose result
-  nobody has is not a check that passed — and give the timeout an env knob beside
-  the existing `SCISTUDIO_GATE_BASE`. The first alone is enough to close the
-  hole; the second stops it from being hit constantly.
+  nobody has is not a check that passed — **and** give the timeout an env knob
+  beside the existing `SCISTUDIO_GATE_BASE`. Both are needed, and the order
+  matters: doing only the first makes `check` agree with `finalize` and blocks
+  every branch on this machine; doing only the second hides the hole again until
+  the suite grows past the new number. The knob is what makes the correct
+  behaviour survivable.
 
 #### F-B4-9 — Kernel-spawning tests fail under `PYTHONPATH=./src`, and blame the kernel
 
@@ -865,6 +890,13 @@ So the suite has two states: it fails on a flake and silently skips a whole
 phase, or it completes and is reported as passing without anyone having seen the
 result. **F-B4-9** is what the skipped phase was hiding on this branch — this
 time harmless, which is luck rather than design.
+
+**Fixing one moved the branch from the first state to the second.** With
+F-B4-10's two tests marked `serial`, the parallel phase passes, the run reaches
+the serial phase, and every run since has ended in F-B4-8's timeout — where
+`check` reports "reconciliation passed" and `finalize` refuses the same
+evidence as stale. The flake was not the problem; it was what kept the gate from
+reaching the problem.
 
 The path that produced a genuinely trustworthy result on this branch was running
 `python -m scistudio.qa.testing.run_python_tests` by hand and reading the output.
