@@ -13,6 +13,10 @@ import { useAppStore } from "../index";
 
 vi.mock("../../lib/api/ai", () => ({
   postActiveWorkflowContext: vi.fn().mockResolvedValue(undefined),
+  // ADR-054 spec 5 FR-001: the store's active-context subscriber now reports
+  // the workspace focus beside the workflow id, so a mock of this module that
+  // omits it makes importing the store throw.
+  postWorkspaceFocus: vi.fn().mockResolvedValue(undefined),
 }));
 
 function subworkflowNode(): WorkflowNode {

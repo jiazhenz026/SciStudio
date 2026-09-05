@@ -13,7 +13,7 @@ import { useEffect, useRef, type RefObject } from "react";
 import { useAppStore } from "../store";
 import { openDataFileAsPreview } from "../lib/openDataFile";
 import { buildPreviewCacheKey } from "../store/previewSlice";
-import type { AnyTab, FileTab, PreviewTab } from "../store/types";
+import type { AnyTab, ExploreTab as ExploreTabState, FileTab, PreviewTab } from "../store/types";
 import type {
   BlockSchemaResponse,
   BlockSummary,
@@ -21,6 +21,8 @@ import type {
   WorkflowEdge,
   WorkflowNode,
 } from "../types/api";
+
+import { ExploreNotebookPane, ExploreTab } from "../explore/ExploreTab";
 
 import { ActivityBar } from "../components/ActivityBar";
 import { BlockPalette } from "../components/BlockPalette";
@@ -323,6 +325,18 @@ function PreviewTabPane({ tab, projectId }: { tab: PreviewTab; projectId: string
   );
 }
 
+/**
+ * ADR-054 FR-005 - the active Explore tab, or `null`.
+ *
+ * Read from the tab list rather than taken as a prop: the workspace already
+ * receives `tabs` and `activeTabId`, and adding two props for a value derived
+ * from them would mean editing `App.tsx` to pass what it already passes.
+ */
+function activeExploreTab(props: ProjectWorkspaceProps): ExploreTabState | null {
+  const tab = props.tabs.find((candidate) => candidate.id === props.activeTabId);
+  return tab?.kind === "explore" ? tab : null;
+}
+
 function CanvasOrEditor(props: ProjectWorkspaceProps) {
   const {
     activeFileTab,
@@ -356,6 +370,18 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
   } = props;
 
   const { runScopePrefix, scopedBlockOutputs } = deriveRunScope(props);
+
+  /*
+   * ADR-054 FR-005 - the Explore branch of the centre switch.
+   *
+   * Before the preview and the editor branches because an Explore tab is
+   * neither: it is its own member of the union, and the order of these
+   * branches is the order the union is discriminated in.
+   */
+  const exploreTab = activeExploreTab(props);
+  if (exploreTab) {
+    return <ExploreTab tab={exploreTab} />;
+  }
 
   // #2112 — a focused preview tab takes the stage with its frozen snapshot.
   if (activePreviewTab) {
@@ -472,6 +498,13 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
   // ADR-044 — when a subworkflow node is selected, surface its exposed-port
   // surface (with owning-block provenance) so the preview pane can show which
   // inner block each opaque "<block>.<port>" port belongs to.
+  // ADR-054 FR-005 - while an Explore tab is active the right column renders
+  // the notebook shell instead of the data preview. One condition, in one
+  // place: the left pane and the bottom panel below are untouched, which is
+  // what keeps the palette, the tree and the block cards available while a
+  // person explores (ADR-054 §4.4).
+  const exploreTab = activeExploreTab(props);
+
   const subworkflowPorts =
     selectedNode &&
     SUBWORKFLOW_BLOCK_TYPES.has(selectedNode.block_type) &&
@@ -618,63 +651,75 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
           collapsible
           collapsedSize="0%"
         >
-          <DataPreview
-            blockOutputs={scopedBlockOutputs}
-            subworkflowPorts={subworkflowPorts}
-            selectedNodeId={selectedNodeId}
-            selectedNodeLabel={selectedNodeLabel}
-            // #1326 port-info panel: resolve effective per-instance ports for
-            // the selected node.
-            //
-            // Hotfix 2026-05-23: ``node.config`` is a two-tier envelope where
-            // user-editable params live under ``node.config.params`` (see
-            // ``mergeNodeConfig``). The canvas-side BlockNode reads
-            // ``paramsOf(node) = node.config.params``; we mirror that here so
-            // both ``resolveVariadicPorts`` (variadic ports stored at
-            // ``params.{input,output}_ports``) AND ``computeEffectivePorts``
-            // (dynamic-port driving key at ``params.core_type``) see the
-            // same config the canvas sees. Reading ``node.config`` directly
-            // was a pre-existing bug that hid newly-added variadic ports
-            // from the panel and froze dynamic-port types at their
-            // schema-static fallback ``DataObject``.
-            selectedInputPorts={
-              selectedNode && selectedSchema
-                ? computeEffectivePorts(
-                    selectedSchema.dynamic_ports ?? null,
-                    selectedSchema.dynamic_ports?.source_config_key
-                      ? (((selectedNode.config.params as Record<string, unknown> | undefined) ??
-                          {})[selectedSchema.dynamic_ports.source_config_key] as string | undefined)
-                      : undefined,
-                    resolveVariadicPorts(
-                      selectedSchema.input_ports,
-                      (selectedNode.config.params as Record<string, unknown> | undefined) ?? {},
+          {exploreTab ? (
+            // FR-006 - the pane stays the same collapsible `ResizablePanel` it
+            // is for the preview, so the notebook collapses exactly as the
+            // preview does today and the centre and toolbar, being in another
+            // column, remain usable with it collapsed.
+            <ExploreNotebookPane tab={exploreTab} />
+          ) : (
+            <DataPreview
+              blockOutputs={scopedBlockOutputs}
+              subworkflowPorts={subworkflowPorts}
+              selectedNodeId={selectedNodeId}
+              selectedNodeLabel={selectedNodeLabel}
+              // #1326 port-info panel: resolve effective per-instance ports for
+              // the selected node.
+              //
+              // Hotfix 2026-05-23: ``node.config`` is a two-tier envelope where
+              // user-editable params live under ``node.config.params`` (see
+              // ``mergeNodeConfig``). The canvas-side BlockNode reads
+              // ``paramsOf(node) = node.config.params``; we mirror that here so
+              // both ``resolveVariadicPorts`` (variadic ports stored at
+              // ``params.{input,output}_ports``) AND ``computeEffectivePorts``
+              // (dynamic-port driving key at ``params.core_type``) see the
+              // same config the canvas sees. Reading ``node.config`` directly
+              // was a pre-existing bug that hid newly-added variadic ports
+              // from the panel and froze dynamic-port types at their
+              // schema-static fallback ``DataObject``.
+              selectedInputPorts={
+                selectedNode && selectedSchema
+                  ? computeEffectivePorts(
+                      selectedSchema.dynamic_ports ?? null,
+                      selectedSchema.dynamic_ports?.source_config_key
+                        ? (((selectedNode.config.params as Record<string, unknown> | undefined) ??
+                            {})[selectedSchema.dynamic_ports.source_config_key] as
+                            | string
+                            | undefined)
+                        : undefined,
+                      resolveVariadicPorts(
+                        selectedSchema.input_ports,
+                        (selectedNode.config.params as Record<string, unknown> | undefined) ?? {},
+                        "input",
+                        selectedSchema,
+                      ),
                       "input",
-                      selectedSchema,
-                    ),
-                    "input",
-                  )
-                : undefined
-            }
-            selectedOutputPorts={
-              selectedNode && selectedSchema
-                ? computeEffectivePorts(
-                    selectedSchema.dynamic_ports ?? null,
-                    selectedSchema.dynamic_ports?.source_config_key
-                      ? (((selectedNode.config.params as Record<string, unknown> | undefined) ??
-                          {})[selectedSchema.dynamic_ports.source_config_key] as string | undefined)
-                      : undefined,
-                    resolveVariadicPorts(
-                      selectedSchema.output_ports,
-                      (selectedNode.config.params as Record<string, unknown> | undefined) ?? {},
+                    )
+                  : undefined
+              }
+              selectedOutputPorts={
+                selectedNode && selectedSchema
+                  ? computeEffectivePorts(
+                      selectedSchema.dynamic_ports ?? null,
+                      selectedSchema.dynamic_ports?.source_config_key
+                        ? (((selectedNode.config.params as Record<string, unknown> | undefined) ??
+                            {})[selectedSchema.dynamic_ports.source_config_key] as
+                            | string
+                            | undefined)
+                        : undefined,
+                      resolveVariadicPorts(
+                        selectedSchema.output_ports,
+                        (selectedNode.config.params as Record<string, unknown> | undefined) ?? {},
+                        "output",
+                        selectedSchema,
+                      ),
                       "output",
-                      selectedSchema,
-                    ),
-                    "output",
-                  )
-                : undefined
-            }
-            selectedSchema={selectedSchema}
-          />
+                    )
+                  : undefined
+              }
+              selectedSchema={selectedSchema}
+            />
+          )}
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>

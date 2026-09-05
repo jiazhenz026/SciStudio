@@ -212,6 +212,25 @@ export function ProjectTree({
     setContextMenu(null);
   }, []);
 
+  /**
+   * ADR-054 FR-002 - a file in the data tree opens a session whose first cell
+   * loads it.
+   *
+   * Offered in the Data section only. The Project tree lists source, config
+   * and workflow files, and "explore this file in a notebook" means the data
+   * tree's files, which is the section FR-002 names. The tree calls the store
+   * action directly, as its double-click already calls `openFileTab`.
+   */
+  const handleExplore = useCallback((node: TreeNodeData) => {
+    void useAppStore
+      .getState()
+      .openExploreTab({ source: "file", path: node.path })
+      .catch((error: unknown) => {
+        console.warn(`[explore] could not open a session over ${node.path}:`, error);
+      });
+    setContextMenu(null);
+  }, []);
+
   const handleReveal = useCallback(
     (node: TreeNodeData) => {
       const fullPath = `${projectPath}/${node.path}`.replace(/\//g, "/");
@@ -262,6 +281,7 @@ export function ProjectTree({
         onClose={() => setContextMenu(null)}
         onCopyName={copyToClipboard}
         onCopyPath={copyToClipboard}
+        onExplore={rootPath === "data" ? handleExplore : undefined}
         onReveal={handleReveal}
       />
     </aside>

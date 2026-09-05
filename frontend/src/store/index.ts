@@ -2,8 +2,10 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { postActiveWorkflowContext } from "../lib/api/ai";
+import { reportWorkspaceFocus } from "../explore/workspaceFocus";
 
 import { createExecutionSlice } from "./executionSlice";
+import { createExploreSlice } from "./exploreSlice";
 import { createGitSlice } from "./gitSlice";
 import { createLearningCenterSlice } from "./learningCenterSlice";
 import { createLineageSlice } from "./lineageSlice";
@@ -14,7 +16,7 @@ import { createProjectSlice } from "./projectSlice";
 import { createTabSlice } from "./tabSlice";
 import { createTerminalTabsSlice, rehydrateTerminalTabs } from "./terminalTabsSlice";
 import { createTypesSlice } from "./typesSlice";
-import type { AppStore, FileTab, TabState } from "./types";
+import type { AppStore, ExploreTab, FileTab, TabState } from "./types";
 import { createUISlice } from "./uiSlice";
 import { createWorkflowSlice } from "./workflowSlice";
 
@@ -41,6 +43,32 @@ function partializeFileTab(tab: FileTab): FileTab {
   };
 }
 
+/**
+ * ADR-054 FR-001 — an Explore tab persists like a file tab: its identity is
+ * the notebook path, and everything else is runtime state that must be read
+ * back from the runtime rather than trusted from `localStorage`.
+ *
+ * `sessionId` is dropped because the session it named is gone with the page,
+ * and `restoring` is set so the shell knows to re-fetch rather than render an
+ * empty session as an empty notebook. A pause tab is not persisted at all
+ * (see `partializeTabs`): the run it was paused on did not survive the reload,
+ * so restoring the tab would offer a confirm with nothing behind it.
+ */
+function partializeExploreTab(tab: ExploreTab): ExploreTab {
+  return {
+    kind: "explore",
+    id: tab.id,
+    notebookPath: tab.notebookPath,
+    sessionId: null,
+    displayName: tab.displayName,
+    mode: "session",
+    boundRunId: null,
+    pauseNodeId: null,
+    notebookVisible: true,
+    restoring: true,
+  };
+}
+
 function partializeTabs(tabs: TabState[]): TabState[] {
   return (
     tabs
@@ -63,7 +91,13 @@ function partializeTabs(tabs: TabState[]): TabState[] {
             (tab.blockSourceType || tab.userLibraryTarget || tab.panelSourceId)
           ),
       )
-      .map((tab) => (tab.kind === "file" ? partializeFileTab(tab) : tab))
+      .map((tab) =>
+        tab.kind === "file"
+          ? partializeFileTab(tab)
+          : tab.kind === "explore"
+            ? partializeExploreTab(tab)
+            : tab,
+      )
   );
 }
 
@@ -96,6 +130,10 @@ export const useAppStore = create<AppStore>()(
       ...createLineageSlice(...args),
       // ADR-039 §6 Phase 2 — git versioning slice.
       ...createGitSlice(...args),
+      // ADR-054 spec 4 FR-033 — the Explore session slice. Not persisted: it
+      // holds runtime truth (marks, kernel state, bindings), and FR-034 says
+      // the runtime is where that comes from, so a reload re-reads it.
+      ...createExploreSlice(...args),
     }),
     {
       name: "scistudio-studio-ui",
@@ -119,7 +157,14 @@ export const useAppStore = create<AppStore>()(
         // re-derives from project open + workflow load. #2112 preview tabs
         // are excluded by the same kind filter: they are frozen, ephemeral
         // snapshots with no rehydrate path.
-        tabs: partializeTabs(state.tabs.filter((t) => t.kind === "file")),
+        // ADR-054 FR-001 — Explore tabs persist beside file tabs. A pause tab
+        // is excluded: the paused run is gone with the page, so the tab would
+        // come back offering a decision on nothing.
+        tabs: partializeTabs(
+          state.tabs.filter(
+            (t) => t.kind === "file" || (t.kind === "explore" && t.mode === "session"),
+          ),
+        ),
         activeTabId: state.activeTabId,
       }),
       onRehydrateStorage: () => (state) => {
@@ -170,17 +215,24 @@ export const useAppStore = create<AppStore>()(
         // ``content`` and ``loading: true``. CodeEditor mounts will
         // re-fetch via ``openFileTab`` flow when the tab is activated.
         if (Array.isArray(state.tabs)) {
-          state.tabs = state.tabs.map((tab) =>
-            tab.kind === "file"
-              ? {
-                  ...tab,
-                  content: "",
-                  contentLoadedAt: 0,
-                  dirty: false,
-                  loading: true,
-                }
-              : tab,
-          );
+          state.tabs = state.tabs.map((tab) => {
+            if (tab.kind === "file") {
+              return {
+                ...tab,
+                content: "",
+                contentLoadedAt: 0,
+                dirty: false,
+                loading: true,
+              };
+            }
+            // ADR-054 FR-001: a rehydrated Explore tab is bound to no session
+            // until `restoreExploreTab` reopens its notebook. The shell fires
+            // that on mount; marking it here is what tells the shell to.
+            if (tab.kind === "explore") {
+              return { ...tab, sessionId: null, restoring: true };
+            }
+            return tab;
+          });
         }
       },
     },
@@ -206,6 +258,17 @@ function syncActiveWorkflowId(workflowId: string | null): void {
 
 useAppStore.subscribe((state) => {
   syncActiveWorkflowId(state.workflowId);
+  /*
+   * ADR-054 spec 5 FR-001 - and where the person is, beside what they are
+   * editing.
+   *
+   * The same subscriber rather than a second one: the two are one fact about
+   * the workspace, and reporting them from one place is what keeps them from
+   * disagreeing across a tab switch. `reportWorkspaceFocus` compares against
+   * what it last sent, so this fires on every store change and posts only when
+   * the focus actually moved.
+   */
+  reportWorkspaceFocus(state);
 });
 
 // Fire once at module load so the backend's persisted value is
@@ -213,3 +276,7 @@ useAppStore.subscribe((state) => {
 // frontend has. Without this, the very first sync waits until the user
 // opens or switches a workflow.
 syncActiveWorkflowId(useAppStore.getState().workflowId);
+// The focus is reported once at load for the same reason: the backend's
+// persisted value predates this page and the agent should be told what is on
+// screen now, not what was on screen when the backend last heard.
+reportWorkspaceFocus(useAppStore.getState());

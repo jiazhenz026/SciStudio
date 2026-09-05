@@ -218,6 +218,22 @@ export interface BlockSummary {
   execution_mode?: string;
   /** ADR-051: interactive panel manifest; null unless the block is interactive. */
   panel_manifest?: PanelManifest | null;
+  /**
+   * ADR-054 FR-004 / FR-030 - the notebook a packaged block was generated
+   * from, which is what marks a block as packaged rather than hand-written.
+   *
+   * `scistudio.explore.packaging` writes it as a `ClassVar` on the generated
+   * class, but `scistudio.api.schemas.BlockSummary` does not carry it and
+   * `routes/blocks.py::_summary` does not read it, so **the backend does not
+   * send this field yet**. It is declared here so the double-click (FR-004)
+   * and the notebook badge (FR-030) share one definition of "packaged" rather
+   * than each inventing a heuristic; until the backend surfaces it, both read
+   * `undefined` and keep their pre-ADR-054 behaviour.
+   *
+   * See `frontend/src/explore/packagedBlock.ts` and the S4-A1 entry in
+   * `docs/planning/adr-054-assembly-followups.md`.
+   */
+  notebook_filename?: string | null;
 }
 
 export interface TypeHierarchyEntry {
@@ -1257,3 +1273,13 @@ export type GitHistoryFilter = "manual" | "all" | "auto" | "agent";
  * and the GitGraph reference this to decide icon rendering (§3.4a).
  */
 export type GitCommitPrefix = "auto" | "agent" | "user";
+
+// ---------------------------------------------------------------------------
+// ADR-054 spec 4 (T-001) — the Explore Session API and its WebSocket events.
+//
+// Defined in `./explore.ts` and re-exported here so this module stays the one
+// door every consumer imports response and event shapes through. They were
+// split out for size alone: `api.ts` with them inline is over the repository's
+// per-file line limit.
+// ---------------------------------------------------------------------------
+export * from "./explore";

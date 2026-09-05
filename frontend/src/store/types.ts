@@ -1,6 +1,23 @@
 import type {
   BlockSchemaResponse,
   BlockSummary,
+  ExploreBindingsResponse,
+  ExploreBoundRun,
+  ExploreCell,
+  ExploreCommitRecordedPayload,
+  ExploreEdge,
+  ExploreGraphResponse,
+  ExploreKernelListItem,
+  ExploreMarksResponse,
+  ExploreOutOfOrderRead,
+  ExploreOutput,
+  ExplorePackagedPayload,
+  ExploreOpenSessionRequest,
+  ExplorePackagingCheckResponse,
+  ExploreRequest,
+  ExploreSessionEventMessage,
+  ExploreSessionResponse,
+  ExploreUnresolvedRead,
   PanelDescriptorResponse,
   PreviewEnvelope,
   GitBranch,
@@ -27,7 +44,14 @@ import type {
   TutorialStartRequest,
 } from "../lib/api/learningCenter";
 import type { LineageRunDetail, LineageRunSummary } from "../types/lineage";
-import type { BottomTab } from "../types/ui";
+import type {
+  BottomTab,
+  ExploreCellMarkKind,
+  ExploreCellRunState,
+  ExploreKernelDisplayState,
+  ExploreShellState,
+  ExploreTabMode,
+} from "../types/ui";
 
 // Issue #1482: ``GitSlice`` and ``LineageSlice`` interfaces previously
 // lived in their respective slice files and were re-imported here for
@@ -1008,7 +1032,10 @@ export interface PreviewTab {
  * code that imported it during the transition; new code should use
  * ``TabState`` directly.
  */
-export type TabState = WorkflowTab | FileTab | PreviewTab;
+// ADR-054 FR-001 — the Explore member joins the union. Every existing
+// consumer type-guards on `tab.kind`, so widening it here is what makes the
+// centre switch and the right-column condition in `ProjectWorkspace` legal.
+export type TabState = WorkflowTab | FileTab | PreviewTab | ExploreTab;
 export type AnyTab = TabState;
 
 export interface TabSlice {
@@ -1123,6 +1150,32 @@ export interface TabSlice {
     response: { content: string; mtime: number; state_version?: number },
   ) => void;
   markFileRemoteConflict: (id: string, conflict: VersionConflictState) => void;
+  /**
+   * ADR-054 FR-001 / FR-002 — open a session and put it in an Explore tab.
+   *
+   * Asynchronous because the tab's identity is the session's notebook path,
+   * and only `POST /api/explore/sessions` knows it. Resolves with the tab that
+   * is now active, whether it was created or activated; rejects with the
+   * backend's refusal, which the caller shows (a block with no outputs, a
+   * packaged block that is not one).
+   */
+  openExploreTab: (
+    request: ExploreOpenSessionRequest,
+    options?: {
+      mode?: ExploreTabMode;
+      pauseNodeId?: string | null;
+      displayName?: string;
+    },
+  ) => Promise<ExploreTab | null>;
+  /**
+   * ADR-054 FR-001 — re-fetch a rehydrated Explore tab's session state.
+   *
+   * A persisted tab comes back with its notebook path and no session id; this
+   * reopens the notebook and binds the tab to the session it gets.
+   */
+  restoreExploreTab: (notebookPath: string) => Promise<void>;
+  /** ADR-054 FR-026 — show or hide the notebook pane of a pause tab. */
+  setExploreNotebookVisible: (tabId: string, visible: boolean) => void;
 }
 
 // ADR-039 §6 Phase 2 — git versioning slice (interfaces relocated here
@@ -1249,6 +1302,254 @@ export interface LineageSlice {
   clearLineage: () => void;
 }
 
+// ---------------------------------------------------------------------------
+// ADR-054 spec 4 (T-001) — the Explore tab and the session slice.
+//
+// The Key Entities of `docs/specs/adr-054-explore-frontend.md` §3, named as
+// the spec names them because three sibling components code against them:
+// `ExploreTab`, `ExploreSliceState`, `CellView`, `VariableEntry`, `PanelSlot`.
+//
+// FR-034 is the rule that shapes all of it: **nothing here is derived**. Every
+// mark, kernel state and binding is copied out of a runtime event or a route
+// response. There is no local computation of a mark, no optimistic advance of
+// a cell out of `queued`, and no place a command's effect is recorded before
+// its event arrives.
+// ---------------------------------------------------------------------------
+
+/**
+ * ADR-054 FR-001 — the Explore member of the centre-area tab union.
+ *
+ * Keyed by the session's **notebook path**, not by its session id: a session
+ * that is closed and reopened is the same notebook to the person, and the
+ * existing id-keyed dedup in `switchTab` then serves FR-001's "opening a
+ * session whose tab exists activates that tab" for free.
+ *
+ * Persisted like a file tab (see `partializeTabs` in `store/index.ts`), which
+ * is why `sessionId` is nullable: a rehydrated tab carries the path only, and
+ * the shell re-fetches its session state on mount.
+ */
+export interface ExploreTab {
+  /** Discriminator. Always "explore". */
+  kind: "explore";
+  /** `explore:<notebookPath>` — the dedup identity of FR-001. */
+  id: string;
+  /** Project-relative notebook path; the slice key and the tab key. */
+  notebookPath: string;
+  /** The open session's id, or `null` before the open lands / after a reload. */
+  sessionId: string | null;
+  /** Tab label. The notebook's basename unless the opener supplied one. */
+  displayName: string;
+  /** FR-024 — `"pause"` renders the same host with no notebook pane. */
+  mode: ExploreTabMode;
+  /** The run the session is bound to, when it was opened over one. */
+  boundRunId: string | null;
+  /** The paused block's node id, in pause mode. */
+  pauseNodeId: string | null;
+  /**
+   * FR-026 — whether the notebook pane is shown. `true` for a session tab;
+   * `false` for a pause tab until the person opens a notebook over the same
+   * inputs.
+   */
+  notebookVisible: boolean;
+  /**
+   * FR-001 — set on a rehydrated tab so the shell knows to re-fetch rather
+   * than render an empty session as an empty notebook.
+   */
+  restoring?: boolean;
+  /** Epoch-ms open time; diagnostic only. */
+  openedAt?: number;
+}
+
+/**
+ * One cell as rendered (spec §3 `CellView`).
+ *
+ * `marks` and `outOfOrderReads` are copied verbatim from the runtime; the
+ * shell draws them and never computes them (FR-012, FR-034).
+ */
+export interface CellView {
+  cellId: string;
+  cellType: string;
+  source: string;
+  enabled: boolean;
+  /** From `explore.cell_output`; empty until a run reports outputs. */
+  outputs: ExploreOutput[];
+  /** From `CellModel.marks` and the `marks` map on `explore.cell_state`. */
+  marks: ExploreCellMarkKind[];
+  /** From `MarksResponse`, or the `out_of_order` names on a starting run. */
+  outOfOrderReads: ExploreOutOfOrderRead[];
+  /** From `explore.cell_state` / `explore.cell_output` only (FR-034). */
+  runState: ExploreCellRunState;
+  executionCount: number | null;
+  /** Names the last run of this cell changed, from `explore.changed_names`. */
+  changedNames: string[];
+  /**
+   * ISO timestamp of the most recent event applied to this cell.
+   *
+   * This is what makes FR-033's ordering requirement true rather than hoped
+   * for: two events for one cell can arrive in either order, and the later
+   * timestamp wins whichever arrives second.
+   */
+  lastEventAt: string | null;
+}
+
+/**
+ * One strip item (spec §3 `VariableEntry`).
+ *
+ * Derived from the bindings response and the analysis event — which is the
+ * only sense in which anything here is derived: the *values* are the
+ * runtime's, and `live` is `exists_in_kernel` copied, never guessed.
+ */
+export interface VariableEntry {
+  name: string;
+  /** The SciStudio type a packaged port would carry, when the kernel holds it. */
+  typeName: string | null;
+  /** `type(value).__name__`, when the kernel holds it. */
+  nativeTypeName: string | null;
+  summary: string | null;
+  /** `BindingModel.exists_in_kernel`. A name that is not live is greyed. */
+  live: boolean;
+  /** FR-020 — a declared output pins itself when it becomes live. */
+  pinned: boolean;
+  /** The panel mounted for this name, when one is. */
+  openPanelId: string | null;
+  lastBoundBy: string | null;
+}
+
+/** One mounted panel in the centre (spec §3 `PanelSlot`). */
+export interface PanelSlot {
+  panelId: string;
+  boundName: string;
+  pinned: boolean;
+  /** FR-023 — submissions are refused while a run changes the bound name. */
+  frozen: boolean;
+}
+
+/** The dependency graph as the slice holds it, for FR-032's view. */
+export interface ExploreGraphState {
+  cells: string[];
+  edges: ExploreEdge[];
+  unresolvedReads: ExploreUnresolvedRead[];
+  unknownBindingCells: string[];
+  changedSets: Record<string, string[]>;
+}
+
+/** The kernel as the slice holds it, written only from events and responses. */
+export interface ExploreKernelView {
+  state: ExploreKernelDisplayState;
+  pid: number | null;
+  memoryBytes: number | null;
+  needsRestart: boolean;
+  /** Timestamp of the last kernel event applied, for the same ordering rule. */
+  lastEventAt: string | null;
+}
+
+/** One session's whole state, keyed in the slice by its notebook path. */
+export interface ExploreSessionState {
+  sessionId: string;
+  notebookPath: string;
+  shellState: ExploreShellState;
+  /** The refusal that failed the open or restore, when `shellState` is failed. */
+  error: string | null;
+  boundRun: ExploreBoundRun | null;
+  openedOver: string | null;
+  notebookCommit: string | null;
+  currentCell: string | null;
+  cells: CellView[];
+  kernel: ExploreKernelView;
+  bindings: VariableEntry[];
+  /** FR-020 — the names pinned, kept beside `bindings` so a pin survives a
+   *  bindings refresh that drops the name for a moment. */
+  pinnedNames: string[];
+  panels: PanelSlot[];
+  graph: ExploreGraphState | null;
+  /** FR-028 — the last packaging check report rendered for this session. */
+  lastReport: ExplorePackagingCheckResponse | null;
+  /** The last `explore.commit_recorded` payload. */
+  lastCommit: ExploreCommitRecordedPayload | null;
+  /** The last `explore.packaged` payload; FR-029's palette refresh reads it. */
+  lastPackaged: ExplorePackagedPayload | null;
+  /** Names the runtime said it could not observe on the last run. */
+  unobservableNames: string[];
+  /** The reason of the last `explore.analysis_updated`, for the graph view. */
+  lastAnalysisReason: string | null;
+  /**
+   * Timestamp of the last whole-session marks map applied from an event.
+   *
+   * Marks arrive as one complete map rather than per cell, so the per-cell
+   * `lastEventAt` cannot order them; this is the guard that makes two
+   * `cell_state` events converge on the later map whichever order they land in.
+   * A marks *response* resets it to `null`, because a response is a fresh read
+   * and anything after it should win.
+   */
+  lastMarksAt: string | null;
+}
+
+/**
+ * The store slice (spec §3 `ExploreSliceState`).
+ *
+ * `sessions` is keyed by notebook path, as the spec says. Events are keyed by
+ * *session id*, so `sessionPathById` is the index that joins the two, and
+ * `pendingEvents` holds the events that arrive for a session id the slice has
+ * not been told the path of yet — which is not a theoretical case: the
+ * `session_opened` event is published inside the open call, so it can reach
+ * the socket before the POST response reaches the caller.
+ */
+export interface ExploreSliceState {
+  sessions: Record<string, ExploreSessionState>;
+  sessionPathById: Record<string, string>;
+  /** FR-015 — every live kernel in the project, from `listExploreKernels`. */
+  exploreKernels: ExploreKernelListItem[];
+  /** Session id to buffered events, drained when the session becomes known. */
+  pendingExploreEvents: Record<string, ExploreSessionEventMessage[]>;
+}
+
+export interface ExploreSlice extends ExploreSliceState {
+  /**
+   * Write a session from a route response (`SessionModel`).
+   *
+   * Idempotent: applying the same response twice leaves the same state, and
+   * applying it after events have already landed keeps the events' cell run
+   * states rather than resetting them, because the response says nothing
+   * about a run in flight.
+   */
+  applyExploreSession: (session: ExploreSessionResponse) => void;
+  /** Route one WebSocket session event into the slice (FR-033). */
+  applyExploreSessionEvent: (message: ExploreSessionEventMessage) => void;
+  /** Write the cells from `CellsResponse` after an edit, insert, or toggle. */
+  applyExploreCells: (sessionId: string, cells: ExploreCell[]) => void;
+  /** Write the marks from `MarksResponse` (FR-012). */
+  applyExploreMarks: (sessionId: string, marks: ExploreMarksResponse) => void;
+  /** Write the bindings from `BindingsResponse` (FR-018). */
+  applyExploreBindings: (sessionId: string, bindings: ExploreBindingsResponse) => void;
+  /** Write the graph from `GraphResponse` (FR-032). */
+  applyExploreGraph: (sessionId: string, graph: ExploreGraphResponse) => void;
+  /** Write the packaging report from `PackagingCheckResponse` (FR-028). */
+  applyExplorePackagingReport: (sessionId: string, report: ExplorePackagingCheckResponse) => void;
+  /**
+   * Write the queued requests a run control's `RunResponse` reported.
+   *
+   * The only door through which a cell reaches `queued`: the runtime publishes
+   * no event for a request that is merely waiting, and FR-034 admits responses
+   * alongside events. It never demotes a cell the runtime already called
+   * running, so a race between the response and the event cannot go backwards.
+   */
+  applyExploreRunRequests: (sessionId: string, requests: ExploreRequest[]) => void;
+  /** Write the kernel list from `KernelListResponse` (FR-015). */
+  applyExploreKernelList: (kernels: ExploreKernelListItem[]) => void;
+  /** Record that a session's open or restore is in flight, keyed by path. */
+  noteExploreSessionOpening: (notebookPath: string) => void;
+  /** Record that a session's open or restore was refused. */
+  noteExploreSessionFailed: (notebookPath: string, error: string) => void;
+  /** FR-019 — a panel was mounted in the centre for a name. */
+  noteExplorePanelOpened: (sessionId: string, slot: PanelSlot) => void;
+  /** FR-019 — a panel was unmounted. */
+  noteExplorePanelClosed: (sessionId: string, panelId: string) => void;
+  /** FR-020 — pin or unpin a mounted panel and its strip entry. */
+  setExplorePanelPinned: (sessionId: string, panelId: string, pinned: boolean) => void;
+  /** Drop a session from the slice; the tab is closed separately. */
+  forgetExploreSession: (notebookPath: string) => void;
+}
+
 export type AppStore = ProjectSlice &
   // ADR-053 Learning Center (#2057) — replaces the removed TutorialSlice.
   LearningCenterSlice &
@@ -1266,4 +1567,6 @@ export type AppStore = ProjectSlice &
   // ADR-038 §3.8 — Lineage tab client state.
   LineageSlice &
   // ADR-039 §6 Phase 2 — git versioning slice.
-  GitSlice;
+  GitSlice &
+  // ADR-054 spec 4 FR-033 — the Explore session slice.
+  ExploreSlice;
