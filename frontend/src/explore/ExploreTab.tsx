@@ -86,14 +86,6 @@ export interface ExploreTabProps {
 }
 
 /**
- * The centre column while an Explore tab is active.
- *
- * The panel host must hold more than one panel at once (FR-007), so it is a
- * grid rather than a stack: one column on a narrow centre, two from `md` up,
- * which is the width at which two panels are worth comparing rather than two
- * slivers.
- */
-/**
  * FR-026, FR-027 — open a notebook over the paused run's inputs.
  *
  * A session open like any other: `source: "paused_run"` binds a session to the
@@ -144,6 +136,18 @@ export async function openPausedRunNotebook(
   if (opened.id !== tab.id) useAppStore.getState().closeTab(tab.id);
 }
 
+/**
+ * The centre column while an Explore tab is active.
+ *
+ * The panel host must hold more than one panel at once (FR-007), so it is a
+ * grid rather than a stack: one column on a narrow centre, two from `md` up,
+ * which is the width at which two panels are worth comparing rather than two
+ * slivers.
+ *
+ * In pause mode the centre is one thing instead: the paused block's panel,
+ * with no variable strip over it and no notebook beside it until the person
+ * asks for one (FR-024, FR-026).
+ */
 export function ExploreTab({ tab }: ExploreTabProps) {
   const session = useExploreSession(tab);
   const setExploreNotebookVisible = useAppStore((state) => state.setExploreNotebookVisible);

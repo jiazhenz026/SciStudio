@@ -231,6 +231,11 @@ export function panelRefreshKey(session: ExploreSessionState | undefined, name: 
 /* -------------------------------------------------------------------------- */
 
 export interface ExplorePanelSlotProps {
+  /**
+   * The tab this slot is rendered in. Part of the region contract
+   * `regions/ExploreRegions.tsx` hands every region, and unread here: a slot
+   * is addressed by its session and its bound name, not by its tab.
+   */
   tab: ExploreTabState;
   /** `undefined` until the open or restore lands. */
   session: ExploreSessionState | undefined;
@@ -246,7 +251,7 @@ interface SlotNote {
   readonly message: string;
 }
 
-export function ExplorePanelSlot({ tab, session, slot, frameFactory }: ExplorePanelSlotProps) {
+export function ExplorePanelSlot({ session, slot, frameFactory }: ExplorePanelSlotProps) {
   const slotId = slot.panelId;
   const boundName = slot.boundName;
   const sessionId = session?.sessionId ?? "";
@@ -461,9 +466,6 @@ export function ExplorePanelSlot({ tab, session, slot, frameFactory }: ExplorePa
         )}
       </div>
       {failure && !descriptor ? <PanelErrorSurface failure={failure} /> : null}
-      <span className="hidden" data-testid={`explore-panel-tab-${slotId}`}>
-        {tab.id}
-      </span>
     </div>
   );
 }

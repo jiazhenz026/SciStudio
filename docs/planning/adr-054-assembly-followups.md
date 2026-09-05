@@ -483,6 +483,33 @@ and the retirement of the interactive modal (ADR-054 spec 4, T-008 to T-011).
 - **Suggested title**: N/A — done, recorded for the audit.
 
 
+#### F-A3-010 — Deleting the modal forced a governance correction in three ADR-051 documents
+
+- **Severity**: P2 — done, recorded because it left this agent's write set.
+- **Found by**: S4-A3, from `gate_record check`'s `full_audit` failure.
+- **Evidence**: `docs/adr/ADR-051.md`, `docs/adr/ADR-051-addendum1.md` and
+  `docs/specs/adr-051-interactive-blocks.md` each list
+  `frontend/src/App.parts/InteractiveModals.tsx` under `governs.files`. FR-024
+  requires that file deleted, so the audit reported six errors —
+  `doc-drift.phantom-file` and `closure.unresolved-file-claim`, one pair per
+  document — and `full_audit` is a merge-blocking check, so the branch could not
+  pass its gate and the failure would have followed the merge onto the track
+  branch and every sibling.
+- **What was done**: the one line was removed from each document's
+  `governs.files`, and the spec's affected-files table row now says the file was
+  deleted by ADR-054 spec 4 FR-024. No decision, requirement or prose in ADR-051
+  changed, and its two sibling frontend files (`DataRouterModal.tsx`,
+  `PairEditorModal.tsx`) still exist and are still governed.
+- **Why it is here**: `docs/adr/**` and `docs/specs/**` are outside the S4-A3
+  write set. The alternative was to stop with the branch un-gateable, leaving a
+  correction the manager would have had to make anyway. Recorded with a
+  `gate_record amend` naming the reason.
+- **Worth an owner's eye**: whether a *retired* governed file should be
+  expressible in the frontmatter (a `retired_governs`, or a note beside the
+  path) rather than simply dropped, so the record still says the document once
+  owned it.
+- **Suggested title**: `chore(docs): ADR-051 governs a frontend file ADR-054 spec 4 deletes`
+
 ### S4-A4
 
 _No entries yet._

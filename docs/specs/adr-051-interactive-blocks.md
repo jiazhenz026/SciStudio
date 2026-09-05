@@ -53,7 +53,6 @@ governs:
     - src/scistudio/engine/runners/worker.py
     - src/scistudio/engine/events.py
     - src/scistudio/api/ws.py
-    - frontend/src/App.parts/InteractiveModals.tsx
     - frontend/src/components/DataRouterModal.tsx
     - frontend/src/components/PairEditorModal.tsx
     - docs/architecture/ARCHITECTURE.md
@@ -338,7 +337,7 @@ their `prepare_prompt` implementations are aligned to return `InteractivePrompt`
 | `src/scistudio/api/ws.py` | modify | Deliver panel payload and receive the decision under the new flow. |
 | `src/scistudio/blocks/process/builtins/data_router.py` | modify | Migrate to `InteractiveMixin`; return `InteractivePrompt`; declare manifest. |
 | `src/scistudio/blocks/process/builtins/pair_editor.py` | modify | Same migration. |
-| `frontend/src/App.parts/InteractiveModals.tsx` | modify | Replace `blockType` branching with manifest-driven panel host. |
+| `frontend/src/App.parts/InteractiveModals.tsx` | modify | Replace `blockType` branching with manifest-driven panel host. **Deleted by ADR-054 spec 4 FR-024**: a pause opens an Explore tab, so the file no longer exists and is no longer governed here. |
 | `frontend/src/components/DataRouterModal.tsx` | modify | Repackage as a manifest-served panel component. |
 | `frontend/src/components/PairEditorModal.tsx` | modify | Repackage as a manifest-served panel component. |
 | `docs/architecture/ARCHITECTURE.md` | modify | Rewrite §5.2.4 (PAUSED), §5.3 (subprocess isolation), and §5.3.1 ("Interactive blocks run in-process") so interactive blocks are described as two-phase subprocess execution, not an in-process exception. |
