@@ -4,7 +4,7 @@
 
 # SciStudio
 
-**For your great science: every data, every tool, one workflow.**
+**Scientific workflow bench with your AI partner.**
 
 [![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)]()
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
@@ -28,7 +28,7 @@
 
 ## What is SciStudio?
 
-SciStudio is an interactive workflow orchestration system for multimodal scientific data analysis. It starts from spatial multi-omics and is progressively expanding to other data modalities. SciStudio lets researchers connect scientific software, AI agents, scripts and multimodal data into one visual workflow.
+SciStudio is an interactive workflow orchestration system for multimodal scientific data analysis. You and your AI partner works together on a same canvas interactively. It starts from spatial multi-omics and is progressively expanding to other data modalities. SciStudio lets researchers connect scientific software, AI agents, scripts and multimodal data into one visual workflow.
 
 - **Typed data, one graph** — blocks exchange typed data and flow through the
   same workflow, so every step stays connected end to end.
