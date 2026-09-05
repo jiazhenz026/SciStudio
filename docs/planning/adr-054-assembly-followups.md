@@ -128,6 +128,56 @@ _No entries yet._
 
 _No entries yet._
 
+### fix-kernel
+
+#### FK-001 — `test_kernel_session.py` carries a second `_process_gone` that still counts a zombie as alive
+
+- **Severity**: P3 — latent, not currently failing.
+- **Found by**: fix-kernel, while fixing #2240's death detection.
+- **Evidence**: `tests/explore/test_kernel_session.py:98` checks only
+  `psutil.pid_exists` and `Process.is_running()`. psutil reports both as true
+  for an unreaped zombie, so this copy has exactly the defect the manager
+  fixed in `tests/explore/test_explore_session.py:113`. It passes today only
+  because every one of its callers reaps first — either
+  `psutil.Process(pid).wait(...)` in the test, or `KernelHandle.stop()`'s
+  `_wait_for_exit` — so nothing currently reaches it with a live zombie.
+- **Why it is here and not done**: changing it is not needed to fix #2240 and
+  the bug-fix rule forbids widening a fix past its cluster. The moment a new
+  test in that file kills a kernel without reaping it, it will hang for its
+  full 10 s timeout and then report a dead kernel as alive.
+- **Suggested title**: `Unify the three _process_gone test helpers on the
+  zombie-aware reading`
+
+#### FK-002 — three copies of `_process_gone` now exist across the explore tests
+
+- **Severity**: P3 — duplication, not a defect.
+- **Found by**: fix-kernel.
+- **Evidence**: `tests/explore/test_explore_session.py:113`,
+  `tests/explore/test_kernel_session.py:98`, and the branch-switch assertions
+  in `tests/api/test_explore_branch_switch.py` all need the same "is this pid
+  really gone" reading, and they have drifted apart (only one of them counts
+  a zombie). A shared helper — plausibly next to `KernelHandle` itself, since
+  the product now needs the same reading — would keep them honest.
+- **Suggested title**: `Share one zombie-aware process-liveness helper between
+  the explore kernel tests`
+
+#### FK-003 — the death-detection test is a race the suite only loses under load
+
+- **Severity**: P2 — the fix holds, but the end-to-end test does not prove it
+  reliably.
+- **Found by**: fix-kernel, reproducing #2240 in WSL.
+- **Evidence**: `test_a_kernel_killed_from_outside_is_reported_dead_and_offers_a_restart`
+  passes in isolation and passes when only `tests/explore` runs; it fails only
+  in the full `-m serial` phase, where the process holds eight live threads and
+  the killed kernel's thread group takes long enough to drain that
+  `/proc` says `Z` while `waitpid` still says "not yet". A test that only
+  fails on a loaded machine is a test that will go quiet again. The
+  platform-independent guarantee now lives in the stub-driven tests added to
+  `tests/explore/test_kernel_session.py`; the end-to-end test is kept because
+  it is the only one that proves the wiring, not because it is dependable.
+- **Suggested title**: `Make the explore kernel-death end-to-end test
+  deterministic rather than load-dependent`
+
 ## Already-Tracked Follow-Ups Inherited From Specs 1 To 3
 
 These already have issues. They are listed so the owner sees the whole

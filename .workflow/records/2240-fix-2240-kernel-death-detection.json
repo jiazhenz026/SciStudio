@@ -1,0 +1,85 @@
+{
+  "base_ref": "origin/track/adr-054-integration",
+  "branch": "fix/2240-kernel-death-detection",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/explore/kernel.py",
+      "tests/explore/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-05T08:52:52.467798Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2240,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix the Linux-only failure where a killed explore kernel is still reported idle",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2240-fix-2240-kernel-death-detection",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:52:52.467748Z",
+      "pattern": "src/scistudio/explore/kernel.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:52:52.467775Z",
+      "pattern": "tests/explore/test_kernel_session.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:52:52.467779Z",
+      "pattern": "docs/planning/adr-054-assembly-followups.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "5cb0bbfa-c95e-4a27-bfe5-d6b7963e91fb",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-05T08:52:52.467810Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/explore/test_kernel_session.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

@@ -57,6 +57,14 @@ against a real process on whatever platform CI runs.
 output, so a kernel killed from outside ends the running request with
 :class:`KernelDiedError` rather than a hang, and the handle reports
 ``"dead"`` afterwards and can be restarted.
+
+That poll asks two independent questions and believes the more pessimistic
+answer, because ``jupyter_client``'s ``is_alive()`` is not trustworthy on its
+own: it is ``waitpid(pid, WNOHANG)`` underneath, and Linux withholds a killed
+multi-threaded process from ``wait`` while its sibling threads finish exiting,
+even though ``/proc`` already calls it a zombie. Believing only the library
+left a dead kernel reported as ``"idle"`` on CI (#2240). See
+:meth:`KernelHandle._process_alive`.
 """
 
 from __future__ import annotations
@@ -835,14 +843,77 @@ class KernelHandle:
         return self._client
 
     def _process_alive(self) -> bool:
-        """Poll the process without touching the message channels."""
+        """Poll the process without touching the message channels.
+
+        Two independent readings, and the kernel is alive only if **both**
+        agree that it is. Asking ``jupyter_client`` alone is not enough, and
+        the failure is not hypothetical: it reported a ``SIGKILL``\\ ed kernel
+        as healthy on Linux CI, so the session went on offering a kernel that
+        no longer existed (#2240).
+
+        ``KernelManager.is_alive()`` is ``Popen.poll() is None`` underneath,
+        and ``Popen.poll()`` is ``waitpid(pid, WNOHANG)``. On Linux those two
+        questions are not the same question. When a multi-threaded process is
+        killed, its thread-group leader is marked a zombie — ``/proc`` reports
+        state ``Z`` at once — but ``wait`` deliberately withholds it while any
+        sibling thread is still exiting (the kernel's ``delay_group_leader``).
+        ``waitpid`` answers "nothing to report", ``Popen.poll()`` returns
+        ``None``, and ``jupyter_client`` reads that ``None`` as "still
+        running". ipykernel runs half a dozen threads, so the window is real;
+        it is short on an idle machine and wide on a loaded one, which is why
+        this only ever failed in CI.
+
+        (``Popen.poll()`` has a second way to answer ``None`` about a dead
+        process: it takes ``_waitpid_lock`` non-blockingly and gives up when a
+        concurrent poll holds it. The handle is polled from several threads by
+        design — :meth:`state` for the kernel list of FR-016, and the
+        ``_collect`` loop of a request in flight — so that overlap can happen
+        too. It was not what #2240 caught, but the same reading rules it out.)
+
+        Asking the operating system about the pid directly settles both,
+        because a zombie *is* a dead kernel however the library reads it —
+        the same insight the ``_process_gone`` test helper needed. The manager
+        is still asked first, and its answer still counts: its poll is what
+        reaps the child when the child is reapable, and it is the reading that
+        survives a pid reused by an unrelated process.
+        """
         manager = self._manager
         if manager is None:
             return False
         try:
-            return bool(manager.is_alive())
+            manager_alive = bool(manager.is_alive())
         except Exception:  # a manager that cannot answer is not alive
+            manager_alive = False
+        directly_alive = self._pid_alive()
+        if directly_alive is None:  # the OS would not say; the manager is all we have
+            return manager_alive
+        return manager_alive and directly_alive
+
+    def _pid_alive(self) -> bool | None:
+        """Whether the kernel's pid is a live process, read straight from the OS.
+
+        ``None`` means "cannot tell" — there is no pid yet, or the platform
+        refused the reading — and leaves the verdict to the manager rather
+        than declaring a healthy kernel dead on a failed lookup.
+
+        A zombie counts as dead: on POSIX a killed child keeps its pid until
+        something reaps it, and psutil reports it as both existing and
+        running for as long as it sits there. Windows has no zombie state, so
+        there the process is simply gone and :class:`psutil.NoSuchProcess`
+        gives the same answer.
+        """
+        pid = self.pid
+        if pid is None:
+            return None
+        try:
+            process = psutil.Process(pid)
+            if process.status() == psutil.STATUS_ZOMBIE:
+                return False
+            return bool(process.is_running())
+        except psutil.NoSuchProcess:  # ZombieProcess is a subclass of this
             return False
+        except (psutil.Error, OSError):
+            return None
 
     def _mark_dead(self) -> None:
         """Record the death and tell the owner once."""

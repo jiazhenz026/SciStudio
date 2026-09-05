@@ -702,6 +702,180 @@ def test_a_death_notice_fires_once_however_often_it_is_observed(
     assert deaths == ["died"]
 
 
+class _StubProvisioner:
+    """Just enough of a ``jupyter_client`` provisioner to carry a pid."""
+
+    def __init__(self, pid: int | None) -> None:
+        self.pid = pid
+
+
+class _StubManager:
+    """A ``jupyter_client`` manager whose ``is_alive()`` answer is dictated.
+
+    The one thing in this file that substitutes a double for a real kernel,
+    and deliberately: the bug these tests guard is that the handle *believed*
+    this object. ``is_alive()`` is ``Popen.poll() is None`` underneath, and on
+    POSIX that answers ``None`` for a process that is already dead — when the
+    poll cannot take ``_waitpid_lock`` because another thread is polling, and
+    while a killed child is still an unreaped zombie. Neither can be staged
+    with a real process on Windows, and a death-detection guarantee that only
+    holds on one platform is how this reached CI in the first place.
+    """
+
+    def __init__(self, *, alive: bool, pid: int | None = 4242) -> None:
+        self.provisioner = _StubProvisioner(pid)
+        self._alive = alive
+        self.polls = 0
+
+    def is_alive(self) -> bool:
+        self.polls += 1
+        return self._alive
+
+
+class _StubPsutilProcess:
+    """A ``psutil.Process`` replacement whose reading of one pid is dictated.
+
+    Stands in for the class rather than an instance, so ``psutil.Process(pid)``
+    inside the handle returns it. A dead process has no memory to report, which
+    is why :meth:`memory_info` refuses: :meth:`KernelHandle.status` reads the
+    memory as well as the state.
+    """
+
+    def __init__(self, status: str) -> None:
+        self._status = status
+        self.pid = -1
+
+    def __call__(self, pid: int) -> _StubPsutilProcess:
+        self.pid = pid
+        return self
+
+    def is_running(self) -> bool:
+        return True
+
+    def status(self) -> str:
+        return self._status
+
+    def children(self, recursive: bool = False) -> list[_StubPsutilProcess]:
+        return []
+
+    def memory_info(self) -> object:
+        raise psutil.NoSuchProcess(self.pid)
+
+
+def _idle_handle_over(manager: object, **kwargs: object) -> KernelHandle:
+    """A handle that believes it has an idle kernel driven by ``manager``.
+
+    Reaches into the handle's privates because the seam under test *is*
+    private: the point is what :attr:`KernelHandle.state` does with a manager
+    that lies, and there is no public way to install one.
+    """
+    handle = KernelHandle(**kwargs)  # type: ignore[arg-type]
+    handle._manager = manager  # type: ignore[assignment]
+    handle._state = "idle"
+    return handle
+
+
+def test_a_zombie_kernel_is_dead_even_while_jupyter_client_says_alive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FR-015: an unreaped corpse is a dead kernel, whatever the library says.
+
+    This is the regression. ``jupyter_client`` reported a SIGKILLed kernel as
+    alive, so ``state`` stayed ``"idle"``, ``needs_restart`` stayed false and
+    the death callback never fired — the session went on offering a kernel
+    that no longer existed.
+    """
+    deaths: list[str] = []
+    manager = _StubManager(alive=True)
+    handle = _idle_handle_over(manager, on_death=lambda: deaths.append("died"))
+    monkeypatch.setattr(psutil, "Process", _StubPsutilProcess(psutil.STATUS_ZOMBIE))
+
+    assert handle.state == "dead"
+    assert handle.status().state == "dead"
+    assert handle.is_alive() is False
+    assert deaths == ["died"]
+    assert manager.polls > 0, "the manager must still be polled, because its poll is what reaps the child"
+
+
+def test_a_vanished_kernel_is_dead_even_while_jupyter_client_says_alive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The same reading on Windows, which has no zombie state: the pid is gone."""
+
+    def _no_such_process(pid: int) -> psutil.Process:
+        raise psutil.NoSuchProcess(pid)
+
+    deaths: list[str] = []
+    handle = _idle_handle_over(_StubManager(alive=True), on_death=lambda: deaths.append("died"))
+    monkeypatch.setattr(psutil, "Process", _no_such_process)
+
+    assert handle.state == "dead"
+    assert deaths == ["died"]
+
+
+def test_the_death_of_a_zombie_kernel_is_reported_exactly_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Polling the kernel list must not tell the session its kernel died again."""
+    deaths: list[str] = []
+    handle = _idle_handle_over(_StubManager(alive=True), on_death=lambda: deaths.append("died"))
+    monkeypatch.setattr(psutil, "Process", _StubPsutilProcess(psutil.STATUS_ZOMBIE))
+
+    for _ in range(5):
+        assert handle.state == "dead"
+
+    assert deaths == ["died"]
+
+
+def test_a_process_the_platform_will_not_read_leaves_the_verdict_to_the_manager(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed reading must not kill a healthy kernel.
+
+    ``psutil`` can refuse a process it can see — a hardened host, a sandbox,
+    a container that hides ``/proc``. Treating "I cannot tell" as "dead"
+    would retire every kernel in the project on such a machine, which is a
+    worse failure than the one being fixed.
+    """
+
+    def _access_denied(pid: int) -> psutil.Process:
+        raise psutil.AccessDenied(pid)
+
+    deaths: list[str] = []
+    handle = _idle_handle_over(_StubManager(alive=True), on_death=lambda: deaths.append("died"))
+    monkeypatch.setattr(psutil, "Process", _access_denied)
+
+    assert handle.state == "idle"
+    assert handle.is_alive() is True
+    assert deaths == []
+
+
+def test_a_kernel_with_no_pid_yet_leaves_the_verdict_to_the_manager() -> None:
+    """A provisioner that has not published a pid is not evidence of a death."""
+    deaths: list[str] = []
+    handle = _idle_handle_over(_StubManager(alive=True, pid=None), on_death=lambda: deaths.append("died"))
+
+    assert handle.state == "idle"
+    assert deaths == []
+
+
+def test_the_manager_still_settles_a_death_the_pid_reading_missed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Either reading may condemn the kernel; the pid check only adds to the manager.
+
+    A pid can be reused by an unrelated process between the death and the
+    poll, and then the direct reading says "running" about something that is
+    not the kernel at all.
+    """
+    deaths: list[str] = []
+    handle = _idle_handle_over(_StubManager(alive=False), on_death=lambda: deaths.append("died"))
+    monkeypatch.setattr(psutil, "Process", _StubPsutilProcess(psutil.STATUS_RUNNING))
+
+    assert handle.state == "dead"
+    assert deaths == ["died"]
+
+
 def test_stopping_a_kernel_is_not_a_death(kernels: Callable[..., KernelHandle]) -> None:
     """Closing a session is not a failure, so the death notice must stay quiet."""
     deaths: list[str] = []
