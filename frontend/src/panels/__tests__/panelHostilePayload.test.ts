@@ -245,10 +245,12 @@ describe("tutorial.review_labels — a label id out of the payload", () => {
       new Proxy(
         {},
         {
-          get: (_target, property) => (...args: unknown[]) => {
-            drawn.push(String(property));
-            return args.length === 0 ? undefined : undefined;
-          },
+          get:
+            (_target, property) =>
+            (...args: unknown[]) => {
+              drawn.push(String(property));
+              return args.length === 0 ? undefined : undefined;
+            },
         },
       );
   });

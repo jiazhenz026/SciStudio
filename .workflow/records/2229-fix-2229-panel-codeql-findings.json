@@ -1,7 +1,140 @@
 {
   "base_ref": "origin/track/adr-054-integration",
   "branch": "fix/2229-panel-codeql-findings",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-05T08:49:12.001814Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d67eae93cd8524500c5e36bf87ee01946977480c8be8187f53ccfb59b2fa4568",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:49:12.079338Z",
+      "command": "ruff format src/scistudio/panels/assets.py tests/panels/test_panel_asset_route.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9ec6405113d0cbd391026fa1cd11a5fc5a745690b677b5dcd7c604b317967d44",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-05T08:49:52.355450Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:6af4097d4c6e2516278386877442b3d7ef7e8885711855e0fc0bd299e43011b9",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:50:22.361167Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e1a630d81588b11779d85f7664e62242500690499c811a9ea58a98f463b076bf",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:50:23.253877Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ae025fa09d52ff7fa57e6ef87640ef4131d0ab9436bf36b65e254bbd93954177",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:50:23.286640Z",
+      "command": "ruff check src/scistudio/panels/assets.py tests/panels/test_panel_asset_route.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7d490a680cc90c4697ec5a7cc93ad975d0c62706181e6a134a8b4cd434653210",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-05T08:50:36.571142Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/panels tests/panels/test_panel_asset_route.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:da043d6c033c29798724ea4a7955f1deb7ee0ae7311311bc24743d58f9bb85d4",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:50:50.288098Z",
+      "command": "mypy src/scistudio/panels/assets.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:13a7fafb7cbd80b3e7cd6d9ee9b13e8f55678123ce488d5206479199fe9ce468",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -26,7 +159,96 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-05T08:50:50.383123Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:50:50.403975Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:50:50.422780Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:50:50.441973Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:50:50.460151Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:50:50.479177Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:50:50.497295Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:50:50.517273Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:50:50.537214Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:50:50.555262Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:50:50.577132Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -36,19 +258,83 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "track/adr-054-integration",
+    "base_sha": "c1b31cd98",
+    "changed_files": [
+      ".workflow/records/2229-fix-2229-panel-codeql-findings.json",
+      "docs/planning/adr-054-assembly-followups.md",
+      "frontend/src/panels/__tests__/panelHostilePayload.test.ts",
+      "src/scistudio/panels/assets.py",
+      "src/scistudio/panels/builtin/core.plot.basic/index.html",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/panels/review_labels/index.html",
+      "tests/panels/test_panel_asset_route.py"
+    ],
+    "diff_fingerprint": "sha256:f5c087c379c50cc99e7680a56bccae14cfe6e2e005375e5bc012937705a8a23a",
+    "head": "HEAD",
+    "head_sha": "952034829",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 1,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 4,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 5,
+      "test": 2,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Triage and fix the CodeQL findings the ADR-054 assembly surfaced in the new panel documents and the panel asset route",
   "persona": "implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-05T08:50:50.577162Z",
+      "diff_fingerprint": "sha256:f5c087c379c50cc99e7680a56bccae14cfe6e2e005375e5bc012937705a8a23a",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.frontend"
+      ]
+    }
+  ],
   "record_id": "2229-fix-2229-panel-codeql-findings",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "commit_hygiene",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
@@ -91,7 +377,7 @@
     }
   ],
   "session_id": "14b0b174-bbc8-446f-a4e5-1c404203690e",
-  "strictness_tier": null,
+  "strictness_tier": 2,
   "task_kind": "bugfix",
   "test_events": [
     {
