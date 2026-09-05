@@ -606,9 +606,10 @@ __CONTRACT_BLOCK__
   };
   window.__scistudio_panel_harness__ = record;
 
-  function stamp(direction, type, payload) {
+  function stamp(direction, type, payload, bad) {
     record.messages.push({ direction: direction, type: type, payload: payload });
     var item = document.createElement("li");
+    if (bad) item.className = "bad";
     var tag = document.createElement("code");
     tag.className = direction === "out" ? "dir-out" : "dir-in";
     tag.textContent = (direction === "out" ? "host -> panel  " : "panel -> host  ") + type;
@@ -693,10 +694,10 @@ __CONTRACT_BLOCK__
 
     if (PANEL_TO_HOST_TYPES.indexOf(data.type) === -1) {
       record.errors.push("the panel sent a type the contract does not carry: " + data.type);
-      stamp("in", data.type + " (unknown)", payload);
+      stamp("in", data.type + " (unknown)", payload, true);
       return;
     }
-    stamp("in", data.type, payload);
+    stamp("in", data.type, payload, data.type === "error");
 
     if (data.type === "ready") {
       record.ready = true;
