@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { postActiveWorkflowContext } from "../lib/api/ai";
+import { reportWorkspaceFocus } from "../explore/workspaceFocus";
 
 import { createExecutionSlice } from "./executionSlice";
 import { createExploreSlice } from "./exploreSlice";
@@ -257,6 +258,17 @@ function syncActiveWorkflowId(workflowId: string | null): void {
 
 useAppStore.subscribe((state) => {
   syncActiveWorkflowId(state.workflowId);
+  /*
+   * ADR-054 spec 5 FR-001 - and where the person is, beside what they are
+   * editing.
+   *
+   * The same subscriber rather than a second one: the two are one fact about
+   * the workspace, and reporting them from one place is what keeps them from
+   * disagreeing across a tab switch. `reportWorkspaceFocus` compares against
+   * what it last sent, so this fires on every store change and posts only when
+   * the focus actually moved.
+   */
+  reportWorkspaceFocus(state);
 });
 
 // Fire once at module load so the backend's persisted value is
@@ -264,3 +276,7 @@ useAppStore.subscribe((state) => {
 // frontend has. Without this, the very first sync waits until the user
 // opens or switches a workflow.
 syncActiveWorkflowId(useAppStore.getState().workflowId);
+// The focus is reported once at load for the same reason: the backend's
+// persisted value predates this page and the agent should be told what is on
+// screen now, not what was on screen when the backend last heard.
+reportWorkspaceFocus(useAppStore.getState());

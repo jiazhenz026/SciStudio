@@ -261,6 +261,86 @@
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:25:23.520370Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6ba8ef6da4b79f84ea440d985441600838084c7c403865e6971dcdbe2b90211e",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:25:26.504565Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:49777ca2b81e40fa9792a2b8e0ab426cfa0c3ab7891da48d30f626b3a7dabe89",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:26:38.593100Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8f73e42585d536834356daca1d702985dadb31fa45077a3494158ba5a1573cf9",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:26:55.891465Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:3482bdc44a7e4cb977141a509c2fd9ca266fb04e1f98fef63812eb28cee48bca",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:30:44.420017Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -561,6 +641,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:30:44.514179Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:30:44.531613Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:30:44.550591Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:30:44.566797Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:30:44.582988Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:30:44.599835Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:30:44.620662Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:30:44.639422Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:30:44.657604Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:30:44.675290Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:30:44.707179Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -578,6 +746,7 @@
     "changed_files": [
       ".workflow/records/2253-feat-2253-explore-tab-shell.json",
       "docs/planning/adr-054-assembly-followups.md",
+      "docs/specs/adr-054-explore-frontend.md",
       "frontend/src/App.parts/ProjectWorkspace.tsx",
       "frontend/src/App.parts/__tests__/exploreWorkspace.test.tsx",
       "frontend/src/components/ProjectTree.parts/ContextMenu.tsx",
@@ -607,11 +776,11 @@
       "frontend/src/types/explore.ts",
       "frontend/src/types/ui.ts"
     ],
-    "diff_fingerprint": "sha256:18ccfc77be2aaa70abd914ee8e5747790cc60cd8558a77a49d25206bfae66c02",
+    "diff_fingerprint": "sha256:972a40b418a98edf8f9876cda86fba2c0baa36c16f3bf88746ab7922dad4c772",
     "head": "HEAD",
-    "head_sha": "6a12210cd",
+    "head_sha": "de12d4e59",
     "surfaces": {
-      "docs": 1,
+      "docs": 2,
       "frontend": 28,
       "governance": 0,
       "governed_docs": 0,
@@ -619,7 +788,7 @@
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 28,
+      "sentrux": 29,
       "test": 7,
       "workflow_ci": 0
     }
@@ -661,6 +830,17 @@
       "unsatisfied": [
         "checks.frontend",
         "checks.full_audit"
+      ]
+    },
+    {
+      "at": "2026-09-05T08:30:44.707205Z",
+      "diff_fingerprint": "sha256:972a40b418a98edf8f9876cda86fba2c0baa36c16f3bf88746ab7922dad4c772",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.full_audit",
+        "checks.python_tests"
       ]
     }
   ],
@@ -756,6 +936,18 @@
       "at": "2026-09-05T08:24:51.906617Z",
       "pattern": "docs/specs/adr-054-explore-frontend.md",
       "reason": "the full-repo audit fails the moment frontend/src/explore/** resolves unless spec 4's own frontmatter moves it from planned_governs to governs; this is the audit's prescribed remedy for the files this task landed, and it is spec 4's bookkeeping about its own code"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:33:30.842018Z",
+      "pattern": "frontend/src/lib/api/ai.ts",
+      "reason": "the coordinator dispatched ADR-054 spec 5 FR-001's frontend half to this agent after the backend channel landed on track/adr-054-spec5-agent-enablement; the report needs the ai client and the three test mocks of it that now omit the new export"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:33:30.842044Z",
+      "pattern": "frontend/src/components/BottomPanel.parts/SubworkflowConfigEditor.test.tsx",
+      "reason": "the coordinator dispatched ADR-054 spec 5 FR-001's frontend half to this agent after the backend channel landed on track/adr-054-spec5-agent-enablement; the report needs the ai client and the three test mocks of it that now omit the new export"
     }
   ],
   "session_id": "447bf4a9-96d5-4e23-96ee-f3c8df2bfe3b",

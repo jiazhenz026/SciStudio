@@ -118,3 +118,71 @@ spec's affected-files table still describes where a consumer looks.
 `api.ts` is close to the limit again on its own. A follow-up should split it by
 domain the way `lib/api/` already is (`projects`, `blocks`, `workflows`, `git`,
 …) rather than one more sibling per feature.
+
+### F-A1-006 - Two specs now claim `frontend/src/explore/**`, and the audit fails on it
+
+`docs/specs/adr-054-agent-enablement.md` (spec 5, issue `#2254`) lists
+`frontend/src/explore/**` under `planned_governs.files`. The moment this task
+landed that directory, the full-repo audit began failing it with "planned
+governed file path or glob already resolves and must move to governs" - and it
+cannot move, because spec 4 governs the same glob.
+
+**This blocks the branch's gate and will block every sibling branch and the
+track branch too.** It is the one audit error left after spec 4's own
+frontmatter was corrected.
+
+Not fixed here, deliberately. Spec 5's `scope.out` reserves the frontend from
+itself "except the single report of the active mode this spec requires of it",
+so the entry is not a mistake - it is a real, if far too broad, claim on one
+future file. Resolving it means choosing between:
+
+1. **Removing** `frontend/src/explore/**` from spec 5's `planned_governs`, on
+   the ground that spec 4 governs the explore frontend and spec 5's one
+   frontend requirement is satisfied by an interface spec 4 provides; or
+2. **Narrowing** it to the specific file that will carry the mode report (which
+   does not exist yet), so it stays planned and stops resolving.
+
+Either is an authoring decision about a spec belonging to a different issue and
+a different dispatch row, which is why this agent stopped rather than edited
+it. Wave 1's spec-5 agents (`S5-B1`, `S5-B2`) have backend-only write sets, so
+nobody is currently holding that file.
+
+**Remedy**: one line in `docs/specs/adr-054-agent-enablement.md`, by whoever
+owns spec 5.
+
+**Update, after the coordinator's dispatch of spec 5 FR-001's frontend half to
+this agent**: the report that claim reserved is now delivered, as
+`frontend/src/explore/workspaceFocus.ts`, under spec 4's governance. So option
+1 is the well-founded one - spec 5's `planned_governs` entry can be removed,
+because the file it was holding a place for exists and belongs to spec 4. Still
+not taken here: it is a different issue's spec, and removing another dispatch's
+governance claim is the manager's call, not this agent's.
+
+### F-A1-007 - Three partial mocks of `lib/api/ai` had to gain the new export
+
+`workflowSlice.variadicPorts.test.ts`, `workflowSlice.subworkflowRef.test.ts`
+and `components/BottomPanel.parts/SubworkflowConfigEditor.test.tsx` mock
+`../../lib/api/ai` with a hand-written object rather than spreading
+`importOriginal()`. Adding `postWorkspaceFocus` to that module made importing
+the store throw in all three, because the store's subscriber calls an export
+the mock does not define.
+
+Fixed by adding the export to each mock. The underlying fragility is not
+fixed: any future export on that module breaks them again. The repository's own
+better pattern is in `store/__tests__/panelCatalogInvalidation.test.ts`, which
+spreads `importOriginal()` and overrides only what it needs.
+
+**Fix**: convert the three to the `importOriginal` form.
+
+### F-A1-008 - Two Python tests flaked once each under the gate's parallel run
+
+`tests/qa/test_generate_facts_cli.py::test_generate_facts_write_and_check_round_trip`
+failed on one `gate_record check` run and
+`tests/ai/test_mcp_tools_disk_integration.py::test_concurrent_write_workflow_serialises`
+on the next; neither failed twice, and both pass in isolation and in the other
+run. Both are timing-sensitive - the first spawns a subprocess that walks the
+whole `src/` tree, the second asserts write serialisation - and the suite runs
+under `--timeout=60` on a machine carrying several agents' test runs at once.
+
+Recorded rather than dismissed: if either recurs in CI, where the machine is
+not shared, it is a real defect and not contention.
