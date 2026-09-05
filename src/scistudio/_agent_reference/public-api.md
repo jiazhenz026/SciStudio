@@ -22,18 +22,46 @@ unsupported, and liable to move or vanish without notice.
 | `scistudio.previewers.data_access` | bounded preview-read helpers |
 | `scistudio.tutorials` | tutorial authoring: `TutorialDriver`, `DriverContext`, `StepView`, the action and condition vocabulary |
 | `scistudio.stability` | `stable`, `provisional`, `internal` decorators |
+| `scistudio` (the package itself) | the notebook helpers `input`, `load`, `output`, plus `blocks` |
+| `scistudio.explore` | notebook dependency analysis: `analyse_cell`, `analyse_cells`, `build_graph`, `CellFacts`, `DependencyGraph`, `Edge`, `EdgeOrigin`, `SliceResult`, `LoadedCell`, `OutputDeclaration`, `UnresolvedRead`, `BlockCall`, `CellFlag`, `AnalysisFlag`, `VersionNode`, `VersionEdge`, the cell-record codec (`encode_cell_record`, `decode_cell_record`, `encode_notebook_record`, `notebook_record_version`, `observation_flags`, `source_hash`), and the `ANALYSIS_VERSION` / `CELL_RECORD_KEY` / `BUILTIN_NAMES` / `INPUT_CALL_PATH` / `OUTPUT_CALL_PATH` / `BLOCK_CALL_PATHS` constants |
+| `scistudio.explore.fingerprint` | `fingerprint`, `compare_namespaces`, `Fingerprint`, `FingerprintBudget`, `ObservedChange`, `FINGERPRINT_BUDGET` |
 
 ```python
 # CORRECT — canonical roots
 from scistudio.blocks.base import Block, BlockConfig, InputPort, OutputPort
 from scistudio.blocks.process import ProcessBlock
 from scistudio.core.types import Array, DataFrame, Collection
+from scistudio.explore import build_graph          # notebook dependency analysis
+from scistudio.explore.fingerprint import fingerprint
 
 # WRONG — deep module paths (internal; will break)
 from scistudio.blocks.base.block import Block            # ✗
 from scistudio.blocks.base.ports import InputPort        # ✗
 from scistudio.blocks.process.process_block import ProcessBlock  # ✗
 ```
+
+## In a notebook: the three helpers
+
+An exploration notebook reaches SciStudio through exactly three names on the
+**top-level package**, and no others:
+
+| Call | What it does |
+|---|---|
+| `scistudio.input(name)` | returns this run's value for the input port `name` |
+| `scistudio.load(source)` | resolves what `input` returned (or a file path) into a `DataObject` |
+| `scistudio.output(**names)` | declares each keyword as one of the notebook's outputs |
+
+`scistudio.blocks.run("Smooth", data=x)` joins them for calling an existing
+block from a cell. All four are reachable from the package itself
+(`import scistudio`) rather than from `scistudio.explore.notebook_api`, and that
+is deliberate: the same line has to work in a session **and** in the block the
+notebook is packaged into. Never import the helpers from the module that
+defines them — that path is internal, and a notebook written against it stops
+working when it is packaged.
+
+The explore subsystem's *runtime* (the session, the kernel, the queue, the
+notebook store, packaging) is **not** public. Reach it through the MCP session
+tools, never by import.
 
 ## Hard prohibitions
 

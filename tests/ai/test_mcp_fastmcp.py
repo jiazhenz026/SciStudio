@@ -32,54 +32,12 @@ from scistudio.ai.agent.mcp import _context, tools_authoring, tools_workflow
 from scistudio.ai.agent.mcp.server import mcp
 from scistudio.blocks.registry import BlockRegistry
 from scistudio.core.types.registry import TypeRegistry
+from tests.mcp_tool_expectations import EXPECTED_TOOL_COUNT, EXPECTED_TOOL_NAMES
 
-_EXPECTED_TOOL_NAMES = {
-    # category (a) workflow
-    "list_blocks",
-    "get_block_schema",
-    "list_types",
-    "get_workflow",
-    "validate_workflow",
-    "write_workflow",
-    # #1912: surgical partial-edit workflow tool
-    "edit_workflow",
-    "run_workflow",
-    "cancel_run",
-    "get_run_status",
-    "finish_ai_block",
-    # ADR-040 Addendum 5 / #1488
-    "get_active_workflow_context",
-    # category (b) authoring
-    "read_block_source",
-    "list_block_examples",
-    "scaffold_block",
-    "reload_blocks",
-    "run_block_tests",
-    # category (c) inspection
-    "get_block_output",
-    "inspect_data",
-    "preview_data",
-    "get_lineage",
-    "get_block_config",
-    "update_block_config",
-    "get_block_logs",
-    # category (d) qa
-    "search_docs",
-    "get_doc",
-    "list_data",
-    "get_project_info",
-    # #1947: open the running GUI in a browser for self-debugging
-    "open_gui",
-    # category (e) plot (ADR-048 SPEC 2)
-    "list_plot_targets",
-    "scaffold_plot",
-    "list_plot_examples",
-    "read_plot_source",
-    "validate_plot",
-    "run_plot_job",
-    # category (f) library (ADR-053 FR-011)
-    "promote_to_user_library",
-}
+#: The one declaration lives in ``tests/mcp_tool_expectations.py`` -- five test
+#: files across four suites asserted this and two kept their own copy of it
+#: (ADR-054 §8.4; the S5-B4 follow-up register, F-B4-1).
+_EXPECTED_TOOL_NAMES = EXPECTED_TOOL_NAMES
 
 
 def _run(coro: Coroutine[Any, Any, Any]) -> Any:
@@ -91,10 +49,16 @@ def _run(coro: Coroutine[Any, Any, Any]) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def test_fastmcp_lists_36_tools() -> None:
-    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + #1912 + #1947 + ADR-053 FR-011: 36 tools."""
+def test_fastmcp_lists_every_expected_tool() -> None:
+    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + #1912 + #1947 + ADR-053 FR-011
+    + ADR-054 spec 5 FR-025 (the panel group): the registry is exactly the
+    expected set.
+
+    The set is the assertion; the count is asserted too because a duplicate
+    registration under one name would satisfy the set and not the count.
+    """
     tools = _run(mcp.list_tools())
-    assert len(tools) == 36
+    assert len(tools) == EXPECTED_TOOL_COUNT
     names = {t.name for t in tools}
     assert names == _EXPECTED_TOOL_NAMES, (
         f"missing: {_EXPECTED_TOOL_NAMES - names}; extra: {names - _EXPECTED_TOOL_NAMES}"
@@ -102,26 +66,21 @@ def test_fastmcp_lists_36_tools() -> None:
 
 
 def test_write_class_tools_have_next_step() -> None:
-    """ADR-040 §3.2: every write-class tool's result model has next_step: str."""
-    write_class = {
-        "write_workflow",
-        "edit_workflow",
-        "run_workflow",
-        "cancel_run",
-        "finish_ai_block",
-        "scaffold_block",
-        "reload_blocks",
-        "run_block_tests",
-        "update_block_config",
-        # ADR-048 SPEC 2 plot write/run-class.
-        "scaffold_plot",
-        "run_plot_job",
-        # ADR-053 FR-011 library write-class.
-        "promote_to_user_library",
-    }
+    """ADR-040 §3.2: every write-class tool's result model has next_step: str.
+
+    The list is **taken from the registry's ``write`` tag**, not written out
+    here. It used to be a hand-kept set, and by the time ADR-054 spec 5 landed
+    it was missing six tools — the two write-class panel tools and four of the
+    seven session tools — so it passed while covering less than its name
+    claims. A test whose subject list is maintained by hand tests whatever
+    someone last remembered to add (S5-B3's F-B3-7).
+    """
     tools = _run(mcp.list_tools())
+    write_class = {t.name for t in tools if "write" in (t.tags or set())}
+    assert write_class, "no tool carries the 'write' tag; the tag convention has moved"
+
     by_name = {t.name: t for t in tools}
-    for name in write_class:
+    for name in sorted(write_class):
         tool = by_name[name]
         if name == "finish_ai_block":
             # Union[FinishAIBlockOK, FinishAIBlockError]; next_step lives on OK.

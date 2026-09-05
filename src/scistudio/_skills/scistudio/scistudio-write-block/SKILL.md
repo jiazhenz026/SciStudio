@@ -11,7 +11,9 @@ description: |
   that's scistudio-build-workflow ("add an imaging.threshold node to my
   workflow"). NOT for editing an existing block's config
   (update_block_config). NOT for writing the workflow YAML itself
-  (scistudio-build-workflow).
+  (scistudio-build-workflow). NOT for authoring a WINDOW onto data — a
+  viewer, a picker, anything the user looks at or acts in — that's
+  scistudio-write-panel.
 ---
 
 # scistudio-write-block
@@ -68,6 +70,25 @@ genuinely helps the user. See `block-contract.md` for how to author each.
   or ship a small custom panel.
 - **AppBlock / CodeBlock** — hand the step to an external GUI/CLI tool, or to a
   project-local script.
+- **packaged notebook** — open an explore session over the data, work the
+  computation out in cells, then package the notebook into a block. Choose this
+  shape **when the computation is not yet understood**: when neither you nor the
+  user can yet say what the step does, guessing at a Python block writes a file
+  nobody can check, while a notebook lets the user watch each cell before any of
+  it becomes a block. Once the computation *is* understood, write the block
+  directly — a packaged notebook is not the better default, it is the answer to
+  not knowing yet. Call `mcp__scistudio__list_block_examples(category="notebook")`
+  for a worked one: the notebook a person wrote, the declaration packaging
+  generated from it, and the cell conventions that make the two agree.
+
+### When the user wants a window, not a step
+
+If what the user is asking for is something they **look at or act in** — a
+viewer for a type, a picker, a region selector, a router — that is a **panel**,
+not a block. Stop here and load **`scistudio-write-panel`**. A block that
+renders is the wrong shape: panels are documents with their own contract, tiers,
+and registry. An interactive block still needs a panel for its pause, and that
+panel is authored with the panel skill.
 
 ## Tool-call sequence
 
@@ -117,6 +138,10 @@ a convenient default.
 ## Anti-patterns
 
 - Authoring without `list_blocks` first.
+- Writing a block for a computation nobody has worked out yet, instead of
+  opening a session and packaging the notebook.
+- Authoring a block to render something the user wants to look at or act in —
+  that is a panel (`scistudio-write-panel`).
 - Deep-path or `_support` imports; bare `DataObject` ports on a non-generic block.
 - Subclassing `AIBlock`/`SubWorkflowBlock`, or setting `base_category`.
 - `run()` returning a non-dict; skipping `reload_blocks` / `run_block_tests`.

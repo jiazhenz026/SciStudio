@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from scistudio.qa.audit.facts import load_facts
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -19,6 +21,13 @@ def _run_generate_facts(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+# Serial: this spawns ``scripts/audit/generate_facts.py`` as a subprocess that
+# walks the whole repository. Under ``-n auto`` the worker hosting it dies
+# (``node down: Not properly terminated``) and takes unrelated tests with it —
+# the class ``pyproject.toml`` marks serial (#1867, #1896). Do not remove the
+# mark; it passes in isolation either way, so a green local run is not evidence
+# that the parallel phase can host it.
+@pytest.mark.serial
 def test_generate_facts_write_and_check_round_trip(tmp_path: Path) -> None:
     facts_path = tmp_path / "generated.yaml"
 

@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Region Picker &mdash; SciStudio panel example</title>
+<!--
+  A PRODUCING panel, worked end to end.
+
+  It draws a Series and lets the user drag a region across it. Every time the
+  region changes it emits ONE line of code — the decision, as a Python literal
+  assignment — which the host inserts on the user's behalf.
+
+  Two things make this a producing panel rather than a displaying one:
+
+    * `"capability": "producing"` in panel.json, and
+    * the `emit` message below.
+
+  An `emit` from a panel mounted for display is dropped and reported by the
+  host, so the declaration is the contract, not a hint.
+
+  It re-emits the WHOLE decision on every change rather than a delta. Whatever
+  confirms the pause has only the last emission to work with, so an emission
+  that described only what changed would leave the host holding half a decision.
+  Each emission rebinds the same name, so re-emitting costs nothing.
+
+  Self-contained: one file, no <script src>, no stylesheet link, no CDN.
+-->
+<style>
+  :root { --ink: #1c211b; --ember: #f06a44; --line: rgba(28, 33, 27, 0.12); --danger: #b3261e; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: transparent; color: var(--ink);
+    font: 12px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  body { padding: 8px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .card { border: 1px solid var(--line); border-radius: 1rem; background: #fff; padding: 12px; }
+  svg { display: block; width: 100%; height: 96px; touch-action: none; cursor: crosshair; }
+  code {
+    display: block; border: 1px solid var(--line); border-radius: 1rem; background: #fff;
+    padding: 8px 12px; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .muted { color: rgba(28, 33, 27, 0.6); }
+  .error {
+    border: 1px solid rgba(179, 38, 30, 0.3); background: rgba(179, 38, 30, 0.08);
+    color: var(--danger); border-radius: 1rem; padding: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="stack" id="root">
+  <p class="muted">Waiting for the host&hellip;</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var PANEL_MESSAGE_MARKER = 1;
+  var PANEL_API_VERSION = "1";
+  var SVG_NS = "http://www.w3.org/2000/svg";
+
+  var token = null;
+  var torndown = false;
+  var current = null;
+  var values = [];
+  var region = null;   // {start: int, end: int} indices into `values`
+
+  function post(type, payload) {
+    if (token === null || torndown) return false;
+    try {
+      window.parent.postMessage(
+        { scistudio_panel: PANEL_MESSAGE_MARKER, token: token, type: type, payload: payload },
+        "*"
+      );
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function reportError(message) {
+    post("error", { message: String(message), detail: null });
+  }
+
+  function envelopeOf(value) {
+    var empty = { payload: {}, metadata: {}, diagnostics: [], error: null };
+    if (!value || typeof value !== "object") return empty;
+    if (value.payload && typeof value.payload === "object") {
+      return {
+        payload: value.payload,
+        metadata: value.metadata && typeof value.metadata === "object" ? value.metadata : {},
+        diagnostics: Array.isArray(value.diagnostics) ? value.diagnostics : [],
+        error: value.error && typeof value.error === "object" ? value.error : null
+      };
+    }
+    return { payload: value, metadata: {}, diagnostics: [], error: null };
+  }
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  function numbers(payload) {
+    var raw = payload.values;
+    if (!Array.isArray(raw)) return [];
+    var out = [];
+    for (var i = 0; i < raw.length; i += 1) {
+      var n = Number(raw[i]);
+      if (isFinite(n)) out.push(n);
+    }
+    return out;
+  }
+
+  // ---------------------------------------------------------------------
+  // The emission.
+  //
+  // What leaves this panel is CODE, and it must satisfy the statement
+  // whitelist in panel-contract.md — a bare assignment of a literal. Build it
+  // from numbers you produced yourself; never interpolate a string that came
+  // from the payload, because that is how a data file writes code.
+  // ---------------------------------------------------------------------
+
+  function emittedCode() {
+    if (region === null) return null;
+    return "baseline_region = (" + region.start + ", " + region.end + ")";
+  }
+
+  function emitRegion() {
+    var code = emittedCode();
+    if (code === null) return;
+    post("emit", { code: code });
+  }
+
+  // ---------------------------------------------------------------------
+  // Rendering + the drag
+  // ---------------------------------------------------------------------
+
+  function trace() {
+    var svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", "0 0 100 32");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "Series with a draggable region");
+
+    if (values.length >= 2) {
+      var lo = Math.min.apply(null, values);
+      var hi = Math.max.apply(null, values);
+      var span = hi - lo || 1;
+      var points = [];
+      for (var i = 0; i < values.length; i += 1) {
+        var x = (i / (values.length - 1)) * 100;
+        var y = 32 - ((values[i] - lo) / span) * 32;
+        points.push(x.toFixed(2) + "," + y.toFixed(2));
+      }
+      var line = document.createElementNS(SVG_NS, "polyline");
+      line.setAttribute("points", points.join(" "));
+      line.setAttribute("fill", "none");
+      line.setAttribute("stroke", "#1c211b");
+      line.setAttribute("stroke-width", "1");
+      line.setAttribute("vector-effect", "non-scaling-stroke");
+      svg.appendChild(line);
+    }
+
+    if (region !== null && values.length >= 2) {
+      var last = values.length - 1;
+      var x0 = (region.start / last) * 100;
+      var x1 = (region.end / last) * 100;
+      var band = document.createElementNS(SVG_NS, "rect");
+      band.setAttribute("x", Math.min(x0, x1).toFixed(2));
+      band.setAttribute("y", "0");
+      band.setAttribute("width", Math.max(Math.abs(x1 - x0), 0.5).toFixed(2));
+      band.setAttribute("height", "32");
+      band.setAttribute("fill", "#f06a44");
+      band.setAttribute("fill-opacity", "0.22");
+      svg.appendChild(band);
+    }
+
+    attachDrag(svg);
+    return svg;
+  }
+
+  function indexAt(svg, clientX) {
+    var box = svg.getBoundingClientRect();
+    if (box.width === 0 || values.length < 2) return 0;
+    var ratio = (clientX - box.left) / box.width;
+    ratio = Math.max(0, Math.min(1, ratio));
+    return Math.round(ratio * (values.length - 1));
+  }
+
+  function attachDrag(svg) {
+    var anchor = null;
+
+    svg.addEventListener("pointerdown", function (event) {
+      if (values.length < 2) return;
+      anchor = indexAt(svg, event.clientX);
+      region = { start: anchor, end: anchor };
+      svg.setPointerCapture(event.pointerId);
+      render();
+    });
+
+    svg.addEventListener("pointermove", function (event) {
+      if (anchor === null) return;
+      var here = indexAt(svg, event.clientX);
+      region = { start: Math.min(anchor, here), end: Math.max(anchor, here) };
+      render();
+    });
+
+    svg.addEventListener("pointerup", function () {
+      if (anchor === null) return;
+      anchor = null;
+      // Emit on release, not on every move: one decision per gesture.
+      emitRegion();
+      render();
+    });
+  }
+
+  function render() {
+    var root = document.getElementById("root");
+    root.textContent = "";
+
+    if (current && current.error) {
+      var box = el("div", "error");
+      box.setAttribute("role", "alert");
+      box.appendChild(el("p", null, "Series preview failed"));
+      box.appendChild(el("p", null, current.error.message || "An unknown error occurred."));
+      root.appendChild(box);
+      return;
+    }
+
+    if (values.length === 0) {
+      root.appendChild(el("p", "muted", "No numeric points to draw."));
+      return;
+    }
+
+    var card = el("div", "card");
+    card.appendChild(trace());
+    root.appendChild(card);
+
+    var code = emittedCode();
+    if (code === null) {
+      root.appendChild(el("p", "muted", "Drag across the trace to pick a baseline region."));
+    } else {
+      root.appendChild(el("code", null, code));
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // The handshake
+  // ---------------------------------------------------------------------
+
+  function adopt(value) {
+    current = envelopeOf(value);
+    values = numbers(current.payload);
+    if (region !== null && (values.length < 2 || region.end > values.length - 1)) {
+      region = null;  // the data changed under us; the old region means nothing
+    }
+  }
+
+  function onMessage(event) {
+    var data = event.data;
+    if (!data || typeof data !== "object") return;
+    if (data.scistudio_panel !== PANEL_MESSAGE_MARKER) return;
+    if (typeof data.type !== "string") return;
+    var payload = data.payload && typeof data.payload === "object" ? data.payload : {};
+
+    if (token === null) {
+      if (data.type !== "init" || typeof data.token !== "string" || data.token === "") return;
+      token = data.token;
+      adopt(payload.target);
+      // A remembered decision comes back here, so a reopened pause shows what
+      // the user already picked instead of a blank trace.
+      var restored = payload.state;
+      if (restored && typeof restored === "object" && typeof restored.start === "number") {
+        region = { start: restored.start, end: restored.end };
+      }
+      post("ready", { api_version: PANEL_API_VERSION });
+      render();
+      return;
+    }
+
+    if (data.token !== token) return;
+
+    switch (data.type) {
+      case "update":
+        if (payload.changed && typeof payload.changed === "object" && "target" in payload.changed) {
+          adopt(payload.changed.target);
+          render();
+        }
+        break;
+      case "state_request":
+        post("state", { state: region });
+        break;
+      case "error":
+        current = {
+          payload: current.payload, metadata: current.metadata, diagnostics: current.diagnostics,
+          error: { code: payload.code || "host_error", message: payload.message || "" }
+        };
+        render();
+        break;
+      case "teardown":
+        torndown = true;
+        window.removeEventListener("message", onMessage);
+        break;
+      default:
+        break;
+    }
+  }
+
+  window.addEventListener("message", onMessage);
+  window.addEventListener("error", function (event) {
+    reportError(event.message || "the panel threw");
+  });
+})();
+</script>
+</body>
+</html>

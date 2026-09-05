@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from scistudio.qa.audit import full_audit
 from scistudio.qa.audit.facts import write_facts
 from scistudio.qa.audit.full_audit import render_markdown, run
@@ -11,6 +13,12 @@ from scistudio.qa.schemas.report import AuditStatus
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+# Serial: this runs the entire audit in-process over the whole repository. Under
+# ``-n auto`` the worker hosting it dies (``node down: Not properly terminated``)
+# and takes unrelated tests with it — the class ``pyproject.toml`` marks serial
+# (#1867, #1896). Do not remove the mark; it passes in isolation either way, so
+# a green local run is not evidence that the parallel phase can host it.
+@pytest.mark.serial
 def test_full_audit_renders_human_readable_facts_summary() -> None:
     report = run(REPO_ROOT, check_stale=False)
 

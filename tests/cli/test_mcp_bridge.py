@@ -31,6 +31,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.mcp_tool_expectations import EXPECTED_TOOL_COUNT, EXPECTED_TOOL_NAMES
+
 # Module-level skip removed — MCPServer start/stop now wired through
 # FastMCP in I40a Phase 2a (ADR-040 §3.1).
 
@@ -129,10 +131,10 @@ def test_run_standalone_mode_returns_tools_list(tmp_path: Path, monkeypatch: pyt
     Verifies:
 
     * Bridge exits 0 (clean EOF).
-    * Stdout contains a JSON-RPC response with ``result.tools`` of 36
-      entries — the full registered tool count (26 baseline +
-      get_active_workflow_context + 6 ADR-048 plot tools + edit_workflow
-      #1912 + open_gui #1947).
+    * Stdout contains a JSON-RPC response with ``result.tools`` holding the
+      whole registered tool set. The number lives in
+      ``tests/mcp_tool_expectations.py``, which is the only place it is
+      written down (ADR-054 §8.4).
     """
     project = _make_project(tmp_path)
     request = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
@@ -149,10 +151,9 @@ def test_run_standalone_mode_returns_tools_list(tmp_path: Path, monkeypatch: pyt
     assert response.get("id") == 1
     tools = response.get("result", {}).get("tools")
     assert isinstance(tools, list), response
-    assert len(tools) == 36, (
-        f"expected 36 tools (26 baseline + get_active_workflow_context per ADR-040 Addendum 5 "
-        f"+ 6 ADR-048 SPEC 2 plot tools + edit_workflow #1912 + open_gui #1947 "
-        f"+ promote_to_user_library per ADR-053 FR-011), got {len(tools)}"
+    assert len(tools) == EXPECTED_TOOL_COUNT, (
+        f"the bridge served {len(tools)} tools; the registry is expected to hold "
+        f"{EXPECTED_TOOL_COUNT} (see tests/mcp_tool_expectations.py)"
     )
 
 
@@ -222,9 +223,11 @@ def test_run_attached_mode_proxies_to_backend(tmp_path: Path, monkeypatch: pytes
         response = json.loads(lines[0].decode("utf-8"))
         assert response.get("id") == 99
         tools = response.get("result", {}).get("tools")
-        assert (
-            isinstance(tools, list) and len(tools) == 36
-        )  # ADR-040 Addendum 5 + ADR-048 SPEC 2 plot + #1912 + #1947 + ADR-053 FR-011
+        # The attached bridge must serve the same set the in-process server
+        # does; a proxy that dropped or duplicated a tool would show up here.
+        assert isinstance(tools, list)
+        assert len(tools) == EXPECTED_TOOL_COUNT
+        assert {tool["name"] for tool in tools} == set(EXPECTED_TOOL_NAMES)
     finally:
         _shutdown.set()
         if server_thread is not None:

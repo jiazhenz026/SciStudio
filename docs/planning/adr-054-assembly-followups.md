@@ -720,7 +720,284 @@ colliding in the project's lineage database.
 
 ### S5-B4
 
-_No entries yet._
+#### F-B4-1 — The tool total is restated in five files, and the spec names three
+
+Adding a tool group moves a count assertion in five test files, not the three
+`docs/specs/adr-054-agent-enablement.md` §4.2 lists. S5-B2 found the same thing
+independently (F-2); this entry records what was done about it rather than only
+that it is true.
+
+The five sites, all moved from 36 to 40 with S5-B2's panel group:
+
+| File | Assertion |
+|---|---|
+| `tests/ai/test_mcp_fastmcp.py` | the expected name set, and the total |
+| `tests/ai/test_finish_ai_block_skeleton.py` | the total |
+| `tests/contracts/test_runtime_import_contract.py` | the total, through the JSON-RPC surface |
+| `tests/cli/test_mcp_bridge.py` | the total, twice, standalone and attached |
+| `tests/integration/test_phase2_mcp_end_to_end.py` | the total, over the wire |
+
+Four of the five now derive the number from one place —
+`tests/mcp_tool_expectations.py` — so the next group moves the
+set and nothing else. The set is the assertion that has teeth; the total is a
+readability aid over it.
+
+**What would close it**: fold the real list into spec §4.2, or accept the shared
+module as the answer and note it there.
+
+#### F-B4-2 — RESOLVED: the eleven tools are counted
+
+Recorded while S5-B3's group was still in flight; closed when it landed. Spec 5's
+eleven tools are all in the registry — four panel (S5-B2) and seven session
+(S5-B3) — and `await mcp.list_tools()` returns **47** in eight groups. The five
+count-assertion sites, the two unguarded catalogs, and the per-group counts all
+say so.
+
+Adding the session group moved exactly one declaration,
+`tests/mcp_tool_expectations.py`, plus the two catalogs — which is what F-B4-1's
+consolidation was for. Left in the register as the worked example of that claim
+rather than deleted.
+
+One naming note for whoever reads the code next: the group's `category:` tag is
+`session` while its module is `tools_explore`. Both spellings are correct — the
+tag names what the agent acts on, the module the subsystem it calls — but a
+reader looking for `category:explore` will not find it.
+
+#### F-B4-3 — `docs/architecture/ARCHITECTURE.md` still carries a stale tool table
+
+The architecture document's tool table is the third catalog FR-026 names, and it
+is excluded from `tests/ai/test_tool_catalogs.py` because the document is a
+guarded, owner-controlled path (`docs/ai-developer/rules.md` §4,
+`admin-approved:architecture-doc`). ADR-054 spec 5 §4.5 and A-006 put its update
+in the documentation spec's batch, **#2236**.
+
+**What would close it**: with #2236, add the document to `_CATALOGS` in the
+catalog test and delete the exclusion paragraph from its module docstring. The
+test will then also flag what the table is already missing, which is at least
+the nine tools the agent spec was missing before this change.
+
+Cited from the `TODO(#2236)` in `tests/ai/test_tool_catalogs.py`.
+
+#### F-B4-4 — `public-api.md` still names `scistudio.previewers` as a canonical root
+
+The canonical-root table in `src/scistudio/_agent_reference/public-api.md` lists
+`scistudio.previewers.models` and `scistudio.previewers.data_access`. ADR-054
+spec 1 renamed that subsystem to `scistudio.panels`. The rows were left alone
+because the panel-facing reference documents are S5-B2's write set and rewriting
+a canonical-root row for a subsystem this agent does not own would be two agents
+editing one surface. A one-line correction for whoever holds the panel reference
+documents, or for the spec 6 batch.
+
+#### F-B4-5 — The skill count moves in six places, and FR-009 names four
+
+FR-009 names four places the task-skill count lives. There are six. Beyond the
+orchestration list (`agent_provisioning/_orchestrate.py`), the skills index
+(`agent_provisioning/skills.py`), the provisioning template's prose
+(`agent_provisioning/templates/claude_agents_md.md`) and the provisioning test
+(`tests/agent_provisioning/test_skills.py`), two more count the same thing:
+`tests/agent_provisioning/test_orchestrate.py` asserts the number of skill files
+the orchestrator writes, and `tests/packaging/test_wheel_skills.py` carries a
+`_TASK_SKILLS` tuple every wheel-install assertion iterates.
+
+All six were moved together here, so nothing is broken. The follow-up is that
+FR-009's list is short, and the next skill added will find the same two the hard
+way — the same shape of defect as F-B4-1, one layer over.
+
+**What would close it**: derive all six from `skills._SKILL_NAMES` so the number
+lives once.
+
+#### F-B4-6 — `tests/ai/test_mcp_server_skeleton.py` carries no live count and was left alone
+
+Spec 5 §4.2 lists this file among the count-assertion sites FR-025 moves, and the
+S5-B4 write set repeats it. It was not touched. The whole module carries
+`pytestmark = pytest.mark.skip` and a `TODO(#1539)` saying its assertions encode
+the ADR-033-era `MCPServer` shape, and its `test_total_tool_count_is_25` asserts
+`9 + 5 + 7 + 4` over four hard-coded module tuples — a number that has not
+described the registry since ADR-040 and does not move when a tool is added.
+
+Adding a 2026 tool group to a skipped test whose total is fifteen behind the
+truth would make it look maintained without making it run. The live per-group
+assertion went into `tests/ai/test_tool_catalogs.py` instead, over the
+`category:` tags the server actually reports. The re-author is already tracked by
+#1012 / #1539.
+
+**What would close it**: nothing here. Remove the file from spec §4.2's list so
+the next agent does not spend the same half hour deciding not to edit it.
+
+#### F-B4-7 — Nobody owns the packaged-notebook section of `block-contract.md`
+
+ADR-054 §8.2 says "`block-contract.md` gains the packaged-notebook shape beside
+the shapes it already names", but no requirement assigns it. FR-011 covers only
+the *panel* section rewrite, which was S5-B2's; FR-007 puts the packaged-notebook
+shape in the block *skill*, which was S5-B4's. The reference document itself was
+left alone: it is not in the S5-B4 write set and half of it belonged to another
+agent this wave.
+
+`scistudio-write-block` therefore points at
+`list_block_examples(category="notebook")` for the packaged form rather than at a
+section that may not exist. That is defensible — the worked example carries the
+notebook, the generated declaration and the cell conventions, and §8.2 says
+worked patterns are fetched rather than pasted — but `block-contract.md` is where
+an agent looks for "what shapes can a block be", and a shape that lives only in
+the corpus is quieter than its neighbours.
+
+**What would close it**: a packaged-notebook section in `block-contract.md` in
+the spec 6 batch, or an owner named for it in FR-011's next revision.
+
+#### F-B4-8 — A timed-out `python_tests` is recorded as satisfied
+
+- **Severity**: P1 — a check that never finished is counted as a check that
+  passed, on every branch in this dispatch.
+- **Found by**: S5-B4, on `feat/2254-skills-and-counts`.
+- **Evidence**: `src/scistudio/qa/governance/gate_record/checks.py` runs every
+  check with a hard-coded `timeout=600`. When the full Python suite exceeds it
+  the ledger records
+
+  ```json
+  {"name": "python_tests", "status": "unknown", "exit_code": null,
+   "summary": "execution error: TimeoutExpired"}
+  ```
+
+  and `gate_record check --mode pre-pr` then prints **"reconciliation passed"**
+  and exits 0 with no unsatisfied obligations. `unknown` is not `fail`, so the
+  obligation is treated as met. Observed twice on this branch; the run that
+  produced it took longer than 600s because the serial phase spawns real
+  ipykernels.
+
+  The same command has also, on other runs, listed `python_tests` under
+  "Unsatisfied obligations" *while* leaving the ledger event at `unknown` — so
+  the treatment is not even consistent between invocations.
+
+- **`check` and `finalize` disagree about the same event.** This is the sharper
+  form, found after F-B4-10 was fixed. With the parallel phase no longer
+  failing, every run reaches the serial phase and exceeds the cap, so the
+  outcome is now deterministic on this machine:
+
+  | Parallel phase | Total | Ledger event | `check` says | `finalize` says |
+  |---|---|---|---|---|
+  | fails (F-B4-10) | ~300-500s | `fail`, `exit 1` | unsatisfied | unsatisfied |
+  | passes | >600s | `unknown`, `TimeoutExpired` | **"reconciliation passed"** | **"missing or stale"** |
+
+  Four consecutive ledger events on this branch: `fail`, `unknown`, `fail`,
+  `unknown`. So fixing the flake made `check` start passing and left `finalize`
+  refusing — on identical evidence. `gate_record check --mode pre-pr` is
+  documented as "the single local preflight"; it now green-lights a state the
+  next command in the same workflow rejects.
+
+- **Consequence**: `finalize` cannot succeed on a machine where the suite takes
+  longer than ten minutes, so the prescribed
+  check → finalize → `scistudio_pr_create.py` path has no terminating state.
+  S5-B4's PR could not be opened through it.
+- **Why it matters**: an agent that trusts `check`'s exit code reports a green
+  suite it never watched. This branch did not: the suite was run directly
+  instead, and that is what its PR body reports. Nothing forces the next agent
+  to do the same, and the one command that *would* have caught it — `finalize` —
+  is the one an agent reaches only after `check` has already said yes.
+- **Suggested title**: `gate_record: treat an unknown check result as
+  unsatisfied, and make the per-check timeout configurable`
+- **What would close it**: treat `unknown` as unsatisfied — a check whose result
+  nobody has is not a check that passed — **and** give the timeout an env knob
+  beside the existing `SCISTUDIO_GATE_BASE`. Both are needed, and the order
+  matters: doing only the first makes `check` agree with `finalize` and blocks
+  every branch on this machine; doing only the second hides the hole again until
+  the suite grows past the new number. The knob is what makes the correct
+  behaviour survivable.
+
+#### F-B4-9 — Kernel-spawning tests fail under `PYTHONPATH=./src`, and blame the kernel
+
+- **Severity**: P2 — not a product defect, but it costs every agent that hits it
+  a diagnosis, and it looks exactly like a real failure.
+- **Found by**: S5-B4. **Corrected before filing** — see below.
+- **Evidence**:
+  `tests/api/test_explore_branch_switch.py::test_a_branch_switch_kills_the_real_kernel_process`
+  fails with
+
+  ```
+  BridgeProtocolError: The kernel bridge did not answer:
+  ModuleNotFoundError: No module named 'scistudio'.
+  ```
+
+  when the suite is run the way `AGENTS.md` prescribes — `PYTHONPATH=./src`, no
+  `pip install -e .`. The parent process imports `scistudio` fine; the ipykernel
+  subprocess it spawns does not. Run the identical test in the gate's
+  provisioned virtualenv (`.workflow/local/venv`, where `scistudio` is
+  installed) and the whole file passes, exit 0.
+
+  Verified at track head `c6c9701f2`, which already carries PR #2262's
+  kernel-death fix, on both `.worktrees/s5-track` and
+  `feat/2254-skills-and-counts`.
+
+- **Correction**: an earlier draft of this entry claimed the test was "genuinely
+  red on the track". That was wrong, and the wrongness is instructive: it
+  reproduced identically on a clean track worktree, which looked like proof it
+  was not the branch's — and it was not, but it was not the track's either. Both
+  runs shared the one thing that actually caused it. Reproducing somewhere else
+  rules out *your diff*; it does not rule out *your environment*.
+- **Suggested title**: `explore: kernel tests should fail with an actionable
+  message under PYTHONPATH-only installs`
+- **What would close it**: the bridge already guesses the cause correctly ("a
+  kernel whose interpreter cannot import scistudio") — have the session pass the
+  parent's `sys.path` to the kernel it launches, or have these tests skip with
+  that reason when `scistudio` is not importable by `sys.executable`. Either
+  turns a twenty-minute diagnosis into a line of output.
+
+#### F-B4-10 — Two repo-walking QA tests crash their xdist worker
+
+- **Severity**: P1 — blocked `gate_record finalize` on this branch outright.
+- **Found by**: S5-B4. **Fixed in this row** under a manager scope grant.
+- **Evidence**:
+  `tests/qa/test_audit_full_audit.py::test_full_audit_renders_human_readable_facts_summary`
+  and
+  `tests/qa/test_generate_facts_cli.py::test_generate_facts_write_and_check_round_trip`
+  failed in the parallel phase with `[gwN] node down: Not properly terminated` —
+  the worker process dies, no assertion fails — on **five full-suite runs out of
+  five**, across two virtualenvs, taking unrelated tests down with them each
+  time. Both pass in isolation, every time.
+
+  The first runs the entire audit in-process over the whole repository; the
+  second spawns `scripts/audit/generate_facts.py` as a subprocess over the whole
+  repository. Neither carried the `serial` marker, so both ran under `-n auto` —
+  exactly the class `pyproject.toml`'s own marker description says "can leak a
+  thread/subprocess that hangs or crashes an xdist worker (#1867, #1896)".
+
+- **Fix applied**: both are now `@pytest.mark.serial`, each with a comment
+  saying why, because the mark looks removable to anyone who runs the test on its
+  own and sees it pass.
+- **Suggested title**: `tests: audit ADR-042's repo-walking tests for the serial
+  marker` — this pair is unlikely to be the only one.
+
+#### The three above are one chain
+
+Stated together because separately each looks like a nuisance and together they
+are a hole in the evidence:
+
+1. **F-B4-10** makes the parallel phase fail on a machine under load.
+2. `run_python_tests.main` returns as soon as the parallel phase exits nonzero,
+   so **the serial phase never runs** — every serial test goes unexecuted and
+   unreported, and nothing says so. Any real failure there is invisible.
+3. When the phases *do* both run, they take longer than **F-B4-8**'s 600-second
+   cap, and the timed-out check is then recorded as satisfied.
+
+So the suite has two states: it fails on a flake and silently skips a whole
+phase, or it completes and is reported as passing without anyone having seen the
+result. **F-B4-9** is what the skipped phase was hiding on this branch — this
+time harmless, which is luck rather than design.
+
+**Fixing one moved the branch from the first state to the second.** With
+F-B4-10's two tests marked `serial`, the parallel phase passes, the run reaches
+the serial phase, and every run since has ended in F-B4-8's timeout — where
+`check` reports "reconciliation passed" and `finalize` refuses the same
+evidence as stale. The flake was not the problem; it was what kept the gate from
+reaching the problem.
+
+The path that produced a genuinely trustworthy result on this branch was running
+`python -m scistudio.qa.testing.run_python_tests` by hand and reading the output.
+That is not a workflow, it is a workaround.
+
+**One more, worth its own line**: `run_python_tests` should run the serial phase
+even when the parallel phase failed. There is no dependency between them, and
+skipping the second because the first was red is how a red test stays unseen.
+
 
 ### S4-D1 / S5-D1 (adversarial testing)
 

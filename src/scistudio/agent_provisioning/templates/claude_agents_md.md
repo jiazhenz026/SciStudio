@@ -106,7 +106,7 @@ provisioned identically into every skills tree the assistant CLIs
 discover (`.agents/skills/`, `.claude/skills/`), so every provider sees
 the same teaching surface. Each skill
 lives at `<root>/<name>/SKILL.md` (the `scistudio` base skill is at
-`<root>/scistudio/`; the six task skills sit beside it).
+`<root>/scistudio/`; the seven task skills sit beside it).
 
 - `scistudio-build-workflow` — design a new workflow (YAML schema,
   validation, run lifecycle).
@@ -114,6 +114,8 @@ lives at `<root>/<name>/SKILL.md` (the `scistudio` base skill is at
   types, scaffold → edit → reload).
 - `scistudio-write-plot` — author a preview-only `render(collection)`
   plot from a block output port.
+- `scistudio-write-panel` — author a panel: a self-contained HTML
+  document that displays a type, or produces a decision from it.
 - `scistudio-debug-run` — diagnose a failed run (run status, logs,
   lineage, `finish_ai_block`).
 - `scistudio-inspect-data` — explore data references (inspect / preview

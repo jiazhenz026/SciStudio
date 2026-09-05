@@ -13,6 +13,8 @@ import asyncio
 from collections.abc import Coroutine
 from typing import Any
 
+from tests.mcp_tool_expectations import EXPECTED_TOOL_COUNT
+
 
 def _run(coro: Coroutine[Any, Any, Any]) -> Any:
     return asyncio.run(coro)
@@ -34,12 +36,16 @@ def test_finish_ai_block_is_registered() -> None:
     assert "write" in tags
 
 
-def test_registry_now_has_36_tools() -> None:
-    """ADR-035 §3.5 + ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + #1912 + #1947 + ADR-053 FR-011: FastMCP exposes 36 tools."""
+def test_registry_holds_every_expected_tool() -> None:
+    """FastMCP exposes exactly the expected tool set.
+
+    The number lives in ``tests/mcp_tool_expectations.py``, not here: this file
+    is one of five that used to spell it out (ADR-054 §8.4).
+    """
     from scistudio.ai.agent.mcp.server import mcp
 
     tools = _run(mcp.list_tools())
-    assert len(tools) == 36
+    assert len(tools) == EXPECTED_TOOL_COUNT
 
 
 def test_finish_ai_block_handler_has_docstring() -> None:
