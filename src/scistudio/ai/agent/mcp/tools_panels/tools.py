@@ -194,7 +194,7 @@ async def scaffold_panel(
       - Add a block — use ``scaffold_block``.
 
     Writes exactly three files into ``<tier>/panels/<panel_id>/``: ``panel.json``,
-    ``index.html`` (a working skeleton, not a placeholder), and ``harness.html``.
+    ``index.html`` (a skeleton that already renders and emits), and ``harness.html``.
 
     **Open the harness.** It loads the document, feeds it representative data for
     each declared target type, stands in for the host, and shows what the panel

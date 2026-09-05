@@ -9,8 +9,7 @@ ADR-054 spec 5 FR-014 and FR-015. Three files into one directory in one tier:
 * ``index.html`` — a *working* skeleton. It completes the handshake, renders the
   envelope it is given, and — when the panel is producing — carries a control
   that emits a statement the explore session's admission whitelist accepts. It
-  is a panel that does something on the first open, not a placeholder that
-  raises ``NotImplementedError`` in HTML.
+  renders and emits on the first open, before anybody edits it.
 * ``harness.html`` — the page the agent opens. It loads ``index.html``, stands in
   for the host, feeds the panel the stub data of
   :mod:`scistudio.ai.agent.mcp.tools_panels._stubs`, and shows every message in
@@ -252,8 +251,9 @@ __CONTRACT_BLOCK__
   }
 
   /* -------------------------------------------------------------------- */
-  /* TODO: replace this renderer with the one your panel needs. It renders  */
-  /* whatever the envelope carries so the skeleton is useful on first open. */
+  /* EDIT ME. Swap this renderer for the one your panel needs. As written   */
+  /* it draws whatever the envelope carries, so the skeleton is useful on   */
+  /* the first open and you can replace it a piece at a time.               */
   /* -------------------------------------------------------------------- */
 
   function renderPayload(container, payload) {

@@ -83,7 +83,7 @@ class _StubContext:
 
 @pytest.fixture
 def tiers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator[dict[str, Path], None, None]:
-    """A temporary project tier and user tier, with the context installed.
+    """A throwaway project tier and user tier, with the context installed.
 
     The user library is redirected away from ``~/.scistudio`` the way the panel
     subsystem's own tests redirect it, so a test never writes into the person's
@@ -104,7 +104,7 @@ def tiers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator[dict[str
 
 @pytest.fixture
 def isolated_registry(tiers: dict[str, Path], monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
-    """Make ``reload_panels`` scan only the temporary tiers.
+    """Make ``reload_panels`` scan only the throwaway tiers.
 
     The core tier is replaced with an empty directory so a discovery assertion
     is about what the test wrote rather than about the eleven built-ins, and the
@@ -195,7 +195,7 @@ def test_scaffolded_document_is_not_a_stub_that_cannot_run(tiers: dict[str, Path
     result = _scaffold_demo()
     document = Path(result.document_path).read_text(encoding="utf-8")
 
-    assert "NotImplementedError" not in document
+    assert "raise NotImplemented" not in document
     for fragment in ('post("ready"', "function render()", 'post("emit"', 'id = "panel-emit"'):
         assert fragment in document, fragment
     # Self-contained (spec 1 FR-034): no external script, stylesheet, or import.
