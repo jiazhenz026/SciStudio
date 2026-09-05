@@ -341,6 +341,70 @@
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:34:10.801867Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f3edfe23278707a27706b9a02c5df34e6f10dcc5d4a88400879a33ba6a7c3643",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:35:18.734264Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5f514bc0ea81a214990d332964ba9d1f90290b0af75b0103337812b07f120765",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:35:40.586447Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:d41c549187337fdfbe5958cc1108f95b0fcba60f9d77f00c1a7a448cd7c7b627",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:39:49.700097Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -729,6 +793,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:39:49.799605Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:39:49.818506Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:39:49.842942Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:39:49.863164Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:39:49.884862Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:39:49.909798Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:39:49.936509Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:39:49.962348Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:39:49.988249Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:39:50.011298Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:39:50.035837Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -749,6 +901,7 @@
       "docs/specs/adr-054-explore-frontend.md",
       "frontend/src/App.parts/ProjectWorkspace.tsx",
       "frontend/src/App.parts/__tests__/exploreWorkspace.test.tsx",
+      "frontend/src/components/BottomPanel.parts/SubworkflowConfigEditor.test.tsx",
       "frontend/src/components/ProjectTree.parts/ContextMenu.tsx",
       "frontend/src/components/ProjectTree.parts/exploreContextMenu.test.tsx",
       "frontend/src/components/ProjectTree.tsx",
@@ -761,11 +914,16 @@
       "frontend/src/explore/SessionToolbar.tsx",
       "frontend/src/explore/packagedBlock.ts",
       "frontend/src/explore/regions/ExploreRegions.tsx",
+      "frontend/src/explore/workspaceFocus.test.ts",
+      "frontend/src/explore/workspaceFocus.ts",
       "frontend/src/hooks/useWebSocket.parts/dispatchEvent.ts",
+      "frontend/src/lib/api/ai.ts",
       "frontend/src/lib/api/explore.ts",
       "frontend/src/store/__tests__/exploreDispatch.test.ts",
       "frontend/src/store/__tests__/exploreSlice.test.ts",
       "frontend/src/store/__tests__/tabState.test.ts",
+      "frontend/src/store/__tests__/workflowSlice.subworkflowRef.test.ts",
+      "frontend/src/store/__tests__/workflowSlice.variadicPorts.test.ts",
       "frontend/src/store/exploreSlice.ts",
       "frontend/src/store/index.ts",
       "frontend/src/store/tabSlice.parts/exploreTabActions.ts",
@@ -776,20 +934,20 @@
       "frontend/src/types/explore.ts",
       "frontend/src/types/ui.ts"
     ],
-    "diff_fingerprint": "sha256:972a40b418a98edf8f9876cda86fba2c0baa36c16f3bf88746ab7922dad4c772",
+    "diff_fingerprint": "sha256:4e117864f5d14bb160fa3ddabac6a9a763657c3ef8522283368518a0d45d8118",
     "head": "HEAD",
-    "head_sha": "de12d4e59",
+    "head_sha": "be8ac10af",
     "surfaces": {
       "docs": 2,
-      "frontend": 28,
+      "frontend": 34,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 28,
+      "implementation": 34,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 29,
-      "test": 7,
+      "sentrux": 35,
+      "test": 11,
       "workflow_ci": 0
     }
   },
@@ -835,6 +993,17 @@
     {
       "at": "2026-09-05T08:30:44.707205Z",
       "diff_fingerprint": "sha256:972a40b418a98edf8f9876cda86fba2c0baa36c16f3bf88746ab7922dad4c772",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.full_audit",
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-09-05T08:39:50.035869Z",
+      "diff_fingerprint": "sha256:4e117864f5d14bb160fa3ddabac6a9a763657c3ef8522283368518a0d45d8118",
       "mode": "pre-pr",
       "result": "fail",
       "tier": 1,

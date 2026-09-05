@@ -249,6 +249,11 @@ because the file it was holding a place for exists and belongs to spec 4. Still
 not taken here: it is a different issue's spec, and removing another dispatch's
 governance claim is the manager's call, not this agent's.
 
+**Resolved.** The manager took option 1 on the track branch in
+`c1b31cd98 docs(#2254): spec 5 stops claiming the explore frontend it does not
+own`, and merging the track into this branch clears the audit error. Left in
+the register as the record of why the claim went away.
+
 #### F-A1-007 - Three partial mocks of `lib/api/ai` had to gain the new export
 
 `workflowSlice.variadicPorts.test.ts`, `workflowSlice.subworkflowRef.test.ts`
@@ -275,8 +280,23 @@ run. Both are timing-sensitive - the first spawns a subprocess that walks the
 whole `src/` tree, the second asserts write serialisation - and the suite runs
 under `--timeout=60` on a machine carrying several agents' test runs at once.
 
+The second is already tracked: `#2244` says
+`test_concurrent_write_workflow_serialises` **is not marked serial**, which is
+exactly the shape of both failures seen here — the test spawns two threads
+against a process-global active project, and its failure message
+(`PermissionError: Path workflows\concurrent.yaml resolves outside <tmp
+project>`) is a resolution against the wrong project root rather than anything
+about write ordering. It passes on its own, passes with its whole file under
+`-n 4`, and passes with the whole `tests/ai` package under `-n auto`; it only
+fails in the full-suite run, which is where another package's global state can
+reach it.
+
+This branch changes no Python at all — `git diff --name-only <base>...HEAD`
+lists no `.py` file — so neither failure can be caused by it.
+
 Recorded rather than dismissed: if either recurs in CI, where the machine is
-not shared, it is a real defect and not contention.
+not shared, it is a real defect and not contention, and `#2244` is the issue
+that already says what to do about the second.
 
 
 ### S4-A2
