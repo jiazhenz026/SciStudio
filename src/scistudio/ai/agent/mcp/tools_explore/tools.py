@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Annotated, Any
 
 from pydantic import Field
@@ -115,8 +116,15 @@ def _output_model(raw: Any) -> CellOutputModel:
     and their MIME types reported instead: an agent cannot look at a PNG, and
     handing it several megabytes of base64 costs it the context it needs for the
     notebook itself.
+
+    An output that is not a mapping cannot come from
+    :attr:`~scistudio.explore.notebook.NotebookCell.outputs`, which filters for
+    dicts, but a notebook is a file a person can edit — so it is reported as an
+    unreadable output rather than raising and taking the whole read down.
     """
-    output_type = str(raw.get("output_type", "")) if hasattr(raw, "get") else ""
+    if not isinstance(raw, Mapping):
+        return CellOutputModel(output_type="unknown", text=_bounded(str(raw))[0])
+    output_type = str(raw.get("output_type", ""))
     if output_type == "error":
         traceback = _join(raw.get("traceback"))
         text, truncated = _bounded(traceback)
@@ -136,7 +144,7 @@ def _output_model(raw: Any) -> CellOutputModel:
             truncated=truncated,
         )
     data = raw.get("data")
-    bundle = data if isinstance(data, dict) else {}
+    bundle: Mapping[str, Any] = data if isinstance(data, Mapping) else {}
     text, truncated = _bounded(_join(bundle.get(_TEXT_MIME)))
     execution_count = raw.get("execution_count")
     return CellOutputModel(
