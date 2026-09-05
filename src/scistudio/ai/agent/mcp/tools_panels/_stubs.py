@@ -15,7 +15,7 @@ series, and so on. It is small on purpose: three rows say as much about whether
 a table renders as three hundred, and a harness that opens instantly is a
 harness the agent will actually open.
 
-A type name this module does not recognise gets the base-fallback envelope,
+A type name this module does not recognise gets the universal fallback's envelope,
 which is what the running application would resolve for it too when no panel
 claims it. Nothing here refuses an unknown type: a panel is frequently written
 *for* a type that does not exist yet.
@@ -127,14 +127,6 @@ def _composite_payload() -> dict[str, Any]:
     }
 
 
-def _base_payload() -> dict[str, Any]:
-    return {
-        "type_name": "DataObject",
-        "summary": "A stub object the harness supplies in place of the person's data.",
-        "fields": {"id": "stub-0", "created": "2026-01-01T00:00:00Z"},
-    }
-
-
 #: Recorded type name -> the display kind the running application resolves for
 #: it. The names are the ones the built-in panel declarations claim
 #: (``src/scistudio/panels/builtin/*/panel.json``), so a panel scaffolded for a
@@ -145,12 +137,18 @@ STUB_TYPE_KINDS: dict[str, EnvelopeKind] = {
     "Collection": EnvelopeKind.COLLECTION,
     "CompositeData": EnvelopeKind.COMPOSITE,
     "DataFrame": EnvelopeKind.DATAFRAME,
-    "DataObject": EnvelopeKind.TEXT,
     "Image": EnvelopeKind.ARRAY,
     "PlotArtifact": EnvelopeKind.PLOT,
     "Series": EnvelopeKind.SERIES,
     "Text": EnvelopeKind.TEXT,
 }
+
+#: What a type this module does not recognise is given. The universal fallback
+#: in :mod:`scistudio.panels.fallbacks` treats anything unknown as an artifact,
+#: so the harness does too — a panel written for a type this build has never
+#: heard of sees exactly the envelope the running application would resolve for
+#: it, rather than a shape invented here.
+UNKNOWN_TYPE_KIND: EnvelopeKind = EnvelopeKind.ARTIFACT
 
 _PAYLOAD_BUILDERS = {
     EnvelopeKind.ARRAY: _array_payload,
@@ -181,19 +179,24 @@ def stub_envelope(type_name: str, *, panel_id: str) -> dict[str, Any]:
         >>> env["kind"], env["payload"]["columns"][0]
         ('dataframe', 'wavelength')
         >>> stub_envelope("NotARealType", panel_id="demo.table")["kind"]
-        'text'
+        'artifact'
     """
-    kind = STUB_TYPE_KINDS.get(type_name, EnvelopeKind.TEXT)
-    builder = _PAYLOAD_BUILDERS.get(kind, _base_payload)
-    payload = builder() if type_name in STUB_TYPE_KINDS else _base_payload()
+    known = type_name in STUB_TYPE_KINDS
+    kind = STUB_TYPE_KINDS[type_name] if known else UNKNOWN_TYPE_KIND
+    diagnostics = [f"Stub data supplied by the panel harness for {type_name}."]
+    if not known:
+        diagnostics.append(
+            f"The harness has no shape for {type_name}, so it is standing in with what the universal "
+            f"fallback would resolve. Edit STUBS in harness.html to supply data shaped like yours."
+        )
     envelope = PreviewEnvelope(
         previewer_id=panel_id,
         target=PreviewTarget(kind=TargetKind.DATA_REF, ref=f"stub://harness/{type_name}"),
         kind=kind,
-        payload=payload,
+        payload=_PAYLOAD_BUILDERS[kind](),
         session_id=None,
         metadata=PreviewMetadata(extra={"stub": True, "type_name": type_name}),
-        diagnostics=(f"Stub data supplied by the panel harness for {type_name}.",),
+        diagnostics=tuple(diagnostics),
     )
     return envelope.to_dict()
 
@@ -202,8 +205,8 @@ def stub_envelopes(type_names: tuple[str, ...] | list[str], *, panel_id: str) ->
     """Return one stub envelope per declared target type, keyed by type name.
 
     A panel declaring no target type — one a block opens by name (spec 1 FR-017)
-    — still needs something to render, so it is given the base object under the
-    key ``"DataObject"``.
+    — still needs something to render, so it is given the universal fallback's
+    envelope under the key ``"DataObject"``.
     """
     names = [name for name in type_names if name] or ["DataObject"]
     return {name: stub_envelope(name, panel_id=panel_id) for name in names}
