@@ -1,0 +1,246 @@
+{
+  "base_ref": "origin/main",
+  "branch": "docs/2239-webmcp-adr",
+  "check_events": [
+    {
+      "at": "2026-09-05T07:55:51.927898Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f758b128a156a5cae07d13248d2c2af1e66530353ec499d0b3c1f253cf095526",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T07:56:10.035289Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/adr/ADR-055.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-05T07:45:33.610231Z",
+      "owner_directive": "Deliver a local Proposed ADR draft and source-pinned cherry-pick assessment. No prototype mutations, source implementation, spec authoring, PR, or release in this drafting step.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-05T07:45:33.610266Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-055.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:45:33.610281Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "Implementation spec and redesigned frontend UX are the next artifact under ADR-055 and issue 2239.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:45:33.610288Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "Proposed architecture draft has no released behavior change.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:45:33.610291Z",
+      "class": "architecture",
+      "kind": "na",
+      "path": null,
+      "rationale": "No change to owner-controlled architecture overview; ADR records the proposal.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-09-05T07:56:10.093885Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T07:56:10.125345Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T07:56:10.161069Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T07:56:10.201720Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T07:56:10.223649Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T07:56:10.245196Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T07:56:10.266945Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T07:56:10.288307Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T07:56:10.309632Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T07:56:10.331041Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T07:56:10.352100Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2239,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "56b73f03d",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "56b73f03d",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Draft ADR-055 from owner decisions: reuse the hackathon WebMCP bridge; assess selective cherry-pick robustness; discard hackathon UX and design it in the later spec; existing project agent assets stay existing and only get_agent_context is new in that area; per-user backend and bundled Python with shared per-user dependencies; local and internal Lab deployment only.",
+  "persona": "adr_author",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-09-05T07:56:10.352139Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2239-adr-055-webmcp",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "commit_hygiene",
+      "full_audit"
+    ],
+    "docs": [],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:45:33.610250Z",
+      "pattern": "docs/adr/ADR-055.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "4f849b4a-0aea-4a5c-abc1-c0e2b42e9255",
+  "strictness_tier": 3,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-09-05T07:45:33.610296Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR draft only; no runtime or frontend behavior changes. Prototype probes are isolated review evidence.",
+      "verified_in_diff": null
+    }
+  ]
+}
