@@ -9,6 +9,7 @@ satisfies a CI-mirror obligation.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import tomllib
 from pathlib import Path
@@ -306,6 +307,42 @@ def test_ci_still_runs_both_test_phases_over_the_whole_suite() -> None:
 
     assert 'pytest -n auto -m "not serial"' in ci
     assert "pytest -n 0 -m serial" in ci
+
+
+def test_the_ci_shell_guards_stay_guards_and_not_time_budgets() -> None:
+    """#2253: the ``timeout NNN`` wrappers catch a wedged pytest-timeout.
+
+    They stopped doing that once the honest suite grew into them -- the 600 s
+    parallel guard killed a run that was 96% complete and had nothing hung,
+    and the kill left no traceback. Two properties keep it a guard: it must
+    still exist (deleting it would hand a real wedge the job's 6 h default),
+    and it must stay far enough above the measured runtime that reaching it
+    means something is stuck. The parallel phase measured 534 s with coverage
+    on (run 33960875235), so the floor asserted here is roughly 2x that.
+    Raise these numbers when the suite grows; never lower the wrapper to make
+    a slow suite fit.
+    """
+
+    ci = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    guards = {phase: int(seconds) for seconds, phase in re.findall(r"timeout (\d+) pytest (-n auto|-n 0)", ci)}
+
+    assert set(guards) == {"-n auto", "-n 0"}, "both test phases keep a shell-level wedge guard"
+    assert guards["-n auto"] >= 1200
+    assert guards["-n 0"] >= 600
+
+
+def test_ci_asks_for_the_cheaper_coverage_core_on_the_measured_leg() -> None:
+    """#2253: coverage.py defaults to the C tracer below Python 3.14.
+
+    The sys.monitoring core reports the same total (89.22% on run
+    33960011315) for about 8% less wall clock, and only the 3.13 leg measures
+    coverage at all, so the request belongs on that branch of the script.
+    """
+
+    ci = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert "export COVERAGE_CORE=sysmon" in ci
 
 
 # ---------------------------------------------------------------------------

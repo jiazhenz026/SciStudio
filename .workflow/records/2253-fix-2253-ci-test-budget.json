@@ -1,0 +1,99 @@
+{
+  "base_ref": "origin/track/adr-054-integration",
+  "branch": "fix/2253-ci-test-budget",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      ".github/workflows/ci.yml",
+      "tests/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-05T10:45:29.929624Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "this changes CI configuration and test cost, not product behaviour",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2253,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "The CI parallel phase exceeds its 600s shell wall on Python 3.13; find where the time goes, fix what is pathological, and adjust the budget only if the suite is honestly that large",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2253-fix-2253-ci-test-budget",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-05T10:45:29.929573Z",
+      "pattern": ".github/workflows/ci.yml",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T10:45:29.929598Z",
+      "pattern": "tests/qa/test_generate_facts_cli.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T10:45:29.929602Z",
+      "pattern": "tests/qa/test_gate_incremental_checks.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T10:45:29.929605Z",
+      "pattern": "docs/planning/adr-054-assembly-followups.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "8e45b29a-3b03-48c6-adf0-dd239b476341",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-09-05T10:45:29.929635Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_incremental_checks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T10:45:29.929642Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_generate_facts_cli.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

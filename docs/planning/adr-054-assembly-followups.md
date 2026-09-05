@@ -328,6 +328,104 @@ left, plus what the fix could not reach from this branch.
   `.github/workflows/ci.yml`, which is outside this fix's write set.
 - **Suggested title**: `Test (Python 3.13) stalls its parallel phase under
   coverage and is killed at the 600 s shell timeout`
+- **Resolved by**: the `fix-citime` entries below, on
+  `fix/2253-ci-test-budget`. Two corrections to the reading above, both from
+  the raw job logs rather than the web log view: it is **not a stall** -- the
+  killed runs print progress all the way to 96-97% (126 progress lines in run
+  33952874542; the "31 dots" and "16 dots" counts are what the collapsed web
+  log shows, not what the job printed) -- and the asymmetry called out here is
+  exactly right: coverage is ~1.5x, and it is what pushed an honest 662 s
+  parallel phase past a 600 s guard. The instinct to raise the shell timeout
+  to get a diagnosis was also right, and is what produced the numbers in
+  FT-001.
+
+### fix-citime
+
+Entries are prefixed `FT-` because `FC-` is already taken by `fix-codeql`.
+
+#### FT-001 — `tests/qa/test_audit_full_audit.py` runs the whole ADR-042 audit against the real repository, twice, inside the unit suite
+
+- **Severity**: P3 — cleanup with a real price, not a defect.
+- **Found by**: fix-citime, measuring where the 3.13 parallel phase goes.
+- **Evidence**: CI run 33960011315, `Test (Python 3.13 sysmon)`,
+  `--durations=40` over 9313 tests:
+  `test_full_audit_renders_human_readable_facts_summary` 11.63 s (3rd
+  slowest) and `test_full_audit_reports_stale_generated_facts` 8.21 s (6th).
+  Both call `full_audit.run(REPO_ROOT, ...)`, which is the same repository-wide
+  work the dedicated `Full Audit` CI job already does in its own parallel job
+  — frontmatter lint, fact drift, doc drift, developer docs, closure,
+  signature drift, architecture drift and vulture, over the whole tree.
+- **Why it is here and not done**: every cheap reduction costs coverage. The
+  markdown test asserts that *every* child report appears in the rendered
+  summary, so the children cannot be disabled; pointing `run()` at a
+  synthetic tree would keep the assertions but stop them being about this
+  repository. Which of those is acceptable is an owner call, not a fix
+  agent's.
+- **Suggested title**: `tests/qa/test_audit_full_audit.py duplicates the Full Audit job inside the unit suite`
+
+#### FT-002 — `generate_facts` has no cache, so every caller pays a full griffe walk of the package
+
+- **Severity**: P3.
+- **Found by**: fix-citime.
+- **Evidence**: before this fix, `tests/qa/test_generate_facts_cli.py` was the
+  1st and 2nd slowest tests in the whole parallel phase — 30.52 s and 22.57 s
+  on CI (run 33960011315) — because two tests made **four** CLI invocations
+  and each one walks `src/scistudio` with griffe from scratch. Locally a
+  single `--write` is 13 s and a single `--check` 17-19 s. This PR shares one
+  `--write` across the module and takes it to three invocations; the
+  remaining three are irreducible from the test side because `--check`
+  regenerates by definition.
+- **Why it is here and not done**: the cache would belong in
+  `src/scistudio/qa/audit/facts.py`, keyed on source file hashes, and
+  `src/scistudio/**` is outside this fix's write set. It would also speed up
+  the `Full Audit` job and every local `gate_record check`.
+- **Suggested title**: `cache generate_facts so the griffe walk is paid once per source state`
+
+#### FT-003 — raising the xdist worker count nearly halves the parallel phase, and crashed a worker once out of two tries
+
+- **Severity**: P2 — a real, large speedup that is not safe to take on the
+  evidence available.
+- **Found by**: fix-citime, CI run 33960875235 (three legs, same commit, same
+  runner class, coverage on, `COVERAGE_CORE=sysmon`).
+- **Evidence**:
+
+  | workers | parallel phase | result |
+  |---|---|---|
+  | `-n auto` (4 on ubuntu-latest) | 534.33 s | clean, coverage 88% |
+  | `-n 6` | 383.99 s | **`[gw0] node down: Not properly terminated`** while running `tests/qa/test_generate_facts_cli.py::test_generate_facts_write_and_check_round_trip`; coverage collapsed to 55% because the dead worker returned no data |
+  | `-n 8` | 310.65 s | clean, coverage 88% |
+
+  A 42% cut in wall clock for a one-token change is the largest single lever
+  found anywhere in this investigation — the suite is I/O-bound enough that
+  4 workers leave the runner idle. But a crashed worker is worse than a slow
+  job: it fails a random PR for no reason a reader can act on, and it
+  silently destroys that worker's coverage data, which on the serial phase
+  would trip `--cov-fail-under=70` and blame the wrong change.
+- **Why it is here and not done**: one crash in two oversubscribed runs is
+  not enough to characterise. Taking it needs a handful of repeat runs at
+  `-n 8` to see whether the crash recurs, and a look at whether it is memory
+  (the griffe walk under N workers) or something in that test. Worth doing —
+  it would take the whole `Test` job under five minutes — but it is a
+  deliberate reliability trade the owner should make, not one to land while
+  he is asleep.
+- **Suggested title**: `measure -n 8 for the CI parallel phase: 42% faster, one unexplained worker crash`
+
+#### FT-004 — the `Test` matrix legs run different workloads and nothing said so
+
+- **Severity**: P3 — fixed by this PR's comment, recorded because it cost
+  three agents a diagnosis.
+- **Found by**: fix-citime; independently by fix-kernel (FK-005).
+- **Evidence**: `Test (Python 3.11)` runs `--no-cov`; `Test (Python 3.13)`
+  measures coverage. On run 33960011315 that is 435.70 s versus 662.34 s for
+  the identical test set. Every reading of the failure started from "3.13 is
+  broken" because the workflow's comment described the two-phase split and
+  the coverage split, but not that the 3.13 leg therefore carries ~1.5x the
+  runtime of the leg people compare it against.
+- **Why it matters beyond the comment**: the same asymmetry means the 3.11
+  leg is not a usable early-warning signal for the 3.13 leg's budget. If the
+  owner wants one, the cheapest version is to keep printing `--durations`
+  (this PR does) and watch the 3.13 parallel total.
+- **Suggested title**: `document, or remove, the coverage asymmetry between the two Test matrix legs`
 
 ## Already-Tracked Follow-Ups Inherited From Specs 1 To 3
 
