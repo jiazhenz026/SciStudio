@@ -334,6 +334,24 @@ discharge it.
 - **Suggested title**: `gate_record check treats a TimeoutExpired check as
   satisfied`
 
+**The code**: `src/scistudio/qa/governance/gate_record/checks.py:640` runs every
+check with a hard `timeout=600`, and the `except (subprocess.SubprocessError,
+OSError)` immediately below turns a `TimeoutExpired` into
+`CheckEvent(exit_code=None, status="unknown")`. The obligation evaluator then
+reads that event as discharging `checks.<name>`. The full Python suite takes
+5m15s to 9m29s on this machine depending on load, so it sits just inside a
+10-minute budget and crosses it whenever the box is busy - which is exactly
+when its result matters least and its absence is easiest to miss.
+
+It happened **twice** in this task, and both times the enclosing `check`
+printed `reconciliation passed` and exited 0. The second time it produced a
+"clean" pre-PR run that would have opened a PR on a suite that never finished.
+
+The narrow fix is one line: treat `status == "unknown"` as not satisfying its
+obligation. The better fix also distinguishes a timeout from an execution
+error, because "the check could not be run" and "the check did not finish in
+time" want different advice.
+
 #### F-A1-010 - `.gitignore` covers `.coverage` but not the parallel shards
 
 `pytest-cov` under xdist writes `.coverage.<host>.<pid>.<random>` files beside
@@ -358,6 +376,49 @@ Two small things, either of which would prevent it:
   they had been deleted from the tree.
 - **Suggested title**: `.gitignore misses pytest-cov's parallel shards, so
   git add -A commits them`
+
+#### F-A1-011 - The gate's full Python suite is not reliably runnable on a shared machine
+
+Across nine `gate_record check --mode pre-pr` runs of the same tree, on a
+32-core Windows box carrying several dispatch agents' suites at once, the
+Python phase failed nine times with **nine different sets** of tests and never
+the same set twice:
+
+| Run | Failures |
+|---|---|
+| 1 | `test_generate_facts_write_and_check_round_trip` |
+| 2 | `test_concurrent_write_workflow_serialises` |
+| 3 | same as 2 |
+| 4 | 4 tests, incl. `test_the_file_route_accepts_a_panel_document` (`[WinError 5] Access is denied` on an atomic rename) |
+| 5 | 6 tests, incl. `test_relativify_inverts_absolutify` and a tutorial runtime walk |
+| 6 | timed out entirely at `PYTEST_XDIST_AUTO_NUM_WORKERS=4` (see F-A1-009) |
+| 7 | 3 tests |
+| 8 | 1 test |
+| 9 | 1 test, different again |
+
+Every named test passes on its own: the four of run 4 passed together in one
+run (`4 passed in 64.55s`), the three of run 7 in another (`3 passed in
+46.96s`), and `tests/ai` passes whole under `-n auto` (exit 0). The branch
+changes **no Python at all** - `git diff --name-only <base>...HEAD` lists no
+`.py` file - so none of it can be the diff's doing.
+
+The failure modes are all shared-machine ones: Windows `Access is denied` on
+`os.replace` (an antivirus or indexer holding the destination), a subprocess
+that walks the whole `src/` tree exceeding `--timeout=60`, and a
+process-global active project reached by another package's test under `-n auto`
+oversubscription.
+
+This is not a request to weaken the check. It is a request for a way to run it
+honestly on a developer machine, because as it stands "the local Python gate is
+green" is not a statement an agent on this box can truthfully make, and the
+temptation that creates is the real hazard.
+
+- **Severity**: P2 - it does not break the product, but it makes the gate's
+  central obligation unverifiable locally, which is a governance problem.
+- **Evidence**: `.workflow/records/2253-feat-2253-explore-tab-shell.json`,
+  nine `python_tests` `check_events`; `.workflow/local/check*.txt`.
+- **Suggested title**: `The gate's Python suite cannot be run reliably on a
+  shared developer machine`
 
 
 
