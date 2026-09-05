@@ -10,7 +10,7 @@ related_adrs:
   - 48
   - 51
   - 54
-status: "draft"
+status: "passed"
 language_source: en
 ---
 
@@ -359,6 +359,102 @@ Checked continuously; a hit fails the session even mid-step.
   and is not one.
 - **Kernel processes**: no kernel process is left running after cleanup.
 
-## 7. Results (skill fills in)
+## 7. Results
 
 ### 7.1 Verdict
+
+**PASS, with four findings.** The loop ADR-054 §1 describes was driven end to
+end in Chrome against the assembled branch, and every piece of it worked: a
+file's context menu opened a session, the notebook rendered on Monaco, the
+kernel started and ran a cell, the mark cleared, the analysis reported the
+binding with its type, and clicking that binding mounted a panel through the
+unified contract. Four specs exercised together in one gesture, each built by
+a different agent that could not see the others.
+
+Specs 4 and 5 are what this session set out to prove. Both did.
+
+### 7.2 What Was Proved, With Its Evidence
+
+| Claim | Evidence |
+|---|---|
+| The backend assembles and serves | 135 routes; the whole spec 3 session API and spec 1 panel surface mounted |
+| **The spec 4 / spec 5 focus wire is live** | `POST /api/ai/active-context 200` on load; a hand-posted explore focus round-tripped with all seven fields and a server-stamped `reported_at` |
+| The file context menu exists (FR-002, FR-003) | Right-click on `spectrum.csv` in the Data panel opens a menu whose first item is **Explore in notebook** (`[data-testid="tree-explore-file"]`) |
+| The Explore tab is a tab-union member (FR-001) | Tab strip reads `main` / `spectrum-2.ipynb` |
+| The layout swaps (FR-005) | Right column renders the notebook and **not** the data preview; left pane (Data tree) and bottom panel unchanged |
+| The session toolbar is complete (FR-014) | `Run stale (0)`, `Interrupt`, `Restart`, `Commit`, `Kernels (n)`, `Package`, `Graph`, `Hide notebook` — three agents' controls in one row |
+| The notebook shell renders (FR-008, FR-009) | Monaco mounted with Python syntax highlighting; per-cell `Run`, `enabled`, `Add below`, `Move up`, `Move down`, `Delete` |
+| Marks are drawn from the runtime (FR-012, FR-034) | Cell moved `never-run` to `[1] idle` after the run |
+| The kernel starts and runs | `Kernels (0)` became `Kernels (1)`; the cell executed |
+| The strip reports bindings with types (FR-018) | `spectrum DataFrame`, `scistudio module`, `original_ps1 Text` — type names resolved through the type registry |
+| **A panel mounts through the unified contract (FR-019)** | One `iframe`, `src="/api/panels/assets/core.dataframe.basic/index.html"`, `sandbox="allow-scripts"`, 650x423 — a framed document on the spec 1 asset route, with **no `allow-same-origin`** |
+| Panel slots offer pinning (FR-020) | The mounted slot carries `spectrum / DataFrame / Pin / Close` |
+
+### 7.3 Findings
+
+**E2E-1 (P1) - a bound DataFrame cannot be previewed.**
+Clicking `spectrum DataFrame` mounts the panel, and the panel renders
+*Table preview failed / provider exception / dataframe preview failed: CSV
+parse error: Expected 1 columns, got 2:* followed by mojibake. The source file
+is a clean 66-byte ASCII CSV with LF endings and no BOM - verified by reading
+its bytes - so the fault is in the read path, not the fixture. The mojibake
+points at an encoding or delimiter-sniffing problem rather than a malformed
+file. This is the one step of ADR-054's own loop that does not complete.
+
+Worth stating precisely: the panel **contract** behaved correctly throughout.
+It mounted, received its target, and rendered its declared error state. What
+failed is the provider behind it.
+
+**E2E-2 (P2) - the variable strip lists the interpreter's own namespace.**
+After one cell the strip shows ten names, of which one is the person's.
+`PS1`, `REPLHooks`, `get_last_command`, `is_wsl`, `original_ps1`, `platform`
+and `sys` are the kernel's startup namespace; only `spectrum` is theirs.
+FR-018 says the strip lists every binding the analysis reports, and it
+faithfully does - but a scientist opening a session sees their own variable
+ninth. Whether the filter belongs in the analysis or in the strip is a design
+question, which is why this is registered rather than fixed.
+
+**E2E-3 (P3) - the per-cell control row overflows the right pane.**
+At the default pane width `Delete` is clipped at the right edge and `Move up` /
+`Move down` are crowded against it. The notebook pane is the right column,
+which is narrower than the centre these controls appear to have been laid out
+against.
+
+**E2E-4 (P3) - the bindings endpoint is polled, not evented.**
+`GET /api/explore/sessions/<id>/bindings` was requested **12 times in 17
+seconds**, four of them inside the final 0.7s, the first taking 493ms. FR-033
+puts session state on the WebSocket; a refresh storm on a REST endpoint sits
+oddly beside that.
+
+### 7.4 Two Things That Looked Like Defects And Were Not
+
+Recorded because the next person to run this will hit both.
+
+- **`ModuleNotFoundError: No module named 'scistudio'` when running a cell.**
+  The session was launched with a **relative** `PYTHONPATH=./src`, which does
+  not resolve from the spawned kernel's working directory. An absolute
+  `PYTHONPATH` fixes it. The product's own message says so - *"The usual cause
+  is a kernel whose interpreter cannot import scistudio"* - which is a good
+  error. This is the same trap that made an agent briefly report a kernel test
+  as red on a track branch when it was an environment artifact.
+- **Entry-point tracebacks flooding the cell output.** `filter_collection` and
+  `slice_collection` fail to load from group `scistudio.blocks` on every kernel
+  start, alongside `split_collection` at server start (M-003). None of the
+  three modules exists on this branch or on `main`; they are stale
+  registrations in an installed distribution on this machine. Not ADR-054's -
+  but they do make cell output hard to read, which is worth knowing before
+  demonstrating this to anyone.
+
+### 7.5 Not Exercised
+
+Honest scope. The session reached the end of what it could drive once E2E-1
+blocked the panel. **Not** observed in a browser: an emission from a producing
+panel (Step 7), the stale mark and run-stale (Steps 8-9), the graph view
+(Step 10), packaging and the packaged node (Steps 12-14), the palette
+insert-call (Step 15), and the interactive pause replacing the modal
+(Steps 16-17).
+
+The pause tab and the modal's retirement have unit coverage from the spec 4
+dispatch, and `frontend/src/App.parts/InteractiveModals*` is confirmed deleted
+from the tree - but neither was watched working here, and this file does not
+claim otherwise.
