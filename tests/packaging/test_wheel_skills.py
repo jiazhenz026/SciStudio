@@ -284,9 +284,7 @@ def test_base_skill_routes_to_the_panel_skill_and_states_the_focus_rule() -> Non
 
     lowered = content.lower()
     assert "workspace focus" in lowered, "the base skill must name the workspace focus."
-    assert "get_active_workflow_context" in content, (
-        "the base skill must name the tool that reports the focus."
-    )
+    assert "get_active_workflow_context" in content, "the base skill must name the tool that reports the focus."
     for mode in ("canvas", "explore", "pause"):
         assert mode in lowered, f"the base skill must name the {mode} mode."
 
@@ -298,4 +296,3 @@ def test_base_skill_routes_to_the_panel_skill_and_states_the_focus_rule() -> Non
         "the base skill must tell the agent to ASK when the focus is explore and the "
         "request reads like a workflow edit -- that case is deliberately not refused."
     )
-

@@ -61,9 +61,7 @@ class BlockExampleEntry(BaseModel):
             "directory when the example is a corpus folder."
         )
     )
-    description: str = Field(
-        description="First line of the module docstring, or the corpus example's title."
-    )
+    description: str = Field(description="First line of the module docstring, or the corpus example's title.")
 
 
 class ScaffoldBlockResult(BaseModel):
@@ -263,9 +261,7 @@ def list_corpus_examples(category: str) -> list[BlockExampleEntry]:
 
 @mcp.tool(name="list_block_examples", tags={"category:authoring", "read"})
 async def list_block_examples(
-    category: str = Field(
-        description="One of: io, process, code, app, ai, subworkflow, notebook, panel."
-    ),
+    category: str = Field(description="One of: io, process, code, app, ai, subworkflow, notebook, panel."),
 ) -> list[BlockExampleEntry]:
     """List curated worked examples for a category.
 

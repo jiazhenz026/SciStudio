@@ -148,7 +148,7 @@ def test_panel_corpus_documents_are_self_contained(ctx: _StubRuntime) -> None:
     for entry in _run(tools_authoring.list_block_examples(category="panel")):
         document = (Path(entry.path) / "index.html").read_text(encoding="utf-8")
         assert "<script src=" not in document, f"{entry.name} loads an external script"
-        assert "<link rel=\"stylesheet\"" not in document, f"{entry.name} loads an external stylesheet"
+        assert '<link rel="stylesheet"' not in document, f"{entry.name} loads an external stylesheet"
         assert "https://" not in document.replace("http://www.w3.org/2000/svg", ""), (
             f"{entry.name} reaches outside its own directory"
         )
