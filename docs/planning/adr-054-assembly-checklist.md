@@ -345,12 +345,15 @@ Rows are added for fix agents as findings land.
 ### 8.3 Implementation
 
 - [x] `S5-B1` workspace focus: route, persistence, runtime, context tool, refusal ->
-      PR `#2258`, commit `1b387ff`, gate record
+      PR `#2258`, commit `61e59b5`, gate record
       `.workflow/records/2254-feat-2254-workspace-focus.json` (post-PR finalized,
       tier 1, reconciliation passed),
       `PYTHONPATH=./src python -m pytest tests/ai/test_workspace_focus.py -q`
       (31 passed). The refusal helper S5-B3 imports is
-      `scistudio.ai.agent.mcp._focus.resolve_session_path`.
+      `scistudio.ai.agent.mcp._focus.resolve_session_path`. CI on `#2258`: ten
+      jobs green; both `Test` jobs fail for reasons that reproduce on the base
+      track with no spec 5 code in it — see follow-up `F-B1-4` and the `#2251`
+      row in §9.
 - [ ] `S5-B2` panel reference, block-contract rewrite, panel tools, harness -> `<artifact>`
 - [ ] `S5-B3` session tools over the session API -> `<artifact>`
 - [ ] `S5-B4` skills, provisioning counts, examples, catalogs -> `<artifact>`
