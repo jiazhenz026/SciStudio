@@ -690,9 +690,8 @@ def _publish_active_workflow_id(self: ApiRuntime) -> None:
     target_dir = Path(self.active_project.path) / ".scistudio"
     target = target_dir / _ACTIVE_WORKFLOW_FILENAME
     payload: dict[str, Any] = {"workflow_id": self.active_workflow_id}
-    focus = getattr(self, "workspace_focus", None)
-    if focus:
-        payload[_FOCUS_KEY] = focus
+    if self.workspace_focus:
+        payload[_FOCUS_KEY] = self.workspace_focus
     try:
         target_dir.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(payload), encoding="utf-8")

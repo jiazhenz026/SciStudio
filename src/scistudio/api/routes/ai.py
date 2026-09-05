@@ -147,7 +147,7 @@ async def set_active_context(
         runtime.set_workspace_focus(focus)
     return ActiveContextResponse(
         workflow_id=runtime.active_workflow_id,
-        focus=getattr(runtime, "workspace_focus", None),
+        focus=runtime.workspace_focus,
     )
 
 
