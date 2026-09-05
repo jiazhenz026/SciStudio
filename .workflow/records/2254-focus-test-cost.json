@@ -152,7 +152,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "e6b6affcf0753f11bb2b435d41f1d30bde80d21b",
+    "shas": [
+      "e6b6affcf0753f11bb2b435d41f1d30bde80d21b"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -268,6 +274,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:00.561613Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:00.589816Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:00.622189Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:00.648073Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:00.679026Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:00.722165Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:00.761613Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:00.793126Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:00.839881Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:00.896305Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:54:00.989458Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -287,9 +381,9 @@
       "docs/planning/adr-054-assembly-followups.md",
       "tests/ai/test_workspace_focus.py"
     ],
-    "diff_fingerprint": "sha256:f27ef480803c6b1bbeacf25ce4157644e04b479146f76ae097101980a9a491ba",
+    "diff_fingerprint": "sha256:10543ceeae50f28b87e99fe2fdac03d59fb06b7703d4f82364166122851bbb5d",
     "head": "HEAD",
-    "head_sha": "d70750deb",
+    "head_sha": "e6b6affcf",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -306,11 +400,26 @@
   },
   "owner_directive": "ADR-054 spec 5 follow-up to the merged #2258: cut the workspace-focus test module's app churn and remove the nested-app race, and register the track's 600s CI parallel-phase overrun as F-B1-4.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2254
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-05T08:53:26.161051Z",
       "diff_fingerprint": "sha256:f27ef480803c6b1bbeacf25ce4157644e04b479146f76ae097101980a9a491ba",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-05T08:54:00.989498Z",
+      "diff_fingerprint": "sha256:10543ceeae50f28b87e99fe2fdac03d59fb06b7703d4f82364166122851bbb5d",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
