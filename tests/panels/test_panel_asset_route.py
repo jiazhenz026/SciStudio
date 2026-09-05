@@ -342,17 +342,17 @@ def test_two_dots_anywhere_in_the_request_are_refused(tmp_path: Path) -> None:
     """The lexical rule is the two characters, not the traversal segment.
 
     Stricter than the property that matters, on purpose: a panel asset named
-    ``v1..2.css`` has no legitimate use, and a rule about the characters is one
+    ``figure..cache.css`` has no legitimate use, and a rule about the characters is one
     a reader can check by looking rather than by simulating a join. The file
     below exists and is inside the root, so the refusal is the rule.
     """
     root = tmp_path / "project"
     root.mkdir()
     directory = write_panel(root, "probe.dots")
-    (directory / "v1..2.css").write_text("body{}", encoding="utf-8")
+    (directory / "figure..cache.css").write_text("body{}", encoding="utf-8")
 
     with pytest.raises(MissingBundleError, match="escapes confinement root"):
-        resolve_confined_asset(directory, "v1..2.css", panel_id="probe.dots")
+        resolve_confined_asset(directory, "figure..cache.css", panel_id="probe.dots")
 
 
 def test_the_ordinary_shapes_a_panel_asks_for_still_resolve(tmp_path: Path) -> None:

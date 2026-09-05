@@ -198,7 +198,7 @@ def _contained_segments(cleaned: str, relative_path: str, detail: dict[str, str]
     A request is refused when it holds:
 
     * ``..`` **anywhere in the string**, not only as a whole segment. Deliberately
-      stricter than the property that matters: a panel asset named ``v1..2.css``
+      stricter than the property that matters: a panel asset named ``figure..cache.css``
       has no legitimate use, and the difference between "refuse the traversal"
       and "refuse the two characters" is the difference between a rule a reader
       has to simulate and one they can check by looking. A scanner reading this
