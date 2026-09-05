@@ -111,18 +111,57 @@ def _kill_if_alive(pid: int) -> None:
 
 
 def _process_gone(pid: int, timeout: float = 10.0) -> bool:
-    """Whether ``pid`` is no longer a running process."""
+    """Whether ``pid`` is no longer a running process.
+
+    A zombie counts as gone. On POSIX a killed child keeps its pid until its
+    parent reaps it, and until then ``pid_exists`` and ``Process.is_running``
+    both answer ``True`` — psutil documents ``is_running`` as true for a
+    zombie, because the entry is still in the process table. A test that kills
+    a kernel out from under the session has no parent standing by to reap it,
+    so on Linux this helper would spin for the whole timeout and report a dead
+    kernel as alive. Windows has no zombie state, which is why the difference
+    showed up only in CI.
+    """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if not psutil.pid_exists(pid):
             return True
         try:
-            if not psutil.Process(pid).is_running():
+            process = psutil.Process(pid)
+            if not process.is_running() or process.status() == psutil.STATUS_ZOMBIE:
                 return True
         except psutil.Error:
             return True
         time.sleep(0.05)
     return False
+
+
+def test_process_gone_counts_a_zombie_as_gone(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A killed-but-unreaped child must read as gone, not as still running.
+
+    This guards the helper rather than the product, because the helper is what
+    was wrong: on POSIX every process the kernel tests kill directly stays in
+    the process table as a zombie until something reaps it, and psutil reports
+    a zombie as existing and running. Windows has no zombie state, so a helper
+    that missed this passed locally and hung for its whole timeout in CI.
+    """
+
+    class _Zombie:
+        def __init__(self, pid: int) -> None:
+            self.pid = pid
+
+        def is_running(self) -> bool:
+            return True
+
+        def status(self) -> str:
+            return psutil.STATUS_ZOMBIE
+
+    monkeypatch.setattr(psutil, "pid_exists", lambda pid: True)
+    monkeypatch.setattr(psutil, "Process", _Zombie)
+
+    started = time.monotonic()
+    assert _process_gone(4242, timeout=5.0) is True
+    assert time.monotonic() - started < 1.0, "a zombie must be recognised at once, not waited out"
 
 
 class _StubResolver:

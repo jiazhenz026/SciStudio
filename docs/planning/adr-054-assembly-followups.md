@@ -70,6 +70,28 @@ issues the directive permits:
   the same from the PR page.
 - **Suggested title**: N/A — this is an owner action, not an issue.
 
+#### M-003 - A stale `split_collection` entry point breaks block discovery at startup
+
+- **Severity**: P3 - environment, not code; the server starts anyway.
+- **Found by**: manager, launching the merged backend for the e2e readiness
+  check.
+- **Evidence**: the server logs
+  `ModuleNotFoundError: No module named 'scistudio.blocks.process.builtins.split_collection'`
+  during startup, then reaches `Application startup complete` and serves 135
+  routes. The module exists **neither on this branch nor on `origin/main`** -
+  `git cat-file -e origin/main:src/scistudio/blocks/process/builtins/split_collection.py`
+  reports absent, and `grep -rn split_collection src/ pyproject.toml` finds
+  nothing.
+- **Reading**: a stale entry point in an installed distribution on this
+  machine, left by an earlier install of a version that had the module. It is
+  not an ADR-054 regression and nothing in this dispatch caused it.
+- **Why it is worth recording**: it will keep appearing in every local
+  startup log and in every e2e transcript, where it reads like a defect in
+  whatever work is being tested. The e2e scenario now names it so it is not
+  reported as one. Worth an environment clean-up, or a startup log line that
+  distinguishes a stale registration from a broken import.
+- **Suggested title**: `chore(env): a stale split_collection entry point logs a ModuleNotFoundError at every startup`
+
 #### M-002 - `eslint-config.test.ts` flakes under machine load on a 5s timeout
 
 - **Severity**: P3 - pre-existing, unrelated to ADR-054, and green in isolation.

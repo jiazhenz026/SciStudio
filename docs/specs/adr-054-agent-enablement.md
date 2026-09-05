@@ -72,6 +72,8 @@ governs:
     - tests/ai/test_mcp_fastmcp.py
     - tests/ai/test_mcp_server_skeleton.py
     - tests/ai/test_finish_ai_block_skeleton.py
+    - tests/ai/test_tool_catalogs.py
+    - tests/mcp_tool_expectations.py
     - tests/agent_provisioning/test_skills.py
   excludes:
     - docs/architecture/**
@@ -83,7 +85,6 @@ planned_governs:
   entry_points: []
   files:
     - src/scistudio/ai/agent/mcp/tools_explore/**
-    - frontend/src/explore/**
     - tests/ai/test_mcp_tools_explore.py
   excludes: []
 tests:
@@ -93,6 +94,7 @@ tests:
   - tests/ai/test_mcp_fastmcp.py
   - tests/ai/test_mcp_server_skeleton.py
   - tests/ai/test_finish_ai_block_skeleton.py
+  - tests/ai/test_tool_catalogs.py
   - tests/agent_provisioning/test_skills.py
 acceptance_source: adr
 language_source: en
@@ -522,7 +524,9 @@ teaches both is worse than one that teaches neither.
 | `tests/ai/test_mcp_tools_explore.py` | create | Session tools against a scripted session API. |
 | `tests/ai/test_mcp_fastmcp.py`, `test_mcp_server_skeleton.py`, `test_finish_ai_block_skeleton.py` | modify | Count assertions (FR-025). |
 | `tests/agent_provisioning/test_skills.py` | modify | The written-file count (FR-009). |
-| `frontend/src/explore/**` | modify | The focus report on tab change, owned by the explore-frontend spec (FR-001). |
+| `tests/ai/test_tool_catalogs.py` | create | Every registered tool name appears in each catalog; the per-group counts and membership (FR-025, FR-026). |
+| `tests/mcp_tool_expectations.py` | create | The one declaration of the expected tool set, which the five count-assertion sites read. |
+| `frontend/src/explore/workspaceFocus.ts` | (spec 4) | The focus report on tab change. Written and governed by the explore-frontend spec, which owns `frontend/src/explore/**`; this spec owns the channel it posts to (FR-001). |
 
 ### 4.3 Implementation Sequence
 
