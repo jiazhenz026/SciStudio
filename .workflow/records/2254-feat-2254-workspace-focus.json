@@ -157,6 +157,12 @@
       "at": "2026-09-05T07:30:19.220826Z",
       "pattern": "docs/planning/adr-054-assembly-checklist.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:03:47.118111Z",
+      "pattern": "docs/specs/adr-054-agent-enablement.md",
+      "reason": "docs/specs/adr-054-agent-enablement.md: full_audit doc-drift/closure raise a hard error the moment a planned governed file resolves, and landing tests/ai/test_workspace_focus.py resolves one. The edit is the mechanical move of that one line from planned_governs.files to governs.files, nothing else in the spec."
     }
   ],
   "session_id": "6a964cfd-afc4-492d-9c2c-e9c9f436c1b6",

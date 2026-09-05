@@ -63,6 +63,7 @@ governs:
     - src/scistudio/_agent_reference/public-api.md
     - src/scistudio/_agent_reference/data-types.md
     - docs/specs/embedded-coding-agent-spec.md
+    - tests/ai/test_workspace_focus.py
     - tests/ai/test_mcp_fastmcp.py
     - tests/ai/test_mcp_server_skeleton.py
     - tests/ai/test_finish_ai_block_skeleton.py
@@ -84,7 +85,6 @@ planned_governs:
     - frontend/src/explore/**
     - tests/ai/test_mcp_tools_panels.py
     - tests/ai/test_mcp_tools_explore.py
-    - tests/ai/test_workspace_focus.py
   excludes: []
 tests:
   - tests/ai/test_workspace_focus.py
