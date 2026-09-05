@@ -195,32 +195,40 @@ def _contained_segments(cleaned: str, relative_path: str, detail: dict[str, str]
     is refused without a filesystem call, which is the point: ``resolve`` walks
     the tree, and a client-chosen absolute path should never get it to walk one.
 
-    A segment is refused when it is:
+    A request is refused when it holds:
 
-    * ``..`` — the traversal itself, wherever in the path it appears;
-    * anything holding a ``:`` — a Windows drive qualifier (``C:``, and the
+    * ``..`` **anywhere in the string**, not only as a whole segment. Deliberately
+      stricter than the property that matters: a panel asset named ``v1..2.css``
+      has no legitimate use, and the difference between "refuse the traversal"
+      and "refuse the two characters" is the difference between a rule a reader
+      has to simulate and one they can check by looking. A scanner reading this
+      function in isolation can check the second one too;
+    * a ``:`` in any segment — a Windows drive qualifier (``C:``, and the
       drive-relative ``C:foo`` that joins as an absolute path on that platform)
-      and an NTFS alternate data stream (``index.html::$DATA``, which reads the
+      and an NTFS alternate data stream (``index.html:hidden.json``, a second
+      and invisible file inside the panel directory; ``index.html::$DATA``, the
       same file past a suffix allowlist that only saw ``.html``). Refused on
       every platform so the check does not change meaning between the
       developer's machine and the user's;
-    * anything holding a NUL, which truncates the name at the syscall boundary.
+    * a NUL, which truncates the name at the syscall boundary.
 
     ``.`` and empty segments are dropped rather than refused: they are what a
     ``./`` or a doubled slash leaves behind and they mean nothing.
 
     Raises:
-        MissingBundleError: Any segment is one of the three refusals, or nothing
+        MissingBundleError: The path holds one of the three refusals, or nothing
             survives the drop.
     """
     if "\x00" in cleaned:
         raise MissingBundleError(f"asset path contains a NUL byte: {relative_path!r}", detail=detail)
+    if ".." in cleaned:
+        raise MissingBundleError(f"asset path escapes confinement root: {relative_path}", detail=detail)
 
     segments = [segment for segment in cleaned.replace("\\", "/").split("/") if segment not in ("", ".")]
     if not segments:
         raise MissingBundleError("asset path is empty", detail=detail)
     for segment in segments:
-        if segment == ".." or ":" in segment:
+        if ":" in segment:
             raise MissingBundleError(f"asset path escapes confinement root: {relative_path}", detail=detail)
     return segments
 
