@@ -420,6 +420,24 @@ temptation that creates is the real hazard.
 - **Suggested title**: `The gate's Python suite cannot be run reliably on a
   shared developer machine`
 
+**Final tally for this task**: 16 `python_tests` events in the ledger, **none
+of them a pass** - 11 `fail`, each with a different set of 1 to 6 tests, and 5
+`unknown / TimeoutExpired`. One run outside the gate, with the gate's exact
+command and no 600-second cap, finished in 5m55s with `2 failed, 9310 passed`,
+the two being `test_clean_block_save_triggers_reload_and_event` and
+`test_generate_facts_write_and_check_round_trip` - two more that had passed in
+every other run and pass in isolation.
+
+So the honest statement about this branch is: **9310 of 9312 Python tests pass
+on any given run, the failing two are different every time, none of them is in
+this diff (which contains no `.py` file at all), and the gate ledger holds no
+green Python run to point at.** CI, on a dedicated runner, is the first place
+this suite can be judged.
+
+The two "clean" pre-PR `check` runs this task produced were both discharged by
+F-A1-009's timeout path rather than by a passing suite, which is why no PR was
+opened on them.
+
 
 
 ### S4-A2

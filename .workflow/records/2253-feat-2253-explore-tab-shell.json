@@ -677,6 +677,38 @@
       "status": "unknown",
       "summary": "execution error: TimeoutExpired",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T10:22:35.297045Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": null,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "scope": "repo",
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T10:35:15.157000Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": null,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "scope": "repo",
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1813,6 +1845,138 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:22:35.366672Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:22:35.383648Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:22:35.398491Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:22:35.412201Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:22:35.428510Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:22:35.445012Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:22:35.461906Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:22:35.478169Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:22:35.554648Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:22:35.578361Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:22:35.608707Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:35:15.248892Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:35:15.267198Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:35:15.289488Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:35:15.309548Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:35:15.329269Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:35:15.347600Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:35:15.366711Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:35:15.408928Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:35:15.426375Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:35:15.444216Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T10:35:15.477148Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1832,9 +1996,9 @@
       "docs/planning/adr-054-assembly-checklist.md",
       "docs/planning/adr-054-assembly-followups.md"
     ],
-    "diff_fingerprint": "sha256:484fa736146864c7fd9421e863058c0e2a3457e3fd27e4db2b3b12e92cb6c471",
+    "diff_fingerprint": "sha256:90ea45b953b89f821bc8cc7c2eb206cdb30fc7e49091c729175f33f2d9e97e91",
     "head": "HEAD",
-    "head_sha": "ddbe6eab1",
+    "head_sha": "4ef6c1638",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -2003,6 +2167,22 @@
     {
       "at": "2026-09-05T10:08:40.109684Z",
       "diff_fingerprint": "sha256:484fa736146864c7fd9421e863058c0e2a3457e3fd27e4db2b3b12e92cb6c471",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-05T10:22:35.608783Z",
+      "diff_fingerprint": "sha256:484fa736146864c7fd9421e863058c0e2a3457e3fd27e4db2b3b12e92cb6c471",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-05T10:35:15.477205Z",
+      "diff_fingerprint": "sha256:90ea45b953b89f821bc8cc7c2eb206cdb30fc7e49091c729175f33f2d9e97e91",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
