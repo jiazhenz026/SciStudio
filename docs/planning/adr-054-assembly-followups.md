@@ -57,6 +57,22 @@ same "the one type all three read sits below all three" reason — or make the M
 package's `__init__` lazy. Both are larger changes than this task's scope, and
 the second would touch every tool module.
 
+### F-B1-3 — `focus_is_stale` only checks that the notebook file exists
+
+FR-004 defines a stale focus as one "naming a session whose notebook no longer
+exists", and that is exactly what is implemented: the path is resolved under the
+project root and `is_file()` is checked. A notebook that still exists but whose
+kernel has died, or whose session the service has closed, is *not* reported
+stale — the session tools will get the session API's own error for that, which
+is more specific than "stale" would be.
+
+If the assembled surface shows agents confused by a live-looking focus over a
+dead session, the fix is to consult `SessionService.sessions()` from the context
+tool rather than to widen the file check. That was not done here because the AI
+layer must not import `scistudio.explore` or reach the session service directly
+(the session tools go through the API), and because it would make a read-only
+context tool depend on live session state.
+
 ### F-B1-4 — The CI parallel test phase is over its 600s budget on this track
 
 `ci.yml` runs the parallel phase as `timeout 600 pytest -n auto -m "not serial"
@@ -74,19 +90,3 @@ contribution was cut from ~40s to ~13s by scoping the app fixture in
 `tests/ai/test_workspace_focus.py` to the module instead of the test, which is
 worth doing but is not the fix. The fix is the manager's: either raise the cap,
 or move the slowest suites to the serial phase, or split the job.
-
-### F-B1-3 — `focus_is_stale` only checks that the notebook file exists
-
-FR-004 defines a stale focus as one "naming a session whose notebook no longer
-exists", and that is exactly what is implemented: the path is resolved under the
-project root and `is_file()` is checked. A notebook that still exists but whose
-kernel has died, or whose session the service has closed, is *not* reported
-stale — the session tools will get the session API's own error for that, which
-is more specific than "stale" would be.
-
-If the assembled surface shows agents confused by a live-looking focus over a
-dead session, the fix is to consult `SessionService.sessions()` from the context
-tool rather than to widen the file check. That was not done here because the AI
-layer must not import `scistudio.explore` or reach the session service directly
-(the session tools go through the API), and because it would make a read-only
-context tool depend on live session state.
