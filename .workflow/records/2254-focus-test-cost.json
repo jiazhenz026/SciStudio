@@ -1,0 +1,74 @@
+{
+  "base_ref": "origin/track/adr-054-spec5-agent-enablement",
+  "branch": "feat/2254-focus-test-cost",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "tests/ai/test_workspace_focus.py",
+      "docs/planning/adr-054-assembly-followups.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-05T08:50:24.618798Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-assembly-followups.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T08:50:24.618830Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2254,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "ADR-054 spec 5 follow-up to the merged #2258: cut the workspace-focus test module's app churn and remove the nested-app race, and register the track's 600s CI parallel-phase overrun as F-B1-4.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2254-focus-test-cost",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "7c30bb23-6ba2-4149-9972-5fc0f893a08e",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-05T08:50:24.618837Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_workspace_focus.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

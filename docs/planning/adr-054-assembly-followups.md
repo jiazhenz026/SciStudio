@@ -180,6 +180,24 @@ layer must not import `scistudio.explore` or reach the session service directly
 (the session tools go through the API), and because it would make a read-only
 context tool depend on live session state.
 
+#### F-B1-4 — The CI parallel test phase is over its 600s budget on this track
+
+`ci.yml` runs the parallel phase as `timeout 600 pytest -n auto -m "not serial"
+--timeout=60`. On `track/adr-054-integration` — before any spec 5 work existed —
+run 33952874542 hit `exit code 124` at 96% on Python 3.13 with
+`pytest parallel phase exceeded 600s shell timeout`. PR #2258 reproduced the
+same stop at the same 96% on 3.13, so the cap is a property of the assembled
+track, not of any one agent's tests. Python 3.11 fails separately on the known
+`tests/explore/test_explore_session.py::test_a_kernel_killed_from_outside_is_reported_dead_and_offers_a_restart`
+Linux failure §9 already tracks against `#2251`.
+
+No individual test exceeds `--timeout=60`, so this is aggregate cost rather than
+a hang, and every agent still to land on this track adds to it. S5-B1's own
+contribution was cut from ~40s to ~13s by scoping the app fixture in
+`tests/ai/test_workspace_focus.py` to the module instead of the test, which is
+worth doing but is not the fix. The fix is the manager's: either raise the cap,
+or move the slowest suites to the serial phase, or split the job.
+
 
 ### S5-B2
 
