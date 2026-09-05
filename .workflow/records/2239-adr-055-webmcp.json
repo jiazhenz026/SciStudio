@@ -80,6 +80,11 @@
       "at": "2026-09-05T07:45:33.610231Z",
       "owner_directive": "Deliver a local Proposed ADR draft and source-pinned cherry-pick assessment. No prototype mutations, source implementation, spec authoring, PR, or release in this drafting step.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-09-05T08:09:33.689242Z",
+      "owner_directive": "Open a reviewable PR for ADR-055 and wait for all CI checks to finish successfully. Keep the implementation and spec work out of this documentation PR; do not merge.",
+      "reason": "Owner approved publishing the ADR draft for review and waiting for CI."
     }
   ],
   "docs_events": [
@@ -271,6 +276,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:14.562620Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:14.592562Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:14.620935Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:14.649109Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:14.675976Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:14.704593Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:14.733938Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:14.764854Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:14.794427Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:14.824404Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:14.858092Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -289,9 +382,9 @@
       ".workflow/records/2239-adr-055-webmcp.json",
       "docs/adr/ADR-055.md"
     ],
-    "diff_fingerprint": "sha256:52f2185a2aab8ba0ea6b3359c7b2e25f43465459631a356c937cdac46734f258",
+    "diff_fingerprint": "sha256:c33429412550d9581d105dc382a5a02c7b678d2f73dcf9a5f33ff4c836b7d0d0",
     "head": "HEAD",
-    "head_sha": "312d2e5e2",
+    "head_sha": "03bb7f124",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -322,6 +415,14 @@
       "at": "2026-09-05T07:57:22.560969Z",
       "diff_fingerprint": "sha256:52f2185a2aab8ba0ea6b3359c7b2e25f43465459631a356c937cdac46734f258",
       "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-05T08:10:14.858139Z",
+      "diff_fingerprint": "sha256:c33429412550d9581d105dc382a5a02c7b678d2f73dcf9a5f33ff4c836b7d0d0",
+      "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
