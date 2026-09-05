@@ -405,7 +405,15 @@ Rows are added for fix agents as findings land.
 
 ### 9.4 Verification
 
-- [ ] Focus-wire integration test added and passing.
+- [~] Focus-wire integration test added and passing.
+      Manual field-by-field check done and passing: spec 4's
+      `WorkspaceFocusPayload` (`frontend/src/lib/api/ai.ts`) and spec 5's
+      `WorkspaceFocusModel` (`src/scistudio/api/routes/ai.py`) carry the same
+      seven fields — `mode`, `workflow_id`, `session_path`, `bound_run_id`,
+      `current_cell_id`, `paused_node_id`, `paused_run_id` — with nothing
+      extra on either side. The automated assertion still lands at
+      integration; a manual check is evidence that today is right, not that
+      tomorrow stays right. Response-half gap recorded as M-004.
 - [ ] `gate_record check --mode pre-pr` passes on the assembled branch.
 - [ ] Browser e2e scenario run; evidence committed.
 - [ ] Visual verification run; screenshots committed.

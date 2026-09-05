@@ -70,6 +70,26 @@ issues the directive permits:
   the same from the PR page.
 - **Suggested title**: N/A — this is an owner action, not an issue.
 
+#### M-004 - The frontend's `ActiveContextResponse` does not declare the `focus` the server echoes
+
+- **Severity**: P3 - not a break; the frontend ignores the extra field and
+  nothing reads it today.
+- **Found by**: manager, checking the spec 4 / spec 5 focus wire field by field.
+- **Evidence**: `frontend/src/lib/api/ai.ts` declares
+  `interface ActiveContextResponse { workflow_id: string | null }`. The server's
+  `ActiveContextResponse` in `src/scistudio/api/routes/ai.py` returns
+  `{workflow_id, focus}`, where `focus` is the **stored** record including the
+  backend-stamped `reported_at`.
+- **Why it is worth recording**: the request half of this wire is exact - the
+  manager diffed `WorkspaceFocusPayload` against `WorkspaceFocusModel` and all
+  seven fields match with nothing extra on either side. The response half is
+  the one place the two descriptions differ, and it differs by omission rather
+  than by disagreement, which is the benign direction. It is listed so that
+  whoever first wants to read the echo back - to show a stale focus in the UI,
+  say - finds the type already waiting rather than discovering the field by
+  accident.
+- **Suggested title**: `chore(frontend): ActiveContextResponse omits the focus the server returns`
+
 #### M-003 - A stale `split_collection` entry point breaks block discovery at startup
 
 - **Severity**: P3 - environment, not code; the server starts anyway.
