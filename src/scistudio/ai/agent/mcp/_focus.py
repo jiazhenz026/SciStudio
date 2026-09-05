@@ -296,10 +296,12 @@ def focus_is_stale(focus: WorkspaceFocus, project_dir: Path | None) -> bool:
 #: session at all, and a stale one) must not drift into offering different
 #: recoveries for the same problem.
 OPEN_SESSION_HINT = (
-    "Open one with the `open_explore_session` tool — pass source='block_outputs' "
-    "with the block_id whose outputs you want to explore, or source='file' with a "
-    "project-relative path — and then retry. To act on a session the person is not "
-    "looking at, pass its notebook path as `session_path` instead."
+    "Open one with the `open_explore_session` tool — pass source='block_outputs' with "
+    "block_id set to the block whose outputs you want to explore, or source='file' with "
+    "path set to a file in the project's data tree — and then retry. To act on a "
+    "session the person is not looking at, pass its notebook path as `session_path` "
+    "instead. Call `get_active_workflow_context` first if you need to know where the "
+    "person actually is."
 )
 
 
