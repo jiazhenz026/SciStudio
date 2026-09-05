@@ -281,7 +281,201 @@ not shared, it is a real defect and not contention.
 
 ### S4-A2
 
-_No entries yet._
+Owner: the notebook shell, the cell editors, the output renderer, the marks,
+and the cell commands (ADR-054 spec 4, T-004 to T-007).
+
+#### F-A2-001 — The session API has no delete-cell and no move-cell route, so FR-010 cannot be sent
+
+- **Severity**: P2 — two of FR-010's five commands cannot reach the runtime.
+- **Found by**: S4-A2, wiring the cell commands.
+- **Evidence**: `src/scistudio/api/routes/explore.py` carries
+  `POST /sessions/{id}/cells` (insert), `PUT .../cells/{cell_id}` (write) and
+  `PUT .../cells/{cell_id}/enabled`, and no delete or move.
+  `ExploreSession` (`src/scistudio/explore/session.py`) exposes `insert_cell`,
+  `set_cell_source` and `set_cell_enabled` and neither a delete nor a move —
+  although the document underneath it already has one
+  (`NotebookDocument.remove_cell`, `src/scistudio/explore/notebook.py:587`).
+- **What the shell does about it**: `NotebookShell.tsx` renders the three
+  controls — delete, move up, move down — **disabled**, each carrying the reason
+  in its `title`, and `NotebookShell.test.tsx` asserts that. Hiding them would
+  make the shell look finished; sending a request to a route that does not exist
+  would show the person a failure that is not theirs.
+- **Deliberately not worked around**: a move expressed as "write the sources of
+  two cells in swapped order" would change which cell id owns which source, and
+  every mark, output and execution count the runtime holds is keyed by cell id.
+  The notebook would look moved and the marks would be wrong.
+- **Fix**: add `DELETE /api/explore/sessions/{id}/cells/{cell_id}` and a move
+  route (or an `index` field on the write route) plus the session-service
+  methods behind them, publishing `analysis_updated` as `insert_cell` does. That
+  is a `src/scistudio/**` change, which no agent in this dispatch may make.
+- **Suggested title**: `explore: the session API cannot delete or move a cell (ADR-054 FR-010)`
+
+#### F-A2-002 — An unsaved draft does not survive a tab switch
+
+- **Severity**: P3 — no typing is lost in the ordinary case; one edge case
+  loses a conflicting draft.
+- **Found by**: S4-A2, writing the reload reconciliation.
+- **Evidence**: `NotebookShell.tsx` holds `drafts` in component state, and the
+  workspace unmounts the centre and right columns when the active tab changes.
+  The shell flushes every **non-conflicting** draft to
+  `PUT /cells/{cell_id}` in its unmount cleanup, so ordinary typing is saved
+  rather than dropped; a draft marked **conflicting** by a reload is deliberately
+  not flushed — writing it would overwrite the edit that arrived from outside
+  without anybody deciding to — and is therefore lost on a tab switch.
+- **Why it is here and not fixed**: the durable home for a draft is
+  `ExploreSessionState`, and `frontend/src/store/exploreSlice.ts` and
+  `store/types.ts` are S4-A1's write set in this dispatch. The spec's own
+  `CellView` entity does not carry a draft field either, so this is a small spec
+  addition as much as a code one.
+- **Fix**: add `draft` and `draftConflicting` to `CellView`, write them from the
+  shell, and reconcile them in the slice's `applyExploreCells` instead of in the
+  component. `reconcileDrafts` in `NotebookShell.tsx` is already a pure function
+  and moves as it is.
+- **Suggested title**: `explore: keep an unsaved cell draft in the session slice, not in the shell`
+
+#### F-A2-003 — A script-driven HTML output renders inert, and its frame has a fixed height
+
+- **Severity**: P3 — a deliberate trade, recorded so it is a decision and not a
+  surprise.
+- **Found by**: S4-A2, implementing FR-011's sandboxed frame.
+- **Evidence**: `OutputRenderer.tsx` renders `text/html` and `image/svg+xml`
+  into an `<iframe sandbox="" srcdoc=...>`: no scripts, no same-origin access,
+  no forms, no popups, no navigation. The bundle carries no HTML sanitiser and
+  none was added — the frame is the mechanism, and it is stronger than a filter
+  list, which has to be right about every attribute and every future browser.
+- **What it costs**: a Plotly, Bokeh or ipywidgets output — whose `text/html`
+  is a script bundle — renders as its static markup rather than as a figure.
+  Matplotlib, pandas `_repr_html_`, and every image output are unaffected, and a
+  Plotly output that also carries `text/plain` falls back to it.
+  The frame is also a fixed 240px tall, because a frame that is granted nothing
+  cannot post its content height back out.
+- **Fix, if the owner wants live figures**: grant `allow-scripts` (and *never*
+  `allow-same-origin` beside it, which together defeat the sandbox), and add a
+  small height handshake — which is the panel-contract spec's frame host, and
+  the reason to consider routing rich outputs through that host instead.
+- **Suggested title**: `explore: decide whether notebook HTML outputs may run scripts in their frame`
+
+#### F-A2-004 — Two external edits in a row cause one re-read
+
+- **Severity**: P3 — a narrow race; the notebook is stale on screen until the
+  next event.
+- **Found by**: S4-A2, wiring FR-017's reload.
+- **Evidence**: `ExploreSession.reload_if_changed`
+  (`src/scistudio/explore/session.py:605`) publishes
+  `analysis_updated` with `reason: "external_edit"` and **no cells**, so the
+  shell re-reads `GET /cells` when it sees that reason. The slice stores only
+  `lastAnalysisReason` (`store/exploreSlice.ts`), a bare string with no
+  timestamp or sequence, so a second `external_edit` in a row leaves the value
+  unchanged, the shell's effect does not re-run, and the second reload is not
+  read back until some other event arrives.
+- **Fix**: give the slice the analysis event's timestamp beside its reason (the
+  event already carries one), or have the slice apply the re-read itself. Both
+  are in `exploreSlice.ts`, which is S4-A1's write set.
+- **Suggested title**: `explore: the shell misses a second consecutive external edit`
+
+#### F-A2-005 — The ANSI renderer is ours, and it renders no carriage returns
+
+- **Severity**: P3 — a scope note about what "ANSI colour" was taken to mean.
+- **Found by**: S4-A2, implementing FR-011.
+- **Evidence**: the bundle carries no ANSI library and **none was added**.
+  `parseAnsi` in `OutputRenderer.tsx` implements the SGR subset IPython emits —
+  reset, bold/dim/italic/underline, the sixteen basic colours, the 256-colour
+  cube, truecolor — and consumes and drops every other escape, including one
+  that never terminates. `OutputRenderer.test.tsx` asserts all of that against a
+  real IPython traceback.
+- **What is not done**: it is a colouriser, not a terminal. A `tqdm` progress
+  bar redraws itself with `\r` and cursor moves, and renders here as one line
+  per redraw rather than as one bar. Jupyter's own notebook renderer has the
+  same limitation for saved output; JupyterLab's console does not.
+- **Fix, if it matters**: collapse `\r`-separated runs to their last segment
+  before rendering — about ten lines in `AnsiText` — or, if real terminal
+  semantics are ever wanted, note that the bundle already carries `@xterm/xterm`
+  for the AI terminal.
+- **Suggested title**: `explore: collapse carriage-return progress output in cell streams`
+
+#### F-A2-006 — The toolbar's test evidence is split across files, and the spec names only one
+
+- **Severity**: P3 — bookkeeping.
+- **Found by**: S4-A2.
+- **Evidence**: `docs/specs/adr-054-explore-frontend.md` frontmatter lists
+  `frontend/src/explore/SessionToolbar.test.tsx`, but the toolbar is written by
+  three agents in this assembly — run controls here, the kernel list and package
+  in S4-A4, confirm and cancel in S4-A3. S4-A2's half is therefore in
+  `SessionToolbar.runControls.test.tsx`, so that three agents editing one test
+  file in parallel does not become a merge conflict in the evidence.
+- **Fix**: either accept the split and correct the spec's test list, or have the
+  integration agent fold the halves into `SessionToolbar.test.tsx` once all
+  three have landed.
+- **Suggested title**: N/A — for the integration agent to settle.
+
+#### F-A2-007 — The gate's own working directories make three audit tests exceed the 60s per-test kill
+
+- **Severity**: P2 — three tests fail in `gate_record check` on a worktree that
+  has been prepared for `gate_record check`, and they are not the agent's.
+- **Found by**: S4-A2, reading the gate check's pytest tail.
+- **Evidence**: the run reported
+  `tests/qa/test_audit_full_audit.py::test_full_audit_renders_human_readable_facts_summary`,
+  `tests/qa/test_generate_facts_cli.py::test_generate_facts_write_and_check_round_trip`
+  and `tests/ai/test_mcp_tools_disk_integration.py::test_concurrent_write_workflow_serialises`
+  as failed, each on `pytest-timeout`'s 60s wall-clock kill
+  (`pyproject.toml:306`), with the traceback inside
+  `scistudio/qa/audit/governed.py:76` — `repo_root.glob(pattern)` plus a `stat`
+  per match. Re-run with `--timeout=900` and no other change:
+
+  ```
+  3 passed in 117.15s
+  ```
+
+- **The cause is repo bulk, not the diff.** The governed-file globs of the
+  landed specs include `frontend/**` and `.workflow/**`, and in a prepared
+  worktree those two walk:
+
+  | pattern | paths | time per call |
+  |---|---:|---:|
+  | `frontend/**` | 35,591 | 2.08s |
+  | `.workflow/**` | 26,697 | 1.28s |
+
+  Both directories are there **because the gate put them there**:
+  `frontend/node_modules` is what the frontend checks need, and
+  `.workflow/local/venv` is the CI-equivalent environment `check` builds. So
+  the check's own preparation is what pushes the audit past its per-test kill,
+  and it will do it to every agent on a fresh worktree.
+
+- **This diff is frontend-only** — no `src/scistudio/**` or `tests/**` file is
+  touched — so none of the three can be caused by it.
+- **Fix**: have `governed_file_matches` skip ignored directories (it already
+  has a `tracked_paths` set beside it in `governed.py` and could resolve a glob
+  against that instead of against the filesystem), or exclude `node_modules`,
+  `dist` and `.workflow/local` from the walk. Either is a `src/scistudio/**`
+  change, out of every agent's write set in this dispatch.
+- **Suggested title**: `qa: governed-file globs walk node_modules and the gate venv, timing out three audit tests`
+
+#### F-A2-008 — The evaluator reconciles a check whose execution errored as satisfied
+
+- **Severity**: P1 for the gate's own trustworthiness — a green
+  "reconciliation passed" can stand on a check that never produced a result.
+- **Found by**: S4-A2, reading its own ledger after the check went green.
+- **Evidence**: `.workflow/records/2253-feat-2253-notebook-shell.json`. The
+  `python_tests` check events for the final diff fingerprint read, in order:
+
+  | at (UTC) | status | summary |
+  |---|---|---|
+  | 10:04:36 | `fail` | `exit 1` |
+  | 10:18:22 | `unknown` | `execution error: TimeoutExpired` |
+  | 10:33:28 | `unknown` | `execution error: TimeoutExpired` |
+
+  and the reconcile event written 0.4s after the last one reads
+  `{"result": "pass", "unsatisfied": []}`. `python_tests` never passed on this
+  diff, and the obligation was reported satisfied anyway.
+- **Why it matters**: `unknown` is the status for "the check did not run to a
+  verdict". Treating it as satisfied means a check that times out — which is
+  exactly what happens on a loaded machine, and this dispatch runs five agents'
+  suites at once — is indistinguishable from a check that passed. An agent
+  reading the banner would report a green gate in good faith.
+- **Fix**: treat `unknown` as unsatisfied in the evaluator, with a repair hint
+  that says the check errored rather than failed. `src/scistudio/qa/**`, out of
+  every agent's write set in this dispatch.
+- **Suggested title**: `gate: an errored (unknown) check reconciles as satisfied`
 
 ### S4-A3
 

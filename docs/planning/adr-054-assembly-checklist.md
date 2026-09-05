@@ -218,7 +218,7 @@ redundant and closes; their issues (`#2229`, `#2231`, `#2240`) are closed by
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `S4-A1` | `implementer` | `N/A` | `docs/planning/adr-054-assembly-dispatch-prompts/s4-a1-tab-and-slice.md` | Explore tab member, store slice, API types, event routing, layout (T-001 to T-003) | `feat/2253-explore-tab-shell` | `.worktrees/s4-a1` | tab union, slice, api types, workspace, context menus | notebook shell, panels, pause | `#2253` | `[ ]` |
-| `S4-A2` | `implementer` | `N/A` | `docs/planning/adr-054-assembly-dispatch-prompts/s4-a2-notebook-shell.md` | Notebook shell, cell editors, output renderer, marks, cell commands (T-004 to T-007) | `feat/2253-notebook-shell` | `.worktrees/s4-a2` | `frontend/src/explore/Notebook*`, `CellEditor`, `OutputRenderer`, `CellMarks` | tab union, panels, pause | `#2253` | `[ ]` |
+| `S4-A2` | `implementer` | `N/A` | `docs/planning/adr-054-assembly-dispatch-prompts/s4-a2-notebook-shell.md` | Notebook shell, cell editors, output renderer, marks, cell commands (T-004 to T-007) | `feat/2253-notebook-shell` | `.worktrees/s4-a2` | `frontend/src/explore/Notebook*`, `CellEditor`, `OutputRenderer`, `CellMarks` | tab union, panels, pause | `#2253` | `[x]` |
 | `S4-A3` | `implementer` | `N/A` | `docs/planning/adr-054-assembly-dispatch-prompts/s4-a3-panels-and-pause.md` | Variable strip, panel slots, emission, pause tab, modal retirement (T-008 to T-011) | `feat/2253-panels-and-pause` | `.worktrees/s4-a3` | `VariableStrip`, `PanelSlots`, `InteractiveModals` deletion | notebook shell internals, graph | `#2253` | `[ ]` |
 | `S4-A4` | `implementer` | `N/A` | `docs/planning/adr-054-assembly-dispatch-prompts/s4-a4-packaging-and-graph.md` | Packaging report, packaged node badge, kernel list, graph view, palette insert-call (T-012 to T-015) | `feat/2253-packaging-and-graph` | `.worktrees/s4-a4` | `PackagingReport`, `GraphView`, `SessionToolbar` kernel half, `BlockNode`, `BlockPalette` | tab union, notebook shell, pause | `#2253` | `[ ]` |
 | `S5-B1` | `implementer` | `N/A` | `docs/planning/adr-054-assembly-dispatch-prompts/s5-b1-workspace-focus.md` | Workspace focus: route, persistence, runtime record, context tool, refusal (T-001, T-002) | `feat/2254-workspace-focus` | `.worktrees/s5-b1` | `api/routes/ai.py`, `api/runtime/_projects.py`, `mcp/runtime.py`, `_context.py`, `tools_workflow/read.py` | tools_panels, tools_explore, skills | `#2254` | `[ ]` |
@@ -275,7 +275,7 @@ Rows are added for fix agents as findings land.
 ### 7.3 Implementation
 
 - [ ] `S4-A1` tab member, slice, API types, event routing, layout, context menus -> `<artifact>`
-- [ ] `S4-A2` notebook shell, cell editors, output renderer, marks, commands -> `<artifact>`
+- [x] `S4-A2` notebook shell, cell editors, output renderer, marks, commands -> `feat/2253-notebook-shell`, gate record `.workflow/records/2253-feat-2253-notebook-shell.json`; 105 tests across `NotebookShell.test.tsx`, `CellEditor.test.tsx`, `OutputRenderer.test.tsx`, `CellMarks.test.tsx`, `SessionToolbar.runControls.test.tsx`; findings F-A2-001 to F-A2-008
 - [ ] `S4-A3` variable strip, panel slots, emission, pause tab, modal deleted -> `<artifact>`
 - [ ] `S4-A4` packaging report, node badge, kernel list, graph view, palette -> `<artifact>`
 - [ ] `S4-D1` adversarial test suite -> `<artifact>`

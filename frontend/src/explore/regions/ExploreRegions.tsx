@@ -26,7 +26,13 @@
  * compute a mark, a kernel state, or a binding.
  */
 
+import { useCallback, useState } from "react";
+
+import { exploreApi } from "../../lib/api/explore";
+import { logger } from "../../lib/logger";
+import { useAppStore } from "../../store";
 import type { ExploreSessionState, ExploreTab, PanelSlot } from "../../store/types";
+import { NotebookShell } from "../NotebookShell";
 
 /** What every region is handed. */
 export interface ExploreRegionProps {
@@ -78,15 +84,9 @@ function Placeholder({
  */
 export function NotebookRegion({ tab, session }: ExploreRegionProps) {
   return (
-    <Placeholder
-      testId="explore-notebook-region"
-      title="Notebook"
-      owner="ADR-054 spec 4 T-004 to T-007 — NotebookShell"
-    >
-      <p className="mt-2 text-[11px] text-stone-400">
-        {session ? `${session.cells.length} cells` : "opening…"} · {tab.notebookPath}
-      </p>
-    </Placeholder>
+    <div className="flex h-full min-h-0 flex-col" data-testid="explore-notebook-region">
+      <NotebookShell session={session} tab={tab} />
+    </div>
   );
 }
 
@@ -131,16 +131,114 @@ export function GraphViewRegion({ session }: ExploreRegionProps) {
   );
 }
 
-/** FR-013, FR-014 — run-stale with its count, interrupt, restart, commit. */
+/**
+ * FR-013, FR-014, FR-016 — run-stale with its count, interrupt, restart, commit
+ * (ADR-054 spec 4 T-006, T-007).
+ *
+ * Every control here sends exactly one command and shows nothing until the
+ * runtime answers. The stale count is a count of the marks the runtime sent, not
+ * a judgement about which cells look stale (FR-034): run-stale is offered when
+ * the runtime has marked something and refused when it has not, so the button
+ * can never ask for a run the runtime does not think is needed.
+ *
+ * Interrupt, restart and commit write nothing into the slice at all — the
+ * runtime publishes `kernel_state` and `commit_recorded` for those, and a
+ * command reflected before its event is exactly what FR-034 forbids. Only the
+ * run controls apply their response, because a queued request has no event of
+ * its own and `applyExploreRunRequests` is the slice's documented door for it.
+ */
 export function ToolbarRunControls({ session }: ExploreRegionProps) {
+  const applyExploreRunRequests = useAppStore((state) => state.applyExploreRunRequests);
+  const [error, setError] = useState<string | null>(null);
+
+  const sessionId = session?.sessionId ?? "";
+  const disabled = sessionId === "";
   const stale = session?.cells.filter((cell) => cell.marks.includes("stale")).length ?? 0;
+  // FR-016 — the runtime reports a dead kernel and a retirement separately, and
+  // either is a reason to offer a restart. Neither is inferred here.
+  const needsRestart = session?.kernel.needsRestart === true || session?.kernel.state === "dead";
+
+  const send = useCallback(async (what: string, command: () => Promise<void>) => {
+    setError(null);
+    try {
+      await command();
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      logger.error(`explore: ${what}`, { error: message });
+      setError(`${what}: ${message}`);
+    }
+  }, []);
+
+  const onRunStale = () =>
+    void send("Running the stale cells failed", async () => {
+      const response = await exploreApi.runExploreStale(sessionId);
+      applyExploreRunRequests(sessionId, response.requests);
+    });
+
   return (
     <span
-      className="text-[11px] text-stone-400"
+      className="flex flex-wrap items-center gap-1 text-[11px]"
       data-testid="explore-toolbar-run-controls"
       data-stale-count={stale}
     >
-      ADR-054 spec 4 T-006/T-007 — run controls
+      <button
+        className="toolbar-button"
+        data-testid="explore-run-stale"
+        disabled={disabled || stale === 0}
+        onClick={onRunStale}
+        type="button"
+      >
+        Run stale ({stale})
+      </button>
+      <button
+        className="toolbar-button"
+        data-testid="explore-interrupt"
+        disabled={disabled}
+        onClick={() =>
+          void send("Interrupting the kernel failed", async () => {
+            await exploreApi.interruptExploreSession(sessionId);
+          })
+        }
+        type="button"
+      >
+        Interrupt
+      </button>
+      <button
+        className={`toolbar-button ${needsRestart ? "border-amber-400 text-amber-800" : ""}`}
+        data-testid="explore-restart"
+        disabled={disabled}
+        onClick={() =>
+          void send("Restarting the kernel failed", async () => {
+            await exploreApi.restartExploreSession(sessionId);
+          })
+        }
+        type="button"
+      >
+        Restart
+      </button>
+      <button
+        className="toolbar-button"
+        data-testid="explore-commit"
+        disabled={disabled}
+        onClick={() =>
+          void send("Committing the notebook failed", async () => {
+            await exploreApi.commitExploreSession(sessionId);
+          })
+        }
+        type="button"
+      >
+        Commit
+      </button>
+      {needsRestart ? (
+        <span className="text-amber-800" data-testid="explore-kernel-restart-offer">
+          This kernel needs a restart.
+        </span>
+      ) : null}
+      {error ? (
+        <span className="text-red-700" data-testid="explore-run-controls-error">
+          {error}
+        </span>
+      ) : null}
     </span>
   );
 }
