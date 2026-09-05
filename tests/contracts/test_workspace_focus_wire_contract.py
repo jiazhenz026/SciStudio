@@ -116,6 +116,42 @@ def test_mode_is_not_a_closed_enum() -> None:
     )
 
 
+def test_the_packaged_notebook_marker_has_a_writer(frontend_source: str) -> None:
+    """FR-004 and FR-030: the field the badge reads is one the server sends.
+
+    This is the same class of break as the focus wire above and it is here for
+    the same reason, but it is worth stating separately because it failed in a
+    way a field-set comparison would not have caught on its own.
+
+    ``frontend/src/explore/packagedBlock.ts`` reads
+    ``BlockSummary.notebook_filename`` to decide whether to draw the notebook
+    badge and whether a double-click opens a notebook. The frontend declared
+    the field against a backend change that had not landed, so the predicate
+    answered ``False`` for every block and both requirements were quietly
+    dead — no error, no failing test, just a badge that never appeared.
+
+    A declared-but-unwritten field is the harder half of this failure mode:
+    both sides look correct in isolation and the type checker is satisfied,
+    because the field is optional on the wire. So this asserts the *writer*
+    exists, not merely that the name is spelled the same on both sides.
+    """
+    from scistudio.api.routes import blocks as blocks_routes
+    from scistudio.api.schemas import BlockSummary
+
+    assert "notebook_filename" in BlockSummary.model_fields, (
+        "BlockSummary lost notebook_filename; FR-030's badge and FR-004's "
+        "double-click read it and go silently dead without it."
+    )
+
+    source = Path(blocks_routes.__file__).read_text(encoding="utf-8")
+    assert "notebook_filename=" in source, (
+        "scistudio/api/routes/blocks.py declares no writer for "
+        "notebook_filename, so BlockSummary carries the field and never "
+        "populates it — which is exactly the state that made FR-004 and "
+        "FR-030 dead while every test still passed."
+    )
+
+
 def test_the_focus_rides_the_existing_active_context_channel() -> None:
     """FR-001: the report travels on the channel that already exists.
 
