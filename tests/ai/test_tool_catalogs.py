@@ -26,9 +26,9 @@ from __future__ import annotations
 
 import asyncio
 import collections
+from collections.abc import Coroutine
 from pathlib import Path
 from typing import Any
-from collections.abc import Coroutine
 
 import pytest
 

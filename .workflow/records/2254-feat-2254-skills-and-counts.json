@@ -149,6 +149,154 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T07:58:49.925132Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:91d833675452ba1ff471725f8334f2fe00e2118df68b9069a0171214628597e3",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T07:58:54.091520Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e18641c76e4edd2b8f757738ab1b4e99b7c7441547cc9afb22d75973457dac0c",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T07:58:56.641689Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0e4263b6cc3d222e1651e8364ca7d9dc3656eaf962c44a9edcf4538252c5ccd9",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T07:58:56.771711Z",
+      "command": "ruff format src/scistudio/_user_guide/examples/notebook-find-peaks/block.py src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/mcp/tools_authoring.py tests/agent_provisioning/test_orchestrate.py tests/agent_provisioning/test_skills.py tests/ai/test_mcp_tools_authoring.py tests/ai/test_tool_catalogs.py tests/api/test_user_docs.py tests/cli/test_install.py tests/packaging/test_wheel_skills.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:97d322a12e4c5b6f61788d604bea9ae108b26639cafccd1014b9535fb0c53f29",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-05T07:59:40.145819Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:83396500ee512aa011b9acbf99bf576f0994600d5d31d50477cd18b065823cb2",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T07:59:40.937851Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:01fd8aad2cf8c54fb0ecdc4083bf66bfbf70a5fe90670753aa156e3e59977d1f",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T07:59:41.007309Z",
+      "command": "ruff check src/scistudio/_user_guide/examples/notebook-find-peaks/block.py src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/mcp/tools_authoring.py tests/agent_provisioning/test_orchestrate.py tests/agent_provisioning/test_skills.py tests/ai/test_mcp_tools_authoring.py tests/ai/test_tool_catalogs.py tests/api/test_user_docs.py tests/cli/test_install.py tests/packaging/test_wheel_skills.py",
+      "covered_surface": "python_lint",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:611fb5251a1e6c7448f444e37bf1933ae4f3ce0329801094c51ca1fb3a2eb9ef",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-05T08:04:48.411538Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:3724e5a4485f83cad79ffbc70f383c8fcebcda99750a88aad9c2ec37dc3444a9",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:04:50.338483Z",
+      "command": "mypy src/scistudio/_user_guide/examples/notebook-find-peaks/block.py src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/mcp/tools_authoring.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4ea1aa81d98eaf97cfdfe00d834eecb77e8d4c8aeb5cf130d64a18a8fabe55a4",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -303,6 +451,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:04:50.428796Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:04:50.444297Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:04:50.461083Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:04:50.478387Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:04:50.505842Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:04:50.521432Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:04:50.537271Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:04:50.552347Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:04:50.567691Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:04:50.582841Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:04:50.607481Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -345,12 +581,13 @@
       "tests/agent_provisioning/test_skills.py",
       "tests/ai/test_mcp_tools_authoring.py",
       "tests/ai/test_tool_catalogs.py",
+      "tests/api/test_user_docs.py",
       "tests/cli/test_install.py",
       "tests/packaging/test_wheel_skills.py"
     ],
-    "diff_fingerprint": "sha256:969093649613cb4598aaf703d50d52777030e15dfd9d9fb6a34592617dace5a2",
+    "diff_fingerprint": "sha256:f0deee9535f76230d7ad642809f39f634eb734a0c34e62e651e3680ddaf87d1a",
     "head": "HEAD",
-    "head_sha": "ec9928a9a",
+    "head_sha": "b3f41657d",
     "surfaces": {
       "docs": 3,
       "frontend": 0,
@@ -360,8 +597,8 @@
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 26,
-      "test": 6,
+      "sentrux": 27,
+      "test": 7,
       "workflow_ci": 0
     }
   },
@@ -377,6 +614,18 @@
       "tier": 1,
       "unsatisfied": [
         "checks.commit_hygiene",
+        "checks.full_audit",
+        "checks.lint_format",
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-09-05T08:04:50.607515Z",
+      "diff_fingerprint": "sha256:f0deee9535f76230d7ad642809f39f634eb734a0c34e62e651e3680ddaf87d1a",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
         "checks.full_audit",
         "checks.lint_format",
         "checks.python_tests"
