@@ -130,8 +130,14 @@ jobs:
         # ``--timeout=60`` (pytest-timeout) hard-kills any test that hangs
         # past 60 s and prints its traceback, so a stuck CI surfaces a
         # diagnosable failure instead of timing out the whole job at 6 h.
-        # ``timeout 600`` is a belt-and-suspenders shell-level kill in
-        # case pytest-timeout itself wedges (xdist + pty edge cases).
+        # It is the hang guard and it does not move.
+        #
+        # The ``timeout NNN`` wrappers are a belt-and-suspenders shell-level
+        # kill for the case where pytest-timeout itself wedges (xdist + pty
+        # edge cases). They are **wedge guards, not time budgets**: they
+        # belong well above the suite's honest runtime, and when the suite
+        # outgrows one the answer is to raise the guard, never to trim,
+        # deselect or skip tests to fit under it.
         #
         # Two-phase run (#1896): the parallel bulk first (deselecting the
         # ``serial`` marker), then the ``serial`` PTY/subprocess/thread tests
@@ -141,28 +147,56 @@ jobs:
         # (coverage on) the parallel phase writes a fresh dataset without the
         # floor and the serial phase appends with ``--cov-append`` so the
         # combined ``--cov-fail-under`` still holds; 3.11 runs ``--no-cov``.
+        #
+        # Coverage cost, and why the parallel guard is 1200 s (#2253). The two
+        # matrix legs do not run the same workload, which is what made the
+        # 3.13 failure look like a 3.13 defect. Measured in one CI run
+        # (33960011315: same commit, same runner class, 9313 parallel and 283
+        # serial tests):
+        #
+        #     3.11  --no-cov                    parallel 435.70 s   serial 201.50 s
+        #     3.13  coverage, ctrace core       parallel 662.34 s   serial 256.84 s
+        #     3.13  coverage, sysmon core       parallel 611.22 s   serial 231.80 s
+        #
+        # Coverage costs about 1.5x, so the old 600 s parallel guard had
+        # quietly become a budget the honest suite could no longer meet: it
+        # killed the run at 96-97% complete with nothing hung and no
+        # traceback. ``COVERAGE_CORE=sysmon`` selects coverage.py's
+        # sys.monitoring core, which reports the same 89.22% total for about
+        # 8% less time -- coverage still defaults to the slower C tracer below
+        # Python 3.14, so this has to be asked for. With that plus #2253's
+        # test-side fix the parallel phase measured 534.33 s (run
+        # 33960875235), so 1200 s is a little over 2x the honest runtime:
+        # ADR-054-sized growth does not have to touch it again, and a genuine
+        # wedge is still killed in 20 minutes instead of 6 hours. The serial
+        # phase keeps its 600 s guard, which is still 2.3x its 257 s worst
+        # measurement.
+        #
+        # ``--durations=25`` costs nothing and prints where the time went; a
+        # guard kill leaves no other record of it.
         run: |
           if [ "${{ matrix.python-version }}" = "3.13" ]; then
             nocov=""
             cov_parallel="--cov-fail-under=0"
             cov_serial="--cov-append"
+            export COVERAGE_CORE=sysmon
           else
             nocov="--no-cov"
             cov_parallel=""
             cov_serial=""
           fi
-          timeout 600 pytest -n auto -m "not serial" $nocov --timeout=60 --timeout-method=thread $cov_parallel
+          timeout 1200 pytest -n auto -m "not serial" $nocov --timeout=60 --timeout-method=thread --durations=25 $cov_parallel
           rc=$?
           if [ $rc -eq 5 ]; then rc=0; fi
           if [ $rc -eq 124 ]; then
-            echo "::error::pytest parallel phase exceeded 600s shell timeout (hang escaped --timeout=60)"
+            echo "::error::pytest parallel phase exceeded its 1200s shell wedge guard (hang escaped --timeout=60)"
           fi
           if [ $rc -ne 0 ]; then exit $rc; fi
-          timeout 600 pytest -n 0 -m serial $nocov --timeout=60 --timeout-method=thread $cov_serial
+          timeout 600 pytest -n 0 -m serial $nocov --timeout=60 --timeout-method=thread --durations=25 $cov_serial
           rc=$?
           if [ $rc -eq 5 ]; then rc=0; fi
           if [ $rc -eq 124 ]; then
-            echo "::error::pytest serial phase exceeded 600s shell timeout (hang escaped --timeout=60)"
+            echo "::error::pytest serial phase exceeded its 600s shell wedge guard (hang escaped --timeout=60)"
           fi
           exit $rc
 
