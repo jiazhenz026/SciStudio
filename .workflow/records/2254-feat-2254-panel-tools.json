@@ -1,0 +1,96 @@
+{
+  "base_ref": "origin/track/adr-054-spec5-agent-enablement",
+  "branch": "feat/2254-panel-tools",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/_agent_reference/panel-contract.md",
+      "src/scistudio/_agent_reference/block-contract.md",
+      "src/scistudio/_agent_reference/README.md",
+      "src/scistudio/ai/agent/mcp/tools_panels/**",
+      "src/scistudio/ai/agent/mcp/__init__.py",
+      "tests/ai/test_mcp_tools_panels.py",
+      "docs/planning/adr-054-assembly-followups.md",
+      "docs/planning/adr-054-assembly-checklist.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-05T07:31:11.341500Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_agent_reference/panel-contract.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:31:11.341519Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_agent_reference/block-contract.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:31:11.341522Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_agent_reference/README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:31:11.341529Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2254,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-054 spec 5 T-003 and T-004: the panel-contract agent reference, the rewrite of the panel section of block-contract.md, and the four panel MCP tools including the stub harness a scaffolded panel is born with.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2254-feat-2254-panel-tools",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "3cd78e8a-ee35-4626-8c13-72de67f41689",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-05T07:31:11.341534Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_panels.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
