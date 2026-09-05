@@ -1,5 +1,5 @@
 /**
- * Data-artifact REST endpoints (uploads, metadata) and the routed previewer
+ * Data-artifact REST endpoints (uploads, metadata) and the routed panel
  * session API. The legacy one-shot `getDataPreview` was removed under ADR-048
  * no-compat (#1604); previews flow through the session helpers below.
  *
@@ -25,10 +25,13 @@ import type {
   PreviewResourceSaveRequest,
   PreviewResourceSaveResponse,
   PreviewTarget,
-  PreviewerChoiceListResponse,
-  PreviewerChoiceScope,
-  PreviewerListResponse,
-  PreviewerReloadResponse,
+  PanelChoiceListResponse,
+  PanelChoiceScope,
+  PanelListResponse,
+  PanelOverrideRevertResponse,
+  PanelReloadResponse,
+  PanelSourceResponse,
+  PanelSourceSaveResponse,
 } from "../../types/api";
 import { JSON_HEADERS, apiFetch } from "./core";
 
@@ -40,9 +43,9 @@ import { JSON_HEADERS, apiFetch } from "./core";
  * after {@link dataApi.runPlotJob} registers the produced artifact and returns
  * its catalog `data_ref`, a caller passes the target this helper builds to
  * {@link PreviewHost}, which opens a routed preview session that resolves the
- * core PlotPreviewer (`core.plot.basic`) and renders the figure. The end-to-end
+ * core PlotPanel (`core.plot.basic`) and renders the figure. The end-to-end
  * runtime chain (run route -> catalog registration -> routed preview session ->
- * PlotPreviewer) is proven by `tests/api/test_plot_preview_wiring.py`.
+ * PlotPanel) is proven by `tests/api/test_plot_preview_wiring.py`.
  *
  * Returns `null` when the run did not produce a previewable artifact (failed /
  * cancelled / timed-out, or no `data_ref`) so callers render the failure state
@@ -59,12 +62,18 @@ export function plotTargetFromRunResponse(result: PlotRunResponse): PreviewTarge
   };
 }
 
-/** Build the same-origin URL for a validated previewer asset
- *  (`GET /api/previews/assets/{previewer_id}/{asset_path}`). This is the ONLY
- *  origin a dynamic previewer module is permitted to load from (FR-022). */
-export function buildPreviewAssetUrl(previewerId: string, assetPath: string): string {
+/**
+ * Build the same-origin URL for a panel asset on the merged asset route
+ * (`GET /api/panels/assets/{panel_id}/{asset_path}`, ADR-054 FR-021, D-008).
+ *
+ * This mirrors `scistudio.panels.descriptor.PANEL_ASSET_ROUTE_PREFIX`, which is
+ * where the one definition lives; a panel's own entry document and asset base
+ * arrive on the descriptor rather than being built here, so this exists only
+ * for a caller that has an id and a path and no descriptor.
+ */
+export function buildPanelAssetUrl(panelId: string, assetPath: string): string {
   const cleaned = assetPath.replace(/^\/+/, "");
-  return `/api/previews/assets/${encodeURIComponent(previewerId)}/${cleaned}`;
+  return `/api/panels/assets/${encodeURIComponent(panelId)}/${cleaned}`;
 }
 
 export const dataApi = {
@@ -127,7 +136,7 @@ export const dataApi = {
     );
   },
 
-  // -- ADR-048 SPEC 1: routed previewer session API (additive, FR-007) ------
+  // -- ADR-048 SPEC 1: routed panel session API (additive, FR-007) ------
 
   /** Create a routed preview session for a target and return the first
    *  envelope (`POST /api/previews/sessions`). */
@@ -161,47 +170,82 @@ export const dataApi = {
       )}`,
     ),
 
-  // -- #2095: previewer discovery + reload; #2049: per-type choice -----------
+  // -- ADR-054 D-020: the panel API surface -------------------------------
+  //
+  // The listing, the rebuild and the choices moved under the panel naming with
+  // their behaviour unchanged (FR-023), and the frontend follows them in the
+  // same change. The *session* routes deliberately stay where they are:
+  // FR-022 keeps `/api/previews/...` serving its existing clients for the
+  // duration of the migration.
 
-  /** List registered previewers with the tier each was discovered from,
-   *  ordered in FR-003 routing precedence (`GET /api/previews/previewers`).
-   *  `targetType` is an exact-match filter, not the router's specificity
-   *  walk. */
-  listPreviewers: (targetType?: string) =>
-    apiFetch<PreviewerListResponse>(
-      `/api/previews/previewers${targetType ? `?target_type=${encodeURIComponent(targetType)}` : ""}`,
+  /** List registered panels with the tier each was discovered from, ordered in
+   *  routing precedence (`GET /api/panels`). `targetType` is an exact-match
+   *  filter, not the router's specificity walk. */
+  listPanels: (targetType?: string) =>
+    apiFetch<PanelListResponse>(
+      `/api/panels${targetType ? `?target_type=${encodeURIComponent(targetType)}` : ""}`,
     ),
 
-  /** Re-scan the drop-in previewer directories and rebuild the registries
-   *  (`POST /api/previews/reload`). */
-  reloadPreviewers: () =>
-    apiFetch<PreviewerReloadResponse>("/api/previews/reload", { method: "POST" }),
+  /** Rebuild the panel registry — the one way a panel directory that was
+   *  added, changed or removed takes effect (`POST /api/panels/reload`,
+   *  FR-023, FR-046). */
+  reloadPanels: () => apiFetch<PanelReloadResponse>("/api/panels/reload", { method: "POST" }),
 
-  /** List the effective per-type previewer choices, each with the layer it
-   *  came from and whether its previewer is still registered
-   *  (`GET /api/previews/choices`). */
-  listPreviewerChoices: () => apiFetch<PreviewerChoiceListResponse>("/api/previews/choices"),
+  /** List the effective panel choices, each with the layer it came from and
+   *  whether its panel is still registered (`GET /api/panels/choices`). */
+  listPanelChoices: () => apiFetch<PanelChoiceListResponse>("/api/panels/choices"),
 
-  /** Record `targetType -> previewerId` at `scope` — `project` (this project
+  /** Record `targetType -> panelId` at `scope` — `project` (this project
    *  only) or `user` (every project). Returns the resulting effective choices
-   *  (`PUT /api/previews/choices/{target_type}`). */
-  setPreviewerChoice: (targetType: string, previewerId: string, scope: PreviewerChoiceScope) =>
-    apiFetch<PreviewerChoiceListResponse>(
-      `/api/previews/choices/${encodeURIComponent(targetType)}`,
-      {
-        method: "PUT",
-        headers: JSON_HEADERS,
-        body: JSON.stringify({ previewer_id: previewerId, scope }),
-      },
-    ),
+   *  (`PUT /api/panels/choices/{target_type}`). */
+  setPanelChoice: (targetType: string, panelId: string, scope: PanelChoiceScope) =>
+    apiFetch<PanelChoiceListResponse>(`/api/panels/choices/${encodeURIComponent(targetType)}`, {
+      method: "PUT",
+      headers: JSON_HEADERS,
+      // `panel_id`, not `previewer_id`: `PanelChoiceRequest` was renamed with
+      // the subsystem, so the old key leaves the required field missing and
+      // the route rejects the body outright.
+      body: JSON.stringify({ panel_id: panelId, scope }),
+    }),
 
   /** Clear the choice for `targetType` at `scope`; clearing a type that was
-   *  never chosen succeeds (`DELETE /api/previews/choices/{target_type}`). */
-  clearPreviewerChoice: (targetType: string, scope: PreviewerChoiceScope) =>
-    apiFetch<PreviewerChoiceListResponse>(
-      `/api/previews/choices/${encodeURIComponent(targetType)}?scope=${encodeURIComponent(scope)}`,
+   *  never chosen succeeds (`DELETE /api/panels/choices/{target_type}`). */
+  clearPanelChoice: (targetType: string, scope: PanelChoiceScope) =>
+    apiFetch<PanelChoiceListResponse>(
+      `/api/panels/choices/${encodeURIComponent(targetType)}?scope=${encodeURIComponent(scope)}`,
       { method: "DELETE" },
     ),
+
+  // -- ADR-054 T-010: reading a panel, saving it, reverting (FR-024..FR-029) --
+  //
+  // The three editing routes. Nothing asks *where* a save goes: FR-025 says the
+  // system decides from the tier the panel resolved from, and the response's
+  // `copied` says what it decided.
+
+  /** Read any resolved panel's entry document and declaration, whichever tier
+   *  it came from (`GET /api/panels/{panel_id}/source`, FR-024). */
+  readPanelSource: (panelId: string) =>
+    apiFetch<PanelSourceResponse>(`/api/panels/${encodeURIComponent(panelId)}/source`),
+
+  /** Save an edit. A project or user-library panel is written back in place; a
+   *  core or package panel is copied into the open project under the same id
+   *  and `copied` comes back `true` (`PUT /api/panels/{panel_id}/source`,
+   *  FR-025 to FR-027). */
+  savePanelSource: (panelId: string, source: string, declaration?: string | null) =>
+    apiFetch<PanelSourceSaveResponse>(`/api/panels/${encodeURIComponent(panelId)}/source`, {
+      method: "PUT",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ source, declaration: declaration ?? null }),
+    }),
+
+  /** Delete the shadowing copy, restoring whatever it shadowed. A panel that
+   *  shadows nothing is refused with 409 rather than deleted — that would be a
+   *  delete, a different request (`DELETE /api/panels/{panel_id}/override`,
+   *  FR-029). */
+  revertPanelOverride: (panelId: string) =>
+    apiFetch<PanelOverrideRevertResponse>(`/api/panels/${encodeURIComponent(panelId)}/override`, {
+      method: "DELETE",
+    }),
 
   /** Save a bounded provider resource to a user-selected absolute file path
    *  (`POST /api/previews/sessions/{id}/resources/{resource_id}/save`). */
@@ -270,7 +314,7 @@ export const dataApi = {
    *  (`POST /api/plots/run`). On success the response's `data_ref` opens a
    *  `plot_artifact` preview session via {@link plotTargetFromRunResponse} +
    *  {@link createPreviewSession}; the produced figure then renders through the
-   *  core PlotPreviewer. */
+   *  core PlotPanel. */
   runPlotJob: (request: PlotRunRequest) =>
     apiFetch<PlotRunResponse>("/api/plots/run", {
       method: "POST",

@@ -10,7 +10,7 @@ Two guarantees:
 
 EXPECTED TO FAIL in the pre-implementation tree: the demoted symbols
 (TypeRegistry/TypeSpec, Port + 4 port helpers, BlockState/BlockResult, the
-interactive internals, LoadData/SaveData, normalize_*, the 7 previewer-model
+interactive internals, LoadData/SaveData, normalize_*, the 7 panel-model
 internals, the DEFAULT_MAX_* constants) are still exported, and live symbols are
 not yet decorated. Written correct-by-spec, not weakened to pass.
 """

@@ -42,16 +42,16 @@ const EXPECTED_API_KEYS = [
   // data
   "uploadData",
   "getDataMetadata",
-  // data — #2095 previewer discovery + reload, #2049 per-type previewer
+  // data — #2095 panel discovery + reload, #2049 per-type panel
   // choice; surfaced by the left-panel Previewers tab (#2113).
-  "listPreviewers",
-  "reloadPreviewers",
-  "listPreviewerChoices",
-  "setPreviewerChoice",
-  "clearPreviewerChoice",
+  "listPanels",
+  "reloadPanels",
+  "listPanelChoices",
+  "setPanelChoice",
+  "clearPanelChoice",
   // data — ADR-048 SPEC 2 / #1606 plot-job run + preview wiring.
   // The legacy one-shot `getDataPreview` was removed under #1604; the catalog
-  // is previewed exclusively through the routed previewer session API.
+  // is previewed exclusively through the routed panel session API.
   "listPlotTargets",
   "createPlot",
   "deletePlot",

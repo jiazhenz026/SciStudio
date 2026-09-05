@@ -1,13 +1,13 @@
-"""Trivial fixture previewers mirroring a package's previewer surface.
+"""Trivial fixture panels mirroring a package's panel surface.
 
-Provides a :func:`get_previewers` factory returning ``PreviewerSpec`` for
+Provides a :func:`get_previewers` factory returning ``PanelSpec`` for
 the fixture :class:`Image` and :class:`Label` types, plus minimal backend
-providers and a same-origin ``viewer.js`` asset. This lets core's previewer
+providers and a same-origin ``viewer.js`` asset. This lets core's panel
 registry / routing / asset-serving machinery be tested against a stand-in
 package instead of the decoupled imaging package.
 
 The providers return a bounded ARRAY/COMPOSITE envelope with no real data
-read — just enough structure for routing tests to assert previewer id and
+read — just enough structure for routing tests to assert panel id and
 envelope kind.
 """
 
@@ -17,19 +17,19 @@ from pathlib import Path
 from typing import Any
 
 from scistudio.core.storage.ref import StorageReference
-from scistudio.previewers.models import (
-    PREVIEWER_API_VERSION,
+from scistudio.panels.models import (
+    PANEL_API_VERSION,
     EnvelopeKind,
     FrontendManifest,
     OwnerKind,
+    PanelSpec,
     PreviewEnvelope,
-    PreviewerSpec,
     PreviewMetadata,
     PreviewRequest,
 )
 
-IMAGE_PREVIEWER_ID = "fixture.image.viewer"
-LABEL_PREVIEWER_ID = "fixture.label.viewer"
+IMAGE_PANEL_ID = "fixture.image.viewer"
+LABEL_PANEL_ID = "fixture.label.viewer"
 OWNER_NAME = "scistudio-blocks-fixture"
 VIEWER_BUNDLE_VERSION = "0.1.0"
 _VIEWER_FILE = "viewer.js"
@@ -47,7 +47,7 @@ def _frontend_manifest(previewer_id: str) -> FrontendManifest:
         export_name="default",
         css=(),
         version=VIEWER_BUNDLE_VERSION,
-        api_version=PREVIEWER_API_VERSION,
+        api_version=PANEL_API_VERSION,
         asset_root=_ASSET_ROOT,
     )
 
@@ -108,37 +108,37 @@ def label_provider(request: PreviewRequest) -> PreviewEnvelope:
     )
 
 
-def get_previewers() -> list[PreviewerSpec]:
-    """Return the fixture package's ``PreviewerSpec`` list."""
+def get_previewers() -> list[PanelSpec]:
+    """Return the fixture package's ``PanelSpec`` list."""
     return [
-        PreviewerSpec(
-            previewer_id=IMAGE_PREVIEWER_ID,
+        PanelSpec(
+            previewer_id=IMAGE_PANEL_ID,
             owner_kind=OwnerKind.PACKAGE,
             owner_name=OWNER_NAME,
             target_type="Image",
             supports_collection=False,
             priority=100,
-            capabilities=("slice", "metadata"),
+            features=("slice", "metadata"),
             backend_provider=image_provider,
-            frontend_manifest=_frontend_manifest(IMAGE_PREVIEWER_ID),
+            frontend_manifest=_frontend_manifest(IMAGE_PANEL_ID),
         ),
-        PreviewerSpec(
-            previewer_id=LABEL_PREVIEWER_ID,
+        PanelSpec(
+            previewer_id=LABEL_PANEL_ID,
             owner_kind=OwnerKind.PACKAGE,
             owner_name=OWNER_NAME,
             target_type="Label",
             supports_collection=False,
             priority=100,
-            capabilities=("slots", "metadata"),
+            features=("slots", "metadata"),
             backend_provider=label_provider,
-            frontend_manifest=_frontend_manifest(LABEL_PREVIEWER_ID),
+            frontend_manifest=_frontend_manifest(LABEL_PANEL_ID),
         ),
     ]
 
 
 __all__ = [
-    "IMAGE_PREVIEWER_ID",
-    "LABEL_PREVIEWER_ID",
+    "IMAGE_PANEL_ID",
+    "LABEL_PANEL_ID",
     "OWNER_NAME",
     "VIEWER_BUNDLE_VERSION",
     "get_previewers",

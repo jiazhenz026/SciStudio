@@ -1,6 +1,7 @@
 import type {
   BlockSchemaResponse,
   BlockSummary,
+  PanelDescriptorResponse,
   PreviewEnvelope,
   GitBranch,
   GitCommit,
@@ -8,8 +9,8 @@ import type {
   GitStatus,
   LogEntry,
   PreviewTarget,
-  PreviewerChoice,
-  PreviewerSpecSummary,
+  PanelChoice,
+  PanelSpecSummary,
   ProjectResponse,
   ResolvedSubworkflowPorts,
   TypeSummary,
@@ -285,8 +286,24 @@ export interface InteractivePrompt {
    * the prompt is open.
    */
   workflowId: string;
-  /** ADR-051: panel manifest used to resolve the window component (FR-007). */
+  /**
+   * ADR-051: the block's panel manifest. Kept because it names the panel and
+   * because the ADR-048 compatibility shim still reads its `module_url`; the
+   * host no longer mounts from it (ADR-054 FR-007, FR-037).
+   */
   panelManifest: PanelManifestDescriptor | null;
+  /**
+   * ADR-054 D-020 — the descriptor for the panel the *backend* resolved for
+   * this block, carried on the `interactive_prompt` event as
+   * `panel_descriptor`. A paused interactive block is mounted from this, on
+   * exactly the terms a preview panel is: the frontend keeps no registry
+   * mapping a panel id to a compiled React component (FR-037).
+   *
+   * `null` when the event did not carry one, which the host reports as the
+   * backend defect it is — with Cancel still reachable, because a person must
+   * never be stuck on a paused block with no exit (#2195).
+   */
+  panelDescriptor: PanelDescriptorResponse | null;
   /** ADR-051: the block-built, window-sized JSON view (nested, not spread). */
   panelPayload: Record<string, unknown>;
   /**
@@ -458,7 +475,7 @@ export interface UISlice {
 
 export interface PreviewSlice {
   // ADR-048 SPEC 1 — routed session-envelope cache (FR-021). Keyed by the
-  // composite key built from data/collection ref + previewer id + session id +
+  // composite key built from data/collection ref + panel id + session id +
   // query (slice/page/sort/slot/item) + data version when available. Values
   // are UI-only; the backend stays authoritative for routing/sessions.
   previewEnvelopeCache: Record<string, PreviewEnvelope>;
@@ -509,33 +526,54 @@ export interface TypesSlice {
 }
 
 /**
- * #2113 — the registered previewer catalogue and the person's per-type
- * previewer choices, one store-held copy each so the Previewers tab, the
+ * #2113 — the registered panel catalogue and the person's per-type
+ * panel choices, one store-held copy each so the Panels tab, the
  * websocket invalidation, and the preview re-route all read the same answer.
  *
  * Same independence argument as {@link TypesSlice} (ADR-053 FR-027, applied
- * one tier over by #2095): the Previewers tab must not have to fetch blocks
- * to draw previewers. Loading is driven by `store/usePreviewerCatalog.ts`.
+ * one tier over by #2095): the Panels tab must not have to fetch blocks
+ * to draw panels. Loading is driven by `store/usePanelCatalog.ts`.
  */
-export interface PreviewerCatalogSlice {
-  previewers: PreviewerSpecSummary[];
-  /** True once `GET /api/previews/previewers` has landed at least once. */
-  previewersLoaded: boolean;
+export interface PanelCatalogSlice {
+  panels: PanelSpecSummary[];
+  /** True once `GET /api/panels` has landed at least once. */
+  panelsLoaded: boolean;
   /** Registry discovery diagnostics reported alongside the listing (#2095). */
-  previewerDiagnostics: string[];
-  previewerChoices: PreviewerChoice[];
-  /** True once `GET /api/previews/choices` has landed at least once. */
-  previewerChoicesLoaded: boolean;
+  panelDiagnostics: string[];
+  panelChoices: PanelChoice[];
+  /** True once `GET /api/panels/choices` has landed at least once. */
+  panelChoicesLoaded: boolean;
   /**
    * Bumped on every choice mutation. `DataPreview` feeds it to `PreviewHost`
    * as the routing epoch so an open preview re-creates its session — and thus
    * re-routes through the new choice — instead of sitting on the envelope the
    * old choice produced.
    */
-  previewerChoiceVersion: number;
-  setPreviewers: (previewers: PreviewerSpecSummary[], diagnostics: string[]) => void;
-  setPreviewerChoices: (choices: PreviewerChoice[]) => void;
-  bumpPreviewerChoiceVersion: () => void;
+  panelChoiceVersion: number;
+  /**
+   * ADR-054 FR-030 — bumped when *some* panel's document changed but nothing
+   * said which one: a registry rebuild, a package install, a branch switch.
+   * Every mounted panel remounts, because any of them may be the one that
+   * moved.
+   */
+  panelDocumentEpoch: number;
+  /**
+   * ADR-054 FR-030/FR-032 — per-panel-id reload counter, bumped when a file
+   * inside one panel's directory changed and the event named it. Only that
+   * panel's mounts remount, so saving one panel does not blink every other one
+   * on screen.
+   */
+  panelDocumentVersions: Record<string, number>;
+  setPanels: (panels: PanelSpecSummary[], diagnostics: string[]) => void;
+  setPanelChoices: (choices: PanelChoice[]) => void;
+  bumpPanelChoiceVersion: () => void;
+  /**
+   * Record that a panel's document changed on disk. `null` means "some panel
+   * did"; a panel id means that one. Both are ordinary events rather than
+   * derived state, which is why they are counters: a mount needs exactly one
+   * new value per event, not a recomputed identity per render.
+   */
+  notePanelDocumentChanged: (panelId: string | null) => void;
 }
 
 /**
@@ -852,7 +890,7 @@ export interface FileTab {
   id: string;
   filePath: string;
   displayName: string;
-  language: "python" | "r" | "yaml" | "json" | "text" | "markdown";
+  language: "python" | "r" | "yaml" | "json" | "text" | "markdown" | "html";
   content: string;
   contentLoadedAt: number;
   baseVersion?: number | null;
@@ -889,6 +927,24 @@ export interface FileTab {
    * the project-file rehydrate path cannot restore it.
    */
   userLibraryTarget?: UserLibraryTarget;
+  /**
+   * ADR-054 T-010 — set when this tab edits a *panel's* entry document
+   * (FR-024, FR-025). Holds the panel id, which is the only address the
+   * editing routes take.
+   *
+   * Editable for every tier, and that is the point rather than an oversight:
+   * FR-025 says the system is never asked where a save goes, and FR-026 says a
+   * save to a core or package panel copies it into the open project under the
+   * same id. Making a core panel's tab read-only would remove the one action
+   * that performs the copy — SC-004's "copy a built-in panel into a project,
+   * edit, save" would have no affordance at all.
+   *
+   * Not persisted across reload (see ``partializeTabs``): a panel directory is
+   * addressed by panel id rather than by project path, so the project-file
+   * rehydrate path cannot restore it — the same reason a block-source tab and
+   * a library tab are excluded.
+   */
+  panelSourceId?: string;
 }
 
 /**
@@ -1014,6 +1070,16 @@ export interface TabSlice {
    * would write a template the user could not then edit.
    */
   openUserLibraryFileTab: (target: UserLibraryTarget, filename: string) => void;
+  /**
+   * ADR-054 FR-024, FR-025 — open (or focus) an editable tab on a panel's
+   * entry document, whichever tier the panel resolved from.
+   *
+   * Reads ``GET /api/panels/{panel_id}/source`` and saves through the matching
+   * PUT. Editable for every tier because that is what FR-026 asks of a save on
+   * a read-only panel: it copies the panel into the open project under the same
+   * id and writes the copy. Nothing here asks the person where it should go.
+   */
+  openPanelSourceTab: (panelId: string) => void;
   /**
    * #2112 — open (or focus) a transient preview tab on a frozen
    * {@link PreviewTarget}.
@@ -1193,8 +1259,8 @@ export type AppStore = ProjectSlice &
   PaletteSlice &
   // ADR-053 §7 — the registered data type catalogue.
   TypesSlice &
-  // #2113 — the registered previewer catalogue + per-type choices.
-  PreviewerCatalogSlice &
+  // #2113 — the registered panel catalogue + per-type choices.
+  PanelCatalogSlice &
   TabSlice &
   TerminalTabsSlice &
   // ADR-038 §3.8 — Lineage tab client state.

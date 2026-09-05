@@ -625,7 +625,7 @@ class BlockRegistry:
         ADR-053 FR-028: a package that installed successfully and contributed
         nothing is indistinguishable, from the user's side, from a package that
         had nothing to contribute — unless the failure is recorded somewhere
-        the product can show it. The previewer registry has always kept this
+        the product can show it. The panel registry has always kept this
         list; the block and type registries now keep the same one, in the same
         ``list[str]`` shape, from the same shared helper.
 

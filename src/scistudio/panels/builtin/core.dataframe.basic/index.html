@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Table &mdash; SciStudio panel</title>
+<!--
+  ADR-054 spec 1, T-009 (#2229) — the built-in DataFrame panel.
+
+  Replaces frontend/src/components/DataPreview.parts/TableViewer.tsx and the
+  DataFrameViewer wrapper in coreViewers.tsx. Renders the `core.dataframe.basic`
+  provider's DATAFRAME envelope: the current page of rows, with click-to-sort
+  column headers and first/prev/jump/next/last pagination.
+
+  FR-034 / A-004: strictly self-contained. Markup, styles and script in one
+  file — no <script src>, no <link rel=stylesheet>, no shared runtime import, no
+  CDN. The envelope plumbing and the colour tokens below are repeated in the
+  other built-in panels on purpose: the duplication is what lets this file be
+  opened directly in a browser to see whether it works, and what a person
+  forking it gets in the file they opened.
+
+  Outbound: a *displaying* panel emits nothing (ADR-054 3.6). Pagination and
+  sorting go out as `read`, whose payload is a patch of this panel's own query
+  state and nothing else (D-017): { page, page_size, sort_by, sort_dir }. The
+  host re-runs the provider and answers `read_result` with the new page, which is
+  rendered exactly like `init.target`.
+-->
+<style>
+  :root {
+    --ink: #1c211b;
+    --ember: #f06a44;
+    --amber-border: #fcd34d;
+    --amber-bg: #fffbeb;
+    --amber-text: #92400e;
+    --danger: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--ink);
+    font: 12px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  body { padding: 8px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .banner {
+    border: 1px solid var(--amber-border);
+    background: var(--amber-bg);
+    color: var(--amber-text);
+    border-radius: 1rem;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+  .banner p { margin: 0 0 4px; }
+  .banner p:last-child { margin-bottom: 0; }
+  .error {
+    border: 1px solid rgba(179, 38, 30, 0.3);
+    background: rgba(179, 38, 30, 0.08);
+    color: var(--danger);
+    border-radius: 1rem;
+    padding: 12px;
+  }
+  .scroll {
+    overflow: auto;
+    max-height: 360px;
+    border: 1px solid rgba(28, 33, 27, 0.1);
+    border-radius: 0.8rem;
+    background: #fff;
+    transition: opacity 120ms ease;
+  }
+  .scroll[data-loading="true"] { opacity: 0.6; }
+  table { border-collapse: collapse; min-width: 100%; text-align: left; font-size: 11px; }
+  th {
+    white-space: nowrap;
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(28, 33, 27, 0.15);
+    font-weight: 600;
+    font-size: 11px;
+    color: rgba(28, 33, 27, 0.6);
+    background: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    cursor: pointer;
+    user-select: none;
+  }
+  th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--ink); }
+  th .indicator { font-size: 9px; color: rgba(28, 33, 27, 0.4); }
+  td {
+    white-space: nowrap;
+    padding: 3px 10px;
+    font-size: 10px;
+    color: rgba(28, 33, 27, 0.8);
+    border-bottom: 1px solid rgba(28, 33, 27, 0.06);
+  }
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 6px 4px 0;
+    font-size: 10px;
+    color: rgba(28, 33, 27, 0.55);
+  }
+  .pager { display: flex; align-items: center; gap: 4px; }
+  .pager button {
+    width: 22px;
+    height: 20px;
+    padding: 0;
+    border: 1px solid rgba(28, 33, 27, 0.15);
+    border-radius: 4px;
+    background: #fff;
+    color: rgba(28, 33, 27, 0.6);
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .pager button:disabled {
+    background: rgba(28, 33, 27, 0.04);
+    color: rgba(28, 33, 27, 0.4);
+    cursor: not-allowed;
+  }
+  .pager input {
+    width: 44px;
+    padding: 1px 4px;
+    font: inherit;
+    font-size: 10px;
+    border: 1px solid rgba(28, 33, 27, 0.15);
+    border-radius: 4px;
+    text-align: center;
+  }
+  .badges { display: flex; flex-wrap: wrap; gap: 4px; }
+  .badge {
+    border-radius: 999px;
+    background: #fef3c7;
+    color: var(--amber-text);
+    padding: 1px 8px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .muted { color: rgba(28, 33, 27, 0.6); }
+</style>
+</head>
+<body>
+<div class="stack" id="root">
+  <p class="muted">Waiting for the host&hellip;</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------------- */
+  /* The D-011 envelope. Duplicated per FR-034; do not factor it out.        */
+  /* ---------------------------------------------------------------------- */
+
+  var PANEL_MESSAGE_MARKER = 1;
+  var PANEL_API_VERSION = "1";
+
+  var token = null;
+  var context = null;
+  var requestSeq = 0;
+  var pending = Object.create(null);
+  var torndown = false;
+
+  function post(type, payload) {
+    if (token === null || torndown) return false;
+    try {
+      window.parent.postMessage(
+        { scistudio_panel: PANEL_MESSAGE_MARKER, token: token, type: type, payload: payload },
+        "*"
+      );
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function reportError(message, detail) {
+    post("error", { message: String(message), detail: detail || null });
+  }
+
+  /**
+   * One bounded request/response round trip. The three outbound request types
+   * differ in what they ask for, not in how they are answered (D-017): each
+   * carries a request id, and the host answers with the matching `*_result` or
+   * with an `error` carrying the same id (D-016), so a failed request ends here
+   * rather than waiting out a timeout of its own.
+   */
+  function request(type, body) {
+    return new Promise(function (resolve, reject) {
+      requestSeq += 1;
+      var id = "r" + requestSeq;
+      pending[id] = { resolve: resolve, reject: reject };
+      var payload = { request_id: id };
+      Object.keys(body).forEach(function (key) { payload[key] = body[key]; });
+      if (!post(type, payload)) {
+        delete pending[id];
+        reject(new Error("the host could not be reached"));
+      }
+    });
+  }
+
+  function settle(id, value) {
+    var waiting = pending[id];
+    if (!waiting) return false;
+    delete pending[id];
+    waiting.resolve(value);
+    return true;
+  }
+
+  function failRequest(id, message) {
+    var waiting = pending[id];
+    if (!waiting) return false;
+    delete pending[id];
+    waiting.reject(new Error(message));
+    return true;
+  }
+
+  /**
+   * `read` — a patch of this panel's *own query state* and nothing else
+   * (D-017): the page, the sort, the slice indices. It carries no action; what
+   * the host does with a read is settled by the message type, not by a field
+   * inside it.
+   */
+  function read(query) {
+    return request("read", { query: query });
+  }
+
+  function envelopeOf(value) {
+    var empty = { payload: {}, metadata: {}, resources: [], diagnostics: [], error: null };
+    if (!value || typeof value !== "object") return empty;
+    if (value.payload && typeof value.payload === "object") {
+      return {
+        payload: value.payload,
+        metadata: value.metadata && typeof value.metadata === "object" ? value.metadata : {},
+        resources: Array.isArray(value.resources) ? value.resources : [],
+        diagnostics: Array.isArray(value.diagnostics) ? value.diagnostics : [],
+        error: value.error && typeof value.error === "object" ? value.error : null
+      };
+    }
+    return {
+      payload: value,
+      metadata: {},
+      resources: [],
+      diagnostics: [],
+      error: value.error && typeof value.error === "object" ? value.error : null
+    };
+  }
+
+  function asString(value, fallback) {
+    return typeof value === "string" ? value : fallback === undefined ? "" : fallback;
+  }
+
+  function asNumber(value, fallback) {
+    return typeof value === "number" && isFinite(value) ? value : fallback;
+  }
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  function badges(metadata) {
+    var flags = [
+      ["sampled", metadata.sampled],
+      ["truncated", metadata.truncated],
+      ["cached", metadata.cached],
+      ["derived", metadata.derived],
+      ["incomplete", metadata.complete === false]
+    ];
+    var active = flags.filter(function (entry) { return entry[1] === true; });
+    if (active.length === 0) return null;
+    var box = el("div", "badges");
+    active.forEach(function (entry) { box.appendChild(el("span", "badge", entry[0])); });
+    return box;
+  }
+
+  function diagnosticsBanner(diagnostics) {
+    if (!diagnostics || diagnostics.length === 0) return null;
+    var box = el("div", "banner");
+    box.setAttribute("role", "status");
+    diagnostics.forEach(function (line) { box.appendChild(el("p", null, line)); });
+    return box;
+  }
+
+  function errorCard(error) {
+    var box = el("div", "error");
+    box.setAttribute("role", "alert");
+    box.appendChild(el("p", null, "Table preview failed"));
+    if (error && error.code) box.appendChild(el("p", "muted", String(error.code)));
+    box.appendChild(el("p", null, error && error.message ? String(error.message) : "An unknown error occurred."));
+    return box;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The table                                                               */
+  /* ---------------------------------------------------------------------- */
+
+  var current = envelopeOf(null);
+  var view = { loading: false, pageInput: "1" };
+
+  /** Read the provider's DATAFRAME payload into the shape the table renders. */
+  function tableOf(payload) {
+    var rows = Array.isArray(payload.rows) ? payload.rows : [];
+    var columns = Array.isArray(payload.columns) ? payload.columns : [];
+    var pageSize = asNumber(payload.page_size, Math.max(rows.length, 1));
+    var totalRows = asNumber(payload.total_rows, rows.length);
+    var sortDir = payload.sort_dir;
+    return {
+      columns: columns,
+      rows: rows,
+      totalRows: totalRows,
+      page: asNumber(payload.page, 1),
+      pageSize: pageSize,
+      totalPages: asNumber(
+        payload.total_pages,
+        Math.max(1, Math.ceil(totalRows / Math.max(pageSize, 1)))
+      ),
+      sortBy: typeof payload.sort_by === "string" ? payload.sort_by : null,
+      sortDir: sortDir === "asc" || sortDir === "desc" ? sortDir : null
+    };
+  }
+
+  function formatCell(value) {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "number") {
+      return Number.isInteger(value) ? String(value) : value.toFixed(4);
+    }
+    return String(value);
+  }
+
+  /**
+   * Ask the host for a different page or sort. The authoritative data lives
+   * with the provider: we only dim the table until the new window lands.
+   */
+  function requestPage(page, sortBy, sortDir) {
+    var table = tableOf(current.payload);
+    view.loading = true;
+    render();
+    read({
+      page: page,
+      page_size: table.pageSize,
+      sort_by: sortBy,
+      sort_dir: sortDir
+    }).then(
+      function (window_) {
+        view.loading = false;
+        current = envelopeOf(window_);
+        view.pageInput = String(tableOf(current.payload).page);
+        render();
+      },
+      function (err) {
+        view.loading = false;
+        render();
+        reportError("the table page could not be read: " + err.message, {
+          page: page,
+          sort_by: sortBy
+        });
+      }
+    );
+  }
+
+  function goToPage(target) {
+    var table = tableOf(current.payload);
+    var clamped = Math.max(1, Math.min(target, table.totalPages));
+    if (clamped === table.page) {
+      view.pageInput = String(table.page);
+      render();
+      return;
+    }
+    requestPage(clamped, table.sortBy, table.sortDir);
+  }
+
+  function toggleSort(column) {
+    var table = tableOf(current.payload);
+    var nextBy;
+    var nextDir;
+    if (table.sortBy !== column) {
+      nextBy = column;
+      nextDir = "asc";
+    } else if (table.sortDir === "asc") {
+      nextBy = column;
+      nextDir = "desc";
+    } else {
+      nextBy = null;
+      nextDir = null;
+    }
+    requestPage(1, nextBy, nextDir);
+  }
+
+  function pagerButton(label, ariaLabel, disabled, onClick) {
+    var button = el("button", null, label);
+    button.type = "button";
+    button.setAttribute("aria-label", ariaLabel);
+    button.disabled = disabled;
+    if (!disabled) button.addEventListener("click", onClick);
+    return button;
+  }
+
+  function render() {
+    var root = document.getElementById("root");
+    root.textContent = "";
+
+    if (current.error) {
+      root.appendChild(errorCard(current.error));
+      return;
+    }
+
+    var diag = diagnosticsBanner(current.diagnostics);
+    if (diag) root.appendChild(diag);
+
+    var table = tableOf(current.payload);
+
+    var scroll = el("div", "scroll");
+    scroll.setAttribute("data-loading", view.loading ? "true" : "false");
+    var grid = document.createElement("table");
+
+    var thead = document.createElement("thead");
+    var headRow = document.createElement("tr");
+    table.columns.forEach(function (column) {
+      var sorted = table.sortBy === column;
+      var th = document.createElement("th");
+      th.setAttribute(
+        "aria-sort",
+        sorted ? (table.sortDir === "desc" ? "descending" : "ascending") : "none"
+      );
+      th.setAttribute("title", sorted ? "Sorted " + table.sortDir + "; click to change" : "Click to sort");
+      th.appendChild(document.createTextNode(String(column)));
+      th.appendChild(el("span", "indicator", sorted ? (table.sortDir === "desc" ? " ▼" : " ▲") : ""));
+      th.addEventListener("click", function () { toggleSort(column); });
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    grid.appendChild(thead);
+
+    var tbody = document.createElement("tbody");
+    table.rows.forEach(function (row) {
+      var tr = document.createElement("tr");
+      table.columns.forEach(function (column) {
+        tr.appendChild(el("td", null, formatCell(row ? row[column] : null)));
+      });
+      tbody.appendChild(tr);
+    });
+    grid.appendChild(tbody);
+    scroll.appendChild(grid);
+    root.appendChild(scroll);
+
+    var footer = el("div", "footer");
+    footer.appendChild(
+      el(
+        "span",
+        null,
+        table.totalRows.toLocaleString() +
+          " row" +
+          (table.totalRows !== 1 ? "s" : "") +
+          " × " +
+          table.columns.length +
+          " column" +
+          (table.columns.length !== 1 ? "s" : "")
+      )
+    );
+
+    var pager = el("div", "pager");
+    var atFirst = view.loading || table.page <= 1;
+    var atLast = view.loading || table.page >= table.totalPages;
+    pager.appendChild(pagerButton("«", "First page", atFirst, function () { goToPage(1); }));
+    pager.appendChild(pagerButton("‹", "Previous page", atFirst, function () { goToPage(table.page - 1); }));
+
+    var jump = el("span", null);
+    jump.appendChild(document.createTextNode("Page "));
+    var input = document.createElement("input");
+    input.type = "text";
+    input.setAttribute("aria-label", "Jump to page");
+    input.value = view.pageInput;
+    input.disabled = view.loading;
+    input.addEventListener("input", function () { view.pageInput = input.value; });
+    input.addEventListener("blur", commitPageInput);
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        commitPageInput();
+      }
+    });
+    jump.appendChild(input);
+    jump.appendChild(document.createTextNode(" / " + table.totalPages.toLocaleString()));
+    pager.appendChild(jump);
+
+    pager.appendChild(pagerButton("›", "Next page", atLast, function () { goToPage(table.page + 1); }));
+    pager.appendChild(pagerButton("»", "Last page", atLast, function () { goToPage(table.totalPages); }));
+    footer.appendChild(pager);
+    root.appendChild(footer);
+
+    var chips = badges(current.metadata);
+    if (chips) root.appendChild(chips);
+  }
+
+  function commitPageInput() {
+    var table = tableOf(current.payload);
+    var parsed = parseInt(view.pageInput, 10);
+    if (isNaN(parsed)) {
+      view.pageInput = String(table.page);
+      render();
+      return;
+    }
+    goToPage(parsed);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The handshake                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  function onMessage(event) {
+    var data = event.data;
+    if (!data || typeof data !== "object") return;
+    if (data.scistudio_panel !== PANEL_MESSAGE_MARKER) return;
+    if (typeof data.type !== "string") return;
+    var payload = data.payload && typeof data.payload === "object" ? data.payload : {};
+
+    if (token === null) {
+      if (data.type !== "init" || typeof data.token !== "string" || data.token === "") return;
+      token = data.token;
+      context = payload;
+      current = envelopeOf(payload.target);
+      view.pageInput = String(tableOf(current.payload).page);
+      if (payload.restored_state && typeof payload.restored_state === "object") {
+        if (typeof payload.restored_state.pageInput === "string") {
+          view.pageInput = payload.restored_state.pageInput;
+        }
+      }
+      post("ready", { api_version: PANEL_API_VERSION });
+      render();
+      return;
+    }
+
+    if (data.token !== token) return;
+
+    switch (data.type) {
+      case "update":
+        if (payload.changed && typeof payload.changed === "object" && "target" in payload.changed) {
+          current = envelopeOf(payload.changed.target);
+          view.loading = false;
+          view.pageInput = String(tableOf(current.payload).page);
+          render();
+        }
+        break;
+      case "read_result":
+        settle(payload.request_id, payload.window);
+        break;
+      case "error": {
+        var id = payload.request_id;
+        if (typeof id === "string" && failRequest(id, asString(payload.message, "the request failed"))) {
+          break;
+        }
+        current = {
+          payload: current.payload,
+          metadata: current.metadata,
+          resources: current.resources,
+          diagnostics: current.diagnostics,
+          error: { code: asString(payload.code, "host_error"), message: asString(payload.message) }
+        };
+        render();
+        break;
+      }
+      case "state_request":
+        post("state", { state: { pageInput: view.pageInput } });
+        break;
+      case "teardown":
+        torndown = true;
+        window.removeEventListener("message", onMessage);
+        break;
+      default:
+        break;
+    }
+  }
+
+  window.addEventListener("message", onMessage);
+})();
+</script>
+</body>
+</html>

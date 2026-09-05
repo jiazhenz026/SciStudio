@@ -81,7 +81,6 @@ planned_governs:
     - src/scistudio/ai/agent/mcp/tools_explore/**
     - src/scistudio/_skills/scistudio/scistudio-write-panel/**
     - src/scistudio/_agent_reference/panel-contract.md
-    - frontend/src/explore/**
     - tests/ai/test_mcp_tools_panels.py
     - tests/ai/test_mcp_tools_explore.py
     - tests/ai/test_workspace_focus.py
@@ -522,7 +521,7 @@ teaches both is worse than one that teaches neither.
 | `tests/ai/test_mcp_tools_explore.py` | create | Session tools against a scripted session API. |
 | `tests/ai/test_mcp_fastmcp.py`, `test_mcp_server_skeleton.py`, `test_finish_ai_block_skeleton.py` | modify | Count assertions (FR-025). |
 | `tests/agent_provisioning/test_skills.py` | modify | The written-file count (FR-009). |
-| `frontend/src/explore/**` | modify | The focus report on tab change, owned by the explore-frontend spec (FR-001). |
+| `frontend/src/explore/workspaceFocus.ts` | (spec 4) | The focus report on tab change. Written and governed by the explore-frontend spec, which owns `frontend/src/explore/**`; this spec owns the channel it posts to (FR-001). |
 
 ### 4.3 Implementation Sequence
 

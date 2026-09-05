@@ -16,7 +16,7 @@ process the context is a read-through adapter over the live ``ApiRuntime``, so
 ``GET /api/blocks/`` reads — which is the in-process half of FR-065. The
 standalone-bridge half is in :mod:`scistudio.ai.agent.mcp.runtime`.
 
-Previewers are deliberately outside the reach: the context does not carry the
+Panels are deliberately outside the reach: the context does not carry the
 preview service, and widening the Protocol to add it would change every context
 implementation for a surface the agent does not read.
 """

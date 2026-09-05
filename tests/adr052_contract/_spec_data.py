@@ -58,15 +58,24 @@ ROOTS: tuple[str, ...] = tuple(k for k in EXPECTED_SURFACE if not k.startswith("
 # --------------------------------------------------------------------------- #
 NON_MARKABLE_PUBLIC_SYMBOLS: frozenset[tuple[str, str]] = frozenset(
     {
+        # ADR-054 spec 1: the panel contract's constants. A ``str`` and three
+        # tuples are immutable builtins with no writable ``__dict__``, so they
+        # cannot carry a runtime marker for exactly the reason the nine below
+        # cannot. Their tier is pinned by the expected fixture.
+        ("scistudio.core.panels", "PANEL_API_VERSION"),
+        ("scistudio.core.panels", "PANEL_DECLARATION_FILENAME"),
+        ("scistudio.core.panels", "DEFAULT_PANEL_ENTRY"),
+        ("scistudio.core.panels", "PANEL_TIER_ORDER"),
+        ("scistudio.core.panels", "REQUIRED_DECLARATION_FIELDS"),
         ("scistudio.blocks.base", "INTERACTIVE_RESPONSE_KEY"),
         ("scistudio.blocks.base", "PANEL_API_VERSION"),
         ("scistudio.blocks.io", "CapabilityDirection"),
         ("scistudio.blocks.io", "MetadataFidelityLevel"),
         ("scistudio.blocks.code", "InterpreterFamily"),
-        ("scistudio.previewers.models", "PREVIEWER_API_VERSION"),
-        ("scistudio.previewers.models", "PreviewProvider"),
-        ("scistudio.previewers.models", "PreviewResourceProvider"),
-        ("scistudio.previewers.models", "PreviewerSpecList"),
+        ("scistudio.panels.models", "PANEL_API_VERSION"),
+        ("scistudio.panels.models", "PreviewProvider"),
+        ("scistudio.panels.models", "PreviewResourceProvider"),
+        ("scistudio.panels.models", "PanelSpecList"),
     }
 )
 
@@ -116,17 +125,17 @@ DEMOTIONS: dict[str, tuple[str, ...]] = {
         "normalize_extensions",
     ),
     # spec §8.1: the 7 runtime-owned model internals dropped from models.__all__.
-    "scistudio.previewers.models": (
+    "scistudio.panels.models": (
         "PreviewSession",
         "RoutingAmbiguityError",
-        "UnknownPreviewerError",
+        "UnknownPanelError",
         "UnknownTargetError",
         "MissingBundleError",
         "InvalidSpecError",
-        "DuplicatePreviewerIdError",
+        "DuplicatePanelIdError",
     ),
     # spec §8.2: legacy method + runtime budget constants are not public exports.
-    "scistudio.previewers.data_access": (
+    "scistudio.panels.data_access": (
         "png_data_uri",
         "DEFAULT_MAX_ROWS",
         "DEFAULT_MAX_BYTES",

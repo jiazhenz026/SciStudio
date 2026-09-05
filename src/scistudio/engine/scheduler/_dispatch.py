@@ -435,6 +435,54 @@ def _release_intermediate_refs(refs: list[dict[str, Any]]) -> None:
             logger.debug("Failed to release interactive intermediate scratch %s", raw_path, exc_info=True)
 
 
+def _interactive_panel_descriptor(manifest: Any) -> dict[str, Any] | None:
+    """Build the wire descriptor the frame host mounts a paused block's panel from.
+
+    ADR-054 spec 1 D-020 and D-016.3. A paused block's panel does not arrive
+    through a route, it arrives on ``INTERACTIVE_PROMPT`` — so the descriptor the
+    API layer builds for every other panel has to be built here too, from the
+    same :func:`scistudio.panels.descriptor.panel_descriptor`, or the host has
+    nothing to validate and refuses to mount (no capability, no document URL, no
+    asset base, no read limits).
+
+    The manifest is the block's own, which FR-017 makes the authority for a
+    block-addressed panel: it is discovered exactly as its block is rather than
+    through the type ladder, so the engine needs no discovery handle and the
+    dispatch path does no filesystem scan. The consequence, stated plainly: the
+    descriptor carries the *manifest's* display name (absent on both built-ins,
+    so it falls back to the panel id) and the manifest's entry document. A
+    project that shadows a block-addressed panel with a directory declaring a
+    different entry file would be mounted at the manifest's entry; the asset
+    route still resolves the shadowing directory, so the default ``index.html``
+    case works and only a renamed entry would not.
+
+    Returns ``None`` when the block declared no panel, or when the panel
+    subsystem cannot be imported at all. Both leave the host with no descriptor,
+    which it reports on its own error surface with Cancel beside it (#2195) —
+    never a silent nothing, and never a block that cannot be exited.
+    """
+    if manifest is None:
+        return None
+    try:
+        from scistudio.core.panels import PanelCapability
+        from scistudio.panels.descriptor import panel_descriptor
+    except ImportError:
+        logger.warning(
+            "Panel subsystem unavailable; the interactive prompt carries no panel descriptor",
+            exc_info=True,
+        )
+        return None
+    try:
+        return panel_descriptor(manifest, granted_capability=PanelCapability.PRODUCING).to_dict()
+    except Exception:
+        logger.warning(
+            "Could not build a panel descriptor for %r; the host will report it",
+            getattr(manifest, "panel_id", manifest),
+            exc_info=True,
+        )
+        return None
+
+
 async def _run_interactive(
     self: DAGScheduler,
     node_id: str,
@@ -463,11 +511,30 @@ async def _run_interactive(
 
     Cancelling while paused transitions to CANCELLED, releases any intermediate
     scratch, and spawns no compute phase (FR-012).
+
+    ADR-054 adds one policy read and no second pause. Before the interaction
+    memory's remap check, the dispatch resolves the node's ``on_new_input``
+    setting (FR-044/FR-045); ``ask`` reproduces the behaviour above unchanged
+    and is what a node with no setting written anywhere resolves to.
+
+    A packaged notebook block reuses this pause rather than getting one of its
+    own (FR-048): it is dispatched here like any other interactive block, its
+    prompt is built by its own prompt phase, and the pause holds nothing
+    resident beyond the pending future and the intermediate storage references
+    — no session, no kernel, no reference to anything the explore subsystem
+    owns, which the engine does not import. The decision that resolves the
+    future carries the notebook commit to execute (FR-047); it crosses into the
+    compute phase in ``interactive_response`` like every other decision, and is
+    recorded in lineage the same way. Whatever session was opened alongside the
+    prompt belongs to the session service, and nothing here waits on it.
     """
     from scistudio.blocks.base.interactive import (
         INTERACTIVE_INTERMEDIATE_KEY,
         INTERACTIVE_RESPONSE_KEY,
+        InteractionPolicy,
         load_interactive_memory,
+        resolve_interaction_policy,
+        settle_interactive_response,
     )
 
     intermediate: list[dict[str, Any]] = []
@@ -506,19 +573,48 @@ async def _run_interactive(
             # and the block accepts it for the current inputs, replay it and skip
             # the pause/UI entirely — the compute phase runs directly. Resolving
             # the future here makes the announce-prompt block below a no-op.
+            #
+            # ADR-054 FR-044/FR-045: ``on_new_input`` is the policy that decides
+            # whether the remap check is consulted at all, and it is read here,
+            # before that check. ``ask`` — the default, and what every block
+            # written before ADR-054 resolves to — delegates to the block's
+            # ``remap_saved_decision`` exactly as before, so the remembered
+            # decision replays on an unchanged input signature and the block
+            # pauses otherwise. ``replay`` replays the remembered decision
+            # regardless of the signature, so the node never pauses on changed
+            # input; a packaged notebook block declares it as its default and its
+            # remembered decision is the notebook commit it was packaged from
+            # (FR-046). Either way the setting only chooses what to do with a
+            # decision the node already remembers: with no memory record there is
+            # nothing to replay and the block pauses under both values.
             memory = load_interactive_memory(config)
             if memory is not None and not future.done():
-                replay = block.remap_saved_decision(
-                    memory.get("decision") or {},
-                    memory.get("signature") or {},
-                    current_signature,
-                )
+                policy = resolve_interaction_policy(block, config)
+                if policy is InteractionPolicy.REPLAY:
+                    replay: dict[str, Any] | None = memory.get("decision") or {}
+                else:
+                    replay = block.remap_saved_decision(
+                        memory.get("decision") or {},
+                        memory.get("signature") or {},
+                        current_signature,
+                    )
                 if replay is not None:
                     logger.info(
-                        "Interactive block %s replaying remembered decision (memory hit); skipping dialog",
+                        "Interactive block %s replaying remembered decision "
+                        "(memory hit, on_new_input=%s); skipping dialog",
                         node_id,
+                        policy.value,
                     )
                     future.set_result(replay)
+
+            # The panel this block declared (FR-017). Resolved before the
+            # announce branch because it names the panel in the FR-012 refusal
+            # below as well as in the event, and a decision that arrived early
+            # still has to be settled against the panel that produced it.
+            manifest = block.get_panel_manifest() if hasattr(block, "get_panel_manifest") else None
+            panel_manifest = manifest.to_dict() if manifest is not None else None
+            block_name = config.get("block_type", type(block).__name__)
+            panel_id = getattr(manifest, "panel_id", "") or "(no panel declared)"
 
             # Announce the prompt only if the decision has not already arrived
             # (the common case — nothing resolves the future before this point;
@@ -539,16 +635,32 @@ async def _run_interactive(
                 # resolve the window without a hardcoded block-type branch (FR-007);
                 # block_type stays for identity (FR-015). The panel payload is
                 # nested (not spread) so it can never clobber the identity fields.
-                manifest = block.get_panel_manifest() if hasattr(block, "get_panel_manifest") else None
-                panel_manifest = manifest.to_dict() if manifest is not None else None
                 await self._event_bus.emit(
                     EngineEvent(
                         event_type=INTERACTIVE_PROMPT,
                         block_id=node_id,
                         data={
                             "workflow_id": self._workflow.id,
-                            "block_type": config.get("block_type", type(block).__name__),
+                            "block_type": block_name,
                             "panel_manifest": panel_manifest,
+                            # ADR-054 spec 1 D-020: the descriptor the host
+                            # mounts from. ``panel_manifest`` above is the
+                            # retired ES-module shape — no capability, no
+                            # document URL, no asset base, no read limits — so
+                            # ``validatePanelDescriptor`` refuses it (D-016.3)
+                            # and the reader gets the host's error surface
+                            # instead of the panel. It stays on the event for
+                            # the duration of the migration (FR-022); the
+                            # descriptor beside it is what mounts.
+                            #
+                            # Built from the block's own manifest, which FR-017
+                            # makes the authority for a block-addressed panel:
+                            # it is discovered exactly as its block is, not
+                            # through the type ladder. The grant is PRODUCING
+                            # because FR-050 requires a block-declared panel to
+                            # declare it, and the registry has already refused
+                            # the block otherwise.
+                            "panel_descriptor": _interactive_panel_descriptor(manifest),
                             "panel_payload": panel_payload,
                             # ADR-051 interaction memory: the current input
                             # fingerprint, echoed so the frontend can persist it
@@ -559,6 +671,25 @@ async def _run_interactive(
                 )
 
             response_data = await future
+
+            # ADR-054 spec 1 FR-012, settled in the interactive-block context
+            # (ADR-054 §3.6). A producing panel's only outbound path is the
+            # emission of code, so what the host committed is a snippet, not a
+            # decision; running it in the restricted namespace
+            # ``settle_interactive_response`` owns is what turns
+            # ``scistudio.output(assignments=...)`` into the
+            # ``{"assignments": ...}`` the block's ``run`` reads. A payload that
+            # is already a decision — a programmatic driver, a test, a decision
+            # remembered before this migration — passes through untouched.
+            #
+            # The translation lives in ``blocks.base.interactive`` and not here:
+            # the scheduler orchestrates the pause, it does not decide what an
+            # emission means.
+            response_data = settle_interactive_response(
+                response_data,
+                block_name=block_name,
+                panel_id=panel_id,
+            )
 
             # FR-004: the user's decision must be strictly JSON-safe, like the
             # panel payload. allow_nan=False rejects NaN/Infinity (non-standard

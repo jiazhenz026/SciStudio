@@ -27,11 +27,20 @@ fixture = "scistudio_blocks_fixture:get_block_package"
 [project.entry-points."scistudio.types"]
 fixture = "scistudio_blocks_fixture:get_types"
 
+# The retired ADR-048 group, kept for the duration of the migration
+# (ADR-054 spec 1 FR-045): its value is a callable returning PanelSpec objects.
 [project.entry-points."scistudio.previewers"]
 fixture = "scistudio_blocks_fixture.previewers:get_previewers"
+
+# ADR-054 spec 1 FR-045 / SC-014: the panel group's value names a *directory* of
+# panel directories. Registering a panel constructs no Python object, and the
+# group is resolved from this distribution's own metadata without importing it.
+[project.entry-points."scistudio.panels"]
+fixture = "scistudio_blocks_fixture.panels"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/scistudio_blocks_fixture"]
 artifacts = [
     "src/scistudio_blocks_fixture/previewers/assets/*.js",
+    "src/scistudio_blocks_fixture/panels/*/*",
 ]

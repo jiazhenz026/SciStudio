@@ -3,71 +3,25 @@
 // InteractiveModals — the interactive-block window that surfaces when a paused
 // interactive block publishes its prompt on the workflow WebSocket.
 //
-// ADR-051: the panel is resolved from the block's panel manifest
-// (`panel_manifest.panel_id`) via a built-in panel registry, NOT a hardcoded
-// `blockType` branch (SC-006). Core panels resolve from PANEL_REGISTRY below; a
-// package-provided panel loads via the ADR-048 same-origin dynamic-import path
-// (`panel_manifest.module_url`) through <DynamicPanel> (FR-007).
-
-import type { ReactElement } from "react";
+// ADR-054 FR-037, T-007: the built-in `PANEL_REGISTRY` that mapped
+// `core.interactive.data_router` and `core.interactive.pair_editor` to compiled
+// React components is gone. Those two are panel directories like any other now,
+// discovered and resolved through the four tiers, and shadowable from the user
+// library or the project on the same terms as any other panel. A core panel and
+// a package panel therefore reach the reader through exactly one path — the
+// sandboxed frame — instead of the two that used to sit side by side, which is
+// the "one mechanism" property ADR-054 §9 is written to protect.
+//
+// What this component still owns is the run scoping: the response and the
+// cancel are addressed to the workflow the *prompt* belongs to, never to the
+// store's currently-active workflow, and the interaction memory is recorded
+// from the same verbatim response.
 
 import { sendWebSocketMessage } from "../hooks/useWebSocket";
 import { INTERACTIVE_MEMORY_KEY, readInteractiveMemory } from "../lib/interactiveMemory";
 import { useAppStore } from "../store";
-import type { InteractivePrompt } from "../store/types";
 
-import { DataRouterModal } from "../components/DataRouterModal";
-import { PairEditorModal } from "../components/PairEditorModal";
-import { DynamicPanel } from "./InteractiveModals.parts/DynamicPanel";
-
-interface PanelRenderProps {
-  prompt: InteractivePrompt;
-  /** Send the panel's JSON-safe decision back to the backend. */
-  onConfirm: (responseData: Record<string, unknown>) => void;
-  onCancel: () => void;
-}
-
-type PanelRenderer = (props: PanelRenderProps) => ReactElement;
-
-/**
- * ADR-051 panel registry: maps a manifest `panel_id` to the core component that
- * renders the block's window. Each entry adapts the block's `panelPayload` to
- * its component's props and maps the component's result to the JSON-safe
- * `interactive_response` the block expects. Adding a core interactive block is a
- * new registry entry — never a new `blockType` branch.
- */
-const PANEL_REGISTRY: Record<string, PanelRenderer> = {
-  "core.interactive.data_router": ({ prompt, onConfirm, onCancel }) => (
-    <DataRouterModal
-      blockId={prompt.blockId}
-      inputPorts={(prompt.panelPayload.input_ports as string[]) ?? []}
-      outputPorts={(prompt.panelPayload.output_ports as string[]) ?? []}
-      itemsPerPort={
-        (prompt.panelPayload.items_per_port as Record<
-          string,
-          Array<{ index: number; port: string; ref: string; name: string; type: string }>
-        >) ?? {}
-      }
-      onConfirm={(assignments) => onConfirm({ assignments })}
-      onCancel={onCancel}
-    />
-  ),
-  "core.interactive.pair_editor": ({ prompt, onConfirm, onCancel }) => (
-    <PairEditorModal
-      blockId={prompt.blockId}
-      ports={(prompt.panelPayload.ports as string[]) ?? []}
-      itemsPerPort={
-        (prompt.panelPayload.items_per_port as Record<
-          string,
-          Array<{ index: number; name: string; type: string }>
-        >) ?? {}
-      }
-      collectionLength={(prompt.panelPayload.collection_length as number) ?? 0}
-      onConfirm={(reorder) => onConfirm({ reorder })}
-      onCancel={onCancel}
-    />
-  ),
-};
+import { InteractivePanelHost } from "./InteractiveModals.parts/InteractivePanelHost";
 
 export function InteractiveModals() {
   const interactivePrompt = useAppStore((s) => s.interactivePrompt);
@@ -121,46 +75,20 @@ export function InteractiveModals() {
     setInteractivePrompt(null);
   };
 
-  const manifest = interactivePrompt.panelManifest;
-  const panelId = manifest?.panel_id;
-  const renderer = panelId ? PANEL_REGISTRY[panelId] : undefined;
-  if (renderer) {
-    // Core panel: resolved from the built-in registry (fast path, unchanged).
-    return renderer({ prompt: interactivePrompt, onConfirm, onCancel });
-  }
-
-  // Package panel: a non-empty, backend-relative `module_url` loads the block's
-  // window via the ADR-048 same-origin dynamic-import path. `onConfirm`/`onCancel`
-  // are passed exactly as the registry entries receive them, so the run-scoped
-  // `interactive_complete` / `cancel_block` frames are sent unchanged.
-  //
-  // #2195 — a manifest that resolves to NEITHER a core panel nor a usable
-  // `module_url` still routes here. `PanelManifest.module_url` defaults to `""`
-  // and the registry only requires a non-empty `panel_id`, so a block that
-  // forgets `module_url` registers, runs, and pauses; the old code returned
-  // `null` and left the run sitting in PAUSED with no window and only a
-  // `console.warn`. `mountDynamicPanel` rejects an empty url as a typed
-  // `invalid_module_url` failure, so handing the manifest to <DynamicPanel>
-  // gives the misconfiguration the same visible error surface + Cancel every
-  // other load failure already gets.
-  if (manifest) {
-    if (!manifest.module_url) {
-      console.warn(`[InteractiveModals] no registered panel for manifest panel_id "${panelId}"`);
-    }
-    return (
-      <DynamicPanel
-        manifest={manifest}
-        blockId={interactivePrompt.blockId}
-        blockName={interactivePrompt.blockType}
-        panelPayload={interactivePrompt.panelPayload}
-        onConfirm={onConfirm}
-        onCancel={onCancel}
-      />
-    );
-  }
-
-  // No panel manifest at all: this prompt does not describe a window, so there
-  // is nothing for the host to draw and no overlay to trap the user behind —
-  // the Toolbar's Stop control stays reachable.
-  return null;
+  // The window renders as soon as a prompt exists, even when the prompt named
+  // no panel this host can mount: the overlay covers the toolbar's Stop
+  // control, so returning `null` here would leave a person on a paused block
+  // with no window and no exit (#2195). `InteractivePanelHost` draws the error
+  // surface with Cancel beside it for exactly that case.
+  return (
+    <InteractivePanelHost
+      descriptor={interactivePrompt.panelDescriptor}
+      panelId={interactivePrompt.panelManifest?.panel_id ?? null}
+      blockId={interactivePrompt.blockId}
+      blockName={interactivePrompt.blockType}
+      panelPayload={interactivePrompt.panelPayload}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    />
+  );
 }

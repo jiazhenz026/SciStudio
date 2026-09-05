@@ -1,0 +1,566 @@
+{
+  "base_ref": "origin/track/adr-054-spec1-panel-contract",
+  "branch": "fix/2229-panel-editing-host",
+  "check_events": [
+    {
+      "at": "2026-09-03T19:12:53.812696Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:673601c0db8235544e1a1f5e70007b944a9c66fd0534df2b99a67304484656fd",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T19:12:53.840962Z",
+      "command": "ruff format src/scistudio/panels/compat.py tests/panels/test_compat_shim.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:40855d738ecd33357fe9f5a015e9eea8d4c770bc50f0df9a814b4b247c212701",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-03T19:13:51.639892Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7fc5fca6d2a6b7bafc9cd19ccc7655121a4fbeb3598c1641fd4bb7ee59b32f8c",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T19:14:08.141680Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9bdee2f83ce88d5c7ca3cab2fee1e17e0f3ff20793ce153689cbae61bd685bff",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T19:14:08.674278Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d8e211eb6d3e564df5a7598db6ddd79e6f070603b98c0d64607d197534d14e8a",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T19:14:08.696994Z",
+      "command": "ruff check src/scistudio/panels/compat.py tests/panels/test_compat_shim.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f5a9886d79e6f50b181d74ec2c256b49ed843b9d3a41105152dbdcfd93d95b51",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-03T19:14:16.822147Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/panels tests/panels/test_compat_shim.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a3b9efda00d5e8e39df58425ef3f54f6eebe55ef45a638047b25e8f6abe9ad1f",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-03T19:14:17.750474Z",
+      "command": "mypy src/scistudio/panels/compat.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:43a1215a0ac920246e05094af07e1227ccbd638cfcf2559b1fc23e9446ad0aa9",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/panels/compat.py",
+      "frontend/src/panels/**",
+      "frontend/src/components/PanelPalette.tsx",
+      "frontend/src/components/PanelPalette.parts/**",
+      "frontend/src/lib/api/data.ts",
+      "frontend/src/types/api.ts",
+      "frontend/src/store/**",
+      "tests/panels/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-03T19:14:36.631970Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "the spec already states FR-024 to FR-030, FR-028 and SC-004; this change makes the product match them and adds no contract. docs/specs, docs/adr and docs/planning are outside this agent's declared scope (a parallel agent and the manager own them), and the checklist correction for T-010 and SC-004 is the manager's per the dispatch.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-09-03T19:14:17.801501Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:17.816194Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:17.831534Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "frontend/src/App.parts/InteractiveModals.parts/InteractivePanelHost.tsx",
+              "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
+              "frontend/src/components/DataPreview.parts/PreviewHost.tsx",
+              "frontend/src/components/PanelPalette.parts/PanelCard.tsx",
+              "frontend/src/components/PanelPalette.parts/panelModel.test.ts",
+              "frontend/src/components/PanelPalette.parts/panelModel.ts",
+              "frontend/src/components/PanelPalette.tsx",
+              "frontend/src/components/__tests__/PanelPalette.test.tsx",
+              "frontend/src/lib/api/__tests__/panelEditing.test.ts",
+              "frontend/src/lib/api/data.ts",
+              "frontend/src/panels/PanelErrorSurface.tsx",
+              "frontend/src/panels/PanelHost.tsx",
+              "frontend/src/panels/__tests__/panelRevertOffer.test.tsx",
+              "frontend/src/panels/index.ts",
+              "frontend/src/store/__tests__/panelRevertOffer.test.ts",
+              "frontend/src/store/__tests__/panelSourceTab.test.ts",
+              "frontend/src/store/index.ts",
+              "frontend/src/store/tabSlice.parts/fileTabActions.ts",
+              "frontend/src/store/tabSlice.parts/tabHelpers.ts",
+              "frontend/src/store/tabSlice.ts",
+              "frontend/src/store/types.ts",
+              "frontend/src/store/usePanelRevert.ts",
+              "frontend/src/types/api.ts",
+              "src/scistudio/panels/compat.py"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-03T19:14:17.846594Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:17.861353Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:17.876686Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:17.892803Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:17.908791Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:17.923726Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:17.938841Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:17.960580Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:44.056045Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:44.070287Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:44.084771Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:44.099646Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:44.115177Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:44.129600Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:44.144419Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:44.159712Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:44.177792Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:44.192432Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-03T19:14:44.211814Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "track/adr-054-spec1-panel-contract",
+    "base_sha": "ff64441c1",
+    "changed_files": [
+      ".workflow/records/2229-2229-panel-editing-host.json",
+      "frontend/src/App.parts/InteractiveModals.parts/InteractivePanelHost.tsx",
+      "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
+      "frontend/src/components/DataPreview.parts/PreviewHost.tsx",
+      "frontend/src/components/PanelPalette.parts/PanelCard.tsx",
+      "frontend/src/components/PanelPalette.parts/panelModel.test.ts",
+      "frontend/src/components/PanelPalette.parts/panelModel.ts",
+      "frontend/src/components/PanelPalette.tsx",
+      "frontend/src/components/__tests__/PanelPalette.test.tsx",
+      "frontend/src/lib/api/__tests__/panelEditing.test.ts",
+      "frontend/src/lib/api/data.ts",
+      "frontend/src/panels/PanelErrorSurface.tsx",
+      "frontend/src/panels/PanelHost.tsx",
+      "frontend/src/panels/__tests__/panelRevertOffer.test.tsx",
+      "frontend/src/panels/index.ts",
+      "frontend/src/store/__tests__/panelRevertOffer.test.ts",
+      "frontend/src/store/__tests__/panelSourceTab.test.ts",
+      "frontend/src/store/index.ts",
+      "frontend/src/store/tabSlice.parts/fileTabActions.ts",
+      "frontend/src/store/tabSlice.parts/tabHelpers.ts",
+      "frontend/src/store/tabSlice.ts",
+      "frontend/src/store/types.ts",
+      "frontend/src/store/usePanelRevert.ts",
+      "frontend/src/types/api.ts",
+      "src/scistudio/panels/compat.py",
+      "tests/panels/test_compat_shim.py"
+    ],
+    "diff_fingerprint": "sha256:55d28173aff77d77e63efe1802edc21d7e8cef8a6dcb1d7ebe8ecee609855189",
+    "head": "HEAD",
+    "head_sha": "f8b9b5bea",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 23,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 24,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 25,
+      "test": 8,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Fix the two P1 findings from the with-context audit of ADR-054 spec 1: A-1 a save to a shimmed unmigrated user/project-tier previewer reports success and is discarded on the next registry rebuild; A-2 T-010's editing endpoints have no frontend consumer so FR-024/025/028/029/030 and SC-004 are unreachable. Also F-5: repoint the TODO(#2211) sites at an open issue.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-09-03T19:14:17.960621Z",
+      "diff_fingerprint": "sha256:55d28173aff77d77e63efe1802edc21d7e8cef8a6dcb1d7ebe8ecee609855189",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "scope.out-of-scope",
+        "tests.changed_test_required"
+      ]
+    },
+    {
+      "at": "2026-09-03T19:14:44.211852Z",
+      "diff_fingerprint": "sha256:55d28173aff77d77e63efe1802edc21d7e8cef8a6dcb1d7ebe8ecee609855189",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2229-2229-panel-editing-host",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "commit_hygiene",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-03T19:14:27.983540Z",
+      "pattern": "frontend/src/App.parts/InteractiveModals.parts/InteractivePanelHost.tsx",
+      "reason": "A-2's revert offer is prop-driven because frontend/src/panels may not read the store, so the two PanelHost call sites pass it; the api-client and palette test files are the tests for the wire-key regression the same finding required"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T19:14:27.983560Z",
+      "pattern": "frontend/src/components/DataPreview.parts/**",
+      "reason": "A-2's revert offer is prop-driven because frontend/src/panels may not read the store, so the two PanelHost call sites pass it; the api-client and palette test files are the tests for the wire-key regression the same finding required"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T19:14:27.983562Z",
+      "pattern": "frontend/src/components/__tests__/**",
+      "reason": "A-2's revert offer is prop-driven because frontend/src/panels may not read the store, so the two PanelHost call sites pass it; the api-client and palette test files are the tests for the wire-key regression the same finding required"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-03T19:14:27.983564Z",
+      "pattern": "frontend/src/lib/api/**",
+      "reason": "A-2's revert offer is prop-driven because frontend/src/panels may not read the store, so the two PanelHost call sites pass it; the api-client and palette test files are the tests for the wire-key regression the same finding required"
+    }
+  ],
+  "session_id": "9f4d4a1a-dd59-459e-8676-6501adb921a0",
+  "strictness_tier": 2,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-03T19:14:36.631992Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_compat_shim.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T19:14:36.631998Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/panelSourceTab.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-03T19:14:36.632001Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/__tests__/panelRevertOffer.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

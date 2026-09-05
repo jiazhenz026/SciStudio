@@ -150,8 +150,8 @@ def test_library_contains_rejects_an_unknown_kind() -> None:
 def test_every_declared_library_kind_is_satisfiable() -> None:
     """FR-047 names three kinds, and #2086 made the third judgeable.
 
-    ``previewer`` spent its first months in :data:`UNSATISFIABLE_LIBRARY_KINDS`
-    because the scoped library had no previewer tier; the tier exists now, so
+    ``panel`` spent its first months in :data:`UNSATISFIABLE_LIBRARY_KINDS`
+    because the scoped library had no panel tier; the tier exists now, so
     the set is empty and every declared kind parses.
     """
     assert set(LIBRARY_KINDS) == {"block", "type", "previewer"}
@@ -166,7 +166,7 @@ def test_the_satisfiable_library_kinds_are_accepted(kind: str) -> None:
 def test_an_unsatisfiable_kind_would_still_be_rejected_with_its_reason(monkeypatch: pytest.MonkeyPatch) -> None:
     """The FR-049 rejection machinery outlives its last occupant.
 
-    ``previewer`` left the unsatisfiable set with #2086, but the shape it
+    ``panel`` left the unsatisfiable set with #2086, but the shape it
     guarded against — a kind the vocabulary declares before the product can
     satisfy it — can recur, so the mechanism is held here against a synthetic
     entry: rejected with its reason, distinguishable from "not a valid kind".
@@ -181,7 +181,7 @@ def test_an_unsatisfiable_kind_would_still_be_rejected_with_its_reason(monkeypat
         MappingProxyType({("library_contains", "kind"): {"previewer": "a synthetic reason, tracked at #0000"}}),
     )
     with pytest.raises(ConditionValidationError) as excinfo:
-        parse_condition({"library_contains": {"kind": "previewer", "name": "image_previewer"}})
+        parse_condition({"library_contains": {"kind": "previewer", "name": "image_panel"}})
     message = str(excinfo.value)
     assert "cannot be satisfied yet" in message
     assert "a synthetic reason, tracked at #0000" in message
@@ -255,7 +255,7 @@ def _state(tmp_path: Path, loaded_workflow: WorkflowDefinition) -> StubProductSt
         workflow_definition=loaded_workflow,
         block_types=frozenset({"LoadCSV", "SaveCSV"}),
         data_types=frozenset({"DataFrame"}),
-        previewer_types=frozenset({"DataFrame"}),
+        panel_types=frozenset({"DataFrame"}),
         plots=(("plot-1", "save-1", "table"),),
         runs=(
             # Newest first, which is the order the port promises. The reader ran
@@ -584,7 +584,7 @@ def test_evaluation_is_side_effect_free(populated_project: Path, loaded_workflow
     frozen = (
         state.block_types,
         state.data_types,
-        state.previewer_types,
+        state.panel_types,
         state.plots,
         state.runs,
         state.library,
@@ -598,7 +598,7 @@ def test_evaluation_is_side_effect_free(populated_project: Path, loaded_workflow
     assert (
         state.block_types,
         state.data_types,
-        state.previewer_types,
+        state.panel_types,
         state.plots,
         state.runs,
         state.library,

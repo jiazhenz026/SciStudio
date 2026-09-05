@@ -1,0 +1,394 @@
+---
+title: "ADR-054 Spec 3 Explore Session Agent Dispatch Checklist"
+status: Approved
+owners:
+  - "@jiazhenz026"
+related_adrs:
+  - 42
+  - 54
+language_source: en
+---
+
+# ADR-054 Spec 3 Explore Session Agent Dispatch Checklist
+
+> Mandatory tracking file. Every agent edits only rows it owns.
+> Drift is a protocol violation.
+> Source template:
+> `docs/ai-developer/templates/agent-dispatch-checklist-template.md`
+
+## 1. Change Summary
+
+- Owner request: `Implement ADR-054 spec 2 and spec 3 in full, with a final adversarial test engineer and a no-context auditor, delivered as two PRs for owner review.`
+- Task kind: `manager`
+- Manager persona: `manager`
+- Issue: `#2240`
+- Gate record: `.workflow/records/2240-explore-session-dispatch.json`
+- Branch/worktree plan: manager on `track/adr-054-spec3-explore-session` in
+  `.worktrees/mgr-2240-spec3-explore`; agents on `feat/2240-*`, `test/2240-*`,
+  `audit/2240-*` branches, one dedicated worktree each under `.worktrees/`.
+- Protected branch: `main`
+- Umbrella branch: `track/adr-054-spec3-explore-session`
+- Umbrella PR: `#2241`
+- Umbrella PR title: `[DO NOT MERGE] ADR-054 Spec 3: the Explore Session runtime`
+- Final PR target: `track/adr-054-spec2-dependency-analysis`, retargeted to
+  `main` once spec 2 merges. See §1.2.
+- Dispatch prompt templates:
+  - Work: `docs/ai-developer/templates/agent-dispatch-prompt-template.md`
+  - Audit with context:
+    `docs/ai-developer/templates/agent-dispatch-audit-with-context-prompt-template.md`
+  - Audit no context:
+    `docs/ai-developer/templates/agent-dispatch-audit-no-context-prompt-template.md`
+
+### 1.1 Delivery Order
+
+Spec 3 consumes spec 2. The spec 3 branch is cut from
+`track/adr-054-spec2-dependency-analysis` and the manager merges spec 2's
+integrated work forward as it lands, so the spec 3 diff contains only spec 3's
+own change.
+
+### 1.2 Stacked-Base Hazard
+
+`ci.yml` fires only for pull requests whose base is `main` or `track/**`, which
+is why the spec 3 PR targets the spec 2 track branch rather than a `feat/`
+branch. Two consequences the owner must know before merging:
+
+1. **Merge spec 2's PR first, then retarget spec 3's PR to `main`.** Merging
+   spec 2 while spec 3 still points at the spec 2 track branch would let spec 3
+   merge into an already-merged branch, where its commits never reach `main`
+   and its closing keyword never fires.
+2. Verify with
+   `git log --oneline origin/main..origin/track/adr-054-spec3-explore-session`
+   after the merge; a non-empty result means the work never landed.
+
+## 2. Scope
+
+- In scope:
+  - `src/scistudio/explore/**` — session, kernel, bridge, notebook API,
+    notebook store, queue, packaging, lineage.
+  - `src/scistudio/__init__.py` — the three lazy notebook helpers.
+  - `src/scistudio/core/versioning/_commit_ops.py` — plumbing commit to a ref.
+  - `src/scistudio/core/lineage/{record,store,retention,environment}.py` — the
+    `explore_sessions` anchor and cell-run records.
+  - `src/scistudio/blocks/code/backends/notebook.py` — cell selection and
+    packaged-mode environment.
+  - `src/scistudio/blocks/base/interactive.py` — `on_new_input`.
+  - `src/scistudio/engine/scheduler/_dispatch.py` — the policy and the packaged
+    block's ask pause.
+  - `src/scistudio/api/routes/explore.py`, `src/scistudio/api/ws.py`,
+    `src/scistudio/api/project_layout.py`.
+  - `pyproject.toml` — `ipykernel` and `jupyter_client`.
+  - `tests/explore/**`, `tests/api/test_explore_routes.py`,
+    `tests/blocks/base/test_interaction_policy.py`, `tests/core/**`,
+    `tests/architecture/test_layer_deps.py`.
+  - `docs/planning/adr-054-spec3-*`, `docs/audit/**`, `.workflow/records/2240-*.json`.
+- Out of scope:
+  - Every frontend path. `adr-054-explore-frontend` owns the Explore tab, the
+    notebook shell, and every rendering decision.
+  - The agent harness. `adr-054-agent-enablement` owns the skill, the panel and
+    session tools, and the workspace focus.
+  - The documentation revision. `adr-054-documentation` owns the architecture
+    document, the package-development guides, and the generated reference.
+  - `docs/specs/adr-054-*.md` — approved input, not work product.
+  - `docs/architecture/**` — owner-controlled.
+- Protected paths:
+  - `src/scistudio/core/lineage/**`
+  - `src/scistudio/core/versioning/_commit_ops.py`
+  - `src/scistudio/blocks/base/interactive.py`
+  - `src/scistudio/engine/scheduler/_dispatch.py`
+  - Each touch is additive per spec §4.5. The final PR carries
+    `admin-approved:core-change`, pre-approved by the owner.
+- Deferred work:
+  - N/A at dispatch time. Any deferral must be a `TODO(#NNN)` citing an issue.
+
+## 3. Conventions
+
+- `[ ]` not started
+- `[~]` in progress
+- `[x]` done
+- `[!]` blocked
+- Every completed row MUST include an artifact:
+  PR link, commit, test command, report path, or gate-record entry.
+- Chat messages are not checklist evidence.
+- Agents edit only their own rows.
+- Scope changes require gate-record amendment before work continues.
+
+## 4. Manager Preflight
+
+- [x] Dedicated manager branch and worktree created.
+- [x] Existing issue linked, or new issue created only if none exists.
+      No open issue tracked the spec 3 runtime; `#2240` was created for it and
+      is referenced from the ADR's tracking issue `#2209`.
+- [x] Gate record started.
+- [x] Scope include/exclude recorded in the gate record.
+- [x] Umbrella branch created.
+- [x] Umbrella PR opened. `#2241`.
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch and umbrella PR number recorded in this checklist.
+- [x] No `pip install -e .` environment pollution found.
+- [x] Dispatch checklist copied from the template and committed.
+- [x] Dispatch prompts created from the correct prompt template and linked
+      below.
+- [x] Sentrux baseline recorded, or N/A reason recorded.
+      N/A: Sentrux MCP is not connected in this session.
+
+## 5. Local Gate Hook Bypass Evidence
+
+- Authorized bypass label: `admin-approved:core-change`
+- Owner authorization source: `Owner chat, 2026-09-04: every label this work needs is pre-approved.`
+- Reason: `Spec 3 modifies four protected core paths — lineage, the versioning commit ops, the interactive block base, and the engine's dispatch. Spec §4.5 records each as additive. This label authorizes the protected paths only; it is not a gate bypass.`
+
+| Hook | Command | Bypass label | Status | Evidence |
+|---|---|---|---|---|
+| Pre-commit | `python -m scistudio.qa.governance.gate_record check --mode pre-commit` | `admin-approved:core-change` | `[ ]` | |
+| Commit message | `python -m scistudio.qa.governance.gate_record check --mode commit-msg` | `N/A` | `[ ]` | |
+| Pre-push | `python -m scistudio.qa.governance.gate_record check --mode pre-push` | `admin-approved:core-change` | `[ ]` | |
+| Pre-PR reconcile | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `admin-approved:core-change` | `[ ]` | |
+
+## 5.1 Docs Impact Check
+
+- Wrapper/hook/gate-record/receipt/CI/runtime behavior changed: `no`
+- AI docs checked:
+  `docs/ai-developer/rules.md`,
+  `docs/ai-developer/specific_rules/gated-workflow.md`,
+  `docs/ai-developer/specific_rules/agent-dispatch.md`,
+  `docs/ai-developer/templates/*dispatch*.md`
+- Updated docs or N/A rationale: `The governing spec landed in PR #2228. ADR-054's documentation spec owns the architecture document and the developer guides and is a separate delivery. CHANGELOG.md gains an entry for the new dependencies and the release-runbook note about rebuilding the bundled runtime.`
+
+## 6. Dispatch Matrix
+
+| Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `S3-A1` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-a1-notebook-store.md` | T-001 dependencies, T-005 notebook store | `feat/2240-notebook-store` | `.worktrees/s3-a1-notebook` | `pyproject.toml`, `src/scistudio/explore/notebook.py`, `tests/explore/test_notebook_store.py` | `tests/architecture/**`, every other explore module | `#2240` | `[x]` |
+| `S3-A2` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-a2-kernel.md` | T-002 kernel handle over `jupyter_client` | `feat/2240-kernel-handle` | `.worktrees/s3-a2-kernel` | `src/scistudio/explore/kernel.py`, `tests/explore/test_kernel_session.py` | `pyproject.toml`, every other explore module | `#2240` | `[x]` |
+| `S3-A3` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-a3-commit-plumbing.md` | T-009 plumbing commit to a ref with a temporary index; forced packing | `feat/2240-explore-commits` | `.worktrees/s3-a3-commits` | `src/scistudio/core/versioning/_commit_ops.py`, `tests/core/versioning/test_explore_ref_commits.py` | Every explore module, every other core path | `#2240` | `[x]` |
+| `S3-A4` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-a4-on-new-input.md` | T-015a the `on_new_input` setting and the engine's remap policy | `feat/2240-on-new-input` | `.worktrees/s3-a4-policy` | `src/scistudio/blocks/base/interactive.py`, `src/scistudio/engine/scheduler/_dispatch.py`, `tests/blocks/base/test_interaction_policy.py` | Every explore module | `#2240` | `[x]` |
+| `S3-B1` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-b1-bridge.md` | T-003 bridge, T-004 notebook helpers, T-010 variable windows, T-011 env snapshot | `feat/2240-kernel-bridge` | `.worktrees/s3-b1-bridge` | `src/scistudio/explore/kernel_bridge.py`, `src/scistudio/explore/notebook_api.py`, `src/scistudio/__init__.py`, `src/scistudio/core/lineage/environment.py`, `tests/explore/test_kernel_bridge.py`, `tests/explore/test_notebook_api.py` | Every other explore module | `#2240` | `[x]` |
+| `S3-B2` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-b2-session-queue.md` | T-006 session open/list/close, T-007 queue, T-008 marks, T-016 kernel list and branch-switch retirement | `feat/2240-session-queue` | `.worktrees/s3-b2-session` | `src/scistudio/explore/session.py`, `src/scistudio/explore/queue.py`, `src/scistudio/api/project_layout.py`, `tests/explore/test_explore_session.py`, `tests/explore/test_queue_and_marks.py` | Every other explore module | `#2240` | `[x]` |
+| `S3-B3` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-b3-block-calls.md` | T-012 block-call adapter in the kernel, including the interactive-block call | `feat/2240-block-calls` | `.worktrees/s3-b3-blockcall` | `src/scistudio/explore/block_call.py`, `tests/explore/test_block_call_adapter.py` | Every other explore module | `#2240` | `[x]` |
+| `S3-C1` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-c1-lineage.md` | T-013 `explore_sessions`, cell-run records, block-call records, retention | `feat/2240-explore-lineage` | `.worktrees/s3-c1-lineage` | `src/scistudio/core/lineage/{__init__,record,store,retention}.py`, `src/scistudio/explore/lineage.py`, `tests/explore/test_explore_lineage.py`, `tests/core/lineage/` | Every other explore module | `#2240` | `[x]` |
+| `S3-C2` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-c2-packaging.md` | T-014 packaging and the notebook backend's cell selection, T-015b the ask pause | `feat/2240-packaging` | `.worktrees/s3-c2-packaging` | `src/scistudio/explore/packaging.py`, `src/scistudio/blocks/code/backends/notebook.py`, `tests/explore/test_packaged_block.py`, and by manager amendment `src/scistudio/blocks/registry/_spec.py`, `tests/blocks/registry/**` | Every other explore module | `#2240` | `[x]` |
+| `S3-C3` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-c3-api.md` | T-017 session API routes and WebSocket events, and the FR-060 layer rule | `feat/2240-explore-api` | `.worktrees/s3-c3-api` | `src/scistudio/api/routes/explore.py`, `src/scistudio/api/ws.py`, `tests/api/test_explore_routes.py`, `tests/architecture/test_layer_deps.py` | Every explore module | `#2240` | `[x]` |
+| `S3-D1` | `test_engineer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-d1-adversarial.md` | Adversarial end-to-end coverage: kernel lifecycle against a real process, the marks, the refusals, the commits, packaging | `test/2240-adversarial` | `.worktrees/s3-d1-adversarial` | `tests/explore/**`, `tests/api/test_explore_routes.py` | Every production path. Report defects, do not fix them. | `#2240` | `[x]` |
+| `S3-E1` | `audit_reviewer` | `no-context` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-e1-audit-no-context.md` | Independent audit of the explore subsystem against the repository's own documents | `audit/2240-no-context` | `.worktrees/s3-e1-audit-nc` | `docs/audit/2026-09-04-explore-session-no-context.md` | Every implementation and test path. Read-only. | `#2240` | `[x]` |
+| `S3-E2` | `audit_reviewer` | `with-context` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-e2-audit-with-context.md` | Audit of the delivered spec 3 work against the spec, the issue, and this checklist | `audit/2240-with-context` | `.worktrees/s3-e2-audit-wc` | `docs/audit/2026-09-04-adr-054-spec3-with-context.md` | Every implementation and test path. Read-only. | `#2240` | `[x]` |
+| `S3-C4` | `implementer` | `N/A` | manager dispatch, recorded in §9 | Mount the router above the SPA mount, wire FR-014 retirement to a branch switch, clear the ratchet | `feat/2240-api-wiring` | `.worktrees/s3-c4-wiring` | `src/scistudio/api/app.py`, `src/scistudio/api/routes/git.py`, `tests/api/**` | Every explore module | `#2240` | `[x]` |
+| `S3-G2` | `adr_author` | `N/A` | manager dispatch, recorded in §9 | The `planned_governs` migration, §4.2's divergence rows, and the ADR-039 call | `docs/2240-governs-migration` | `.worktrees/s3-g2-governs` | `docs/specs/adr-054-explore-session.md` | `docs/adr/**`, `src/**`, `tests/**` | `#2240` | `[x]` |
+| `S3-F2` | `implementer` | `N/A` | manager dispatch, recorded in §9 | The bridge's type vocabulary, the duplicate output declaration, the packaging queue drain, FR-051 and FR-034 | `fix/2240-packaging-typing` | `.worktrees/s3-f2-typing` | `kernel_bridge.py`, `packaging.py`, `routes/explore.py` | `session.py`, `lineage.py`, `notebook.py`, `queue.py` | `#2240` | `[x]` |
+| `S3-F3` | `implementer` | `N/A` | manager dispatch, recorded in §9 | The unwired-callable sweep and five audit P1s, including path containment | `fix/2240-unwired-sweep` | `.worktrees/s3-f3-sweep` | `src/scistudio/explore/**`, `routes/explore.py`, `core/lineage/**`, `tests/**` | `pyproject.toml` | `#2240` | `[x]` |
+| `S3-F4` | `implementer` | `N/A` | manager dispatch, recorded in §9 | `nbconvert` in the dev extra, the explore import contracts, the deferral ratchet | `fix/2240-deps-and-contracts` | `.worktrees/s3-f4-deps` | `pyproject.toml`, explore docstrings | Behaviour in any explore module | `#2240` | `[x]` |
+| `S3-F1` | `implementer` | `N/A` | `docs/planning/adr-054-spec3-dispatch-prompts/s3-f1-fix.md` | Fix the P1 and P2 findings the audits and the adversarial test engineer produce | `fix/2240-audit-findings` | `.worktrees/s3-f1-fix` | Every in-scope production and test path | Everything else | `#2240` | `[x]` |
+
+For `test_engineer` rows, the write set should default to tests, fixtures,
+validation scripts, e2e scenarios, audit evidence, and explicitly assigned
+QA/governance tooling. Production code paths require a recorded scope
+amendment.
+
+## 7. Track: The Explore Session Runtime
+
+### 7.1 Track Scope
+
+- Owner: manager
+- In scope:
+  - The session service and the project layout it needs (FR-001 to FR-006,
+    FR-036).
+  - The kernel, the bridge, the three helpers, `%pip` and the environment
+    re-snapshot, interrupt, restart, stop, and branch-switch retirement
+    (FR-007 to FR-016).
+  - The queue, the admission whitelist, coalescing, the observation call, the
+    marks, run-stale, run-with-upstream, the shallow freeze bound (FR-017 to
+    FR-026).
+  - Storage and history through git plumbing on a dedicated ref (FR-027 to
+    FR-036).
+  - Packaging into a Code Block and the backend's cell selection (FR-037 to
+    FR-043).
+  - `on_new_input` for both block kinds and the packaged block's ask pause
+    (FR-044 to FR-048).
+  - Calling a block from a cell (FR-049 to FR-051).
+  - Lineage: the `explore_sessions` anchor, cell-run and block-call records,
+    retention (FR-052 to FR-055).
+  - The API and its events (FR-056 to FR-058).
+  - The dependencies and the layer rule (FR-059, FR-060).
+- Out of scope:
+  - Every rendering decision and every frontend file.
+  - The agent harness and the documentation revision.
+- Required docs:
+  - `CHANGELOG.md` — the new runtime dependencies and the session surface.
+  - The rest is N/A: the governing spec landed in PR #2228, and ADR-054's
+    documentation spec owns the architecture document and the developer guides
+    as a separate delivery.
+- Required tests:
+  - `tests/explore/test_kernel_session.py`
+  - `tests/explore/test_block_call_adapter.py`
+  - `tests/explore/test_packaged_block.py`
+  - `tests/explore/test_explore_lineage.py`
+  - `tests/api/test_explore_routes.py`
+  - `tests/blocks/base/test_interaction_policy.py`
+  - `tests/architecture/test_layer_deps.py`
+
+### 7.2 Dispatch
+
+- [x] Prompt file created or dispatch prompt recorded.
+- [x] Correct prompt template selected.
+- [x] Audit mode recorded when persona is `audit_reviewer`.
+- [x] Agent branch/worktree assigned.
+- [x] Write set and out-of-scope paths included in prompt.
+- [x] TODO rule included in prompt.
+- [x] Required checks included in prompt.
+
+### 7.3 Implementation
+
+- [x] `S3-A1` dependencies and the notebook store -> merged into the track branch.
+  `pyproject.toml` (`ipykernel`, `jupyter_client`), `src/scistudio/explore/notebook.py`,
+- [x] `S3-A3` plumbing commits to a ref -> branch `feat/2240-explore-commits`; `src/scistudio/core/versioning/_commit_ops.py`, `src/scistudio/core/versioning/git_engine.py` (binding block and ADR-052 markers only) and `tests/core/test_git_engine.py` (no-cycle stub narrowed), both added under manager scope amendments recorded in the ledger, `tests/core/versioning/test_explore_ref_commits.py`; `PYTHONPATH=./src python -m pytest tests/core/versioning/ tests/core/test_git_engine.py tests/api/test_workflow_run_git.py tests/api/test_open_project_degraded_modes.py tests/integration/test_race_lineage_restore.py --no-cov` -> 173 passed; gate ledger `.workflow/records/2240-feat-2240-explore-commits.json`
+  module, `CHANGELOG.md`. Every round-trip test starts from a notebook the store did not
+  write, including a hand-edited file with two-space indent and unsorted keys.
+  Gate ledger: `.workflow/records/2240-feat-2240-notebook-store.json`.
+- [x] `S3-A2` kernel handle -> merged into the track branch.
+  `src/scistudio/explore/kernel.py`, `tests/explore/test_kernel_session.py` 47 passed /
+  1 skipped **against a real ipykernel 7.3.0** in an isolated venv outside the repo. The
+  ADR-054 §5.2 interrupt blocker is resolved and inverted: signal mode ends a spinning
+  cell within a tenth of a second on Windows, message mode is inert there, and the handle
+  refuses message mode on Windows at construction. The assertion was mutation-checked.
+  Gate ledger: `.workflow/records/2240-feat-2240-kernel-handle.json`.
+- [x] `S3-A4` `on_new_input` and the remap policy -> `feat/2240-on-new-input` @ `1c279895c`; `tests/blocks/base/test_interaction_policy.py` 36 passed, `tests/engine` 522 passed 4 skipped, `tests/blocks` 1511 passed 8 skipped
+- [x] `S3-B1` bridge, helpers, windows, environment snapshot -> `feat/2240-kernel-bridge`.
+  `src/scistudio/explore/kernel_bridge.py`, `src/scistudio/explore/notebook_api.py`,
+  `src/scistudio/__init__.py` (the three helpers, lazily), and
+  `src/scistudio/core/lineage/environment.py` (snapshot by reference, FR-034).
+  The bridge also carries the `block_call` action, which answers FR-049 at the protocol
+  boundary spec §4.2 names and delegates the body to `src/scistudio/explore/block_call.py`
+  (manager decision; the rationale is in the bridge's module docstring so the split is not
+  "fixed" later). Values never cross the frame: an input names the kernel variable holding
+  it, an output is bound back into the kernel, and the reply carries FR-051's lineage facts.
+  Bridge install binds `blocks` in the kernel's user namespace, so `blocks.run(...)` is a
+  line a cell can run and the analysis's dotted-path match resolves to a name that exists;
+  the name is read out of the analysis's own `BLOCK_CALL_PATHS` rather than spelled twice.
+  It is excluded from the fingerprints, the bindings list, and the window offer until a
+  cell rebinds it, at which point the person's assignment wins and it is reported as their
+  variable.
+  `tests/explore/test_kernel_bridge.py` + `tests/explore/test_notebook_api.py` 97 passed
+  **against a real ipykernel 7.3.0** in the isolated venv outside the repo, and 87 passed /
+  10 skipped under the repository venv, where the kernel tests skip and the pure ones still
+  run; `tests/explore` + `tests/architecture` 1034 passed / 2 skipped on the kernel
+  interpreter and 977 passed / 12 skipped on the repository venv. The four load-bearing
+  tests: one fixture notebook source executed in session mode and in packaged mode with the
+  outputs compared, a bridge call proved to leave no cell by reading the kernel's own input
+  history and execution counter back out of it, a window compared against the preview
+  provider's own output for the same object, and a cell on a real kernel calling a real
+  block through `blocks.run(...)` and getting its value back. `%pip` is exercised as a real
+  offline install into a throwaway virtual environment.
+  Gate ledger: `.workflow/records/2240-feat-2240-kernel-bridge.json`.
+- [x] `S3-B2` session, queue, marks, kernel list -> `feat/2240-session-queue`.
+  `src/scistudio/explore/session.py`, `src/scistudio/explore/queue.py`,
+  `src/scistudio/api/project_layout.py` (the explore directory joins the layout),
+  `tests/explore/test_explore_session.py`, `tests/explore/test_queue_and_marks.py`.
+  `tests/explore` 664 passed / 1 skipped **against a real ipykernel 7.3.0** in the isolated
+  venv outside the repo, and 587 passed / 31 skipped under the repository venv, where the
+  kernel-backed tests skip and the pure ones still run. The two load-bearing tests: the A, B, C
+  fixture asserts the **exact** cell list each control enqueues, and one test counts every
+  submission that reached the queue across a whole re-run to prove marking enqueues nothing.
+  Every refused statement form of the admission whitelist has its own case, and the
+  branch-switch test asserts each kernel **process** is gone rather than a flag.
+  Two findings for the manager: `import blocks` cannot go in the generated first cell
+  (there is no importable top-level `blocks` module and the bridge binds no such name, so it
+  would make every session's first cell raise `ModuleNotFoundError`); and
+  `KernelBridge.Binding.type_name` is the *native* type name while
+  `packaging.check_packaging(bindings=...)` wants the SciStudio type name, so a numpy-backed
+  port cannot be typed today. Gate ledger:
+  `.workflow/records/2240-feat-2240-session-queue.json`.
+- [x] `S3-B3` block-call adapter -> `feat/2240-block-calls` @ `0dddd1a94`; `src/scistudio/explore/block_call.py`, `tests/explore/test_block_call_adapter.py` (38 passed), `tests/explore` 353 passed, `tests/architecture` 509 passed 1 skipped, `tests/blocks` 1511 passed 8 skipped. Open for the manager: the `explore` entry in `LAYER_RULES` (`tests/architecture/test_layer_deps.py`) forbids `scistudio.blocks` and `scistudio.core`, which FR-008 and FR-060 do not; the adapter defers those imports so it is green either way, and S3-C3 owns narrowing the list to api/ai/engine.
+- [x] `S3-C1` lineage -> `feat/2240-explore-lineage` @ `2b5b8bf5a`; `tests/explore/test_explore_lineage.py tests/core/lineage` 43 passed; pre-existing lineage suite unchanged: `tests/core/test_lineage*.py tests/contracts/test_lineage_run_recipe_contract.py` 72 passed, `tests/engine/test_*lineage* tests/api/test_*lineage* tests/api/test_runtime_artifact_retention.py tests/api/test_runs_routes.py tests/integration/test_subworkflow_lineage.py tests/integration/test_race_lineage_restore.py` 86 passed 1 warning. `tests/architecture` fails on this branch alone because its base predates `684da8618`, which corrected the FR-060 layer rule to let `explore` import `core`; against that rule the suite is 511 passed 1 skipped, so it resolves on integration.
+- [x] `S3-C2` packaging and the backend's cell selection -> `feat/2240-packaging` @ `8646fad54`; `src/scistudio/explore/packaging.py`, `src/scistudio/blocks/code/backends/notebook.py`, `tests/explore/test_packaged_block.py` (46 passed). `tests/explore tests/blocks/code tests/architecture` 941 passed 6 skipped. The end-to-end acceptance ran against a real Jupyter nbconvert in an isolated venv outside the repository (`SCISTUDIO_TEST_NBCONVERT` + `SCISTUDIO_TEST_KERNEL`): the fixture notebook is packaged, the tier-1 scan discovers the declaration, a real `DAGScheduler` runs a two-node workflow over it, the block's persisted output equals the session's, and the side effect in the excluded cell is absent — mutation-checked by forcing the backend to ignore the selection, which fails that assertion.
+  Three items are open for the manager, none of them inside this branch's write set. **(1)** `src/scistudio/blocks/code/backends/notebook.py` is protected-core, so `guard.core_change_guard` requires the `admin-approved:core-change` label on the integration PR; spec §4.2 plans this file, so the change is in scope, but the label is the owner's to apply. **(2)** FR-054 was unmet and is now fixed under a manager amendment that extended this branch's scope: `blocks/registry/_spec.py` gained an opt-in, `block_version_source = "self"`, that a block declares when its `version` is a content identity of the block itself rather than of the distribution that shipped it. `PackagedNotebookBlock` declares it, so a packaged block's spec — and therefore the `block_executions` row the run writes — carries the notebook commit. The rule names no class: any block with a content-identity version may declare it. `engine/scheduler/_lineage.py` needed no change, because it already prefers the spec. `tests/blocks/registry/test_block_version_source.py` (14 passed) pins that `AIBlock`, which hand-declares `version = "0.3.0"` and does not opt in, still records the SciStudio version, and that every scanned in-tree block does too; the end-to-end run asserts the lineage row's `block_version` is the commit sha and was mutation-checked by making the resolver ignore the opt-in. **(3)** `scistudio` and `blocks` are not builtins to the analysis, so a cell that uses them without an import in some enabled cell above is an unresolved read and packaging refuses the notebook: the session's generated first cell has to import them rather than relying on the bridge injecting the names.
+- [x] `S3-C3` API routes, events, and the layer rule -> `feat/2240-explore-api` @ `52ef67063`; `src/scistudio/api/routes/explore.py` (new, 23 routes), `src/scistudio/api/ws.py`, `tests/api/test_explore_routes.py` (new), `tests/architecture/test_layer_deps.py`. `tests/api/test_explore_routes.py tests/architecture/test_layer_deps.py` 116 passed 3 skipped under the shared `.venv` (no `jupyter_client`), 119 passed under the kernel-capable venv at `C:/Users/jiazh/AppData/Local/Temp/kv`, which runs the three `needs_kernel` tests. FR-060: the `explore` entry in `LAYER_RULES` and `test_engine_does_not_import_explore` already stated the rule; what was missing is **depth** — `test_layer_does_not_import_forbidden` walks each module's top level only, so a lazy `import scistudio.api` inside a method (the shape a violation would take in a subsystem that defers imports by design) was invisible. `test_explore_never_imports_upward_at_any_depth` applies the same forbidden list, read out of `LAYER_RULES` rather than restated, to function and class bodies; proven by planting the import into `src/scistudio/explore/session.py` and watching the module-level rule pass while the depth rule failed.
+  Five items are open for the manager, none inside this branch's write set. **(1)** `create_app` does not `include_router(explore.router)`, so the routes exist but are not mounted; spec §4.2 does not list `src/scistudio/api/app.py`, so that one line is the integrating change. A `TODO(#2240)` in the route module records it, and the route tests mount the router themselves. **(2)** That line has an ordering constraint the tests found the hard way: `create_app` mounts `SPAStaticFiles` at `/` last, and that mount matches `/api/explore/...` and answers it with its own 404, so `include_router(explore.router)` must sit **with the other `include_router` calls, above the mount**. Appending it afterwards registers 23 routes nothing can reach — which is what the route tests did until `f88842e15`, and it was invisible until a `frontend/dist` happened to exist in the checkout. **(3)** Nothing calls `SessionService.retire_kernels` on a branch change (FR-014); the wiring point is `src/scistudio/api/routes/git.py`, also outside this write set. **(4)** No session method publishes `SessionEventType.PACKAGED`, because packaging is a module-level function of the notebook and the marks rather than a method on the service; the package route publishes it through `SessionService.publish` so the event stream still has one owner. If the manager would rather the service owned it, that is a change to `src/scistudio/explore/packaging.py` or `session.py`. **(5)** `scripts/deferral_scan.py --check` already fails on this branch's base for `later: 22 > ratchet 21` — the hits are in `src/scistudio/explore/{block_call,dependency_analysis,fingerprint,lineage,notebook,notebook_api}.py`, merged in from the other agents; verified by stashing this branch's changes and re-running, which fails identically. This change adds one tracked `TODO(#2240)` and no untracked deferral.
+- [x] `S3-D1` adversarial coverage -> `test/2240-adversarial`; `tests/explore/test_adversarial_session.py` (new, 42 tests: 35 passed, 7 xfail), `tests/api/test_explore_routes.py` (+56 additions). `tests/explore` 902 passed 1 skipped 7 xfailed under the kernel-capable venv at `C:/Users/jiazh/AppData/Local/Temp/kv`; `tests/explore tests/api/test_explore_routes.py` 926 passed 72 skipped 3 xfailed under the shared `.venv` (no `jupyter_client`, so 72 kernel tests skip there). Written from an 84-mutation campaign against the delivered implementation: 68 killed, 16 survived, of which 13 are now killed by the new tests and 3 (`KernelHandle.stop`'s tree wait, two redundant queue guards) are equivalent mutants on this platform.
+  Seven defects are recorded as `xfail` tests rather than fixed, because this persona does not touch production code. **P1:** (1) nothing constructs `scistudio.explore.lineage.ExploreLineage`, so no `explore_sessions` row, cell-run record, or session-anchored `BlockExecutionRecord` is ever written (FR-051 to FR-055, US6 scenarios 4 and 5), and the retention guard that reads `sessions_in_progress()` therefore never fires; (2) `KernelBridge` reports `type(value).__name__`, so `binding_types()` hands packaging `'str'` where FR-038 needs `'Text'` and packaging a real session refuses every port it cannot name — every packaging test supplies its own bindings, and the API harness's fake bridge translates under a comment saying the real one does. **P2:** (3) no path writes a run's outputs into the notebook (FR-027), which is also why the 'outputs stripped' assertions cannot fail; (4) `_build_ports` resolves a duplicate output declaration to the earlier call, where spec section 2 and `notebook_api.output` both resolve it to the second, and no duplicate is reported; (5) nothing waits for the queue to drain before a packaging check (FR-039); (6) FR-030's 'reported once' is asserted by a test whose two submissions coalesce into one run, and the implementation reports once per session for ever, so a second outage after a recovery is silent. **P3:** (7) `note_branch_commit` keeps the first sha it is given, so FR-035's answer does not follow a second branch commit.
+- [ ] docs `CHANGELOG.md` -> artifact pending
+
+### 7.4 Audit
+
+- [x] Audit agent assigned, or manager audit completed.
+      Both modes dispatched, and neither was redundant. The no-context audit
+      closed an environment gap every other agent had accepted — the
+      kernel-capable interpreter could not collect `tests/api` until pywin32's
+      paths were added — and **the blocking P1 lived exactly in the set of tests
+      that until then ran in neither interpreter on this machine.**
+- [x] Audit report file path assigned.
+- [x] Audit report committed.
+      `docs/audit/2026-09-04-explore-session-no-context.md` (`20b1af1b2`) and
+      `docs/audit/2026-09-04-adr-054-spec3-with-context.md` (`389dd8c58`).
+- [x] Audit report merged into final PR evidence path.
+- [x] Findings recorded.
+      With-context: **block** — 6 P1, 12 P2, 11 P3, from an FR-by-FR walk of
+      FR-001 to FR-060 and a protected-path table. No-context: pass-with-fixes —
+      1 P1, 5 P2, and 30 mutations across 11 modules with none surviving, three
+      of which needed the real-kernel interpreter to be caught at all.
+- [x] P1 findings fixed before integration.
+      Two were mine and are fixed in `9bfd6077b` and `44f4e4bf3`. Five closed by
+      `S3-F3`. The sixth, FR-050's `InteractionChannel`, is **#2250**: it is not
+      a missing call site but missing spec surface — an event type and a route,
+      both enumerations asserted by tests.
+- [x] P2/P3 findings fixed or tracked with owner-approved rationale.
+      The security finding (path containment on a file source) is fixed with the
+      repository's own containment helper. Four decisions are deferred to the
+      owner as #2243, #2247, #2248 and #2242, each with its options costed.
+
+### 7.5 Integration
+
+- [x] Agent output reviewed by manager.
+      Sixteen agents; every branch reviewed before merge, and each integration
+      commit records what the agent found and what it declined to do. Four
+      agents declined a manager instruction and were right every time — the
+      cases are in §9.
+- [x] Scope compliance verified.
+      Seven scope expansions were requested by agents, granted by gate-record
+      amendment before the edit, and are listed in §2 and §9.
+- [x] Conflicts resolved intentionally.
+      Two conflicts needed a real decision rather than a side, and I got one of
+      them wrong twice — see §9. The layer test is a union: spec 2's allowlist
+      machinery, which is what makes SC-011 measurable, scoped to the modules
+      FR-035 is about, with spec 3's subsystem and depth rules intact.
+- [x] Track merged or integrated.
+
+## 8. Verification Evidence
+
+| Check | Command or tool | Status | Evidence |
+|---|---|---|---|
+| Gate ledger check (local) | `PYTHONPATH=./src python -m scistudio.qa.governance.gate_record check --mode local --base origin/track/adr-054-spec2-dependency-analysis --head HEAD` | `[ ]` | |
+| Targeted tests | `PYTHONPATH=./src python -m pytest tests/explore tests/api/test_explore_routes.py tests/blocks/base/test_interaction_policy.py -q` | `[ ]` | |
+| Pre-push gate check | `PYTHONPATH=./src python -m scistudio.qa.governance.gate_record check --mode pre-push --base origin/track/adr-054-spec2-dependency-analysis --head HEAD` | `[ ]` | |
+| Gate ledger check (pre-PR) | `PYTHONPATH=./src python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[ ]` | |
+| Gate finalize (pre-PR) | `PYTHONPATH=./src python -m scistudio.qa.governance.gate_record finalize --commit SHA --pr-body-file .workflow/local/pr-body.md --closes "#2240"` | `[ ]` | |
+| Wrapper preflight | `PYTHONPATH=./src python scripts/scistudio_pr_create.py --dry-run --title TITLE --body BODY` | `[ ]` | |
+
+## 9. Drift Log
+
+Append only.
+
+| Date | Agent | Drift | Action | Follow-up |
+|---|---|---|---|---|
+| 2026-09-04 | manager | I merged spec 2 forward once, early, then not again for a long stretch, so the session was built against a stale copy of the analysis and its agent implemented an `observe_namespaces` that duplicated `compare_namespaces`. | Merged forward again and reconciled. The agent's report was right about its branch and wrong about spec 2, and the cause was mine. | Which comparison is canonical is spec 2's to settle; recorded in `_as_observed_change`'s docstring. |
+| 2026-09-04 | manager | My spec-2 forward merge left **conflict markers inside a docstring** in `dependency_analysis.py`. The module parses, so every test passed and only `ruff format` noticed. Git reported three conflicts; I resolved two and ran `git add -A`, which staged the third unlooked-at. | Fixed in `9bfd6077b`, with a whole-tree marker scan. The lesson is the scan, not avoiding `git add -A` — that flag is the repository's own advice for pre-commit's stash path and will keep being used. | N/A |
+| 2026-09-04 | manager | In the same merge I scoped the FR-060 **depth** rule along with the FR-035 allowlist, via a `str.replace` that matched two call sites. It then walked 3 of 12 modules — excluding every module its own docstring names as the reason it exists. | Both audits found it independently; the no-context one proved it by planting an import in `session.py` and watching the suite stay green. Fixed in `44f4e4bf3`, with an assertion that fails if the narrowing is reapplied. | N/A |
+| 2026-09-04 | `S3-B2` | Reported that the bridge's native type names and packaging's SciStudio type names disagree, so a real session's ports cannot be typed. | I recorded it and did not assign a fix. The adversarial pass found it again as a P1 six agents later. Fixed by `S3-F2`. The delay was mine. | N/A |
+| 2026-09-04 | `S3-B2` | Refused my instruction to put `import blocks` in the generated first cell, because no such module exists and every session's first cell would raise. | It was right. I routed the reconciliation as a note and never closed it, so FR-049 and FR-039 stayed mutually exclusive until the audit caught it and `S3-F3` fixed it with a lazy export. | N/A |
+| 2026-09-04 | `S3-C2` | Declined the rule I proposed for FR-054 — 'a declared version wins' — because `AIBlock` hand-declares a version as an ordinary default and would have been silently re-stamped. | It wrote an opt-in marker instead, and a test that scans every in-tree block so one added later is covered without anyone remembering. My rule was wrong. | N/A |
+| 2026-09-04 | `S3-G2` | Declined to edit ADR-039, on the ground that the text documenting the response shape is a **supersession record** inside Addendum 1 — a dated, attributed quote of what that addendum replaced. | Right, and a reason I had not considered: appending to it would make Addendum 1 appear to have decided something it never saw. Routed as its own addendum. | #2247 |
+| 2026-09-04 | `S3-C3` | Its route tests passed for hours, then every one 404'd the moment a `frontend/dist` appeared in the checkout: the SPA mount at `/` swallows `/api/explore/...`. | Fixed with the router above the mount, pinned three ways — the rule, the behaviour, and a control that moves the routes below the mount and asserts the 404. | N/A |
+| 2026-09-04 | audits | The meta-finding: two review rounds each closed one instance of 'a module built correctly and called by nothing' and left six more. | A sweep rather than point fixes. 25 of 316 public callables had no production caller; 20 of 319 do now, and all five that closed were stated MUSTs — including the analysis codec, whose absence made this spec's FR-032 pass vacuously. | Two genuinely dead callables left in place and flagged. |
+| 2026-09-04 | `S3-F4` | A `gate_record check` running concurrently with an `amend` silently overwrote the amendment, reverting `governance_touch` to false. | The agent noticed because it checked the file on disk rather than trusting the command's success output. | #2249 |
+| 2026-09-04 | manager | The layer-test edit is claimed by spec 2's `S2-B1` and by spec 3's FR-060 rule. | Spec 3's `S3-C3` owns the layer file and lands after spec 2's version is merged forward, so the two edits never race. | N/A |
+| 2026-09-04 | manager | `ipykernel`, `jupyter_client`, and `nbconvert` are absent from the local `.venv`, and installing them was refused by the sandbox. | Real-kernel tests (FR-013, ADR-054 §5.2) skip locally and run only in CI, which installs from `pyproject.toml`. Agents were told to leave honestly-skipped tests rather than mocked-passing ones. | Verify the interrupt test actually ran in CI before calling FR-013 covered. |
+| 2026-09-04 | `S3-A3` | The four plumbing functions had no binding onto `GitEngine`, and `git_engine.py` was outside the declared scope. | Manager amended the ledger to include `src/scistudio/core/versioning/git_engine.py` and sent the agent back to add the binding, the ADR-052 stability markers, and coverage for the public surface. | N/A |
+| 2026-09-04 | `S3-A3` | `_commit_ops.py` cannot import `scistudio.stability`; `tests/core/test_git_engine.py::test_no_circular_import` loads the module under a stub package. | Stability markers move to the `git_engine.py` binding block. The agent added a guard test so the constraint fails at the point of change. | N/A |
+
+## 10. Final Readiness
+
+- [ ] All dispatched agents have final outputs.
+- [ ] Manager reviewed every changed file.
+- [ ] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux
+      evidence when needed, commit, and PR evidence.
+- [ ] PR closes every issue fixed by the dispatch.
+- [ ] CI passed.
+- [ ] Checklist final state matches PR and gate record.

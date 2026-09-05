@@ -11,14 +11,26 @@ class — interactivity is layered onto an existing category (for example
 
 The capability gives a block three things:
 
-* :attr:`InteractiveMixin.interactive_panel` — a :class:`PanelManifest` naming
-  the frontend window component the block opens.
+* :attr:`InteractiveMixin.interactive_panel` — a
+  :class:`~scistudio.core.panels.PanelManifest` naming the panel the block
+  opens. A block-declared panel must declare the producing capability
+  (:class:`~scistudio.core.panels.PanelCapability`, imported from the contract
+  module), which is what the manifest defaults to and what the registry
+  checks when the block is discovered (ADR-054 spec 1 FR-050).
 * :meth:`InteractiveMixin.prepare_prompt` — turns the real input data into the
   JSON-safe, window-sized view the panel renders, plus optional heavy
   intermediate work carried forward as storage references (never in memory).
 * ``run`` — inherited from the block's category; on the compute phase it reads
   the user's decision from ``config["interactive_response"]`` and produces the
   block's outputs.
+
+A producing panel has one outbound path, the emission of code (ADR-054 spec 1
+FR-012), and ADR-054 §3.6 says the meaning of an emission is settled by the
+context it is mounted in. This module owns the interactive-block half of that:
+:func:`settle_interactive_response` turns the snippet the host committed into
+the decision dict ``run`` reads. The other half — appending an emission as a
+notebook cell and queuing it, with the §3.6 statement whitelist that governs
+*that* context — belongs to the explore session and is deliberately not here.
 
 The registry binds the capability and the execution mode together when it scans
 blocks: a block that declares one without the other, omits ``prepare_prompt``,
@@ -33,24 +45,30 @@ lives in the engine scheduler and runners.
 
 from __future__ import annotations
 
+import ast
+import logging
+import re
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
 from scistudio.core.meta._display_name import resolve_display_name
+
+# ADR-054 spec 1, FR-001 / D-009: the manifest, the capability declaration and
+# the API version constant live in the core layer, and this module imports them
+# rather than defining its own. The block layer sits below the panel subsystem
+# and below the API layer, all three read the same manifest, and no layer above
+# core may be imported by the others — so a manifest defined here would force
+# the panel subsystem to import upward, and the pressure to relieve that is what
+# produced two manifest types and two version constants in the first place.
+from scistudio.core.panels import PANEL_API_VERSION, PanelManifest
 from scistudio.core.storage.ref import StorageReference
 from scistudio.stability import provisional
 
 if TYPE_CHECKING:
     from scistudio.blocks.base.config import BlockConfig
 
-# The frontend panel host refuses to mount a manifest whose major version
-# differs from this.
-PANEL_API_VERSION = "1"
-"""Panel API compatibility version.
-
-A :class:`PanelManifest` whose major version differs from this is refused by the
-frontend panel host. Bump it when the panel contract changes incompatibly.
-"""
+logger = logging.getLogger("scistudio.blocks.base.interactive")
 
 # Config keys the engine threads into the compute phase. The response key
 # carries the user's decision and is recorded in lineage; the intermediate key
@@ -72,82 +90,57 @@ INTERACTIVE_INTERMEDIATE_KEY = "interactive_intermediate"
 # workflow definition); the engine never writes it back.
 INTERACTIVE_MEMORY_KEY = "interactive_memory"
 
+# ADR-054 FR-044 interaction policy: the setting that decides whether the
+# interaction memory's remap check above is consulted at all. Declared on the
+# block class as ``on_new_input`` and overridable per node under this key in the
+# node config (or its ``params``), exactly like the memory record.
+ON_NEW_INPUT_KEY = "on_new_input"
 
-@provisional(since="0.3.1")
-@dataclass(frozen=True)
-class PanelManifest:
-    """Describes the frontend window component a block opens for interaction.
 
-    An interactive block declares one of these as its ``interactive_panel`` to
-    name the window the user sees. A built-in (core) panel is resolved by
-    :attr:`panel_id` against the frontend's built-in registry; a package-provided
-    panel is loaded by importing :attr:`module_url` from the backend (same-origin
-    only — remote URLs are rejected). Core panels leave ``module_url`` empty
-    because they ship with the app.
+class InteractionPolicy(Enum):
+    """What a block with a remembered decision does when its input changes.
+
+    ADR-054 FR-044. The policy is read by the engine's interactive dispatch for
+    both block kinds, immediately before the interaction memory's remap check,
+    and it is what decides whether that check is consulted at all:
+
+    * :attr:`ASK` — consult :meth:`InteractiveMixin.remap_saved_decision`, which
+      by default replays the remembered decision only while the input signature
+      is unchanged and pauses otherwise. This is the pre-ADR-054 behaviour and
+      the default for an authored interactive block (FR-045).
+    * :attr:`REPLAY` — replay the remembered decision without consulting the
+      remap check, so the block never pauses on a changed input signature. This
+      is the default a packaged notebook block declares (FR-044), whose
+      remembered decision is the notebook commit it was packaged from (FR-046).
+
+    A block author may declare either an enum member or its plain string value
+    (``"ask"`` / ``"replay"``) as the block's ``on_new_input``; the engine
+    coerces both through :func:`resolve_interaction_policy`.
+
+    Internal (ADR-052 §4.8): engine/authoring plumbing reachable on the deep
+    ``scistudio.blocks.base.interactive`` path. It is deliberately not added to
+    the ``scistudio.blocks.base`` root's frozen ``__all__``, because the author
+    affordance FR-044 asks for is the ``on_new_input`` attribute itself, which
+    accepts a bare string and needs no import.
 
     Example:
-        >>> manifest = PanelManifest(panel_id="core.interactive.data_router")
+        >>> from scistudio.blocks.base.interactive import InteractionPolicy
+        >>> InteractionPolicy("replay") is InteractionPolicy.REPLAY
+        True
     """
 
-    panel_id: str
-    """Stable id of the window component (e.g. ``"core.interactive.data_router"``).
+    ASK = "ask"
+    """Consult the remap check: replay on an unchanged signature, pause otherwise."""
 
-    For a core panel this is the frontend's resolution key.
-    """
+    REPLAY = "replay"
+    """Replay the remembered decision regardless of the input signature."""
 
-    module_url: str = ""
-    """Backend-relative URL (``/api/...``) to import a package panel module from.
 
-    Remote URLs are rejected. Left empty for built-in core panels.
-    """
-
-    export_name: str = "default"
-    """Named export inside the module to mount as the panel component."""
-
-    css: tuple[str, ...] = ()
-    """Optional backend-relative URLs of CSS assets the panel needs."""
-
-    version: str = "0"
-    """Panel bundle version (a fingerprint or semver string)."""
-
-    api_version: str = PANEL_API_VERSION
-    """Panel API compatibility version; its major must match :data:`PANEL_API_VERSION`."""
-
-    response_schema: dict[str, Any] | None = None
-    """Optional declaration of the response shape the panel returns.
-
-    A JSON-schema-like description; advisory metadata for the panel host, not
-    enforced by the runtime.
-    """
-
-    asset_root: str | None = None
-    """Filesystem directory a package confines its panel assets under.
-
-    Never sent to the frontend; used only by a backend validator to keep asset
-    paths confined to the package.
-    """
-
-    @provisional(since="0.3.1")
-    def to_dict(self) -> dict[str, Any]:
-        """Return the JSON-safe wire form of this manifest sent to the frontend.
-
-        :attr:`asset_root` is intentionally omitted (it is a backend-only path),
-        and :attr:`response_schema` is included only when it is set.
-
-        Returns:
-            A dict with the manifest's frontend-facing fields.
-        """
-        data: dict[str, Any] = {
-            "panel_id": self.panel_id,
-            "module_url": self.module_url,
-            "export_name": self.export_name,
-            "css": list(self.css),
-            "version": self.version,
-            "api_version": self.api_version,
-        }
-        if self.response_schema is not None:
-            data["response_schema"] = self.response_schema
-        return data
+#: The policy an interaction falls back to when neither the node nor the block
+#: declares one, and the policy an unrecognised declared value degrades to.
+#: ``ask`` is the conservative direction: it never silently reuses a decision
+#: the user took over different data.
+DEFAULT_INTERACTION_POLICY = InteractionPolicy.ASK
 
 
 @provisional(since="0.3.1")
@@ -207,6 +200,23 @@ class InteractiveMixin:
 
     interactive_panel: ClassVar[PanelManifest]
     """The window this block opens. A subclass MUST set it to a :class:`PanelManifest`."""
+
+    on_new_input: ClassVar[InteractionPolicy | str] = DEFAULT_INTERACTION_POLICY
+    """What this block does with a remembered decision when its input changes.
+
+    ADR-054 FR-044/FR-045. Defaults to :attr:`InteractionPolicy.ASK`, which is
+    exactly the behaviour every interactive block had before the setting
+    existed: a remembered decision replays while the input signature is
+    unchanged and the block pauses otherwise. Set it to
+    :attr:`InteractionPolicy.REPLAY` (or the string ``"replay"``) on a block
+    whose remembered decision stays valid across changed inputs — a packaged
+    notebook block, whose decision is the notebook commit it was packaged from,
+    declares that default. A node may override the block's value under
+    :data:`ON_NEW_INPUT_KEY` in its config.
+
+    The setting only chooses the policy for a decision the node already
+    remembers; a block with no remembered decision pauses under either value.
+    """
 
     @provisional(since="0.3.1")
     def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> InteractivePrompt | dict[str, Any]:
@@ -306,6 +316,358 @@ def coerce_prompt(result: InteractivePrompt | dict[str, Any]) -> InteractiveProm
     )
 
 
+# ---------------------------------------------------------------------------
+# ADR-054 spec 1 FR-012, second half: settling a produced value in the
+# interactive-block context.
+# ---------------------------------------------------------------------------
+
+INTERACTIVE_EMISSION_KEY = "code"
+"""The key a producing panel's emission arrives under on ``interactive_complete``.
+
+FR-012 gives a producing panel exactly one outbound path — the emission of code
+— so the host (``InteractivePanelHost``) commits the panel's most recent ``emit``
+by sending ``{"code": "<the emitted snippet>"}``. This module turns that snippet
+into the decision dict the block's ``run`` reads from
+``config[INTERACTIVE_RESPONSE_KEY]``.
+
+Internal (ADR-052 §4.8): wire key, not author surface.
+"""
+
+#: The filename a traceback from an emitted snippet carries. Not a real path:
+#: it exists so a syntax error names something a reader recognises.
+_EMISSION_FILENAME = "<panel emission>"
+
+
+class InteractiveEmissionError(ValueError):
+    """A producing panel's emission could not be settled into a decision (FR-012).
+
+    Every refusal names the block and the panel, because those are the two
+    things a person looking at a paused block can act on. The engine surfaces
+    one of these exactly as it surfaces a rejected (non-JSON-safe) interactive
+    response: the block goes to ``ERROR`` and the message reaches the reader.
+    Clicking Confirm and getting nothing is the failure mode this class exists
+    to prevent.
+
+    Args:
+        message: What went wrong, without the block/panel prefix.
+        block_name: The block the panel was opened for.
+        panel_id: The panel that emitted.
+    """
+
+    def __init__(self, message: str, *, block_name: str, panel_id: str) -> None:
+        super().__init__(f"{block_name} (panel {panel_id!r}): {message}")
+        self.block_name = block_name
+        self.panel_id = panel_id
+        self.reason = message
+
+
+def _emission_namespace(
+    record: list[dict[str, Any]],
+    *,
+    block_name: str,
+    panel_id: str,
+) -> Any:
+    """Build the one object an emitted snippet may reach: ``scistudio``.
+
+    Its only attribute is ``output``, which records the keyword arguments it was
+    called with. Nothing else — no module, no host object, no block — is
+    reachable through it.
+    """
+
+    def _output(*args: Any, **kwargs: Any) -> None:
+        if args:
+            raise InteractiveEmissionError(
+                "emitted code called scistudio.output() with a positional argument; "
+                "the decision is named keyword arguments only, "
+                "for example scistudio.output(assignments=assignments)",
+                block_name=block_name,
+                panel_id=panel_id,
+            )
+        record.append(dict(kwargs))
+
+    class _Scistudio:
+        """The ``scistudio`` name inside a panel emission. One attribute only."""
+
+        __slots__ = ()
+
+        output = staticmethod(_output)
+
+    return _Scistudio()
+
+
+#: Attribute names that traverse further attributes from a runtime string
+#: rather than from an identifier, which is what puts them past an AST pass
+#: over identifiers (#2229). ``str.format`` and ``str.format_map`` are the
+#: whole list in a namespace with no builtins: ``getattr`` is not bound,
+#: ``string.Formatter`` cannot be imported, and an f-string is parsed into real
+#: nodes the walk below already sees.
+_REFUSED_ATTRIBUTE_REACH = frozenset({"format", "format_map"})
+
+#: A replacement field whose field name walks into a dunder — the shape
+#: ``"{0.__class__}"``, ``"{x.__class__.__base__}"``, ``"{0.f.__globals__[__name__]}"``.
+#:
+#: Deliberately *not* "any string containing ``__``". The emitted decision
+#: embeds the workflow's own strings — a port named ``my__port`` arrives as a
+#: dict key in ``assignments = {"my__port": [...]}`` — and refusing those would
+#: break legitimate decisions to close a hole the ``format`` refusal above
+#: already closes. This is the second layer: it catches the payload's shape,
+#: which is what a future mechanism would still have to spell.
+_DUNDER_FORMAT_FIELD = re.compile(r"\{[^{}]*__")
+
+
+def _refuse_dunder_reach(tree: ast.AST, *, block_name: str, panel_id: str) -> None:
+    """Refuse any identifier beginning with ``__`` anywhere in the emission.
+
+    This is a restriction on the *namespace*, not on the statement forms. An
+    emission runs with no builtins, and the documented way out of a
+    no-builtins namespace is a dunder walk — ``().__class__.__bases__[0]
+    .__subclasses__()`` and from there some class whose ``__init__.__globals__``
+    still carries a live ``__builtins__``. Nothing a decision needs to say
+    contains a dunder, so refusing the whole family closes that walk at the one
+    point every emission passes, and does it before anything executes.
+
+    It is deliberately NOT the ADR-054 §3.6 statement whitelist, which admits
+    only rebinding assignments, imports and ``scistudio.output`` calls: that
+    whitelist belongs where an emission is *queued* (the explore session), and
+    the spec's ``scope.out`` keeps it out of this one. Statement forms are
+    unrestricted here; reachable names are not.
+
+    **Identifiers are not the only way to name an attribute** (#2229). ``str``
+    formatting traverses attributes named by the *runtime string*, which the
+    parser hands over as an ``ast.Constant`` carrying no identifier node to
+    walk: ``"{0.__class__.__base__.__subclasses__}".format(())`` reached the
+    whole type graph, and ``"{0.output.__globals__}".format(scistudio)`` reached
+    this module's globals, past a pass whose entire purpose was to refuse both.
+    Neither yields a live object — ``format`` returns text — so it was a read
+    rather than an escape; but the read leaves through ``scistudio.output`` into
+    the persisted workflow, so it is closed here, in two layers that cover each
+    other rather than one that has to be perfect:
+
+    * **the mechanism.** ``format`` and ``format_map`` are refused as attribute
+      reaches. They are the whole list of ways a name in this namespace
+      traverses attributes from a runtime string: ``getattr`` is not bound,
+      ``string.Formatter`` cannot be imported, and an f-string is parsed into
+      real nodes the walk already sees. Remove them and a string constant is
+      inert data.
+    * **the payload.** A string constant whose replacement field walks into a
+      dunder — ``"{0.__class__}"`` — is refused, so the shape a future
+      mechanism would still have to spell does not survive either.
+
+    The payload layer is deliberately not "any string containing ``__``". The
+    emitted decision embeds the workflow's own strings, so a port named
+    ``my__port`` arrives as a dict key in the emission; refusing that would
+    break legitimate decisions to close a hole the mechanism layer has already
+    closed. An attacker who splits the template across concatenated constants
+    defeats the payload layer and finds no mechanism; one who finds a mechanism
+    this list does not name finds no template. Neither layer is load-bearing
+    alone, which is the point.
+    """
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and _DUNDER_FORMAT_FIELD.search(node.value):
+            raise InteractiveEmissionError(
+                f"emitted code carries {node.value[:60]!r}, a format template whose replacement "
+                "field walks into a dunder; string formatting traverses attributes named by the "
+                "string rather than by an identifier, so the template is refused for the same "
+                "reason the name would be",
+                block_name=block_name,
+                panel_id=panel_id,
+            )
+        name: str | None = None
+        if isinstance(node, ast.Name):
+            name = node.id
+        elif isinstance(node, ast.Attribute):
+            name = node.attr
+            if name in _REFUSED_ATTRIBUTE_REACH:
+                raise InteractiveEmissionError(
+                    f"emitted code reaches {name!r}; it is the one way a name in this namespace "
+                    "reaches an attribute chosen by a runtime string rather than by an "
+                    "identifier, so it is refused with the dunder walk it would otherwise spell",
+                    block_name=block_name,
+                    panel_id=panel_id,
+                )
+        elif isinstance(node, ast.keyword | ast.arg):
+            name = node.arg
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            name = node.name
+        elif isinstance(node, ast.alias):
+            name = node.asname or node.name
+        elif isinstance(node, ast.Global | ast.Nonlocal):
+            name = next((each for each in node.names if each.startswith("__")), None)
+        if name is not None and name.startswith("__"):
+            raise InteractiveEmissionError(
+                f"emitted code reaches {name!r}; a panel's decision runs in a namespace whose "
+                "only name is scistudio, and names beginning with '__' are refused because they "
+                "are how that namespace is escaped",
+                block_name=block_name,
+                panel_id=panel_id,
+            )
+
+
+def settle_panel_emission(code: str, *, block_name: str, panel_id: str) -> dict[str, Any]:
+    """Run a producing panel's emitted code and return the decision it output.
+
+    **Which half of FR-012 this is.** FR-012 gives a producing panel one
+    outbound path, the emission of code, and says the meaning of what it emits
+    is settled by the context it runs in — never by the panel loading
+    machinery. ADR-054 §3.6 names two such contexts. In a session with a
+    notebook open, the emission is appended as a cell and queued; that half is
+    the explore session's and is out of this spec. This is the other half: an
+    interactive block's pause, where the emission *is* the user's decision, and
+    settling it means running it and taking what it handed back.
+
+    **The namespace.** The snippet arrived over a WebSocket, so it executes with
+    ``__builtins__`` set to an empty mapping and exactly one name bound:
+    ``scistudio``, an object whose only attribute is ``output``. There is no
+    ``open``, no ``__import__`` (so an ``import`` statement fails), no ``eval``,
+    no ``getattr``, no module, and no host object. Identifiers beginning with
+    ``__`` are refused before execution by :func:`_refuse_dunder_reach`.
+
+    **What is not restricted.** Statement forms. The ADR-054 §3.6 whitelist that
+    admits only rebinding assignments, imports and ``scistudio.output`` calls
+    sits where an emission is queued, and the spec's ``scope.out`` keeps it out
+    of here. Both built-in producing panels emit exactly two statements — an
+    assignment to a plain name and one ``scistudio.output`` call — but this
+    function admits any statement the namespace can execute.
+
+    **What the namespace does not bound: time.** An emission that does not
+    terminate — ``while True: pass`` — is not refused, and this runs on the
+    scheduler's event loop, so it would wedge the whole engine rather than one
+    block. Nothing here can interrupt it. The exposure is the same one an
+    installed block already has (a panel document is installed the way a block
+    is), which is why it is recorded rather than guessed at.
+
+    .. TODO(#2233): bound the time an emission may run.
+       Out of scope per the ADR-054 spec 1 no-context audit §3.1 and #2229,
+       which fixed the namespace half of this docstring's claims and left the
+       time half tracked rather than guessed: a bound needs a worker thread or
+       a subprocess, and how long to wait and what to do with the thread that
+       outlives the wait are decisions this function is not the place to take.
+       Followup: https://github.com/jiazhenz026/SciStudio/issues/2233
+
+    Args:
+        code: The snippet the panel emitted.
+        block_name: The block whose pause this settles, for the diagnostic.
+        panel_id: The panel that emitted, for the diagnostic.
+
+    Returns:
+        The keyword arguments of the snippet's single ``scistudio.output`` call,
+        which the engine places at ``config[INTERACTIVE_RESPONSE_KEY]``. It is
+        *not* checked for JSON-safety here: the engine applies the same
+        ``json.dumps(..., allow_nan=False)`` gate it applies to every
+        interactive response, and one gate is better than two.
+
+    Raises:
+        InteractiveEmissionError: If the snippet is empty, does not parse,
+            reaches a refused name, raises while running, never calls
+            ``scistudio.output``, or calls it more than once. Every message
+            names the block and the panel.
+    """
+    if not isinstance(code, str) or not code.strip():
+        raise InteractiveEmissionError(
+            "the panel emitted no code, so there is no decision to settle",
+            block_name=block_name,
+            panel_id=panel_id,
+        )
+
+    try:
+        tree = ast.parse(code, filename=_EMISSION_FILENAME, mode="exec")
+    except SyntaxError as exc:
+        raise InteractiveEmissionError(
+            f"the emitted code does not parse as Python: {exc.msg} (line {exc.lineno})",
+            block_name=block_name,
+            panel_id=panel_id,
+        ) from exc
+
+    _refuse_dunder_reach(tree, block_name=block_name, panel_id=panel_id)
+
+    record: list[dict[str, Any]] = []
+    namespace: dict[str, Any] = {
+        "__builtins__": {},
+        "scistudio": _emission_namespace(record, block_name=block_name, panel_id=panel_id),
+    }
+    try:
+        exec(compile(tree, filename=_EMISSION_FILENAME, mode="exec"), namespace)
+    except InteractiveEmissionError:
+        raise
+    except BaseException as exc:  # every failure becomes one legible refusal
+        raise InteractiveEmissionError(
+            f"the emitted code raised while running: {type(exc).__name__}: {exc}",
+            block_name=block_name,
+            panel_id=panel_id,
+        ) from exc
+
+    if not record:
+        raise InteractiveEmissionError(
+            "the emitted code ran but never called scistudio.output(), so it handed back no "
+            "decision; a producing panel commits by calling it once with the whole decision",
+            block_name=block_name,
+            panel_id=panel_id,
+        )
+    if len(record) > 1:
+        raise InteractiveEmissionError(
+            f"the emitted code called scistudio.output() {len(record)} times; exactly one call "
+            "carries the decision, because the host commits one emission and the block reads one "
+            "response",
+            block_name=block_name,
+            panel_id=panel_id,
+        )
+    return record[0]
+
+
+def is_panel_emission(payload: Any) -> bool:
+    """Return whether *payload* is a producing panel's emission rather than a decision.
+
+    The two shapes that reach the boundary are told apart structurally: an
+    emission is a mapping whose *only* key is ``code`` and whose value is a
+    ``str``. Anything else — any other key, any extra key, a non-string value,
+    a non-mapping — is a decision dict and passes through untouched, which is
+    what keeps a programmatic driver, a test, and a decision remembered before
+    this migration working exactly as they did.
+
+    A decision that happened to be exactly ``{"code": "<some string>"}`` would be
+    read as an emission. No block in the tree has such a decision (``DataRouter``
+    reads ``assignments``, ``PairEditor`` reads ``reorder``), and the
+    misclassification is loud rather than silent: the string would be run and,
+    calling no ``scistudio.output``, would raise
+    :class:`InteractiveEmissionError` naming the block and the panel.
+    """
+    return (
+        isinstance(payload, dict)
+        and set(payload) == {INTERACTIVE_EMISSION_KEY}
+        and isinstance(payload[INTERACTIVE_EMISSION_KEY], str)
+    )
+
+
+def settle_interactive_response(payload: Any, *, block_name: str, panel_id: str) -> Any:
+    """Turn what came back from the panel into the decision the block's ``run`` reads.
+
+    The boundary the engine calls at the moment an ``interactive_complete``
+    resolves a paused block, before the JSON-safety gate. A producing panel's
+    emission (FR-012) is executed by :func:`settle_panel_emission`; anything
+    else is already a decision and is returned unchanged.
+
+    Args:
+        payload: What the frontend sent, or what a remembered decision replayed.
+        block_name: The block whose pause this settles, for the diagnostic.
+        panel_id: The panel the block declared, for the diagnostic.
+
+    Returns:
+        The decision dict for ``config[INTERACTIVE_RESPONSE_KEY]``.
+
+    Raises:
+        InteractiveEmissionError: When *payload* is an emission that cannot be
+            settled. The engine turns it into the block's error, exactly as it
+            does a response that is not JSON-safe.
+    """
+    if not is_panel_emission(payload):
+        return payload
+    return settle_panel_emission(
+        payload[INTERACTIVE_EMISSION_KEY],
+        block_name=block_name,
+        panel_id=panel_id,
+    )
+
+
 def interactive_item_label(item: Any, index: int) -> str:
     """Best-effort human label for one input item shown in an interactive panel.
 
@@ -313,7 +675,7 @@ def interactive_item_label(item: Any, index: int) -> str:
     the user to route or reorder. A generic ``item_<index>`` is meaningless when
     the user is matching items by which file they came from, so this delegates
     to :func:`scistudio.core.meta._display_name.resolve_display_name` — the
-    single canonical precedence authority shared with the previewer/API path
+    single canonical precedence authority shared with the panel/API path
     (#1812) — and supplies ``item_<index>`` as the last-resort fallback.
     """
     return resolve_display_name(item, fallback=f"item_{index}")
@@ -357,6 +719,72 @@ def load_interactive_memory(config: Any) -> dict[str, Any] | None:
     if not isinstance(record, dict) or not record.get("enabled"):
         return None
     return record
+
+
+def _coerce_interaction_policy(value: Any) -> InteractionPolicy | None:
+    """Return *value* as an :class:`InteractionPolicy`, or ``None`` if it is not one.
+
+    Accepts an enum member or its plain string value (case- and
+    whitespace-insensitive) so a block author may declare ``on_new_input =
+    "replay"`` without importing the enum. Anything else — a typo, a number, a
+    dict — yields ``None`` so the caller can fall back rather than crash a run.
+    """
+    if isinstance(value, InteractionPolicy):
+        return value
+    if isinstance(value, str):
+        try:
+            return InteractionPolicy(value.strip().lower())
+        except ValueError:
+            return None
+    return None
+
+
+def resolve_interaction_policy(block: Any, config: Any) -> InteractionPolicy:
+    """Resolve the effective ``on_new_input`` policy for one interactive dispatch.
+
+    ADR-054 FR-044: the setting is declared on the block with a default and
+    overridable on the node. Precedence, highest first:
+
+    1. the node's override — ``config[ON_NEW_INPUT_KEY]`` or
+       ``config['params'][ON_NEW_INPUT_KEY]`` (block configs carry user fields
+       in either place, as they do for the memory record);
+    2. the value declared on the block class as ``on_new_input``;
+    3. :data:`DEFAULT_INTERACTION_POLICY` (``ask``).
+
+    An unrecognised value at either level is logged and skipped rather than
+    raised: a typo in a node config must not fail a workflow, and falling
+    through to ``ask`` only ever means the user is asked a question they could
+    otherwise have skipped.
+
+    Args:
+        block: The block instance being dispatched. Read for its declared
+            ``on_new_input``; a block that declares none (every block written
+            before ADR-054) contributes nothing.
+        config: The node's resolved configuration.
+
+    Returns:
+        The :class:`InteractionPolicy` the engine applies to this dispatch.
+    """
+    node_value: Any = None
+    if isinstance(config, dict):
+        node_value = config.get(ON_NEW_INPUT_KEY)
+        if node_value is None and isinstance(config.get("params"), dict):
+            node_value = config["params"].get(ON_NEW_INPUT_KEY)
+
+    for source, raw in (("node config", node_value), ("block", getattr(block, ON_NEW_INPUT_KEY, None))):
+        if raw is None:
+            continue
+        policy = _coerce_interaction_policy(raw)
+        if policy is not None:
+            return policy
+        logger.warning(
+            "Ignoring unrecognised %s %s=%r; expected one of %s (ADR-054 FR-044)",
+            source,
+            ON_NEW_INPUT_KEY,
+            raw,
+            [member.value for member in InteractionPolicy],
+        )
+    return DEFAULT_INTERACTION_POLICY
 
 
 def serialise_storage_ref(ref: StorageReference) -> dict[str, Any]:
@@ -414,7 +842,18 @@ def load_intermediate(config: BlockConfig | dict[str, Any]) -> tuple[StorageRefe
 # re-exported from the ``scistudio.blocks.base`` root (the canonical path).
 # Demoted to internal (deep-path importable, out of ``__all__``):
 # ``SupportsInteraction``, ``coerce_prompt``, ``serialise_storage_ref``,
+# ``deserialise_storage_ref``, ``INTERACTIVE_INTERMEDIATE_KEY``, and the FR-012
+# emission-settling group (``INTERACTIVE_EMISSION_KEY``,
+# ``InteractiveEmissionError``, ``is_panel_emission``,
+# ``settle_panel_emission``, ``settle_interactive_response``) — engine-facing,
+# called from ``scistudio.engine.scheduler._dispatch``.
 # ``deserialise_storage_ref``, ``INTERACTIVE_INTERMEDIATE_KEY``.
+# Internal by construction (ADR-054 FR-044, deep-path importable, out of
+# ``__all__`` because the ``scistudio.blocks.base`` root's surface is frozen by
+# the ADR-052 contract): ``InteractionPolicy``, ``ON_NEW_INPUT_KEY``,
+# ``DEFAULT_INTERACTION_POLICY``, ``resolve_interaction_policy``. The author
+# affordance is the ``InteractiveMixin.on_new_input`` attribute, which accepts a
+# bare ``"ask"``/``"replay"`` string and needs no import.
 __all__ = [
     "INTERACTIVE_RESPONSE_KEY",
     "PANEL_API_VERSION",

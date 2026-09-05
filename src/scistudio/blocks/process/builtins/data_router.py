@@ -19,6 +19,7 @@ from scistudio.blocks.base.interactive import (
 )
 from scistudio.blocks.base.state import ExecutionMode
 from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.panels import PanelCapability
 from scistudio.core.types.base import DataObject
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,7 @@ class DataRouter(InteractiveMixin, ProcessBlock):
     # the built-in panel registry (core panel; no wheel-served module_url).
     interactive_panel: ClassVar[PanelManifest] = PanelManifest(
         panel_id="core.interactive.data_router",
+        capability=PanelCapability.PRODUCING,
         version="1",
     )
     """Identifies the built-in UI panel the frontend opens when this block pauses."""

@@ -1,11 +1,18 @@
-"""Row dataclasses for the four lineage tables.
+"""Row dataclasses for the lineage tables.
 
-Each dataclass mirrors one of the four tables in the lineage database:
+Each dataclass mirrors one table in the lineage database:
 
 * :class:`RunRecord`             ↔ ``runs``
+* :class:`ExploreSessionRecord`  ↔ ``explore_sessions``
 * :class:`BlockExecutionRecord`  ↔ ``block_executions``
 * :class:`DataObjectRow`         ↔ ``data_objects``
 * :class:`BlockIORow`            ↔ ``block_io``
+
+``runs`` and ``explore_sessions`` are the two **anchors**; the three tables
+below them are shared. A block execution belongs to exactly one anchor, so a
+data object produced in an Explore session and consumed by a workflow run is
+one row in ``data_objects`` reachable from both sides (ADR-054 §4.1, "Lineage
+adds a table and reuses three").
 
 Object identity is the ``object_id`` carried in a ``DataObject``'s framework
 metadata, not a content digest. :class:`DataObjectRow` does keep a separate
@@ -17,6 +24,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+
+from scistudio.stability import provisional
 
 
 @dataclass
@@ -55,19 +64,81 @@ class RunRecord:
     """Optional free-form notes attached to the run."""
 
 
+@provisional(since="0.3.4")
+@dataclass
+class ExploreSessionRecord:
+    """One row in the ``explore_sessions`` table — a single Explore session.
+
+    ADR-054 FR-052. The table parallels ``runs`` field for field so that
+    everything below an anchor — block executions, data objects, io edges — is
+    the same code with a different foreign key:
+
+    ==========================  =========================
+    ``runs``                    ``explore_sessions``
+    ==========================  =========================
+    ``run_id``                  ``session_id``
+    ``workflow_id``             ``notebook_path``
+    ``workflow_yaml_snapshot``  ``notebook_snapshot``
+    ``workflow_git_commit``     ``notebook_git_commit``
+    ``started_at``              ``started_at``
+    ``finished_at``             ``finished_at``
+    ``status``                  ``status``
+    ``environment_snapshot``    ``environment_ref``
+    ``triggered_by``            ``opened_over``
+    ``parent_run_id``           ``bound_run_id``
+    ``provenance_degraded``     ``provenance_degraded``
+    ==========================  =========================
+
+    The one field that is not a rename is ``environment_ref``: FR-034 stores a
+    session's environment snapshot once per distinct environment and references
+    it from records, so this column holds the reference rather than the
+    snapshot. It is opaque to the store.
+    """
+
+    session_id: str
+    """Unique identifier for this session."""
+    notebook_path: str
+    """Project-relative path of the notebook the session opened."""
+    notebook_snapshot: str
+    """The notebook's content as captured when the session opened."""
+    started_at: str
+    """ISO-8601 timestamp of when the session opened."""
+    status: str
+    """Session status: one of ``"running"``, ``"closed"``, ``"failed"``, ``"crashed"``."""
+    environment_ref: str | None = None
+    """Reference to the stored environment snapshot (FR-034), or ``None`` when unrecorded."""
+    notebook_git_commit: str | None = None
+    """The session ref's commit (FR-028) as of the last cell run, or ``None``."""
+    opened_over: str = "file"
+    """What the session was opened over: ``"file"``, ``"block_outputs"``, or ``"paused_run"``."""
+    bound_run_id: str | None = None
+    """The run this session is bound to (a paused run, FR-046), else ``None``."""
+    finished_at: str | None = None
+    """ISO-8601 timestamp of when the session closed, or ``None`` while it is open."""
+    provenance_degraded: int = 0
+    """``1`` when one or more lineage writes for this session failed, else ``0``."""
+
+
 @dataclass
 class BlockExecutionRecord:
-    """One row in the ``block_executions`` table — one block within a run.
+    """One row in the ``block_executions`` table — one block within an anchor.
 
     Recorded when a block reaches a terminal state (done, error, cancelled, or
     skipped). ``block_config_resolved`` is the block's configuration after
     template expansion — the values the runner actually used.
+
+    The anchor is either a workflow run (``run_id``) or an Explore session
+    (``session_id``), and exactly one of the two is set — the database enforces
+    it. A session's rows are a cell run (ADR-054 FR-053, ``block_type``
+    ``"explore_cell"``, ``block_version`` the notebook commit) or a block called
+    from a cell (FR-051), and every run-scoped query keys on ``run_id``, so they
+    are invisible to the workflow surfaces by construction.
     """
 
     block_execution_id: str
     """Unique identifier for this block execution."""
-    run_id: str
-    """Identifier of the run this block belongs to."""
+    run_id: str | None
+    """Identifier of the run this block belongs to; ``None`` for a session-anchored row."""
     block_id: str
     """Identifier of the block within the workflow graph."""
     block_type: str
@@ -86,6 +157,10 @@ class BlockExecutionRecord:
     """Wall-clock duration of the block in milliseconds."""
     termination_detail: str = ""
     """Extra detail about the outcome (e.g. an error message); empty when none."""
+    session_id: str | None = None
+    """Identifier of the Explore session this block belongs to; ``None`` for a run-anchored row."""
+    environment_ref: str | None = None
+    """Reference to the stored environment snapshot (FR-034), or ``None`` when unrecorded."""
 
 
 @dataclass
@@ -125,18 +200,27 @@ class DataObjectRow:
 
 @dataclass
 class BlockIORow:
-    """One row in the ``block_io`` table — a port-to-DataObject edge for a run.
+    """One row in the ``block_io`` table — a port-to-DataObject edge.
 
     Each input or output of a block execution is one row. For a Collection
     port, each item is a separate row with an incrementing ``position``.
+
+    An Explore session adds one further direction,
+    :data:`~scistudio.core.lineage.store.DECLARED_OUTPUT_DIRECTION`, for an
+    object a cell named through ``scistudio.output`` (ADR-054 FR-055). It is a
+    third value rather than a flag on an ``"output"`` edge because a declaration
+    is not a port — it says the object must survive retention, not that it left
+    through a port of that name. Such an edge is only ever written on a
+    session-anchored execution, and every run-scoped read reaches its edges
+    through ``run_id``, so a declaration never appears on a workflow surface.
     """
 
     block_execution_id: str
     """The block execution this edge belongs to."""
     direction: str
-    """Whether the object was an ``"input"`` or an ``"output"`` of the block."""
+    """``"input"``, ``"output"``, or ``"declared_output"`` (a session's durable name)."""
     port_name: str
-    """Name of the port the object flowed through."""
+    """Name of the port the object flowed through, or the declared output's name."""
     object_id: str
     """Identifier of the data object on this edge."""
     position: int = 0

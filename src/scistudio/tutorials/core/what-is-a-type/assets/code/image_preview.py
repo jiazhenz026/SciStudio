@@ -252,7 +252,7 @@ def get_previewers() -> list[PreviewerSpec]:
             owner_kind=_OWNER_KIND,
             owner_name="project" if _OWNER_KIND is OwnerKind.PROJECT else "my-library",
             target_type="Image",
-            capabilities=("raster",),
+            features=("raster",),
             backend_provider=render_image,
         )
     ]

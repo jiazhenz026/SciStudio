@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Array &mdash; SciStudio panel</title>
+<!--
+  ADR-054 spec 1, T-009 (#2229) — the built-in Array panel.
+
+  Replaces the ArrayViewer, ArrayHeatmapTable and ArrayLegend in
+  frontend/src/components/DataPreview.parts/coreViewers.tsx. Renders the
+  `core.array.basic` provider's ARRAY envelope: the shape/dtype/axes bar, a
+  scalar value, a 1-D line chart, or the PyCharm-style numeric heatmap table
+  (actual values, per-cell colormap, min..max legend), plus one index picker per
+  non-displayed axis.
+
+  Strictly generic numeric inspection (FR-013/FR-014): no image-domain
+  LUT/OME/channel/label semantics — those belong to the imaging package.
+
+  FR-034 / A-004: strictly self-contained. Markup, styles and script in one
+  file — no <script src>, no <link rel=stylesheet>, no shared runtime import, no
+  CDN. The 1-D chart is drawn as inline SVG rather than through the React
+  viewer's plotly dependency, because a self-contained document may not pull a
+  charting library from anywhere.
+
+  Outbound: a *displaying* panel emits nothing (ADR-054 3.6). A slice change
+  leaves as `read`, whose payload is a patch of this panel's own query state and
+  nothing else (D-017): { axis_indices, slice_index }.
+-->
+<style>
+  :root {
+    --ink: #1c211b;
+    --ember: #f06a44;
+    --amber-border: #fcd34d;
+    --amber-bg: #fffbeb;
+    --amber-text: #92400e;
+    --danger: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--ink);
+    font: 12px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  body { padding: 8px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .info {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(28, 33, 27, 0.1);
+    border-radius: 1rem;
+    background: #fff;
+    padding: 8px 12px;
+    font-size: 11px;
+    color: rgba(28, 33, 27, 0.7);
+  }
+  .info .label { font-weight: 500; color: var(--ink); }
+  .scalar {
+    border: 1px solid rgba(28, 33, 27, 0.1);
+    border-radius: 1rem;
+    background: #fff;
+    padding: 16px;
+    font-size: 13px;
+  }
+  .banner {
+    border: 1px solid var(--amber-border);
+    background: var(--amber-bg);
+    color: var(--amber-text);
+    border-radius: 1rem;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+  .banner p { margin: 0 0 4px; }
+  .banner p:last-child { margin-bottom: 0; }
+  .error {
+    border: 1px solid rgba(179, 38, 30, 0.3);
+    background: rgba(179, 38, 30, 0.08);
+    color: var(--danger);
+    border-radius: 1rem;
+    padding: 12px;
+  }
+  .grid-scroll {
+    max-height: 320px;
+    overflow: auto;
+    border: 1px solid rgba(28, 33, 27, 0.1);
+    border-radius: 0.8rem;
+    background: #fff;
+  }
+  table { border-collapse: collapse; font-size: 10px; font-variant-numeric: tabular-nums; }
+  th {
+    position: sticky;
+    top: 0;
+    background: rgba(28, 33, 27, 0.1);
+    color: rgba(28, 33, 27, 0.45);
+    font-weight: 400;
+    padding: 1px 4px;
+  }
+  th.row-head { position: sticky; left: 0; top: auto; z-index: 2; }
+  thead th.corner { left: 0; z-index: 3; }
+  td { white-space: nowrap; padding: 1px 4px; text-align: right; }
+  .grid-info { font-size: 10px; color: rgba(28, 33, 27, 0.45); }
+  .legend { display: flex; align-items: center; gap: 8px; font-size: 10px; color: rgba(28, 33, 27, 0.6); }
+  .legend .ramp { height: 8px; flex: 1; border-radius: 4px; }
+  .slice-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: rgba(28, 33, 27, 0.7); }
+  .slice-row .name { width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .slice-row input[type="range"] { flex: 1; }
+  .slice-row input[type="number"] {
+    width: 64px;
+    font: inherit;
+    text-align: right;
+    border: 1px solid rgba(28, 33, 27, 0.15);
+    border-radius: 4px;
+    padding: 1px 4px;
+  }
+  .slice-row .count { width: 52px; text-align: right; }
+  .badges { display: flex; flex-wrap: wrap; gap: 4px; }
+  .badge {
+    border-radius: 999px;
+    background: #fef3c7;
+    color: var(--amber-text);
+    padding: 1px 8px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .muted { color: rgba(28, 33, 27, 0.6); }
+  .chart { width: 100%; height: 220px; display: block; }
+</style>
+</head>
+<body>
+<div class="stack" id="root">
+  <p class="muted">Waiting for the host&hellip;</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------------- */
+  /* The D-011 envelope. Duplicated per FR-034; do not factor it out.        */
+  /* ---------------------------------------------------------------------- */
+
+  var PANEL_MESSAGE_MARKER = 1;
+  var PANEL_API_VERSION = "1";
+
+  var token = null;
+  var context = null;
+  var requestSeq = 0;
+  var pending = Object.create(null);
+  var torndown = false;
+
+  function post(type, payload) {
+    if (token === null || torndown) return false;
+    try {
+      window.parent.postMessage(
+        { scistudio_panel: PANEL_MESSAGE_MARKER, token: token, type: type, payload: payload },
+        "*"
+      );
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function reportError(message, detail) {
+    post("error", { message: String(message), detail: detail || null });
+  }
+
+  /**
+   * One bounded request/response round trip. The three outbound request types
+   * differ in what they ask for, not in how they are answered (D-017): each
+   * carries a request id, and the host answers with the matching `*_result` or
+   * with an `error` carrying the same id (D-016), so a failed request ends here
+   * rather than waiting out a timeout of its own.
+   */
+  function request(type, body) {
+    return new Promise(function (resolve, reject) {
+      requestSeq += 1;
+      var id = "r" + requestSeq;
+      pending[id] = { resolve: resolve, reject: reject };
+      var payload = { request_id: id };
+      Object.keys(body).forEach(function (key) { payload[key] = body[key]; });
+      if (!post(type, payload)) {
+        delete pending[id];
+        reject(new Error("the host could not be reached"));
+      }
+    });
+  }
+
+  function settle(id, value) {
+    var waiting = pending[id];
+    if (!waiting) return false;
+    delete pending[id];
+    waiting.resolve(value);
+    return true;
+  }
+
+  function failRequest(id, message) {
+    var waiting = pending[id];
+    if (!waiting) return false;
+    delete pending[id];
+    waiting.reject(new Error(message));
+    return true;
+  }
+
+  /**
+   * `read` — a patch of this panel's *own query state* and nothing else
+   * (D-017): the page, the sort, the slice indices. It carries no action; what
+   * the host does with a read is settled by the message type, not by a field
+   * inside it.
+   */
+  function read(query) {
+    return request("read", { query: query });
+  }
+
+  function envelopeOf(value) {
+    var empty = { payload: {}, metadata: {}, resources: [], diagnostics: [], error: null };
+    if (!value || typeof value !== "object") return empty;
+    if (value.payload && typeof value.payload === "object") {
+      return {
+        payload: value.payload,
+        metadata: value.metadata && typeof value.metadata === "object" ? value.metadata : {},
+        resources: Array.isArray(value.resources) ? value.resources : [],
+        diagnostics: Array.isArray(value.diagnostics) ? value.diagnostics : [],
+        error: value.error && typeof value.error === "object" ? value.error : null
+      };
+    }
+    return {
+      payload: value,
+      metadata: {},
+      resources: [],
+      diagnostics: [],
+      error: value.error && typeof value.error === "object" ? value.error : null
+    };
+  }
+
+  function asString(value, fallback) {
+    return typeof value === "string" ? value : fallback === undefined ? "" : fallback;
+  }
+
+  function asNumber(value, fallback) {
+    return typeof value === "number" && isFinite(value) ? value : fallback;
+  }
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  function badges(metadata) {
+    var flags = [
+      ["sampled", metadata.sampled],
+      ["truncated", metadata.truncated],
+      ["cached", metadata.cached],
+      ["derived", metadata.derived],
+      ["incomplete", metadata.complete === false]
+    ];
+    var active = flags.filter(function (entry) { return entry[1] === true; });
+    if (active.length === 0) return null;
+    var box = el("div", "badges");
+    active.forEach(function (entry) { box.appendChild(el("span", "badge", entry[0])); });
+    return box;
+  }
+
+  function diagnosticsBanner(diagnostics) {
+    if (!diagnostics || diagnostics.length === 0) return null;
+    var box = el("div", "banner");
+    box.setAttribute("role", "status");
+    diagnostics.forEach(function (line) { box.appendChild(el("p", null, line)); });
+    return box;
+  }
+
+  function errorCard(error) {
+    var box = el("div", "error");
+    box.setAttribute("role", "alert");
+    box.appendChild(el("p", null, "Array preview failed"));
+    if (error && error.code) box.appendChild(el("p", "muted", String(error.code)));
+    box.appendChild(el("p", null, error && error.message ? String(error.message) : "An unknown error occurred."));
+    return box;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Numeric rendering                                                       */
+  /* ---------------------------------------------------------------------- */
+
+  var current = envelopeOf(null);
+  var selection = Object.create(null);
+
+  /** ``null`` is how the provider encodes a non-finite cell. */
+  function formatCell(value) {
+    if (value === null || value === undefined) return "—";
+    if (typeof value !== "number") return String(value);
+    if (!isFinite(value)) return isNaN(value) ? "NaN" : value > 0 ? "∞" : "-∞";
+    if (value === 0) return "0";
+    var abs = Math.abs(value);
+    if (Number.isInteger(value) && abs < 1e6) return String(value);
+    if (abs >= 1e5 || abs < 1e-3) return value.toExponential(2);
+    return value.toFixed(3);
+  }
+
+  /**
+   * Diverging blue→white→red for a signed extent (negatives stay distinct and
+   * are never clipped), sequential light→dark teal otherwise.
+   */
+  function heatmapColor(value, vmin, vmax) {
+    if (value === null || typeof value !== "number" || !isFinite(value)) return "transparent";
+    function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
+    if (vmin < 0 && vmax > 0) {
+      var mag = Math.max(Math.abs(vmin), Math.abs(vmax)) || 1;
+      var t = Math.max(-1, Math.min(1, value / mag));
+      if (t < 0) {
+        var k = -t;
+        return "rgb(" + lerp(247, 33, k) + ", " + lerp(247, 102, k) + ", " + lerp(247, 172, k) + ")";
+      }
+      return "rgb(" + lerp(247, 178, t) + ", " + lerp(247, 24, t) + ", " + lerp(247, 43, t) + ")";
+    }
+    var span = vmax - vmin || 1;
+    var s = Math.max(0, Math.min(1, (value - vmin) / span));
+    return "rgb(" + lerp(247, 8, s) + ", " + lerp(252, 64, s) + ", " + lerp(253, 129, s) + ")";
+  }
+
+  function cellTextColor(value, vmin, vmax) {
+    if (value === null || typeof value !== "number" || !isFinite(value)) return "rgba(28, 33, 27, 0.4)";
+    var diverging = vmin < 0 && vmax > 0;
+    var mag = diverging ? Math.max(Math.abs(vmin), Math.abs(vmax)) || 1 : vmax - vmin || 1;
+    var intensity = diverging ? Math.abs(value) / mag : (value - vmin) / mag;
+    return intensity > 0.6 ? "#fffdf8" : "rgb(28, 33, 27)";
+  }
+
+  function to2D(matrix) {
+    if (!Array.isArray(matrix) || matrix.length === 0) return [];
+    if (Array.isArray(matrix[0])) return matrix;
+    return [matrix];
+  }
+
+  function resolveExtent(payload, matrix2d) {
+    var lo = payload.vmin;
+    var hi = payload.vmax;
+    if (typeof lo === "number" && typeof hi === "number" && isFinite(lo) && isFinite(hi)) {
+      return { vmin: lo, vmax: hi };
+    }
+    var min = Infinity;
+    var max = -Infinity;
+    matrix2d.forEach(function (row) {
+      (row || []).forEach(function (value) {
+        if (typeof value === "number" && isFinite(value)) {
+          if (value < min) min = value;
+          if (value > max) max = value;
+        }
+      });
+    });
+    if (!isFinite(min) || !isFinite(max)) return { vmin: 0, vmax: 1 };
+    return { vmin: min, vmax: max };
+  }
+
+  function sliceAxesOf(payload) {
+    if (!Array.isArray(payload.slice_axes)) return [];
+    return payload.slice_axes
+      .map(function (entry) {
+        var record = entry && typeof entry === "object" ? entry : {};
+        return {
+          axis: asNumber(record.axis, -1),
+          name: asString(record.name, "axis"),
+          size: asNumber(record.size, 0),
+          index: asNumber(record.index, 0)
+        };
+      })
+      .filter(function (axis) { return axis.axis >= 0 && axis.size > 0; });
+  }
+
+  function clampIndex(value, size) {
+    if (typeof value !== "number" || !isFinite(value)) return 0;
+    return Math.max(0, Math.min(Math.trunc(value), size - 1));
+  }
+
+  /** A 1-D trace, drawn as inline SVG: a self-contained document loads no library. */
+  function lineChart(values) {
+    var svgNs = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(svgNs, "svg");
+    svg.setAttribute("class", "chart");
+    svg.setAttribute("viewBox", "0 0 600 220");
+    svg.setAttribute("preserveAspectRatio", "none");
+    var finite = values.filter(function (v) { return typeof v === "number" && isFinite(v); });
+    var min = finite.length ? Math.min.apply(null, finite) : 0;
+    var max = finite.length ? Math.max.apply(null, finite) : 1;
+    var span = max - min || 1;
+    var step = values.length > 1 ? 580 / (values.length - 1) : 0;
+    var points = [];
+    values.forEach(function (value, index) {
+      if (typeof value !== "number" || !isFinite(value)) return;
+      var x = 10 + index * step;
+      var y = 205 - ((value - min) / span) * 190;
+      points.push(x.toFixed(2) + "," + y.toFixed(2));
+    });
+    var axis = document.createElementNS(svgNs, "line");
+    axis.setAttribute("x1", "10");
+    axis.setAttribute("y1", "205");
+    axis.setAttribute("x2", "590");
+    axis.setAttribute("y2", "205");
+    axis.setAttribute("stroke", "rgba(28,33,27,0.15)");
+    svg.appendChild(axis);
+    var path = document.createElementNS(svgNs, "polyline");
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", "#f06a44");
+    path.setAttribute("stroke-width", "1.5");
+    path.setAttribute("points", points.join(" "));
+    svg.appendChild(path);
+    var label = document.createElementNS(svgNs, "title");
+    label.textContent = values.length + " values, " + formatCell(min) + " .. " + formatCell(max);
+    svg.appendChild(label);
+    return svg;
+  }
+
+  function heatmapTable(matrix2d, vmin, vmax, shape) {
+    var rows = matrix2d.length;
+    var cols = rows > 0 && Array.isArray(matrix2d[0]) ? matrix2d[0].length : 0;
+    var box = el("div", null);
+    var scroll = el("div", "grid-scroll");
+    var table = document.createElement("table");
+
+    var thead = document.createElement("thead");
+    var headRow = document.createElement("tr");
+    headRow.appendChild(el("th", "corner", ""));
+    for (var c = 0; c < cols; c += 1) headRow.appendChild(el("th", null, c));
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    var tbody = document.createElement("tbody");
+    matrix2d.forEach(function (row, r) {
+      var tr = document.createElement("tr");
+      tr.appendChild(el("th", "row-head", r));
+      (row || []).forEach(function (value) {
+        var td = el("td", null, formatCell(value));
+        td.setAttribute("title", value === null ? "non-finite" : String(value));
+        td.style.backgroundColor = heatmapColor(value, vmin, vmax);
+        td.style.color = cellTextColor(value, vmin, vmax);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    scroll.appendChild(table);
+    box.appendChild(scroll);
+    box.appendChild(
+      el(
+        "div",
+        "grid-info",
+        (shape.length ? shape.join(" × ") + " | " : "") + "displaying " + rows + " × " + cols
+      )
+    );
+    return box;
+  }
+
+  function legend(vmin, vmax) {
+    var stops = [];
+    for (var i = 0; i < 9; i += 1) {
+      stops.push(heatmapColor(vmin + ((vmax - vmin) * i) / 8, vmin, vmax));
+    }
+    var box = el("div", "legend");
+    box.appendChild(el("span", null, formatCell(vmin)));
+    var ramp = el("div", "ramp");
+    ramp.style.background = "linear-gradient(to right, " + stops.join(", ") + ")";
+    box.appendChild(ramp);
+    box.appendChild(el("span", null, formatCell(vmin < 0 && vmax > 0 ? 0 : (vmin + vmax) / 2)));
+    box.appendChild(el("span", null, formatCell(vmax)));
+    return box;
+  }
+
+  /** Push a slice selection to the provider; it echoes the clamped choice back. */
+  function changeAxis(axis, index) {
+    var axes = sliceAxesOf(current.payload);
+    selection[axis] = index;
+    var axisIndices = {};
+    Object.keys(selection).forEach(function (key) { axisIndices[key] = selection[key]; });
+    var query = { axis_indices: axisIndices };
+    if (axes.length > 0 && axis === axes[0].axis) query.slice_index = index;
+    render();
+    read(query).then(
+      function (window_) {
+        current = envelopeOf(window_);
+        syncSelection();
+        render();
+      },
+      function (err) {
+        reportError("the array slice could not be read: " + err.message, { axis: axis, index: index });
+      }
+    );
+  }
+
+  function syncSelection() {
+    selection = Object.create(null);
+    sliceAxesOf(current.payload).forEach(function (axis) { selection[axis.axis] = axis.index; });
+  }
+
+  function render() {
+    var root = document.getElementById("root");
+    root.textContent = "";
+
+    if (current.error) {
+      root.appendChild(errorCard(current.error));
+      return;
+    }
+
+    var diag = diagnosticsBanner(current.diagnostics);
+    if (diag) root.appendChild(diag);
+
+    var payload = current.payload;
+    var shape = Array.isArray(payload.shape) ? payload.shape : [];
+    var axes = Array.isArray(payload.axes) ? payload.axes : [];
+    var ndim = asNumber(payload.ndim, shape.length);
+    var matrix = payload.matrix !== undefined ? payload.matrix : payload.thumbnail;
+    var matrix2d = to2D(matrix);
+    var extent = resolveExtent(payload, matrix2d);
+
+    var info = el("div", "info");
+    info.appendChild(el("span", "label", "Array"));
+    info.appendChild(el("span", null, "shape [" + shape.join(", ") + "]"));
+    info.appendChild(el("span", null, "dtype " + asString(payload.dtype, "?")));
+    if (axes.length > 0) info.appendChild(el("span", null, "axes [" + axes.join(", ") + "]"));
+    root.appendChild(info);
+
+    if (ndim === 0 || shape.length === 0) {
+      var first = Array.isArray(matrix) ? (Array.isArray(matrix[0]) ? matrix[0][0] : matrix[0]) : undefined;
+      root.appendChild(el("div", "scalar", first === undefined || first === null ? "" : String(first)));
+    } else if (ndim === 1) {
+      var row = matrix2d.length > 0 ? matrix2d[0] : [];
+      root.appendChild(lineChart(row.map(function (v) { return typeof v === "number" ? v : NaN; })));
+    } else {
+      root.appendChild(heatmapTable(matrix2d, extent.vmin, extent.vmax, shape));
+      root.appendChild(legend(extent.vmin, extent.vmax));
+    }
+
+    var sliceAxes = sliceAxesOf(payload);
+    if (sliceAxes.length > 0) {
+      var box = el("div", "stack");
+      sliceAxes.forEach(function (axis) {
+        var value = selection[axis.axis] !== undefined ? selection[axis.axis] : axis.index;
+        var row2 = el("div", "slice-row");
+        row2.appendChild(el("span", "name", axis.name + " (" + axis.size + ")"));
+
+        var slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = "0";
+        slider.max = String(axis.size - 1);
+        slider.value = String(value);
+        slider.setAttribute("aria-label", "Slice along " + axis.name);
+        slider.addEventListener("change", function () {
+          changeAxis(axis.axis, clampIndex(Number(slider.value), axis.size));
+        });
+        row2.appendChild(slider);
+
+        var number = document.createElement("input");
+        number.type = "number";
+        number.min = "0";
+        number.max = String(axis.size - 1);
+        number.value = String(value);
+        number.setAttribute("aria-label", "Index along " + axis.name);
+        number.addEventListener("change", function () {
+          changeAxis(axis.axis, clampIndex(Number(number.value), axis.size));
+        });
+        row2.appendChild(number);
+
+        row2.appendChild(el("span", "count", value + 1 + "/" + axis.size));
+        box.appendChild(row2);
+      });
+      root.appendChild(box);
+    }
+
+    var chips = badges(current.metadata);
+    if (chips) root.appendChild(chips);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The handshake                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  function onMessage(event) {
+    var data = event.data;
+    if (!data || typeof data !== "object") return;
+    if (data.scistudio_panel !== PANEL_MESSAGE_MARKER) return;
+    if (typeof data.type !== "string") return;
+    var payload = data.payload && typeof data.payload === "object" ? data.payload : {};
+
+    if (token === null) {
+      if (data.type !== "init" || typeof data.token !== "string" || data.token === "") return;
+      token = data.token;
+      context = payload;
+      current = envelopeOf(payload.target);
+      syncSelection();
+      post("ready", { api_version: PANEL_API_VERSION });
+      render();
+      return;
+    }
+
+    if (data.token !== token) return;
+
+    switch (data.type) {
+      case "update":
+        if (payload.changed && typeof payload.changed === "object" && "target" in payload.changed) {
+          current = envelopeOf(payload.changed.target);
+          syncSelection();
+          render();
+        }
+        break;
+      case "read_result":
+        settle(payload.request_id, payload.window);
+        break;
+      case "error": {
+        var id = payload.request_id;
+        if (typeof id === "string" && failRequest(id, asString(payload.message, "the request failed"))) {
+          break;
+        }
+        current = {
+          payload: current.payload,
+          metadata: current.metadata,
+          resources: current.resources,
+          diagnostics: current.diagnostics,
+          error: { code: asString(payload.code, "host_error"), message: asString(payload.message) }
+        };
+        render();
+        break;
+      }
+      case "state_request":
+        post("state", { state: { selection: selection } });
+        break;
+      case "teardown":
+        torndown = true;
+        window.removeEventListener("message", onMessage);
+        break;
+      default:
+        break;
+    }
+  }
+
+  window.addEventListener("message", onMessage);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "panel_id": "core.dataframe.basic",
+  "display_name": "Table",
+  "target_types": ["DataFrame"],
+  "capability": "displaying",
+  "entry": "index.html",
+  "api_version": "1",
+  "features": ["table", "page", "sort"],
+  "priority": 0,
+  "supports_collection": false,
+  "provider": "scistudio.panels.fallbacks:dataframe_panel"
+}

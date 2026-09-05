@@ -5,7 +5,7 @@ Two entry points create projects — ``ApiRuntime.create_project`` (the GUI's
 they each carried their own hand-written list. They had already drifted: the
 CLI omitted ``data/processed`` while claiming in a comment to be "Symmetric
 with ``api/runtime.py::create_project``", and neither created the drop-in
-directories for previewers or tutorials even though both tiers are discovered
+directories for panels or tutorials even though both tiers are discovered
 from a project (:mod:`scistudio.core.dropins`).
 
 The drop-in directory names are imported from :mod:`scistudio.core.dropins`
@@ -27,7 +27,18 @@ from scistudio.core.dropins import (
     TYPES_DIR_NAME,
 )
 
-__all__ = ["DATA_SUBDIRS", "DROPIN_SUBDIRS", "PROJECT_SUBDIRS"]
+__all__ = ["DATA_SUBDIRS", "DROPIN_SUBDIRS", "EXPLORE_DIR_NAME", "PROJECT_SUBDIRS"]
+
+#: Where ADR-054 Explore session notebooks live (spec 3 FR-001, A-003).
+#:
+#: Spelled here and in :data:`scistudio.explore.session.EXPLORE_DIR_NAME`, which
+#: is the one place in this module that respells a name instead of importing it.
+#: It has to: the explore subsystem must not import the API layer (spec 3
+#: FR-008), and importing the session service here would make ``scistudio init``
+#: — a fast mkdir command — pay for ``jupyter_client``. The two spellings are
+#: pinned together by a test in ``tests/explore/test_explore_session.py``, so the
+#: folder a project offers and the folder a session opens in cannot drift.
+EXPLORE_DIR_NAME: str = "explore"
 
 #: Where data lives inside a project.
 #:
@@ -67,6 +78,7 @@ PROJECT_SUBDIRS: tuple[str, ...] = (
     "workflows",
     *DATA_SUBDIRS,
     *DROPIN_SUBDIRS,
+    EXPLORE_DIR_NAME,
     ".scistudio",
     "logs",
 )

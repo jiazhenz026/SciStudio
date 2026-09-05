@@ -34,8 +34,8 @@ CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.blocks.io",
     "scistudio.blocks.app",
     "scistudio.blocks.code",
-    "scistudio.previewers.models",
-    "scistudio.previewers.data_access",
+    "scistudio.panels.models",
+    "scistudio.panels.data_access",
 )
 
 _BASELINE_SINCE = "0.3.1"
@@ -53,10 +53,10 @@ NON_MARKABLE_PUBLIC_SYMBOLS: frozenset[tuple[str, str]] = frozenset(
         ("scistudio.blocks.io", "CapabilityDirection"),
         ("scistudio.blocks.io", "MetadataFidelityLevel"),
         ("scistudio.blocks.code", "InterpreterFamily"),
-        ("scistudio.previewers.models", "PREVIEWER_API_VERSION"),
-        ("scistudio.previewers.models", "PreviewProvider"),
-        ("scistudio.previewers.models", "PreviewResourceProvider"),
-        ("scistudio.previewers.models", "PreviewerSpecList"),
+        ("scistudio.panels.models", "PANEL_API_VERSION"),
+        ("scistudio.panels.models", "PreviewProvider"),
+        ("scistudio.panels.models", "PreviewResourceProvider"),
+        ("scistudio.panels.models", "PanelSpecList"),
     }
 )
 
@@ -109,8 +109,8 @@ def test_representative_tiers_match_the_contract() -> None:
         ("scistudio.blocks.io", "IOBlock", "stable"),
         ("scistudio.blocks.app", "AppBlock", "provisional"),
         ("scistudio.blocks.code", "CodeBlock", "provisional"),
-        ("scistudio.previewers.models", "PreviewerSpec", "provisional"),
-        ("scistudio.previewers.data_access", "PreviewDataAccess", "provisional"),
+        ("scistudio.panels.models", "PanelSpec", "provisional"),
+        ("scistudio.panels.data_access", "PreviewDataAccess", "provisional"),
     ]
     wrong: list[str] = []
     for root, symbol, expected_tier in cases:

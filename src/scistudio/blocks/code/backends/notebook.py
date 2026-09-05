@@ -1,15 +1,32 @@
-"""Backend that runs Jupyter notebook Code Block scripts."""
+"""Backend that runs Jupyter notebook Code Block scripts.
+
+A Code Block whose script is a ``.ipynb`` runs the whole notebook through
+``nbconvert``. ADR-054 FR-040 adds one thing to that and changes nothing else:
+a **cell selection**. A block packaged from an exploration notebook must run the
+backward slice of the notebook's declared outputs and nothing else, so this
+backend materialises the selected cells — in the notebook's written order — as
+the run-scoped notebook ``nbconvert`` executes, and leaves the packaged copy on
+disk untouched.
+
+The selection is optional and arrives as a hint on the Code Block's
+``environment`` mapping under :data:`NOTEBOOK_CELL_SELECTION_KEY`. A Code Block
+that carries none behaves exactly as it did before: the whole notebook is
+copied and executed.
+"""
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
+from typing import Any
 
 from scistudio.blocks.code.code_block import (
     CodeBlockRuntimeContext,
+    codeblock_exchange_env,
     register_codeblock_backend,
     run_codeblock_process,
 )
@@ -20,6 +37,25 @@ from scistudio.stability import provisional
 
 _EXECUTED_NOTEBOOK_PORT = "_executed_notebook"
 _NOTEBOOK_MIME_TYPE = "application/x-ipynb+json"
+
+#: Key under the Code Block's ``environment`` mapping that carries the ordered
+#: cell ids this run must execute (ADR-054 FR-040).
+#:
+#: A packaged notebook block writes it; every other Code Block leaves it out and
+#: is unaffected. The value is a sequence of nbformat 4.5 cell ids; the order
+#: written here is not the execution order — the notebook's own written order
+#: is (FR-040), so a caller cannot reorder a notebook by permuting this list.
+NOTEBOOK_CELL_SELECTION_KEY = "notebook_cell_selection"
+
+#: Environment variable set for a run that carries a cell selection.
+#:
+#: The notebook helpers read it to choose their packaged-mode backend — reading
+#: and writing the exchange folders — over the session-mode one that talks to a
+#: live kernel. A notebook run with no selection never sees it.
+NOTEBOOK_MODE_ENV_VAR = "SCISTUDIO_NOTEBOOK_MODE"
+
+#: Value of :data:`NOTEBOOK_MODE_ENV_VAR` for a packaged run.
+PACKAGED_NOTEBOOK_MODE = "packaged"
 
 
 @provisional(since="0.3.1")
@@ -79,7 +115,7 @@ class NotebookCodeBlockBackend:
             executable=executable,
             argv=argv,
             working_directory=script_cwd.as_posix(),
-            environment=_environment_delta(context.environment_config),
+            environment=notebook_run_environment(context),
             version=version,
             warnings=warnings,
         )
@@ -89,10 +125,25 @@ class NotebookCodeBlockBackend:
         context: CodeBlockRuntimeContext,
         interpreter: ResolvedInterpreter,
     ) -> subprocess.CompletedProcess[str]:
-        """Execute the notebook in place and return the finished process."""
+        """Execute the notebook in place and return the finished process.
+
+        The notebook is copied to the framework-managed executed-notebook path
+        and run there, so the script on disk is never modified. When the run
+        carries a cell selection (ADR-054 FR-040) the copy is the slice rather
+        than the whole notebook, which is what makes a packaged block run the
+        cells the dependency graph selected and nothing else.
+        """
         target = executed_notebook_path(context)
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(context.script_path, target)
+        selection = notebook_cell_selection(context.environment_config)
+        if selection is None:
+            shutil.copy2(context.script_path, target)
+        else:
+            document = _read_notebook_document(context.script_path)
+            target.write_text(
+                json.dumps(select_notebook_cells(document, selection), indent=1) + "\n",
+                encoding="utf-8",
+            )
         # ADR-041 §4: keep the subprocess cwd aligned with the resolved
         # working directory used by ``resolve()`` so nbconvert and its
         # spawned kernel share the same launch directory.
@@ -126,6 +177,136 @@ class NotebookCodeBlockBackend:
             "Notebook CodeBlock backend requires Jupyter nbconvert. Install the optional Jupyter tooling "
             "or set interpreter_mode='existing' with an executable path."
         )
+
+
+@provisional(since="0.3.4")
+def notebook_run_environment(context: CodeBlockRuntimeContext) -> dict[str, str]:
+    """Return the environment variables one notebook run is launched with.
+
+    A notebook exchanges data through the same folders every other Code Block
+    script does, so it gets the same ``SCISTUDIO_*`` variables the Python and R
+    backends inject. ADR-054 FR-040's packaged mode is what made the omission
+    visible: a packaged notebook reads its declared input ports and writes its
+    declared output ports, and it locates both through these variables. Adding
+    them is additive — an existing notebook that ignores them runs as before.
+
+    A run that carries a cell selection is additionally marked packaged, which
+    is how the notebook helpers choose their file-exchange backend over the
+    session-mode one that talks to a live kernel.
+
+    Args:
+        context: The run's context.
+
+    Returns:
+        The environment delta layered over the current process environment.
+    """
+    environment = {
+        **_environment_delta(context.environment_config),
+        **codeblock_exchange_env(context),
+    }
+    if notebook_cell_selection(context.environment_config) is not None:
+        environment[NOTEBOOK_MODE_ENV_VAR] = PACKAGED_NOTEBOOK_MODE
+    return environment
+
+
+@provisional(since="0.3.4")
+def notebook_cell_selection(environment_config: Mapping[str, Any]) -> tuple[str, ...] | None:
+    """Return the ordered cell ids this run must execute, or ``None`` for all of them.
+
+    ADR-054 FR-040. The selection is read from the Code Block's ``environment``
+    hints under :data:`NOTEBOOK_CELL_SELECTION_KEY`. ``None`` means the config
+    carries no selection at all and the whole notebook runs — the behaviour of
+    every Code Block written before packaging existed.
+
+    An **empty** selection is not the same thing as an absent one: it says "run
+    no cells", which is never what a packaged block wants, so it is rejected
+    rather than silently widened to the whole notebook.
+
+    Args:
+        environment_config: The run's interpreter and environment hints.
+
+    Returns:
+        The selected cell ids as written in the config, or ``None``.
+
+    Raises:
+        CodeBlockConfigError: If the value is present but is not a list of
+            non-empty strings, or is an empty list.
+    """
+    raw = environment_config.get(NOTEBOOK_CELL_SELECTION_KEY)
+    if raw is None:
+        return None
+    if isinstance(raw, str) or not isinstance(raw, Sequence):
+        raise CodeBlockConfigError(
+            f"{NOTEBOOK_CELL_SELECTION_KEY} must be a list of notebook cell ids, got {type(raw).__name__}."
+        )
+    selection: list[str] = []
+    for entry in raw:
+        if not isinstance(entry, str) or not entry.strip():
+            raise CodeBlockConfigError(
+                f"{NOTEBOOK_CELL_SELECTION_KEY} must contain non-empty cell id strings, got {entry!r}."
+            )
+        selection.append(entry)
+    if not selection:
+        raise CodeBlockConfigError(
+            f"{NOTEBOOK_CELL_SELECTION_KEY} is empty, which would run no cells at all. "
+            f"Omit the key to run the whole notebook."
+        )
+    return tuple(selection)
+
+
+@provisional(since="0.3.4")
+def select_notebook_cells(document: Mapping[str, Any], selection: Sequence[str]) -> dict[str, Any]:
+    """Return *document* reduced to *selection*, in the notebook's written order.
+
+    ADR-054 FR-040. Everything outside the cell list — the notebook metadata,
+    the kernelspec, the nbformat version — is carried through unchanged, because
+    the slice has to launch the same kernel the whole notebook would.
+
+    Written order is the notebook's, not the caller's: the returned cells appear
+    in the order the file has them regardless of the order *selection* lists
+    them, so a selection can never reorder a notebook. That matters because the
+    dependency graph's slice is only correct under written order.
+
+    Args:
+        document: A parsed ``.ipynb`` mapping.
+        selection: The cell ids to keep. Duplicates are ignored.
+
+    Returns:
+        A new notebook mapping holding only the selected cells.
+
+    Raises:
+        CodeBlockConfigError: If the document has no cell list, or a selected
+            cell id is not in it — naming the ids that are missing, because a
+            selection that silently loses a cell would run a different program
+            than the one that was packaged.
+    """
+    cells = document.get("cells")
+    if not isinstance(cells, list):
+        raise CodeBlockConfigError("Notebook has no 'cells' list; it cannot be sliced for a packaged run.")
+
+    wanted = set(selection)
+    kept = [cell for cell in cells if isinstance(cell, dict) and cell.get("id") in wanted]
+    found = {cell.get("id") for cell in kept}
+    missing = [cell_id for cell_id in dict.fromkeys(selection) if cell_id not in found]
+    if missing:
+        raise CodeBlockConfigError(
+            f"Notebook cell selection names {len(missing)} cell(s) the notebook does not contain: {', '.join(missing)}."
+        )
+
+    sliced = dict(document)
+    sliced["cells"] = kept
+    return sliced
+
+
+def _read_notebook_document(path: Path) -> dict[str, Any]:
+    """Parse a ``.ipynb`` into its JSON mapping, or raise a configuration error."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise CodeBlockConfigError(f"Could not read the notebook at {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise CodeBlockConfigError(f"Notebook at {path} is not a JSON object.")
+    return payload
 
 
 def executed_notebook_path(context: CodeBlockRuntimeContext) -> Path:

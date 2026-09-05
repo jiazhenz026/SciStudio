@@ -467,7 +467,7 @@ class DataOpenAsListResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# ADR-048 SPEC 1: routed previewer session API schemas.
+# ADR-048 SPEC 1: routed panel session API schemas.
 #
 # These mirror the canonical ``scistudio.previewers`` models on the wire. The
 # legacy one-shot ``DataPreviewResponse`` REST-preview body and its
@@ -477,7 +477,7 @@ class DataOpenAsListResponse(BaseModel):
 
 
 class PreviewTargetModel(BaseModel):
-    """Wire shape of a previewer :class:`PreviewTarget`."""
+    """Wire shape of a panel :class:`PreviewTarget`."""
 
     kind: str = Field(description="data_ref / collection_ref / artifact / plot_artifact.")
     ref: str = Field(description="Data, collection, or artifact reference (catalog id or path).")
@@ -501,7 +501,7 @@ class PreviewSessionPatch(BaseModel):
 
 
 class PreviewFrontendManifestModel(BaseModel):
-    """Wire shape of a previewer :class:`FrontendManifest` (same-origin only)."""
+    """Wire shape of a panel :class:`FrontendManifest` (same-origin only)."""
 
     previewer_id: str
     module_url: str
@@ -509,6 +509,38 @@ class PreviewFrontendManifestModel(BaseModel):
     css: list[str] = Field(default_factory=list)
     version: str = "0"
     api_version: str = "1"
+
+
+class PanelDescriptorModel(BaseModel):
+    """Everything the frame host needs to mount one panel (D-016.3, D-020).
+
+    The wire form of :class:`scistudio.panels.descriptor.PanelDescriptor`, and
+    the field names are the ones ``frontend/src/panels/panelDescriptor.ts``
+    validates, so a caller hands a response object straight in.
+
+    ``accepted_api_version`` and ``read_limits`` are always present: the host
+    refuses to mount without either rather than inventing a bound or a version,
+    so a descriptor missing them is a backend defect, not a host fallback.
+    """
+
+    panel_id: str
+    display_name: str = ""
+    api_version: str
+    """The version this panel's declaration states."""
+    accepted_api_version: str
+    """The version the backend accepts -- its ``PANEL_API_VERSION`` (D-010)."""
+    capability: str
+    """The capability *this mount* is granted, which is not always the one the
+    panel declares: a producing panel opened from the preview surface is granted
+    display only (FR-049)."""
+    document_url: str
+    """Same-origin path of the entry document on the merged asset route."""
+    asset_base_url: str
+    """Same-origin base the panel fetches its own bulk assets from."""
+    read_limits: dict[str, Any] = Field(default_factory=dict)
+    tier: str = ""
+    features: list[str] = Field(default_factory=list)
+    supports_collection: bool = False
 
 
 class PreviewEnvelopeModel(BaseModel):
@@ -525,78 +557,172 @@ class PreviewEnvelopeModel(BaseModel):
     error: dict[str, Any] | None = None
     frontend_manifest: PreviewFrontendManifestModel | None = None
 
+    # ADR-054 spec 1 FR-015 / T-008, D-013: the backend names both the panel to
+    # mount and the panel to fall back to, so the frontend keeps no mapping from
+    # a response's kind to a component (FR-036, SC-010).
+    panel: PanelDescriptorModel | None = None
+    """Descriptor of the panel that was chosen. ``None`` when the chosen panel
+    has no on-disk document -- an unmigrated package previewer crossing the
+    compatibility shim."""
+    fallback_panel_id: str = ""
+    """Id of the panel to mount when the chosen panel fails to load, fails to
+    validate, fails the version gate, or fails the handshake (FR-014)."""
+    fallback_panel: PanelDescriptorModel | None = None
+    """Descriptor of that fallback, so mounting it needs no second request."""
 
-class PreviewerChoiceModel(BaseModel):
-    """One recorded per-type previewer choice (#2049)."""
+
+class PanelChoiceModel(BaseModel):
+    """One recorded per-type, per-capability panel choice (#2049, FR-049)."""
 
     target_type: str
     """Type name the choice applies to. Exact: a choice on a type does not
     govern types that merely descend from it."""
-    previewer_id: str
-    """Previewer the person picked for that type."""
+    panel_id: str
+    """Panel the person picked for that type and capability."""
+    capability: str
+    """``displaying`` or ``producing``. The panel a person prefers for looking
+    at a frame and the one they prefer for producing from it are different
+    preferences about different situations (FR-049)."""
     scope: str
     """``user`` or ``project`` -- which layer this effective choice came from.
     A project-layer choice overrides the user-layer choice for the same type."""
     available: bool
-    """Whether ``previewer_id`` is registered right now. A choice whose
-    previewer was uninstalled stays recorded and reads ``false``; routing falls
-    back to the ordinary precedence ladder until it returns."""
+    """Whether ``panel_id`` is registered right now. A choice whose panel was
+    uninstalled stays recorded and reads ``false``; routing falls back to the
+    ordinary precedence ladder until it returns."""
 
 
-class PreviewerChoiceListResponse(BaseModel):
-    """Response body for ``GET /api/previews/choices`` (#2049)."""
+class PanelChoiceListResponse(BaseModel):
+    """Response body for ``GET /api/panels/choices`` (#2049, FR-049)."""
 
-    choices: list[PreviewerChoiceModel] = Field(default_factory=list)
-    """Effective choices after the project layer overrides the user layer."""
+    choices: list[PanelChoiceModel] = Field(default_factory=list)
+    """Every capability's effective choices, after the project layer overrides
+    the user layer."""
 
 
-class PreviewerChoiceRequest(BaseModel):
-    """Request body for ``PUT /api/previews/choices/{target_type}`` (#2049)."""
+class PanelChoiceRequest(BaseModel):
+    """Request body for ``PUT /api/panels/choices/{target_type}`` (FR-049)."""
 
-    previewer_id: str
+    panel_id: str
     scope: str = "user"
     """``user`` (default, every project) or ``project`` (this project only)."""
+    capability: str = "displaying"
+    """Which of the two preferences this records (FR-049)."""
 
 
-class PreviewerSpecModel(BaseModel):
-    """Wire shape of a :class:`PreviewerSpec` for capability discovery."""
+class PanelSpecModel(BaseModel):
+    """One entry in the panel catalogue (FR-023).
 
-    previewer_id: str
-    owner_kind: str
-    owner_name: str
-    target_type: str
+    The registry's routing entry and the on-disk panel joined by their shared
+    id: ``capability``, ``tier``, ``shadows`` and ``descriptor`` come from the
+    four-tier scan, everything else from the routing spec. A panel addressed by
+    the block that opens it declares no target type (FR-017) and so has only the
+    scan half.
+    """
+
+    panel_id: str
+    display_name: str = ""
+    owner_kind: str = ""
+    owner_name: str = ""
+    target_type: str = ""
+    target_types: list[str] = Field(default_factory=list)
     supports_collection: bool = False
     priority: int = 0
-    capabilities: list[str] = Field(default_factory=list)
+    features: list[str] = Field(default_factory=list)
+    capability: str = ""
+    """``displaying`` or ``producing``, as the panel declares it (FR-005)."""
     backend_provider: str | None = None
     frontend_manifest: PreviewFrontendManifestModel | None = None
     api_version: str = "1"
+    tier: str | None = None
+    """The tier the panel's directory was found in, or ``None`` for a routing
+    entry with no on-disk document (a module-form package previewer)."""
+    shadows: str | None = None
+    """The tier of the panel this one shadows, or ``None``. What tells a caller
+    whether ``DELETE /api/panels/{panel_id}/override`` has anything to restore."""
+    descriptor: PanelDescriptorModel | None = None
+    """What the frame host mounts this panel from, when it has a document."""
 
 
-class PreviewerListResponse(BaseModel):
-    """Response body for ``GET /api/previews/previewers`` (#2095).
+class PanelListResponse(BaseModel):
+    """Response body for ``GET /api/panels`` (#2095, FR-023)."""
 
-    ``PreviewerSpecModel`` was declared when the preview system landed and
-    never served; this is the route that makes previewer provenance answerable
-    the way the Data types tab answers it for types.
-    """
-
-    previewers: list[PreviewerSpecModel] = Field(default_factory=list)
-    """Registered specs, ordered project -> user -> package -> core, then by id."""
+    panels: list[PanelSpecModel] = Field(default_factory=list)
+    """Registered panels, ordered project -> user -> package -> core, then by
+    id, with the block-addressed panels the type ladder never sees appended."""
     diagnostics: list[str] = Field(default_factory=list)
-    """Discovery problems recorded during the scan: a duplicate previewer id, a
+    """Discovery problems recorded during the scan: a duplicate panel id, a
     drop-in refused for a module-name collision, an entry point that failed to
-    import. Nothing surfaced these before, so a refused drop-in was silent."""
+    import, a declaration missing a required field. Nothing surfaced these
+    before, so a refused drop-in was silent."""
 
 
-class PreviewerReloadResponse(BaseModel):
-    """Response body for ``POST /api/previews/reload`` (#2095)."""
+class PanelReloadResponse(BaseModel):
+    """Response body for ``POST /api/panels/reload`` (#2095, FR-046)."""
 
     reloaded: int
-    """Number of previewer specs registered after the rebuild."""
+    """Number of panel specs registered after the rebuild."""
     added: list[str] = Field(default_factory=list)
     removed: list[str] = Field(default_factory=list)
     diagnostics: list[str] = Field(default_factory=list)
+
+
+class PanelSourceResponse(BaseModel):
+    """Response body for ``GET /api/panels/{panel_id}/source`` (FR-024)."""
+
+    panel_id: str
+    tier: str
+    """The tier the panel resolved from, which is also where a save lands
+    (FR-025) -- unless it is read-only, in which case a save copies it into the
+    open project (FR-026)."""
+    entry: str
+    """The entry document's file name inside the panel directory."""
+    source: str
+    """The entry document's text."""
+    declaration: str
+    """The ``panel.json`` text, so an editor can show both halves of a panel."""
+    editable: bool
+    """Whether a save writes in place. ``False`` means a save copies the panel
+    into the project first. Reported so the interface can *say* what a save will
+    do -- not so it can offer a choice; FR-025 forbids asking."""
+    shadows: str | None = None
+    """The tier of the panel this one shadows, or ``None``."""
+    descriptor: PanelDescriptorModel | None = None
+
+
+class PanelSourceSaveRequest(BaseModel):
+    """Request body for ``PUT /api/panels/{panel_id}/source`` (FR-025)."""
+
+    source: str
+    """The new entry-document text."""
+    declaration: str | None = None
+    """An optional replacement ``panel.json``. It must parse and must keep the
+    panel's id: FR-027 is what makes a copy take effect, so a save that renamed
+    the panel would leave the original visible and the edit apparently lost."""
+
+
+class PanelSourceSaveResponse(BaseModel):
+    """Response body after a panel edit is saved (FR-025 to FR-027, FR-030)."""
+
+    panel_id: str
+    tier: str
+    """The tier that was written."""
+    copied: bool
+    """``True`` when the save copied a read-only panel into the project."""
+    descriptor: PanelDescriptorModel | None = None
+    """The panel as it now resolves, so the host can remount from the response
+    rather than asking again (FR-030)."""
+
+
+class PanelOverrideRevertResponse(BaseModel):
+    """Response body for ``DELETE /api/panels/{panel_id}/override`` (FR-029)."""
+
+    panel_id: str
+    removed_tier: str
+    """The tier the deleted copy lived in."""
+    restored_tier: str
+    """The tier of the panel the copy was shadowing, now resolving again."""
+    descriptor: PanelDescriptorModel | None = None
 
 
 class PreviewResourceResponse(BaseModel):
@@ -625,7 +751,7 @@ class PreviewResourceSaveResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # ADR-048 SPEC 2 / #1606: plot-job run + preview wiring.
 #
-# These wire the producer (run_plot_job) to the consumer (PlotPreviewer): the
+# These wire the producer (run_plot_job) to the consumer (PlotPanel): the
 # run route executes the plot job and, on success, registers the produced
 # artifact as a previewable catalog record so the frontend can open a routed
 # ``plot_artifact`` preview session through the existing previews API.
@@ -720,7 +846,7 @@ class PlotRunResponse(BaseModel):
 
     On success ``data_ref`` is the catalog id the frontend passes to
     ``POST /api/previews/sessions`` (with ``target.kind="plot_artifact"``) to
-    render the produced artifact through the core ``PlotPreviewer``. It is
+    render the produced artifact through the core ``PlotPanel``. It is
     ``None`` when the plot run failed / produced no artifact, in which case
     ``status`` plus ``errors`` explain why.
     """
@@ -839,9 +965,9 @@ class ErrorResponse(BaseModel):
 
 #: FR-006: the three user-library targets, chosen by the caller and never
 #: inferred. The values are the drop-in child directory names from
-#: :mod:`scistudio.core.dropins`. ``previewers`` joined when the
-#: tutorial-scoped library grew its previewer tier (Learning Center FR-070,
-#: #2086), so promoting a project previewer resolves through the same route —
+#: :mod:`scistudio.core.dropins`. ``panels`` joined when the
+#: tutorial-scoped library grew its panel tier (Learning Center FR-070,
+#: #2086), so promoting a project panel resolves through the same route —
 #: and the same library-root swap — as blocks and types.
 UserLibraryTarget = Literal["blocks", "types", "previewers"]
 

@@ -61,7 +61,7 @@ class DataRecord:
     type_name: str
     metadata: dict[str, Any] = field(default_factory=dict)
     # ADR-027 D2 / #407: full type chain from the worker subprocess wire format,
-    # e.g. ["DataObject", "Array", "Image"]. Used by the routed previewer target
+    # e.g. ["DataObject", "Array", "Image"]. Used by the routed panel target
     # resolution to resolve plugin types via TypeRegistry instead of relying on
     # class name equality.
     type_chain: list[str] = field(default_factory=list)

@@ -2,7 +2,7 @@
 
 These types carry ZERO scientific behaviour. They exist only so core
 machinery tests (serialization round-trip, registry/type discovery, IO
-capability dispatch, previewer routing, port typing) have a stand-in
+capability dispatch, panel routing, port typing) have a stand-in
 plugin type to exercise instead of the now-decoupled domain packages
 (imaging / lcms / spectroscopy / srs).
 

@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Review Labels &mdash; SciStudio panel</title>
+<!--
+  The window the Review Labels block opens (core tutorial 2).
+
+  ADR-054 spec 1 (#2229), section 4.2 and assumption A-009. This document
+  replaces `panel.mjs`, the ADR-051 interactive-panel *module* this level used
+  to ship: `export default`, `mount(container, host)`, `host.confirm(...)`,
+  `host.cancel()`. T-007 deleted the loader that imported that form into the
+  application's realm, and A-009 provides no shim for it precisely because this
+  asset — its only consumer — is migrated here instead. The panel keeps its id,
+  `tutorial.review_labels`; what changed is the form, not the level.
+
+  The panel is still deliberately ordinary. It is one hand-written HTML
+  document that travels beside the block in the reader's own project, with no
+  framework and no build step. A block's window is just a file it carries with
+  it — the point the level is making — and that is more literally true now than
+  it was: the whole panel is this file.
+
+  What it shows: one slide at a time. The micrograph is drawn underneath and
+  the labels are washed over it in their own hues, so a reader asked to delete
+  what is not a cell can see the cells; beside it, one row per label with its
+  pixel area. Clicking a label in the picture or in the list marks it for
+  removal on that slide, and the labels the panel doubts are ringed in red so
+  the ask is visible rather than something the reader has to go hunting for.
+
+  **One window for the whole batch, not one window per slide.** A reader who
+  loaded several micrographs is making one decision about their experiment, and
+  pausing the run again for every image would ask them the same question over
+  and over. So the panel carries the batch and the run resumes once.
+
+  This is a *producing* panel (FR-050 — a panel a block opens must be). Its only
+  outbound path is `emit`, and what it emits is code (ADR-054 3.6):
+
+      removed = [[3], []]
+      scistudio.output(removed=removed)
+
+  One list per slide, in the order the slides arrived, which is exactly what
+  `ReviewLabelsBlock.run` reads out of `interactive_response["removed"]`. The
+  statement pair is the form both built-in producing panels use: an assignment
+  whose target is a plain name, then one `scistudio.output` call. The whitelist
+  that admits only those is NOT implemented here and must not be — FR-012 keeps
+  the panel loading machinery out of the meaning of an emission, and ADR-054 3.6
+  puts the check where an emission is queued.
+
+  **Confirm and Cancel are host chrome (ADR-054 4.2, D-018), not this panel's.**
+  The `Continue` and `Cancel` buttons the module form drew are gone; the host
+  renders both around the frame, and Confirm commits the panel's most recent
+  `emit`. That is why this panel re-emits the WHOLE decision every time one
+  changes, rather than emitting what moved: Confirm has only the last emission
+  to commit, so a fork that emitted deltas would leave Confirm committing a
+  fragment. Every emission rebinds the same name, so re-emitting costs nothing
+  and the newest emission is simply the decision.
+
+  **How the batch walk survived losing its own button.** The module form's
+  Continue did two jobs: it walked to the next slide the reader had not looked
+  at, and only once none were left did it end the review. Ending the review
+  with a slide unexamined is the one outcome this panel exists to prevent, and
+  the host's Confirm cannot be talked out of committing. So the guarantee moved
+  to the only lever a producing panel has: **it emits nothing until every slide
+  has been seen.** With no emission Confirm is disabled, which is the same
+  refusal the old button made, said in the vocabulary D-018 gave the panel. A
+  one-slide batch is seen on arrival and emits at once, exactly as the old
+  panel confirmed on the first click. The strip below the picture is what walks
+  the batch, and the line under it says how many images are still unseen so the
+  disabled Confirm is never a mystery.
+
+  FR-034 / A-004: strictly self-contained. Markup, styles and script in one
+  file — no <script src>, no <link rel=stylesheet>, no shared runtime import, no
+  CDN, no network of any kind. The envelope plumbing repeats the built-in
+  panels' on purpose.
+-->
+<style>
+  :root {
+    --ink: #1c211b;
+    --ember: #f06a44;
+    --danger: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--ink);
+    font: 12px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  body { padding: 8px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .columns { display: flex; gap: 16px; align-items: flex-start; }
+  .picture { flex: 0 0 auto; }
+  .ask { font-weight: 600; margin: 0 0 8px; }
+  canvas { border-radius: 8px; display: block; cursor: crosshair; background: #111318; }
+  .strip { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .strip button {
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(28, 33, 27, 0.18);
+    background: #fff;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  .strip button:disabled { opacity: 0.4; cursor: default; }
+  .position { flex: 1 1 auto; text-align: center; color: rgba(28, 33, 27, 0.6); }
+  .note { margin: 8px 0 0; font-size: 11px; }
+  .note.unseen { color: var(--ember); font-weight: 600; }
+  .note.settled { color: rgba(28, 33, 27, 0.6); }
+  .side { flex: 1 1 auto; min-width: 220px; }
+  .side h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; }
+  .labels { display: flex; flex-direction: column; gap: 4px; max-height: 360px; overflow: auto; }
+  .label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(28, 33, 27, 0.12);
+    cursor: pointer;
+  }
+  .label.gone { opacity: 0.45; text-decoration: line-through; }
+  .label .swatch { width: 12px; height: 12px; border-radius: 3px; flex: 0 0 auto; }
+  .label .name { flex: 1 1 auto; }
+  .label .area { color: rgba(28, 33, 27, 0.55); }
+  .error {
+    border: 1px solid rgba(179, 38, 30, 0.3);
+    background: rgba(179, 38, 30, 0.08);
+    color: var(--danger);
+    border-radius: 1rem;
+    padding: 12px;
+  }
+  .muted { color: rgba(28, 33, 27, 0.6); }
+</style>
+</head>
+<body>
+<div class="stack" id="root">
+  <p class="muted">Waiting for the host&hellip;</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------------- */
+  /* The D-011 envelope. Duplicated per FR-034; do not factor it out.        */
+  /* ---------------------------------------------------------------------- */
+
+  var PANEL_MESSAGE_MARKER = 1;
+  var PANEL_API_VERSION = "1";
+
+  var token = null;
+  var capability = "displaying";
+  var torndown = false;
+
+  function post(type, payload) {
+    if (token === null || torndown) return false;
+    try {
+      window.parent.postMessage(
+        { scistudio_panel: PANEL_MESSAGE_MARKER, token: token, type: type, payload: payload },
+        "*"
+      );
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function reportError(message, detail) {
+    post("error", { message: String(message), detail: detail || null });
+  }
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The review                                                              */
+  /* ---------------------------------------------------------------------- */
+
+  /** A stable, distinct-enough colour for one label id. */
+  function labelColor(id, removed) {
+    return "hsl(" + ((id * 137) % 360) + " 75% " + (removed ? "28%" : "60%") + ")";
+  }
+
+  /** How much of the label colour sits over the micrograph underneath. */
+  var LABEL_ALPHA = 0.45;
+
+  /**
+   * How much smaller than the typical object a label has to be before the panel
+   * points at it. A quarter of the median: cells vary, debris does not come
+   * close. Compared against the median rather than the mean so a single speck
+   * cannot drag the threshold down towards itself.
+   */
+  var SUSPECT_FRACTION = 0.25;
+
+  var slides = [];
+  var current = 0;
+  /* Which slides the reader has actually had in front of them. Nothing is
+     emitted until this covers the batch; see the header comment. */
+  var seen = {};
+  var fatal = null;
+
+  /**
+   * An empty map whose keys are label ids out of the payload.
+   *
+   * `{}` would not do. Every map in this panel is keyed by a label id that
+   * arrived in the block's payload, and a plain object already answers to
+   * `__proto__`, `constructor`, `toString` and the rest of `Object.prototype`.
+   * That is two bugs in one object: reading `map[id]` reports a label as
+   * present that was never put there — which is how a label the panel doubts
+   * reads as one the reader already struck out, and its ring is never drawn —
+   * and `map[id] = ...` on the id `__proto__` writes through to
+   * `Object.prototype` instead of to the map, which changes every object in
+   * the document rather than this one.
+   *
+   * A null-prototype object has no inherited keys, so a payload id is only
+   * ever a key. `Object.keys`, `delete` and `in` all behave the same on it.
+   *
+   * This is the pattern for any panel that keys a map by something out of its
+   * payload; it is not particular to this document.
+   */
+  function idMap() {
+    return Object.create(null);
+  }
+
+  /**
+   * The labels worth a second look: far too small to be a cell.
+   *
+   * The panel says which ones it doubts rather than waiting for the reader to
+   * find them. That is the difference between a review and a search — the
+   * reader is being asked to confirm or reject a judgement, and a judgement
+   * they cannot see is not one they can reject. Every label stays clickable;
+   * the ring is a suggestion, not a filter.
+   */
+  function suspectLabels(labels) {
+    var areas = labels
+      .map(function (label) { return label.area; })
+      .sort(function (a, b) { return a - b; });
+    if (areas.length < 2) return idMap();
+    var middle =
+      areas.length % 2
+        ? areas[(areas.length - 1) / 2]
+        : (areas[areas.length / 2 - 1] + areas[areas.length / 2]) / 2;
+    var cutoff = middle * SUSPECT_FRACTION;
+    var doubted = idMap();
+    labels.forEach(function (label) {
+      if (label.area < cutoff) doubted[label.id] = true;
+    });
+    return doubted;
+  }
+
+  /**
+   * Read the payload as a list of slides.
+   *
+   * The single-slide shape is accepted too, because a block that reviews one
+   * image is still an ordinary case and a payload written by hand says so.
+   */
+  function slidesOf(payload) {
+    if (payload && Array.isArray(payload.slides)) return payload.slides;
+    if (payload && Array.isArray(payload.grid)) return [payload];
+    return [];
+  }
+
+  function readSlides(payload) {
+    return slidesOf(payload).map(function (slide) {
+      var labels = Array.isArray(slide.labels) ? slide.labels : [];
+      return {
+        grid: Array.isArray(slide.grid) ? slide.grid : [],
+        image: Array.isArray(slide.image) ? slide.image : null,
+        labels: labels,
+        removed: idMap(),
+        /* Computed once: the areas do not change while the panel is open, so
+           neither does which of them the panel doubts. */
+        suspects: suspectLabels(labels)
+      };
+    });
+  }
+
+  /** The ids struck out on one slide, ascending — the shape `run` reads. */
+  function removedIds(slide) {
+    return Object.keys(slide.removed)
+      .map(Number)
+      // A label id the payload wrote as something other than a number is
+      // dropped rather than emitted as `NaN`: what this list becomes is a
+      // Python literal the block runs, and `NaN` there is a syntax error the
+      // reader would meet as a broken cell rather than as a bad payload.
+      .filter(function (id) { return isFinite(id); })
+      .sort(function (a, b) { return a - b; });
+  }
+
+  function unseenCount() {
+    var left = 0;
+    for (var index = 0; index < slides.length; index += 1) {
+      if (!seen[index]) left += 1;
+    }
+    return left;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Drawing                                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * Ring the labels the panel doubts, in red, until the reader has dealt with
+   * them.
+   *
+   * The ring is the ask: it marks what the panel thinks is not a cell so the
+   * reader knows where to click. It goes away once that label is marked for
+   * removal, because the question has been answered — a ring that stayed would
+   * be pointing at a decision already made.
+   *
+   * Drawn as the bounding box of the label's pixels rather than traced around
+   * its edge: the shape is visible underneath, and a box reads as a mark *on*
+   * something rather than as another outline of it.
+   */
+  function outlineSuspects(ctx, grid, slide, scale) {
+    var wanted = idMap();
+    var pending = 0;
+    Object.keys(slide.suspects).forEach(function (id) {
+      if (!slide.removed[id]) {
+        wanted[id] = true;
+        pending += 1;
+      }
+    });
+    if (pending === 0) return;
+
+    var rows = grid.length;
+    var cols = rows ? grid[0].length : 0;
+    var bounds = idMap();
+    for (var y = 0; y < rows; y += 1) {
+      for (var x = 0; x < cols; x += 1) {
+        var id = grid[y][x];
+        if (!id || !wanted[id]) continue;
+        var box = bounds[id];
+        if (!box) {
+          bounds[id] = { top: y, left: x, bottom: y, right: x };
+        } else {
+          if (y < box.top) box.top = y;
+          if (y > box.bottom) box.bottom = y;
+          if (x < box.left) box.left = x;
+          if (x > box.right) box.right = x;
+        }
+      }
+    }
+    ctx.strokeStyle = "#ef4444";
+    ctx.lineWidth = 2;
+    /* Wide enough that the ring sits clear of a small object rather than on it. */
+    var pad = Math.max(4, scale);
+    Object.keys(bounds).forEach(function (id) {
+      var box = bounds[id];
+      ctx.strokeRect(
+        box.left * scale - pad,
+        box.top * scale - pad,
+        (box.right - box.left + 1) * scale + 2 * pad,
+        (box.bottom - box.top + 1) * scale + 2 * pad
+      );
+    });
+  }
+
+  function drawGrid(canvas, slide) {
+    var grid = slide.grid;
+    var rows = grid.length;
+    var cols = rows ? grid[0].length : 0;
+    if (!rows || !cols) return;
+    var scale = Math.max(1, Math.floor(420 / Math.max(rows, cols)));
+    canvas.width = cols * scale;
+    canvas.height = rows * scale;
+    var ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.fillStyle = "#111318";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    /* The micrograph first, in the green a fluorescence channel is shown in, so
+       the labels above it land on the cells they were found in. */
+    var image = slide.image;
+    var hasImage = Array.isArray(image) && image.length === rows;
+    if (hasImage) {
+      for (var y = 0; y < rows; y += 1) {
+        var row = image[y] || [];
+        for (var x = 0; x < cols; x += 1) {
+          var value = row[x] || 0;
+          ctx.fillStyle =
+            "rgb(" + Math.round(value * 0.25) + ", " + value + ", " + Math.round(value * 0.45) + ")";
+          ctx.fillRect(x * scale, y * scale, scale, scale);
+        }
+      }
+    }
+
+    /* Then the labels, translucent when there is a picture underneath to keep
+       visible, opaque when there is not. */
+    ctx.globalAlpha = hasImage ? LABEL_ALPHA : 1;
+    for (var gy = 0; gy < rows; gy += 1) {
+      for (var gx = 0; gx < cols; gx += 1) {
+        var id = grid[gy][gx];
+        if (!id) continue;
+        ctx.fillStyle = labelColor(id, Boolean(slide.removed[id]));
+        ctx.fillRect(gx * scale, gy * scale, scale, scale);
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    outlineSuspects(ctx, grid, slide, scale);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The emission                                                            */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * A JSON value as a Python literal. The decision is a list of lists of
+   * integers, whose JSON spelling is already valid Python.
+   */
+  function pythonLiteral(value) {
+    if (value === null || value === undefined) return "None";
+    if (value === true) return "True";
+    if (value === false) return "False";
+    if (typeof value === "number") return String(value);
+    if (typeof value === "string") return JSON.stringify(value);
+    if (Array.isArray(value)) return "[" + value.map(pythonLiteral).join(", ") + "]";
+    return (
+      "{" +
+      Object.keys(value)
+        .map(function (key) { return JSON.stringify(key) + ": " + pythonLiteral(value[key]); })
+        .join(", ") +
+      "}"
+    );
+  }
+
+  /**
+   * The one outbound path, and the batch guarantee.
+   *
+   * Nothing is emitted while a slide has never been on screen: with no
+   * emission the host's Confirm is disabled, which is how a panel that owns no
+   * Confirm still refuses to end a review the reader has not finished. Once
+   * every slide has been seen this runs on every change, re-emitting the whole
+   * decision.
+   *
+   * The capability guard is honesty about what this mount was given, not the
+   * enforcement — the host drops an `emit` from a displaying mount and reports
+   * it (FR-011).
+   */
+  function emitDecision() {
+    if (capability !== "producing") return;
+    if (fatal !== null) return;
+    if (unseenCount() > 0) return;
+    var code =
+      "removed = " + pythonLiteral(slides.map(removedIds)) + "\n" +
+      "scistudio.output(removed=removed)";
+    post("emit", { code: code });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Rendering                                                               */
+  /* ---------------------------------------------------------------------- */
+
+  var canvas = null;
+
+  function toggle(id) {
+    var slide = slides[current];
+    if (!slide) return;
+    if (slide.removed[id]) delete slide.removed[id];
+    else slide.removed[id] = true;
+    emitDecision();
+    render();
+  }
+
+  function show(index) {
+    current = Math.min(Math.max(index, 0), Math.max(slides.length - 1, 0));
+    seen[current] = true;
+    emitDecision();
+    render();
+  }
+
+  function labelRow(slide, label) {
+    var gone = Boolean(slide.removed[label.id]);
+    var row = el("div", "label" + (gone ? " gone" : ""));
+    row.setAttribute("data-label-id", String(label.id));
+    var swatch = el("i", "swatch");
+    swatch.style.background = labelColor(label.id, gone);
+    row.appendChild(swatch);
+    row.appendChild(el("span", "name", "label " + label.id));
+    row.appendChild(el("span", "area", label.area + " px"));
+    row.addEventListener("click", function () { toggle(label.id); });
+    return row;
+  }
+
+  function onCanvasClick(event) {
+    var slide = slides[current];
+    if (!slide) return;
+    var grid = slide.grid;
+    var rows = grid.length;
+    var cols = rows ? grid[0].length : 0;
+    if (!rows || !cols) return;
+    var bounds = canvas.getBoundingClientRect();
+    var width = bounds.width || canvas.width;
+    var height = bounds.height || canvas.height;
+    var x = Math.floor(((event.clientX - bounds.left) / width) * cols);
+    var y = Math.floor(((event.clientY - bounds.top) / height) * rows);
+    var row = grid[Math.min(Math.max(y, 0), rows - 1)];
+    var id = row ? row[Math.min(Math.max(x, 0), cols - 1)] : 0;
+    if (id) toggle(id);
+  }
+
+  function render() {
+    var root = document.getElementById("root");
+    root.textContent = "";
+
+    if (fatal) {
+      var box = el("div", "error");
+      box.setAttribute("role", "alert");
+      box.appendChild(el("p", null, fatal));
+      root.appendChild(box);
+      return;
+    }
+
+    var slide =
+      slides[current] || { grid: [], image: null, labels: [], removed: idMap(), suspects: idMap() };
+    var columns = el("div", "columns");
+
+    var picture = el("div", "picture");
+    picture.appendChild(el("p", "ask", "Click anything that is not a cell."));
+    canvas = el("canvas");
+    canvas.addEventListener("click", onCanvasClick);
+    picture.appendChild(canvas);
+
+    /* The slide strip. Present whatever the batch size, so a reader never has
+       to work out whether there is more than one image in front of them. */
+    var strip = el("div", "strip");
+    var previous = el("button", null, "‹ Previous");
+    previous.type = "button";
+    previous.disabled = current === 0;
+    previous.addEventListener("click", function () { show(current - 1); });
+    var position = el(
+      "div",
+      "position",
+      slides.length > 1 ? "Image " + (current + 1) + " of " + slides.length : "One image"
+    );
+    var next = el("button", null, "Next image ›");
+    next.type = "button";
+    next.disabled = current >= slides.length - 1;
+    next.addEventListener("click", function () { show(current + 1); });
+    strip.appendChild(previous);
+    strip.appendChild(position);
+    strip.appendChild(next);
+    picture.appendChild(strip);
+
+    /* Why Confirm is or is not available yet. The host draws the button; this
+       line is the panel's half of the same sentence. */
+    var left = unseenCount();
+    var struck = slides.reduce(function (sum, entry) { return sum + removedIds(entry).length; }, 0);
+    var status = left
+      ? el(
+          "p",
+          "note unseen",
+          "Look at " + left + " more image" + (left === 1 ? "" : "s") + " before you confirm."
+        )
+      : el("p", "note settled", struck ? "Ready to confirm: remove " + struck + "." : "Ready to confirm: keep all.");
+    picture.appendChild(status);
+    columns.appendChild(picture);
+
+    var side = el("div", "side");
+    side.appendChild(el("h2", null, slide.labels.length + " labels"));
+    var list = el("div", "labels");
+    slide.labels.forEach(function (label) { list.appendChild(labelRow(slide, label)); });
+    side.appendChild(list);
+    columns.appendChild(side);
+
+    root.appendChild(columns);
+    drawGrid(canvas, slide);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The handshake                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  /** The prompt rides `init.bindings` for a producing mount, `target` otherwise. */
+  function promptFrom(payload) {
+    var candidates = [];
+    if (payload.bindings && typeof payload.bindings === "object") {
+      Object.keys(payload.bindings).forEach(function (name) {
+        var binding = payload.bindings[name];
+        if (binding && typeof binding === "object") candidates.push(binding.snapshot);
+      });
+    }
+    candidates.push(payload.target);
+    for (var i = 0; i < candidates.length; i += 1) {
+      var value = candidates[i];
+      if (!value || typeof value !== "object") continue;
+      var body =
+        value.panel_payload && typeof value.panel_payload === "object" ? value.panel_payload : value;
+      var read = readSlides(body);
+      if (read.length > 0) return read;
+    }
+    return null;
+  }
+
+  function restore(state) {
+    if (!state || typeof state !== "object") return;
+    if (Array.isArray(state.removed)) {
+      state.removed.forEach(function (ids, index) {
+        var slide = slides[index];
+        if (!slide || !Array.isArray(ids)) return;
+        ids.forEach(function (id) { slide.removed[id] = true; });
+      });
+    }
+    if (Array.isArray(state.seen)) {
+      state.seen.forEach(function (index) {
+        if (typeof index === "number" && slides[index]) seen[index] = true;
+      });
+    }
+    if (typeof state.current === "number" && slides[state.current]) current = state.current;
+  }
+
+  function stateSnapshot() {
+    return {
+      removed: slides.map(removedIds),
+      seen: Object.keys(seen).map(Number),
+      current: current
+    };
+  }
+
+  function onMessage(event) {
+    var data = event.data;
+    if (!data || typeof data !== "object") return;
+    if (data.scistudio_panel !== PANEL_MESSAGE_MARKER) return;
+    if (typeof data.type !== "string") return;
+    var payload = data.payload && typeof data.payload === "object" ? data.payload : {};
+
+    if (token === null) {
+      if (data.type !== "init" || typeof data.token !== "string" || data.token === "") return;
+      token = data.token;
+      capability = payload.capability === "producing" ? "producing" : "displaying";
+      var resolved = promptFrom(payload);
+      if (resolved === null) {
+        fatal = "This panel was mounted without any label maps to review.";
+      } else {
+        slides = resolved;
+        current = 0;
+        seen = { 0: true };
+        restore(payload.restored_state);
+      }
+      post("ready", { api_version: PANEL_API_VERSION });
+      if (fatal) reportError(fatal, null);
+      /* A one-slide batch is already fully seen, so this is the emission that
+         enables Confirm on arrival — the old panel's "Continue (keep all)". */
+      emitDecision();
+      render();
+      return;
+    }
+
+    if (data.token !== token) return;
+
+    switch (data.type) {
+      case "update": {
+        if (!payload.changed || typeof payload.changed !== "object") break;
+        var next = promptFrom({ bindings: payload.changed.bindings, target: payload.changed.target });
+        if (next) {
+          slides = next;
+          current = 0;
+          seen = { 0: true };
+          emitDecision();
+          render();
+        }
+        break;
+      }
+      case "error":
+        fatal = typeof payload.message === "string" ? payload.message : "The host reported an error.";
+        render();
+        break;
+      case "state_request":
+        post("state", { state: stateSnapshot() });
+        break;
+      case "teardown":
+        torndown = true;
+        window.removeEventListener("message", onMessage);
+        break;
+      default:
+        break;
+    }
+  }
+
+  window.addEventListener("message", onMessage);
+})();
+</script>
+</body>
+</html>

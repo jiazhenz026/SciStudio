@@ -6,7 +6,7 @@ Verifies:
   * a failed rerun records the failure state in ``current.json``;
   * a plot run does NOT mutate workflow YAML, scheduler state, lineage, or any
     downstream collection (FR-025);
-  * the produced SVG artifact is consumable by the core ``PlotPreviewer``
+  * the produced SVG artifact is consumable by the core ``PlotPanel``
     (``core.plot.basic``) — SC-010.
 """
 
@@ -233,34 +233,34 @@ def test_plot_run_does_not_mutate_workflow_or_scheduler_or_lineage(
 
 
 # ---------------------------------------------------------------------------
-# SC-010: artifact consumable by core.plot.basic PlotPreviewer.
+# SC-010: artifact consumable by core.plot.basic PlotPanel.
 # ---------------------------------------------------------------------------
 
 
-def test_artifact_consumable_by_plot_previewer(setup: tuple[Path, _StubRuntime, Path]) -> None:
+def test_artifact_consumable_by_plot_panel(setup: tuple[Path, _StubRuntime, Path]) -> None:
     _project, _runtime, _wf = setup
     res = _run(run_plot_job(plot_id="p1"))
     assert res.status == "succeeded", res.errors
     svg_path = res.artifact_paths[0]
 
-    from scistudio.previewers.data_access import PreviewDataAccess
-    from scistudio.previewers.fallbacks import plot_previewer
-    from scistudio.previewers.models import (
+    from scistudio.panels.data_access import PreviewDataAccess
+    from scistudio.panels.fallbacks import plot_panel
+    from scistudio.panels.models import (
         EnvelopeKind,
         OwnerKind,
-        PreviewerSpec,
+        PanelSpec,
         PreviewLimits,
         PreviewRequest,
         PreviewTarget,
         TargetKind,
     )
 
-    spec = PreviewerSpec(
+    spec = PanelSpec(
         previewer_id="core.plot.basic",
         owner_kind=OwnerKind.CORE,
         owner_name="scistudio",
         target_type="PlotArtifact",
-        backend_provider=plot_previewer,
+        backend_provider=plot_panel,
     )
     target = PreviewTarget(kind=TargetKind.PLOT_ARTIFACT, ref=svg_path, recorded_type="PlotArtifact")
     request = PreviewRequest(
@@ -270,7 +270,7 @@ def test_artifact_consumable_by_plot_previewer(setup: tuple[Path, _StubRuntime, 
         data_access=PreviewDataAccess(),
         limits=PreviewLimits(),
     )
-    envelope = plot_previewer(request)
+    envelope = plot_panel(request)
     assert envelope.kind == EnvelopeKind.PLOT, envelope
     assert envelope.payload.get("format") == "svg"
     # SVG path goes through the sanitizer and is embedded inline.

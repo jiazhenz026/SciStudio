@@ -668,6 +668,42 @@ def _failed_check_excerpt(repo_root: Path, event: CheckEvent, *, max_lines: int 
     return "\n".join(blocks).encode("ascii", "replace").decode("ascii")
 
 
+def _unproven_check_hint(name: str, event: CheckEvent) -> str:
+    """Repair hint for a required check that produced no usable result.
+
+    ``skipped``, ``timeout`` and ``unknown`` all mean the obligation is unproven,
+    but they want different advice, so each says what to do about its own cause
+    rather than sharing one vague line.
+    """
+
+    na_and_command = (
+        f"(gate_record amend --reason '<why>' --check-na '{name}:<rationale>'), or rely on CI.\n  {event.command}"
+    )
+    common_out = f"  Record an explicit N/A {na_and_command}"
+    if event.status == "timeout":
+        partial = f"\n  Partial output up to the kill: {event.raw_log_ref}" if event.raw_log_ref else ""
+        return (
+            f"- checks.{name}\n"
+            f"  Required check TIMED OUT, so its result is unknown: {event.summary}\n"
+            f"  A check that did not finish is not a check that passed. Either make it\n"
+            f"  finish (narrow the diff, reduce machine load) or raise the budget:\n"
+            f"  {checks.CHECK_TIMEOUT_ENV_VAR}=<seconds> gate_record check ...{partial}\n"
+            f"{common_out}"
+        )
+    if event.status == "unknown":
+        return (
+            f"- checks.{name}\n"
+            f"  Required check could NOT BE EXECUTED, so its result is unknown: {event.summary}\n"
+            f"  Fix the execution environment and re-run.\n"
+            f"{common_out}"
+        )
+    return (
+        f"- checks.{name}\n"
+        f"  Required check was SKIPPED (tool unavailable): {event.summary}\n"
+        f"  Make the tool available and re-run, record an explicit N/A {na_and_command}"
+    )
+
+
 def _is_global_check_config_path(path: str) -> bool:
     """Return True for files that can change the meaning of check execution."""
 
@@ -1118,25 +1154,34 @@ def reconcile(
             )
             check_events.append(event)
             ledger.check_events.append(event)
-            if event.status == "skipped":
-                # FAIL CLOSED (§7.5): a REQUIRED check that comes back "skipped"
-                # (e.g. its tool is genuinely unavailable and the skip is NOT a
-                # recorded parity gap, NOT an explicit --check-na — those are
-                # already removed from ``to_run`` above) is unproven, not proven
-                # passing. Silently passing it would let a required obligation
-                # slip. For PR-readiness modes treat it as unsatisfied with a
-                # clear repair hint; non-PR-readiness local modes still record
-                # the event but do not block a WIP invocation.
-                if pr_readiness_mode:
-                    unsatisfied.append(f"checks.{name}")
-                    repair_hints.append(
-                        f"- checks.{name}\n  Required check was SKIPPED (tool unavailable): {event.summary}\n"
-                        f"  Make the tool available and re-run, record an explicit N/A "
-                        f"(gate_record amend --reason '<why>' --check-na '{name}:<rationale>'), or rely on CI.\n"
-                        f"  {event.command}"
-                    )
+            if checks.event_discharges_obligation(event):
+                # The ONLY outcome that proves the obligation, and the same
+                # predicate ``finalize`` applies to this event when it reads it
+                # back off the ledger. Asking one function is what keeps the two
+                # from drifting apart again (#2253).
                 continue
             if event.status != "fail":
+                # FAIL CLOSED (§7.5): a REQUIRED check that came back neither
+                # passing nor failing — ``skipped`` (its tool is genuinely
+                # unavailable, and the skip is NOT a recorded parity gap, NOT an
+                # explicit --check-na, since those are already removed from
+                # ``to_run`` above), ``timeout`` (it ran past its wall) or
+                # ``unknown`` (it could not be executed at all) — is UNPROVEN,
+                # not proven passing.
+                #
+                # ``unknown`` and ``timeout`` used to fall through this loop and
+                # discharge the obligation, so a ``python_tests`` run that never
+                # finished produced "reconciliation passed" here while
+                # ``finalize`` called the identical event missing or stale, and
+                # the prescribed workflow had no terminating state on a slow
+                # machine (#2253, F-B4-8 / F-A1-009).
+                #
+                # For PR-readiness modes this is unsatisfied with a repair hint;
+                # non-PR-readiness local modes still record the event but do not
+                # block a WIP invocation.
+                if pr_readiness_mode:
+                    unsatisfied.append(f"checks.{name}")
+                    repair_hints.append(_unproven_check_hint(name, event))
                 continue
             if event.parity_gap:
                 # ENVIRONMENT-PARITY cause, not a code failure (§7.10): the local

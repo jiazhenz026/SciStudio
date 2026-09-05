@@ -19,9 +19,11 @@ from scistudio.api.routes import (
     blocks,
     data,
     diagnostics,
+    explore,
     filesystem,
     lint,
     packages,
+    panels,
     plots,
     projects,
     runs,
@@ -200,6 +202,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 pending_run_tasks.append(run.task)
         if pending_run_tasks:
             await asyncio.gather(*pending_run_tasks, return_exceptions=True)
+        # ADR-054 spec 3 (#2240): close every explore session and stop its
+        # kernel. The session services are module state in
+        # ``api.routes.explore`` rather than runtime state, so nothing else in
+        # this teardown reaches them — without this call an ipykernel process
+        # per open notebook outlives the backend it was started by.
+        from scistudio.api.routes.explore import shutdown_session_services
+
+        shutdown_session_services()
         app.state.registry.terminate_all(grace_period_sec=5.0)
         await stop_project_mcp_server(app, runtime)
         # Clear the global context so a subsequent app instance starts clean.
@@ -261,6 +271,18 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # ADR-054 spec 1 FR-021 (#2229): the merged panel asset route answers the
+    # opaque origin a sandboxed panel presents, and no other route does. The
+    # global CORS middleware above cannot express that — with
+    # `SCISTUDIO_CORS_ORIGINS=*` it answers every origin including `null`, and
+    # even the default satisfies the invariant only by the accident of `null`
+    # not being in the list. Added after CORS so it sits outside it and sees the
+    # headers CORS has set (Starlette runs middleware in reverse add order).
+    from scistudio.api._opaque_origin_middleware import OpaqueOriginGuardMiddleware
+    from scistudio.panels.descriptor import PANEL_ASSET_ROUTE_PREFIX
+
+    app.add_middleware(OpaqueOriginGuardMiddleware, asset_route_prefix=PANEL_ASSET_ROUTE_PREFIX)
+
     # #1741: request/exception logging with correlation ids. Added after CORS so
     # it sits OUTERMOST (Starlette runs middleware in reverse add order), seeing
     # every request and any exception that escapes the routes.
@@ -276,11 +298,15 @@ def create_app() -> FastAPI:
     # ``/api/blocks`` would contradict that in the URL if not in the code.
     app.include_router(types.router)
     app.include_router(data.router)
-    # ADR-048 SPEC 1: routed previewer session API (additive to data.router).
+    # ADR-048 SPEC 1: routed panel session API (additive to data.router).
     app.include_router(data.previews_router)
+    # ADR-054 spec 1 D-020: the panel API surface — the one merged asset route
+    # (FR-021), the catalogue and rebuild and per-capability choice FR-023 moved
+    # here from ``/api/previews``, and the editing endpoints (FR-024 to FR-029).
+    app.include_router(panels.router)
     # ADR-048 SPEC 2 / #1606: plot-job run + preview-wiring endpoint. Runs a
     # plot job and registers the produced artifact so the frontend can open a
-    # routed plot_artifact preview session (producer -> PlotPreviewer link).
+    # routed plot_artifact preview session (producer -> PlotPanel link).
     app.include_router(plots.router)
     app.include_router(tutorials.router)
     app.include_router(packages.router)
@@ -300,6 +326,18 @@ def create_app() -> FastAPI:
     app.include_router(lint.router)
     # ADR-038 §5.2 — ``runs`` router (lineage REST surface, D38-2.4a).
     app.include_router(runs.router)
+    # ADR-054 spec 3 §FR-056 (#2240) — the Explore Session API.
+    #
+    # This line has to stay HERE, with the other ``include_router`` calls and
+    # above the ``SPAStaticFiles`` mount at the bottom of this function. That
+    # mount is registered at ``/`` and matches every path, ``/api/explore/...``
+    # included, answering it with the SPA's own 404; a router appended after it
+    # is registered where nothing can reach it. The mount only exists when a
+    # built frontend is present, so moving this line down breaks the running
+    # desktop app while a checkout with no ``frontend/dist`` still looks fine —
+    # which is why ``tests/api/test_explore_mount.py`` asserts the position in
+    # the route table rather than only asserting that a request succeeds.
+    app.include_router(explore.router)
     # ADR-039 §3.5 — git endpoints (commit / log / diff / restore / branch
     # ops / merge / cherry-pick). D39-2.2b made these live. ADR-039 Addendum 1
     # (#1352) removed the stash CRUD surface (#1353).

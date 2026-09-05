@@ -4,9 +4,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-from scistudio.qa.audit.facts import load_facts
+import pytest
+
+from scistudio.qa.audit.facts import load_facts, write_facts
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+GENERATED_AT = "2026-05-19T00:00:00+00:00"
+SOURCE_SHA = "test-sha"
 
 
 def _run_generate_facts(*args: str) -> subprocess.CompletedProcess[str]:
@@ -19,59 +24,61 @@ def _run_generate_facts(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_generate_facts_write_and_check_round_trip(tmp_path: Path) -> None:
-    facts_path = tmp_path / "generated.yaml"
+@pytest.fixture(scope="module")
+def written_facts(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A registry written once by the real CLI, shared by this module.
 
-    write_result = _run_generate_facts(
+    ``--write`` walks the whole package with griffe, which is the dominant
+    cost of this file. Both tests below need a CLI-written registry and
+    neither depends on having written its own, so one ``--write`` run serves
+    both (#2253: the parallel CI phase ran out its wall).
+    """
+
+    facts_path = tmp_path_factory.mktemp("facts") / "generated.yaml"
+    result = _run_generate_facts(
         "--write",
         "--facts-path",
         str(facts_path),
         "--source-sha",
-        "test-sha",
+        SOURCE_SHA,
         "--generated-at",
-        "2026-05-19T00:00:00+00:00",
+        GENERATED_AT,
     )
+    assert result.returncode == 0, result.stderr
+    return facts_path
 
-    assert write_result.returncode == 0, write_result.stderr
-    registry = load_facts(facts_path)
-    assert registry.source_sha == "test-sha"
+
+def test_generate_facts_write_and_check_round_trip(written_facts: Path) -> None:
+    registry = load_facts(written_facts)
+    assert registry.source_sha == SOURCE_SHA
     assert registry.find(kind="symbol")
 
     check_result = _run_generate_facts(
         "--check",
         "--facts-path",
-        str(facts_path),
+        str(written_facts),
         "--source-sha",
-        "test-sha",
+        SOURCE_SHA,
         "--generated-at",
-        "2026-05-19T00:00:00+00:00",
+        GENERATED_AT,
     )
 
     assert check_result.returncode == 0, check_result.stderr
 
 
-def test_generate_facts_check_reports_stale_file(tmp_path: Path) -> None:
-    facts_path = tmp_path / "generated.yaml"
-
-    write_result = _run_generate_facts(
-        "--write",
-        "--facts-path",
-        str(facts_path),
-        "--source-sha",
-        "stale-sha",
-        "--generated-at",
-        "2026-05-19T00:00:00+00:00",
-    )
-    assert write_result.returncode == 0, write_result.stderr
+def test_generate_facts_check_reports_stale_file(written_facts: Path, tmp_path: Path) -> None:
+    stale_path = tmp_path / "generated.yaml"
+    stale = load_facts(written_facts).model_copy(update={"source_sha": "stale-sha"})
+    write_facts(stale, stale_path)
 
     result = _run_generate_facts(
         "--check",
         "--facts-path",
-        str(facts_path),
+        str(stale_path),
         "--source-sha",
-        "test-sha",
+        SOURCE_SHA,
         "--generated-at",
-        "2026-05-19T00:00:00+00:00",
+        GENERATED_AT,
     )
 
     assert result.returncode == 1

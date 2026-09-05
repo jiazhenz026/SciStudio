@@ -281,7 +281,7 @@ async def run_plot_job(
     Writes ``.scistudio/previews/<workflow_id>/<node_id>/<output_port>/<plot_id>/
     current.*`` + ``current.json``, overwriting any prior current artifacts.
     Enforces timeout, output-size, and file-count caps with sanitized errors.
-    The artifact is consumable by the core PlotPreviewer.
+    The artifact is consumable by the core PlotPanel.
     """
     return _runtime.run_plot_job(_plot_ctx(), plot_id=plot_id, run_id=run_id, timeout_seconds=timeout_seconds)
 

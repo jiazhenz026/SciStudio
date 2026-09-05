@@ -116,8 +116,8 @@ describe("promotableFileTab — entry point E1", () => {
     });
   });
 
-  it("resolves an edited project drop-in previewer file to the previewers target", () => {
-    // Learning Center #2086 — E1 is the previewer's one entry point: it has
+  it("resolves an edited project drop-in panel file to the panels target", () => {
+    // Learning Center #2086 — E1 is the panel's one entry point: it has
     // no palette card (E5) and no canvas node (E2) to hang the action on.
     expect(promotableFileTab(fileTab({ filePath: "previewers/image_viewer.py" }), blocks)).toEqual({
       target: "previewers",
