@@ -10,6 +10,7 @@ guessing.
 | [public-api.md](public-api.md) | importing anything from `scistudio` — the public/private boundary |
 | [data-types.md](data-types.md) | reading or constructing a `DataObject` in block code |
 | [block-contract.md](block-contract.md) | writing a block class |
+| [panel-contract.md](panel-contract.md) | writing a panel — a window onto data, or the window an interactive block opens |
 | [workflow-schema.md](workflow-schema.md) | writing or editing a workflow YAML |
 | [plot-contract.md](plot-contract.md) | writing a `render(collection)` plot |
 | [package-discovery.md](package-discovery.md) | using types/blocks from an installed package |

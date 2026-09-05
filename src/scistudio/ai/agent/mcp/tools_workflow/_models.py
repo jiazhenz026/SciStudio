@@ -251,10 +251,16 @@ class FinishAIBlockError(BaseModel):
 class ActiveWorkflowContextResult(BaseModel):
     """Result envelope for ``get_active_workflow_context``.
 
-    ADR-040 Addendum 5 / #1488. Both fields are ``None`` when no
-    workflow is open in the GUI. ``workflow_name`` falls back to
-    ``workflow_id`` when the underlying YAML carries no separate
+    ADR-040 Addendum 5 / #1488. ``workflow_id`` and ``workflow_name`` are
+    ``None`` when no workflow is open in the GUI. ``workflow_name`` falls back
+    to ``workflow_id`` when the underlying YAML carries no separate
     ``metadata.title`` / ``metadata.name``.
+
+    ADR-054 spec 5 FR-003/FR-004 (#2254) adds the workspace focus beside those
+    two, unchanged, fields: ``mode`` and the identifiers of the mode. A focus
+    that has never been reported reads as mode ``canvas`` over the persisted
+    workflow id, which is what this tool returned before the focus existed —
+    so an agent that only reads the two original fields keeps working.
     """
 
     workflow_id: str | None = Field(
@@ -264,6 +270,53 @@ class ActiveWorkflowContextResult(BaseModel):
     workflow_name: str | None = Field(
         default=None,
         description="Display name of the active workflow (metadata.title when set, otherwise workflow_id), or None.",
+    )
+    mode: str = Field(
+        default="canvas",
+        description=(
+            "Where the person is: 'canvas' (editing a workflow), 'explore' (in a "
+            "notebook session), or 'pause' (at an interactive pause). 'canvas' when "
+            "no focus has ever been reported."
+        ),
+    )
+    session_path: str | None = Field(
+        default=None,
+        description=(
+            "Project-relative POSIX path of the focused explore session's notebook, "
+            "or None outside 'explore' mode. Pass it as session_path to a session tool "
+            "to act on a session other than the focused one."
+        ),
+    )
+    bound_run_id: str | None = Field(
+        default=None,
+        description="Run the focused explore session is bound to, or None when it was opened over a file.",
+    )
+    current_cell_id: str | None = Field(
+        default=None,
+        description="Cell the person's cursor is in, in the focused explore session, or None.",
+    )
+    paused_node_id: str | None = Field(
+        default=None,
+        description="Node the person is paused on, or None outside 'pause' mode.",
+    )
+    paused_run_id: str | None = Field(
+        default=None,
+        description="Run the paused node belongs to, or None outside 'pause' mode.",
+    )
+    focus_stale: bool = Field(
+        default=False,
+        description=(
+            "True when the focus names an explore session whose notebook no longer "
+            "exists. Session tools refuse until a new focus is reported; open a new "
+            "session or name one explicitly."
+        ),
+    )
+    focus_reported_at: str | None = Field(
+        default=None,
+        description=(
+            "ISO-8601 timestamp the backend stamped when the focus was reported, or "
+            "None when no focus has ever been reported."
+        ),
     )
 
 

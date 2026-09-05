@@ -16,13 +16,19 @@ from scistudio.api.runtime import ApiRuntime
 
 
 def test_post_sets_active_workflow_id(client: TestClient, runtime: ApiRuntime, opened_project: Path) -> None:
-    """A valid POST sets the runtime field and echoes the value back."""
+    """A valid POST sets the runtime field and echoes the value back.
+
+    ADR-054 spec 5 FR-001 (#2254) widened the response with ``focus``. A caller
+    that reports only a workflow id gets ``focus: null`` back, because it has
+    said nothing about where the person is — see
+    ``tests/ai/test_workspace_focus.py`` for the focus half of this channel.
+    """
     response = client.post(
         "/api/ai/active-context",
         json={"workflow_id": "calibration"},
     )
     assert response.status_code == 200
-    assert response.json() == {"workflow_id": "calibration"}
+    assert response.json() == {"workflow_id": "calibration", "focus": None}
     assert runtime.active_workflow_id == "calibration"
 
 
@@ -40,7 +46,7 @@ def test_post_none_clears_active_workflow_id(client: TestClient, runtime: ApiRun
     client.post("/api/ai/active-context", json={"workflow_id": "calibration"})
     response = client.post("/api/ai/active-context", json={"workflow_id": None})
     assert response.status_code == 200
-    assert response.json() == {"workflow_id": None}
+    assert response.json() == {"workflow_id": None, "focus": None}
     assert runtime.active_workflow_id is None
     target = opened_project / ".scistudio" / "active_workflow.json"
     payload = json.loads(target.read_text(encoding="utf-8"))
@@ -51,7 +57,7 @@ def test_empty_string_is_normalised_to_none(client: TestClient, runtime: ApiRunt
     """Empty string MUST normalise to None per ``set_active_workflow_id``."""
     response = client.post("/api/ai/active-context", json={"workflow_id": ""})
     assert response.status_code == 200
-    assert response.json() == {"workflow_id": None}
+    assert response.json() == {"workflow_id": None, "focus": None}
     assert runtime.active_workflow_id is None
 
 
@@ -62,5 +68,5 @@ def test_post_works_without_project_open(client: TestClient, runtime: ApiRuntime
         json={"workflow_id": "orphan"},
     )
     assert response.status_code == 200
-    assert response.json() == {"workflow_id": "orphan"}
+    assert response.json() == {"workflow_id": "orphan", "focus": None}
     assert runtime.active_workflow_id == "orphan"

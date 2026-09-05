@@ -17,6 +17,7 @@ import yaml as yaml_module
 from pydantic import Field
 
 from scistudio.ai.agent.mcp._context import _resolve_project_path, get_context
+from scistudio.ai.agent.mcp._focus import effective_focus, focus_is_stale
 from scistudio.ai.agent.mcp.server import mcp
 from scistudio.ai.agent.mcp.tools_workflow._errors import (
     _collect_run_errors,
@@ -330,17 +331,22 @@ async def get_run_status(
 
 
 # ---------------------------------------------------------------------------
-# (a.10) get_active_workflow_context — ADR-040 Addendum 5 / #1488
+# (a.10) get_active_workflow_context — ADR-040 Addendum 5 / #1488,
+#        widened into the workspace focus by ADR-054 spec 5 / #2254
 # ---------------------------------------------------------------------------
 
 
 @mcp.tool(name="get_active_workflow_context", tags={"category:workflow", "read"})
 async def get_active_workflow_context() -> ActiveWorkflowContextResult:
-    """Return the workflow id the GUI editor currently has open.
+    """Return where the person is: the workspace focus and the active workflow.
 
     Use when:
-      - The user mentions "this workflow" / "the current workflow"
-        without naming it.
+      - You are about to act and need to know whether the person is on the
+        canvas or in an explore session. Appending a cell while they are on the
+        canvas, or editing a workflow while they are in a notebook, is the
+        wrong thing done confidently — check first.
+      - The user mentions "this workflow" / "this notebook" / "the current
+        cell" without naming it.
       - You need editor-context awareness (VS Code Copilot-style)
         before deciding which `get_workflow` to call.
 
@@ -349,41 +355,65 @@ async def get_active_workflow_context() -> ActiveWorkflowContextResult:
         the returned id (``workflows/<id>.yaml``).
       - List every workflow in the project — call ``list_workflows``
         via the runtime instead.
+      - Read a notebook — call the session read tool with ``session_path``.
 
-    Both fields are ``None`` when no workflow is open in the GUI or
-    when no project is active. ``workflow_name`` falls back to the
-    workflow id when the underlying YAML carries no
-    ``metadata.title`` / ``metadata.name``.
+    ``mode`` is ``canvas``, ``explore``, or ``pause``, and each carries its own
+    identifiers: the workflow for canvas, the notebook path with its bound run
+    and current cell for explore, the node and run for pause. A workspace whose
+    frontend has never reported a focus reads as ``canvas`` over the persisted
+    workflow id, which is what this tool returned before the focus existed.
+
+    ``focus_stale`` is true when the focus names an explore session whose
+    notebook is gone; session tools refuse in that state until a new focus is
+    reported, so open a session or name one explicitly.
+
+    ``workflow_id`` and ``workflow_name`` are ``None`` when no workflow is open
+    in the GUI or when no project is active. ``workflow_name`` falls back to the
+    workflow id when the underlying YAML carries no ``metadata.title`` /
+    ``metadata.name``.
     """
     ctx = get_context()
-    # ADR-040 Addendum 5 / #1488. Defensive read: older third-party
-    # MCPContext implementations (e.g. test stubs, alternate adapters)
-    # predate this Protocol member, so an AttributeError here would
-    # take the whole tool offline. ``getattr`` keeps the worst case
-    # to a None envelope rather than a 500.
-    workflow_id = getattr(ctx, "active_workflow_id", None)
-    if not workflow_id:
-        return ActiveWorkflowContextResult(workflow_id=None, workflow_name=None)
-    # Best-effort name resolution. A missing / unreadable file MUST NOT
-    # raise — the agent gets at least the id back so it can still pass
-    # the right key to ``get_workflow`` for the authoritative load.
+    # ADR-040 Addendum 5 / #1488, ADR-054 spec 5 FR-003 / #2254. Both reads are
+    # defensive: older third-party MCPContext implementations (test stubs,
+    # alternate adapters) predate these Protocol members, so an AttributeError
+    # here would take the whole tool offline. ``effective_focus`` performs the
+    # same defensive read for the focus, and returns the canvas fallback when
+    # nothing has been reported.
+    focus = effective_focus(ctx)
+    stale = focus_is_stale(focus, getattr(ctx, "project_dir", None))
+    workflow_id = focus.workflow_id
     workflow_name: str | None = workflow_id
-    try:
-        path = _resolve_project_path(f"workflows/{workflow_id}.yaml")
-        if path.exists():
-            raw = yaml_module.safe_load(path.read_text(encoding="utf-8")) or {}
-            metadata = raw.get("metadata") if isinstance(raw, dict) else None
-            if isinstance(metadata, dict):
-                candidate = metadata.get("title") or metadata.get("name")
-                if isinstance(candidate, str) and candidate:
-                    workflow_name = candidate
-    except (OSError, ValueError, RuntimeError, PermissionError, yaml_module.YAMLError) as exc:
-        logger.debug(
-            "get_active_workflow_context: name resolution failed for %s (%s)",
-            workflow_id,
-            exc,
-        )
-    return ActiveWorkflowContextResult(workflow_id=workflow_id, workflow_name=workflow_name)
+    if workflow_id:
+        # Best-effort name resolution. A missing / unreadable file MUST NOT
+        # raise — the agent gets at least the id back so it can still pass
+        # the right key to ``get_workflow`` for the authoritative load.
+        try:
+            path = _resolve_project_path(f"workflows/{workflow_id}.yaml")
+            if path.exists():
+                raw = yaml_module.safe_load(path.read_text(encoding="utf-8")) or {}
+                metadata = raw.get("metadata") if isinstance(raw, dict) else None
+                if isinstance(metadata, dict):
+                    candidate = metadata.get("title") or metadata.get("name")
+                    if isinstance(candidate, str) and candidate:
+                        workflow_name = candidate
+        except (OSError, ValueError, RuntimeError, PermissionError, yaml_module.YAMLError) as exc:
+            logger.debug(
+                "get_active_workflow_context: name resolution failed for %s (%s)",
+                workflow_id,
+                exc,
+            )
+    return ActiveWorkflowContextResult(
+        workflow_id=workflow_id,
+        workflow_name=workflow_name,
+        mode=focus.mode,
+        session_path=focus.session_path,
+        bound_run_id=focus.bound_run_id,
+        current_cell_id=focus.current_cell_id,
+        paused_node_id=focus.paused_node_id,
+        paused_run_id=focus.paused_run_id,
+        focus_stale=stale,
+        focus_reported_at=focus.reported_at,
+    )
 
 
 __all__: list[str] = [
