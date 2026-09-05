@@ -208,34 +208,59 @@ _No entries yet._
 
 ### fix-codeql
 
-Triage of the 12 CodeQL alerts the assembly branch adds over `main`. Nine were
-fixed on `fix/2229-panel-codeql-findings`; the three entries below are what was
-left, plus what the fix could not reach from this branch.
+Triage of the CodeQL alerts the assembly branch adds over `main`. The first
+pass (`fix/2229-panel-codeql-findings`, PR #2260, merged) took the delta from
+**12 to 5**: the four `js/prototype-polluting-assignment` alerts and the three
+`py/path-injection` alerts on `panels/assets.py` cleared. The second pass
+(`fix/2229-codeql-barrier`) established why the remaining four cannot be
+cleared in code and what this repository can and cannot do about them.
 
-#### FC-001 — 22 `py/path-injection` alerts in `plot/**`, `desktop/**` and `api/routes/data.py` are inherited from `main`
+**Where it stands, measured on `eb8b3588` (check-run `101292090119`):** the
+assembly carries 60 open alerts and `main` carries 55. The delta is five —
+four on `core.plot.basic/index.html` (FC-004) and one on `api/routes/git.py`
+(FC-003). Nothing else on the branch is new.
+
+#### FC-001 — every `py/path-injection` alert on the assembly is also on `main`, at identical counts
 
 - **Severity**: P3 — not new, not this branch's, and not a regression. Whether
-  any of them is real is unexamined.
-- **Found by**: fix-codeql.
-- **Evidence**: the code-scanning API says these are already open on the
-  default branch, so the PR check counts them only because the assembly's diff
-  moved their line numbers:
+  any of the 51 is a real vulnerability is unexamined; only their provenance
+  is settled here.
+- **Found by**: fix-codeql. Re-checked in the second pass because
+  `api/routes/user_library.py` appeared in a second annotation set and looked
+  new. It is not: GitHub caps a check run at ~30 annotations, so the 22 paths
+  in the first sample and the 26 in the second are two different samples of
+  one unchanged set.
+- **Evidence** — group both refs by path and compare, rather than trusting a
+  line-number match, because the assembly's diff moves lines:
 
   ```bash
-  gh api "repos/jiazhenz026/SciStudio/code-scanning/alerts?state=open&ref=refs/heads/main" \
-    --jq '.[]|"\(.rule.id) \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'
+  for ref in refs/heads/main refs/pull/2255/head; do
+    echo "== $ref"
+    gh api "repos/jiazhenz026/SciStudio/code-scanning/alerts?state=open&per_page=100&ref=$ref" \
+      --jq '[.[]|select(.rule.id=="py/path-injection")|.most_recent_instance.location.path]
+            |group_by(.)|map({(.[0]):length})|add'
+  done
   ```
 
-  returns 55 alerts including every `plot/_context.py`, `plot/scaffold.py`,
-  `plot/targets.py`, `desktop/package_manager.py` and
-  `tests/desktop/test_package_manager.py` line the PR annotates.
-  `git diff --quiet origin/main HEAD -- <path>` is clean for all of them, and
-  `api/routes/data.py:506` is `main`'s `data.py:770` after the assembly deleted
-  288 lines above it.
+  Both refs return the same object, byte for byte — 51 alerts across 11 paths:
+
+  ```text
+  {"src/scistudio/api/routes/data.py":3,"src/scistudio/api/routes/projects.py":3,
+   "src/scistudio/api/routes/user_library.py":16,"src/scistudio/api/routes/workflow_watcher.py":2,
+   "src/scistudio/desktop/package_installer.py":1,"src/scistudio/desktop/package_manager.py":7,
+   "src/scistudio/plot/_context.py":2,"src/scistudio/plot/scaffold.py":5,
+   "src/scistudio/plot/targets.py":1,"src/scistudio/utils/atomic_io.py":5,
+   "tests/desktop/test_package_manager.py":6}
+  ```
+
+  `src/scistudio/panels/assets.py` is absent from both, having been 3 on the
+  assembly before PR #2260: the lexical pre-check added there registered as a
+  barrier CodeQL can see.
 - **Why it is here and not done**: fixing them would turn a scoped security fix
-  into a repo-wide sweep across three subsystems the ADR-054 dispatch does not
-  own, on a branch that has to merge.
-- **Suggested title**: `Triage the 33 inherited py/path-injection alerts CodeQL reports on main`
+  into a repo-wide sweep across five subsystems the ADR-054 dispatch does not
+  own, on a branch that has to merge. The set is now bounded and reproducible,
+  which is what a triage pass owes the next person.
+- **Suggested title**: `Triage the 51 inherited py/path-injection alerts CodeQL reports on main`
 
 #### FC-002 — the `scaffold_panel` skeleton and the agent-facing panel contract do not exist on this base, so the safe URL pattern is not in them yet
 
@@ -269,6 +294,126 @@ left, plus what the fix could not reach from this branch.
 - **Why it is here and not done**: out of scope for this fix, and whichever
   spec added those 52 lines should own it.
 - **Suggested title**: `Triage the py/stack-trace-exposure alert the assembly adds at api/routes/git.py:685`
+
+#### FC-004 — the four `core.plot.basic` alerts cannot be cleared in code, and this repository honours no suppression mechanism except dismissal
+
+- **Severity**: P2 — the code is correct and tested; what is unresolved is the
+  alert, and it needs an owner decision rather than more engineering.
+- **Found by**: fix-codeql, after PR #2260 failed to clear them.
+- **The alerts**, on `refs/pull/2255/head` at `eb8b3588`:
+
+  | # | Rule | Location | Severity |
+  |---|---|---|---|
+  | 260 | `js/xss` | `core.plot.basic/index.html:445` | high |
+  | 258 | `js/client-side-unvalidated-url-redirection` | `core.plot.basic/index.html:445` | medium |
+  | 272 | `js/xss` | `core.plot.basic/index.html:452` | high |
+  | 271 | `js/client-side-unvalidated-url-redirection` | `core.plot.basic/index.html:452` | medium |
+
+  They moved from 379/386 to 445/452 when `safeAssetUrl` was inserted above
+  them; they are the same two sinks.
+- **Why the code cannot clear them**: an allowlist validator returns the string
+  it validated, so `payload.src` -> `url` -> `return url` -> `setAttribute` is
+  an intact dataflow whatever the checks in between decided. Two ways to break
+  it were considered and both rejected as contortions, with the reasoning
+  written out beside `safeAssetUrl` in the document itself: re-encoding the
+  base64 payload character by character through a constant alphabet is an
+  identity function written as a loop over a megabyte-scale payload on the
+  render path; decoding to a `Blob` for `URL.createObjectURL` buys the panel
+  choosing the media type — which the element already constrains — in exchange
+  for an object URL the panel must revoke on every zoom click or leak.
+- **Why neither named suppression mechanism is available here**:
+  - `.github/codeql/codeql-config.yml` query filters require **advanced
+    setup**. This repository is on **default setup** —
+    `gh api repos/jiazhenz026/SciStudio/code-scanning/default-setup` returns
+    `{"state":"configured","query_suite":"default",...}`, and every alert
+    instance carries
+    `analysis_key: dynamic/github-code-scanning/codeql:analyze`. A config file
+    would be inert.
+  - Inline `// codeql[...]` / `# lgtm[...]` comments are not acted on by
+    GitHub Code Scanning; they only populate a `suppressions` property in
+    SARIF, which something else then has to consume. See FC-005 for the proof
+    already sitting in this tree.
+- **What is actually available**: dismissal, via the UI or the API. That is a
+  repository security-state change with no diff for a reviewer to see, on
+  exactly the class of thing that ends up hiding a real vulnerability, so it is
+  the owner's to make rather than an agent's. If the owner agrees the four are
+  false positives:
+
+  ```bash
+  for n in 258 260 271 272; do
+    gh api -X PATCH "repos/jiazhenz026/SciStudio/code-scanning/alerts/$n" \
+      -f state=dismissed -f dismissed_reason='false positive' \
+      -f dismissed_comment='core.plot.basic gates every src through safeAssetUrl: an allowlist of data: media types per element plus a root-relative path. CodeQL follows the flow, not the condition, because the validator returns the string it validated. Pinned by frontend/src/panels/__tests__/panelHostilePayload.test.ts (23 cases fail without the gate).'
+  done
+  ```
+
+- **The fact that should shape the decision**: `CodeQL` is **not** a required
+  status check for merging to `main`. The active ruleset "Rules for Agents"
+  (id 14656629) requires exactly five — `Lint & Format`,
+  `Test (Python 3.11)`, `Test (Python 3.13)`, `Type Check`,
+  `Import Contracts`:
+
+  ```bash
+  gh api repos/jiazhenz026/SciStudio/rules/branches/main \
+    --jq '.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context'
+  ```
+
+  So a red `CodeQL` check does not block the merge; it is a standing red mark
+  on the PR. FK-005's `Test (Python 3.13)` timeout is the one that does block.
+- **Suggested title**: `Decide whether to dismiss the four core.plot.basic CodeQL alerts that the allowlist cannot clear`
+
+#### FC-005 — two `# lgtm[py/path-injection]` comments in the tree read like controls and are not
+
+- **Severity**: P2 — not a vulnerability, but a comment that looks like a
+  suppression and silently is not is worse than no comment: the next reader
+  believes the alert was handled.
+- **Found by**: fix-codeql, looking for a suppression idiom to follow.
+- **Evidence**: `src/scistudio/api/routes/user_library.py:404` and
+  `src/scistudio/api/routes/projects.py:358` each carry a
+  `# lgtm[py/path-injection]` above a call the author judged safe. Both alerts
+  are still open on `main`: alert **#247** at `user_library.py:408`, four lines
+  below its comment and on the `tempfile.mkstemp(dir=str(resolved.parent))`
+  call it was written to cover, and alert **#236** at `projects.py:370`.
+
+  ```bash
+  gh api "repos/jiazhenz026/SciStudio/code-scanning/alerts?state=open&per_page=100&ref=refs/heads/main" \
+    --jq '.[]|select(.most_recent_instance.location.path|test("user_library|projects"))
+          |"#\(.number) \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'
+  ```
+
+- **What to do**: keep the prose — the containment reasoning in both is
+  genuine and worth reading — and drop the `lgtm[...]` line, or replace it
+  with a dismissal (FC-004's mechanism) so the claim and the alert state
+  agree.
+- **Why it is here and not done**: `api/routes/**` is outside this fix's write
+  set, and editing those two files perturbs 19 open path-injection alerts for
+  a comment change.
+- **Suggested title**: `Remove or honour the two lgtm[py/path-injection] comments that suppress nothing`
+
+#### FC-006 — `core.plot.basic`'s `payload.path` branch builds a URL that can never resolve
+
+- **Severity**: P2 — a real dead path, found while tracing what
+  `safeAssetUrl` actually has to accept. Not a security issue.
+- **Found by**: fix-codeql.
+- **Evidence**: when the payload carries no inline `src`, `bulkSource` builds
+  `context.asset_base_url + "/" + encodeURIComponent(name)`.
+  `asset_base_url` is `/api/panels/assets/core.plot.basic/`
+  (`panels/descriptor.py:panel_asset_base_url`), and that route confines to
+  `panel.directory` — the built-in panel's own folder
+  (`api/routes/panels.py:218`). That folder holds `index.html` and
+  `panel.json` and nothing else, which
+  `tests/panels/test_builtin_panels.py::test_panel_directory_holds_nothing_but_its_own_two_files`
+  asserts. A plot artifact is never in it, so the request is a guaranteed 404
+  and the panel renders "No renderable plot artifact."
+- **What it means in practice**: the only figure source that works today is
+  the inline `data:` URI, which the provider produces only for artifacts at or
+  under `PreviewLimits.max_bytes`. A plot above that bound shows nothing, and
+  the panel reports it as an absent artifact rather than as one too large to
+  inline.
+- **Why it is here and not done**: fixing it means either a route that serves
+  run artifacts to a panel or a spec decision about how a panel reaches bulk
+  bytes — ADR-054 spec 1's question, not a security fix's.
+- **Suggested title**: `A plot too large to inline renders as "no artifact" because the panel asset route cannot serve run artifacts`
 
 ### fix-kernel
 

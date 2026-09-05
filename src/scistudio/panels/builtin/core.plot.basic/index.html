@@ -376,6 +376,42 @@
    * ever produces. Everything else returns "" and the figure does not render.
    * `core.artifact.basic` and `core.base.fallback` already gate their `src`
    * this way; this is the same rule, written once and stated.
+   *
+   * ---
+   *
+   * **CodeQL still reports the two `setAttribute` calls below** — `js/xss` and
+   * `js/client-side-unvalidated-url-redirection`, four alerts, at the frame's
+   * `src` and the image's. It is not seeing a hole; it is not seeing this
+   * function. An allowlist validator returns the string it validated, so the
+   * dataflow `payload.src` -> `url` -> `return url` -> `setAttribute` is
+   * intact whatever the checks in between decided, and the analyser follows
+   * the flow rather than the condition.
+   *
+   * The two ways to break that flow were both considered and both rejected as
+   * contortions: re-encoding the base64 payload character by character through
+   * a constant alphabet is an identity function written as a loop, over a
+   * payload that can be megabytes, on the render path; and decoding to a
+   * `Blob` for `URL.createObjectURL` buys the panel choosing the media type —
+   * which the element already constrains — in exchange for an object-URL this
+   * document would have to revoke on every zoom click or leak. Neither makes
+   * this file easier to read, and being readable in one sitting is what
+   * FR-034 / A-004 ask of it.
+   *
+   * **This comment is documentation, not a suppression.** It cannot be one:
+   * this repository runs CodeQL default setup, which honours neither
+   * `.github/codeql/` query filters (advanced setup only) nor `// codeql[...]`
+   * / `// lgtm[...]` comments. The proof that they do nothing here is already
+   * in the tree — `src/scistudio/api/routes/user_library.py:404` and
+   * `src/scistudio/api/routes/projects.py:358` each carry a
+   * `# lgtm[py/path-injection]`, and the alerts they were written to cover are
+   * still open. The only mechanism this configuration honours is dismissal,
+   * which is the owner's call and is written up as FC-004 in
+   * `docs/planning/adr-054-assembly-followups.md`.
+   *
+   * So the barrier's guarantee is the test suite, not the scanner:
+   * `frontend/src/panels/__tests__/panelHostilePayload.test.ts` drives this
+   * document with eleven hostile `src` values against both elements, and
+   * twenty-three of its cases fail if this function stops filtering.
    */
   function safeAssetUrl(value, dataPrefixes) {
     // A browser strips TAB, LF and CR out of a URL before it parses it, so the
