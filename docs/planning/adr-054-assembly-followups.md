@@ -475,6 +475,89 @@ helper rather than a third hand-rolled one.
 
 Cited by: `frontend/src/explore/PackagingReport.tsx`.
 
+#### F-A4-010 - A check that times out is recorded `unknown` and then reconciled as satisfied
+
+`gate_record.checks.run_check` runs every check with a hardcoded
+`timeout=600` (`checks.py:640`). When that fires it returns
+
+```python
+CheckEvent(..., exit_code=None, status="unknown",
+           summary=f"execution error: {type(exc).__name__}")
+```
+
+and `evaluator.py` then does this, immediately after a comment explaining that
+a required check which cannot be proven must fail closed:
+
+```python
+if event.status == "skipped":
+    ...            # FAIL CLOSED (section 7.5): unproven is not proven passing
+    continue
+if event.status != "fail":
+    continue       # <- "unknown" lands here and satisfies the obligation
+```
+
+So a required check that **failed** blocks PR readiness and one that **never
+finished** does not. Observed three times on this row: three `python_tests`
+events with `"status": "unknown", "summary": "execution error:
+TimeoutExpired"`, each followed by a reconciliation of
+`{"result": "pass", "unsatisfied": []}`, while every `"status": "fail"` event
+produced `"unsatisfied": ["checks.python_tests"]`.
+
+This is the shape of defect that only appears on a loaded machine - which is
+exactly when an agent is most tempted to take the pass and move on. This row
+did not: every run is in the ledger, the failures were reproduced and
+classified, and the state is reported rather than banked.
+
+**Fix**: extend the fail-closed branch to every status that is not `pass`.
+`unknown` deserves its own repair hint - "the check did not finish in 600s;
+re-run, or reduce the local load" is a different instruction from "the tool is
+missing". A required check with `raw_log_ref: null` is the same condition seen
+from another angle. Consider making the 600s configurable, since the Python
+suite legitimately takes 5-8 minutes on an idle machine and there is no margin.
+
+Cited by: `src/scistudio/qa/governance/gate_record/checks.py` (`run_check`,
+`timeout=600`), `src/scistudio/qa/governance/gate_record/evaluator.py`
+(`if event.status != "fail": continue`),
+`.workflow/records/2253-feat-2253-packaging-and-graph.json`.
+
+#### F-A4-011 - `run_python_tests` pins `-n auto`, which is hostile on a shared machine
+
+`src/scistudio/qa/testing/run_python_tests.py` hardcodes `-n auto` for its
+parallel phase. On the dispatch machine - 32 logical CPUs, and several agents
+each running their own full suite at once, 122 python processes counted during
+this row's runs - `auto` asks for 32 workers per agent, and workers start dying:
+
+- run 1: `3 failed`, all three `node down: Not properly terminated`, plus an
+  xdist `INTERNALERROR` from a zero-byte `.coverage.*` file a dead worker left
+  behind (`sqlite3.OperationalError: no such table: file`).
+- run 2: `5 failed` - three more crashed workers, plus
+  `tests/ai/test_mcp_tools_disk_integration.py::test_concurrent_write_workflow_serialises`
+  (a path-resolution race, already S4-A1's F-A1-008) and
+  `tests/api/test_reload_on_save.py::test_broken_block_save_does_not_reload_or_emit`
+  (`assert 2 == 1` on `file.changed` events - a duplicate watchdog event).
+- run 4, at 12 workers: `3 failed`, a different three again -
+  `test_concurrent_write_workflow_serialises` once more,
+  `tests/api/test_panel_document_events.py::test_the_file_route_accepts_a_panel_document`,
+  and `tests/qa/test_generate_facts_cli.py::test_generate_facts_check_reports_stale_file`.
+
+No node id failed twice, and every failing set passes in isolation:
+
+```
+python -m pytest -p no:xdist --no-cov <that run's node ids>   ->  all passed
+```
+
+`PYTEST_XDIST_AUTO_NUM_WORKERS` is honoured by xdist and is the lever, but at 6
+the suite outran the gate's own timeout (F-A4-010).
+
+**Fix**: let `run_python_tests` take a worker count (or read the env var and
+default sensibly) so an agent on a busy machine can trade minutes for
+reliability, and make the gate's per-check timeout scale with it. Also worth
+deleting a stale zero-byte `.coverage.*` before the run rather than letting a
+dead worker's leftovers fail the next one.
+
+Cited by: `src/scistudio/qa/testing/run_python_tests.py`,
+`docs/planning/adr-054-assembly-followups.md` `F-A1-008`.
+
 
 ### S5-B1
 
