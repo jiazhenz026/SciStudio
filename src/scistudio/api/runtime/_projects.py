@@ -558,26 +558,103 @@ def _publish_mcp_port(self: ApiRuntime, project_dir: Path) -> None:
 # The file uses the same ``<project>/.scistudio/`` directory as the
 # MCP port file (see ``_publish_mcp_port``) and is .gitignored as
 # per-developer state, not workflow source.
+#
+# ADR-054 spec 5 FR-001/FR-002 (#2254): the same file now carries a second key,
+# ``focus`` — the workspace focus the frontend reports on tab change, which says
+# whether the person is on the canvas, in an explore session, or at a pause.
+# It rides this channel rather than a new one because the agent's question
+# ("where is the person?") is the question this file was already half answering,
+# and because a second file would be a second thing to keep in step on project
+# switch, on restart, and on delete.
+#
+# The addition is additive in both directions. A file written before this build
+# has no ``focus`` key and loads as "never reported", which the context tool
+# reads as mode canvas over the persisted workflow id — today's behaviour
+# exactly (FR-003). A file written by this build and read by an older one still
+# yields ``workflow_id`` from ``parsed.get("workflow_id")``, and the extra key is
+# ignored.
 _ACTIVE_WORKFLOW_FILENAME = "active_workflow.json"
+
+#: Key of the focus record inside :data:`_ACTIVE_WORKFLOW_FILENAME`.
+_FOCUS_KEY = "focus"
+
+#: The focus record's fields, in write order. This mirrors
+#: ``scistudio.ai.agent.mcp._focus.FOCUS_FIELDS``, which is the reader's view of
+#: the same record; the duplication is deliberate and load-bearing, because this
+#: package must not import the MCP package (doing so executes every tool module
+#: and FastMCP inside every importer of ``scistudio.api.runtime``). The two
+#: lists are held together by ``tests/ai/test_workspace_focus.py``, which
+#: asserts they are equal.
+_FOCUS_FIELDS: tuple[str, ...] = (
+    "mode",
+    "workflow_id",
+    "session_path",
+    "bound_run_id",
+    "current_cell_id",
+    "paused_node_id",
+    "paused_run_id",
+    "reported_at",
+)
+
+#: Every mode the frontend may report. Mirrors
+#: ``scistudio.ai.agent.mcp._focus.FOCUS_MODES`` for the same reason
+#: :data:`_FOCUS_FIELDS` does, and is asserted equal by the same test.
+_FOCUS_MODES: tuple[str, ...] = ("canvas", "explore", "pause")
+
+
+def _normalise_focus(raw: Any) -> dict[str, Any] | None:
+    """Return the JSON-safe focus record to persist, or ``None``.
+
+    ``None`` means "no focus", which is what an unrecognised mode degrades to:
+    a report this build cannot read must not become a record that outlives it on
+    disk, and the canvas fallback the readers apply is the conservative answer.
+
+    Only :data:`_FOCUS_FIELDS` survive, so nothing a caller invents reaches the
+    file, and every one of them is a trimmed non-empty string or ``None`` — the
+    same normalisation :func:`set_active_workflow_id` applies to the workflow id,
+    for the same reason: the agent must never be shown a meaningless empty
+    value.
+    """
+    if not isinstance(raw, dict):
+        return None
+    mode = raw.get("mode")
+    if not isinstance(mode, str) or mode not in _FOCUS_MODES:
+        return None
+    record: dict[str, Any] = {}
+    for name in _FOCUS_FIELDS:
+        value = raw.get(name)
+        if isinstance(value, str):
+            trimmed = value.strip()
+            record[name] = trimmed or None
+        else:
+            record[name] = None
+    record["mode"] = mode
+    return record
 
 
 def _load_active_workflow_id_from_disk(self: ApiRuntime) -> None:
-    """Read the persisted ``active_workflow_id`` for the active project.
+    """Read the persisted active workflow id and workspace focus.
 
-    Called from :func:`open_project` after the MCP port publish so the
-    field reflects the workflow that was last active in the newly
-    opened project. Missing file / malformed JSON / OSError leave the
-    field at ``None`` — a stale or absent persistence file MUST NOT
-    break project open.
+    Called from :func:`open_project` after the MCP port publish so both fields
+    reflect what was last active in the newly opened project. Missing file /
+    malformed JSON / OSError leave both at ``None`` — a stale or absent
+    persistence file MUST NOT break project open.
+
+    ADR-054 spec 5 FR-002 restores the focus "exactly as it restores the active
+    workflow id", which is why it is read here rather than anywhere else: one
+    read, one failure mode, and no way for the two to be restored from different
+    files or at different times.
     """
     if self.active_project is None:
         self.active_workflow_id = None
+        self.workspace_focus = None
         return
     target = Path(self.active_project.path) / ".scistudio" / _ACTIVE_WORKFLOW_FILENAME
     try:
         raw = target.read_text(encoding="utf-8")
     except OSError:
         self.active_workflow_id = None
+        self.workspace_focus = None
         return
     try:
         parsed = json.loads(raw)
@@ -587,24 +664,34 @@ def _load_active_workflow_id_from_disk(self: ApiRuntime) -> None:
             target,
         )
         self.active_workflow_id = None
+        self.workspace_focus = None
         return
     value = parsed.get("workflow_id") if isinstance(parsed, dict) else None
     self.active_workflow_id = value if isinstance(value, str) and value else None
+    self.workspace_focus = _normalise_focus(parsed.get(_FOCUS_KEY) if isinstance(parsed, dict) else None)
 
 
 def _publish_active_workflow_id(self: ApiRuntime) -> None:
-    """Write the current ``active_workflow_id`` to the active project's
-    ``.scistudio/active_workflow.json``.
+    """Write the active workflow id and the workspace focus to the active
+    project's ``.scistudio/active_workflow.json``.
 
     Best-effort: failures are logged and swallowed (e.g. read-only
     project root) so a persistence-layer issue cannot break the chat
     agent's POST-to-update flow.
+
+    The ``focus`` key is written only when a focus has been reported. A project
+    nobody has opened an explore tab in therefore keeps the byte-for-byte file
+    this build's predecessor wrote, and the absence of the key is what "never
+    reported" means on disk — the state ADR-054 spec 5 FR-003 defines a
+    behaviour for.
     """
     if self.active_project is None:
         return
     target_dir = Path(self.active_project.path) / ".scistudio"
     target = target_dir / _ACTIVE_WORKFLOW_FILENAME
-    payload = {"workflow_id": self.active_workflow_id}
+    payload: dict[str, Any] = {"workflow_id": self.active_workflow_id}
+    if self.workspace_focus:
+        payload[_FOCUS_KEY] = self.workspace_focus
     try:
         target_dir.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(payload), encoding="utf-8")
@@ -623,10 +710,41 @@ def set_active_workflow_id(self: ApiRuntime, workflow_id: str | None) -> None:
     strings are normalised to ``None`` so the MCP tool never reports
     a meaningless empty value to the agent. Persistence is best-effort
     — see :func:`_publish_active_workflow_id`.
+
+    The workspace focus is deliberately left alone. A caller that posts only a
+    workflow id is the pre-ADR-054 half of the channel — the store's own
+    active-workflow sync — and having it silently reset the focus would mean a
+    background workflow load could tell the agent the person had left their
+    notebook. Reporting the focus is :func:`set_workspace_focus`'s job.
     """
     normalised = workflow_id if isinstance(workflow_id, str) and workflow_id else None
     self.active_workflow_id = normalised
     self._publish_active_workflow_id()
+
+
+def set_workspace_focus(self: ApiRuntime, focus: Any) -> dict[str, Any] | None:
+    """Record the workspace focus the frontend reported, and persist it.
+
+    ADR-054 spec 5 FR-001/FR-002 (#2254). *focus* is the mapping the route built
+    from the request body, or ``None`` to clear the focus back to "never
+    reported". The record is normalised through :func:`_normalise_focus`, stamped
+    with a server-side ``reported_at``, stored on the runtime, and written to the
+    same per-project file the active workflow id lives in.
+
+    ``reported_at`` is stamped here rather than taken from the request because
+    the browser's clock is not a fact this process can rely on, and the field's
+    only consumer — an agent judging how fresh the focus is — needs it to be
+    comparable with the backend's own timestamps.
+
+    Returns the stored record so the route can echo exactly what was persisted
+    rather than re-deriving it.
+    """
+    normalised = _normalise_focus(focus)
+    if normalised is not None:
+        normalised["reported_at"] = _now_iso()
+    self.workspace_focus = normalised
+    self._publish_active_workflow_id()
+    return normalised
 
 
 def update_project(

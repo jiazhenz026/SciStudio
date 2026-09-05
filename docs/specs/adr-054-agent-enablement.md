@@ -40,6 +40,8 @@ scope:
 governs:
   modules:
     - scistudio.ai.agent.mcp
+    - scistudio.ai.agent.mcp.tools_explore
+    - scistudio.ai.agent.mcp.tools_panels
     - scistudio.agent_provisioning
   contracts:
     - scistudio.ai.agent.mcp.tools_workflow.read.get_active_workflow_context
@@ -58,32 +60,32 @@ governs:
     - src/scistudio/agent_provisioning/templates/claude_agents_md.md
     - src/scistudio/_skills/scistudio/SKILL.md
     - src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md
+    - src/scistudio/_skills/scistudio/scistudio-write-panel/**
+    - src/scistudio/ai/agent/mcp/tools_explore/**
+    - src/scistudio/ai/agent/mcp/tools_panels/**
     - src/scistudio/_agent_reference/README.md
     - src/scistudio/_agent_reference/block-contract.md
+    - src/scistudio/_agent_reference/panel-contract.md
     - src/scistudio/_agent_reference/public-api.md
     - src/scistudio/_agent_reference/data-types.md
     - docs/specs/embedded-coding-agent-spec.md
+    - tests/ai/test_workspace_focus.py
+    - tests/ai/test_mcp_tools_explore.py
+    - tests/ai/test_mcp_tools_panels.py
     - tests/ai/test_mcp_fastmcp.py
     - tests/ai/test_mcp_server_skeleton.py
     - tests/ai/test_finish_ai_block_skeleton.py
+    - tests/ai/test_tool_catalogs.py
+    - tests/mcp_tool_expectations.py
     - tests/agent_provisioning/test_skills.py
   excludes:
     - docs/architecture/**
     - docs/user/**
 planned_governs:
-  modules:
-    - scistudio.ai.agent.mcp.tools_panels
-    - scistudio.ai.agent.mcp.tools_explore
+  modules: []
   contracts: []
   entry_points: []
-  files:
-    - src/scistudio/ai/agent/mcp/tools_panels/**
-    - src/scistudio/ai/agent/mcp/tools_explore/**
-    - src/scistudio/_skills/scistudio/scistudio-write-panel/**
-    - src/scistudio/_agent_reference/panel-contract.md
-    - tests/ai/test_mcp_tools_panels.py
-    - tests/ai/test_mcp_tools_explore.py
-    - tests/ai/test_workspace_focus.py
+  files: []
   excludes: []
 tests:
   - tests/ai/test_workspace_focus.py
@@ -92,6 +94,7 @@ tests:
   - tests/ai/test_mcp_fastmcp.py
   - tests/ai/test_mcp_server_skeleton.py
   - tests/ai/test_finish_ai_block_skeleton.py
+  - tests/ai/test_tool_catalogs.py
   - tests/agent_provisioning/test_skills.py
 acceptance_source: adr
 language_source: en
@@ -521,6 +524,8 @@ teaches both is worse than one that teaches neither.
 | `tests/ai/test_mcp_tools_explore.py` | create | Session tools against a scripted session API. |
 | `tests/ai/test_mcp_fastmcp.py`, `test_mcp_server_skeleton.py`, `test_finish_ai_block_skeleton.py` | modify | Count assertions (FR-025). |
 | `tests/agent_provisioning/test_skills.py` | modify | The written-file count (FR-009). |
+| `tests/ai/test_tool_catalogs.py` | create | Every registered tool name appears in each catalog; the per-group counts and membership (FR-025, FR-026). |
+| `tests/mcp_tool_expectations.py` | create | The one declaration of the expected tool set, which the five count-assertion sites read. |
 | `frontend/src/explore/workspaceFocus.ts` | (spec 4) | The focus report on tab change. Written and governed by the explore-frontend spec, which owns `frontend/src/explore/**`; this spec owns the channel it posts to (FR-001). |
 
 ### 4.3 Implementation Sequence

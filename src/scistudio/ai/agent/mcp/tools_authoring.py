@@ -15,6 +15,8 @@ type names.
 
 from __future__ import annotations
 
+import importlib
+import importlib.resources
 import inspect
 import logging
 import subprocess
@@ -47,9 +49,19 @@ class ReadBlockSourceResult(BaseModel):
 class BlockExampleEntry(BaseModel):
     """One entry in the ``list_block_examples`` result list."""
 
-    name: str = Field(description="Importable module path of the example block.")
-    path: str = Field(description="Absolute filesystem path of the example module.")
-    description: str = Field(description="First line of the module docstring.")
+    name: str = Field(
+        description=(
+            "Importable module path of the example block, or the folder name of a "
+            "worked example in the shipped examples corpus."
+        )
+    )
+    path: str = Field(
+        description=(
+            "Absolute filesystem path of the example module, or of the example's "
+            "directory when the example is a corpus folder."
+        )
+    )
+    description: str = Field(description="First line of the module docstring, or the corpus example's title.")
 
 
 class ScaffoldBlockResult(BaseModel):
@@ -182,28 +194,103 @@ _EXAMPLE_CURATION: dict[str, list[str]] = {
     "subworkflow": ["scistudio.blocks.subworkflow.subworkflow_block"],
 }
 
+#: The corpus root: worked examples that ship as directories rather than as
+#: importable modules. It is the same tree provisioning copies into every
+#: project as ``user-guide/examples/``.
+_CORPUS_PACKAGE = "scistudio._user_guide.examples"
+
+#: ADR-054 spec 5 FR-027: the examples corpus gains a panel and a packaged
+#: notebook, and both are reachable here. They are curated by directory rather
+#: than by module path because neither is a module: a panel is a self-contained
+#: HTML document beside its ``panel.json``, and a packaged notebook is an
+#: ``.ipynb`` beside the block declaration packaging generated from it.
+#:
+#: FR-017 requires the panel half to carry at least one *displaying* and one
+#: *producing* panel, which is why there are two of them. The panel tool group
+#: reads this mapping through :func:`list_corpus_examples` rather than keeping a
+#: second list: one corpus, one place to add to.
+_CORPUS_EXAMPLES: dict[str, list[str]] = {
+    "panel": ["panel-series-view", "panel-region-picker"],
+    "notebook": ["notebook-find-peaks"],
+}
+
+
+def _corpus_title(directory: Path) -> str:
+    """Return a corpus example's title: the first heading of its README."""
+    readme = directory / "README.md"
+    try:
+        for line in readme.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("# "):
+                return stripped[2:].strip()
+    except OSError:  # pragma: no cover - a corpus folder without a README
+        pass
+    return directory.name
+
+
+def list_corpus_examples(category: str) -> list[BlockExampleEntry]:
+    """Return the worked examples the shipped corpus holds for *category*.
+
+    The corpus is ``scistudio/_user_guide/examples/`` -- the same tree
+    provisioning copies into every project as ``user-guide/examples/``. An
+    unknown category returns an empty list rather than raising, because this is
+    a lookup into a supplementary corpus, not the tool's argument check.
+    """
+    folders = _CORPUS_EXAMPLES.get(category)
+    if not folders:
+        return []
+    out: list[BlockExampleEntry] = []
+    for folder in folders:
+        try:
+            directory = Path(str(importlib.resources.files(_CORPUS_PACKAGE).joinpath(folder)))
+        except (ModuleNotFoundError, FileNotFoundError, NotADirectoryError, TypeError) as exc:
+            logger.warning("list_corpus_examples: could not resolve %s: %s", folder, exc)
+            continue
+        if not directory.is_dir():
+            logger.warning("list_corpus_examples: corpus example %s is missing at %s", folder, directory)
+            continue
+        out.append(
+            BlockExampleEntry(
+                name=folder,
+                path=str(directory),
+                description=_corpus_title(directory),
+            )
+        )
+    return out
+
 
 @mcp.tool(name="list_block_examples", tags={"category:authoring", "read"})
 async def list_block_examples(
-    category: str = Field(description="One of: io, process, code, app, ai, subworkflow."),
+    category: str = Field(description="One of: io, process, code, app, ai, subworkflow, notebook, panel."),
 ) -> list[BlockExampleEntry]:
-    """List curated example blocks for a category.
+    """List curated worked examples for a category.
 
     Use when:
       - You're authoring a new block and want pattern references.
       - You need to see how a specific category structures its
         ``run()`` method, ports, and config_schema.
+      - You're authoring a **panel** (``category="panel"``) and want a real
+        displaying or producing document to copy the shape from, or working a
+        computation out in a session you mean to package
+        (``category="notebook"``).
 
     Do NOT use to:
       - List all registered block types — use ``list_blocks``.
 
+    Categories ``panel`` and ``notebook`` resolve to worked examples in the
+    shipped corpus (``user-guide/examples/``) rather than to importable
+    modules, because a panel is an HTML document and a packaged notebook is an
+    ``.ipynb`` beside its generated declaration (ADR-054 spec 5 FR-027).
+
     Raises ``KeyError`` if the category is not recognised.
     """
-    if category not in _EXAMPLE_CURATION:
-        raise KeyError(f"Unknown block category '{category}'. Known: {sorted(_EXAMPLE_CURATION)}")
-    import importlib
+    known = sorted(set(_EXAMPLE_CURATION) | set(_CORPUS_EXAMPLES))
+    if category not in known:
+        raise KeyError(f"Unknown example category '{category}'. Known: {known}")
 
-    out: list[BlockExampleEntry] = []
+    out: list[BlockExampleEntry] = list(list_corpus_examples(category))
+    if category not in _EXAMPLE_CURATION:
+        return out
     for mod_path in _EXAMPLE_CURATION[category]:
         try:
             mod = importlib.import_module(mod_path)

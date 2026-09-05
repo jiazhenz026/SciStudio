@@ -41,14 +41,15 @@ def test_install_project_agent_assets_fresh_project(tmp_project_dir: Path) -> No
     for path in result.written:
         assert (tmp_project_dir / path).exists(), f"declared written but missing: {path}"
 
-    # 14 skill files (7 names, 2 trees) — flat layout per ADR-040 Addendum 1;
-    # 7 = 1 base + 6 task skills (incl. ADR-048 scistudio-write-plot).
+    # 16 skill files (8 names, 2 trees) — flat layout per ADR-040 Addendum 1;
+    # 8 = 1 base + 7 task skills (incl. ADR-048 scistudio-write-plot and
+    # ADR-054 §8.3 scistudio-write-panel).
     skill_files = [
         p
         for p in result.written
         if (p.startswith(".claude/skills/") or p.startswith(".agents/skills/")) and p.endswith("/SKILL.md")
     ]
-    assert len(skill_files) == 14, f"expected 14 skill files, got {len(skill_files)}: {skill_files}"
+    assert len(skill_files) == 16, f"expected 16 skill files, got {len(skill_files)}: {skill_files}"
 
 
 def test_install_project_agent_assets_idempotent(tmp_project_dir: Path) -> None:

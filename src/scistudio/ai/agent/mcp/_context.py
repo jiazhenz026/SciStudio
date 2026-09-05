@@ -34,6 +34,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from scistudio.blocks.registry import BlockRegistry
     from scistudio.core.types.registry import TypeRegistry
 
@@ -60,6 +62,62 @@ class MCPContext(Protocol):
     # ``get_active_workflow_context`` MCP tool so the agent has VS Code
     # Copilot-style editor awareness without per-message context bloat.
     active_workflow_id: str | None
+
+    # ADR-054 spec 5 FR-001 to FR-005 (#2254): the same channel, widened. The
+    # frontend now reports *where the person is* — canvas, explore, or pause —
+    # and not only which workflow is open, because an agent that appends a cell
+    # while the person is on the canvas is doing the wrong thing confidently.
+    #
+    # It is a plain mapping rather than the ``WorkspaceFocus`` record because
+    # the implementer of this member is the API layer, and ``api`` importing
+    # ``scistudio.ai.agent.mcp._focus`` would execute this package's
+    # ``__init__`` — every tool module and FastMCP — inside
+    # ``scistudio.api.runtime``, which imports neither today. The API therefore
+    # carries the JSON-safe shape it already persists, and
+    # :meth:`~scistudio.ai.agent.mcp._focus.WorkspaceFocus.from_mapping` turns
+    # it into the record on this side of the boundary.
+    #
+    # ``None`` means no focus has ever been reported, which
+    # :func:`scistudio.ai.agent.mcp._focus.effective_focus` reads as canvas over
+    # ``active_workflow_id`` — today's behaviour exactly. Every reader of this
+    # member goes through that function or through
+    # :func:`~scistudio.ai.agent.mcp._focus.resolve_session_path`, and reads it
+    # with ``getattr`` so that a context implementation predating this member
+    # degrades to today's behaviour rather than raising.
+    workspace_focus: Mapping[str, Any] | None
+
+    def get_session_service(self) -> Any | None:
+        """The explore session service the runtime already holds, or ``None``.
+
+        ADR-054 spec 5 FR-024 (#2254), closing follow-up F-B3-1. The seven
+        session tools act on the *person's* explore session, and under the
+        topology the desktop app runs they execute inside the backend process
+        that already holds it: ``scistudio mcp-bridge`` proxies the agent's
+        stdio into the running GUI's in-process MCP server. A tool that built a
+        service of its own there would put a second
+        :class:`~scistudio.explore.session.SessionService` — a second
+        ``NotebookStore`` document — over the person's own notebook file.
+
+        This is therefore the one member whose *identity* matters rather than
+        its value: what it returns must be the same object
+        ``scistudio.api.routes.explore`` serves its routes from, which is what
+        ``_RuntimeAdapter`` in :mod:`scistudio.api.app` forwards.
+
+        The return type is :data:`~typing.Any` rather than ``SessionService``
+        for the same reason :attr:`workspace_focus` is a mapping rather than
+        the record: the implementer is the API layer, this Protocol is only a
+        shape, and the tools call session-API members on what comes back.
+        ``scistudio.ai.agent.mcp.tools_explore._service`` is where the cast and
+        the fallback live.
+
+        ``None`` — and an implementation that does not have this member at all,
+        which is why every reader goes through ``getattr`` — means there is no
+        live service to share: a standalone ``scistudio mcp-bridge`` with no
+        backend behind it, or a backend with no project open. The tool side
+        then builds a detached service and says so, rather than pretending it
+        is the person's.
+        """
+        ...
 
 
 _current_context: MCPContext | None = None

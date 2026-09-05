@@ -60,6 +60,14 @@ PUBLISHED_SIDEBAR: tuple[tuple[int, str, str], ...] = (
     (2, "page", "CodeBlock example — run an R script (AccuCor)"),
     (1, "section", "Io load npy"),
     (2, "page", "IOBlock example — a custom .npy loader"),
+    # ADR-054 spec 5 FR-027: the corpus gains a packaged notebook and two
+    # panels, one of each capability.
+    (1, "section", "Notebook find peaks"),
+    (2, "page", "Packaged-notebook example — from a session to a block"),
+    (1, "section", "Panel region picker"),
+    (2, "page", "Panel example — a producing panel"),
+    (1, "section", "Panel series view"),
+    (2, "page", "Panel example — a displaying panel"),
     (1, "section", "Process scale array"),
     (2, "page", "ProcessBlock example — normalize table columns"),
 )

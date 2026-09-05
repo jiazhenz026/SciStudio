@@ -48,6 +48,14 @@ def written_facts(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return facts_path
 
 
+# Serial, and cheap. Two agents fixed this file for two different reasons and
+# both fixes are kept: the module-scoped fixture above spawns the griffe walk
+# once instead of twice (#2253, the cost), and this mark keeps that one walk out
+# of the parallel phase (#1867, #1896, the crash — the worker hosting a
+# repo-walking subprocess dies with "node down: Not properly terminated" and
+# takes unrelated tests with it). Neither substitutes for the other, and a green
+# local run is not evidence that ``-n auto`` can host this.
+@pytest.mark.serial
 def test_generate_facts_write_and_check_round_trip(written_facts: Path) -> None:
     registry = load_facts(written_facts)
     assert registry.source_sha == SOURCE_SHA
@@ -66,6 +74,7 @@ def test_generate_facts_write_and_check_round_trip(written_facts: Path) -> None:
     assert check_result.returncode == 0, check_result.stderr
 
 
+@pytest.mark.serial
 def test_generate_facts_check_reports_stale_file(written_facts: Path, tmp_path: Path) -> None:
     stale_path = tmp_path / "generated.yaml"
     stale = load_facts(written_facts).model_copy(update={"source_sha": "stale-sha"})

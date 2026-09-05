@@ -1,0 +1,11 @@
+{
+  "panel_id": "example.series.region_picker",
+  "display_name": "Region Picker",
+  "target_types": ["Series"],
+  "capability": "producing",
+  "entry": "index.html",
+  "api_version": "1",
+  "features": ["region", "drag"],
+  "priority": 0,
+  "supports_collection": false
+}

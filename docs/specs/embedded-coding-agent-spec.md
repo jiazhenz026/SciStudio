@@ -33,6 +33,94 @@ language_source: en
 
 This deprecated spec is retained as historical reference. Its original body is preserved below, but it is not an active implementation spec under ADR-042.
 
+Its §6 Phase-2 decomposition names the 25 tools the MCP server was first built
+with, and that decomposition is history: the tool set has grown since, and the
+Phase-2 tables are not edited to keep up with it. §1.1 below is the living
+catalog and is the one to read.
+
+### 1.1 Live MCP Tool Catalog
+
+This section is a **catalog**, not a plan: it enumerates the MCP tools the
+server registers today, so a reader of this document is not left with the
+Phase-2 list below as the answer. It is one of the catalogs ADR-054 §8.4 names —
+every tool change moves the count assertions in `tests/ai/` and every catalog
+that lists tools, and `tests/ai/test_tool_catalogs.py` asserts that every
+registered tool name appears in each of them.
+
+The tools are grouped by their `category:` tag, which is what the server reports
+on `tools/list`.
+
+**Workflow (12)** — `list_blocks`, `get_block_schema`, `list_types`,
+`get_workflow`, `validate_workflow`, `write_workflow`, `edit_workflow`,
+`run_workflow`, `cancel_run`, `get_run_status`, `finish_ai_block`,
+`get_active_workflow_context`.
+
+`edit_workflow` (a surgical partial edit beside the whole-file
+`write_workflow`), `finish_ai_block` (ADR-035 §3.5), and
+`get_active_workflow_context` (ADR-040 Addendum 5, widened into the workspace
+focus by ADR-054 spec 5 FR-003) all post-date the Phase-2 decomposition.
+
+**Authoring (5)** — `read_block_source`, `list_block_examples`,
+`scaffold_block`, `reload_blocks`, `run_block_tests`.
+
+`list_block_examples` also serves the worked examples that ship as directories
+rather than as modules: `category="panel"` and `category="notebook"` return the
+panel documents and the packaged notebook in the examples corpus (ADR-054 spec 5
+FR-027).
+
+**Inspection (7)** — `get_block_output`, `inspect_data`, `preview_data`,
+`get_lineage`, `get_block_config`, `update_block_config`, `get_block_logs`.
+
+**QA / project (5)** — `get_project_info`, `list_data`, `search_docs`,
+`get_doc`, `open_gui`.
+
+`open_gui` (#1947) returns the running GUI's URL so the agent can open the live
+frontend in a browser and check its own work — a plot, a panel, an interactive
+block's pause.
+
+**Plot (6)** — `list_plot_targets`, `scaffold_plot`, `list_plot_examples`,
+`read_plot_source`, `validate_plot`, `run_plot_job` (ADR-048 SPEC 2).
+
+**Library (1)** — `promote_to_user_library` (ADR-053 FR-011).
+
+**Panel (4)** — `scaffold_panel`, `read_panel_source`, `list_panel_examples`,
+`reload_panels` (ADR-054 spec 5 FR-014 to FR-018).
+
+The authoring loop ADR-054 §8.5 asks for: `scaffold_panel` writes a panel
+directory into a tier together with the harness page that makes the document
+openable on its own, `read_panel_source` reads one back from whichever tier it
+resolved from, `list_panel_examples` returns the worked panels in the examples
+corpus, and `reload_panels` rebuilds the registry.
+
+**Session (7)** — `open_explore_session`, `read_notebook`, `append_cell`,
+`run_cell`, `get_bindings`, `check_packaging`, `package_notebook` (ADR-054
+spec 5 FR-019 to FR-024).
+
+The group's `category:` tag is `session` while its module is `tools_explore`:
+the tag names what the agent acts on, the module the subsystem it calls. Every
+tool goes through the Explore session API and reaches neither the kernel, the
+notebook file, nor the queue directly — the session service is the one door, and
+a tool that opened a second one would make "every execution passes through the
+session" false. Each acts on the focused session by default, accepts an explicit
+session path, and refuses with a recovery message when neither resolves.
+
+**Total: 47.**
+
+**Where a group is registered.** Each tool module decorates its functions onto
+the module-scope `FastMCP` instance in
+`src/scistudio/ai/agent/mcp/server.py`, but the *import* that makes those
+decorators run is in `src/scistudio/ai/agent/mcp/__init__.py`, which eagerly
+imports every tool module so `await mcp.list_tools()` is complete by the time
+anything calls it. A new group is added to that import list, not to
+`server.py`.
+
+The other catalogs of the same set are the base skill's static fallback
+(`src/scistudio/_skills/scistudio/SKILL.md`, between the `tool_catalog`
+markers) and the tool table in `docs/architecture/ARCHITECTURE.md`. The
+architecture document is a guarded, owner-controlled path, so its table is
+updated in the ADR-054 documentation batch (#2236) rather than with each tool
+change, and the catalog test excludes it until then.
+
 ## 2. Existing Historical Body
 
 ---

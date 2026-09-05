@@ -7,6 +7,7 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
@@ -139,6 +140,46 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 # getattr so an older ApiRuntime build without the
                 # field still satisfies the Protocol (returns None).
                 return getattr(self._rt, "active_workflow_id", None)
+
+            @property
+            def workspace_focus(self) -> dict[str, Any] | None:
+                # ADR-054 spec 5 FR-003 (#2254): the same channel, widened. The
+                # adapter forwards the runtime's focus record exactly as it
+                # forwards the workflow id above — and it has to be forwarded
+                # here rather than picked up by attribute fallthrough, because
+                # this adapter declares every member it exposes.
+                #
+                # The mapping crosses as a mapping: the MCP side parses it into
+                # its ``WorkspaceFocus`` record, so ``api.runtime`` never has to
+                # import the MCP package (which would pull FastMCP and every
+                # tool module into it).
+                return getattr(self._rt, "workspace_focus", None)
+
+            def get_session_service(self) -> object | None:
+                # ADR-054 spec 5 FR-024 (#2254), closing follow-up F-B3-1. The
+                # seven session MCP tools must act on the *person's* explore
+                # session, and under the topology the desktop app runs they
+                # execute inside this very process: ``scistudio mcp-bridge``
+                # proxies the agent's stdio into this app's in-process MCP
+                # server. Without this forward the tools found no service on
+                # the context and stood a second ``SessionService`` up beside
+                # the one the routes hold — two ``NotebookStore`` documents
+                # over one file, and an appended cell that reached the person
+                # only when their own session happened to reload.
+                #
+                # The registry is ``api.routes.explore``'s, not the runtime's,
+                # so the forward goes through that module's narrow accessor
+                # (``live_session_service``) rather than duplicating the
+                # lookup. ``None`` means no project is open, which the tool
+                # side answers with its own refusal.
+                #
+                # It has to be declared here rather than picked up by
+                # attribute fallthrough, because this adapter exposes only the
+                # members it names — and the crossing has to be this way round,
+                # because ``ai`` may not import ``api`` and ``api`` may import
+                # neither the MCP package's ``__init__`` (every tool module and
+                # FastMCP) nor its Protocol.
+                return explore.live_session_service(self._rt)
 
             @property
             def workflow_runs(self) -> object:

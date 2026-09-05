@@ -1,0 +1,11 @@
+{
+  "panel_id": "example.series.sparkline",
+  "display_name": "Sparkline",
+  "target_types": ["Series"],
+  "capability": "displaying",
+  "entry": "index.html",
+  "api_version": "1",
+  "features": ["sparkline"],
+  "priority": 0,
+  "supports_collection": false
+}

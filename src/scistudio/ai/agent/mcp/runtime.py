@@ -156,6 +156,26 @@ class StandaloneMCPRuntime:
     # live GUI editor, so the value is always ``None`` — callers that
     # need the live id must run against the FastAPI ``_RuntimeAdapter``.
     active_workflow_id: str | None = None
+    # ADR-054 spec 5 FR-003 (#2254): the ``workspace_focus`` member of the
+    # widened MCPContext Protocol, in the same JSON-safe mapping form the API
+    # runtime carries and persists. ``None`` for the same reason
+    # ``active_workflow_id`` is ``None`` here — a standalone bridge has no live
+    # GUI reporting tab changes to it — and ``None`` is not a gap in the
+    # contract: ``_focus.effective_focus`` reads an unreported focus as canvas
+    # over ``active_workflow_id``, which is exactly what this runtime means.
+    # The session tools' refusal (FR-005) therefore holds here by construction:
+    # a bridge agent must name a session explicitly.
+    #
+    # TODO(#2254): the persisted focus is on disk at
+    #   ``<project>/.scistudio/active_workflow.json``, so a bridge attached to a
+    #   project could read the live focus rather than reporting none. Deferred
+    #   because ``active_workflow_id`` has the same gap and the two must move
+    #   together, and because ADR-054 spec 5 FR-002 scopes restoration to the
+    #   backend runtime.
+    #   Out of scope per ADR-054 spec 5 §4.2 (the affected-files table names the
+    #   API runtime, not the bridge).
+    #   Followup: docs/planning/adr-054-assembly-followups.md, "## S5-B1".
+    workspace_focus: dict[str, Any] | None = None
     _dropin_revision: tuple[tuple[str, int, int], ...] = ()
 
     @property

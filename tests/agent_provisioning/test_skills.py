@@ -14,13 +14,15 @@ _SKILL_NAMES = (
     "scistudio-inspect-data",
     "scistudio-project-qa",
     "scistudio-write-plot",
+    # ADR-054 §8.3 / spec 5 FR-006: the seventh task skill.
+    "scistudio-write-panel",
 )
 
 
 def test_write_skills_cross_installs_both_trees(tmp_project_dir: Path) -> None:
-    """All 7 skills land in both .claude/skills/ and .agents/skills/ (1 base + 6 task)."""
+    """All 8 skills land in both .claude/skills/ and .agents/skills/ (1 base + 7 task)."""
     written = write_skills(tmp_project_dir, force=False)
-    assert len(written) == 14
+    assert len(written) == 16
 
     for name in _SKILL_NAMES:
         claude = tmp_project_dir / ".claude" / "skills" / name / "SKILL.md"
