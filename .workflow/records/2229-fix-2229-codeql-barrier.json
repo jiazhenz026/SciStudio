@@ -88,7 +88,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "45332bf6ebc7a074a2699bfacb3fc70ff8bde34c",
+    "shas": [
+      "45332bf6ebc7a074a2699bfacb3fc70ff8bde34c"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -197,6 +203,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:09:29.461286Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:09:29.484041Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:09:29.502697Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:09:29.520461Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:09:29.538841Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:09:29.556485Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:09:29.574678Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:09:29.593624Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:09:29.611874Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:09:29.628532Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:09:29.648977Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -217,9 +311,9 @@
       "frontend/src/panels/__tests__/panelHostilePayload.test.ts",
       "src/scistudio/panels/builtin/core.plot.basic/index.html"
     ],
-    "diff_fingerprint": "sha256:c65a97f4cb96e5c644106049277227efa78ea25ff19b940db897a4cdb84276a5",
+    "diff_fingerprint": "sha256:b213466681042c47bfbc754c8358ca1fef2bc67d7bc2121b260357edbc379b85",
     "head": "HEAD",
-    "head_sha": "230198213",
+    "head_sha": "45332bf6e",
     "surfaces": {
       "docs": 1,
       "frontend": 1,
@@ -236,11 +330,26 @@
   },
   "owner_directive": "Decide whether the plot panel's CodeQL taint path can be broken honestly, settle the py/path-injection set against main, and record what suppression mechanisms this repository actually honours",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2229
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-05T11:09:10.371078Z",
       "diff_fingerprint": "sha256:c65a97f4cb96e5c644106049277227efa78ea25ff19b940db897a4cdb84276a5",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-05T11:09:29.649016Z",
+      "diff_fingerprint": "sha256:b213466681042c47bfbc754c8358ca1fef2bc67d7bc2121b260357edbc379b85",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
