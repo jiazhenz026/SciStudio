@@ -371,6 +371,14 @@ way to name an already-finalized one.
 
 ### S5-B3
 
+PR #2261's CI, run 33958351227: **9 jobs pass** (Lint & Format, Type Check,
+Import Contracts, Architecture Tests, Full Audit, Deferral discipline ratchet,
+Desktop, Wheel Release Smoke, Verify Workflow Compliance). Three fail, none of
+them this branch's code: Test (3.11) is **6 failed, 9443 passed** and every
+failure is a `36`-tool count assertion (F-B3-8, S5-B4's row); Test (3.13) hit
+the same two count failures and then `pytest parallel phase exceeded 600s`
+at 96% (S5-B1's F-B1-4); Frontend is F-B3-11 below.
+
 #### F-B3-1 — The MCP context cannot reach the person's live session service
 
 - **Severity**: P1 — under the topology the desktop app actually runs, the
@@ -537,6 +545,86 @@ still has no API process to ask.
   arithmetic, and `await mcp.list_tools()` returns 47 on this branch.
 - **Suggested title**: N/A — this is S5-B4's T-009 row, recorded so it is not
   re-derived.
+
+#### F-B3-9 — `deferral_scan.py --diff` crashes on Windows before it can report anything
+
+- **Severity**: P2 — the diff gate every agent trips is unrunnable locally on
+  Windows, so it is only ever discovered in CI.
+- **Found by**: S5-B3, trying to reproduce the CI failure locally.
+- **Evidence**:
+
+  ```
+  python scripts/deferral_scan.py --diff "track/adr-054-spec5-agent-enablement"
+  File "scripts/deferral_scan.py", line 235, in _diff_added_lines
+    for raw in out.splitlines():
+  AttributeError: 'NoneType' object has no attribute 'splitlines'
+  ```
+
+  The real error is upstream and is swallowed into `stdout=None`:
+  `_diff_added_lines` runs `subprocess.run(..., text=True)` without an
+  `encoding`, so Python decodes git's output with the console codepage. On a
+  machine whose default is GBK, a diff carrying an em dash raises
+  `UnicodeDecodeError` on the reader thread and `.stdout` comes back `None`.
+  Passing `encoding="utf-8", errors="replace"` fixes it; the same call in
+  `_run_diff_gate`'s sibling scan paths deserves the same.
+- **Why it is here**: `scripts/deferral_scan.py` is CI surface and outside every
+  S5 write set.
+- **Workaround used**: the gate was reproduced by driving `deferral_scan`'s own
+  `_COMPILED`, `TRACKING_RE` and `EXCLUSIONS` over a `git diff` decoded
+  explicitly.
+- **Suggested title**: `fix(ci): deferral_scan --diff decodes git output with the console codepage and dies on Windows`
+
+#### F-B3-10 — A PR that conflicts with its base gets no CI at all, and reads as unverified rather than failing
+
+- **Severity**: P2 for this dispatch — several stacked branches will hit it as
+  the track moves under them.
+- **Found by**: S5-B3, when PR #2261 sat with zero check runs.
+- **Evidence**: `gh pr view 2261 --json mergeable` returned `CONFLICTING`, and
+  `gh api repos/.../commits/<sha>/check-suites` listed `claude`,
+  `cloudflare-workers-and-pages` and `codacy-production` but **no
+  `github-actions` suite**. GitHub cannot build the merge commit a
+  `pull_request` event runs against, so `ci.yml` never fires — the PR shows no
+  failing check, it shows no check. Merging the base into the branch made it
+  `MERGEABLE` and all three workflows started within seconds.
+- **Why it matters here**: the track branch moves while agents work on it, so
+  "the PR is green" and "the PR has not run" look the same in the PR list. An
+  agent that reports CI status without checking `mergeable` will report a
+  branch as unverified-but-fine.
+- **What would close it**: nothing in the code — a line in the dispatch
+  preamble telling agents to check `mergeable` before reading CI, and to merge
+  the track branch in when it has moved.
+- **Suggested title**: N/A — a note for `docs/planning/adr-054-assembly-dispatch-prompts/_common.md`.
+
+
+#### F-B3-11 — `OpenAsDialog.test.tsx` fails on the spec 5 track, and it is not the eslint flake
+
+- **Severity**: P2 — the Frontend job is red on this track for a reason nobody
+  has claimed, and it is a real assertion failure rather than a timeout.
+- **Found by**: S5-B3, reading PR #2261's CI.
+- **Evidence**: run 33958351227, Frontend job 101285657534,
+  **2315 passed, 1 failed (198 files)**:
+
+  ```
+  FAIL src/components/__tests__/OpenAsDialog.test.tsx > OpenAsDialog (#2112)
+       > lists every candidate with its tier and preselects the most specific
+  AssertionError: expected false to be true
+    src/components/__tests__/OpenAsDialog.test.tsx:110
+      expect(radioFor("SRSImage").checked).toBe(true);
+  ```
+
+- **Why it is not this branch's**: `git diff track/adr-054-spec5-agent-enablement...HEAD`
+  on `feat/2254-session-tools` names **no** `frontend/**` path. The branch cannot
+  change what this test does.
+- **Why it is not M-002**: M-002 is `eslint-config.test.ts` timing out at 5000ms
+  under load. This is a different file, a different failure mode (a checked
+  radio that is not checked), and it reproduced on a runner that was not
+  otherwise loaded — the same suite's other 2315 tests passed in 70s.
+- **What it probably is**: the dialog preselects "the most specific" candidate,
+  and spec 1's panel/previewer rename or spec 3's packaged-notebook block
+  changes the tier or the candidate ordering `#2112` assumed. Someone who owns
+  the panel tiers should read it against `OpenAsDialog.tsx`.
+- **Suggested title**: `fix(frontend): OpenAsDialog no longer preselects the most specific candidate on the ADR-054 track`
+
 
 ### S5-B4
 
