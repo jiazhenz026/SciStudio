@@ -29,6 +29,8 @@ The 26 tools are split across four modules by responsibility:
   and project Q&A (4 tools).
 * :mod:`scistudio.ai.agent.mcp.tools_library` — category (f): promotion
   into the personal tool library (1 tool, ADR-053 FR-011).
+* :mod:`scistudio.ai.agent.mcp.tools_panels` — category (g): panel
+  authoring (4 tools, ADR-054 spec 5 FR-014 to FR-018).
 
 FastMCP discovers tools by ``@mcp.tool()`` decorator on the module-scope
 :data:`scistudio.ai.agent.mcp.server.mcp` instance — there is no longer a
@@ -48,6 +50,7 @@ from scistudio.ai.agent.mcp import (  # noqa: F401
     tools_authoring,
     tools_inspection,
     tools_library,
+    tools_panels,
     tools_plot,
     tools_qa,
     tools_workflow,

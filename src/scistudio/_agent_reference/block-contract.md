@@ -42,28 +42,42 @@ Two panel options:
   frontend code: `PanelManifest(panel_id="core.interactive.data_router")` (drag
   items from N inputs to M outputs) or `"core.interactive.pair_editor"` (reorder
   items to fix pairing across collections).
-- **Ship your own panel** for anything data-specific (pick a baseline region on
-  a trace, click a peak, set a threshold against a preview). A panel is one
-  self-contained ES module — plain JS, no React, no build step — served from
-  beside the block:
+- **Write your own panel** for anything data-specific (pick a baseline region on
+  a trace, click a peak, set a threshold against a preview). A panel is a
+  **directory holding a `panel.json` declaration and one self-contained
+  `index.html`** — markup, styles and script in one file, no build step. It
+  lives in a panel tier, not beside the block:
 
   ```python
-  from pathlib import Path
-  interactive_panel = PanelManifest(
-      panel_id="myproj.pick_baseline",
-      module_url="/api/blocks/panels/myproj.pick_baseline/index.js",
-      asset_root=str(Path(__file__).parent / "pick_baseline"),  # dir holding index.js
-      version="1",
-  )
+  interactive_panel = PanelManifest(panel_id="myproj.pick_baseline")
   ```
 
-  `asset_root` is the on-disk directory (next to the block `.py`) holding the
-  panel files; it is served path-confined and never sent to the browser.
-  `module_url` is always `/api/blocks/panels/<panel_id>/<file>`. The module
-  exports `{ apiVersion: "1", mount(container, host) }`; `host.panelPayload` is
-  what `prepare_prompt` returned, `host.confirm(decision)` sends the JSON that
-  becomes `config["interactive_response"]`, and `host.cancel()` cancels the
-  block. `mount` returns `{ unmount() {...} }`.
+  The id is the panel directory's name, and that is the whole declaration a
+  block makes: a block-declared panel is **producing** by default, because it
+  exists to take a decision back.
+
+  Do not hand-write the directory. Call
+  `scaffold_panel(panel_id=..., target_types=[], capability="producing")` —
+  `target_types` is empty because a block-declared panel is addressed by the
+  block, not by the type of the data. It writes `panel.json`, a working
+  `index.html`, and a `harness.html` you open in a browser to watch the panel
+  render and see what it emits. Then `reload_panels` registers it.
+
+  The panel is mounted in a sandboxed frame and speaks one `postMessage`
+  contract: it receives `init` (carrying what `prepare_prompt` returned as the
+  target), answers `ready`, and commits the user's decision with `emit`. For a
+  block pause the emission is *run* in a bare namespace holding only
+  `scistudio.output`, and the single `scistudio.output(...)` call's keyword
+  arguments become `config["interactive_response"]`:
+
+  ```python
+  selection = {"start": 402.0, "end": 431.5}
+  scistudio.output(baseline=selection)
+  ```
+
+  The whole contract — the declaration fields, both message directions, the
+  tiers, and what an emission may contain — is in
+  [panel-contract.md](panel-contract.md). Read it before writing the document.
 
 The registry rejects an interactive block that declares the mixin without the
 mode (or vice versa), omits `prepare_prompt`, or has no valid `interactive_panel`.
@@ -163,8 +177,11 @@ carries a `Collection`; a single value is length 1.
 ## Where it lives
 
 Project-local: drop a `*.py` under `<project>/blocks/`; auto-discovered (reload to
-refresh the registry). Reusable across projects: ship a package with the
-`scistudio.blocks` / `scistudio.types` / `scistudio.previewers` entry points.
+refresh the registry). A panel the block opens is its own directory under
+`<project>/panels/<panel_id>/`, not a file beside the block
+([panel-contract.md](panel-contract.md)). Reusable across projects: ship a
+package with the `scistudio.blocks` / `scistudio.types` / `scistudio.panels`
+entry points.
 
 ## Before authoring (rules)
 
