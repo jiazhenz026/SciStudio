@@ -158,6 +158,7 @@ def test_no_py_files_outside_known_packages() -> None:
         "desktop",  # ADR-037: desktop distribution path/resource helpers
         "stability",  # ADR-052 §5: public-API stability decorators (scistudio.stability)
         "tutorials",  # ADR-053 Learning Center spec §4.2: the tutorial runtime (scistudio.tutorials)
+        "explore",  # ADR-054 §6.1-6.2: the notebook dependency analysis (scistudio.explore)
     }
     # Documentation trees that ship in the wheel as data, not importable code.
     # #1850: ``_user_guide/examples/`` holds runnable example block files
