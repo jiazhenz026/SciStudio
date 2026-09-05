@@ -1,0 +1,107 @@
+{
+  "base_ref": "origin/track/adr-054-spec5-agent-enablement",
+  "branch": "fix/2254-session-service-forwarding",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/mcp/_context.py",
+      "src/scistudio/ai/agent/mcp/tools_explore/_service.py",
+      "src/scistudio/api/app.py",
+      "src/scistudio/api/routes/explore.py",
+      "tests/ai/**",
+      "docs/planning/adr-054-assembly-followups.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-05T09:57:43.928830Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2254,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Forward the live session service to the MCP context so the agent's session tools act on the person's session rather than a second one",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2254-fix-2254-session-service-forwarding",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-05T09:57:43.928777Z",
+      "pattern": "src/scistudio/ai/agent/mcp/_context.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T09:57:43.928802Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_explore/_service.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T09:57:43.928805Z",
+      "pattern": "src/scistudio/api/app.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T09:57:43.928808Z",
+      "pattern": "src/scistudio/api/routes/explore.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T09:57:43.928810Z",
+      "pattern": "tests/ai/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T09:57:43.928812Z",
+      "pattern": "docs/planning/adr-054-assembly-followups.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "41865424-dd6a-40c5-85e3-32f87579abe1",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-05T09:57:43.928841Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_session_service_forwarding.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

@@ -86,6 +86,39 @@ class MCPContext(Protocol):
     # degrades to today's behaviour rather than raising.
     workspace_focus: Mapping[str, Any] | None
 
+    def get_session_service(self) -> Any | None:
+        """The explore session service the runtime already holds, or ``None``.
+
+        ADR-054 spec 5 FR-024 (#2254), closing follow-up F-B3-1. The seven
+        session tools act on the *person's* explore session, and under the
+        topology the desktop app runs they execute inside the backend process
+        that already holds it: ``scistudio mcp-bridge`` proxies the agent's
+        stdio into the running GUI's in-process MCP server. A tool that built a
+        service of its own there would put a second
+        :class:`~scistudio.explore.session.SessionService` — a second
+        ``NotebookStore`` document — over the person's own notebook file.
+
+        This is therefore the one member whose *identity* matters rather than
+        its value: what it returns must be the same object
+        ``scistudio.api.routes.explore`` serves its routes from, which is what
+        ``_RuntimeAdapter`` in :mod:`scistudio.api.app` forwards.
+
+        The return type is :data:`~typing.Any` rather than ``SessionService``
+        for the same reason :attr:`workspace_focus` is a mapping rather than
+        the record: the implementer is the API layer, this Protocol is only a
+        shape, and the tools call session-API members on what comes back.
+        ``scistudio.ai.agent.mcp.tools_explore._service`` is where the cast and
+        the fallback live.
+
+        ``None`` — and an implementation that does not have this member at all,
+        which is why every reader goes through ``getattr`` — means there is no
+        live service to share: a standalone ``scistudio mcp-bridge`` with no
+        backend behind it, or a backend with no project open. The tool side
+        then builds a detached service and says so, rather than pretending it
+        is the person's.
+        """
+        ...
+
 
 _current_context: MCPContext | None = None
 

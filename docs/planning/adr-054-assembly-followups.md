@@ -425,6 +425,10 @@ serve. The fallback and the accessor lookup can both stay: the standalone bridge
 still has no API process to ask.
 
 - **Suggested title**: `fix(#2254): the MCP context cannot reach the running backend's explore SessionService`
+- **Status**: **fixed** on `fix/2254-session-service-forwarding` (issue #2254),
+  exactly as the closing paragraph above describes. See the `fix-sessvc`
+  section below for what the fix did, what it deliberately left, and the two
+  smaller follow-ups it found. No issue is needed for F-B3-1 itself.
 
 #### F-B3-2 — A bridge with no lineage store cannot open a session over a block's outputs
 
@@ -625,6 +629,75 @@ still has no API process to ask.
   the panel tiers should read it against `OpenAsDialog.tsx`.
 - **Suggested title**: `fix(frontend): OpenAsDialog no longer preselects the most specific candidate on the ADR-054 track`
 
+
+### fix-sessvc (the F-B3-1 fix)
+
+**What the fix did.** `MCPContext` now declares `get_session_service`, the
+`_RuntimeAdapter` in `src/scistudio/api/app.py` implements it, and
+`src/scistudio/api/routes/explore.py` exposes `live_session_service(runtime)` —
+a wrapper over the route dependency `get_session_service`, so the tools reach
+the *same registry entry* the routes serve, with the same stale-store retirement
+and the same `broadcast_session_event` subscription. The AI layer still imports
+nothing from the API layer: the API pushes the service down through the
+structural Protocol both sides already share, which is the same shape S5-B1 used
+for the workspace focus. `lint-imports` stays at 15 kept, 0 broken.
+
+`tests/ai/test_mcp_session_service_forwarding.py` holds it shut against a live
+app: the tool and the routes resolve the same `SessionService` and the same
+`ExploreSession`, and a cell the agent appends produces the
+`explore.analysis_updated` frame on the person's WebSocket. That last one is the
+assertion that fails without the fix and that a content assertion would not have
+caught — `GET /sessions/{id}/cells` calls `reload_if_changed`, so a cell written
+by a second service shows up there anyway.
+
+Reverting the adapter method and re-running the module fails all four attached
+tests, and turns up a symptom F-B3-1 had not named: the second service's
+`open_notebook` reaches `LineageStore.insert_explore_session` with a session id
+the first service already registered, and the run logs
+`sqlite3.IntegrityError: UNIQUE constraint failed: explore_sessions.session_id`.
+Two services over one notebook were not only diverging in memory; they were
+colliding in the project's lineage database.
+
+#### F-FS-1 — The detached service is observable to a log and to a caller, not to the agent
+
+- **Severity**: P3 — the P1 hazard is closed; this is about how loudly the
+  remaining, correct fallback announces itself.
+- **Found by**: fix-sessvc.
+- **Evidence**: `scistudio.ai.agent.mcp.tools_explore._service.resolve_session_service`
+  returns a `ServiceOrigin` (`ORIGIN_RUNTIME` / `ORIGIN_DETACHED`, the project
+  dir, and a `detail` naming the condition), and the first detached build for a
+  project logs a WARNING carrying that same `detail`. Both are visible to a
+  person reading a log or to code that asks. Neither reaches the **agent**: the
+  seven tool results have no field for it.
+- **Why it is here and not done**: putting it in front of the agent means a new
+  field on the session result models — `tools_explore/tools.py` and `_models.py`
+  — and those are the surfaces S5-B4's tool-count and catalog work is live on in
+  this dispatch. Widening a tool's output schema underneath a concurrent agent's
+  count assertions is how two correct changes produce one red branch.
+- **What would close it**: one optional `service_origin: str | None` on the
+  shared session result base, populated from
+  `resolve_session_service()[1]` and left `None` in the attached case so the
+  ordinary answer does not grow. `open_explore_session` is the one that most
+  wants it, since it is where an agent decides whether to trust what follows.
+- **Suggested title**: `feat(#2254): tell the agent when its session tools are on a detached notebook copy`
+
+#### F-FS-2 — `StandaloneMCPRuntime` could answer the new accessor, and does not
+
+- **Severity**: P3 — the correct behaviour today; recorded because the shape now
+  exists for it.
+- **Found by**: fix-sessvc.
+- **Evidence**: `StandaloneMCPRuntime` (`src/scistudio/ai/agent/mcp/runtime.py`)
+  does not implement `get_session_service`, so `resolve_session_service` reads
+  "the runtime carries no session service accessor" and builds a detached
+  service. That is right for a bridge with no backend behind it, and it is the
+  case the fallback exists for.
+- **Why it is worth recording**: it is the same gap as F-B1-1 and F-B1-2 — a
+  bridge attached to a project on disk that reports none of what the project has
+  — and the three want one decision rather than three. A bridge that could see
+  the running backend at all would want the focus, the workflow id **and** the
+  session service from it; one that cannot should keep reporting none of them.
+  `runtime.py` is outside this fix's write set in any case.
+- **Suggested title**: `fix(#2254): the standalone MCP bridge reports no focus, no workflow id, and no session service`
 
 ### S5-B4
 

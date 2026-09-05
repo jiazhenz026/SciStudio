@@ -286,11 +286,15 @@ class _Service:
 
 @dataclass
 class _StubContext:
-    """The context the tools read. ``get_session_service`` is the hook of F-B3-1.
+    """The context the tools read, shaped like the production ``_RuntimeAdapter``.
 
-    Carrying it here means no test ever builds a real ``SessionService``: the
-    fallback path in ``_service`` is production wiring, and a unit test that
-    exercised it would be testing a project directory, not a tool.
+    ``get_session_service`` is the member ``MCPContext`` declares and the adapter
+    in ``scistudio.api.app`` implements out of the API's own session registry —
+    the fix for F-B3-1. Carrying it here means no test in this module ever builds
+    a real ``SessionService``: what the resolution rule does with a runtime that
+    carries one, and with a runtime that carries none, is asserted against a live
+    app in ``tests/ai/test_mcp_session_service_forwarding.py``, because which
+    service answers is a question about the topology rather than about a tool.
     """
 
     project_dir: Path | None

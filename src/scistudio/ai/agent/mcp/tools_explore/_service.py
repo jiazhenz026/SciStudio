@@ -10,26 +10,32 @@ queue.** The seven tools therefore hold exactly two references — a
 other thing they do is a method call on one of those. This module is where both
 references come from, so the rule has one place to be checked rather than seven.
 
-**Where the service comes from, and the gap that is not this task's to close.**
-The context Protocol
-(:class:`scistudio.ai.agent.mcp._context.MCPContext`) carries the two registries,
-the project dir, the active workflow id and the workspace focus — not a session
-service. The FastAPI adapter that implements it in production
-(``_RuntimeAdapter`` in ``src/scistudio/api/app.py``) forwards no session service
-either, and the session service registry itself lives in
-``scistudio.api.routes.explore``, which the AI layer must not import: the
-import-linter contract "AI must not depend on api" forbids it, with no carve-out.
+**Which service, and why the identity of it is the whole point.** Under the
+topology the desktop app runs, these tools execute *inside* the backend process
+that already holds the person's session: ``scistudio mcp-bridge`` proxies the
+agent's stdio into the running GUI's in-process MCP server. A service built here
+in that process would be a *second*
+:class:`~scistudio.explore.session.SessionService` over the same notebook files
+— two ``NotebookStore`` documents over one file, and a cell the agent appends
+reaching the person only when their own session next reloads, which is the
+opposite of what FR-024 promises. So the service comes from the runtime context:
+:meth:`~scistudio.ai.agent.mcp._context.MCPContext.get_session_service`, which
+``_RuntimeAdapter`` in ``scistudio.api.app`` answers out of the registry
+``scistudio.api.routes.explore`` serves its own routes from. The crossing is
+that way round because the AI layer must not import the API layer — the
+import-linter contract "AI must not depend on api" forbids the edge with no
+carve-out — so the API layer, which may import neither this package's
+``__init__`` nor its Protocol, pushes the service down through the structural
+context both sides already agree on.
 
-So this module asks the context first, by name, and falls back to a service of
-its own over the open project when the context carries none. Under the attached
-topology — the desktop app running, the bridge proxying the agent's stdio into
-the GUI's in-process MCP server — the fallback is a *second* service over the
-same notebooks as the person's, which is a real hazard and is registered as
-**F-B3-1** in ``docs/planning/adr-054-assembly-followups.md``. Two mitigations
-are in place until the adapter forwards its service: the fallback is cached per
-project so a process never holds more than one, and :func:`session_for` reloads
-a notebook that changed on disk (``ExploreSession.reload_if_changed``, the
-session API's own answer to an outside edit) before any tool reads or writes it.
+**When there is genuinely no live service.** A standalone ``scistudio
+mcp-bridge`` with no backend behind it has no session service to share, and a
+tool still has to be able to open a notebook. This module then builds one of its
+own over the open project — a *detached* service, built once per project and
+cached, and never quietly: :func:`resolve_session_service` reports the origin to
+any caller that asks, and the first detached build for a project logs a WARNING
+naming the consequence. An agent working through a detached service is working
+on its own copy of the notebook, and that is a fact about its answers.
 
 Nothing here is a shortcut past the API. ``reload_if_changed`` is a session
 method; ``open_notebook`` is a service method; the packaging seam the tools use
@@ -43,6 +49,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -54,23 +61,61 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "ORIGIN_DETACHED",
+    "ORIGIN_RUNTIME",
     "SESSION_SERVICE_ACCESSORS",
+    "ServiceOrigin",
     "SessionToolError",
     "reset_fallback_services",
+    "resolve_session_service",
     "session_for",
     "session_service",
 ]
 
-#: The names this module asks the context for, in order, before building a
-#: service of its own. Neither exists on the Protocol today; they are the hook
-#: F-B3-1 closes with one forwarded property rather than a second registry.
+#: The names this module asks the context for, in order. ``get_session_service``
+#: is the member ``MCPContext`` declares and ``_RuntimeAdapter`` implements;
+#: ``session_service`` is accepted as a plain attribute so a runtime that holds
+#: the service rather than looking it up satisfies the same contract.
 SESSION_SERVICE_ACCESSORS: tuple[str, ...] = ("get_session_service", "session_service")
 
-#: Resolved project dir -> the fallback service this process built for it. Keyed
+#: The service is the runtime's own — the same object the HTTP routes act on, so
+#: a cell this agent appends is a cell the person sees.
+ORIGIN_RUNTIME = "runtime"
+
+#: The service is this process's own, built over the open project because the
+#: runtime carried none. Correct for a standalone bridge, and a warning sign
+#: anywhere else: nothing else is looking at the notebook through it.
+ORIGIN_DETACHED = "detached"
+
+#: Resolved project dir -> the detached service this process built for it. Keyed
 #: by path, and cached, so that repeated tool calls in one process share one
 #: service rather than opening a new notebook store per call.
 _fallback_services: dict[str, Any] = {}
 _fallback_lock = threading.Lock()
+
+#: The project dirs a detached build has already been logged for, so the WARNING
+#: names the condition once instead of once per tool call.
+_warned_detached: set[str] = set()
+
+
+@dataclass(frozen=True)
+class ServiceOrigin:
+    """Where the service a tool is about to act through came from, and why.
+
+    Returned beside the service by :func:`resolve_session_service` so that the
+    detached case is observable rather than silent. ``detail`` is written to be
+    read by a person diagnosing a session that "did not update", and names the
+    condition, not the code path.
+    """
+
+    origin: str
+    project_dir: str | None
+    detail: str
+
+    @property
+    def is_detached(self) -> bool:
+        """``True`` when nothing else is looking at the notebook through this service."""
+        return self.origin == ORIGIN_DETACHED
 
 
 class SessionToolError(RuntimeError):
@@ -86,46 +131,89 @@ class SessionToolError(RuntimeError):
 
 
 def reset_fallback_services() -> None:
-    """Drop every cached fallback service. For tests, and for a project switch.
+    """Drop every cached detached service. For tests, and for a project switch.
 
     Shutting the services down is deliberately **not** done here: a service this
     module built may still own live kernels, and a helper called to clear a
     cache must not terminate a person's processes as a side effect. A project
     switch retires them through the API's own registry.
+
+    The record of which projects have already been warned about is cleared with
+    them, so a service rebuilt after a switch is announced again.
     """
     with _fallback_lock:
         _fallback_services.clear()
+        _warned_detached.clear()
 
 
 def session_service() -> SessionService:
     """Return the session service the tools act through.
 
-    The context's own service when it carries one, and otherwise a service over
-    the open project, built once per project and cached.
+    The runtime's own service when it has one — which is the case that matters,
+    because it is the person's — and otherwise a detached service over the open
+    project. :func:`resolve_session_service` is the same call with the origin
+    attached, for a caller that needs to know which of the two it got.
 
     Raises:
         SessionToolError: No project is open, so there is no ``explore/``
             directory to hold a session.
     """
+    service, _origin = resolve_session_service()
+    return service
+
+
+def resolve_session_service() -> tuple[SessionService, ServiceOrigin]:
+    """Return the session service **and** where it came from.
+
+    The runtime context is asked first, by each of
+    :data:`SESSION_SERVICE_ACCESSORS` in turn. A context that answers with a
+    service hands back :data:`ORIGIN_RUNTIME` and that service — the same object
+    the HTTP routes act on, which is the whole point of asking.
+
+    A context that has no such member, answers ``None``, or raises falls through
+    to a detached service over the open project (:data:`ORIGIN_DETACHED`). The
+    first detached build for a project logs a WARNING naming what it means; the
+    origin record says the same thing to a caller that would rather read it than
+    grep a log.
+
+    Raises:
+        SessionToolError: No project is open, so there is nothing to build a
+            detached service over either.
+    """
     ctx = get_context()
+    reason = "the runtime carries no session service accessor"
     for attribute in SESSION_SERVICE_ACCESSORS:
         candidate = getattr(ctx, attribute, None)
         if candidate is None:
             continue
         try:
             service = candidate() if callable(candidate) else candidate
-        except Exception:  # pragma: no cover - a runtime that has the name but cannot serve it
+        except Exception:  # a runtime that has the name but cannot serve it
             logger.warning("session tools: the runtime's %s could not be used", attribute, exc_info=True)
+            reason = f"the runtime's {attribute} raised"
             continue
-        if service is not None:
-            # Duck-typed on purpose: the accessor is not on the Protocol, so
-            # what it hands back is whatever the runtime holds. The tools call
-            # only the session API's own members on it.
-            return cast("SessionService", service)
-    return _fallback_service()
+        if service is None:
+            reason = f"the runtime's {attribute} reports no live service"
+            continue
+        # Duck-typed on purpose: what the accessor hands back is whatever the
+        # runtime holds, and the tools call only the session API's own members
+        # on it.
+        origin = ServiceOrigin(
+            origin=ORIGIN_RUNTIME,
+            project_dir=_project_dir_of(ctx),
+            detail=f"the running backend's session service, via the context's {attribute}",
+        )
+        return cast("SessionService", service), origin
+    return _detached_service(reason)
 
 
-def _fallback_service() -> SessionService:
+def _project_dir_of(ctx: Any) -> str | None:
+    """The context's project dir as a string, or ``None`` when it has none."""
+    root = getattr(ctx, "project_dir", None)
+    return str(root) if root is not None else None
+
+
+def _detached_service(reason: str) -> tuple[SessionService, ServiceOrigin]:
     """Build (or reuse) this process's own service over the open project."""
     try:
         project_dir = _resolve_project_root(get_context()).resolve()
@@ -135,12 +223,26 @@ def _fallback_service() -> SessionService:
             "get_project_info says which one is open."
         ) from exc
     key = str(project_dir)
+    origin = ServiceOrigin(
+        origin=ORIGIN_DETACHED,
+        project_dir=key,
+        detail=(
+            f"a session service this process built over {key}, because {reason}. "
+            "Nothing else is reading the notebook through it, so a cell appended here reaches an open "
+            "SciStudio window only when that window reloads the file."
+        ),
+    )
     with _fallback_lock:
         service = _fallback_services.get(key)
         if service is None:
             service = _build_service(project_dir)
             _fallback_services[key] = service
-        return service
+        announce = key not in _warned_detached
+        if announce:
+            _warned_detached.add(key)
+    if announce:
+        logger.warning("session tools: %s", origin.detail)
+    return cast("SessionService", service), origin
 
 
 def _build_service(project_dir: Path) -> SessionService:

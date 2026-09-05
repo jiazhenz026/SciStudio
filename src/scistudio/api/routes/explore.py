@@ -218,6 +218,42 @@ def _retire_stale_service(key: str, service: SessionService) -> None:
 ServiceDep = Annotated[SessionService, Depends(get_session_service)]
 
 
+def live_session_service(runtime: ApiRuntime) -> SessionService | None:
+    """The service the routes serve, for a caller that is not answering a request.
+
+    ADR-054 spec 5 FR-024 (#2254). The seven MCP session tools have to act on
+    **the person's** service — this registry's entry for the open project — and
+    not on a second one over the same notebooks. They cannot ask this module for
+    it: the import-linter contract "AI must not depend on api" forbids the edge
+    with no carve-out. So the ``_RuntimeAdapter`` in :mod:`scistudio.api.app`,
+    which is in this layer, reads it here and hands it down through the
+    ``MCPContext`` protocol the AI layer already depends on.
+
+    Deliberately :func:`get_session_service` itself rather than a second lookup
+    into ``_services``. A parallel lookup would be a second policy about which
+    service a project has, and this one has three properties worth keeping
+    exactly: the same registry entry the routes get, the same retirement of a
+    service whose lineage store the runtime has since closed, and the same
+    ``broadcast_session_event`` subscription — which is what puts a cell the
+    agent appends on the person's WebSocket rather than only in the file.
+
+    It builds the service when the project has none yet, for the same reason the
+    routes do: whichever of the two arrives first, both must then hold the one
+    service. That is the opposite of :func:`retire_kernels_for_project`, which
+    looks up and never builds, because a project nobody has explored has no
+    kernels and every caller of *this* function is about to open a session.
+
+    Returns:
+        The service, or ``None`` when no project is open — the one condition
+        :func:`get_session_service` answers with a 409, which is a route's
+        answer and not a caller's.
+    """
+    try:
+        return get_session_service(runtime)
+    except HTTPException:
+        return None
+
+
 def retire_kernels_for_project(project_dir: Path) -> tuple[str, ...]:
     """Retire every kernel of *project_dir*'s live session service (FR-014).
 
