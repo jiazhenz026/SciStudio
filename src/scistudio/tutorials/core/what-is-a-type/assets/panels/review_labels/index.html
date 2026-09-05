@@ -207,6 +207,29 @@
   var fatal = null;
 
   /**
+   * An empty map whose keys are label ids out of the payload.
+   *
+   * `{}` would not do. Every map in this panel is keyed by a label id that
+   * arrived in the block's payload, and a plain object already answers to
+   * `__proto__`, `constructor`, `toString` and the rest of `Object.prototype`.
+   * That is two bugs in one object: reading `map[id]` reports a label as
+   * present that was never put there — which is how a label the panel doubts
+   * reads as one the reader already struck out, and its ring is never drawn —
+   * and `map[id] = ...` on the id `__proto__` writes through to
+   * `Object.prototype` instead of to the map, which changes every object in
+   * the document rather than this one.
+   *
+   * A null-prototype object has no inherited keys, so a payload id is only
+   * ever a key. `Object.keys`, `delete` and `in` all behave the same on it.
+   *
+   * This is the pattern for any panel that keys a map by something out of its
+   * payload; it is not particular to this document.
+   */
+  function idMap() {
+    return Object.create(null);
+  }
+
+  /**
    * The labels worth a second look: far too small to be a cell.
    *
    * The panel says which ones it doubts rather than waiting for the reader to
@@ -219,13 +242,13 @@
     var areas = labels
       .map(function (label) { return label.area; })
       .sort(function (a, b) { return a - b; });
-    if (areas.length < 2) return {};
+    if (areas.length < 2) return idMap();
     var middle =
       areas.length % 2
         ? areas[(areas.length - 1) / 2]
         : (areas[areas.length / 2 - 1] + areas[areas.length / 2]) / 2;
     var cutoff = middle * SUSPECT_FRACTION;
-    var doubted = {};
+    var doubted = idMap();
     labels.forEach(function (label) {
       if (label.area < cutoff) doubted[label.id] = true;
     });
@@ -251,7 +274,7 @@
         grid: Array.isArray(slide.grid) ? slide.grid : [],
         image: Array.isArray(slide.image) ? slide.image : null,
         labels: labels,
-        removed: {},
+        removed: idMap(),
         /* Computed once: the areas do not change while the panel is open, so
            neither does which of them the panel doubts. */
         suspects: suspectLabels(labels)
@@ -263,6 +286,11 @@
   function removedIds(slide) {
     return Object.keys(slide.removed)
       .map(Number)
+      // A label id the payload wrote as something other than a number is
+      // dropped rather than emitted as `NaN`: what this list becomes is a
+      // Python literal the block runs, and `NaN` there is a syntax error the
+      // reader would meet as a broken cell rather than as a bad payload.
+      .filter(function (id) { return isFinite(id); })
       .sort(function (a, b) { return a - b; });
   }
 
@@ -292,7 +320,7 @@
    * something rather than as another outline of it.
    */
   function outlineSuspects(ctx, grid, slide, scale) {
-    var wanted = {};
+    var wanted = idMap();
     var pending = 0;
     Object.keys(slide.suspects).forEach(function (id) {
       if (!slide.removed[id]) {
@@ -304,7 +332,7 @@
 
     var rows = grid.length;
     var cols = rows ? grid[0].length : 0;
-    var bounds = {};
+    var bounds = idMap();
     for (var y = 0; y < rows; y += 1) {
       for (var x = 0; x < cols; x += 1) {
         var id = grid[y][x];
@@ -491,7 +519,8 @@
       return;
     }
 
-    var slide = slides[current] || { grid: [], image: null, labels: [], removed: {}, suspects: {} };
+    var slide =
+      slides[current] || { grid: [], image: null, labels: [], removed: idMap(), suspects: idMap() };
     var columns = el("div", "columns");
 
     var picture = el("div", "picture");

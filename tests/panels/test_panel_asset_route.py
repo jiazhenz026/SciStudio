@@ -261,6 +261,114 @@ def test_an_empty_asset_path_is_refused(tmp_path: Path) -> None:
         resolve_confined_asset(directory, "", panel_id="probe.empty")
 
 
+def test_an_alternate_data_stream_on_a_panel_file_is_refused(tmp_path: Path) -> None:
+    """``index.html:hidden.json`` names a second, invisible file (#2229).
+
+    An NTFS alternate data stream hangs off a file the panel directory *does*
+    hold, so it is inside the root and survives every containment check. It is
+    also not in the directory listing, and the suffix allowlist sees the
+    stream's name rather than the file's — so a ``.json`` stream attached to
+    ``index.html`` was resolved and served in full. Refusing ``:`` in a path
+    segment closes it, and closes ``index.html::$DATA`` — the same file reached
+    past a name the allowlist never inspected — with it.
+    """
+    root = tmp_path / "project"
+    root.mkdir()
+    directory = write_panel(root, "probe.ads")
+
+    if sys.platform == "win32":
+        with open(str(directory / "index.html") + ":hidden.json", "w", encoding="utf-8") as handle:
+            handle.write('{"token": "secret"}')
+        # The stream is genuinely readable, so the refusal below is the rule
+        # rather than the file being absent.
+        with open(str(directory / "index.html") + ":hidden.json", encoding="utf-8") as handle:
+            assert "secret" in handle.read()
+    else:  # pragma: no cover - the colon is an ordinary character here
+        # On a platform with no streams the same request is an ordinary file
+        # name. It is refused anyway: the rule must not change meaning between
+        # the developer's machine and the user's.
+        (directory / "index.html:hidden.json").write_text("{}", encoding="utf-8")
+
+    for asked in ("index.html:hidden.json", "index.html::$DATA"):
+        with pytest.raises(MissingBundleError, match="escapes confinement root"):
+            resolve_confined_asset(directory, asked, panel_id="probe.ads")
+
+
+def test_a_nul_in_the_asset_path_is_refused_by_name(tmp_path: Path) -> None:
+    """A NUL truncates a name at the syscall boundary, so it never gets there.
+
+    Without the check the byte reached ``resolve()``, which on Windows quietly
+    turned it into a different file name — a request answered by a path nobody
+    asked for. It is now a refusal that says what was wrong with the request.
+    """
+    root = tmp_path / "project"
+    root.mkdir()
+    directory = write_panel(root, "probe.nul")
+
+    with pytest.raises(MissingBundleError, match="NUL"):
+        resolve_confined_asset(directory, "index\x00.html", panel_id="probe.nul")
+
+
+def test_a_traversal_never_reaches_the_filesystem(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The containment is lexical first, and only then resolve-then-contain.
+
+    ``Path.resolve`` walks the filesystem, following every symlink on the way.
+    A boundary enforced only *after* that walk is a boundary the walk has
+    already crossed, so a client-chosen traversal is refused before the walk
+    happens at all. Measured by counting the walks: exactly one, for the root
+    the route was handed, and none for the path the client sent.
+    """
+    root = tmp_path / "project"
+    root.mkdir()
+    directory = write_panel(root, "probe.lexical")
+    (tmp_path / "secret.html").write_text("secret\n", encoding="utf-8")
+
+    walked: list[str] = []
+    real_resolve = Path.resolve
+
+    def counting_resolve(self: Path, *args: object, **kwargs: object) -> Path:
+        walked.append(str(self))
+        return real_resolve(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "resolve", counting_resolve)
+
+    with pytest.raises(MissingBundleError, match="escapes confinement root"):
+        resolve_confined_asset(directory, "../../secret.html", panel_id="probe.lexical")
+
+    assert walked == [str(directory)]
+
+
+def test_two_dots_anywhere_in_the_request_are_refused(tmp_path: Path) -> None:
+    """The lexical rule is the two characters, not the traversal segment.
+
+    Stricter than the property that matters, on purpose: a panel asset named
+    ``figure..cache.css`` has no legitimate use, and a rule about the characters is one
+    a reader can check by looking rather than by simulating a join. The file
+    below exists and is inside the root, so the refusal is the rule.
+    """
+    root = tmp_path / "project"
+    root.mkdir()
+    directory = write_panel(root, "probe.dots")
+    (directory / "figure..cache.css").write_text("body{}", encoding="utf-8")
+
+    with pytest.raises(MissingBundleError, match="escapes confinement root"):
+        resolve_confined_asset(directory, "figure..cache.css", panel_id="probe.dots")
+
+
+def test_the_ordinary_shapes_a_panel_asks_for_still_resolve(tmp_path: Path) -> None:
+    """The lexical check refuses traversals, not the paths panels actually use."""
+    root = tmp_path / "project"
+    root.mkdir()
+    directory = write_panel(root, "probe.ordinary")
+    (directory / "nested").mkdir()
+    (directory / "nested" / "chart.css").write_text("body{}", encoding="utf-8")
+
+    for asked in ("nested/chart.css", "./nested/chart.css", "nested//chart.css", "/nested/chart.css"):
+        served = resolve_confined_asset(directory, asked, panel_id="probe.ordinary")
+        assert served.path == (directory / "nested" / "chart.css").resolve()
+        assert served.media_type == "text/css"
+
+
 def test_a_remote_url_is_never_served(tmp_path: Path) -> None:
     root = tmp_path / "project"
     root.mkdir()
