@@ -2011,6 +2011,18 @@
       "at": "2026-09-05T08:30:22.515306Z",
       "pattern": "tests/mcp_tool_expectations.py",
       "reason": "the spec names three count-assertion sites; S5-B2 observed five, and the manager assigned the other three to S5-B4. The expectation is consolidated into tests/mcp_tool_expectations.py so the next group moves one declaration."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T10:26:05.858063Z",
+      "pattern": "tests/qa/test_audit_full_audit.py",
+      "reason": "F-B4-10: two repo-walking tests in tests/qa crash their xdist worker and block finalize; pyproject.toml documents this class as serial-only (#1867, #1896)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T10:26:05.858084Z",
+      "pattern": "tests/qa/test_generate_facts_cli.py",
+      "reason": "F-B4-10: two repo-walking tests in tests/qa crash their xdist worker and block finalize; pyproject.toml documents this class as serial-only (#1867, #1896)"
     }
   ],
   "session_id": "9947be45-ef32-4978-80fc-0761f47544d2",
@@ -2102,6 +2114,22 @@
       "class": null,
       "kind": "path",
       "path": "tests/integration/test_phase2_mcp_end_to_end.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T10:26:05.858094Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_audit_full_audit.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T10:26:05.858100Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_generate_facts_cli.py",
       "rationale": null,
       "verified_in_diff": null
     }

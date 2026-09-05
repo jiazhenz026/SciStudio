@@ -752,85 +752,127 @@ the corpus is quieter than its neighbours.
 **What would close it**: a packaged-notebook section in `block-contract.md` in
 the spec 6 batch, or an owner named for it in FR-011's next revision.
 
-#### F-B4-8 — `gate_record check` reports a timed-out `python_tests` as satisfied
+#### F-B4-8 — A timed-out `python_tests` is recorded as satisfied
 
-`checks.py` runs every check with a hard-coded `timeout=600`. On this machine
-the full Python suite takes longer than that — the parallel batch is about five
-minutes and the serial batch (`-n 0 -m serial`, which spec 3's Explore session
-tests fill with real ipykernels) adds ten or more. The check records
+- **Severity**: P1 — a check that never finished is counted as a check that
+  passed, on every branch in this dispatch.
+- **Found by**: S5-B4, on `feat/2254-skills-and-counts`.
+- **Evidence**: `src/scistudio/qa/governance/gate_record/checks.py` runs every
+  check with a hard-coded `timeout=600`. When the full Python suite exceeds it
+  the ledger records
 
-```json
-{"name": "python_tests", "status": "unknown", "exit_code": null,
- "summary": "execution error: TimeoutExpired"}
-```
+  ```json
+  {"name": "python_tests", "status": "unknown", "exit_code": null,
+   "summary": "execution error: TimeoutExpired"}
+  ```
 
-and then **exits 0 with "reconciliation passed" and no unsatisfied
-obligations**: `unknown` is not `fail`, so the obligation is treated as met.
-An agent that trusted the exit code would report a green suite it never saw.
+  and `gate_record check --mode pre-pr` then prints **"reconciliation passed"**
+  and exits 0 with no unsatisfied obligations. `unknown` is not `fail`, so the
+  obligation is treated as met. Observed twice on this branch; the run that
+  produced it took longer than 600s because the serial phase spawns real
+  ipykernels.
 
-Twice on this branch the same run reported `python_tests` under
-"Unsatisfied obligations" *and* left the ledger event at `unknown`, so the
-behaviour is not consistent either.
+  The same command has also, on other runs, listed `python_tests` under
+  "Unsatisfied obligations" *while* leaving the ledger event at `unknown` — so
+  the treatment is not even consistent between invocations.
 
-Worked around here by running
-`python -m scistudio.qa.testing.run_python_tests --timeout=60
---timeout-method=thread` directly and reporting that result.
+- **Why it matters**: an agent that trusts the exit code reports a green suite
+  it never watched. This branch did not: the suite was run directly instead, and
+  that is what its PR body reports. Nothing forces the next agent to do the same.
+- **Suggested title**: `gate_record: treat an unknown check result as
+  unsatisfied, and make the per-check timeout configurable`
+- **What would close it**: treat `unknown` as unsatisfied — a check whose result
+  nobody has is not a check that passed — and give the timeout an env knob beside
+  the existing `SCISTUDIO_GATE_BASE`. The first alone is enough to close the
+  hole; the second stops it from being hit constantly.
 
-**What would close it**: make the per-check timeout configurable (an env knob
-beside the existing `SCISTUDIO_GATE_BASE`), or treat `unknown` as unsatisfied so
-a timed-out check cannot pass silently. The second is the safer default: a check
-whose result nobody has is not a check that passed.
+#### F-B4-9 — Kernel-spawning tests fail under `PYTHONPATH=./src`, and blame the kernel
 
-Related to F-8 (the ledger discovery defect), and the same class: the gate's exit
-code is being read as evidence when the ledger event says otherwise.
+- **Severity**: P2 — not a product defect, but it costs every agent that hits it
+  a diagnosis, and it looks exactly like a real failure.
+- **Found by**: S5-B4. **Corrected before filing** — see below.
+- **Evidence**:
+  `tests/api/test_explore_branch_switch.py::test_a_branch_switch_kills_the_real_kernel_process`
+  fails with
 
-#### F-B4-9 — `test_a_branch_switch_kills_the_real_kernel_process` fails on the track
+  ```
+  BridgeProtocolError: The kernel bridge did not answer:
+  ModuleNotFoundError: No module named 'scistudio'.
+  ```
 
-`tests/api/test_explore_branch_switch.py::test_a_branch_switch_kills_the_real_kernel_process`
-fails in the serial batch with `BridgeError: The call failed inside the kernel.`
-It fails identically on the spec 5 track worktree with no branch changes
-applied, so it is not S5-B4's — recorded here because an agent running the full
-suite on any spec 5 branch will hit it and needs to know it is not theirs.
+  when the suite is run the way `AGENTS.md` prescribes — `PYTHONPATH=./src`, no
+  `pip install -e .`. The parent process imports `scistudio` fine; the ipykernel
+  subprocess it spawns does not. Run the identical test in the gate's
+  provisioned virtualenv (`.workflow/local/venv`, where `scistudio` is
+  installed) and the whole file passes, exit 0.
 
-It is a spec 3 test over a real ipykernel, and it is `serial`-marked, so it only
-runs in the second phase — which the shared runner **skips entirely** when the
-parallel phase exits nonzero (`run_python_tests.main` returns early). A flaky
-xdist worker in the parallel phase therefore hides it. That is how it can be red
-on the track without anyone seeing it.
+  Verified at track head `c6c9701f2`, which already carries PR #2262's
+  kernel-death fix, on both `.worktrees/s5-track` and
+  `feat/2254-skills-and-counts`.
 
-Verified on `.worktrees/s5-track` at `fe42da327` and on
-`feat/2254-skills-and-counts`, same failure both times, and passing nowhere.
+- **Correction**: an earlier draft of this entry claimed the test was "genuinely
+  red on the track". That was wrong, and the wrongness is instructive: it
+  reproduced identically on a clean track worktree, which looked like proof it
+  was not the branch's — and it was not, but it was not the track's either. Both
+  runs shared the one thing that actually caused it. Reproducing somewhere else
+  rules out *your diff*; it does not rule out *your environment*.
+- **Suggested title**: `explore: kernel tests should fail with an actionable
+  message under PYTHONPATH-only installs`
+- **What would close it**: the bridge already guesses the cause correctly ("a
+  kernel whose interpreter cannot import scistudio") — have the session pass the
+  parent's `sys.path` to the kernel it launches, or have these tests skip with
+  that reason when `scistudio` is not importable by `sys.executable`. Either
+  turns a twenty-minute diagnosis into a line of output.
 
-**What would close it**: spec 3's owner diagnosing the bridge call, and — worth
-doing either way — making the runner run the serial phase even when the parallel
-phase failed, so one flake cannot mask a whole batch.
+#### F-B4-10 — Two repo-walking QA tests crash their xdist worker
 
+- **Severity**: P1 — blocked `gate_record finalize` on this branch outright.
+- **Found by**: S5-B4. **Fixed in this row** under a manager scope grant.
+- **Evidence**:
+  `tests/qa/test_audit_full_audit.py::test_full_audit_renders_human_readable_facts_summary`
+  and
+  `tests/qa/test_generate_facts_cli.py::test_generate_facts_write_and_check_round_trip`
+  failed in the parallel phase with `[gwN] node down: Not properly terminated` —
+  the worker process dies, no assertion fails — on **five full-suite runs out of
+  five**, across two virtualenvs, taking unrelated tests down with them each
+  time. Both pass in isolation, every time.
 
-#### F-B4-10 — Two repo-wide QA tests crash their xdist worker
+  The first runs the entire audit in-process over the whole repository; the
+  second spawns `scripts/audit/generate_facts.py` as a subprocess over the whole
+  repository. Neither carried the `serial` marker, so both ran under `-n auto` —
+  exactly the class `pyproject.toml`'s own marker description says "can leak a
+  thread/subprocess that hangs or crashes an xdist worker (#1867, #1896)".
 
-`tests/qa/test_audit_full_audit.py::test_full_audit_renders_human_readable_facts_summary`
-and `tests/qa/test_generate_facts_cli.py::test_generate_facts_write_and_check_round_trip`
-fail in the parallel phase with `[gwN] node down: Not properly terminated` — the
-worker process dies rather than an assertion failing. Both pass in isolation,
-every time.
+- **Fix applied**: both are now `@pytest.mark.serial`, each with a comment
+  saying why, because the mark looks removable to anyone who runs the test on its
+  own and sees it pass.
+- **Suggested title**: `tests: audit ADR-042's repo-walking tests for the serial
+  marker` — this pair is unlikely to be the only one.
 
-They are the class `pyproject.toml` already describes: the first runs the entire
-audit in-process over the whole repository, the second spawns
-`scripts/audit/generate_facts.py` as a subprocess over the whole repository.
-Neither carries the `serial` marker, so both run under `-n auto`, where
-`pytest.ini_options`'s own comment says such tests "can leak a thread/subprocess
-that hangs or crashes an xdist worker (#1867, #1896)".
+#### The three above are one chain
 
-Observed four times on this branch across two virtualenvs, and once as a pair of
-`worker crashed` entries in the very first gate run here, before most of this
-branch existed. Not fixed because `tests/qa/**` is outside the S5-B4 write set.
+Stated together because separately each looks like a nuisance and together they
+are a hole in the evidence:
 
-**What would close it**: mark both `serial`. They then run in the second phase,
-alone, where a heavy repo-wide subprocess belongs.
+1. **F-B4-10** makes the parallel phase fail on a machine under load.
+2. `run_python_tests.main` returns as soon as the parallel phase exits nonzero,
+   so **the serial phase never runs** — every serial test goes unexecuted and
+   unreported, and nothing says so. Any real failure there is invisible.
+3. When the phases *do* both run, they take longer than **F-B4-8**'s 600-second
+   cap, and the timed-out check is then recorded as satisfied.
 
-**Why it matters beyond the flake**: with F-B4-9, a `serial` failure is invisible
-whenever the parallel phase fails, and these two are the most reliable way to
-make the parallel phase fail. The two defects hide each other.
+So the suite has two states: it fails on a flake and silently skips a whole
+phase, or it completes and is reported as passing without anyone having seen the
+result. **F-B4-9** is what the skipped phase was hiding on this branch — this
+time harmless, which is luck rather than design.
+
+The path that produced a genuinely trustworthy result on this branch was running
+`python -m scistudio.qa.testing.run_python_tests` by hand and reading the output.
+That is not a workflow, it is a workaround.
+
+**One more, worth its own line**: `run_python_tests` should run the serial phase
+even when the parallel phase failed. There is no dependency between them, and
+skipping the second because the first was red is how a red test stays unseen.
 
 
 ### S4-D1 / S5-D1 (adversarial testing)
