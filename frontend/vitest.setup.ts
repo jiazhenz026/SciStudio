@@ -74,3 +74,33 @@ for (const name of ["localStorage", "sessionStorage"] as const) {
     }
   }
 }
+
+/*
+ * jsdom implements no `ResizeObserver`, and `@xyflow/react` constructs one
+ * unconditionally when a flow mounts — so any suite that renders the workflow
+ * canvas or ADR-054's dependency-graph view throws on mount rather than
+ * failing an assertion. Installed here for the same reason `matchMedia` is:
+ * it is an environment gap, not a component's problem, and every suite that
+ * mounts a flow would otherwise carry the same six lines.
+ *
+ * A no-op: it never fires, so nothing observes a size change under the runner
+ * and a component that only resizes in response to one behaves as it does with
+ * a container that never changed size. Defined only when absent, so the
+ * terminal harness's own `vi.stubGlobal("ResizeObserver", ...)` — which does
+ * fire, on purpose — still wins.
+ */
+if (!("ResizeObserver" in globalThis)) {
+  class NoopResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  for (const target of [globalThis, typeof window !== "undefined" ? window : undefined]) {
+    if (!target) continue;
+    Object.defineProperty(target, "ResizeObserver", {
+      value: NoopResizeObserver,
+      configurable: true,
+      writable: true,
+    });
+  }
+}

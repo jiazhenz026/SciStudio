@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { useReloadFlash } from "../hooks/useReloadFlash";
+import { useAppStore } from "../store";
 import type { BlockSummary } from "../types/api";
 import { getCategoryVisual } from "./nodes/BlockNode.parts/categoryVisuals";
 import { BlockDetailPopover } from "./BlockDetailPopover";
@@ -8,6 +9,8 @@ import { PromoteToLibraryAction } from "./promotion/PromoteToLibraryAction";
 import { isPromotable, promotableBlock } from "./promotion/promotable";
 import { BlockTile } from "./BlockPalette.parts/BlockTile";
 import { CategoryChips } from "./BlockPalette.parts/CategoryChips";
+import { activeExploreSessionId, packagedSignature } from "./BlockPalette.parts/exploreCall";
+import { InsertBlockCallAction } from "./BlockPalette.parts/InsertBlockCallAction";
 import {
   buildPaletteSections,
   isFiltering,
@@ -49,6 +52,27 @@ function promoteAction(block: BlockSummary): ReactNode | undefined {
   const item = promotableBlock(block);
   if (!isPromotable(item)) return undefined;
   return <PromoteToLibraryAction entryPoint="E5" item={item} variant="popover" />;
+}
+
+/**
+ * ADR-054 FR-031 — the card's action row, with the insert-call action in it.
+ *
+ * `exploreActive` is passed rather than read inside `InsertBlockCallAction`,
+ * for the reason `promoteAction` exists at all: the popover draws a hairline
+ * above whatever `actions` it is given, so the row must be `undefined` — not
+ * an element that renders nothing — when neither action applies. With no
+ * Explore tab open and a non-promotable block, the card is what it was before
+ * ADR-054.
+ */
+function cardActions(block: BlockSummary, exploreActive: boolean): ReactNode | undefined {
+  const promote = promoteAction(block);
+  if (!promote && !exploreActive) return undefined;
+  return (
+    <span className="flex flex-col gap-1">
+      {exploreActive ? <InsertBlockCallAction block={block} /> : null}
+      {promote}
+    </span>
+  );
 }
 
 /** Column count that fits `width` px, clamped to [MIN_COLUMNS, MAX_COLUMNS]. */
@@ -168,6 +192,27 @@ export function BlockPalette({
     didMountReload.current = true;
     onReloadRef.current();
   }, []);
+
+  // ADR-054 FR-029 — the packaged event refreshes the palette, and the new
+  // block appears because the re-fetch found it. Keyed on the signature of
+  // every session's last `explore.packaged` payload rather than on the store
+  // at large, so an ordinary cell run costs no request. The first value is
+  // skipped: the mount reload above has already fetched, and a tab restored
+  // with a packaged payload already in it is not news.
+  const packaged = useAppStore((state) => packagedSignature(state.sessions));
+  const lastPackaged = useRef<string | null>(null);
+  useEffect(() => {
+    if (lastPackaged.current === null) {
+      lastPackaged.current = packaged;
+      return;
+    }
+    if (lastPackaged.current === packaged) return;
+    lastPackaged.current = packaged;
+    onReloadRef.current();
+  }, [packaged]);
+
+  // ADR-054 FR-031 — whether a card offers inserting a call at all.
+  const exploreActive = useAppStore((state) => activeExploreSessionId(state) !== null);
 
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
   // FR-044/FR-046: the shared hover state machine. It delays the open so the
@@ -322,7 +367,7 @@ export function BlockPalette({
         // it supplies the pointer handlers that keep it open together with the
         // flag that drops `pointer-events-none`.
         <BlockDetailPopover
-          actions={promoteAction(hover.hovered.item)}
+          actions={cardActions(hover.hovered.item, exploreActive)}
           anchor={hover.hovered.anchor}
           block={hover.hovered.item}
           {...hover.popoverProps}

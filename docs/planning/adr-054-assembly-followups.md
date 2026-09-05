@@ -933,7 +933,289 @@ and the retirement of the interactive modal (ADR-054 spec 4, T-008 to T-011).
 
 ### S4-A4
 
-_No entries yet._
+Owner: packaging and its report, the packaged node's badge, the kernel list,
+the dependency-graph view, and the palette's insert-call action
+(ADR-054 spec 4, T-012 to T-015).
+
+#### F-A4-001 - `GraphResponse` sends cell edges, so the frontend re-derives the version edges
+
+`scistudio.explore.dependency_analysis` computes both graphs: `DependencyGraph`
+carries `edges` (cell to cell, per name) **and** `version_edges` (version node
+to version node), derived by `_version_edges` from `edges` plus `changed_sets`.
+`GET /api/explore/sessions/{id}/graph` publishes `edges` and `changed_sets` but
+not `version_edges`.
+
+FR-032 asks for "one node per variable version". The only way to draw that from
+what is on the wire is to run `_version_edges` again on the frontend, which is
+what `buildVersionGraph` in `frontend/src/explore/GraphView.tsx` does. Every
+input to it is the runtime's own fact, so no mark or dependency is invented -
+but the same derivation now exists in two languages, and the sink case (a
+reading cell that changes nothing keeps a node, with `target = None`) is
+exactly the kind of rule that drifts.
+
+**Fix**: add `version_edges` to `GraphResponse` and drop the frontend
+derivation, or state in spec 4 that the frontend owns it. The route is
+`src/scistudio/api/routes/explore.py`, which no agent in this dispatch may
+write.
+
+Cited by: `frontend/src/explore/GraphView.tsx` (`buildVersionGraph`),
+`src/scistudio/explore/dependency_analysis.py` (`_version_edges`).
+
+#### F-A4-002 - jsdom cannot prove a graph edge is drawn
+
+`@xyflow/react` mounts a node from the node array, so `GraphView.test.tsx`
+asserts version nodes, their highlight and the region selection against the
+real component. It does **not** mount an edge without a measured viewport: the
+edge renderer needs each endpoint's measured box and jsdom reports every box as
+zero. Passing `width` / `height` / `measured` on the nodes does not help; that
+was checked before the test was written this way.
+
+The suite therefore asserts the edges where they are decided
+(`buildVersionGraph`, origins included) and asserts that the view was handed
+them, through the count it renders. What is not covered under the runner is
+"an SVG path exists between these two boxes".
+
+**Fix**: cover it in spec 4's end-to-end scenario (T-016), which runs a real
+browser. No unit-level fix is available short of a headless-Chrome runner.
+
+Cited by: `frontend/src/explore/GraphView.test.tsx`.
+
+#### F-A4-003 - The notebook badge is a marker, and today it renders on nothing
+
+Two separate limits, both deliberate.
+
+The badge (FR-030) is `pointer-events-none`. The way back into the notebook is
+the double-click FR-004 already wired in `useCanvasHandlers`; making the badge
+itself a second entry point needs a callback threaded through
+`WorkflowCanvas.parts/flowNodeBuilder.ts` into `BlockNodeData`, and neither
+file is in this agent's write set. The badge's `title` says the double-click is
+the way in, so it is not a dead end - but a person who clicks the badge gets
+nothing.
+
+And it renders on nothing at all right now, because it reads
+`isPackagedNotebookBlock`, which reads `BlockSummary.notebook_filename`, which
+the backend does not send (S4-A1's `F-A1-001`). The badge lights up the moment
+that lands, with no frontend change.
+
+**Fix**: land F-A1-001's backend change first; then decide whether the badge
+should also be clickable, which is a `flowNodeBuilder` + `BlockNodeData`
+change.
+
+Cited by: `frontend/src/components/nodes/BlockNode.tsx`,
+`frontend/src/explore/packagedBlock.ts`.
+
+#### F-A4-004 - A retired kernel is invisible to `GET /api/explore/kernels`
+
+`ExploreSessionService.kernels()` keeps only listings whose state is
+`starting`, `idle` or `busy`, and `KernelListItem` carries no `needs_restart`
+field. So the two things FR-015 and FR-016 ask the list for cannot both come
+from that route: a kernel the runtime retired (a branch change) or that died
+has already left the response, and the response could not have said "needs
+restart" about it anyway.
+
+`KernelList` therefore merges the response with the per-session kernel views
+the `explore.kernel_state` events write, and a retired kernel's row comes from
+the session view alone. That is FR-015's "from the kernel-state events" read
+literally, and it works - but a session this browser has never opened has no
+session view, so its retired kernel is in neither source.
+
+**Fix**: either add `needs_restart` to `KernelListItem` and stop filtering the
+listing by state, or say in spec 4 that a retired kernel is reported per
+session rather than per project.
+
+Cited by: `frontend/src/explore/KernelList.tsx` (`buildKernelRows`),
+`src/scistudio/explore/session.py` (`ExploreSessionService.kernels`),
+`src/scistudio/api/routes/explore.py` (`KernelListItem`).
+
+#### F-A4-005 - The kernel list does not poll, so another session's new kernel is late
+
+The list fetches when it is opened and on its Refresh control, and after that
+it moves only from `explore.kernel_state` events. Those events are per session:
+a session this browser has never opened has no row to move until the next
+fetch, and memory readings do not update at all while the list is open.
+
+Left as is on purpose: FR-015 says nothing about a refresh interval, and a poll
+on an open popover is a request every few seconds for a surface most people
+open for two of them.
+
+**Fix**: decide with the owner whether the list should poll while open, and
+whether the memory reading should tick.
+
+Cited by: `frontend/src/explore/KernelList.tsx`.
+
+#### F-A4-006 - The inserted block call is a template, not a runnable line
+
+FR-031's inserted cell is `<name> = blocks.run("<type_name>", <port>=...)`,
+with `...` for every input port. It parses - deliberately, because the
+dependency analysis reads every cell with `ast.parse` and a half-typed line
+would be flagged as broken - but it does not run until the person replaces each
+`...`.
+
+The palette could do better: it knows the block's accepted types, and the
+session's bindings response knows which live names carry those types, so a port
+with exactly one candidate could be filled in. It does not, because the palette
+does not currently read the bindings and guessing wrong is worse than an
+obvious blank.
+
+Two smaller edges in the same place. A port whose name is not a Python
+identifier is omitted from the call rather than written as something that would
+not run. And the call is a single line however many ports the block has.
+
+**Fix**: consider filling a port whose type has exactly one live binding, and
+wrapping the call when it passes more than three ports.
+
+Cited by: `frontend/src/components/BlockPalette.parts/exploreCall.ts`.
+
+#### F-A4-007 - Spec 4 puts the kernel list and package control in `SessionToolbar.tsx`; the landed contract puts them in a region
+
+Spec 4 section 4.2 lists `frontend/src/explore/SessionToolbar.tsx` as the file
+carrying "run-stale, interrupt, restart, commit, package, notebook toggle,
+kernel list, confirm and cancel". S4-A1's landed `SessionToolbar.tsx` carries
+the frame and the notebook toggle only, and routes each group of controls to
+one region component in `regions/ExploreRegions.tsx` so four agents could take
+one region each without restructuring a shared file.
+
+T-012 and T-013 therefore replaced `ToolbarKernelControls` in
+`regions/ExploreRegions.tsx` and did not touch `SessionToolbar.tsx` at all.
+That is what the dispatch's own instruction said to do, and it is the smaller
+diff; it just does not match what the spec's affected-files table says.
+
+**Fix**: a one-row correction to spec 4 section 4.2 naming
+`regions/ExploreRegions.tsx` as the toolbar's control host. A `docs/specs/**`
+change, out of every agent's write set here.
+
+Cited by: `frontend/src/explore/regions/ExploreRegions.tsx`,
+`docs/specs/adr-054-explore-frontend.md` section 4.2.
+
+#### F-A4-008 - `frontend/vitest.setup.ts` gained a global no-op `ResizeObserver`
+
+The graph view mounts `@xyflow/react`, which constructs a `ResizeObserver`
+unconditionally. jsdom has none, so S4-A1's own `ExploreTab.test.tsx` graph
+toggle threw on mount the moment the placeholder became a real flow - and that
+is a sibling's file, which this agent may not edit.
+
+The polyfill went into the shared setup beside the existing `matchMedia`,
+`createObjectURL` and `localStorage` shims, guarded so the terminal harness's
+own `vi.stubGlobal("ResizeObserver", ...)` still wins. The full frontend suite
+was re-run after the change: 210 files, 2444 tests, all passing. Recorded as a
+`gate_record amend` rather than slipped in, because it is outside the write set
+the dispatch prompt named.
+
+**Fix**: none needed; noted so the audit reads a deliberate scope expansion
+rather than a stray edit.
+
+Cited by: `frontend/vitest.setup.ts`.
+
+#### F-A4-009 - The packaging report closes only through its own control
+
+`PackagingControl` opens the report as an absolutely-positioned card and closes
+it on its Close button, on a successful package, and on nothing else - not on a
+click outside it and not on Escape. Every other popover in the palette closes
+on pointer-leave, which is the wrong gesture for a card carrying a text field,
+so neither existing pattern fits.
+
+**Fix**: add outside-click and Escape dismissal, ideally through a shared
+helper rather than a third hand-rolled one.
+
+Cited by: `frontend/src/explore/PackagingReport.tsx`.
+
+#### F-A4-010 - A check that times out is recorded `unknown` and then reconciled as satisfied
+
+`gate_record.checks.run_check` runs every check with a hardcoded
+`timeout=600` (`checks.py:640`). When that fires it returns
+
+```python
+CheckEvent(..., exit_code=None, status="unknown",
+           summary=f"execution error: {type(exc).__name__}")
+```
+
+and `evaluator.py` then does this, immediately after a comment explaining that
+a required check which cannot be proven must fail closed:
+
+```python
+if event.status == "skipped":
+    ...            # FAIL CLOSED (section 7.5): unproven is not proven passing
+    continue
+if event.status != "fail":
+    continue       # <- "unknown" lands here and satisfies the obligation
+```
+
+So a required check that **failed** blocks PR readiness and one that **never
+finished** does not. Observed three times on this row: three `python_tests`
+events with `"status": "unknown", "summary": "execution error:
+TimeoutExpired"`, each followed by a reconciliation of
+`{"result": "pass", "unsatisfied": []}`, while every `"status": "fail"` event
+produced `"unsatisfied": ["checks.python_tests"]`.
+
+This is the shape of defect that only appears on a loaded machine - which is
+exactly when an agent is most tempted to take the pass and move on. This row
+did not: every run is in the ledger, the failures were reproduced and
+classified, and the state is reported rather than banked.
+
+**Fix**: extend the fail-closed branch to every status that is not `pass`.
+`unknown` deserves its own repair hint - "the check did not finish in 600s;
+re-run, or reduce the local load" is a different instruction from "the tool is
+missing". A required check with `raw_log_ref: null` is the same condition seen
+from another angle. Consider making the 600s configurable, since the Python
+suite legitimately takes 5-8 minutes on an idle machine and there is no margin.
+
+Cited by: `src/scistudio/qa/governance/gate_record/checks.py` (`run_check`,
+`timeout=600`), `src/scistudio/qa/governance/gate_record/evaluator.py`
+(`if event.status != "fail": continue`),
+`.workflow/records/2253-feat-2253-packaging-and-graph.json`.
+
+#### F-A4-011 - `run_python_tests` pins `-n auto`, which is hostile on a shared machine
+
+`src/scistudio/qa/testing/run_python_tests.py` hardcodes `-n auto` for its
+parallel phase. On the dispatch machine - 32 logical CPUs, and several agents
+each running their own full suite at once, 122 python processes counted during
+this row's runs - `auto` asks for 32 workers per agent, and workers start dying:
+
+- run 1: `3 failed`, all three `node down: Not properly terminated`, plus an
+  xdist `INTERNALERROR` from a zero-byte `.coverage.*` file a dead worker left
+  behind (`sqlite3.OperationalError: no such table: file`).
+- run 2: `5 failed` - three more crashed workers, plus
+  `tests/ai/test_mcp_tools_disk_integration.py::test_concurrent_write_workflow_serialises`
+  (a path-resolution race, already S4-A1's F-A1-008) and
+  `tests/api/test_reload_on_save.py::test_broken_block_save_does_not_reload_or_emit`
+  (`assert 2 == 1` on `file.changed` events - a duplicate watchdog event).
+- run 4, at 12 workers: `3 failed`, a different three again -
+  `test_concurrent_write_workflow_serialises` once more,
+  `tests/api/test_panel_document_events.py::test_the_file_route_accepts_a_panel_document`,
+  and `tests/qa/test_generate_facts_cli.py::test_generate_facts_check_reports_stale_file`.
+
+- run 5, back at `auto`: `3 failed`, again a different three -
+  `test_concurrent_write_workflow_serialises`,
+  `tests/workflow/test_serializer_property.py::test_relativify_inverts_absolutify`,
+  and `tests/qa/test_generate_facts_cli.py::test_generate_facts_write_and_check_round_trip`.
+- run 6, as the other agents ramped up: `10 failed`, now including three
+  `tests/api/test_workflows.py` execute/cancel tests. Those spawn engine
+  subprocesses, and the gate passes `--timeout=60`; a 60-second per-test
+  deadline is not survivable when 122 python processes are resident on 32
+  logical cores. That is the mechanism behind the whole class.
+
+Across six runs: more than twenty distinct failing node ids, never the same
+set twice, and every failing set passes in isolation:
+
+```
+python -m pytest -p no:xdist --no-cov <that run's node ids>   ->  all passed
+```
+
+Two runs also outlived the gate's own 600-second per-check timeout, which is
+how F-A4-010 was found.
+
+`PYTEST_XDIST_AUTO_NUM_WORKERS` is honoured by xdist and is the lever, but at 6
+the suite outran the gate's own timeout (F-A4-010).
+
+**Fix**: let `run_python_tests` take a worker count (or read the env var and
+default sensibly) so an agent on a busy machine can trade minutes for
+reliability, and make the gate's per-check timeout scale with it. Also worth
+deleting a stale zero-byte `.coverage.*` before the run rather than letting a
+dead worker's leftovers fail the next one.
+
+Cited by: `src/scistudio/qa/testing/run_python_tests.py`,
+`docs/planning/adr-054-assembly-followups.md` `F-A1-008`.
+
 
 ### S5-B1
 
