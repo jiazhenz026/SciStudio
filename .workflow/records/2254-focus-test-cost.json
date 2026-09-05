@@ -149,6 +149,38 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:55:17.135983Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3096e012aa514e5b0c6df01244e560ae8a3de6ad88527f64b351914bd22cd975",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:55:44.301403Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e14c56e5af152d42e11537cc076b88cc4883451baff51b5b65113e8cbf9219b9",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -634,6 +666,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:44.388527Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:44.406745Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:44.426710Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:44.446185Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:44.466974Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:44.487317Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:44.506782Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:44.525516Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:44.544437Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:44.579183Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:55:44.599746Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -646,7 +766,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "5fd503bc43eab2813aaa0b3924bed36e915f5a0a",
+    "base": "track/adr-054-spec5-agent-enablement",
     "base_sha": "5fd503bc4",
     "changed_files": [
       ".workflow/records/2254-focus-test-cost.json",
@@ -654,9 +774,9 @@
       "docs/planning/adr-054-assembly-followups.md",
       "tests/ai/test_workspace_focus.py"
     ],
-    "diff_fingerprint": "sha256:b156de82e4c1d468289249af4d012eb97b78b83fcb7c7a1949dffcff49e733c1",
+    "diff_fingerprint": "sha256:e7b7f81631ae5dfe409d9260286e5097412492ff429793401a77eebb57395fed",
     "head": "HEAD",
-    "head_sha": "60ff794c0",
+    "head_sha": "46da9cfd5",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -724,6 +844,14 @@
         "checks.commit_hygiene",
         "checks.full_audit"
       ]
+    },
+    {
+      "at": "2026-09-05T08:55:44.599777Z",
+      "diff_fingerprint": "sha256:e7b7f81631ae5dfe409d9260286e5097412492ff429793401a77eebb57395fed",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "2254-focus-test-cost",
