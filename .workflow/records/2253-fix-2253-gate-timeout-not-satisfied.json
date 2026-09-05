@@ -1,7 +1,156 @@
 {
   "base_ref": "origin/track/adr-054-integration",
   "branch": "fix/2253-gate-timeout-not-satisfied",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-05T11:16:58.193059Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:06962b057125297df9b4b700a39e5ac97681b9327af2ae9d0cb1ef5fda53a80b",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T11:17:00.692796Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f344983483f94fd84f8046659c8a549edb331c2770604d5fdbd4b3409903b800",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T11:17:02.426481Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ef5187b9218cddcb5e835f0ab737ebbb8e13a42efa0c0c185809e39548ae59d5",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T11:17:02.451549Z",
+      "command": "ruff format src/scistudio/qa/governance/gate_record/checks.py src/scistudio/qa/governance/gate_record/evaluator.py src/scistudio/qa/governance/gate_record/ledger.py tests/qa/test_gate_check_timeout.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b3a8573be08f8768cfa97a9b8e4a3a859e3c4c5365292b371e19a308576dc687",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-05T11:17:16.543217Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f227611bee770ecf52e5cc1da74e3db1e9cfa2fcd771ab8396c3cf7c73cacbd0",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T11:17:17.507995Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:749968deb86e0d21ea75cf3a9d9fdbb3a49bef7b06ecbed54e791cc209a2be38",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T11:17:17.537349Z",
+      "command": "ruff check src/scistudio/qa/governance/gate_record/checks.py src/scistudio/qa/governance/gate_record/evaluator.py src/scistudio/qa/governance/gate_record/ledger.py tests/qa/test_gate_check_timeout.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:08132bb89d79b7ad4c019b4715180c8309d9574ab6f395480cee84357ddea228",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-05T11:17:28.913143Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/qa/governance tests/qa/test_gate_check_timeout.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c955304b5c8f1b6ca4cfd804767ec144b7f3c44db8f2c826eac763fb3791b0a9",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T11:17:37.512125Z",
+      "command": "mypy src/scistudio/qa/governance/gate_record/checks.py src/scistudio/qa/governance/gate_record/evaluator.py src/scistudio/qa/governance/gate_record/ledger.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:fdf69cfc71c61ebb3b5ad6b59f4816e96a22b0eb92983441accef993504fc63e",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -31,7 +180,96 @@
     }
   ],
   "governance_touch": true,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-05T11:17:37.575819Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:17:37.590245Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:17:37.604699Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:17:37.618522Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:17:37.632356Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:17:37.647446Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:17:37.662061Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:17:37.676767Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:17:37.694000Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:17:37.710987Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T11:17:37.729229Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -41,19 +279,83 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "track/adr-054-integration",
+    "base_sha": "907dc479a",
+    "changed_files": [
+      ".workflow/records/2253-fix-2253-gate-timeout-not-satisfied.json",
+      "docs/ai-developer/gate-cli-command-set.md",
+      "docs/ai-developer/specific_rules/gated-workflow.md",
+      "docs/planning/adr-054-assembly-followups.md",
+      "src/scistudio/qa/governance/gate_record/checks.py",
+      "src/scistudio/qa/governance/gate_record/evaluator.py",
+      "src/scistudio/qa/governance/gate_record/ledger.py",
+      "tests/qa/test_gate_check_timeout.py"
+    ],
+    "diff_fingerprint": "sha256:b1aa4515de5d950dd319d3cc25f94ba55bdf7f9c45ce10b012dbc8074e83674e",
+    "head": "HEAD",
+    "head_sha": "282adeab5",
+    "surfaces": {
+      "docs": 3,
+      "frontend": 0,
+      "governance": 5,
+      "governed_docs": 2,
+      "implementation": 3,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 4,
+      "test": 1,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "A gate check that times out is recorded as unknown and read as satisfied; make it a distinct, unsatisfied outcome, make the budget configurable, and make check and finalize agree",
   "persona": "implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-05T11:17:37.729266Z",
+      "diff_fingerprint": "sha256:b1aa4515de5d950dd319d3cc25f94ba55bdf7f9c45ce10b012dbc8074e83674e",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "2253-fix-2253-gate-timeout-not-satisfied",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
@@ -90,7 +392,7 @@
     }
   ],
   "session_id": "b91b4830-ea2f-4cd8-a6c1-c7140ed1005f",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "maintenance",
   "test_events": [
     {
