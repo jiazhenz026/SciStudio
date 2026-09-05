@@ -197,12 +197,15 @@ def session_for(session_path: str) -> ExploreSession:
     has at most one session per service, so a path the person already has open
     comes back as *their* session rather than a second one over the same file.
 
-    The notebook is reloaded first when it changed on disk
+    A notebook that is no longer there is refused by ``open_notebook`` itself,
+    which is the refusal below: the store reads the file to answer.
+
+    An open session is then reloaded when the file changed underneath it
     (:meth:`~scistudio.explore.session.ExploreSession.reload_if_changed`), so a
-    tool never reads a document that another writer has moved on from. That call
-    is best-effort: a notebook that has been deleted since the focus named it is
-    reported here, and anything else the reload objects to is left to the tool's
-    own call to raise more specifically.
+    tool never reads a document another writer has moved on from. That call is
+    best-effort — a notebook deleted between the two steps, or a file the store
+    no longer recognises, is left to the tool's own call to raise more
+    specifically than "could not reload" would.
 
     Args:
         session_path: Project-relative POSIX path, as

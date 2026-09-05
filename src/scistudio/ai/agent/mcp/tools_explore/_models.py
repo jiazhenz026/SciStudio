@@ -205,7 +205,7 @@ class OpenExploreSessionResult(BaseModel):
         default=None,
         description=(
             "The notebook the person is still focused on, or None when they are not in a session. Unchanged "
-            "by this call. When it differs from `session_path`, later tools need `session_path` passed explicitly."
+            "by this call. When it differs from `session_path`, every other session tool needs `session_path` passed in."
         ),
     )
     next_step: str = Field(

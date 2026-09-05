@@ -342,8 +342,9 @@ def _scripted_packaging(monkeypatch: pytest.MonkeyPatch) -> None:
     ``check_packaging`` and ``package_notebook`` are pure functions of a real
     :class:`~scistudio.explore.notebook.NotebookDocument`, and the session here
     is scripted, so the seam is scripted too. The tests that are *about*
-    packaging replace these again with their own recorders; a later
-    ``monkeypatch.setattr`` in a test body wins over this one.
+    packaging replace these again with their own recorders: a
+    ``monkeypatch.setattr`` in a test body is applied after this fixture and
+    therefore wins.
     """
     from scistudio.explore import packaging as packaging_module
 

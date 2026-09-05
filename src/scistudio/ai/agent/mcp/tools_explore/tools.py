@@ -336,9 +336,9 @@ async def open_explore_session(
 
     Do NOT use to:
       - Move the person somewhere. **This does not change their focus** (FR-019)
-        — it opens a session; where they are looking stays theirs. Every later
-        call must pass the returned ``session_path``, unless the person is
-        already focused on that same notebook.
+        — it opens a session; where they are looking stays theirs. Every
+        subsequent call must pass the returned ``session_path``, unless the
+        person is already focused on that same notebook.
       - Re-open a notebook you already have: a notebook has one session, so
         calling this twice over the same source makes a second notebook.
 
@@ -375,7 +375,7 @@ async def open_explore_session(
 
     # FR-019: the focus is read, never written. It is reported so the agent can
     # see for itself that opening a session did not move the person, and knows
-    # whether later calls need session_path passed explicitly.
+    # whether the calls that follow need session_path passed in.
     focus = effective_focus(get_optional_context())
     return OpenExploreSessionResult(
         session_path=session.relative_path,
