@@ -405,6 +405,70 @@
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:45:40.763566Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1daad28e5f28cf74b747fce42f3fa50b64f2fec00b9674528269477268909dea",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:46:11.636895Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4f8ad7da0f80d2edc3beb077b56544781dccad267d6430e230b222003f6a040c",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T08:51:19.537990Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T09:02:27.939596Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -881,6 +945,138 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:51:19.622140Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:51:19.641087Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:51:19.659399Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:51:19.678486Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:51:19.698776Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:51:19.717390Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:51:19.735993Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:51:19.753463Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:51:19.772103Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:51:19.790161Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:51:19.809923Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:02:28.053243Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:02:28.071652Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:02:28.116798Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:02:28.174193Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:02:28.197995Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:02:28.240930Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:02:28.276095Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:02:28.317008Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:02:28.345209Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:02:28.376082Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:02:28.420044Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -894,60 +1090,25 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "track/adr-054-spec4-explore-frontend",
-    "base_sha": "81d575d01",
+    "base_sha": "336c6a738",
     "changed_files": [
       ".workflow/records/2253-feat-2253-explore-tab-shell.json",
-      "docs/planning/adr-054-assembly-followups.md",
-      "docs/specs/adr-054-explore-frontend.md",
-      "frontend/src/App.parts/ProjectWorkspace.tsx",
-      "frontend/src/App.parts/__tests__/exploreWorkspace.test.tsx",
-      "frontend/src/components/BottomPanel.parts/SubworkflowConfigEditor.test.tsx",
-      "frontend/src/components/ProjectTree.parts/ContextMenu.tsx",
-      "frontend/src/components/ProjectTree.parts/exploreContextMenu.test.tsx",
-      "frontend/src/components/ProjectTree.tsx",
-      "frontend/src/components/WorkflowCanvas.parts/NodeContextMenu.tsx",
-      "frontend/src/components/WorkflowCanvas.parts/__tests__/exploreContextMenu.test.tsx",
-      "frontend/src/components/WorkflowCanvas.parts/useCanvasHandlers.ts",
-      "frontend/src/components/WorkflowCanvas.tsx",
-      "frontend/src/explore/ExploreTab.test.tsx",
-      "frontend/src/explore/ExploreTab.tsx",
-      "frontend/src/explore/SessionToolbar.tsx",
-      "frontend/src/explore/packagedBlock.ts",
-      "frontend/src/explore/regions/ExploreRegions.tsx",
-      "frontend/src/explore/workspaceFocus.test.ts",
-      "frontend/src/explore/workspaceFocus.ts",
-      "frontend/src/hooks/useWebSocket.parts/dispatchEvent.ts",
-      "frontend/src/lib/api/ai.ts",
-      "frontend/src/lib/api/explore.ts",
-      "frontend/src/store/__tests__/exploreDispatch.test.ts",
-      "frontend/src/store/__tests__/exploreSlice.test.ts",
-      "frontend/src/store/__tests__/tabState.test.ts",
-      "frontend/src/store/__tests__/workflowSlice.subworkflowRef.test.ts",
-      "frontend/src/store/__tests__/workflowSlice.variadicPorts.test.ts",
-      "frontend/src/store/exploreSlice.ts",
-      "frontend/src/store/index.ts",
-      "frontend/src/store/tabSlice.parts/exploreTabActions.ts",
-      "frontend/src/store/tabSlice.parts/workflowTabActions.ts",
-      "frontend/src/store/tabSlice.ts",
-      "frontend/src/store/types.ts",
-      "frontend/src/types/api.ts",
-      "frontend/src/types/explore.ts",
-      "frontend/src/types/ui.ts"
+      "docs/planning/adr-054-assembly-followups.md"
     ],
-    "diff_fingerprint": "sha256:4e117864f5d14bb160fa3ddabac6a9a763657c3ef8522283368518a0d45d8118",
+    "diff_fingerprint": "sha256:0a3ca4a2cfad8f5b76bd885733ec01f3d9efba70aeea222e56aa5496b70714f7",
     "head": "HEAD",
-    "head_sha": "be8ac10af",
+    "head_sha": "0b431f4be",
     "surfaces": {
-      "docs": 2,
-      "frontend": 34,
+      "docs": 1,
+      "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 34,
+      "implementation": 0,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 35,
-      "test": 11,
+      "sentrux": 0,
+      "test": 0,
       "workflow_ci": 0
     }
   },
@@ -1011,6 +1172,26 @@
         "checks.full_audit",
         "checks.python_tests"
       ]
+    },
+    {
+      "at": "2026-09-05T08:51:19.809976Z",
+      "diff_fingerprint": "sha256:0a3ca4a2cfad8f5b76bd885733ec01f3d9efba70aeea222e56aa5496b70714f7",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-09-05T09:02:28.420099Z",
+      "diff_fingerprint": "sha256:0a3ca4a2cfad8f5b76bd885733ec01f3d9efba70aeea222e56aa5496b70714f7",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
     }
   ],
   "record_id": "2253-feat-2253-explore-tab-shell",
@@ -1022,16 +1203,13 @@
       "commit_hygiene",
       "deferral_discipline",
       "format_check",
-      "frontend",
       "full_audit",
       "import_contracts",
       "lint_format",
       "python_tests",
       "type_check"
     ],
-    "docs": [
-      "docs_required_or_na"
-    ],
+    "docs": [],
     "guards": [
       "architecture_doc_guard",
       "core_change_guard",
@@ -1045,9 +1223,7 @@
       "test_engineer_scope_guard",
       "weakened_ci_check"
     ],
-    "tests": [
-      "changed_test_required"
-    ]
+    "tests": []
   },
   "runtime": "claude-code",
   "schema_version": 2,
