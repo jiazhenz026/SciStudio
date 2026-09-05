@@ -63,6 +63,9 @@ governs:
     - frontend/src/components/BlockPalette.parts/**
     - frontend/src/components/DataPreview.tsx
     - frontend/src/hooks/useWebSocket.parts/dispatchEvent.ts
+    - frontend/src/explore/**
+    - frontend/src/store/exploreSlice.ts
+    - frontend/src/types/explore.ts
     - frontend/e2e/specs/**
   excludes:
     - frontend/src/components/DataPreview.parts/**
@@ -71,9 +74,7 @@ planned_governs:
   modules: []
   contracts: []
   entry_points: []
-  files:
-    - frontend/src/explore/**
-    - frontend/src/store/exploreSlice.ts
+  files: []
   excludes: []
 tests:
   - frontend/src/explore/ExploreTab.test.tsx
