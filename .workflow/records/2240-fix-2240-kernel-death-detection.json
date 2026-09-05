@@ -1519,6 +1519,12 @@
       "at": "2026-09-05T08:52:52.467779Z",
       "pattern": "docs/planning/adr-054-assembly-followups.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T09:38:33.868436Z",
+      "pattern": "docs/planning/adr-054-assembly-checklist.md",
+      "reason": "record the assembly checklist row this fix owns (#2251 inherited-failure row)"
     }
   ],
   "session_id": "5cb0bbfa-c95e-4a27-bfe5-d6b7963e91fb",

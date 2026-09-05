@@ -401,7 +401,20 @@ Rows are added for fix agents as findings land.
 | PR | Failure | Owner | Status |
 |---|---|---|---|
 | `#2238` | `Verify Workflow Compliance` — `guard.core_change_guard` wants `admin-approved:core-change` | manager, §5 | `[ ]` |
-| `#2251` | `tests/explore/test_explore_session.py::test_a_kernel_killed_from_outside_is_reported_dead_and_offers_a_restart` fails on Linux CI (`_process_gone` false) | fix agent | `[ ]` |
+| `#2251` | `tests/explore/test_explore_session.py::test_a_kernel_killed_from_outside_is_reported_dead_and_offers_a_restart` fails on Linux CI (`_process_gone` false) | fix agent | `[x]` |
+
+`#2251` was **not** a test defect after the manager's zombie fix — it was
+`KernelHandle` believing `jupyter_client`. Fixed by PR **#2262**
+(`fix/2240-kernel-death-detection`), which makes liveness two independent
+readings: `Popen.poll()` is `waitpid(pid, WNOHANG)`, and Linux withholds a
+killed multi-threaded process from `wait` while its sibling threads exit even
+though `/proc` already reports state `Z`, so the library answered "still
+running" about a corpse. Evidence: on the branch point `fa678c7ff` (run
+33957302816) `Test (Python 3.11)` failed on exactly that assertion; on
+`151738a87` (run 33957753781) `Test (Python 3.11)` **passes**. `Test (Python
+3.13)` still fails on both, for the unrelated pre-existing parallel-phase
+stall recorded as `FK-005` in the follow-up register — that one is the
+assembly's blocker, not this fix's.
 
 ### 9.4 Verification
 
