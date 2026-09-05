@@ -66,8 +66,31 @@ def test_no_circular_import() -> None:
         # Python's import machinery can still resolve sibling submodules
         # via the normal ``from .sibling import ...`` syntax inside each
         # module body.
+        # ``scistudio`` gets its REAL path; ``scistudio.core`` deliberately
+        # does not (#2240, ADR-054 spec 3 T-009).
+        #
+        # Both were originally ``None`` -> ``__path__ = []``, which made every
+        # first-party import unresolvable from anywhere inside
+        # ``scistudio.core.versioning``. That is broader than this test means
+        # to enforce. The cycle it guards is ``git_binary`` <-> ``git_engine``;
+        # a stdlib-only leaf like ``scistudio.stability`` cannot join it. The
+        # empty path nonetheless made
+        # ``from scistudio.stability import provisional`` in ``git_engine.py``
+        # raise ``ModuleNotFoundError: No module named 'scistudio.stability'``,
+        # which blocked the ADR-052 §5 markers on the ``GitEngine`` surface
+        # with no contract behind the refusal.
+        #
+        # So ``scistudio`` resolves leaves, and ``scistudio.core`` keeps its
+        # empty path — that is where the real constraint lives. A module in
+        # this package that reaches sideways into another ``scistudio.core.*``
+        # subpackage still fails to import here, and the three assertions at
+        # the end of this script prove it on both sides, so narrowing the stub
+        # cannot be mistaken for relaxing the guard.
+        #
+        # Before tightening ``scistudio`` back to ``None``: that re-blocks the
+        # markers and buys nothing this test is for.
         for parent_name, parent_path in [
-            ("scistudio", None),
+            ("scistudio", str(package_dir.parent.parent)),
             ("scistudio.core", None),
             ("scistudio.core.versioning", str(package_dir)),
         ]:
@@ -99,6 +122,40 @@ def test_no_circular_import() -> None:
         # via ``git_engine`` (the public surface used by api.routes.git).
         _E = sys.modules["scistudio.core.versioning.git_engine"].GitError
         assert _E.__module__ == "scistudio.core.versioning.errors", _E.__module__
+
+        # --- the narrowed stub, proved on both sides (#2240) ---------------
+        #
+        # Giving ``scistudio`` a real path admits stdlib-only leaves. It must
+        # not admit the layer this test exists to keep out. Both halves are
+        # asserted so a reader can tell a narrowing from a relaxation.
+
+        # (a) Nothing under ``scistudio.core`` outside ``versioning`` was
+        #     pulled in. This fails the moment ``git_engine`` or
+        #     ``git_binary`` starts importing a sibling core subpackage.
+        _leaked = sorted(
+            name
+            for name in sys.modules
+            if name.startswith("scistudio.core.")
+            and not name.startswith("scistudio.core.versioning")
+        )
+        assert not _leaked, f"reached under scistudio.core outside versioning: {_leaked}"
+
+        # (b) Such an import would still FAIL here, so (a) is a real refusal
+        #     and not an accident of nothing having tried yet.
+        try:
+            importlib.import_module("scistudio.core.lineage")
+        except ModuleNotFoundError:
+            pass
+        else:
+            raise AssertionError(
+                "the stub no longer refuses scistudio.core.* outside versioning; "
+                "the no-cycle guard has been relaxed, not narrowed"
+            )
+
+        # (c) A stdlib-only leaf DOES resolve — the point of the narrowing,
+        #     and what lets git_engine carry its ADR-052 stability markers.
+        importlib.import_module("scistudio.stability")
+
         print("OK")
         """
     )

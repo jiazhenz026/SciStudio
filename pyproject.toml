@@ -37,6 +37,15 @@ dependencies = [
     "matplotlib>=3.8",  # ADR-048 SPEC 2: Python plot jobs import matplotlib in the core plot runtime.
     "pandas>=2.2",  # ADR-048 SPEC 2: Python plot jobs open DataFrame/Series inputs with pandas.
     "openpyxl>=3.1",  # #1810: core DataFrame/Series .xlsx read/write (pandas Excel engine).
+    # ADR-054 spec 3 (adr-054-explore-session) FR-007, FR-059: an Explore Session's
+    # kernel is an ipykernel process launched from the bundled interpreter and
+    # driven through jupyter_client, which is the session service's only client.
+    # These are core, not an extra: the session is part of the product, and the
+    # desktop's bundled runtime ships core's dependency set. The runtime cannot
+    # receive them over the air, so a release that ships the session must rebuild
+    # it first — spec §4.5 carries that as a release-checklist item.
+    "ipykernel>=6.29",
+    "jupyter_client>=8.6",
 ]
 
 [project.optional-dependencies]
@@ -69,6 +78,24 @@ dev = [
     # #1340: vulture wires into full_audit as informational dead-code child
     # report (ADR-042 code-quality stack named vulture but never installed it).
     "vulture>=2.11",
+    # ADR-054 spec 3 SC-007 / FR-040. The notebook Code Block backend does not
+    # import nbconvert: it resolves a ``jupyter-nbconvert`` executable off the
+    # path or off the block's own ``interpreter_path``, the same way the matlab,
+    # r_quarto, and shell backends resolve their tools (ADR-041 §4 — "the
+    # optional Jupyter tooling"). So it is not a core runtime dependency; core
+    # carries ``ipykernel``/``jupyter_client`` because ``explore/kernel.py``
+    # imports them, and that argument does not extend to a subprocess.
+    #
+    # It is a *test* dependency, and it has been an undeclared one. Every
+    # notebook end-to-end test skips when ``jupyter-nbconvert`` is not on the
+    # path — including
+    # ``tests/explore/test_packaged_block.py::test_a_workflow_runs_the_packaged_block_and_reproduces_the_session``,
+    # the single test that proves a packaged notebook block actually executes.
+    # CI installs ``-e ".[dev]"``, so with nbconvert undeclared that test has
+    # never run there and SC-007 was a claim rather than a measurement.
+    # Declaring it here puts the ``jupyter-nbconvert`` console script on the CI
+    # runner's path, which is what those skip guards probe.
+    "nbconvert>=7.16",
 ]
 docs = [
     # ADR-052 §7: the author-facing API reference is generated from docstrings +
@@ -463,6 +490,61 @@ forbidden_modules = [
     "scistudio.workflow",
     "scistudio.ai",
     "scistudio.api",
+]
+
+# ---------------------------------------------------------------------------
+# ADR-054 spec 3 FR-008 / FR-060: the explore subsystem's layer, in both
+# directions. ``tests/architecture/test_layer_deps.py`` already asserts exactly
+# these two rules — the ``explore`` entry in ``LAYER_RULES`` and
+# ``test_engine_does_not_import_explore`` — but that suite runs in the Test job,
+# and the Import Contracts job is where a reader looks for the layering. The two
+# contracts below say the same thing the tests say and nothing more: writing a
+# stricter rule here than the tests enforce would leave the two mechanisms
+# disagreeing, which is worse than having only one.
+# ---------------------------------------------------------------------------
+
+[[tool.importlinter.contracts]]
+name = "Explore must not depend on api, ai, or engine"
+type = "forbidden"
+source_modules = ["scistudio.explore"]
+forbidden_modules = [
+    "scistudio.api",
+    "scistudio.ai",
+    "scistudio.engine",
+]
+# The same accepted lazy AIBlock leaf edges already carved out in the Blocks,
+# Engine and Workflow contracts above. ``explore.packaging`` reads the block
+# registry (spec 3 §4.1 allows ``explore -> blocks``), and the registry's
+# per-run scan walks every block including the AI block, which terminates at
+# ``ai.agent.providers_registry`` and ``engine.pty_control``. Explore does not
+# import ai or the engine directly — which is what
+# ``tests/architecture/test_layer_deps.py`` checks, file by file, and what this
+# contract has to keep meaning.
+ignore_imports = [
+    "scistudio.blocks.ai.ai_block -> scistudio.ai.agent.providers_registry",
+    "scistudio.blocks.ai.ai_block -> scistudio.engine.pty_control",
+]
+
+[[tool.importlinter.contracts]]
+name = "Engine must not depend on explore"
+type = "forbidden"
+source_modules = ["scistudio.engine"]
+forbidden_modules = ["scistudio.explore"]
+# The other half of FR-060, kept as its own contract rather than folded into
+# "Engine must not depend on api or ai services" so it does not inherit that
+# contract's AIBlock carve-out.
+#
+# The one carve-out it does need is the root package's own lazy re-export:
+# FR-010 resolves ``scistudio.input`` / ``load`` / ``output`` inside
+# ``scistudio.__getattr__`` so that ``import scistudio`` does not pay for the
+# explore subsystem. Import-linter counts that function-body import as a real
+# edge, so every module that reads anything off the root package — here
+# ``engine.scheduler._lineage`` importing ``__version__`` — inherits it. It is
+# not the engine holding a reference to a session, which is what FR-060 forbids
+# and what ``test_engine_does_not_import_explore`` walks the engine's own files
+# to check.
+ignore_imports = [
+    "scistudio -> scistudio.explore.notebook_api",
 ]
 
 # ---------------------------------------------------------------------------
