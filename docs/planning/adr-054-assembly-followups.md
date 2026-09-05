@@ -70,6 +70,24 @@ issues the directive permits:
   the same from the PR page.
 - **Suggested title**: N/A — this is an owner action, not an issue.
 
+#### M-002 - `eslint-config.test.ts` flakes under machine load on a 5s timeout
+
+- **Severity**: P3 - pre-existing, unrelated to ADR-054, and green in isolation.
+- **Found by**: manager, taking the frontend baseline on the merged assembly
+  branch before spec 4 lands.
+- **Evidence**: `frontend/src/__tests__/eslint-config.test.ts:12`,
+  `loads the project flat config without parser errors`, failed with
+  `Test timed out in 5000ms` after running 12334ms during a full
+  `npm run test` on a machine with several agents active. Re-run alone,
+  `npx vitest run src/__tests__/eslint-config.test.ts` gives 8 passed.
+  Full-suite baseline otherwise: **2315 passed, 1 failed, 198 files**; with
+  the re-run the suite is 2316/2316.
+- **Why it matters**: the test performs a real ESLint flat-config resolution,
+  which is I/O-bound and easily exceeds 5s on a loaded runner. It will flake
+  in CI on a busy day and will look like a frontend regression in whichever
+  PR happens to be running.
+- **Suggested title**: `flaky(frontend): eslint-config.test.ts resolves a real flat config on a 5s timeout`
+
 ### S4-A1
 
 _No entries yet._
