@@ -109,20 +109,24 @@ jobs:
           path: .audit/full-audit.json
 
   test:
-    name: Test (Python ${{ matrix.python-version }}${{ matrix.core && format(' {0}', matrix.core) || '' }})
+    name: Test (Python ${{ matrix.python-version }} ${{ matrix.core }} n${{ matrix.workers }})
     runs-on: ubuntu-latest
     env:
       COVERAGE_CORE: ${{ matrix.core }}
+      XDIST_WORKERS: ${{ matrix.workers }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - python-version: "3.11"
-            core: ""
-          - python-version: "3.13"
-            core: "ctrace"
           - python-version: "3.13"
             core: "sysmon"
+            workers: "auto"
+          - python-version: "3.13"
+            core: "sysmon"
+            workers: "8"
+          - python-version: "3.13"
+            core: "sysmon"
+            workers: "6"
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
@@ -159,7 +163,7 @@ jobs:
             cov_parallel=""
             cov_serial=""
           fi
-          timeout 2400 pytest -n auto -m "not serial" $nocov --timeout=60 --timeout-method=thread --durations=40 $cov_parallel
+          timeout 2400 pytest -n "$XDIST_WORKERS" -m "not serial" $nocov --timeout=60 --timeout-method=thread --durations=40 $cov_parallel
           rc=$?
           if [ $rc -eq 5 ]; then rc=0; fi
           if [ $rc -eq 124 ]; then
