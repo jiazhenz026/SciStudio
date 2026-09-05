@@ -1,0 +1,61 @@
+{
+  "base_ref": null,
+  "branch": "track/adr-054-integration",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/planning/adr-054-**",
+      ".workflow/records/**",
+      "docs/audit/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2253,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2254,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2209,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Host the ADR-054 spec 4 and spec 5 implementation: plan them, dispatch no-context audits and an adversarial test engineer, land them as two track PRs; then integrate specs 1 through 5, run browser e2e and visual verification, and deliver the whole of ADR-054 as one standalone review PR. Open no follow-up issues beyond the implementation issues; collect every follow-up in one file for the owner. All actions pre-approved except opening extra issues.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2253-adr-054-assembly",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "f57bb878-912f-45fa-970f-d75872e5d536",
+  "strictness_tier": null,
+  "task_kind": "manager",
+  "test_events": []
+}

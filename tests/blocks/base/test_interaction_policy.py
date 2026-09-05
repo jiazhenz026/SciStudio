@@ -433,7 +433,15 @@ class TestDefaultPreservesExistingBehaviour:
         assert block.remap_calls == []
 
     def test_prompt_event_payload_is_unchanged(self) -> None:
-        """The INTERACTIVE_PROMPT contract the frontend reads did not move."""
+        """FR-044 adds no key to the INTERACTIVE_PROMPT contract the frontend reads.
+
+        ``panel_descriptor`` is spec 1's addition, not this spec's: the unified
+        panel contract sends the descriptor beside the legacy manifest so the
+        panel host can resolve a framed document while the old field keeps the
+        pre-ADR-054 frontend working. The policy of FR-044 decides *whether* a
+        prompt is raised at all and contributes no field of its own, which is
+        what this assertion is here to prove.
+        """
         driver, _, _, _ = _dispatch(
             _AuthoredInteractiveBlock,
             _memory_config(),
@@ -445,6 +453,7 @@ class TestDefaultPreservesExistingBehaviour:
             "workflow_id",
             "block_type",
             "panel_manifest",
+            "panel_descriptor",
             "panel_payload",
             "input_signature",
         }
