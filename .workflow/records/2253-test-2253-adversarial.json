@@ -1,0 +1,123 @@
+{
+  "base_ref": "origin/track/adr-054-integration",
+  "branch": "test/2253-adversarial",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/**/*.test.ts",
+      "frontend/src/**/*.test.tsx",
+      "frontend/e2e/**",
+      "docs/planning/adr-054-assembly-followups.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-05T23:41:16.941822Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-assembly-followups.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T23:55:34.608676Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2253,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Try to break ADR-054 spec 4's Explore frontend: write the adversarial tests that fail, and report what they prove.",
+  "persona": "test_engineer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2253-test-2253-adversarial",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-05T23:41:16.941791Z",
+      "pattern": "frontend/src/store/__tests__/exploreSlice.adversarial.test.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T23:41:16.941810Z",
+      "pattern": "frontend/src/explore/PauseTab.adversarial.test.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T23:41:16.941812Z",
+      "pattern": "frontend/src/explore/NotebookShell.adversarial.test.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T23:41:16.941814Z",
+      "pattern": "docs/planning/adr-054-assembly-followups.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T23:55:34.992119Z",
+      "pattern": "docs/planning/adr-054-assembly-checklist.md",
+      "reason": "record the two checklist rows this dispatch owns"
+    }
+  ],
+  "session_id": "fca9e74e-4a92-4cd5-a99b-8fa17fde3eb4",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-05T23:41:16.941831Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/exploreSlice.adversarial.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T23:41:16.941835Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/explore/PauseTab.adversarial.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T23:41:16.941837Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/explore/NotebookShell.adversarial.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

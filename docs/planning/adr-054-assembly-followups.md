@@ -2159,7 +2159,429 @@ skipping the second because the first was red is how a red test stays unseen.
 
 ### S4-D1 / S5-D1 (adversarial testing)
 
-_No entries yet._
+#### S4-D1 — adversarial tests against the ADR-054 spec 4 Explore frontend
+
+Owner: try to break the assembled Explore frontend and write the tests that
+prove what is broken (issue #2253, branch `test/2253-adversarial`).
+
+**How to read the tests.** Three files were added, all test-only:
+
+- `frontend/src/store/__tests__/exploreSlice.adversarial.test.ts`
+- `frontend/src/explore/PauseTab.adversarial.test.tsx`
+- `frontend/src/explore/NotebookShell.adversarial.test.tsx`
+
+25 tests: **17 confirmed defects** and **8 negative results** (places the
+implementation was pushed and found correct — recorded so the manager knows
+where not to look again).
+
+Each of the 17 is marked `it.fails(...)`. That is **not** a skip and **not** a
+weakened assertion. The assertion inside each one is the behaviour the spec
+asks for, written as it would be written if the code had it; `it.fails` is
+vitest declaring that the code does not have it. The body still runs against
+the real code, and the marked test **starts failing the day the defect is
+fixed**, so whoever fixes it must delete the marker. The markers exist only so
+the assembly's CI can tell S4-D1's deliberate red from a regression:
+`sed -i 's/it\.fails(/it(/g'` over the three files shows the raw 17 failures.
+
+Two positive results are worth stating before the defects, because they are
+what §4.5's risk list was mostly right about:
+
+- **FR-025's wire is intact.** Confirm and Cancel send exactly what the deleted
+  modal sent, checked against `InteractiveModals.tsx` and
+  `InteractiveModals.parts/InteractivePanelHost.tsx` read out of git history at
+  `c3ba855b4^`. Confirm twice sends one `interactive_complete`; Cancel after
+  Confirm sends nothing; the newest prompt answers scoped to its own workflow.
+- **FR-008's editor bound holds.** SC-002 is already measured at 12, 60 and 200
+  cells by `NotebookShell.test.tsx`, drafts survive a swap, and a debounced save
+  survives its editor being unmounted mid-debounce. Nothing was added there.
+
+##### The shape of the ordering findings
+
+Spec §4.5 says: *"Events out of order. A cell-state event may arrive before the
+response to the command that caused it. The slice applies events idempotently by
+cell id and state, so order does not matter."*
+
+That claim is true of exactly three appliers — `applyCellState`,
+`applyCellOutput` and `applyMarksMap` — because those three carry a timestamp
+watermark. `applyChangedNames`, `applyCommitRecorded`, `applyPackaged`,
+`applySessionOpened` and the `session_closed` branch carry none and are
+last-write-wins. The existing suite's ordering section
+(`"order and repetition do not change the answer"`) exercises only the three
+guarded ones, which is why the claim reads as proven. F-D1-004, F-D1-005,
+F-D1-011 and F-D1-012 are that gap, and F-D1-012 shows the guard itself is not
+sufficient where two event types share one watermark.
+
+#### F-D1-001 — A kernel restart leaves cells drawn as `running` after the runtime says they never ran
+
+- **Severity**: P2 — the shell shows a run state the runtime does not hold (FR-034).
+- **Found by**: S4-D1.
+- **Evidence**: `exploreSlice.adversarial.test.ts`, `"shows a cell the runtime
+  now calls never-run as never-run, not as running"`.
+  `ExploreSession.restart_kernel` (`src/scistudio/explore/session.py`) calls
+  `_reset_marks_to_never_run()` and publishes `cell_state` with
+  `{reason: "kernel_restarted", marks: {...}}` and **no cell id**.
+  `applyCellState` takes that branch into `applyMarksMap`, which writes `marks`
+  and nothing else, so `CellView.runState` keeps whatever it last was — for the
+  cell that was executing when the restart happened, `"running"`, for the rest
+  of the session.
+- **Why it is a FR-034 breach rather than a cosmetic one**: FR-034 says every
+  mark and state the frontend shows must come from the runtime. After the
+  restart the runtime's answer for that cell is `never_run`; the screen's answer
+  is `running`. The slice already owns the mapping — `restingRunState` reads the
+  runtime's own `never_run` mark and is documented as "the runtime's own
+  statement" — so honouring it in `applyMarksMap` is a copy, not a derivation.
+- **Fix**: in `applyMarksMap`, when a cell's new mark set contains `never_run`,
+  set its `runState` to `restingRunState(next)`. One line, in
+  `frontend/src/store/exploreSlice.ts` (S4-A1's file).
+- **Suggested title**: `fix(explore): a restarted kernel must clear the run state of the cell it was running`
+
+#### F-D1-002 — The FR-023 panel freeze never lifts after a restart or a death
+
+- **Severity**: P1 — a panel is permanently unable to submit, with a note that
+  tells the person to wait for a run that already ended.
+- **Found by**: S4-D1, following F-D1-001 to its user-visible consequence.
+- **Evidence**: `exploreSlice.adversarial.test.ts`, `"lifts the panel freeze
+  when the run the kernel was doing is gone"`. `frozenNamesOf`
+  (`frontend/src/explore/PanelSlots.tsx`) unions the changed set of every cell
+  whose `runState` is `"running"`. F-D1-001 leaves a cell in that state forever,
+  so every panel bound to a name that cell would have changed is refused for the
+  rest of the session with `"Panel ... cannot submit while a running cell may
+  change <name>. The panel keeps reading; try again when the run ends."`
+- **How a person reaches it**: run a long cell, the kernel is killed or the
+  person presses Restart, then try to submit from a panel over any variable that
+  cell writes. There is no way back except closing and reopening the tab, which
+  re-fetches the session response and rebuilds the cells.
+- **Fix**: F-D1-001's. This entry exists separately because the severity lives
+  here, not there.
+- **Suggested title**: `fix(explore): lift the panel submission freeze when the run that caused it ends without an idle event`
+
+#### F-D1-003 — A kernel death publishes no marks, so the shell keeps showing marks the runtime discarded
+
+- **Severity**: P2 — spec §2's own edge case is not implemented, and the fix is
+  backend-side.
+- **Found by**: S4-D1.
+- **Evidence**: `exploreSlice.adversarial.test.ts`, `"clears the marks the
+  runtime discarded when the kernel died"`. Spec §2 Edge Cases says *"The
+  session's kernel dies. The tab shows the kernel dead, offers restart, and
+  renders every cell as never-run when the event arrives."* The first two
+  happen. The third cannot: `ExploreSession.report_kernel_died` resets the marks
+  server-side and then emits **only**
+  `KERNEL_STATE {state: "dead", needs_restart: true}` — no marks payload —
+  where `restart_kernel`, ten lines above it, emits `kernel_state` *and* a
+  `cell_state` carrying `_marks_payload()`. `stop_kernel` has the same shape, so
+  ending a kernel from FR-015's kernel list does it too.
+- **Consequence**: after a kernel dies, every stale and out-of-order mark stays
+  on the cells, and the toolbar's `Run stale (n)` offers to run a set the
+  runtime no longer believes in.
+- **Fix**: `report_kernel_died` and `stop_kernel` should emit the `cell_state`
+  marks payload that `restart_kernel` already emits. That is
+  `src/scistudio/explore/session.py`, which no agent in this dispatch may edit.
+  The frontend cannot repair it without deriving a mark, which FR-034 forbids.
+- **Suggested title**: `fix(explore): publish the reset marks when a kernel dies or is stopped, as a restart already does`
+
+#### F-D1-004 — `changed_names` has no ordering guard, so FR-022 can refresh the wrong panel
+
+- **Severity**: P2.
+- **Found by**: S4-D1.
+- **Evidence**: `exploreSlice.adversarial.test.ts`, `"converges two
+  changed_names events for one cell on the later one"`. `applyChangedNames`
+  (`frontend/src/store/exploreSlice.ts`) writes `cell.changedNames` with no
+  comparison against `CellView.lastEventAt` and does not advance it. Two runs of
+  one cell that changed different names therefore leave whichever frame arrived
+  last, not whichever is newer.
+- **Consequence**: `panelRefreshKey` reads `changedNames`, so FR-022 refreshes
+  the panel bound to the name the *older* run changed and leaves the panel bound
+  to the name the newer run actually changed showing a stale window —
+  a live panel disagreeing with the kernel, which is the failure FR-022 exists
+  to prevent. `frozenNamesOf` reads the same field, so FR-023 freezes the wrong
+  name too.
+- **Fix**: give `applyChangedNames` the `isNotStale` / `lastEventAt` guard the
+  neighbouring appliers use.
+- **Suggested title**: `fix(explore): order-guard the changed_names applier so a reordered pair converges on the newer run`
+
+#### F-D1-005 — `commit_recorded` has no ordering guard, and a packaged block can be confirmed at a superseded commit
+
+- **Severity**: P2.
+- **Found by**: S4-D1.
+- **Evidence**: `exploreSlice.adversarial.test.ts`, `"converges two
+  commit_recorded events on the later commit"`. `applyCommitRecorded` takes
+  `payload` as `lastCommit` and, for a branch ref, as `notebookCommit`, with no
+  timestamp comparison.
+- **Consequence**: FR-027's. `PauseControls` builds a packaged notebook block's
+  decision as `{notebook_commit: session.notebookCommit}`, and that verbatim
+  decision is what ADR-051's interaction memory replays on a later run. An
+  out-of-order pair therefore packages the run against a tree the notebook is no
+  longer at, silently.
+- **Fix**: the same watermark, on a session-level `lastCommitAt`.
+- **Suggested title**: `fix(explore): order-guard commit_recorded so the notebook commit is the newest one`
+
+#### F-D1-006 — An in-flight session response erases the marks a newer event already applied
+
+- **Severity**: P3 — self-correcting on the next event, and the honest repair
+  needs a backend field.
+- **Found by**: S4-D1, testing §4.5's own named race.
+- **Evidence**: `exploreSlice.adversarial.test.ts`, `"does not let an in-flight
+  session response erase a newer event's marks"`. §4.5 names exactly this
+  sequence — *"a cell-state event may arrive before the response to the command
+  that caused it"* — and says order does not matter. It does:
+  `applyExploreSession` rebuilds every cell through `cellFromModel`, which takes
+  `marks` from the response and keeps no held mark, and then sets
+  `lastMarksAt: null` so nothing afterwards can tell the two apart. A snapshot
+  cut before a run wipes that run's marks.
+- **Fix**: `ExploreSessionResponse` would have to carry the timestamp its
+  snapshot was cut at, so `applyExploreSession` can compare rather than reset.
+  That is `src/scistudio/**`. A frontend-only mitigation — keep a held mark whose
+  `lastEventAt` is newer than the request that produced the response — is
+  possible but needs a request clock the slice does not have.
+- **Suggested title**: `fix(explore): stamp the session response so an in-flight snapshot cannot erase newer event marks`
+
+#### F-D1-007 — Closing an unanswered pause tab strands the paused block
+
+- **Severity**: P1 — the workflow hangs with no window and no way back.
+- **Found by**: S4-D1.
+- **Evidence**: `PauseTab.adversarial.test.tsx`, `"answers the block when its
+  only window is closed"`. `createCloseTab`
+  (`frontend/src/store/tabSlice.parts/workflowTabActions.ts`) has no Explore
+  branch: an Explore tab falls into the `else` that sets `isDirty = false`, so
+  closing a pause tab prompts nothing, sends nothing, and clears no prompt. The
+  prompt stays in the store, the block stays paused on the backend, and
+  `openPauseTab` is called from exactly one place — the `interactive_prompt`
+  branch of `dispatchWorkflowEvent` — so the tab cannot be reopened. The run has
+  to be stopped.
+- **What the modal did**: its close control, its ESC binding and its Cancel
+  button all drove one run-scoped `cancel_block` (`InteractivePanelHost`,
+  `handleClose`), and its header says why, from #2195: *"a person must never be
+  left on a paused block with no window and no way out."* The tab answers the
+  half of #2195 about covering the Stop control. It does not answer this half.
+- **Fix**: either make `closeTab` send the cancellation for a pause tab whose
+  prompt is live (the modal's contract, which is what the test asserts), or
+  refuse the close the way a dirty file tab is refused, or make the pause tab
+  reopenable from the live prompt. Any of the three satisfies the test's intent.
+  `tabSlice.parts/workflowTabActions.ts` is S4-A1's file.
+- **Suggested title**: `fix(explore): closing a pause tab must answer or refuse, never strand the paused block`
+
+#### F-D1-008 — A second interactive prompt makes the first pause tab unanswerable, and it says the block is no longer waiting
+
+- **Severity**: P2 — one of two paused blocks becomes unanswerable, and the
+  screen states something false about it.
+- **Found by**: S4-D1.
+- **Evidence**: `PauseTab.adversarial.test.tsx`, `"leaves the first pause
+  answerable when a second block pauses"`. The store holds one
+  `interactivePrompt` and `setInteractivePrompt` replaces it. `usePausePrompt`
+  returns `null` for any tab whose `pauseNodeId` is not the surviving prompt's
+  block, so the displaced tab renders *"This block is no longer waiting for a
+  decision"* — which is false, it is still paused — its Confirm is disabled, and
+  its Cancel is enabled and silently does nothing.
+- **Why it is new even though the single-prompt store is inherited**: the modal
+  could only ever show one window, so a displaced prompt was invisible rather
+  than misrepresented. The spec now promises otherwise. §2's edge case says *"a
+  pause at an interactive block opens its own Explore tab **beside this one**"*,
+  and `dispatchEvent.ts` states the point of the tab is that *"a person can now
+  leave it on screen and keep working in another tab"*. Two tabs beside each
+  other is the state the test constructs, and only one of them works.
+- **Bounded**: the newest prompt's own tab answers correctly and is scoped to
+  its own workflow — asserted as a passing negative result in the same file.
+- **Fix**: the execution slice needs prompts keyed by block id rather than one
+  slot, and `usePausePrompt` needs to read its tab's own. `store/**` is S4-A1's.
+- **Suggested title**: `feat(explore): hold one interactive prompt per paused block so two pause tabs both work`
+
+#### F-D1-009 — A structurally malformed output bundle takes the whole notebook pane down
+
+- **Severity**: P2 — FR-011's "degrade, not crash"; one bad output erases every
+  cell in the pane and the person's unsaved drafts with it.
+- **Found by**: S4-D1.
+- **Evidence**: `NotebookShell.adversarial.test.tsx`, `"degrades an error output
+  whose traceback is not a list"` and `"degrades a bundle with a hole in it"`.
+  Two throws, both uncaught and both fatal to the pane because there is no error
+  boundary between `OutputRenderer` and `NotebookShell`:
+  - `OneOutput` reads `(output.traceback ?? []).join("\n")`. `??` guards
+    `null`/`undefined` and nothing else, so a traceback that is a **string**
+    reaches `.join` — `TypeError: output.traceback.join is not a function`.
+  - `OutputRenderer` maps over `outputs` and reads `output.output_type` on each
+    entry, so a `null` entry throws before anything is drawn.
+- **Reachable without a hostile actor**: spec §2's own edge case is "the
+  notebook is edited outside SciStudio", the shell does not validate the bundle
+  on read, and a traceback flattened to one string is what several notebook
+  writers emit.
+- **Why the existing suite did not catch it**: `OutputRenderer.test.tsx` is
+  thorough about hostile *content* — an unterminated escape, a malformed SGR
+  parameter list, an unknown `output_type`, HTML that would like to run a
+  script, an output above the truncation bound — and every fixture in it is
+  shaped exactly as nbformat says. The one axis it never varies is the shape.
+- **Fix**: coerce at the boundary (`Array.isArray(output.traceback) ? ... :
+  asText(output.traceback)`, skip non-object entries) **and** put an error
+  boundary around the per-cell output area so a future shape cannot cost the
+  pane. `frontend/src/explore/OutputRenderer.tsx` is S4-A2's file.
+- **Suggested title**: `fix(explore): a malformed output bundle must degrade to a note, not unmount the notebook pane`
+
+#### F-D1-010 — The unmount flush writes a draft back to a cell the notebook no longer has
+
+- **Severity**: P3 — a wasted request and a logged error, after the person left
+  the tab.
+- **Found by**: S4-D1.
+- **Evidence**: `NotebookShell.adversarial.test.tsx`, `"does not write a draft
+  back to a cell the notebook no longer has"`. Two deliberate behaviours meet:
+  `reconcileDrafts` keeps a draft whose cell id has left the notebook
+  ("nbformat ids are stable, so a cell that comes back is the same cell"), and
+  the unmount effect flushes every non-conflicting draft. Neither knows about
+  the other, so the shell's parting act on a tab switch is a write for a deleted
+  cell.
+- **Fix**: skip a draft whose cell id is not in the current cell list when
+  flushing on unmount, or drop such a draft once the reload that removed the
+  cell is confirmed. `frontend/src/explore/NotebookShell.tsx` is S4-A2's.
+- **Related**: S4-A2's own `F-A2-002` already tracks that drafts live in the
+  component rather than the slice; this is a second consequence of the same
+  placement.
+- **Suggested title**: `fix(explore): do not flush a draft for a cell the notebook no longer holds`
+
+#### F-D1-011 — A stale event from a superseded session id writes into the session that replaced it
+
+- **Severity**: P2 — the toolbar can show a dead kernel over a healthy one.
+- **Found by**: S4-D1.
+- **Evidence**: `exploreSlice.adversarial.test.ts`, `"ignores a kernel_state
+  from the session id that a reopen replaced"` and `"does not reopen a closed
+  session with an older session_opened"`. `sessions` is keyed by notebook path
+  and `sessionPathById` is only ever added to — nothing but
+  `forgetExploreSession` removes an id, and closing a session does not call it.
+  Close a notebook and reopen it and two session ids point at one row, so the
+  dead session's teardown frame is applied to the live one; `kernelLabel` then
+  reads "needs restart" over an idle kernel. Separately, `applySessionOpened`
+  flips `shellState` from `"closed"` back to `"opening"`, so an older
+  `session_opened` reopens a session the runtime has closed.
+- **Fix**: record the session id a row currently belongs to and drop any event
+  whose `session_id` is not it; drop the id from `sessionPathById` on
+  `session_closed`. `store/exploreSlice.ts` is S4-A1's.
+- **Suggested title**: `fix(explore): ignore session events addressed to a session id the notebook path no longer belongs to`
+
+#### F-D1-012 — `cell_output` and `cell_state` share one watermark, so the loser is discarded whole
+
+- **Severity**: P2 — a cell can finish a successful run showing no output and no
+  execution count.
+- **Found by**: S4-D1.
+- **Evidence**: `exploreSlice.adversarial.test.ts`, `"keeps a cell's output when
+  its frame loses the race to the idle frame"` and `"reaches the same state from
+  a stream replayed backwards"`. Both appliers compare against and advance one
+  `CellView.lastEventAt`, so a `cell_output` that arrives after the `cell_state`
+  `idle` that ended the run is not merged with it — it is dropped entirely,
+  taking `outputs` and `executionCount`, which the winner does not carry, with
+  it.
+- **Why the existing ordering test does not see it**: `"a late-arriving older
+  event does not undo a newer one"` is the test that established the watermark,
+  and it delivers two events of the *same* type carrying the *same* fields,
+  which is the case where dropping the older one is correct. Two types carrying
+  disjoint fields is the case where it is not, and the slice's own module
+  docstring claims otherwise: *"Two events for one cell therefore converge on
+  the later one whichever order they arrive in."* They do not converge; one is
+  discarded.
+- **Fix**: give each applier its own watermark (`lastStateAt`, `lastOutputAt`),
+  or merge field-by-field rather than dropping the frame.
+- **Suggested title**: `fix(explore): give cell_state and cell_output separate watermarks so neither discards the other's fields`
+
+#### F-D1-013 — `forgetExploreSession` leaves the session's buffered events behind
+
+- **Severity**: P3 — a bounded leak, and the mechanism behind a resurrection.
+- **Found by**: S4-D1.
+- **Evidence**: `exploreSlice.adversarial.test.ts`, `"does not buffer events for
+  a session the store was told to forget"`. `forgetExploreSession` clears
+  `sessions` and `sessionPathById` and not `pendingExploreEvents`, so a later
+  frame for the forgotten id starts filling a queue that nothing will drain —
+  up to `PENDING_EVENT_CAP` (200) entries — because only `session_opened` can
+  name the path again, and if one does the forgotten session reappears in the
+  store with its whole backlog applied.
+- **Fix**: drop the id's pending queue in `forgetExploreSession`, and do not
+  buffer for a session id that has been forgotten.
+- **Suggested title**: `fix(explore): drop a forgotten session's buffered events instead of accumulating them`
+
+#### F-D1-014 — `changed_names` writes a session-wide field from a per-cell event
+
+- **Severity**: P3.
+- **Found by**: S4-D1.
+- **Evidence**: `exploreSlice.adversarial.test.ts`, `"keeps the unobservable
+  names a different cell reported"`. `applyChangedNames` ends with
+  `{...next, unobservableNames: payload.unobservable ?? []}`, so a second cell's
+  event — which publishes `[]` when *that cell* changed nothing unobservable —
+  erases the unobservable names the first cell reported. `[]` from one cell is
+  not a statement that nothing anywhere is unobservable.
+- **Note**: `unobservableNames` has no reader in the frontend today
+  (`grep unobservableNames` finds the slice, the type and one test), so the
+  consequence is latent rather than visible. It will not stay latent.
+- **Fix**: key the unobservables by cell id as the changed set is, or union
+  rather than replace.
+- **Suggested title**: `fix(explore): key the unobservable names by cell so one cell's event does not erase another's`
+
+#### F-D1-015 — The pause tab's Confirm is not disabled when the panel has failed
+
+- **Severity**: P3 — a decision can be sent from a panel that is in an error
+  state. **Code-read only: no test proves this one.**
+- **Found by**: S4-D1, comparing `PauseControls` against the deleted modal.
+- **Evidence**: `InteractivePanelHost` disabled Confirm on
+  `emitted === null || failure !== null`. `PauseControls`
+  (`frontend/src/explore/PanelSlots.tsx`) disables on `decision === null` alone,
+  and the failure state lives in `PausePanel`'s local `diagnostics`, which is
+  not shared with the toolbar — the two are siblings under `ExploreTab` and only
+  the emission travels between them, through `PauseEmissionContext`. So a panel
+  that emits once and then fails leaves a live Confirm over a stale decision.
+- **Why there is no test**: driving a panel to `ready`, then to an emission,
+  then to a failure needs a post-ready failure injection the frame seam does not
+  offer. Recorded rather than proven, deliberately.
+- **Fix**: carry the failure alongside the emission in `PauseEmissionContext`.
+- **Suggested title**: `fix(explore): disable the pause tab's Confirm while its panel is in a failure state, as the modal did`
+
+#### F-D1-016 — `npm run lint` already fails on the assembly branch
+
+- **Severity**: P1 for the assembly's CI — this is not S4-D1's change; it is the
+  state of `track/adr-054-integration` today.
+- **Found by**: S4-D1, running the required checks.
+- **Evidence**: `cd frontend && npm run lint` exits 1 with
+  `src/explore/regions/ExploreRegions.tsx  62:10  error  'Placeholder' is
+  defined but never used  @typescript-eslint/no-unused-vars`. The helper was
+  the region-contract scaffolding; every region has since been given a real
+  body, and the last one to be taken over left the helper behind. Confirmed
+  pre-existing: it reproduces from
+  `git show track/adr-054-integration:frontend/src/explore/regions/ExploreRegions.tsx`,
+  and S4-D1's diff is three new test files and a gate record.
+- **Fix**: delete `Placeholder` from
+  `frontend/src/explore/regions/ExploreRegions.tsx`. One deletion, in S4-A1's
+  file, and the frontend lint gate goes green.
+- **Suggested title**: `fix(explore): delete the unused region Placeholder that fails frontend lint`
+
+#### F-D1-017 — `pickMimeType`'s comment claims Jupyter's preference order and does not implement it
+
+- **Severity**: P3 — documentation drift, with a defensible behaviour underneath.
+  **Code-read only: no test proves this one.**
+- **Found by**: S4-D1.
+- **Evidence**: `frontend/src/explore/OutputRenderer.tsx` says *"The order is
+  Jupyter's own preference — the richest representation the surface can draw"*
+  and then puts the four bitmap types, then `image/svg+xml`, ahead of
+  `text/html`. JupyterLab's default rendermime rank puts `text/html` above
+  `image/png`. A Plotly or Bokeh output that carries both an HTML bundle and a
+  PNG snapshot therefore renders here as the static snapshot.
+- **Why the behaviour may be right anyway**: the HTML frame is `sandbox=""`, so
+  a script-driven HTML bundle would render as inert markup — a snapshot is the
+  better of the two. S4-A2's own `F-A2-003` already tracks the sandbox
+  consequence.
+- **Fix**: correct the comment to say what the order is and why it departs from
+  Jupyter's, rather than changing the order.
+- **Suggested title**: `docs(explore): say why the output renderer prefers an image over text/html`
+
+##### Negative results — where S4-D1 pushed and found the implementation correct
+
+Recorded so the manager does not spend a second dispatch here. Each is a
+passing test in the three files above.
+
+| Push | Result |
+|---|---|
+| Confirm pressed twice on one pause | One `interactive_complete`; `onConfirm` early-returns on the cleared prompt |
+| Cancel after Confirm | Nothing sent |
+| The newest of two prompts | Answers correctly, scoped to its own workflow |
+| Two sessions interleaved out of order | Kept apart; per-session keying holds |
+| FR-022 with an empty changed set, and with a set naming nothing bound | No unbound panel's refresh key moves |
+| Two panels bound to one name | Both are held and both see the one refresh key |
+| A corrupt base64 image payload | Degrades to a broken image; the pane survives |
+| An edit whose editor is unmounted mid-debounce | Still reaches the session API; the timers are the shell's |
+| FR-008's editor bound at 200 cells, and the draft through a swap | Already proven by `NotebookShell.test.tsx`; not re-covered |
+| FR-025's message shapes against the deleted modal | Identical: `interactive_complete {block_id, workflow_id, data:{code}}`, `cancel_block {block_id, workflow_id}` |
+| FR-028's packaging confirm | Guarded twice — `canConfirmPackaging` is re-evaluated at click time, so refusals arriving after Confirm is enabled disable it (read, not tested) |
 
 ### S4-E1 / S5-E1 / INT-E1 (audits)
 
