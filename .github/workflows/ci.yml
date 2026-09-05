@@ -109,12 +109,20 @@ jobs:
           path: .audit/full-audit.json
 
   test:
-    name: Test (Python ${{ matrix.python-version }})
+    name: Test (Python ${{ matrix.python-version }}${{ matrix.core && format(' {0}', matrix.core) || '' }})
     runs-on: ubuntu-latest
+    env:
+      COVERAGE_CORE: ${{ matrix.core }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.13"]
+        include:
+          - python-version: "3.11"
+            core: ""
+          - python-version: "3.13"
+            core: "ctrace"
+          - python-version: "3.13"
+            core: "sysmon"
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
@@ -151,14 +159,14 @@ jobs:
             cov_parallel=""
             cov_serial=""
           fi
-          timeout 600 pytest -n auto -m "not serial" $nocov --timeout=60 --timeout-method=thread $cov_parallel
+          timeout 2400 pytest -n auto -m "not serial" $nocov --timeout=60 --timeout-method=thread --durations=40 $cov_parallel
           rc=$?
           if [ $rc -eq 5 ]; then rc=0; fi
           if [ $rc -eq 124 ]; then
             echo "::error::pytest parallel phase exceeded 600s shell timeout (hang escaped --timeout=60)"
           fi
           if [ $rc -ne 0 ]; then exit $rc; fi
-          timeout 600 pytest -n 0 -m serial $nocov --timeout=60 --timeout-method=thread $cov_serial
+          timeout 2400 pytest -n 0 -m serial $nocov --timeout=60 --timeout-method=thread --durations=40 $cov_serial
           rc=$?
           if [ $rc -eq 5 ]; then rc=0; fi
           if [ $rc -eq 124 ]; then

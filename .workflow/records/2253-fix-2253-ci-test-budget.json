@@ -1,0 +1,48 @@
+{
+  "base_ref": "origin/track/adr-054-integration",
+  "branch": "fix/2253-ci-test-budget",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      ".github/workflows/ci.yml",
+      "tests/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2253,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "The CI parallel phase exceeds its 600s shell wall on Python 3.13; find where the time goes, fix what is pathological, and adjust the budget only if the suite is honestly that large",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2253-fix-2253-ci-test-budget",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "8e45b29a-3b03-48c6-adf0-dd239b476341",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": []
+}
