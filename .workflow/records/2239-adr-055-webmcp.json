@@ -68,7 +68,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "c12933a63ec09a330feb7e4c000331e4abee519f",
+    "shas": [
+      "c12933a63ec09a330feb7e4c000331e4abee519f"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -364,6 +370,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:42.143652Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:42.179201Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:42.207211Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:42.231883Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:42.258246Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:42.288671Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:42.319118Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:42.359010Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:42.381839Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:42.404927Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:10:42.431316Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -382,9 +476,9 @@
       ".workflow/records/2239-adr-055-webmcp.json",
       "docs/adr/ADR-055.md"
     ],
-    "diff_fingerprint": "sha256:c33429412550d9581d105dc382a5a02c7b678d2f73dcf9a5f33ff4c836b7d0d0",
+    "diff_fingerprint": "sha256:c438718ba7b9b823ffacbc0288fb0bbea42a7fdbe63021c3ef456651e1ea35e6",
     "head": "HEAD",
-    "head_sha": "03bb7f124",
+    "head_sha": "c12933a63",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -401,7 +495,14 @@
   },
   "owner_directive": "Draft ADR-055 from owner decisions: reuse the hackathon WebMCP bridge; assess selective cherry-pick robustness; discard hackathon UX and design it in the later spec; existing project agent assets stay existing and only get_agent_context is new in that area; per-user backend and bundled Python with shared per-user dependencies; local and internal Lab deployment only.",
   "persona": "adr_author",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2239
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-05T07:56:10.352139Z",
@@ -422,6 +523,14 @@
     {
       "at": "2026-09-05T08:10:14.858139Z",
       "diff_fingerprint": "sha256:c33429412550d9581d105dc382a5a02c7b678d2f73dcf9a5f33ff4c836b7d0d0",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-05T08:10:42.431365Z",
+      "diff_fingerprint": "sha256:c438718ba7b9b823ffacbc0288fb0bbea42a7fdbe63021c3ef456651e1ea35e6",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
