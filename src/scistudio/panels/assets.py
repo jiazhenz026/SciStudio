@@ -187,6 +187,44 @@ def is_safe_panel_id(panel_id: str) -> bool:
     return not Path(panel_id).is_absolute() and ":" not in panel_id
 
 
+def _contained_segments(cleaned: str, relative_path: str, detail: dict[str, str]) -> list[str]:
+    """Split *cleaned* into path segments that can only mean "inside this root".
+
+    The lexical half of the confinement, run **before** the request is joined to
+    a root or handed to :meth:`~pathlib.Path.resolve`. Everything refused here
+    is refused without a filesystem call, which is the point: ``resolve`` walks
+    the tree, and a client-chosen absolute path should never get it to walk one.
+
+    A segment is refused when it is:
+
+    * ``..`` — the traversal itself, wherever in the path it appears;
+    * anything holding a ``:`` — a Windows drive qualifier (``C:``, and the
+      drive-relative ``C:foo`` that joins as an absolute path on that platform)
+      and an NTFS alternate data stream (``index.html::$DATA``, which reads the
+      same file past a suffix allowlist that only saw ``.html``). Refused on
+      every platform so the check does not change meaning between the
+      developer's machine and the user's;
+    * anything holding a NUL, which truncates the name at the syscall boundary.
+
+    ``.`` and empty segments are dropped rather than refused: they are what a
+    ``./`` or a doubled slash leaves behind and they mean nothing.
+
+    Raises:
+        MissingBundleError: Any segment is one of the three refusals, or nothing
+            survives the drop.
+    """
+    if "\x00" in cleaned:
+        raise MissingBundleError(f"asset path contains a NUL byte: {relative_path!r}", detail=detail)
+
+    segments = [segment for segment in cleaned.replace("\\", "/").split("/") if segment not in ("", ".")]
+    if not segments:
+        raise MissingBundleError("asset path is empty", detail=detail)
+    for segment in segments:
+        if segment == ".." or ":" in segment:
+            raise MissingBundleError(f"asset path escapes confinement root: {relative_path}", detail=detail)
+    return segments
+
+
 def resolve_confined_asset(
     root: Path | str,
     relative_path: str,
@@ -200,12 +238,28 @@ def resolve_confined_asset(
     keeps. Only *root* differs by tier; everything below is identical whichever
     tier asked, which is the property SC-008 measures.
 
-    The confinement is a resolve-then-contain: both the root and the candidate
-    are fully resolved first, so a symlink inside the panel directory pointing
-    out of it lands outside the root and is refused by the same comparison that
-    refuses ``..``. Percent-encoded traversal never reaches here as an escape
-    either — the ASGI layer has already decoded it, so ``%2e%2e`` is ``..`` by
-    the time it is joined.
+    The confinement is two checks in series, and each answers something the
+    other cannot:
+
+    1. **Lexical, before the path touches the filesystem.** The request is split
+       into segments and every segment that could mean anything other than "a
+       name inside this directory" is refused: ``..``, a drive letter or an
+       NTFS alternate-data-stream suffix (both of which carry a ``:``), and a
+       NUL. Only then are the surviving segments joined to the root. This is
+       what keeps a client-chosen absolute path from reaching
+       :meth:`~pathlib.Path.resolve` at all — resolving walks the filesystem,
+       and a boundary that is only enforced *after* that walk is a boundary the
+       walk has already crossed.
+    2. **Resolve-then-contain, for the one thing lexical checks cannot see.** A
+       symlink inside the panel directory pointing out of it is a legal set of
+       segments, so it survives step 1; both the root and the candidate are
+       fully resolved and the candidate must still be under the root. This
+       ordering — resolve, then contain — is what makes the link land outside
+       and be refused by the same comparison that refuses ``..``.
+
+    Percent-encoded traversal never reaches here as an escape either: the ASGI
+    layer has already decoded it, so ``%2e%2e`` is ``..`` by the time it is
+    split.
 
     Args:
         root: The tier root, or the panel directory, the request is confined to.
@@ -228,12 +282,12 @@ def resolve_confined_asset(
     cleaned = relative_path.lstrip("/\\")
     if not cleaned:
         raise MissingBundleError("asset path is empty", detail=detail)
-    candidate = (resolved_root / cleaned).resolve()
 
-    try:
-        candidate.relative_to(resolved_root)
-    except ValueError as exc:
-        raise MissingBundleError(f"asset path escapes confinement root: {relative_path}", detail=detail) from exc
+    segments = _contained_segments(cleaned, relative_path, detail)
+    candidate = resolved_root.joinpath(*segments).resolve()
+
+    if not candidate.is_relative_to(resolved_root):
+        raise MissingBundleError(f"asset path escapes confinement root: {relative_path}", detail=detail)
 
     suffix = candidate.suffix.lower()
     if suffix not in _ALLOWED_ASSET_SUFFIXES:

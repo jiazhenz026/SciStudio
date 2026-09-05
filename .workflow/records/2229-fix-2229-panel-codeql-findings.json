@@ -1,0 +1,106 @@
+{
+  "base_ref": "origin/track/adr-054-integration",
+  "branch": "fix/2229-panel-codeql-findings",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/panels/**",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/panels/**",
+      "tests/panels/**",
+      "frontend/src/panels/**",
+      "docs/planning/adr-054-assembly-followups.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-05T08:32:58.407498Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2229,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Triage and fix the CodeQL findings the ADR-054 assembly surfaced in the new panel documents and the panel asset route",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2229-fix-2229-panel-codeql-findings",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:32:58.407459Z",
+      "pattern": "src/scistudio/panels/builtin/core.plot.basic/index.html",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:32:58.407479Z",
+      "pattern": "src/scistudio/panels/assets.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:32:58.407482Z",
+      "pattern": "src/scistudio/tutorials/core/what-is-a-type/assets/panels/review_labels/index.html",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:32:58.407483Z",
+      "pattern": "tests/panels/test_panel_asset_route.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:32:58.407485Z",
+      "pattern": "frontend/src/panels/__tests__",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T08:32:58.407486Z",
+      "pattern": "docs/planning/adr-054-assembly-followups.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "14b0b174-bbc8-446f-a4e5-1c404203690e",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-05T08:32:58.407505Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_asset_route.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
