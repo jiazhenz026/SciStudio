@@ -152,7 +152,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "b9de74786b5600bbb52e2a673213b5d15e339318",
+    "shas": [
+      "b9de74786b5600bbb52e2a673213b5d15e339318"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -284,6 +290,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:13:56.538325Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:13:56.555637Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:13:56.573314Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:13:56.591114Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:13:56.608993Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:13:56.625583Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:13:56.642612Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:13:56.660522Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:13:56.677790Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:13:56.714710Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T08:13:56.738346Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -315,9 +409,9 @@
       "tests/ai/test_workspace_focus.py",
       "tests/api/test_ai_active_context.py"
     ],
-    "diff_fingerprint": "sha256:48914c0ce6b9011354881cc19773f16d00b4d031480b13af76b23fd80055a613",
+    "diff_fingerprint": "sha256:0f3af4d706b34dee44e211729ed81d1215935a79489c20f1ab2235559a410598",
     "head": "HEAD",
-    "head_sha": "acc445081",
+    "head_sha": "b9de74786",
     "surfaces": {
       "docs": 3,
       "frontend": 0,
@@ -334,11 +428,26 @@
   },
   "owner_directive": "ADR-054 spec 5 T-001/T-002: widen the active-workflow channel into a workspace focus (canvas/explore/pause) that persists beside the active workflow id, restores on open and restart, is reported by the context tool, and is enforced by a refusal helper the session tools call when no explore session is active.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2254
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-05T08:12:52.463935Z",
       "diff_fingerprint": "sha256:48914c0ce6b9011354881cc19773f16d00b4d031480b13af76b23fd80055a613",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-05T08:13:56.738375Z",
+      "diff_fingerprint": "sha256:0f3af4d706b34dee44e211729ed81d1215935a79489c20f1ab2235559a410598",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
