@@ -403,6 +403,25 @@ Rows are added for fix agents as findings land.
 | `#2238` | `Verify Workflow Compliance` — `guard.core_change_guard` wants `admin-approved:core-change` | manager, §5 | `[ ]` |
 | `#2251` | `tests/explore/test_explore_session.py::test_a_kernel_killed_from_outside_is_reported_dead_and_offers_a_restart` fails on Linux CI (`_process_gone` false) | fix agent | `[ ]` |
 
+### 9.3.1 Carried Work The Manager Owes At Integration
+
+Work a fix agent identified but could not execute, because the target file
+lives on a branch it was not allowed to touch. Each is the manager's to apply
+when the branches meet.
+
+- [ ] **FC-002 — carry the safe asset-URL pattern into the panel scaffold.**
+      `fix/2229-panel-codeql-findings` fixed a real `javascript:`-URL hole in
+      `core.plot.basic/index.html` with a `safeAssetUrl(value, dataPrefixes)`
+      allowlist chosen per element. The same pattern belongs in
+      `src/scistudio/ai/agent/mcp/tools_panels/_scaffold.py`, `_stubs.py` and
+      `src/scistudio/_agent_reference/panel-contract.md`, because
+      `scaffold_panel` writes every future authored panel from that skeleton
+      and the reference is what teaches the agent. Those three files are
+      S5-B2's and live on the spec 5 track, so the fix agent could not reach
+      them. **Apply when the spec 5 track merges into integration**, and add a
+      test that a freshly scaffolded panel carries the pattern — otherwise the
+      next authored panel reintroduces the finding this dispatch just closed.
+
 ### 9.4 Verification
 
 - [~] Focus-wire integration test added and passing.
