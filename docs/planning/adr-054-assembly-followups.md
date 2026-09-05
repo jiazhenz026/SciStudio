@@ -196,6 +196,33 @@ _No entries yet._
 - **Suggested title**: `Give the app-block watcher the same pid-aware liveness
   reading as the explore kernel`
 
+#### FK-005 — `Test (Python 3.13)` stalls out its whole 600 s parallel phase on the track branch
+
+- **Severity**: P1 — it fails every CI run on `track/adr-054-integration` and
+  on every branch cut from it, so no sub-PR of this assembly can go green.
+- **Found by**: fix-kernel, while proving #2240's fix in CI.
+- **Evidence**: it is **not** caused by the #2240 fix — the same job fails
+  identically on the branch point. On `track/adr-054-integration` at
+  `fa678c7ff` (run 33957302816, the exact base of PR #2262): 3.13's parallel
+  phase printed 31 dots and was killed by `timeout 600` with exit 124, while
+  3.11 finished the same phase with `9308 passed ... in 443.05s`. On PR
+  #2262 at `151738a87` (run 33957753781): 3.13 printed 16 dots and was killed
+  at exactly 600 s; 3.11 passed both phases in 11m48s. Runs 33955810545 and
+  33957302816 on the track branch both fail 3.13 the same way.
+- **The one asymmetry worth starting from**: `ci.yml` runs 3.13 **with
+  coverage** and 3.11 with `--no-cov`. The same test set that completes in
+  443 s uncovered does not get past a few dozen tests in 600 s covered, which
+  looks like a stall rather than slowness. Nothing diagnosable survives,
+  because the shell-level `timeout 600` hard-kills the phase before
+  pytest-timeout's per-test 60 s kill can print a traceback — so the first
+  step is probably to let pytest-timeout win (raise the shell timeout, or
+  lower the per-test one) and get a stack out of it.
+- **Why it is here and not done**: it is a CI-wide defect on the integration
+  branch, not part of #2240's cluster, and fixing it would mean editing
+  `.github/workflows/ci.yml`, which is outside this fix's write set.
+- **Suggested title**: `Test (Python 3.13) stalls its parallel phase under
+  coverage and is killed at the 600 s shell timeout`
+
 ## Already-Tracked Follow-Ups Inherited From Specs 1 To 3
 
 These already have issues. They are listed so the owner sees the whole
