@@ -715,11 +715,16 @@ class _StubManager:
     The one thing in this file that substitutes a double for a real kernel,
     and deliberately: the bug these tests guard is that the handle *believed*
     this object. ``is_alive()`` is ``Popen.poll() is None`` underneath, and on
-    POSIX that answers ``None`` for a process that is already dead — when the
-    poll cannot take ``_waitpid_lock`` because another thread is polling, and
-    while a killed child is still an unreaped zombie. Neither can be staged
-    with a real process on Windows, and a death-detection guarantee that only
-    holds on one platform is how this reached CI in the first place.
+    Linux that answers ``None`` about a process that is already dead — most
+    of all while a killed multi-threaded process is a zombie whose sibling
+    threads have not finished exiting, because ``wait`` withholds such a
+    process even though ``/proc`` already calls it state ``Z`` (#2240). Note
+    what that rules out: a *single-threaded* zombie reaps on the first poll,
+    so staging one proves nothing. The window needs a loaded machine and a
+    thread group that has not drained, which is why it appeared only in CI's
+    full serial phase — and it cannot be staged at all on Windows, which has
+    no zombie state. A death-detection guarantee that holds on one platform
+    and one machine load is how this reached CI in the first place.
     """
 
     def __init__(self, *, alive: bool, pid: int | None = 4242) -> None:
