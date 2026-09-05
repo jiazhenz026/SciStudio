@@ -540,11 +540,25 @@ this row's runs - `auto` asks for 32 workers per agent, and workers start dying:
   `tests/api/test_panel_document_events.py::test_the_file_route_accepts_a_panel_document`,
   and `tests/qa/test_generate_facts_cli.py::test_generate_facts_check_reports_stale_file`.
 
-No node id failed twice, and every failing set passes in isolation:
+- run 5, back at `auto`: `3 failed`, again a different three -
+  `test_concurrent_write_workflow_serialises`,
+  `tests/workflow/test_serializer_property.py::test_relativify_inverts_absolutify`,
+  and `tests/qa/test_generate_facts_cli.py::test_generate_facts_write_and_check_round_trip`.
+- run 6, as the other agents ramped up: `10 failed`, now including three
+  `tests/api/test_workflows.py` execute/cancel tests. Those spawn engine
+  subprocesses, and the gate passes `--timeout=60`; a 60-second per-test
+  deadline is not survivable when 122 python processes are resident on 32
+  logical cores. That is the mechanism behind the whole class.
+
+Across six runs: more than twenty distinct failing node ids, never the same
+set twice, and every failing set passes in isolation:
 
 ```
 python -m pytest -p no:xdist --no-cov <that run's node ids>   ->  all passed
 ```
+
+Two runs also outlived the gate's own 600-second per-check timeout, which is
+how F-A4-010 was found.
 
 `PYTEST_XDIST_AUTO_NUM_WORKERS` is honoured by xdist and is the lever, but at 6
 the suite outran the gate's own timeout (F-A4-010).
