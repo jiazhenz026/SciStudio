@@ -70,6 +70,42 @@ issues the directive permits:
   the same from the PR page.
 - **Suggested title**: N/A — this is an owner action, not an issue.
 
+#### M-005 - READ THIS ONE FIRST: the gate counts a timed-out test run as a passing one
+
+- **Severity**: P1, and it is about the evidence rather than the feature.
+- **Found by**: S5-B4, blocked by it; corroborated by S5-B1, the kernel fix
+  agent, and the manager, each of whom hit a piece of it separately.
+- **The chain**, which is worse than any of its three links alone:
+  1. Two tests in `tests/qa/**` walk the whole repository and are not
+     `serial`-marked, so they crash their xdist worker (`[gwN] node down`).
+     That is the class `pyproject.toml` already documents as serial-only
+     (#1867, #1896). Registered by S5-B4 as **F-B4-10**.
+  2. A parallel-phase failure makes the runner **skip the serial phase**. So
+     `test_a_branch_switch_kills_the_real_kernel_process`, genuinely red on
+     the spec 5 track, was never reported at all. Registered as **F-B4-9**.
+     A red test that cannot be seen is worse than a red test.
+  3. When the run instead exceeds its `timeout 600` wall, **the gate records
+     `python_tests` as satisfied**. Registered as **F-B4-8**.
+- **Why the manager is elevating it here.** Step 3 means a `gate_record`
+  reconciliation can pass on a test run that never finished. Every branch in
+  this dispatch went through that path, so it bears on how much the gate
+  evidence in this PR is worth — not because anything is known to be wrong,
+  but because the mechanism that would have told us is unreliable in exactly
+  the case we kept hitting. The manager has **not** touched the gate tooling
+  to fix it: `src/scistudio/qa/governance/**` is a governance surface, the
+  change needs owner review, and repairing the evaluator mid-dispatch would
+  change the meaning of evidence already recorded under the old behaviour.
+- **What was done instead**: S5-B4 marks the two `tests/qa/**` tests `serial`
+  under a manager scope amendment, which breaks link 1 and therefore link 2.
+  Link 3 is untouched and is the owner's call.
+- **Status of the hidden red test**: on the integration branch, which carries
+  the kernel-death fix (#2262), `-k "branch_switch or branch_change"` runs
+  4 tests and all 4 pass on Windows — they run, they are not skipped. So
+  F-B4-9 is likely a symptom the kernel fix already cured on the spec 5 track
+  rather than a live defect. Likely, not certain: it has not been seen green
+  on Linux in the serial phase, because the serial phase is what gets skipped.
+- **Suggested title**: `fix(qa): gate_record must not record a timed-out python_tests as satisfied`
+
 #### M-004 - The frontend's `ActiveContextResponse` does not declare the `focus` the server echoes
 
 - **Severity**: P3 - not a break; the frontend ignores the extra field and
