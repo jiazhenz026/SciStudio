@@ -510,6 +510,72 @@ and the retirement of the interactive modal (ADR-054 spec 4, T-008 to T-011).
   owned it.
 - **Suggested title**: `chore(docs): ADR-051 governs a frontend file ADR-054 spec 4 deletes`
 
+#### F-A3-011 — A timed-out check is recorded `unknown` and then satisfies its obligation
+
+- **Severity**: P1 — the gate reports "reconciliation passed" over a check that
+  never produced a result.
+- **Found by**: S4-A3, on the second `gate_record check --mode pre-pr` run.
+- **Evidence**: the ledger
+  `.workflow/records/2253-feat-2253-panels-and-pause.json` holds
+
+  ```json
+  {"name": "python_tests", "status": "unknown", "exit_code": null,
+   "summary": "execution error: TimeoutExpired", "raw_log_ref": null}
+  ```
+
+  and the reconcile event written 0.4s later is
+  `{"result": "pass", "unsatisfied": []}`. The first run of the same check,
+  which did complete, was recorded `fail` and correctly listed
+  `checks.python_tests` as unsatisfied. So a check that *ran and failed* blocks
+  and a check that *never finished* does not.
+- **Why it happened here**: the machine is carrying several agents' test runs at
+  once and the Python suite takes ~7 minutes of its own; the subprocess wrapper's
+  deadline expired before pytest did.
+- **Consequence**: an agent that does not read the ledger event by event would
+  report a green gate on no evidence. The suite was re-run by hand for this
+  branch rather than trusted.
+- **Fix**: treat `unknown` as unsatisfied in the reconciler — a check with no
+  exit code is not a check that passed — and say so in the repair hint
+  ("python_tests timed out; re-run it") rather than printing "reconciliation
+  passed".
+- **Suggested title**: `fix(gate): a check that times out is recorded unknown and then counts as satisfied`
+
+#### F-A3-012 — `PYTHONPATH=./src` is relative, and the explore kernel starts somewhere else
+
+- **Severity**: P2 — one Python test fails for every agent that follows the
+  dispatch preamble literally.
+- **Found by**: S4-A3, re-running the Python suite by hand after F-A3-011.
+- **Evidence**: with `export PYTHONPATH=./src` (the preamble's own line, and
+  what `gate_record check` inherits),
+  `tests/api/test_explore_branch_switch.py::test_a_branch_switch_kills_the_real_kernel_process`
+  fails with
+
+  ```
+  BridgeProtocolError: The kernel bridge did not answer:
+  ModuleNotFoundError: No module named 'scistudio'.
+  ```
+
+  The session's ipykernel is a real subprocess started under the temporary
+  project directory, so the relative `./src` on the inherited `PYTHONPATH`
+  resolves against *that* directory and finds nothing. With
+  `PYTHONPATH=<repo>/src` spelled absolutely, the same file is `5 passed`.
+- **Why it appeared now**: the test is new — ADR-054 spec 3 landed the real
+  kernel — and it is the first test in the repository that spawns an interpreter
+  which has to import `scistudio` for itself.
+- **Fix**: say `PYTHONPATH=$(pwd)/src` in `docs/ai-developer/rules.md`, the
+  dispatch preamble and the gate CLI reference, or have
+  `scistudio.explore.kernel` absolutise the `PYTHONPATH` entries it passes to
+  the kernel it launches. The second is the durable one: the kernel is launched
+  with a cwd of the project, and a relative entry inherited from the server's
+  environment can never mean what it meant there.
+- **Also relevant to**: the whole Python suite otherwise passed on this branch
+  (`9312 passed, 80 skipped, 8 xfailed`), and the two failures the first gate run
+  reported — `test_system_vertical.py::test_execute_broadcasts_runtime_lifecycle_events_to_websocket`
+  and `test_audit_full_audit.py::test_full_audit_renders_human_readable_facts_summary`
+  — did not recur and pass in isolation. That is the contention S4-A1 recorded as
+  F-A1-008, seen again.
+- **Suggested title**: `fix(explore): the launched kernel inherits a relative PYTHONPATH and cannot import scistudio`
+
 ### S4-A4
 
 _No entries yet._

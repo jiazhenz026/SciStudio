@@ -165,6 +165,86 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T09:37:25.210516Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9e479d1593d3ab42f265f85a5ea4e0af7d424117f8a54985a847c2ccb79d6d27",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T09:37:33.535028Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:dfd7be7ee6cdd1729d2ba92c2ce482564d355af3526d6b2b99092b2973970235",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T09:39:14.081701Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:65ef60647d6735cb0ed8455740baaf2802d33fa77d03ad0da44359910a47e26b",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T09:39:46.567472Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9ea9495ef3210adf7bf311d5514e603ef2eb63bf26664356bfd6ad2ba43cadd8",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-05T09:57:55.374490Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": null,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "scope": "repo",
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -308,6 +388,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:57:55.486698Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:57:55.507011Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:57:55.552022Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:57:55.572001Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:57:55.593712Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:57:55.613966Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:57:55.635129Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:57:55.657805Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:57:55.680174Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:57:55.700528Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-05T09:57:55.735422Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -324,7 +492,11 @@
     "base_sha": "336c6a738",
     "changed_files": [
       ".workflow/records/2253-feat-2253-panels-and-pause.json",
+      "docs/adr/ADR-051-addendum1.md",
+      "docs/adr/ADR-051.md",
+      "docs/planning/adr-054-assembly-checklist.md",
       "docs/planning/adr-054-assembly-followups.md",
+      "docs/specs/adr-051-interactive-blocks.md",
       "frontend/src/App.parts/InteractiveModals.parts/InteractivePanelHost.tsx",
       "frontend/src/App.parts/InteractiveModals.parts/__tests__/interactivePanelHost.test.tsx",
       "frontend/src/App.parts/InteractiveModals.test.tsx",
@@ -343,11 +515,11 @@
       "frontend/src/hooks/useWebSocket.parts/dispatchEvent.ts",
       "frontend/src/panels/__tests__/tutorialReviewPanel.test.ts"
     ],
-    "diff_fingerprint": "sha256:6e221e1c619f74b564d0714391644590916823f070f473fa18a073a6b292e77a",
+    "diff_fingerprint": "sha256:a8142a7f10b62ea4dc582a44483d8a2c67805d70bbaa556bd7129621ce4bb31d",
     "head": "HEAD",
-    "head_sha": "c3ba855b4",
+    "head_sha": "6f1e4e8a7",
     "surfaces": {
-      "docs": 1,
+      "docs": 5,
       "frontend": 17,
       "governance": 0,
       "governed_docs": 0,
@@ -355,7 +527,7 @@
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 17,
+      "sentrux": 20,
       "test": 9,
       "workflow_ci": 0
     }
@@ -374,6 +546,14 @@
         "checks.full_audit",
         "checks.python_tests"
       ]
+    },
+    {
+      "at": "2026-09-05T09:57:55.735466Z",
+      "diff_fingerprint": "sha256:a8142a7f10b62ea4dc582a44483d8a2c67805d70bbaa556bd7129621ce4bb31d",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "2253-feat-2253-panels-and-pause",
