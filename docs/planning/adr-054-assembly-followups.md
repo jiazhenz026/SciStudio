@@ -331,7 +331,172 @@ way to name an already-finalized one.
 
 ### S5-B3
 
-_No entries yet._
+#### F-B3-1 — The MCP context cannot reach the person's live session service
+
+- **Severity**: P1 — under the topology the desktop app actually runs, the
+  agent's session tools act on a *second* `SessionService` over the same
+  notebooks as the person's.
+- **Found by**: S5-B3, implementing T-006.
+- **Evidence**: `scistudio.ai.agent.mcp._context.MCPContext` declares
+  `block_registry`, `type_registry`, `project_dir`, `active_workflow_id` and
+  `workspace_focus` and nothing else. The production implementation
+  (`_RuntimeAdapter` in `src/scistudio/api/app.py:120`) forwards exactly those
+  members plus `workflow_runs`, `event_bus`, `start_workflow` and
+  `register_plot_artifact`. The session service registry is
+  `_services` in `src/scistudio/api/routes/explore.py:108`, and the AI layer
+  must not import it: the import-linter contract "AI must not depend on api"
+  (`pyproject.toml`) forbids the edge with no carve-out.
+
+**What the tools do instead.**
+`src/scistudio/ai/agent/mcp/tools_explore/_service.py::session_service` asks the
+context for `get_session_service` / `session_service` by name — nothing
+implements either today — and otherwise builds a service of its own over the
+open project, cached per project directory.
+
+**Why it matters.** `scistudio mcp-bridge` first tries the running GUI's
+project-local socket (`_try_connect_attached` in
+`src/scistudio/cli/mcp_bridge.py:68`) and proxies the agent's stdio into the
+FastAPI process's in-process MCP server. So in the ordinary desktop case the
+tools execute *inside* the process that already holds the person's
+`SessionService`, and the fallback stands up a second one beside it. Two
+services over one notebook means two `NotebookStore` documents over one file,
+and an appended cell that reaches the person only when their own session next
+reloads — which is exactly the "appears through the same events the person's
+own edits produce" claim FR-024 is written to guarantee.
+
+**Mitigations already in place** (they reduce the harm; they do not close it):
+the fallback is cached per project so a process never holds more than one, and
+`_service.session_for` calls `ExploreSession.reload_if_changed()` — the session
+API's own answer to an outside edit — before any tool reads or writes.
+
+**What would close it**: add `get_session_service` to `_RuntimeAdapter` (the
+route's `get_session_service(runtime)` is already the right callable) and to the
+`MCPContext` Protocol as an optional member, then assert against a real
+`ApiRuntime` that a tool-appended cell lands in the session the HTTP routes
+serve. The fallback and the accessor lookup can both stay: the standalone bridge
+still has no API process to ask.
+
+- **Suggested title**: `fix(#2254): the MCP context cannot reach the running backend's explore SessionService`
+
+#### F-B3-2 — A bridge with no lineage store cannot open a session over a block's outputs
+
+- **Severity**: P2 — `open_explore_session(source='block_outputs')` fails in a
+  standalone bridge; `source='file'` works.
+- **Found by**: S5-B3.
+- **Evidence**: `SessionService._require_resolver`
+  (`src/scistudio/explore/session.py:2073`) raises `NothingToExploreError`
+  when the service was built without `block_outputs` or `lineage_store`. The
+  fallback in `tools_explore/_service.py::_build_service` takes the store from
+  `scistudio.core.metadata_store._active_lineage_store()`, which the API
+  publishes when it opens a project (`api/runtime/_projects.py:203`). In a
+  standalone `scistudio mcp-bridge` process nothing has published one, so the
+  resolver is absent.
+- **Why it is here and not fixed**: opening a second `LineageStore` on
+  `<project>/.scistudio/lineage.db` from the bridge would make a second writer
+  to a database the backend already owns, which is a bigger decision than a tool
+  wiring change. It is also downstream of F-B3-1: a context that carried the
+  service would carry a service that already has the store.
+- **Suggested title**: `fix(#2254): the standalone MCP bridge cannot resolve a block's outputs for an explore session`
+
+#### F-B3-3 — `run_cell` has no way to follow a run it stopped waiting for
+
+- **Severity**: P3.
+- **Found by**: S5-B3.
+- **Evidence**: `ExploreSession` exposes `run_cell` (returns an
+  `ExecutionRequest`) and `wait_until_idle`, and nothing that answers "what is
+  the state of request X now". `RunCellResult.completed=False` therefore hands
+  the agent a `request_id` it cannot look up; its only recourse is to call
+  `read_notebook` again and read the cell's outputs.
+- **What would close it**: a session-API read that answers one request's state
+  by id — the WebSocket already publishes `cell_state`, so the state exists; it
+  is only not readable by a caller that is not subscribed.
+- **Suggested title**: `feat(#2254): let a caller read one execution request's state by id`
+
+#### F-B3-4 — Cell outputs are bounded by the tool, and the HTTP route returns none at all
+
+- **Severity**: P3 — a divergence, not a defect.
+- **Found by**: S5-B3.
+- **Evidence**: `CellModel` in `src/scistudio/api/routes/explore.py:820` carries
+  `cell_id`, `cell_type`, `source`, `enabled` and `marks` — no outputs; the
+  frontend reads them from the notebook it already has. FR-020 requires the
+  session tool to return outputs, so
+  `tools_explore/_models.py::CellOutputModel` renders them: stream text, the
+  `text/plain` representation, and the error name/value/traceback, each bounded
+  at `OUTPUT_TEXT_LIMIT` (4000 chars), with every other MIME type reported by
+  name rather than by value so a base64 PNG never reaches the agent's context.
+- **Why it is here**: the bound is the tool's own policy and lives in the AI
+  layer, so two clients could disagree about what an output is. If a second
+  client ever needs the same thing, the rendering belongs beside the session.
+- **Suggested title**: `refactor(#2254): move the bounded cell-output rendering beside the session API`
+
+#### F-B3-5 — The spec still says `server.py` registers the tool groups
+
+- **Severity**: P3 — documentation drift, already found by S5-B2 as F-5.
+- **Found by**: S5-B3, confirming it independently.
+- **Evidence**: ADR-054 spec 5 §4.2 has the row
+  `src/scistudio/ai/agent/mcp/server.py | modify | Registers the two groups.`
+  `server.py` owns the module-scope `FastMCP` instance and imports no tool
+  module; the eager side-effect imports live in
+  `src/scistudio/ai/agent/mcp/__init__.py`. This branch adds `tools_explore` to
+  that import list and two lines to the module docstring, and does not touch
+  `server.py` — the same resolution S5-B2 took, so the two lines land two apart
+  in one alphabetically-ordered list and the merge keeps both.
+- **What would close it**: correct the §4.2 row and the dispatch template's
+  "registers the two groups" wording.
+- **Suggested title**: N/A — folded into S5-B2's F-5.
+
+#### F-B3-6 — The packaging tools re-scan the block registry the runtime already holds
+
+- **Severity**: P3 — a latency cost, not a wrong answer.
+- **Found by**: S5-B3.
+- **Evidence**: `check_packaging` and `package_notebook`
+  (`src/scistudio/explore/packaging.py:645`, `:987`) take an optional
+  `registry`, and default to scanning a fresh block registry to resolve port
+  extensions and interactive block ids. Neither
+  `api/routes/explore.py`'s packaging routes nor these tools pass one, so every
+  check pays for a full registry scan — while `MCPContext.block_registry` is a
+  scanned registry sitting right there.
+- **Why it is here and not done**: passing it would make the tool's answer
+  differ from the HTTP route's for the same notebook whenever the two registries
+  disagree, and the route is the fact. Both callers should start passing one, or
+  neither should.
+- **Suggested title**: `perf(#2254): pass the runtime's block registry to the packaging check instead of re-scanning`
+
+#### F-B3-7 — `test_write_class_tools_have_next_step` names its write-class tools by hand
+
+- **Severity**: P2 for S5-B4 — it is not only the *counts* that move.
+- **Found by**: S5-B3.
+- **Evidence**: `tests/ai/test_mcp_fastmcp.py:105` builds `write_class` as a
+  literal set. It does not contain the two panel write tools (`scaffold_panel`,
+  `reload_panels`) that S5-B2 landed, and will not contain the four session
+  write tools (`open_explore_session`, `append_cell`, `run_cell`,
+  `package_notebook`) this branch lands. The assertion therefore passes while
+  silently covering fewer tools than it claims to.
+- **Note**: the four session result models each carry `next_step`, and
+  `tests/ai/test_mcp_tools_explore.py::test_every_write_class_session_tool_result_carries_a_next_step`
+  asserts it locally — so adding the six names to the shared set is safe.
+- **What would close it**: derive `write_class` from the registered `write` tag
+  rather than restating it, which is the tag every group already sets.
+- **Suggested title**: `test(#2254): derive the write-class tool set from the registered tag`
+
+#### F-B3-8 — Confirmed: five count-assertion sites fail at 47 tools, not three
+
+- **Severity**: P2 for S5-B4 — corroborates S5-B2's F-2 with the run.
+- **Found by**: S5-B3, on this branch with both tool groups present.
+- **Evidence**: `PYTHONPATH=./src python -m pytest tests/ai tests/architecture
+  tests/contracts tests/cli/test_mcp_bridge.py
+  tests/integration/test_phase2_mcp_end_to_end.py` fails exactly five tests, all
+  of them the number `36`:
+  `tests/ai/test_mcp_fastmcp.py::test_fastmcp_lists_36_tools` (asserts 47 now),
+  `tests/ai/test_finish_ai_block_skeleton.py::test_registry_now_has_36_tools`,
+  `tests/contracts/test_runtime_import_contract.py::test_mcp_server_exposes_36_tools`,
+  `tests/cli/test_mcp_bridge.py::test_run_standalone_mode_returns_tools_list`,
+  `tests/cli/test_mcp_bridge.py::test_run_attached_mode_proxies_to_backend`, and
+  `tests/integration/test_phase2_mcp_end_to_end.py::test_mcp_server_initialize_tools_list_and_call`
+  — six test functions across five files. `36 + 4 panel + 7 session = 47` is the
+  arithmetic, and `await mcp.list_tools()` returns 47 on this branch.
+- **Suggested title**: N/A — this is S5-B4's T-009 row, recorded so it is not
+  re-derived.
 
 ### S5-B4
 
