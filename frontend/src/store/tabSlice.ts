@@ -20,6 +20,11 @@ import {
   createSyncActiveTab,
 } from "./tabSlice.parts/workflowTabActions";
 import { createOpenPreviewTab } from "./tabSlice.parts/previewTabActions";
+import {
+  createOpenExploreTab,
+  createRestoreExploreTab,
+  createSetExploreNotebookVisible,
+} from "./tabSlice.parts/exploreTabActions";
 
 export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, get) => ({
   tabs: [],
@@ -45,4 +50,8 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
   confirmFileVersion: createConfirmFileVersion(set, get),
   applyFileRemoteContent: createApplyFileRemoteContent(set, get),
   markFileRemoteConflict: createMarkFileRemoteConflict(set, get),
+  // ADR-054 spec 4 FR-001 / FR-002 / FR-026 — the Explore tab's three doors.
+  openExploreTab: createOpenExploreTab(set, get),
+  restoreExploreTab: createRestoreExploreTab(set, get),
+  setExploreNotebookVisible: createSetExploreNotebookVisible(set),
 });

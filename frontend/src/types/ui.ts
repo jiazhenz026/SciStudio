@@ -156,3 +156,63 @@ export interface AnnotationNodeData extends Record<string, unknown> {
   text: string;
   onUpdateText?: (text: string) => void;
 }
+
+// ---------------------------------------------------------------------------
+// ADR-054 spec 4 (T-001) — the Explore tab's view enumerations.
+//
+// These are *view* vocabularies, not wire ones: the wire types live in
+// `types/api.ts` beside the routes they mirror. The two are deliberately
+// separate because the runtime reports "needs restart" as a flag beside a
+// kernel state, and the shell shows it as one more state to render.
+// ---------------------------------------------------------------------------
+
+/**
+ * Which of the two arrangements an Explore tab is in (spec §3 Key Entities).
+ *
+ *   - `"session"` — the ordinary tab: toolbar, strip, panel slots, notebook.
+ *   - `"pause"`   — an interactive block's pause (FR-024): the same host and
+ *     toolbar with the notebook pane absent and confirm/cancel offered.
+ */
+export type ExploreTabMode = "session" | "pause";
+
+/**
+ * The kernel state the shell renders (FR-016).
+ *
+ * The first five are the runtime's own `KernelState`. `"needs-restart"` is the
+ * shell's rendering of `needs_restart: true` — the runtime reports it as a
+ * flag beside the state, and a person is being told one thing, so the shell
+ * collapses the pair into one value to draw.
+ */
+export type ExploreKernelDisplayState =
+  | "not-started"
+  | "starting"
+  | "idle"
+  | "busy"
+  | "dead"
+  | "needs-restart";
+
+/**
+ * Where one cell is in its run (FR-010, FR-013).
+ *
+ * Written only from `explore.cell_state` and `explore.cell_output` events
+ * (FR-034): the shell never advances a cell out of `queued` on its own.
+ */
+export type ExploreCellRunState = "never-run" | "queued" | "running" | "idle" | "error";
+
+/**
+ * The three marks the runtime computes and the shell draws (FR-012).
+ *
+ * The values are the wire values of `scistudio.explore.session.CellMark`; the
+ * frontend never derives one (FR-034).
+ */
+export type ExploreCellMarkKind = "never_run" | "stale" | "out_of_order";
+
+/**
+ * Where the tab's own load is (FR-001's re-fetch on restore).
+ *
+ *   - `"opening"`  — the open or restore request is in flight.
+ *   - `"ready"`    — a session response has landed.
+ *   - `"failed"`   — the open or restore was refused; `error` says why.
+ *   - `"closed"`   — a `session_closed` event arrived for this session.
+ */
+export type ExploreShellState = "opening" | "ready" | "failed" | "closed";

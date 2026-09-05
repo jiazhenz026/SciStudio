@@ -15,7 +15,12 @@ import { TUTORIAL_SYNC_EVENT_TYPES } from "../../store/learningCenterSlice";
 import type { InteractivePrompt } from "../../store/types";
 import { invalidatePanelCatalog } from "../../store/usePanelCatalog";
 import { invalidateTypeCatalog } from "../../store/useTypeCatalog";
-import type { LogEntry, WorkflowEventMessage } from "../../types/api";
+import { isExploreSessionEvent } from "../../store/exploreSlice";
+import type {
+  ExploreSessionEventMessage,
+  LogEntry,
+  WorkflowEventMessage,
+} from "../../types/api";
 
 import { handleBlockPtyClosed, handleBlockPtyOpened } from "./handleBlockPty";
 import { handleFileChanged } from "./handleFileChanged";
@@ -51,6 +56,31 @@ export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: Dispa
    */
   if (TUTORIAL_SYNC_EVENT_TYPES.has(payload.type)) {
     void useAppStore.getState().syncActiveTutorialSession();
+  }
+
+  /*
+   * ADR-054 spec 4 FR-033 — every Explore session event, routed to the one
+   * slice that holds session state.
+   *
+   * First, and by prefix rather than by name: `serialise_session_event` stamps
+   * `explore.` on every session event type precisely so the shared hub can
+   * tell them apart from engine events, and matching the prefix means a new
+   * session event type reaches the slice without a second edit here. The slice
+   * ignores a type it does not know, which is the same answer this function
+   * would give.
+   *
+   * The frame carries `session_id` at the top level rather than inside `data`
+   * (the engine's frames carry `block_id` / `workflow_id` there instead), so
+   * it is re-typed rather than passed through as a `WorkflowEventMessage`.
+   *
+   * Consumed: these events have no engine consumer, and `consumeEvent` would
+   * only add an unhandled type to the execution log.
+   */
+  if (isExploreSessionEvent(payload.type)) {
+    useAppStore
+      .getState()
+      .applyExploreSessionEvent(payload as unknown as ExploreSessionEventMessage);
+    return true;
   }
 
   if (payload.type === "interactive_prompt") {

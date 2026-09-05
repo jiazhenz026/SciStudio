@@ -168,7 +168,12 @@ export function createSyncActiveTab(set: StoreSetter, get: StoreGetter): TabSlic
     const state = get();
     if (!state.activeTabId) return;
     const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
-    if (activeTab?.kind === "preview") {
+    // ADR-054 FR-005 — an Explore tab holds no workflow-slice state either, so
+    // it takes the same path a preview tab does. Without this, autosave and
+    // WebSocket updates arriving while a session is on screen would be
+    // captured into the Explore tab (which has nowhere to put them) and lost
+    // to the workflow tab they belong to.
+    if (activeTab?.kind === "preview" || activeTab?.kind === "explore") {
       // #2112 — while a preview tab owns focus, the live workflow slice still
       // belongs to the backing workflow tab (restoreTab on a preview only sets
       // activeTabId). Capture into that tab so autosave / WebSocket updates

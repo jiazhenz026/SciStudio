@@ -11,6 +11,15 @@ export interface ContextMenuProps {
   onCopyName: (name: string) => void;
   onCopyPath: (path: string) => void;
   onReveal: (node: TreeNodeData) => void;
+  /**
+   * ADR-054 FR-002 / FR-003 - open an Explore session over this file.
+   *
+   * OPTIONAL, and offered only for a file: the tree renders directories with
+   * the same menu, and "explore this folder" is not a session the backend can
+   * open. Absent means the action is not shown at all, which is what the
+   * Project tree gets - FR-002 names the *data* tree.
+   */
+  onExplore?: (node: TreeNodeData) => void;
 }
 
 export function ContextMenu({
@@ -19,6 +28,7 @@ export function ContextMenu({
   onCopyName,
   onCopyPath,
   onReveal,
+  onExplore,
 }: ContextMenuProps) {
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
@@ -42,6 +52,21 @@ export function ContextMenu({
       className="fixed z-50 rounded-lg border border-stone-200 bg-white py-1 shadow-lg"
       style={{ left: contextMenu.x, top: contextMenu.y }}
     >
+      {/* ADR-054 FR-002 - first, because it is the action the menu exists for
+          on a data file; the three clipboard actions predate it. */}
+      {onExplore && contextMenu.node.type === "file" ? (
+        <button
+          className="w-full px-4 py-1.5 text-left text-xs text-stone-700 hover:bg-stone-100"
+          data-testid="tree-explore-file"
+          onClick={() => {
+            onExplore(contextMenu.node);
+            onClose();
+          }}
+          type="button"
+        >
+          Explore in notebook
+        </button>
+      ) : null}
       <button
         className="w-full px-4 py-1.5 text-left text-xs text-stone-700 hover:bg-stone-100"
         onClick={() => onCopyName(contextMenu.node.name)}

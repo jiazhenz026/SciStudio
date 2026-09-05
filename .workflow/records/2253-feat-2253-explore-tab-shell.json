@@ -1,0 +1,168 @@
+{
+  "base_ref": "origin/track/adr-054-spec4-explore-frontend",
+  "branch": "feat/2253-explore-tab-shell",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/store/types.ts",
+      "frontend/src/store/exploreSlice.ts",
+      "frontend/src/types/api.ts",
+      "frontend/src/types/ui.ts",
+      "frontend/src/App.parts/ProjectWorkspace.tsx",
+      "frontend/src/explore/**",
+      "frontend/src/hooks/useWebSocket.parts/dispatchEvent.ts",
+      "frontend/src/components/WorkflowCanvas.tsx",
+      "frontend/src/components/WorkflowCanvas.parts/**",
+      "frontend/src/components/ProjectTree.tsx",
+      "frontend/src/components/ProjectTree.parts/**",
+      "frontend/src/components/DataPreview.tsx",
+      "frontend/src/store/__tests__/**",
+      "docs/planning/adr-054-assembly-followups.md",
+      "docs/planning/adr-054-assembly-checklist.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-05T07:18:52.454981Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2253,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-054 spec 4 T-001 to T-003: the Explore tab union member, the exploreSlice written from session events, the API types, the WebSocket event routing, the layout swap, and the two context menus that open a session.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2253-feat-2253-explore-tab-shell",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:21:48.377535Z",
+      "pattern": "frontend/src/lib/api/explore.ts",
+      "reason": "T-001/T-002 need three paths the prompt's write set did not enumerate and no sibling agent claims: frontend/src/lib/api/explore.ts (nothing can open a session without a client for POST /api/explore/sessions), frontend/src/store/index.ts (FR-001's reload persistence is gated by the partialize whitelist, which keeps file tabs only), and frontend/src/store/tabSlice.parts/** (syncActiveTab must treat an Explore tab like a preview tab or the backing workflow tab loses its snapshot). Reported to the manager in the final report."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:21:48.377563Z",
+      "pattern": "frontend/src/store/index.ts",
+      "reason": "T-001/T-002 need three paths the prompt's write set did not enumerate and no sibling agent claims: frontend/src/lib/api/explore.ts (nothing can open a session without a client for POST /api/explore/sessions), frontend/src/store/index.ts (FR-001's reload persistence is gated by the partialize whitelist, which keeps file tabs only), and frontend/src/store/tabSlice.parts/** (syncActiveTab must treat an Explore tab like a preview tab or the backing workflow tab loses its snapshot). Reported to the manager in the final report."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:21:48.377566Z",
+      "pattern": "frontend/src/store/tabSlice.parts/**",
+      "reason": "T-001/T-002 need three paths the prompt's write set did not enumerate and no sibling agent claims: frontend/src/lib/api/explore.ts (nothing can open a session without a client for POST /api/explore/sessions), frontend/src/store/index.ts (FR-001's reload persistence is gated by the partialize whitelist, which keeps file tabs only), and frontend/src/store/tabSlice.parts/** (syncActiveTab must treat an Explore tab like a preview tab or the backing workflow tab loses its snapshot). Reported to the manager in the final report."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:21:48.377568Z",
+      "pattern": "frontend/src/App.parts/__tests__/**",
+      "reason": "T-001/T-002 need three paths the prompt's write set did not enumerate and no sibling agent claims: frontend/src/lib/api/explore.ts (nothing can open a session without a client for POST /api/explore/sessions), frontend/src/store/index.ts (FR-001's reload persistence is gated by the partialize whitelist, which keeps file tabs only), and frontend/src/store/tabSlice.parts/** (syncActiveTab must treat an Explore tab like a preview tab or the backing workflow tab loses its snapshot). Reported to the manager in the final report."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:21:48.377570Z",
+      "pattern": "frontend/src/components/ProjectTree.parts/**",
+      "reason": "T-001/T-002 need three paths the prompt's write set did not enumerate and no sibling agent claims: frontend/src/lib/api/explore.ts (nothing can open a session without a client for POST /api/explore/sessions), frontend/src/store/index.ts (FR-001's reload persistence is gated by the partialize whitelist, which keeps file tabs only), and frontend/src/store/tabSlice.parts/** (syncActiveTab must treat an Explore tab like a preview tab or the backing workflow tab loses its snapshot). Reported to the manager in the final report."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:47:26.201667Z",
+      "pattern": "frontend/src/types/explore.ts",
+      "reason": "T-001's wire types put frontend/src/types/api.ts over the repository max-lines rule; the shapes moved to a sibling frontend/src/types/explore.ts which api.ts re-exports"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:47:31.711161Z",
+      "pattern": "frontend/src/store/__tests__/tabState.test.ts",
+      "reason": "the tabState union-exhaustiveness test asserts every TabState member is handled and must gain the Explore case"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:47:31.711178Z",
+      "pattern": "frontend/src/store/tabSlice.ts",
+      "reason": "the tabState union-exhaustiveness test asserts every TabState member is handled and must gain the Explore case"
+    }
+  ],
+  "session_id": "447bf4a9-96d5-4e23-96ee-f3c8df2bfe3b",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-05T07:18:52.455010Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/exploreSlice.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:18:52.455017Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/exploreDispatch.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:18:52.455019Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/explore/ExploreTab.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:18:52.455021Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/__tests__/exploreWorkspace.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:18:52.455023Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/WorkflowCanvas.parts/__tests__/exploreContextMenu.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:18:52.455025Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/ProjectTree.parts/exploreContextMenu.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
