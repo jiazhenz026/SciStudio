@@ -249,15 +249,14 @@ def resolve_confined_asset(
     The confinement is two checks in series, and each answers something the
     other cannot:
 
-    1. **Lexical, before the path touches the filesystem.** The request is split
-       into segments and every segment that could mean anything other than "a
-       name inside this directory" is refused: ``..``, a drive letter or an
-       NTFS alternate-data-stream suffix (both of which carry a ``:``), and a
-       NUL. Only then are the surviving segments joined to the root. This is
-       what keeps a client-chosen absolute path from reaching
-       :meth:`~pathlib.Path.resolve` at all — resolving walks the filesystem,
-       and a boundary that is only enforced *after* that walk is a boundary the
-       walk has already crossed.
+    1. **Lexical, before the path touches the filesystem.** A request holding
+       ``..`` anywhere, a ``:`` in any segment (a drive qualifier or an NTFS
+       alternate data stream), or a NUL is refused by name; only the surviving
+       segments are joined to the root. See :func:`_contained_segments` for what
+       each refusal is for. This is what keeps a client-chosen absolute path
+       from reaching :meth:`~pathlib.Path.resolve` at all — resolving walks the
+       filesystem, and a boundary that is only enforced *after* that walk is a
+       boundary the walk has already crossed.
     2. **Resolve-then-contain, for the one thing lexical checks cannot see.** A
        symlink inside the panel directory pointing out of it is a legal set of
        segments, so it survives step 1; both the root and the candidate are
