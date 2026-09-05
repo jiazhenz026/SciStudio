@@ -161,3 +161,29 @@ language and a second thing to get wrong on the first call.
 
 **What would close it**: a follow-up `provider=` argument on `scaffold_panel`
 once there is a real panel that needs one, or a worked example in the corpus.
+
+### F-8 — `gate_record check` cannot find the ledger after a pre-PR `finalize`
+
+Once `gate_record finalize` (pre-PR mode) has marked a ledger PR-ready, a later
+`gate_record check --mode pre-pr` run from the same worktree exits 2 with
+`no gate ledger found; run init first`, whether the repo root is inferred or
+passed with `--repo-root`. Passing the record explicitly works:
+
+```bash
+python -m scistudio.qa.governance.gate_record check \
+  --record .workflow/records/<record>.json --mode pre-pr \
+  --base <track branch> --head HEAD --pr-body-file .workflow/local/pr-body.md
+```
+
+Every agent in this dispatch hits this, because the flow the dispatch prescribes
+— pre-PR `finalize`, then `scistudio_pr_create.py`, then post-PR `finalize` —
+lands a checklist/record commit between the two finalizes, which makes the check
+evidence stale and forces exactly this re-run.
+
+**Why it was deferred**: `src/scistudio/qa/governance/gate_record/**` is outside
+every S5 write set, and a change to ledger auto-discovery affects every task
+kind in the repository.
+
+**What would close it**: make auto-discovery keep selecting a PR-ready ledger for
+the current branch, or make the "run init first" message say `--record` is the
+way to name an already-finalized one.
