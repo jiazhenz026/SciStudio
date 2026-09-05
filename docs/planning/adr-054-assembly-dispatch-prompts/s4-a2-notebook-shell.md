@@ -98,6 +98,21 @@ Per the shared preamble. Do not open an issue; append to
    text where the bundle carries it and otherwise to a note. Rendering from
    the `.ipynb` bundle is what makes the notebook look the same here and in
    Jupyter — do not invent a SciStudio output shape.
+
+   **What the bundle already carries, checked by the manager.** Monaco is
+   `@monaco-editor/react`; markdown is `react-markdown`; the graph library
+   (S4-A4's, not yours) is `@xyflow/react` with `elkjs`. There is **no ANSI
+   renderer and no HTML sanitiser** in the bundle today. So:
+
+   - The sandboxed HTML frame needs no dependency — an `<iframe sandbox>`
+     without `allow-same-origin` is the mechanism, and it is stronger than a
+     sanitiser because it does not depend on getting a filter list right.
+   - ANSI colour has no library behind it. Either write a small parser for the
+     SGR subset a traceback actually uses, or add one dependency and say in
+     your report which and why. **Do not silently skip the requirement** and
+     do not silently add a dependency. If you write the parser, test it
+     against a real IPython traceback fixture, including sequences that never
+     terminate — the adversarial dispatch will send you those.
 3. **T-006 — the marks.**
    Draw the three marks the runtime reports — never-run, stale, out-of-order —
    on the cell (FR-012). An out-of-order mark shows the names and cells that
