@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sparkline &mdash; SciStudio panel example</title>
+<!--
+  A DISPLAYING panel, worked end to end.
+
+  It renders a Series as a sparkline with its range underneath. It sends the
+  host nothing but `ready` and, if something goes wrong, `error` — that is what
+  "displaying" means. Compare panel-region-picker/, which declares `producing`
+  and emits a line of code.
+
+  Self-contained on purpose: markup, styles and script live in this one file.
+  No <script src>, no <link rel=stylesheet>, no CDN, no shared runtime. The
+  panel is served from its own directory and may reach nothing outside it.
+-->
+<style>
+  :root { --ink: #1c211b; --line: rgba(28, 33, 27, 0.12); --danger: #b3261e; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: transparent; color: var(--ink);
+    font: 12px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  body { padding: 8px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .card { border: 1px solid var(--line); border-radius: 1rem; background: #fff; padding: 12px; }
+  svg { display: block; width: 100%; height: 64px; }
+  .range { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+  .muted { color: rgba(28, 33, 27, 0.6); }
+  .error {
+    border: 1px solid rgba(179, 38, 30, 0.3); background: rgba(179, 38, 30, 0.08);
+    color: var(--danger); border-radius: 1rem; padding: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="stack" id="root">
+  <p class="muted">Waiting for the host&hellip;</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------------
+  // The message envelope. Every panel repeats it; it is not factored out,
+  // because a panel that imports a shared runtime is no longer self-contained.
+  // ---------------------------------------------------------------------
+
+  var PANEL_MESSAGE_MARKER = 1;
+  var PANEL_API_VERSION = "1";
+
+  var token = null;      // proves a message came from our host; set by `init`
+  var torndown = false;
+  var current = null;    // the envelope the host last handed us
+
+  function post(type, payload) {
+    if (token === null || torndown) return false;
+    try {
+      window.parent.postMessage(
+        { scistudio_panel: PANEL_MESSAGE_MARKER, token: token, type: type, payload: payload },
+        "*"
+      );
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function reportError(message) {
+    post("error", { message: String(message), detail: null });
+  }
+
+  // The host hands the target either bare or wrapped in an envelope carrying
+  // metadata, diagnostics and an error slot. Normalise once, read one shape.
+  function envelopeOf(value) {
+    var empty = { payload: {}, metadata: {}, diagnostics: [], error: null };
+    if (!value || typeof value !== "object") return empty;
+    if (value.payload && typeof value.payload === "object") {
+      return {
+        payload: value.payload,
+        metadata: value.metadata && typeof value.metadata === "object" ? value.metadata : {},
+        diagnostics: Array.isArray(value.diagnostics) ? value.diagnostics : [],
+        error: value.error && typeof value.error === "object" ? value.error : null
+      };
+    }
+    return { payload: value, metadata: {}, diagnostics: [], error: null };
+  }
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  // ---------------------------------------------------------------------
+  // Rendering. `textContent` everywhere: the payload is a person's data, not
+  // markup, and a panel must never let a data file inject nodes into itself.
+  // ---------------------------------------------------------------------
+
+  function numbers(payload) {
+    var raw = payload.values;
+    if (!Array.isArray(raw)) return [];
+    var out = [];
+    for (var i = 0; i < raw.length; i += 1) {
+      var n = Number(raw[i]);
+      if (isFinite(n)) out.push(n);
+    }
+    return out;
+  }
+
+  function sparkline(values) {
+    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 100 32");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "Sparkline of " + values.length + " points");
+    if (values.length < 2) return svg;
+
+    var lo = Math.min.apply(null, values);
+    var hi = Math.max.apply(null, values);
+    var span = hi - lo || 1;
+    var points = [];
+    for (var i = 0; i < values.length; i += 1) {
+      var x = (i / (values.length - 1)) * 100;
+      var y = 32 - ((values[i] - lo) / span) * 32;
+      points.push(x.toFixed(2) + "," + y.toFixed(2));
+    }
+    var path = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    path.setAttribute("points", points.join(" "));
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", "#f06a44");
+    path.setAttribute("stroke-width", "1");
+    path.setAttribute("vector-effect", "non-scaling-stroke");
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function render() {
+    var root = document.getElementById("root");
+    root.textContent = "";
+
+    if (current && current.error) {
+      var box = el("div", "error");
+      box.setAttribute("role", "alert");
+      box.appendChild(el("p", null, "Series preview failed"));
+      box.appendChild(el("p", null, current.error.message || "An unknown error occurred."));
+      root.appendChild(box);
+      return;
+    }
+
+    var payload = (current && current.payload) || {};
+    var values = numbers(payload);
+    if (values.length === 0) {
+      root.appendChild(el("p", "muted", "No numeric points to draw."));
+      return;
+    }
+
+    var card = el("div", "card");
+    card.appendChild(sparkline(values));
+    root.appendChild(card);
+
+    var range = el("div", "range");
+    range.appendChild(el("span", "muted", "min " + Math.min.apply(null, values)));
+    range.appendChild(el("span", "muted", values.length + " points"));
+    range.appendChild(el("span", "muted", "max " + Math.max.apply(null, values)));
+    root.appendChild(range);
+
+    if (current.metadata.truncated === true) {
+      root.appendChild(el("p", "muted", "Showing a bounded preview of a longer series."));
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // The handshake: init -> ready, then update / state_request / teardown.
+  // ---------------------------------------------------------------------
+
+  function onMessage(event) {
+    var data = event.data;
+    if (!data || typeof data !== "object") return;
+    if (data.scistudio_panel !== PANEL_MESSAGE_MARKER) return;
+    if (typeof data.type !== "string") return;
+    var payload = data.payload && typeof data.payload === "object" ? data.payload : {};
+
+    if (token === null) {
+      // Only `init` is accepted before a token exists, and it must carry one.
+      if (data.type !== "init" || typeof data.token !== "string" || data.token === "") return;
+      token = data.token;
+      current = envelopeOf(payload.target);
+      post("ready", { api_version: PANEL_API_VERSION });
+      render();
+      return;
+    }
+
+    if (data.token !== token) return;  // not our host; drop it
+
+    switch (data.type) {
+      case "update":
+        if (payload.changed && typeof payload.changed === "object" && "target" in payload.changed) {
+          current = envelopeOf(payload.changed.target);
+          render();
+        }
+        break;
+      case "state_request":
+        // A displaying panel holds no state worth restoring.
+        post("state", { state: null });
+        break;
+      case "error":
+        current = {
+          payload: current.payload, metadata: current.metadata, diagnostics: current.diagnostics,
+          error: { code: payload.code || "host_error", message: payload.message || "" }
+        };
+        render();
+        break;
+      case "teardown":
+        torndown = true;
+        window.removeEventListener("message", onMessage);
+        break;
+      default:
+        break;
+    }
+  }
+
+  window.addEventListener("message", onMessage);
+  window.addEventListener("error", function (event) {
+    reportError(event.message || "the panel threw");
+  });
+})();
+</script>
+</body>
+</html>

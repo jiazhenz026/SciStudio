@@ -403,6 +403,7 @@ _EXPECTED_SUB_SKILLS = (
     "scistudio-inspect-data",
     "scistudio-project-qa",
     "scistudio-write-plot",
+    "scistudio-write-panel",
 )
 
 

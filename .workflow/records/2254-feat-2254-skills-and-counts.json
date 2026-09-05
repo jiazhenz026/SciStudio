@@ -1,0 +1,168 @@
+{
+  "base_ref": "origin/track/adr-054-spec5-agent-enablement",
+  "branch": "feat/2254-skills-and-counts",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/_skills/scistudio/**",
+      "src/scistudio/agent_provisioning/_orchestrate.py",
+      "src/scistudio/agent_provisioning/skills.py",
+      "src/scistudio/agent_provisioning/templates/claude_agents_md.md",
+      "src/scistudio/ai/agent/mcp/tools_authoring.py",
+      "src/scistudio/_user_guide/examples/**",
+      "src/scistudio/_agent_reference/public-api.md",
+      "src/scistudio/_agent_reference/data-types.md",
+      "docs/specs/embedded-coding-agent-spec.md",
+      "docs/planning/adr-054-assembly-followups.md",
+      "docs/planning/adr-054-assembly-checklist.md",
+      "tests/ai/**",
+      "tests/agent_provisioning/test_skills.py"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-05T07:31:40.395223Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_agent_reference/public-api.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:31:40.395248Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_agent_reference/data-types.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:31:40.395251Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/embedded-coding-agent-spec.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:31:40.395260Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:45:15.121755Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2254,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-054 spec 5 T-005, T-007, T-008, T-009: the panel skill, the packaged-notebook shape in the block skill, the base skill routing and focus rule, the provisioning counts, the examples corpus, and the catalog and count assertions the two new tool groups move.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2254-feat-2254-skills-and-counts",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:45:14.817652Z",
+      "pattern": "tests/agent_provisioning/**",
+      "reason": "the task-skill count lives in two more places than FR-009 lists: the orchestration file-count test and the wheel-install skill tuple; the flat-layout install test enumerates the task skills too"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:45:14.817672Z",
+      "pattern": "tests/packaging/test_wheel_skills.py",
+      "reason": "the task-skill count lives in two more places than FR-009 lists: the orchestration file-count test and the wheel-install skill tuple; the flat-layout install test enumerates the task skills too"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:45:14.817674Z",
+      "pattern": "tests/cli/test_install.py",
+      "reason": "the task-skill count lives in two more places than FR-009 lists: the orchestration file-count test and the wheel-install skill tuple; the flat-layout install test enumerates the task skills too"
+    }
+  ],
+  "session_id": "9947be45-ef32-4978-80fc-0761f47544d2",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-05T07:31:40.395265Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_skills.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:31:40.395269Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_authoring.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:31:40.395271Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_tool_catalogs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:31:40.395273Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_fastmcp.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:45:14.817681Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packaging/test_wheel_skills.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:45:14.817685Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_orchestrate.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

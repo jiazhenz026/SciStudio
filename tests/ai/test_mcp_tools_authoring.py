@@ -20,6 +20,7 @@ but retained here as inline regression evidence for the #1063 / #1539 fix.
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Coroutine, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -96,6 +97,61 @@ def test_list_block_examples_happy(ctx: _StubRuntime) -> None:
 def test_list_block_examples_unknown_category_raises(ctx: _StubRuntime) -> None:
     with pytest.raises(KeyError):
         _run(tools_authoring.list_block_examples(category="not_a_category"))
+
+
+# --- the corpus examples (ADR-054 spec 5 FR-027) ---------------------------
+#
+# The corpus gains a panel and a packaged notebook, and both must be reachable
+# through the example-listing tool. They are directories rather than modules, so
+# they resolve down the corpus path instead of through ``importlib``.
+
+
+def test_list_block_examples_returns_the_packaged_notebook(ctx: _StubRuntime) -> None:
+    """FR-027: a packaged-notebook worked example is listed and on disk."""
+    examples = _run(tools_authoring.list_block_examples(category="notebook"))
+    assert examples, "the notebook category must return at least one worked example"
+    entry = examples[0]
+    directory = Path(entry.path)
+    assert directory.is_dir(), entry.path
+    # The two halves packaging produces: the notebook a person wrote, and the
+    # block declaration generated from it.
+    assert list(directory.glob("*.ipynb")), f"{entry.name} carries no notebook"
+    assert (directory / "block.py").is_file(), f"{entry.name} carries no generated declaration"
+    assert (directory / "README.md").is_file()
+
+
+def test_list_block_examples_returns_displaying_and_producing_panels(ctx: _StubRuntime) -> None:
+    """FR-017 corpus half: at least one displaying and one producing panel."""
+    examples = _run(tools_authoring.list_block_examples(category="panel"))
+    assert len(examples) >= 2, "the panel corpus must carry both capabilities"
+
+    capabilities = set()
+    for entry in examples:
+        directory = Path(entry.path)
+        assert directory.is_dir(), entry.path
+        manifest_path = directory / "panel.json"
+        assert manifest_path.is_file(), f"{entry.name} carries no panel.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        capabilities.add(manifest["capability"])
+        # A panel is a self-contained document; the declared entry must exist.
+        assert (directory / manifest["entry"]).is_file(), f"{entry.name} entry document missing"
+        assert (directory / "README.md").is_file()
+
+    assert {"displaying", "producing"} <= capabilities, (
+        f"the panel corpus declares only {sorted(capabilities)}; FR-017 requires "
+        f"at least one displaying and one producing panel."
+    )
+
+
+def test_panel_corpus_documents_are_self_contained(ctx: _StubRuntime) -> None:
+    """A panel example that pulled in an external asset would teach the wrong thing."""
+    for entry in _run(tools_authoring.list_block_examples(category="panel")):
+        document = (Path(entry.path) / "index.html").read_text(encoding="utf-8")
+        assert "<script src=" not in document, f"{entry.name} loads an external script"
+        assert "<link rel=\"stylesheet\"" not in document, f"{entry.name} loads an external stylesheet"
+        assert "https://" not in document.replace("http://www.w3.org/2000/svg", ""), (
+            f"{entry.name} reaches outside its own directory"
+        )
 
 
 # --- scaffold_block --------------------------------------------------------

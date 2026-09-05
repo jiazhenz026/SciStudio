@@ -224,7 +224,7 @@ redundant and closes; their issues (`#2229`, `#2231`, `#2240`) are closed by
 | `S5-B1` | `implementer` | `N/A` | `docs/planning/adr-054-assembly-dispatch-prompts/s5-b1-workspace-focus.md` | Workspace focus: route, persistence, runtime record, context tool, refusal (T-001, T-002) | `feat/2254-workspace-focus` | `.worktrees/s5-b1` | `api/routes/ai.py`, `api/runtime/_projects.py`, `mcp/runtime.py`, `_context.py`, `tools_workflow/read.py` | tools_panels, tools_explore, skills | `#2254` | `[ ]` |
 | `S5-B2` | `implementer` | `N/A` | `docs/planning/adr-054-assembly-dispatch-prompts/s5-b2-panel-tools.md` | Panel reference, block-contract rewrite, panel tools with the stub harness (T-003, T-004) | `feat/2254-panel-tools` | `.worktrees/s5-b2` | `mcp/tools_panels/**`, `_agent_reference/panel-contract.md`, `block-contract.md` | focus, session tools, skills | `#2254` | `[ ]` |
 | `S5-B3` | `implementer` | `N/A` | `docs/planning/adr-054-assembly-dispatch-prompts/s5-b3-session-tools.md` | Session tools over the session API (T-006) | `feat/2254-session-tools` | `.worktrees/s5-b3` | `mcp/tools_explore/**`, `mcp/server.py` registration | focus internals, panel tools, skills | `#2254` | `[ ]` |
-| `S5-B4` | `implementer` | `N/A` | `docs/planning/adr-054-assembly-dispatch-prompts/s5-b4-skills-and-counts.md` | Panel skill, block skill, base skill, provisioning counts, examples, catalogs (T-005, T-007, T-008, T-009) | `feat/2254-skills-and-counts` | `.worktrees/s5-b4` | `_skills/**`, `agent_provisioning/**`, `tools_authoring.py`, count assertions | tools_panels, tools_explore implementation | `#2254` | `[ ]` |
+| `S5-B4` | `implementer` | `N/A` | `docs/planning/adr-054-assembly-dispatch-prompts/s5-b4-skills-and-counts.md` | Panel skill, block skill, base skill, provisioning counts, examples, catalogs (T-005, T-007, T-008, T-009) | `feat/2254-skills-and-counts` | `.worktrees/s5-b4` | `_skills/**`, `agent_provisioning/**`, `tools_authoring.py`, count assertions | tools_panels, tools_explore implementation | `#2254` | `[x]` T-005/T-007/T-008 done; T-009 partial (catalog test + catalogs level with the live 36 registered tools); the eleven-tool count/catalog move is blocked on S5-B2 and S5-B3 (see `adr-054-assembly-followups.md` F-B4-1) |
 | `S4-D1` | `test_engineer` | `N/A` | `docs/planning/adr-054-assembly-dispatch-prompts/s4-d1-adversarial.md` | Adversarial tests against the assembled spec 4 frontend | `test/2253-adversarial` | `.worktrees/s4-d1` | `frontend/**/*.test.tsx`, `frontend/e2e/**`, fixtures | production frontend code | `#2253` | `[ ]` |
 | `S5-D1` | `test_engineer` | `N/A` | `docs/planning/adr-054-assembly-dispatch-prompts/s5-d1-adversarial.md` | Adversarial tests against the assembled spec 5 agent surface | `test/2254-adversarial` | `.worktrees/s5-d1` | `tests/ai/**`, `tests/agent_provisioning/**`, fixtures | production code | `#2254` | `[ ]` |
 | `S4-E1` | `audit_reviewer` | `no-context` | `docs/planning/adr-054-assembly-dispatch-prompts/s4-e1-audit-no-context.md` | Independent audit of the Explore frontend | `audit/2253-no-context` | `.worktrees/s4-e1` | `docs/audit/<date>-adr-054-spec4-no-context.md` | every source path | `#2253` | `[ ]` |
@@ -347,7 +347,9 @@ Rows are added for fix agents as findings land.
 - [ ] `S5-B1` workspace focus: route, persistence, runtime, context tool, refusal -> `<artifact>`
 - [ ] `S5-B2` panel reference, block-contract rewrite, panel tools, harness -> `<artifact>`
 - [ ] `S5-B3` session tools over the session API -> `<artifact>`
-- [ ] `S5-B4` skills, provisioning counts, examples, catalogs -> `<artifact>`
+- [x] `S5-B4` skills, provisioning counts, examples, catalogs -> branch
+  `feat/2254-skills-and-counts`; follow-ups in
+  `docs/planning/adr-054-assembly-followups.md` under `## S5-B4`
 - [ ] `S5-D1` adversarial test suite -> `<artifact>`
 
 ### 8.4 Audit

@@ -208,10 +208,10 @@ def _expected_doc_paths() -> list[str]:
 
 
 def _expected_skill_paths() -> list[str]:
-    """Return the 14 skill-file paths the skills sub-step is expected to write.
+    """Return the 16 skill-file paths the skills sub-step is expected to write.
 
-    1 base + 6 task skills (including ADR-048 ``scistudio-write-plot``) across
-    2 provider trees = 14.
+    1 base + 7 task skills (including ADR-048 ``scistudio-write-plot`` and
+    ADR-054 §8.3 ``scistudio-write-panel``) across 2 provider trees = 16.
     """
     names = [
         "scistudio",
@@ -221,6 +221,7 @@ def _expected_skill_paths() -> list[str]:
         "scistudio-inspect-data",
         "scistudio-project-qa",
         "scistudio-write-plot",
+        "scistudio-write-panel",
     ]
     paths: list[str] = []
     for tree in (".claude/skills", ".agents/skills"):

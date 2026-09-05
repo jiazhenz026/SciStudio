@@ -7,7 +7,7 @@ in **both** editable installs and wheel installs (per the
 
 Skill bodies authored by I40b in Phase 2c (ADR-040). The base SKILL.md
 carries the agent identity + skill index + the ``<!-- project_context -->``
-and ``<!-- tool_catalog -->`` splice markers; the 5 task skills carry
+and ``<!-- tool_catalog -->`` splice markers; the 7 task skills carry
 the task-scoped teaching surfaces.
 """
 
@@ -15,8 +15,8 @@ from __future__ import annotations
 
 from importlib.resources import files
 
-# Per ADR-040 §3.4 + ADR-048 SPEC 2, these 6 task skills MUST exist alongside
-# the base ``scistudio`` skill.
+# Per ADR-040 §3.4 + ADR-048 SPEC 2 + ADR-054 §8.3, these 7 task skills MUST
+# exist alongside the base ``scistudio`` skill.
 _TASK_SKILLS: tuple[str, ...] = (
     "scistudio-build-workflow",
     "scistudio-write-block",
@@ -24,6 +24,7 @@ _TASK_SKILLS: tuple[str, ...] = (
     "scistudio-inspect-data",
     "scistudio-project-qa",
     "scistudio-write-plot",
+    "scistudio-write-panel",
 )
 
 
@@ -49,7 +50,7 @@ def test_base_skill_loadable_via_importlib_resources() -> None:
 
 
 def test_all_task_skills_loadable_via_importlib_resources() -> None:
-    """All 5 task skill ``SKILL.md`` files are shipped with real bodies."""
+    """All 7 task skill ``SKILL.md`` files are shipped with real bodies."""
     base_dir = files("scistudio") / "_skills" / "scistudio"
     for task_skill in _TASK_SKILLS:
         skill_md = base_dir / task_skill / "SKILL.md"
@@ -62,7 +63,7 @@ def test_all_task_skills_loadable_via_importlib_resources() -> None:
 
 
 def test_base_skill_indexes_all_task_skills() -> None:
-    """The base ``SKILL.md`` must reference all 5 task skills by name.
+    """The base ``SKILL.md`` must reference all 7 task skills by name.
 
     Discoverability check: the agent reads the base first and uses its
     skill index to find the relevant task skill. If a task skill is
@@ -205,3 +206,96 @@ def test_base_skill_carries_static_tool_catalog_fallback_for_codex() -> None:
         assert category in between, (
             f"Static tool catalog must list the {category} category for Codex (F40-integration F6)."
         )
+
+
+# --- ADR-054 spec 5: the panel skill, the block skill, the base skill -------
+
+
+def test_panel_skill_carries_the_authoring_flow() -> None:
+    """FR-006: the panel skill names the five steps, in order.
+
+    ADR-054 §8.3 chose a separate skill precisely because authoring a panel is a
+    distinct flow. A skill that names the tools but not the order they go in
+    would have been better folded into scistudio-write-block.
+    """
+    skill = files("scistudio") / "_skills" / "scistudio" / "scistudio-write-panel" / "SKILL.md"
+    content = skill.read_text(encoding="utf-8")
+    assert content.startswith("---\n")
+    assert "name: scistudio-write-panel" in content
+
+    lowered = content.lower()
+    steps = [
+        "decide the capability",
+        "choose the tier",
+        "write the document",
+        "check it in the harness",
+        "register it",
+    ]
+    positions = [lowered.find(step) for step in steps]
+    for step, position in zip(steps, positions, strict=True):
+        assert position >= 0, f"the panel skill never says '{step}'"
+    assert positions == sorted(positions), (
+        f"the panel skill states the five steps out of order: {list(zip(steps, positions, strict=True))}"
+    )
+
+    # It points at the contract and the worked patterns rather than restating them.
+    assert "panel-contract.md" in content
+    assert "list_panel_examples" in content
+
+
+def test_panel_skill_carries_no_inline_code() -> None:
+    """ADR-054 §8.2: a skill stays short and carries no inline code.
+
+    The layering is the point: the skill carries the task flow, the reference
+    documents carry the contract, and worked patterns are fetched through the
+    example-listing tools. A skill that pastes a panel document in is the exact
+    thing that layering exists to prevent -- it goes stale where nothing tests it.
+    """
+    skill = files("scistudio") / "_skills" / "scistudio" / "scistudio-write-panel" / "SKILL.md"
+    content = skill.read_text(encoding="utf-8")
+    assert "```" not in content, "the panel skill carries a fenced code block"
+    for marker in ("<!doctype", "<script", "postmessage(", "import scistudio", "def "):
+        assert marker not in content.lower(), f"the panel skill inlines code ({marker!r})"
+
+
+def test_block_skill_names_the_packaged_notebook_shape_and_routes_to_the_panel_skill() -> None:
+    """FR-007 / SC-007: the shape, its condition, and the routing."""
+    skill = files("scistudio") / "_skills" / "scistudio" / "scistudio-write-block" / "SKILL.md"
+    content = skill.read_text(encoding="utf-8")
+
+    assert "packaged notebook" in content.lower(), (
+        "scistudio-write-block must present the packaged-notebook shape beside the shapes it already names."
+    )
+    assert "not yet understood" in content, (
+        "scistudio-write-block must state WHEN to choose the packaged-notebook shape "
+        "-- ADR-054 §8.1 calls it a judgement the agent should explain, not a default."
+    )
+    assert "scistudio-write-panel" in content, (
+        "scistudio-write-block must route to the panel skill when the request is a window."
+    )
+
+
+def test_base_skill_routes_to_the_panel_skill_and_states_the_focus_rule() -> None:
+    """FR-008 / SC-007: routing, plus the workspace-focus rule and its limit."""
+    base = files("scistudio") / "_skills" / "scistudio" / "SKILL.md"
+    content = base.read_text(encoding="utf-8")
+
+    assert "scistudio-write-panel" in content, "the base skill must index the panel skill."
+
+    lowered = content.lower()
+    assert "workspace focus" in lowered, "the base skill must name the workspace focus."
+    assert "get_active_workflow_context" in content, (
+        "the base skill must name the tool that reports the focus."
+    )
+    for mode in ("canvas", "explore", "pause"):
+        assert mode in lowered, f"the base skill must name the {mode} mode."
+
+    # The rule's limit is the load-bearing half: a session tool refuses without
+    # a session, but a workflow edit while a session is focused is NOT refused,
+    # because the person may want it -- so the skill has to say "ask".
+    assert "refus" in lowered, "the base skill must say the session tools refuse."
+    assert "ask" in lowered, (
+        "the base skill must tell the agent to ASK when the focus is explore and the "
+        "request reads like a workflow edit -- that case is deliberately not refused."
+    )
+
