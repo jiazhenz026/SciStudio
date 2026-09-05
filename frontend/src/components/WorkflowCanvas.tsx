@@ -1,6 +1,6 @@
 import { Background, Controls, ReactFlow, type Edge, useReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { resolveTypeColor, type DeclaredTypeColors } from "../config/typeColorMap";
 import { useAppStore } from "../store";
@@ -17,6 +17,10 @@ import { computeAutoLayout } from "./WorkflowCanvas.parts/autoLayout";
 import { CanvasReadabilityControls } from "./WorkflowCanvas.parts/CanvasReadabilityControls";
 import { parsePortRef, resolveVariadicPorts } from "./WorkflowCanvas.parts/flowNodeBuilder";
 import { computeFocusSet, type FocusResult } from "./WorkflowCanvas.parts/focusMode";
+import {
+  NodeContextMenu,
+  type CanvasContextMenuState,
+} from "./WorkflowCanvas.parts/NodeContextMenu";
 import { useCanvasHandlers } from "./WorkflowCanvas.parts/useCanvasHandlers";
 import { useFlowCallbacks } from "./WorkflowCanvas.parts/useFlowCallbacks";
 import { useFlowNodes } from "./WorkflowCanvas.parts/useFlowNodes";
@@ -393,11 +397,50 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     if (Object.keys(positions).length > 0) onTidyLayout(positions);
   };
 
+  /*
+   * ADR-054 FR-002 to FR-004 - the two ways a canvas node opens a session.
+   *
+   * The canvas reaches the store directly rather than taking two more props
+   * from `ProjectWorkspace`: `openExploreTab` is a store action like
+   * `openFileTab`, which the project tree already calls the same way, and
+   * threading it through the workspace would mean editing `App.tsx` for a
+   * handler that has nothing App-level about it.
+   *
+   * Both paths are asynchronous because the tab is keyed by the session's
+   * notebook path and only the open response knows it. A refusal - a block
+   * whose outputs the runtime cannot find, a block that is not packaged after
+   * all - is logged and leaves the canvas as it was; nothing is written to the
+   * slice for a session that does not exist (FR-034).
+   */
+  const [nodeMenu, setNodeMenu] = useState<CanvasContextMenuState | null>(null);
+
+  const openBlockOutputs = useCallback((nodeId: string) => {
+    void useAppStore
+      .getState()
+      .openExploreTab({ source: "block_outputs", block_id: nodeId })
+      .catch((error: unknown) => {
+        console.warn(`[explore] could not open a session over ${nodeId}:`, error);
+      });
+  }, []);
+
+  const openPackagedNotebook = useCallback((blockName: string, nodeId: string) => {
+    void useAppStore
+      .getState()
+      .openExploreTab({ source: "packaged_block", block_name: blockName, block_id: nodeId })
+      .catch((error: unknown) => {
+        console.warn(`[explore] could not open the notebook of ${blockName}:`, error);
+      });
+  }, []);
+
   const handlers = useCanvasHandlers({
     reactFlow,
     edges,
     nodes,
     runScopePrefix,
+    blockOutputs,
+    blocks,
+    onOpenNodeContextMenu: setNodeMenu,
+    onOpenPackagedNotebook: openPackagedNotebook,
     onAddNode,
     onConnect,
     onDeleteEdge,
@@ -435,6 +478,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
         onEdgeClick={handlers.handleEdgeClick}
         onEdgesDelete={handlers.handleEdgesDelete}
         onNodeClick={handlers.handleNodeClick}
+        onNodeContextMenu={handlers.handleNodeContextMenu}
         onNodeDoubleClick={handlers.handleNodeDoubleClick}
         onNodeDragStop={handlers.handleNodeDragStop}
         onNodesDelete={handlers.handleNodesDelete}
@@ -460,6 +504,13 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
           />
         ) : null}
       </ReactFlow>
+      {/* ADR-054 FR-003 - the canvas's context menu, outside <ReactFlow> so it
+          is positioned against the viewport rather than the flow transform. */}
+      <NodeContextMenu
+        menu={nodeMenu}
+        onClose={() => setNodeMenu(null)}
+        onExplore={openBlockOutputs}
+      />
     </div>
   );
 }

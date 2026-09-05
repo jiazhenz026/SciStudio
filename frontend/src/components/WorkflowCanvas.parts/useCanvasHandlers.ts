@@ -5,7 +5,13 @@ import type { Connection, Edge, Node, NodeChange, useReactFlow } from "@xyflow/r
 import { useCallback } from "react";
 
 import { NODE_SIZE } from "../nodes/BlockNode.parts/nodeGeometry";
+import {
+  NOTHING_TO_EXPLORE_REASON,
+  hasExploreableOutputs,
+  packagedBlockNameFor,
+} from "../../explore/packagedBlock";
 import type { BlockSummary, WorkflowEdge, WorkflowNode } from "../../types/api";
+import type { CanvasContextMenuState } from "./NodeContextMenu";
 
 export interface CanvasHandlersOpts {
   reactFlow: ReturnType<typeof useReactFlow>;
@@ -50,6 +56,28 @@ export interface CanvasHandlersOpts {
    * double-click of a `subworkflow_broken` / unresolved node. OPTIONAL.
    */
   onLocateSubworkflow?: (nodeId: string) => void;
+  /**
+   * ADR-054 FR-002 - `nodeId -> output payload` for the context menu's
+   * disabled test. The same map the canvas already receives for the
+   * lossy-save chip; a node absent from it has produced nothing to explore.
+   */
+  blockOutputs?: Record<string, Record<string, unknown>>;
+  /**
+   * ADR-054 FR-004 - the block catalogue, so the double-click can tell a
+   * packaged block's node from an ordinary one. OPTIONAL so existing call
+   * sites compile; absent means no node is treated as packaged.
+   */
+  blocks?: BlockSummary[];
+  /**
+   * ADR-054 FR-003 - open the node context menu. The menu itself is state on
+   * `WorkflowCanvas`; this handler is what computes what it may offer.
+   */
+  onOpenNodeContextMenu?: (menu: CanvasContextMenuState) => void;
+  /**
+   * ADR-054 FR-004 - double-click on a packaged block's node opens its
+   * notebook in an Explore tab bound to the node's most recent run.
+   */
+  onOpenPackagedNotebook?: (blockName: string, nodeId: string) => void;
 }
 
 export function useCanvasHandlers(opts: CanvasHandlersOpts) {
@@ -70,6 +98,10 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
     setDragSizes,
     onOpenSubworkflow,
     onLocateSubworkflow,
+    blockOutputs,
+    blocks,
+    onOpenNodeContextMenu,
+    onOpenPackagedNotebook,
   } = opts;
 
   const handleNodesChange = useCallback(
@@ -215,6 +247,16 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
     (_: unknown, node: Node) => {
       const authored = nodes?.find((candidate) => candidate.id === node.id);
       if (!authored) return;
+      // ADR-054 FR-004 - a packaged block's node is the second kind of node
+      // this handler recognises, beside the subworkflow node it already did.
+      // Checked first because a packaged block is an ordinary block type and
+      // would otherwise fall straight through the subworkflow guard below.
+      const summary = blocks?.find((candidate) => candidate.type_name === authored.block_type);
+      const packagedName = packagedBlockNameFor(authored, summary);
+      if (packagedName) {
+        onOpenPackagedNotebook?.(packagedName, node.id);
+        return;
+      }
       if (
         authored.block_type !== "subworkflow_block" &&
         authored.block_type !== "subworkflow_broken"
@@ -236,7 +278,36 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
       // flattened run ids `<parentPrefix><nodeId>__<innerId>`.
       onOpenSubworkflow?.(refPath, `${runScopePrefix}${node.id}__`);
     },
-    [nodes, runScopePrefix, onOpenSubworkflow, onLocateSubworkflow],
+    [nodes, runScopePrefix, onOpenSubworkflow, onLocateSubworkflow, blocks, onOpenPackagedNotebook],
+  );
+
+  /**
+   * ADR-054 FR-003 - the canvas's first context menu.
+   *
+   * The browser menu is suppressed on a node and offered on nothing else, so
+   * right-clicking the pane still behaves as it did. FR-002's disabled case is
+   * decided here rather than in the menu: the menu draws what it is told, and
+   * "this block has produced no outputs" is a fact about the run, which is
+   * what this hook has in hand.
+   */
+  const handleNodeContextMenu = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      if (!onOpenNodeContextMenu) return;
+      event.preventDefault();
+      const canExplore = hasExploreableOutputs(node.id, blockOutputs);
+      // The rendered label, which is what the person right-clicked; the
+      // authored node carries only its id and its block type.
+      const label = (node.data as { label?: string } | undefined)?.label;
+      onOpenNodeContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        nodeId: node.id,
+        nodeLabel: label || node.id,
+        canExplore,
+        disabledReason: canExplore ? null : NOTHING_TO_EXPLORE_REASON,
+      });
+    },
+    [blockOutputs, onOpenNodeContextMenu],
   );
 
   const handleNodesDelete = useCallback(
@@ -258,6 +329,7 @@ export function useCanvasHandlers(opts: CanvasHandlersOpts) {
     handleNodeDragStop,
     handleDragOver,
     handleNodeClick,
+    handleNodeContextMenu,
     handleNodeDoubleClick,
     handleNodesDelete,
     handlePaneClick,

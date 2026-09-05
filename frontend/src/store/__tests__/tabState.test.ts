@@ -102,6 +102,9 @@ describe("TabState discriminated union (ADR-036 §3.10)", () => {
         case "preview":
           // #2112 — transient preview tab variant.
           return `preview:${tab.target.ref}`;
+        case "explore":
+          // ADR-054 FR-001 — the Explore member, keyed by its notebook path.
+          return `explore:${tab.notebookPath}`;
         default: {
           // Compile-time exhaustiveness check.
           const _exhaustive: never = tab;
