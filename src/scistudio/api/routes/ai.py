@@ -41,6 +41,44 @@ router = APIRouter(prefix="/api/ai", tags=["ai"])
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 
 
+class WorkspaceFocusModel(BaseModel):
+    """Where the person is, as the frontend reports it on tab change.
+
+    ADR-054 spec 5 FR-001 (#2254). This is the wire shape, and the frontend half
+    that sends it belongs to the explore-frontend spec; this model is the
+    channel that receives it.
+
+    ``mode`` is the only required field. The rest are the identifiers of the
+    mode that carries them, and every one of them is optional so that a tab that
+    knows less than another does not have to lie:
+
+    * ``canvas`` — ``workflow_id``: the workflow the editor has open.
+    * ``explore`` — ``session_path``: the session's notebook, project-relative
+      POSIX, the string ``SessionService.session_for`` addresses a session by;
+      ``bound_run_id``: the run the session was opened over, when it was;
+      ``current_cell_id``: the cell the person's cursor is in.
+    * ``pause`` — ``paused_node_id`` and ``paused_run_id``: the node that is
+      paused and the run it is paused in.
+
+    ``workflow_id`` may be sent in any mode, because switching to an explore tab
+    does not close the workflow the person came from.
+
+    ``mode`` is deliberately a plain ``str`` rather than a ``Literal``. A
+    frontend newer than this backend must not have its whole report rejected
+    with a 422 for one unknown mode; the backend drops what it cannot read and
+    falls back to the conservative canvas reading, which loses the extra
+    identifiers rather than the channel.
+    """
+
+    mode: str
+    workflow_id: str | None = None
+    session_path: str | None = None
+    bound_run_id: str | None = None
+    current_cell_id: str | None = None
+    paused_node_id: str | None = None
+    paused_run_id: str | None = None
+
+
 class ActiveContextRequest(BaseModel):
     """Payload for ``POST /api/ai/active-context``.
 
@@ -48,15 +86,35 @@ class ActiveContextRequest(BaseModel):
     currently editing; ``None`` clears the runtime field (e.g. the user
     closed the editor pane). Empty strings are normalised to ``None``
     inside :meth:`ApiRuntime.set_active_workflow_id`.
+
+    ADR-054 spec 5 FR-001 (#2254) adds ``focus``, and its three states are
+    distinct on purpose:
+
+    * **omitted** — this report says nothing about where the person is. The
+      workflow id is updated and the stored focus is left exactly as it was.
+      This is what every caller written before ADR-054 sends, which is what
+      makes the addition additive: an old frontend never reports a focus, the
+      stored focus stays ``None``, and the context tool reads that as mode
+      canvas over the persisted workflow id — today's behaviour (FR-003).
+    * **an object** — the person is here now. It replaces the stored focus.
+    * **``null``** — clear the focus back to "never reported". The escape hatch
+      for a frontend that knows the person has left every tab it tracks.
     """
 
     workflow_id: str | None = None
+    focus: WorkspaceFocusModel | None = None
 
 
 class ActiveContextResponse(BaseModel):
-    """Echo of the now-current ``active_workflow_id``."""
+    """Echo of the now-current active workflow id and workspace focus.
+
+    ``focus`` is the stored record, including the server-stamped ``reported_at``
+    — not the request echoed back — so a caller can see exactly what the agent
+    will be told. It is ``null`` when no focus has ever been reported.
+    """
 
     workflow_id: str | None = None
+    focus: dict[str, Any] | None = None
 
 
 @router.post("/active-context", response_model=ActiveContextResponse)
@@ -64,16 +122,33 @@ async def set_active_context(
     payload: ActiveContextRequest,
     runtime: RuntimeDep,
 ) -> ActiveContextResponse:
-    """Update the active workflow id surfaced to the AI chat agent.
+    """Update the workspace focus and active workflow id surfaced to the agent.
 
     ADR-040 Addendum 5 / #1488. The frontend posts here whenever the
     user opens, switches, or closes a workflow in the editor; the
     value is persisted to ``<project>/.scistudio/active_workflow.json``
     so it survives backend restart, and is surfaced to the chat agent
     via the ``get_active_workflow_context`` MCP tool.
+
+    ADR-054 spec 5 FR-001 (#2254) widens the same channel rather than adding a
+    second one: the frontend reports the workspace focus — canvas, explore, or
+    pause — on the same POST, and it is persisted in the same file beside the
+    workflow id. There is no new route because the agent's question is the
+    question this endpoint was already half answering, and two channels would
+    be two things to keep in step.
+
+    The workflow id is always applied; the focus is applied only when the
+    request carried the key at all, which is how a caller that predates
+    ADR-054 leaves the focus untouched (see :class:`ActiveContextRequest`).
     """
     runtime.set_active_workflow_id(payload.workflow_id)
-    return ActiveContextResponse(workflow_id=runtime.active_workflow_id)
+    if "focus" in payload.model_fields_set:
+        focus = payload.focus.model_dump() if payload.focus is not None else None
+        runtime.set_workspace_focus(focus)
+    return ActiveContextResponse(
+        workflow_id=runtime.active_workflow_id,
+        focus=getattr(runtime, "workspace_focus", None),
+    )
 
 
 #: Wall-clock budget for every provider-owned subprocess probe. A provider

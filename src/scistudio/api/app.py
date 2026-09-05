@@ -7,6 +7,7 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
@@ -139,6 +140,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 # getattr so an older ApiRuntime build without the
                 # field still satisfies the Protocol (returns None).
                 return getattr(self._rt, "active_workflow_id", None)
+
+            @property
+            def workspace_focus(self) -> dict[str, Any] | None:
+                # ADR-054 spec 5 FR-003 (#2254): the same channel, widened. The
+                # adapter forwards the runtime's focus record exactly as it
+                # forwards the workflow id above — and it has to be forwarded
+                # here rather than picked up by attribute fallthrough, because
+                # this adapter declares every member it exposes.
+                #
+                # The mapping crosses as a mapping: the MCP side parses it into
+                # its ``WorkspaceFocus`` record, so ``api.runtime`` never has to
+                # import the MCP package (which would pull FastMCP and every
+                # tool module into it).
+                return getattr(self._rt, "workspace_focus", None)
 
             @property
             def workflow_runs(self) -> object:

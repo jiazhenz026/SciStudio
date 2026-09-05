@@ -1,0 +1,183 @@
+{
+  "base_ref": "origin/track/adr-054-spec5-agent-enablement",
+  "branch": "feat/2254-workspace-focus",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/routes/ai.py",
+      "src/scistudio/api/runtime/_projects.py",
+      "src/scistudio/api/runtime/__init__.py",
+      "src/scistudio/api/app.py",
+      "src/scistudio/ai/agent/mcp/_focus.py",
+      "src/scistudio/ai/agent/mcp/_context.py",
+      "src/scistudio/ai/agent/mcp/runtime.py",
+      "src/scistudio/ai/agent/mcp/tools_workflow/read.py",
+      "src/scistudio/ai/agent/mcp/tools_workflow/_models.py",
+      "tests/ai/test_workspace_focus.py",
+      "docs/planning/adr-054-assembly-followups.md",
+      "docs/planning/adr-054-assembly-checklist.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-05T07:30:19.220752Z",
+      "owner_directive": "T-001 widens POST /api/ai/active-context with an additive 'focus' object (canvas|explore|pause), persists it beside workflow_id in <project>/.scistudio/active_workflow.json, restores it on project open; T-002 reports it from get_active_workflow_context with a staleness flag and lands resolve_session_path, the FR-005 refusal helper S5-B3 imports.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-05T07:20:21.551572Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:30:19.220963Z",
+      "class": "user-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "the human documentation revision is ADR-054 spec 6, issue #2236",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2254,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "ADR-054 spec 5 T-001/T-002: widen the active-workflow channel into a workspace focus (canvas/explore/pause) that persists beside the active workflow id, restores on open and restart, is reported by the context tool, and is enforced by a refusal helper the session tools call when no explore session is active.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2254-feat-2254-workspace-focus",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:30:19.220783Z",
+      "pattern": "src/scistudio/api/routes/ai.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:30:19.220797Z",
+      "pattern": "src/scistudio/api/runtime/_projects.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:30:19.220800Z",
+      "pattern": "src/scistudio/api/runtime/__init__.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:30:19.220803Z",
+      "pattern": "src/scistudio/api/app.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:30:19.220805Z",
+      "pattern": "src/scistudio/ai/agent/mcp/_focus.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:30:19.220807Z",
+      "pattern": "src/scistudio/ai/agent/mcp/_context.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:30:19.220809Z",
+      "pattern": "src/scistudio/ai/agent/mcp/runtime.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:30:19.220811Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_workflow/read.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:30:19.220813Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_workflow/_models.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:30:19.220816Z",
+      "pattern": "tests/ai/test_workspace_focus.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:30:19.220819Z",
+      "pattern": "tests/api/test_ai_active_context.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:30:19.220821Z",
+      "pattern": "tests/api/test_runtime_active_workflow.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:30:19.220824Z",
+      "pattern": "docs/planning/adr-054-assembly-followups.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-05T07:30:19.220826Z",
+      "pattern": "docs/planning/adr-054-assembly-checklist.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "6a964cfd-afc4-492d-9c2c-e9c9f436c1b6",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-05T07:20:21.551595Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_workspace_focus.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-05T07:30:19.220973Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_workspace_focus.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

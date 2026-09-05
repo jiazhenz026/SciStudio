@@ -34,6 +34,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from scistudio.blocks.registry import BlockRegistry
     from scistudio.core.types.registry import TypeRegistry
 
@@ -60,6 +62,29 @@ class MCPContext(Protocol):
     # ``get_active_workflow_context`` MCP tool so the agent has VS Code
     # Copilot-style editor awareness without per-message context bloat.
     active_workflow_id: str | None
+
+    # ADR-054 spec 5 FR-001 to FR-005 (#2254): the same channel, widened. The
+    # frontend now reports *where the person is* — canvas, explore, or pause —
+    # and not only which workflow is open, because an agent that appends a cell
+    # while the person is on the canvas is doing the wrong thing confidently.
+    #
+    # It is a plain mapping rather than the ``WorkspaceFocus`` record because
+    # the implementer of this member is the API layer, and ``api`` importing
+    # ``scistudio.ai.agent.mcp._focus`` would execute this package's
+    # ``__init__`` — every tool module and FastMCP — inside
+    # ``scistudio.api.runtime``, which imports neither today. The API therefore
+    # carries the JSON-safe shape it already persists, and
+    # :meth:`~scistudio.ai.agent.mcp._focus.WorkspaceFocus.from_mapping` turns
+    # it into the record on this side of the boundary.
+    #
+    # ``None`` means no focus has ever been reported, which
+    # :func:`scistudio.ai.agent.mcp._focus.effective_focus` reads as canvas over
+    # ``active_workflow_id`` — today's behaviour exactly. Every reader of this
+    # member goes through that function or through
+    # :func:`~scistudio.ai.agent.mcp._focus.resolve_session_path`, and reads it
+    # with ``getattr`` so that a context implementation predating this member
+    # degrades to today's behaviour rather than raising.
+    workspace_focus: Mapping[str, Any] | None
 
 
 _current_context: MCPContext | None = None

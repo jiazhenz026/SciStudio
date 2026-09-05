@@ -346,6 +346,22 @@ class ApiRuntime:
         # backend restart, and surfaced to the chat agent via the
         # ``get_active_workflow_context`` MCP tool.
         self.active_workflow_id: str | None = None
+        # ADR-054 spec 5 FR-001/FR-002 (#2254): the same channel, widened. The
+        # frontend reports *where the person is* — canvas, explore, or pause —
+        # on the same POST, and the record is persisted beside the workflow id
+        # in the same file so it is restored on project open and on restart.
+        #
+        # A plain JSON-safe mapping, not the ``WorkspaceFocus`` record: this
+        # package must not import ``scistudio.ai.agent.mcp._focus``, because
+        # that executes the MCP package's ``__init__`` — every tool module and
+        # FastMCP — inside every importer of ``scistudio.api.runtime``. The
+        # ``_RuntimeAdapter`` in ``api.app`` hands this mapping to the MCP
+        # tools, which parse it there (see ``MCPContext.workspace_focus``).
+        #
+        # ``None`` means no focus has ever been reported, which the context
+        # tool reads as mode canvas over ``active_workflow_id`` — exactly the
+        # behaviour that existed before this field.
+        self.workspace_focus: dict[str, Any] | None = None
         self._entity_versions: dict[tuple[str, str], int] = {}
         self._entity_disk_versions: dict[tuple[str, str], int] = {}
         self._first_party_entity_writes: dict[tuple[str, str], FirstPartyEntityWrite] = {}
@@ -756,9 +772,12 @@ class ApiRuntime:
     set_mcp_port = _projects.set_mcp_port
     _publish_mcp_port = _projects._publish_mcp_port
     # ADR-040 Addendum 5 / #1488: persistence helpers for ``active_workflow_id``.
+    # ADR-054 spec 5 FR-002 (#2254): the same three helpers now carry the
+    # workspace focus beside the id, in the same file.
     _load_active_workflow_id_from_disk = _projects._load_active_workflow_id_from_disk
     _publish_active_workflow_id = _projects._publish_active_workflow_id
     set_active_workflow_id = _projects.set_active_workflow_id
+    set_workspace_focus = _projects.set_workspace_focus
     update_project = _projects.update_project
     delete_project = _projects.delete_project
     project_response = _projects.project_response
