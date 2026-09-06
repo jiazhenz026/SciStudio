@@ -128,7 +128,7 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A1` | `implementer` | `N/A` | `docs/planning/adr-055-spec0-1-dispatch-prompts.md` (A1) | Spec 0 prefix independence | `feat/2270-prefix-independence` | `.worktrees/feat-2270-prefix-independence` | spec §4.2 files | `docs/ai-developer/**`, demo repo, other ADR-055 specs | `#2270` | `[ ]` |
+| `A1` | `implementer` | `N/A` | `docs/planning/adr-055-spec0-1-dispatch-prompts.md` (A1) | Spec 0 prefix independence | `feat/2270-prefix-independence` | `.worktrees/feat-2270-prefix-independence` | spec §4.2 files | `docs/ai-developer/**`, demo repo, other ADR-055 specs | `#2270` / PR #2274 | `[~]` |
 | `A2` | `implementer` | `N/A` | `docs/planning/adr-055-spec0-1-dispatch-prompts.md` (A2) | Spec 1 WebMCP bridge | `feat/2271-webmcp-bridge` | `.worktrees/feat-2271-webmcp-bridge` | spec §4.2 files | `docs/ai-developer/**`, demo repo, other ADR-055 specs | `#2271` | `[ ]` |
 
 ## 7. Track: Spec 0 — Prefix Independence
@@ -145,7 +145,7 @@ language_source: en
 
 ### 7.2 Dispatch
 
-- [ ] Prompt file created or dispatch prompt recorded.
+- [x] Prompt file created or dispatch prompt recorded. -> `docs/planning/adr-055-spec0-1-dispatch-prompts.md`
 - [x] Correct prompt template selected. -> work template (non-audit)
 - [x] Audit mode recorded when persona is `audit_reviewer`. -> N/A
 - [x] Agent branch/worktree assigned.
@@ -155,9 +155,9 @@ language_source: en
 
 ### 7.3 Implementation
 
-- [ ] Backend root_path + SPA injection + CLI flags -> `<pending>`
-- [ ] Frontend base-path module + call-site migration -> `<pending>`
-- [ ] Tests: `tests/api/test_root_path.py`, `base-path.test.ts` -> `<pending>`
+- [x] Backend root_path + SPA injection + CLI flags -> PR #2274 (`feat/2270-prefix-independence` @ dc6efef13)
+- [x] Frontend base-path module + call-site migration -> PR #2274 (19 frontend files incl. sweep extras, gate-amended)
+- [x] Tests: `tests/api/test_root_path.py`, `base-path.test.ts` -> 35 + 18 new tests green; full suites 1344 py / 2189 vitest passed (A1 report)
 
 ### 7.4 Audit
 
@@ -191,7 +191,7 @@ language_source: en
 
 ### 8.2 Dispatch
 
-- [ ] Prompt file created or dispatch prompt recorded.
+- [x] Prompt file created or dispatch prompt recorded. -> `docs/planning/adr-055-spec0-1-dispatch-prompts.md`
 - [x] Correct prompt template selected. -> work template (non-audit)
 - [x] Audit mode recorded when persona is `audit_reviewer`. -> N/A
 - [x] Agent branch/worktree assigned (stacked on Spec 0 branch, `--base-ref`
