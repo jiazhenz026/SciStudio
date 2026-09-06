@@ -33,6 +33,38 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-06T12:30:37.023862Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4f9b3141887a46656e2a27cb243bc150ed1f805abc7f13ed7ed5e04dccaca939",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-06T12:30:49.648182Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1d559246ddf0eece7de98a99fbd4b9caca3dc973a5405d9e48de6da36f1d0ba4",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -421,6 +453,72 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:30:49.685630Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:30:49.699877Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:30:49.713876Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:30:49.727702Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:30:49.741215Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:30:49.754852Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:30:49.769341Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:30:49.783687Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:30:49.798331Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:30:49.812925Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:30:49.830597Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -433,17 +531,18 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "4c663e2c09835588ce8c669c650c045f8e616785",
+    "base": "origin/main",
     "base_sha": "4c663e2c0",
     "changed_files": [
       ".workflow/records/track-adr-055-spec0-1-track-adr-055-spec0-1.json",
-      "docs/planning/adr-055-spec0-1-checklist.md"
+      "docs/planning/adr-055-spec0-1-checklist.md",
+      "docs/planning/adr-055-spec0-1-dispatch-prompts.md"
     ],
-    "diff_fingerprint": "sha256:f34bb0e8611139102605aff1962fdcbb94751b004f25a2566c751457a0743a16",
+    "diff_fingerprint": "sha256:4d35bea1bd74befae457ad4b5fe238f4126cb29ebb18872d08ea968d76e32e05",
     "head": "HEAD",
-    "head_sha": "3156df077",
+    "head_sha": "98ec6e8ef",
     "surfaces": {
-      "docs": 1,
+      "docs": 2,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
@@ -506,6 +605,14 @@
       "at": "2026-09-06T07:25:47.395607Z",
       "diff_fingerprint": "sha256:f34bb0e8611139102605aff1962fdcbb94751b004f25a2566c751457a0743a16",
       "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-06T12:30:49.830634Z",
+      "diff_fingerprint": "sha256:4d35bea1bd74befae457ad4b5fe238f4126cb29ebb18872d08ea968d76e32e05",
+      "mode": "local",
       "result": "pass",
       "tier": 3,
       "unsatisfied": []

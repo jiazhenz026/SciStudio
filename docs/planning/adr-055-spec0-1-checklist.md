@@ -128,8 +128,8 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A1` | `implementer` | `N/A` | `docs/planning/adr-055-spec0-1-dispatch-prompts.md` (A1) | Spec 0 prefix independence | `feat/2270-prefix-independence` | `.worktrees/feat-2270-prefix-independence` | spec §4.2 files | `docs/ai-developer/**`, demo repo, other ADR-055 specs | `#2270` / PR #2274 | `[~]` |
-| `A2` | `implementer` | `N/A` | `docs/planning/adr-055-spec0-1-dispatch-prompts.md` (A2) | Spec 1 WebMCP bridge | `feat/2271-webmcp-bridge` | `.worktrees/feat-2271-webmcp-bridge` | spec §4.2 files | `docs/ai-developer/**`, demo repo, other ADR-055 specs | `#2271` / PR #2275 | `[~]` |
+| `A1` | `implementer` | `N/A` | `docs/planning/adr-055-spec0-1-dispatch-prompts.md` (A1) | Spec 0 prefix independence | `feat/2270-prefix-independence` | `.worktrees/feat-2270-prefix-independence` | spec §4.2 files | `docs/ai-developer/**`, demo repo, other ADR-055 specs | `#2270` / PR #2274 | `[x]` |
+| `A2` | `implementer` | `N/A` | `docs/planning/adr-055-spec0-1-dispatch-prompts.md` (A2) | Spec 1 WebMCP bridge | `feat/2271-webmcp-bridge` | `.worktrees/feat-2271-webmcp-bridge` | spec §4.2 files | `docs/ai-developer/**`, demo repo, other ADR-055 specs | `#2271` / PR #2275 | `[x]` |
 
 ## 7. Track: Spec 0 — Prefix Independence
 
@@ -227,12 +227,14 @@ language_source: en
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| Gate ledger check (local) | `python -m scistudio.qa.governance.gate_record check --mode local --base origin/main --head HEAD` | `[ ]` | `<pending>` |
-| Targeted tests | per-track test commands | `[ ]` | `<pending>` |
-| Pre-push gate check | `python -m scistudio.qa.governance.gate_record check --mode pre-push --base origin/main --head HEAD` | `[ ]` | `<pending>` |
-| Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[ ]` | `<pending>` |
-| Gate finalize (pre-PR) | `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#<issue>"` | `[ ]` | `<pending>` |
-| Wrapper preflight | `python scripts/scistudio_pr_create.py --dry-run ...` | `[ ]` | `<pending>` |
+| Gate ledger check (local) | per-branch `gate_record check` | `[x]` | PR #2274: tier-1 all green at `dd1affc79`+; PR #2275: tier-1 all green at `6d42b54d2` (`--record` used on finalized ledgers) |
+| Targeted tests | `pytest tests/api/test_root_path.py` (37), `tests/api/test_webmcp.py` (17), `tests/ai/test_mcp_fastmcp.py` audience tests, `vitest base-path.test.ts` (18) + `webmcp/register.test.ts` (8) | `[x]` | all green; full suites: 1344 py (api+cli) / 2197 vitest on #2275 head |
+| Pre-push gate check | n/a — pre-push hook is the allow shim; pre-pr used as the hard local gate per ADR-042 Addendum 6 | `[x]` | N/A rationale |
+| Gate ledger check (pre-PR) | `gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[x]` | reconciliation passed on all three branches (umbrella, feat/2270, feat/2271) |
+| Gate finalize (pre-PR) | `gate_record finalize --closes "#2270"` / `"#2271"` / `"#2272"` | `[x]` | recorded in each ledger; post-PR finalize recorded PR provenance (#2273/#2274/#2275) |
+| Wrapper preflight | `python scripts/scistudio_pr_create.py` | `[x]` | pre-flight clean on all three PRs; PRs opened via the wrapper |
+| CI | GitHub Actions | `[x]` | PR #2274 @ `47925cde9`: 16/16 pass. PR #2275 @ `6d42b54d2`: 16/16 pass |
+| Live host evidence | CDP probe + HTTP probes on `scistudio serve` | `[x]` | PR #2275 comment: Chrome 152 stable, modelContext absent (trial-gated), token injection + graceful degradation + 36-tool catalogue + 409 binding verified live |
 
 ## 10. Drift Log
 
@@ -244,10 +246,10 @@ Append only.
 
 ## 11. Final Readiness
 
-- [ ] All dispatched agents have final outputs.
-- [ ] Manager reviewed every changed file.
-- [ ] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux
-      evidence when needed, commit, and PR evidence.
-- [ ] PR closes every issue fixed by the dispatch.
-- [ ] CI passed.
-- [ ] Checklist final state matches PR and gate record.
+- [x] All dispatched agents have final outputs. -> A1 (PR #2274), A2 (PR #2275), AU1/AU2 (audit reports), e2e probe
+- [x] Manager reviewed every changed file. -> via AU1/AU2 with-context audits + manager diff review; claims match code, no drift
+- [x] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux
+      evidence when needed, commit, and PR evidence. -> Sentrux MCP unavailable in this runtime (recorded N/A in ledgers/PR bodies)
+- [x] PR closes every issue fixed by the dispatch. -> #2274 closes #2270; #2275 closes #2271; #2273 closes #2272
+- [x] CI passed. -> 16/16 on both final PR heads
+- [x] Checklist final state matches PR and gate record.
