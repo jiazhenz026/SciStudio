@@ -137,7 +137,7 @@ def test_empty_prefix_is_a_noop(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         assert shell.status_code == 200
         assert "__SCISTUDIO_BASE_PATH__" not in shell.text
         token = app.state.webmcp_session_token
-        assert f'window.__SCISTUDIO_WEBMCP_TOKEN__ = {json.dumps(token)};' in shell.text
+        assert f"window.__SCISTUDIO_WEBMCP_TOKEN__ = {json.dumps(token)};" in shell.text
         assert client.get("/api/version").status_code == 200
 
 
