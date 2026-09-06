@@ -96,8 +96,49 @@ no gate ledger found; run init first
 
 I then initialised this audit branch's own ledger
 (`--task-kind docs --persona audit_reviewer --branch audit/2254-no-context
---issue 2254 --include 'docs/audit/**'`), which reported Tier 3 (lightweight).
-The `check` result after the report lands is recorded in §5.
+--issue 2254 --include 'docs/audit/**'`), which reported Tier 3 (lightweight),
+recorded the plan with a docs-only `--test-na`, committed the report, and re-ran
+`check --mode pre-pr`. **Exit code 0**, with two unsatisfied obligations and one
+suite result that need reading carefully, because none of them is about this
+report:
+
+- `guard.core_change_guard` — affected: `blocks/base/interactive.py`,
+  `blocks/code/backends/notebook.py`, `blocks/process/builtins/data_router.py`,
+  `blocks/process/builtins/pair_editor.py`, `blocks/registry/__init__.py`.
+- `guard.mod_guard` — affected: `.github/workflows/ci.yml`,
+  `docs/ai-developer/e2e/2026-09-05-adr054-explore-assembly.md`,
+  `docs/ai-developer/gate-cli-command-set.md`,
+  `docs/ai-developer/specific_rules/gated-workflow.md`, `pyproject.toml`.
+
+My branch carries the whole assembly diff beneath my two added files, so
+`check` observed that diff against `main` rather than my report alone. Both
+guards are therefore statements about the assembly work, not about this audit:
+the audit adds one file under `docs/audit/**` and touches no protected-core or
+governance path. They are recorded here because the dispatch asked what the
+check actually said, and because whoever opens the assembly PR has to answer
+both.
+
+The same run executed the full suite:
+
+```
+4 failed, 9504 passed, 80 skipped, 8 xfailed, 107 warnings in 426.97s
+FAILED tests/api/test_system_vertical.py::test_execute_broadcasts_runtime_lifecycle_events_to_websocket
+FAILED tests/api/test_system_vertical.py::test_execute_from_records_parent_run_and_websocket_completion
+FAILED tests/api/test_workflows.py::test_execute_after_completion_is_allowed
+FAILED tests/api/test_tutorial_library_write.py::test_clearing_removes_the_teaching_save_and_keeps_the_real_one
+```
+
+All four are outside this audit's surface, and all four **pass in isolation**:
+
+```
+$ PYTHONPATH=./src python -m pytest <those four node ids> -q --no-cov
+4 passed, 1 warning in 27.65s
+```
+
+So they are order-dependent, not deterministic — cross-test state leaking in a
+full-suite run. I did not diagnose them further; they belong to whoever owns
+`tests/api/**`, and they are flagged here because a green isolated run is
+exactly how this class of failure survives to CI.
 
 Targeted commands appear inline with the findings they support.
 
@@ -524,7 +565,7 @@ reported" rather than taking the tool offline. The two hand-maintained field
 lists (`_focus.FOCUS_FIELDS` and `_projects._FOCUS_FIELDS`, duplicated
 deliberately so `api.runtime` need not import the MCP package) are asserted
 equal by `test_the_two_layers_agree_on_the_focus_record`.
-`tests/ai/test_workspace_focus.py` carries 30 tests covering each of US1's five
+`tests/ai/test_workspace_focus.py` collects 31 tests covering each of US1's five
 acceptance scenarios including the restart.
 
 **FR-024, thinness.** Covered under F-6 above. Clean apart from the guard gap.
@@ -563,7 +604,7 @@ module-level assertion catching a name claimed by two groups; per-group counts
 tool asserted present in both unguarded catalogs, plus a separate assertion
 that the base skill's static fallback is complete *between its splice markers*
 because Codex reads that block verbatim; and an assertion that no tool ships
-without a `category:` tag. Five sites import the declaration
+without a `category:` tag. Six sites import the declaration
 (`test_mcp_fastmcp`, `test_finish_ai_block_skeleton`, `test_tool_catalogs`,
 `tests/cli/test_mcp_bridge`, `tests/contracts/test_runtime_import_contract`,
 `tests/integration/test_phase2_mcp_end_to_end`).
@@ -577,9 +618,10 @@ with an optional `capability` argument, and `list_block_examples` reaches the
 same directories through `_CORPUS_EXAMPLES` under categories `panel` and
 `notebook`. `pyproject.toml:178` ships `_user_guide/**/*` in the wheel.
 
-**Spec-governed paths.** All 29 files and globs in the spec's `governs.files`
-exist, including `frontend/src/explore/workspaceFocus.ts`, which the table
-marks as spec 4's to write.
+**Spec-governed paths.** Every file and glob in the spec's `governs.files`
+exists, and so does every row of its §4.2 affected-files table, including
+`frontend/src/explore/workspaceFocus.ts`, which the table marks as spec 4's to
+write.
 
 **Deferrals.** The two TODOs I found in this surface —
 `runtime.py:169` (a standalone bridge reports no focus) and
@@ -622,3 +664,9 @@ be told that the count was wrong before this work as well.
 The cross-spec observation in §3 belongs to the explore-frontend spec and
 should reach whoever owns it, because it is the one path I found by which the
 agent can be told a mode the person is not in without any focus being stale.
+
+Outside this surface but surfaced by my own check run, and worth someone's
+attention before the assembly PR: four `tests/api/**` tests fail in a full-suite
+run and pass in isolation (§1), and the gate check's two guard obligations
+(protected-core and governance-critical paths) are unanswered on the assembly
+diff.

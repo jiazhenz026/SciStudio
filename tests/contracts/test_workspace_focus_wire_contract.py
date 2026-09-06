@@ -131,6 +131,5 @@ def test_the_focus_rides_the_existing_active_context_channel() -> None:
         "'focus' became required, which breaks every caller that predates ADR-054."
     )
     assert "workflow_id" in ActiveContextRequest.model_fields, (
-        "the pre-existing active-workflow field is gone; the focus was meant to widen "
-        "this channel, not replace it."
+        "the pre-existing active-workflow field is gone; the focus was meant to widen this channel, not replace it."
     )
