@@ -324,9 +324,7 @@ describe("a second prompt while one is open", () => {
     act(() => {
       dispatchWorkflowEvent(promptEvent("node-2", "wf-other"), deps);
     });
-    expect(
-      useAppStore.getState().tabs.filter((each) => each.kind === "explore"),
-    ).toHaveLength(2);
+    expect(useAppStore.getState().tabs.filter((each) => each.kind === "explore")).toHaveLength(2);
 
     render(<ExploreTab tab={tabForBlock("node-1")} />);
 

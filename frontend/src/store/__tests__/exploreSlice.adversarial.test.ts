@@ -206,11 +206,7 @@ describe("a kernel that goes away takes its cell states with it (FR-034)", () =>
 
     // Verbatim from `report_kernel_died`, which resets the marks server-side.
     apply(
-      event(
-        "explore.kernel_state",
-        { state: "dead", needs_restart: true },
-        "2026-09-05T10:01:00Z",
-      ),
+      event("explore.kernel_state", { state: "dead", needs_restart: true }, "2026-09-05T10:01:00Z"),
     );
 
     expect(held().kernel.state).toBe("dead");
@@ -370,7 +366,11 @@ describe("order does not matter, for every event and not only three", () => {
   it.fails("ignores a kernel_state from the session id that a reopen replaced", () => {
     useAppStore.getState().applyExploreSession(sessionResponse());
     apply(
-      event("explore.kernel_state", { state: "idle", needs_restart: false }, "2026-09-05T10:00:00Z"),
+      event(
+        "explore.kernel_state",
+        { state: "idle", needs_restart: false },
+        "2026-09-05T10:00:00Z",
+      ),
     );
     apply(event("explore.session_closed", { notebook_path: PATH }, "2026-09-05T10:00:10Z"));
 
@@ -524,9 +524,7 @@ describe("order does not matter, for every event and not only three", () => {
     useAppStore.getState().applyExploreSession(sessionResponse());
     useAppStore
       .getState()
-      .applyExploreSession(
-        sessionResponse({ session_id: "sess-adv-b", notebook_path: otherPath }),
-      );
+      .applyExploreSession(sessionResponse({ session_id: "sess-adv-b", notebook_path: otherPath }));
 
     apply(event("explore.cell_state", { cell_id: "c1", state: "running" }, "2026-09-05T10:00:03Z"));
     apply(
@@ -568,7 +566,11 @@ describe("order does not matter, for every event and not only three", () => {
     const stream: ExploreSessionEventMessage[] = [
       event("explore.kernel_state", { state: "busy" }, "2026-09-05T10:00:01Z"),
       event("explore.cell_state", { cell_id: "c1", state: "running" }, "2026-09-05T10:00:02Z"),
-      event("explore.changed_names", { cell_id: "c1", changed: ["df"], unobservable: [] }, "2026-09-05T10:00:03Z"),
+      event(
+        "explore.changed_names",
+        { cell_id: "c1", changed: ["df"], unobservable: [] },
+        "2026-09-05T10:00:03Z",
+      ),
       event(
         "explore.cell_output",
         { cell_id: "c1", status: "ok", execution_count: 1, outputs: [] },
