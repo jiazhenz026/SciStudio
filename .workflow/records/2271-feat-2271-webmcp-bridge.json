@@ -1,0 +1,114 @@
+{
+  "base_ref": "origin/feat/2270-prefix-independence",
+  "branch": "feat/2271-webmcp-bridge",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/routes/webmcp.py",
+      "src/scistudio/ai/agent/mcp/server.py",
+      "src/scistudio/ai/agent/mcp/__init__.py",
+      "src/scistudio/api/app.py",
+      "src/scistudio/api/spa.py",
+      "frontend/src/webmcp/register.ts",
+      "frontend/src/webmcp/types.ts",
+      "frontend/src/main.tsx",
+      "frontend/src/lib/api/core.ts",
+      "tests/api/test_webmcp.py",
+      "tests/ai/test_mcp_fastmcp.py",
+      "frontend/src/webmcp/register.test.ts",
+      ".workflow/records/"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-06T09:44:57.047386Z",
+      "owner_directive": "Plan per spec section 4.3: T-001 shared adapter + router + mount; T-002 audience tag filtering; T-003 loopback session middleware + SPA token injection; T-004 project binding stale rejection; T-005 frontend registration module + matrix test; T-006 bounded logging + prefix sweep. SpecKit N/A (spec+ADR already exist: ADR-055, docs/specs/adr-055-webmcp-bridge.md). ADR N/A (ADR-055 sections 4/9.2 already govern). Sentrux MCP unavailable in this runtime (recorded per dispatch).",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-06T09:44:57.047414Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-055-webmcp-bridge.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-06T10:13:19.099500Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-055-webmcp-bridge.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2271,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-055 Spec 1 (WebMCP bridge over the shared FastMCP registry) as final PR to main, stacked on feat/2270-prefix-independence; umbrella PR #2273; per docs/specs/adr-055-webmcp-bridge.md FR-001..FR-011",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2271-feat-2271-webmcp-bridge",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "agents:kimi-k2",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-06T10:13:19.099476Z",
+      "pattern": "docs/specs/adr-055-webmcp-bridge.md",
+      "reason": "Manager-authorized scope addition: spec frontmatter lifecycle move (planned_governs -> governs) required by full_audit drift check now that the planned files exist"
+    }
+  ],
+  "session_id": "0280f773-8d0b-4cf2-bd60-064aa5c33dc8",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-06T09:44:57.047425Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_webmcp.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-06T09:44:57.047429Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_fastmcp.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-06T09:44:57.047432Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/webmcp/register.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
