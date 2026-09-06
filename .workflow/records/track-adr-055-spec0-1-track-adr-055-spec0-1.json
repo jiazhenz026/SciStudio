@@ -58,6 +58,14 @@
       "path": "docs/planning/adr-055-spec0-1-checklist.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-06T07:29:34.407658Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-055-spec0-1-dispatch-prompts.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -529,7 +537,14 @@
   },
   "runtime": "agents:kimi-k2",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-06T07:29:34.407625Z",
+      "pattern": "docs/planning/adr-055-spec0-1-dispatch-prompts.md",
+      "reason": "Add committed dispatch prompts file to manager scope"
+    }
+  ],
   "session_id": "ac0f9153-015a-4237-8289-9751dd90ae7e",
   "strictness_tier": 3,
   "task_kind": "manager",
