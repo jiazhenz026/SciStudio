@@ -199,8 +199,11 @@ def test_unprefixed_root_is_404_while_prefix_configured(prefixed_client: TestCli
 
 
 def test_unprefixed_websocket_is_rejected_while_prefix_configured(prefixed_client: TestClient) -> None:
-    with pytest.raises(WebSocketDisconnect), prefixed_client.websocket_connect("/ws"):
+    """The guard must deny the upgrade with close code 1008 (policy
+    violation), not merely fail the handshake with some error."""
+    with pytest.raises(WebSocketDisconnect) as exc_info, prefixed_client.websocket_connect("/ws"):
         pass
+    assert exc_info.value.code == 1008
 
 
 def test_prefixed_websocket_handshake_succeeds(prefixed_client: TestClient) -> None:
