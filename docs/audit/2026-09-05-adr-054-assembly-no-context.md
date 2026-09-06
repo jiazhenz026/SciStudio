@@ -52,7 +52,8 @@ never written.
 | Command | Result |
 |---|---|
 | `PYTHONPATH=./src pytest tests/ -q --no-cov -x --ignore=tests/blocks/io -p no:randomly` | **FAILED** at `tests/api/test_explore_branch_switch.py::test_a_branch_switch_kills_the_real_kernel_process` (`-x` stopped the run). See S-3. |
-| `PYTHONPATH=./src pytest tests/ -q --no-cov --ignore=tests/blocks/io -p no:randomly` (no `-x`) | See §0.1 — long-running; result recorded there. |
+| `PYTHONPATH=./src pytest tests/ -q --no-cov --ignore=tests/blocks/io -p no:randomly` (no `-x`) | **exit 1, exactly one failure** — the same `test_a_branch_switch_kills_the_real_kernel_process`. Everything else passed; 8 xfailed (all `#1454`), ~60 skips (POSIX-only, Rscript/Fiji/Octave opt-ins, symlink elevation, the sanctioned `.xlsx`/R exceptions). |
+| `PYTHONPATH=./src pytest tests/blocks/io -q --no-cov -p no:randomly` | **exit 0, all passed.** |
 | `PYTHONPATH=./src pytest tests/architecture tests/docs -q --no-cov -p no:randomly` | **625 passed, 1 skipped**, exit 0. The skip is `tests/architecture/test_registries.py:138` — an empty entry-point parameter set. |
 | `npm ci` in `frontend/` | `node_modules` was absent; installed, exit 0. |
 | `npm run test` in `frontend/` | **2570 passed / 1 failed** (217 files). The failure is `src/__tests__/eslint-config.test.ts` — `Test timed out in 5000ms` (actual 11084 ms). See I-4: pre-existing/environmental. |
@@ -63,23 +64,61 @@ never written.
 | `python -m mypy src/scistudio/ --ignore-missing-imports` | `Success: no issues found in 418 source files`, exit 0. |
 | `lint-imports` | **15 contracts kept, 0 broken.** (The `lint-imports` console script aborts with `uv trampoline failed to canonicalize script path` in this environment; run through `importlinter.cli.lint_imports_command` instead. Same for `mypy`/`ruff` shims.) |
 | `python scripts/audit/generate_facts.py --check` | exit 1 — `docs/facts/generated.yaml` missing. It is `.gitignore`d (line 36) and absent on `origin/main` too, so this is a fresh-worktree condition, not a finding. After `--write`, `--check` exits 0. |
-| `python -m scistudio.qa.governance.gate_record check --mode pre-pr` | `no gate ledger found; run init first` (exit 2) before I created one; I then ran `init` for this audit (tier 3, `docs`/`audit_reviewer`, `--include docs/audit/**`). |
+| `python -m scistudio.qa.governance.gate_record check --mode pre-pr` | `no gate ledger found; run init first` (exit 2) before I created one; I then ran `init`/`plan` for this audit (tier 3, `docs`/`audit_reviewer`, `--include docs/audit/**`) and re-ran `check` after committing. **exit 1**, with a test run of its own and two guard obligations. See §0.2 and §2.1. |
 | Bespoke probes | The wire differ of §1.1, the message-vocabulary sweep of §1.2, the live panel-registry query of S-1, and the `PYTHONPATH` bisection of S-3 — all executed against the real code. |
 
 ### 0.1 The full Python suite
 
-The un-`-x`'d full run was still in progress when this report was written; it
-had reached ~21 % with exactly one `F`, the same
-`test_a_branch_switch_kills_the_real_kernel_process` of S-3. The explore
-suites spawn real `ipykernel` processes under `@pytest.mark.serial` with 60 s
-idle timeouts, which is why the wall clock is what it is. I record this as an
-incomplete measurement rather than claiming a green suite I did not see. What
-I did measure completely: `tests/architecture` and `tests/docs` (625 passed),
-and the targeted reproduction and repair of S-3 (below), which passes under an
-absolute `PYTHONPATH` and fails under a relative one.
+The un-`-x`'d full run completed: **exit 1, with exactly one `FAILED` line** —
 
-**`tests/blocks/io` was excluded from the main invocation per the dispatch and
-run separately; its result is part of the same in-progress run.**
+```
+FAILED tests/api/test_explore_branch_switch.py::test_a_branch_switch_kills_the_real_kernel_process
+```
+
+That is S-3, and it is the only Python test failure on this branch.
+`tests/blocks/io`, run separately per the dispatch, is **exit 0, all passed**.
+
+The explore suites spawn real `ipykernel` processes under
+`@pytest.mark.serial` with 60 s idle timeouts, which is why the wall clock is
+long; the run is otherwise clean.
+
+### 0.2 The gate check ran its own suite, and found five other failures
+
+`gate_record check --mode pre-pr` narrows a run to the observed diff. Because
+my audit branch is based on the assembly, the diff it observed is the whole
+ADR-054 change, so its run is a second, independent measurement worth
+recording:
+
+```
+5 failed, 9502 passed, 80 skipped, 8 xfailed, 105 warnings in 411.28s
+
+FAILED tests/ai/test_mcp_tools_disk_integration.py::test_concurrent_write_workflow_serialises
+FAILED tests/api/test_workflows.py::test_workflow_execute_and_execute_from_reuses_cached_outputs
+FAILED tests/api/test_system_vertical.py::test_completed_run_lineage_outputs_are_previewable
+FAILED tests/api/test_workflows.py::test_execute_after_completion_is_allowed
+FAILED tests/workflow/test_serializer_property.py::test_relativify_inverts_absolutify
+```
+
+**None of the five reproduced.** My own full run over the same tree — all of
+`tests/` including every one of these four files — finished with exactly one
+`FAILED` line, and it was S-3. So all five passed when run in the ordinary
+order.
+
+That includes
+`tests/api/test_system_vertical.py::test_completed_run_lineage_outputs_are_previewable`,
+which is the one I would otherwise not have waved through, since "previewable"
+is precisely the surface ADR-054 renamed and re-routed. It passes.
+
+All four files are also untouched by the ADR-054 diff
+(`git diff --numstat origin/main...<assembly> --` on each returns nothing), and
+the failure profile fits: three of the five
+(`test_concurrent_write_workflow_serialises` and the two cached-output
+`test_workflows.py` cases) are concurrency- or ordering-sensitive and
+`test_relativify_inverts_absolutify` is a property test. I read these as
+artefacts of the gate's narrowed, differently-ordered selection rather than
+regressions — but they are worth knowing about, because a reviewer who runs
+only `gate_record check` will see five red lines that a full run does not
+reproduce.
 
 ---
 
@@ -126,6 +165,41 @@ eleven built-in `panel.json` files and the fixture package's panel declare
 
 Ordered by severity. Each is marked **seam** (between two specs) or
 **inside** (within one).
+
+### 2.1 Two gate obligations the assembled diff carries
+
+Recorded first because they are observations about the whole change, not
+defects in any one spec, and because I must be careful about what they prove.
+`gate_record check` fired both guards against **my** ledger, which declares
+neither — and the diff it observed is my branch against `origin/main`, which
+contains the entire assembly. So this is evidence that **the assembled diff
+carries these obligations**, not evidence that the ADR-054 ledgers failed to
+declare them. I could not check the latter: `.workflow/records/**` is outside
+my context limits.
+
+**`guard.core_change_guard`** — "protected core/runtime change requires
+`admin-approved:core-change` applied by an authorized maintainer".
+Affected: `src/scistudio/blocks/base/interactive.py`,
+`src/scistudio/blocks/code/backends/notebook.py`,
+`src/scistudio/blocks/process/builtins/data_router.py`,
+`src/scistudio/blocks/process/builtins/pair_editor.py`,
+`src/scistudio/blocks/registry/__init__.py`.
+
+**`guard.mod_guard`** — "governance-critical file changed without
+authorization; declare `governance_touch` in the ledger and obtain owner
+review". Affected: `.github/workflows/ci.yml`,
+`docs/ai-developer/e2e/2026-09-05-adr054-explore-assembly.md`,
+`docs/ai-developer/gate-cli-command-set.md`,
+`docs/ai-developer/specific_rules/gated-workflow.md`, `pyproject.toml`.
+
+All five are genuinely in the assembly diff (`ci.yml` +46/−9,
+`gate-cli-command-set.md` +40, `gated-workflow.md` +66, the e2e scenario +364,
+`pyproject.toml` +102/−…). `AGENTS.md` §3.7 is explicit that
+`docs/ai-developer/**` is a governance surface requiring a `governance_touch`
+declaration, focused scope and owner review. A change that edits the gate CLI
+reference and the gated-workflow rule *while being gated by them* is exactly
+the case that rule exists for, and it is worth the owner's eyes regardless of
+what the assembly ledgers declare.
 
 ### S-1 — P1 — **seam** (spec 1 ↔ spec 4): no producing panel is reachable for any type SciStudio ships
 
@@ -379,6 +453,13 @@ in the change written specifically to guard a seam — it compares
 themselves while disagreeing with each other." It is a good test. It is also
 the single file that fails the format gate.
 
+**Note for whoever fixes it, and a disclosure.** `gate_record check` applies
+this fix itself — when I ran it against my own ledger it reformatted the file
+in my working tree. I reverted that edit before committing, because this audit
+is read-only outside its report and carrying someone else's fix would have
+erased the finding. The file on this branch is therefore still unformatted and
+`ruff format --check` still exits 1, which is the state I am reporting.
+
 ---
 
 ### S-4 — P2 — **seam** (spec 4 ↔ spec 1): FR-036's mandatory end-to-end scenario does not exist
@@ -399,13 +480,32 @@ $ grep -rln "explore" frontend/e2e/
 ```
 
 A MUST requirement with a named task, a named file and a named success
-criterion, absent with no deferral recorded anywhere in the tree.
+criterion, absent with no deferral recorded in the spec.
 
 I raise it above a bookkeeping gap because of what it would have exercised.
 "Open a panel, **emit a cell from it**" is the one step that cannot be
 satisfied by a hand-written descriptor: it needs a real producing panel
 resolved by a real ladder. It is the exact scenario that would have failed
 against S-1, and it is the scenario that was not written.
+
+**In fairness — the gap was recognised, and a manual scenario was drafted for
+it.** `docs/ai-developer/e2e/2026-09-05-adr054-explore-assembly.md` (364 lines,
+added by this branch) is a `scistudio-e2e-test` scenario whose stated goal is
+exactly this loop, and whose rationale is exactly the one this audit was
+dispatched for: "no unit test proves it, because every piece of it was built by
+a different agent against a different spec."
+
+Two things keep it from closing FR-036. Its frontmatter says
+`status: "draft"`, and its "## 7. Results (skill fills in)" section is empty —
+the file ends at line 364 — so **it has never been run**. And it is a manual
+browser scenario for a human-driven skill, not the automated Playwright spec
+at `frontend/e2e/specs/adr054-explore.spec.ts` that FR-036, T-016 and SC-014
+name.
+
+It is also a prediction. Step by step it asks the operator to "open a panel
+from the variable strip, have that panel emit code back into the notebook."
+Per S-1, that step cannot succeed for any type SciStudio ships. Running this
+scenario is the cheapest way to confirm S-1 independently of my analysis.
 
 ---
 
@@ -624,8 +724,11 @@ Checked, and clean:
 ## 5. What I could not check
 
 - Whether the issues cited by the `TODO`s are open. Requires `gh`; forbidden.
-- The full Python suite to completion (§0.1).
-- Playwright e2e — there is no ADR-054 scenario to run (S-4).
+- Whether the assembly's own gate ledgers declared the `governance_touch` and
+  the core-change label that §2.1's guards ask for. `.workflow/records/**` is
+  outside my context limits.
+- Playwright e2e — there is no ADR-054 scenario to run (S-4), and the manual
+  scenario that exists is unrun and out of my scope to run.
 - Anything that would have required reading the issue, the checklist, the
   follow-up register, the PR, or another auditor's report.
 
@@ -651,18 +754,38 @@ and the end-to-end scenario that was supposed to walk that path was never
 written (S-4). Those three are one story, and they are the story the seams
 were supposed to be checked for.
 
+The Python suite is otherwise genuinely green — one failure in the whole tree,
+and it is S-3.
+
 **Recommendation: `block`.**
 
 Blocking, minimally:
 
 1. **I-1** and **I-2** — two CI gates fail on this branch and pass on
-   `origin/main`. One unused identifier and one line-length reflow.
+   `origin/main`. One unused identifier and one line-length reflow. These are
+   minutes of work and there is no argument for merging past them.
 2. **S-1** — either ship a type-routed producing panel, expose the router's
-   capability-aware resolution, or record the absence as a tracked deferral
-   and stop the strip silently mounting a viewer for a producing click.
+   capability-aware resolution over HTTP, or record the absence as a tracked
+   deferral and stop the strip silently mounting a viewer for a producing
+   click. Running the drafted scenario in
+   `docs/ai-developer/e2e/2026-09-05-adr054-explore-assembly.md` will confirm
+   or refute this in one session, and is the cheapest next step.
 3. **S-3** — absolutise `PYTHONPATH` when launching the kernel; the repository's
-   own mandated dev invocation currently breaks the kernel bridge.
+   own mandated dev invocation currently breaks the kernel bridge, and it is
+   the only failing test in the suite.
+4. **§2.1** — the assembled diff touches five protected-core files and five
+   governance-critical files (`.github/workflows/ci.yml` and three under
+   `docs/ai-developer/**`). Both obligations are CI-verified, so they will
+   block regardless; the owner should confirm the label and the
+   `governance_touch` declaration are in place rather than discovering them in
+   a failing CI run.
 
 Then `pass-with-fixes` on S-2, S-4, S-5, S-6, I-3 and S-7, none of which need
 to hold the merge if they are tracked with the same discipline the rest of this
 change has shown.
+
+One closing note for whoever reads this next to the with-context audit. My
+strongest finding (S-1) is one that reading the claim would have made harder to
+see, not easier: every spec's own account of itself is accurate, every suite
+that covers it is green, and the defect lives only in the space between two
+correct statements. That space is what a no-context pass is for.
