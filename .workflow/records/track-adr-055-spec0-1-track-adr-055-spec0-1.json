@@ -1,0 +1,58 @@
+{
+  "base_ref": null,
+  "branch": "track/adr-055-spec0-1",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/planning/adr-055-spec0-1-checklist.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-06T07:21:56.115825Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-055-spec0-1-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner directive (chat, 2026-09-06): act as manager; implement ADR-055 Spec 0 (prefix independence, issue #2270) and Spec 1 (WebMCP bridge, issue #2271); deliver 2 PRs with CI green, no deferrals; scistudio-web-demo is a read-only reference (no modifications/commits; local blocking hooks installed). Issues are carried by the two implementer ledgers; this umbrella PR is [DO NOT MERGE] coordination evidence only.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "track-adr-055-spec0-1-track-adr-055-spec0-1",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "agents:kimi-k2",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "ac0f9153-015a-4237-8289-9751dd90ae7e",
+  "strictness_tier": null,
+  "task_kind": "manager",
+  "test_events": [
+    {
+      "at": "2026-09-06T07:21:56.115856Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "manager-only coordination track; implementation tests are owned by the two dispatched implementer ledgers on feat/2270 and feat/2271",
+      "verified_in_diff": null
+    }
+  ]
+}
