@@ -281,6 +281,138 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:35.155308Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:35.170054Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:35.185020Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:35.200603Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:35.216465Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:35.232200Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:35.248325Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:35.263428Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:35.277778Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:35.322488Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:35.338940Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:47.178869Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:47.193927Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:47.238317Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:47.253331Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:47.268698Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:47.284274Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:47.299835Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:47.316084Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:47.331217Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:47.377710Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:47.395563Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -293,15 +425,15 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "4c663e2c09835588ce8c669c650c045f8e616785",
     "base_sha": "4c663e2c0",
     "changed_files": [
       ".workflow/records/track-adr-055-spec0-1-track-adr-055-spec0-1.json",
       "docs/planning/adr-055-spec0-1-checklist.md"
     ],
-    "diff_fingerprint": "sha256:af42da5de8a0cb544cec92b360a88126fd94448b73716d3528a89312903324d3",
+    "diff_fingerprint": "sha256:f34bb0e8611139102605aff1962fdcbb94751b004f25a2566c751457a0743a16",
     "head": "HEAD",
-    "head_sha": "145451e70",
+    "head_sha": "3156df077",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -323,7 +455,7 @@
     "closes": [
       2272
     ],
-    "number": null,
+    "number": 2273,
     "url": null
   },
   "reconcile_events": [
@@ -349,6 +481,22 @@
     {
       "at": "2026-09-06T07:25:18.561657Z",
       "diff_fingerprint": "sha256:af42da5de8a0cb544cec92b360a88126fd94448b73716d3528a89312903324d3",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-06T07:25:35.338982Z",
+      "diff_fingerprint": "sha256:f34bb0e8611139102605aff1962fdcbb94751b004f25a2566c751457a0743a16",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-06T07:25:47.395607Z",
+      "diff_fingerprint": "sha256:f34bb0e8611139102605aff1962fdcbb94751b004f25a2566c751457a0743a16",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,

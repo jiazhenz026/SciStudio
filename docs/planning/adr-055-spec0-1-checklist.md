@@ -35,7 +35,7 @@ language_source: en
   `--base-ref` recorded per #2143)
 - Protected branch: `main`
 - Umbrella branch: `track/adr-055-spec0-1`
-- Umbrella PR: `#<pending>`
+- Umbrella PR: `#2273`
 - Umbrella PR title: `[DO NOT MERGE] ADR-055 Spec 0-1 dispatch`
 - Final PR target: `main` (manager explicitly assigns both spec PRs as final
   PRs to the protected branch per owner directive "推上去2个PR")
@@ -89,9 +89,9 @@ language_source: en
 - [x] Gate record started. -> `.workflow/records/track-adr-055-spec0-1-track-adr-055-spec0-1.json`
 - [x] Scope include/exclude recorded in the gate record.
 - [x] Umbrella branch created. -> `track/adr-055-spec0-1`
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella PR opened. -> #2273
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch and umbrella PR number recorded in this checklist. -> main / #2273
 - [x] No `pip install -e .` environment pollution found. -> gate CLI runs via
       `PYTHONPATH=src`, no editable install
 - [x] Dispatch checklist copied from the template and committed.
