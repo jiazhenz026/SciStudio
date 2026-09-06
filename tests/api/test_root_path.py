@@ -23,6 +23,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+import typer
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 from typer.testing import CliRunner
@@ -308,15 +309,37 @@ def _fake_uvicorn_run(calls: dict[str, Any]):
     return fake_run
 
 
+def _cli_command_options(command_name: str) -> dict[str, Any]:
+    """Resolve a registered CLI command's options by introspection.
+
+    Deliberately NOT parsed from rendered ``--help`` output: Rich's options
+    panel truncates/wraps option names depending on console width, renderer
+    version, and platform (the #2274 CI failure — even a pinned COLUMNS did
+    not make the rendered literal reliable). The click parameter list is the
+    actual command definition, so it is environment-proof by construction.
+    """
+    group = typer.main.get_command(cli_app)
+    command = group.commands[command_name]
+    return {param.name: param for param in command.params}
+
+
+def _assert_host_and_root_path_options(command_name: str) -> None:
+    options = _cli_command_options(command_name)
+    assert options["host"].opts == ["--host"]
+    assert options["host"].envvar == "SCISTUDIO_HOST"
+    assert options["root_path"].opts == ["--root-path"]
+    assert options["root_path"].envvar == "SCISTUDIO_ROOT_PATH"
+
+
 class TestServeRootPath:
-    def test_serve_help_documents_host_and_root_path(self) -> None:
-        # Pin a wide terminal: Rich wraps/truncates option names (e.g.
-        # "--ho…") when the CI runner's console is narrow, which made a bare
-        # "--host" substring assertion width-dependent (#2274 CI failure).
-        result = runner.invoke(cli_app, ["serve", "--help"], env={"COLUMNS": "200"})
+    def test_serve_help_exits_cleanly(self) -> None:
+        """Smoke only: rendered help is Rich-formatted and width-dependent —
+        never assert on its text (see _cli_command_options)."""
+        result = runner.invoke(cli_app, ["serve", "--help"])
         assert result.exit_code == 0
-        assert "--host" in result.output
-        assert "--root-path" in result.output
+
+    def test_serve_exposes_host_and_root_path_options(self) -> None:
+        _assert_host_and_root_path_options("serve")
 
     def test_serve_default_invocation_unchanged(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """FR-002: no new kwargs reach uvicorn and no prefix env is required
@@ -364,13 +387,13 @@ class TestServeRootPath:
 
 
 class TestGuiRootPath:
-    def test_gui_help_documents_host_and_root_path(self) -> None:
-        # See the serve help test: pin COLUMNS so Rich never truncates the
-        # option column at the CI runner's console width.
-        result = runner.invoke(cli_app, ["gui", "--help"], env={"COLUMNS": "200"})
+    def test_gui_help_exits_cleanly(self) -> None:
+        """Smoke only — see TestServeRootPath."""
+        result = runner.invoke(cli_app, ["gui", "--help"])
         assert result.exit_code == 0
-        assert "--host" in result.output
-        assert "--root-path" in result.output
+
+    def test_gui_exposes_host_and_root_path_options(self) -> None:
+        _assert_host_and_root_path_options("gui")
 
     def test_gui_default_invocation_unchanged(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("SCISTUDIO_ROOT_PATH", raising=False)
