@@ -413,6 +413,106 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-06T11:56:50.929584Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:080c502e3116b59f4c0cf9ccbf717d12a898751a9a4771be4ab58643866c1569",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-06T11:56:52.322223Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:570eeb6baab808db6671943c2b7368b8370f972899e1797fa2e4d2a9a49654c1",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-06T11:56:52.346534Z",
+      "command": "ruff format src/scistudio/api/app.py src/scistudio/api/routes/workflows.py src/scistudio/api/spa.py src/scistudio/cli/main.py tests/api/test_root_path.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3569e04bbd7b073dfbb12f151bb6c5eefee2dea2b6f3617a532e1b4565c1be5c",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-06T11:57:00.784689Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0aa2908ae4111efb92f6c1f19a054aff05d484b4b3a3c2d3cd9b965ecfe3da4c",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-06T11:57:00.820781Z",
+      "command": "ruff check src/scistudio/api/app.py src/scistudio/api/routes/workflows.py src/scistudio/api/spa.py src/scistudio/cli/main.py tests/api/test_root_path.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d50bc0868013e272eec0fd5336488e740d46b9b2f5d80c512019e1ab139abff2",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-06T12:00:02.761991Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/api tests/api/routes tests/api/test_root_path.py tests/cli",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:31a9651c167571b28f600218b0088cc67cca3f5d0c75377afe8fc0b41aa91d55",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -482,6 +582,14 @@
       "class": null,
       "kind": "path",
       "path": "docs/specs/adr-055-prefix-independence.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-06T11:55:14.406184Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-06-adr-055-spec0-with-context.md",
       "rationale": null,
       "verified_in_diff": null
     }
@@ -1191,6 +1299,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:00:02.829308Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:00:02.843081Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:00:02.856566Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:00:02.871292Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:00:02.884686Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:00:02.898921Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:00:02.913165Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:00:02.959959Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:00:02.973639Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:00:02.987185Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T12:00:03.008152Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1206,7 +1402,9 @@
     "base": "origin/main",
     "base_sha": "4c663e2c0",
     "changed_files": [
+      ".workflow/records/2270-audit-2270-spec0-with-context.json",
       ".workflow/records/2270-feat-2270-prefix-independence.json",
+      "docs/audit/2026-09-06-adr-055-spec0-with-context.md",
       "docs/specs/adr-055-prefix-independence.md",
       "frontend/src/App.parts/InteractiveModals.parts/panelModuleLoader.ts",
       "frontend/src/components/AIChat/SetupScreen.tsx",
@@ -1230,11 +1428,11 @@
       "src/scistudio/cli/main.py",
       "tests/api/test_root_path.py"
     ],
-    "diff_fingerprint": "sha256:74859736b5262c53b1d61fba13dfad5ea1661cf0315b2fe9ea960b623cdf6948",
+    "diff_fingerprint": "sha256:04cf18721159def4ab8419ba45e7ca041dfdb71325510fe1b14538fb82a37f47",
     "head": "HEAD",
-    "head_sha": "12e58baf1",
+    "head_sha": "ea69abcf0",
     "surfaces": {
-      "docs": 1,
+      "docs": 2,
       "frontend": 16,
       "governance": 0,
       "governed_docs": 0,
@@ -1323,6 +1521,14 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-06T12:00:03.008187Z",
+      "diff_fingerprint": "sha256:04cf18721159def4ab8419ba45e7ca041dfdb71325510fe1b14538fb82a37f47",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "2270-feat-2270-prefix-independence",
@@ -1399,6 +1605,12 @@
       "at": "2026-09-06T09:30:49.905144Z",
       "pattern": "docs/specs/adr-055-prefix-independence.md",
       "reason": "Manager-authorized scope addition: spec frontmatter lifecycle move (planned_governs -> governs) required by full_audit drift check now that the planned file exists"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-06T11:55:14.406163Z",
+      "pattern": "docs/audit/2026-09-06-adr-055-spec0-with-context.md",
+      "reason": "Integrate with-context audit report into final PR evidence path (dispatch rule)"
     }
   ],
   "session_id": "b21c971d-13db-406a-95a4-35f737f2522a",
