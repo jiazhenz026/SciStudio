@@ -11,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from scistudio.agent_provisioning.claude_agents_md import write_claude_agents_md
+from scistudio.agent_provisioning.skills import _SKILL_NAMES
 
 
 def test_writes_agents_md_full_guide_and_claude_md_router(tmp_project_dir: Path) -> None:
@@ -73,23 +74,32 @@ def test_creates_parent_dir_if_missing(tmp_path: Path) -> None:
 # Content assertions read AGENTS.md, the canonical entry point (#2137).
 
 
-def test_template_indexes_all_five_task_skills(tmp_project_dir: Path) -> None:
-    """The AGENTS.md template must reference all 5 task skills.
+def test_template_indexes_every_task_skill(tmp_project_dir: Path) -> None:
+    """The AGENTS.md template must reference every task skill that ships.
 
-    Cross-discoverability rule: the project-level AGENTS.md is the
-    agent's entry point on each turn; if a task skill is not indexed
-    here, the agent will not know to load it.
+    Cross-discoverability rule: the project-level AGENTS.md is the agent's
+    entry point on each turn; if a task skill is not indexed here, the agent
+    will not know to load it.
+
+    The list is **derived** from ``_SKILL_NAMES`` rather than restated. It was
+    a hand-written list of five, and by the time ADR-054 landed the bundle
+    shipped seven task skills — ``scistudio-write-plot`` and
+    ``scistudio-write-panel`` could have been deleted from the template with no
+    test noticing, which is the exact rule this test's own docstring claims to
+    enforce. A guard that names its subjects by hand stops guarding the moment
+    a subject is added; a no-context audit found this one two skills behind.
     """
     write_claude_agents_md(tmp_project_dir, force=False)
     body = (tmp_project_dir / "AGENTS.md").read_text(encoding="utf-8")
-    for task_skill in (
-        "scistudio-build-workflow",
-        "scistudio-write-block",
-        "scistudio-debug-run",
-        "scistudio-inspect-data",
-        "scistudio-project-qa",
-    ):
-        assert task_skill in body, f"AGENTS.md template must reference {task_skill}."
+
+    # The base skill is the router, not a task skill; every other entry is one.
+    task_skills = [name for name in _SKILL_NAMES if name != "scistudio"]
+    assert len(task_skills) >= 5, (
+        "_SKILL_NAMES shrank below the five task skills that predate ADR-054; "
+        "if a skill was genuinely removed, say so here."
+    )
+    missing = [name for name in task_skills if name not in body]
+    assert not missing, f"AGENTS.md template does not reference: {', '.join(missing)}"
 
 
 def test_template_carries_non_negotiable_rules(tmp_project_dir: Path) -> None:
