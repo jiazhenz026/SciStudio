@@ -429,6 +429,45 @@ def test_the_context_tool_reports_the_explore_mode(client: TestClient, project: 
     assert result.workflow_id == "calibration"
 
 
+def test_a_workflow_only_post_moves_what_the_context_tool_reports(
+    client: TestClient, project: Path
+) -> None:
+    """FR-003: ``workflow_id`` is an existing field and the runtime owns it.
+
+    The channel accepts a workflow-only POST with no ``focus`` key — that is
+    what every pre-ADR-054 caller sends, and what the store's own
+    active-workflow sync still sends. Such a post advances the runtime and
+    deliberately leaves the stored focus untouched, which is what makes the
+    focus additive. The consequence is that the focus's *copy* of the workflow
+    goes stale the moment the person switches workflows without changing tab.
+
+    This asks the **tool**, not the runtime. The distinction is the whole point
+    of the test: the runtime state was always right, and the tool was reading
+    the focus's snapshot in preference to it, so a test that asserted the
+    runtime would have passed while the agent was being told a workflow the
+    person had left. That is the failure the workspace focus exists to prevent,
+    pointed the other way.
+    """
+    _write_notebook(project)
+    client.post(ACTIVE_CONTEXT, json={"workflow_id": "calibration", "focus": EXPLORE_REPORT})
+
+    # The person switches workflow on the canvas. No tab changed, so the
+    # frontend sends the workflow alone and no focus key at all.
+    client.post(ACTIVE_CONTEXT, json={"workflow_id": "other"})
+
+    result = _context_result()
+
+    assert result.workflow_id == "other", (
+        "the context tool reported the focus's snapshot of the workflow rather "
+        "than the workflow the runtime actually holds active"
+    )
+    # Everything the runtime cannot know is still the focus's to say.
+    assert result.mode == MODE_EXPLORE
+    assert result.session_path == NOTEBOOK
+    assert result.bound_run_id == "run-7"
+    assert result.focus_stale is False
+
+
 def test_the_context_tool_reports_the_pause_mode(client: TestClient, project: Path) -> None:
     """FR-003 acceptance 3: the paused node and its run."""
     client.post(ACTIVE_CONTEXT, json={"workflow_id": "calibration", "focus": PAUSE_REPORT})
