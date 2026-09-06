@@ -231,11 +231,27 @@ def effective_focus(ctx: MCPContext | None = None) -> WorkspaceFocus:
     focus = WorkspaceFocus.from_mapping(getattr(ctx, "workspace_focus", None))
     if focus is None:
         return canvas_focus(workflow_id)
-    if focus.workflow_id is None and isinstance(workflow_id, str) and workflow_id:
-        # The canvas's workflow is still the workflow the person came from when
-        # they switched to a session, and the runtime keeps it independently of
-        # the focus. Fill it in rather than reporting None beside a mode that
-        # says nothing about it.
+    if isinstance(workflow_id, str) and workflow_id and workflow_id != focus.workflow_id:
+        # The runtime's active workflow wins over the focus's copy of it.
+        #
+        # FR-003 says the context tool reports "its existing fields unchanged,
+        # plus the mode and the mode's identifiers". ``workflow_id`` is one of
+        # the existing fields, and the runtime is what actually tracks it:
+        # ADR-040 Addendum 5's channel accepts a workflow-only POST with no
+        # ``focus`` key, which is what every pre-ADR-054 caller sends and what
+        # the store's own active-workflow sync still sends. Such a post advances
+        # ``active_workflow_id`` and deliberately leaves the stored focus
+        # untouched — that is what makes the focus additive — so the focus's
+        # copy of the workflow goes stale the moment the person switches
+        # workflow without changing tab.
+        #
+        # Backfilling only when the focus carried *no* workflow, which is what
+        # this did first, meant the tool answered with the workflow the person
+        # had open when they last changed tab rather than the one they have open
+        # now. An agent told a workflow the runtime no longer holds active is
+        # the failure this whole mechanism exists to prevent, pointed the other
+        # way. So the newer answer wins, and the focus keeps only what the
+        # runtime cannot know: the mode and its own identifiers.
         return replace(focus, workflow_id=workflow_id)
     return focus
 

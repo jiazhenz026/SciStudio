@@ -249,6 +249,11 @@ def _summary(spec: Any, registry: Any = None, project_dir: Path | None = None) -
         # palette/API can identify interactive blocks and resolve their window.
         execution_mode=getattr(spec, "execution_mode", "auto") or "auto",
         panel_manifest=getattr(spec, "panel_manifest", None),
+        # ADR-054 FR-004 / FR-030. ``PackagedNotebookBlock`` declares
+        # ``notebook_filename`` as a ClassVar; every other block leaves it
+        # empty. Normalising empty to None keeps the frontend's check a plain
+        # truthiness test rather than an empty-string comparison.
+        notebook_filename=(getattr(spec, "notebook_filename", "") or "").strip() or None,
     )
 
 

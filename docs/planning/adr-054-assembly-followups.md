@@ -117,6 +117,74 @@ issues the directive permits:
   on Linux in the serial phase, because the serial phase is what gets skipped.
 - **Suggested title**: `fix(qa): gate_record must not record a timed-out python_tests as satisfied`
 
+#### E2E-1 - A bound DataFrame cannot be previewed: the panel mounts, the provider fails
+
+- **Severity**: P1. This is the one step of ADR-054's own loop that does not
+  complete in a browser.
+- **Found by**: manager, driving the assembly e2e
+  (`docs/ai-developer/e2e/2026-09-05-adr054-explore-assembly.md`).
+- **Evidence**: with `spectrum = scistudio.load("data/raw/spectrum.csv")` run
+  and the strip reporting `spectrum DataFrame`, clicking that entry mounts
+  `core.dataframe.basic` and the panel renders:
+
+  ```
+  Table preview failed
+  provider exception
+  dataframe preview failed: CSV parse error: Expected 1 columns, got 2: <mojibake>
+  ```
+
+  The source file is 66 bytes of ASCII, LF line endings, no BOM - checked by
+  reading its bytes, not by looking at it. So the fault is in the read path,
+  not the fixture, and the mojibake in the message points at an encoding or
+  delimiter-sniffing problem rather than a malformed file.
+- **What this is not**: the panel **contract** worked. It mounted as a framed
+  document from `/api/panels/assets/core.dataframe.basic/index.html` with
+  `sandbox="allow-scripts"` and no `allow-same-origin`, received its target,
+  and rendered its declared error state. Spec 1 is not implicated; the
+  provider behind it is.
+- **Suggested title**: `fix(panels): a DataFrame bound in an explore session fails to preview with a CSV parse error`
+
+#### E2E-2 - The variable strip lists the interpreter's own namespace
+
+- **Severity**: P2 - usability, and it lands on the first thing a scientist
+  sees.
+- **Found by**: manager, in the same run.
+- **Evidence**: after one cell, the strip shows ten entries -
+  `PS1 type`, `REPLHooks type`, `blocks`, `get_last_command function`,
+  `is_wsl bool`, `original_ps1 Text`, `platform module`, `scistudio module`,
+  `spectrum DataFrame`, `sys module`. Nine are the kernel's startup namespace.
+  The person's own variable is ninth in the list.
+- **Reading**: FR-018 says the strip lists every binding the analysis reports,
+  and it faithfully does. The requirement is being met and the result is still
+  wrong for the reader, which is why this is registered rather than fixed -
+  whether the filter belongs in the analysis (spec 2) or in the strip (spec 4)
+  is a design decision, not a bug fix.
+- **Suggested title**: `design(explore): the variable strip shows the kernel's startup namespace beside the person's variables`
+
+#### E2E-3 - The per-cell control row overflows the notebook pane
+
+- **Severity**: P3 - visual.
+- **Found by**: manager, in the same run; visible in the committed screenshots.
+- **Evidence**: at the default right-column width, `Delete` is clipped at the
+  pane's right edge and `Move up` / `Move down` are crowded against it. The
+  notebook pane is the **right column** (FR-005), which is narrower than the
+  centre these controls appear to have been laid out against.
+- **Suggested title**: `fix(explore): the per-cell control row is clipped at the default notebook-pane width`
+
+#### E2E-4 - The bindings endpoint is polled rather than evented
+
+- **Severity**: P3.
+- **Found by**: manager, in the same run.
+- **Evidence**: `GET /api/explore/sessions/<id>/bindings` was requested **12
+  times in 17 seconds**, four of them inside the final 0.7s; the first response
+  took 493ms.
+- **Why it is worth recording**: FR-033 puts session state on the WebSocket and
+  FR-034 forbids the frontend holding runtime truth. Neither is violated by a
+  refresh - the frontend is asking the runtime, which is the correct direction
+  - but a refresh storm on a REST endpoint sits oddly beside an event-driven
+  design, and it will not scale to a notebook with many bindings.
+- **Suggested title**: `perf(explore): the variable strip refetches bindings on a storm rather than on events`
+
 #### M-004 - The frontend's `ActiveContextResponse` does not declare the `focus` the server echoes
 
 - **Severity**: P3 - not a break; the frontend ignores the extra field and

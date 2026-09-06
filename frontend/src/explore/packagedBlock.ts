@@ -7,23 +7,22 @@
  * the same answer, which is why the predicate is here rather than inline in
  * either of them.
  *
- * **A known gap.** `packaging.py` writes `notebook_filename` and
- * `notebook_commit` as `ClassVar`s on the generated block class, but
- * `scistudio.api.schemas.BlockSummary` does not carry either, and
- * `routes/blocks.py::_summary` does not read them — so as the backend stands,
- * nothing the frontend receives says a block was packaged from a notebook.
- * `notebook_filename` is declared optional on the frontend's `BlockSummary`
- * against the backend change that surfaces it; until that lands the predicate
- * answers `false` for every block, the double-click keeps its pre-ADR-054
- * behaviour, and no request is sent speculatively. Recorded as a finding
- * rather than worked around, because guessing at "packaged" from the block's
- * origin tier and a sibling file would be a second, disagreeing definition of
- * what a packaged block is.
+ * **The gap this was written against is now closed.** `packaging.py` declares
+ * `notebook_filename` as a `ClassVar` on the generated block class, and as
+ * first written neither `scistudio.api.schemas.BlockSummary` nor
+ * `routes/blocks.py::_summary` carried it — so nothing the frontend received
+ * said a block had been packaged, this predicate answered `false` for every
+ * block, and FR-030's badge and FR-004's double-click were both dead. The
+ * agent that found it declared the field here optimistically and said so
+ * rather than guessing "packaged" from the origin tier and a sibling file,
+ * which would have been a second, disagreeing definition of a packaged block.
  *
- * TODO(#2253): the packaged-notebook marker is not on the wire.
- *   Out of scope per the ADR-054 assembly dispatch — the backend surface is
- *   spec 3's, and no agent in this dispatch may write `src/scistudio/**`.
- *   Followup: docs/planning/adr-054-assembly-followups.md, `## S4-A1`.
+ * A no-context audit of the assembled branch found it anyway, which is the
+ * point of running one: the frontend agreed with itself, the backend agreed
+ * with itself, and only reading both against each other showed the field had
+ * no writer. The manager landed the backend half — `notebook_filename` on
+ * `BlockSummary`, normalised from the block's ClassVar with empty becoming
+ * `None` — so the truthiness test below is now answered by real data.
  */
 
 import type { BlockSummary, WorkflowNode } from "../types/api";

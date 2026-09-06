@@ -206,6 +206,14 @@ class BlockSummary(BaseModel):
     execution_mode: str = "auto"
     panel_manifest: dict[str, Any] | None = None
 
+    # ADR-054 FR-004 and FR-030: the notebook a packaged block was packaged
+    # from. ``PackagedNotebookBlock`` declares it as a ClassVar and every other
+    # block leaves it empty, so a non-empty value here is what tells the canvas
+    # to draw the notebook badge and the double-click handler to open the
+    # notebook rather than a subworkflow. Sent as ``None`` for an ordinary
+    # block so the frontend's check is a plain truthiness test.
+    notebook_filename: str | None = None
+
 
 class DropinFailureResponse(BaseModel):
     """One drop-in file the block scan refused (ADR-053 FR-015/FR-016)."""

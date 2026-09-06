@@ -59,29 +59,6 @@ export interface PanelSlotRegionProps extends ExploreRegionProps {
   slot: PanelSlot;
 }
 
-function Placeholder({
-  testId,
-  title,
-  owner,
-  children,
-}: {
-  testId: string;
-  title: string;
-  owner: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div
-      className="flex h-full min-h-0 flex-col rounded border border-dashed border-stone-300 bg-white/40 p-3 text-xs text-stone-500"
-      data-testid={testId}
-    >
-      <p className="font-medium text-stone-600">{title}</p>
-      <p className="mt-1 text-[11px] text-stone-400">{owner}</p>
-      {children}
-    </div>
-  );
-}
-
 /**
  * FR-008 to FR-013, FR-017 — the notebook shell.
  *
