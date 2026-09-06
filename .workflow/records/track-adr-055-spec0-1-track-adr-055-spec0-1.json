@@ -1,7 +1,40 @@
 {
   "base_ref": null,
   "branch": "track/adr-055-spec0-1",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-06T07:22:26.859903Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:458068e1e43291c24847c0e88daa23fe23a2c094fce65e160f5e19d912fa9135",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-06T07:22:41.817546Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:123af578d5dfdf21726ba5f4d8058a1a5f98e9d3bed562e07554dfbad48c3c70",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -22,28 +55,248 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
-  "issues": [],
+  "guard_events": [
+    {
+      "at": "2026-09-06T07:22:41.881198Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:22:41.896724Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:22:41.911980Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:22:41.927343Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:22:41.942360Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "issue_link",
+          "git_evidence": null,
+          "id": "issue_link.missing",
+          "line": null,
+          "message": "at least one linked issue is required",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "issue_link.missing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "issue_link",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-06T07:22:41.958189Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:22:41.973950Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:22:42.019557Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:22:42.035029Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:22:42.050862Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:22:42.068351Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:02.613865Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:02.629042Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:02.644166Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:02.658658Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:02.673060Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:02.687284Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:02.701124Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:02.715116Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:02.728802Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:02.742573Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:02.757362Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2272,
+      "url": null
+    }
+  ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "4c663e2c0",
+    "changed_files": [
+      ".workflow/records/track-adr-055-spec0-1-track-adr-055-spec0-1.json",
+      "docs/planning/adr-055-spec0-1-checklist.md"
+    ],
+    "diff_fingerprint": "sha256:d6243de81632dbd2b19bd8ad8ed9af16a47c6c5e54c238bb03849edc8c94bf6d",
+    "head": "HEAD",
+    "head_sha": "fb2904aa4",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Owner directive (chat, 2026-09-06): act as manager; implement ADR-055 Spec 0 (prefix independence, issue #2270) and Spec 1 (WebMCP bridge, issue #2271); deliver 2 PRs with CI green, no deferrals; scistudio-web-demo is a read-only reference (no modifications/commits; local blocking hooks installed). Issues are carried by the two implementer ledgers; this umbrella PR is [DO NOT MERGE] coordination evidence only.",
   "persona": "manager",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-06T07:22:42.068396Z",
+      "diff_fingerprint": "sha256:d6243de81632dbd2b19bd8ad8ed9af16a47c6c5e54c238bb03849edc8c94bf6d",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": [
+        "guard.issue_link",
+        "issue.required"
+      ]
+    },
+    {
+      "at": "2026-09-06T07:25:02.757406Z",
+      "diff_fingerprint": "sha256:d6243de81632dbd2b19bd8ad8ed9af16a47c6c5e54c238bb03849edc8c94bf6d",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "track-adr-055-spec0-1-track-adr-055-spec0-1",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
+    "checks": [
+      "commit_hygiene",
+      "full_audit"
+    ],
     "docs": [],
-    "guards": [],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
     "tests": []
   },
   "runtime": "agents:kimi-k2",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "ac0f9153-015a-4237-8289-9751dd90ae7e",
-  "strictness_tier": null,
+  "strictness_tier": 3,
   "task_kind": "manager",
   "test_events": [
     {
