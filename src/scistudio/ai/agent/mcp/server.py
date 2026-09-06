@@ -34,6 +34,7 @@ import logging
 import os
 import sys
 import tempfile
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -66,7 +67,7 @@ both transports; the filter is opt-in per tool tag.
 """
 
 
-def tool_category_and_mutation(tags: object) -> tuple[str, str]:
+def tool_category_and_mutation(tags: Iterable[str] | None) -> tuple[str, str]:
     """Derive the ``(category, mutation)`` pair from a tool's tag set.
 
     Single derivation point shared by the socket transport's ``tools/list``
@@ -75,7 +76,7 @@ def tool_category_and_mutation(tags: object) -> tuple[str, str]:
     ``write`` tag, else ``"read"``; ``category`` comes from the first
     ``category:*`` tag, else ``"uncategorised"``.
     """
-    tag_set = set(tags or ())  # type: ignore[arg-type]
+    tag_set = set(tags or ())
     category = next(
         (t.split(":", 1)[1] for t in tag_set if t.startswith("category:")),
         "uncategorised",
