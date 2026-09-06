@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -36,6 +37,7 @@ from scistudio.api.routes import (
 from scistudio.api.routes import (
     git as git_routes,
 )
+from scistudio.api.routes import webmcp as webmcp_routes
 from scistudio.api.routes import workflow_watcher as workflow_watcher_module
 from scistudio.api.runtime import ApiRuntime
 from scistudio.api.spa import SPAStaticFiles
@@ -315,6 +317,21 @@ def create_app() -> FastAPI:
             "http://127.0.0.1:5173",
             "http://127.0.0.1:8000",
         ]
+    # ADR-055 Spec 1 (FR-006): the WebMCP bridge session substrate. One
+    # middleware scoped to /api/webmcp/* delegating to a pluggable identity
+    # backend; this spec ships the loopback token backend. The per-launch
+    # token is injected into the served page bootstrap by SPAStaticFiles
+    # below. Added BEFORE the CORS add so it sits inside it: preflight
+    # handling and CORS headers on 401 rejections stay with CORSMiddleware.
+    # The lab deployment's Hub OAuth backend plugs into the same seam without
+    # router changes (adr-055-lab-deployment).
+    webmcp_session_token = secrets.token_urlsafe(32)
+    app.state.webmcp_session_token = webmcp_session_token
+    app.add_middleware(
+        webmcp_routes.WebMCPSessionMiddleware,
+        backend=webmcp_routes.LoopbackTokenBackend(webmcp_session_token),
+        root_path=root_path,
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
@@ -379,6 +396,9 @@ def create_app() -> FastAPI:
     app.include_router(work_import.router)
     # #2157: the shipped user documentation, read in the Learning Center.
     app.include_router(user_docs.router)
+    # ADR-055 Spec 1 (FR-011): the WebMCP bridge — the shared FastMCP tool
+    # catalogue over HTTP for the SPA to register with the host's WebMCP API.
+    app.include_router(webmcp_routes.router, prefix=webmcp_routes.ROUTE_PREFIX)
 
     @app.get("/api/logs/stream")
     async def logs_stream(request: Request) -> object:
@@ -409,7 +429,18 @@ def create_app() -> FastAPI:
     if static_dir is not None:
         # base_path drives the runtime bootstrap injection into index.html
         # (ADR-055 Spec 0 FR-003); hashed asset files stay byte-identical.
-        app.mount("/", SPAStaticFiles(directory=str(static_dir), html=True, base_path=root_path), name="spa")
+        # webmcp_session_token rides the same injection so the served page
+        # can authenticate bridge calls (ADR-055 Spec 1 FR-006).
+        app.mount(
+            "/",
+            SPAStaticFiles(
+                directory=str(static_dir),
+                html=True,
+                base_path=root_path,
+                webmcp_session_token=webmcp_session_token,
+            ),
+            name="spa",
+        )
     else:
 
         @app.get("/", include_in_schema=False)
