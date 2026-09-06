@@ -243,7 +243,7 @@ Append only.
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
 | 2026-09-06 | codex-review | PR #2274: 4 findings (2xP1: prefixed deep-SPA asset resolution, worker callback host vs bind host; 2xP2: /api prefix collision, doubled-separator routing). PR #2275: 3 findings (P1: re-register on project change; P2: audience filter also in local-agent prompt; CodeQL: exception info exposure) | A1/A2 re-dispatched to fix all seven with tests; no deferrals per owner | fixes land on the respective PR branches |
-| 2026-09-06 | manager | (earlier entry) Hook-install command resolved a relative gitdir and briefly wrote blocking hooks into the main repo `.git/hooks`; a local-only test commit landed in the demo clone | Restored main hooks to documented state (pre-push allow shim; no commit hooks per #2150); `reset --hard` the demo clone back to `cf0fe769` (no push, remote disabled); reinstalled blocking hooks with absolute paths and verified they fire | N/A |
+| 2026-09-06 | manager | Hook-install command resolved a relative gitdir and briefly wrote blocking hooks into the main repo `.git/hooks`; a local-only test commit landed in the demo clone | Restored main hooks to documented state (pre-push allow shim; no commit hooks per #2150); `reset --hard` the demo clone back to `cf0fe769` (no push, remote disabled); reinstalled blocking hooks with absolute paths and verified they fire | N/A |
 
 ## 11. Final Readiness
 
