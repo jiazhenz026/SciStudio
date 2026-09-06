@@ -1,0 +1,142 @@
+{
+  "base_ref": null,
+  "branch": "feat/2270-prefix-independence",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/app.py",
+      "src/scistudio/api/spa.py",
+      "src/scistudio/api/routes/workflows.py",
+      "src/scistudio/cli/main.py",
+      "frontend/src/lib/api/base-path.ts",
+      "frontend/src/lib/api/core.ts",
+      "frontend/src/hooks/useWebSocket.ts",
+      "frontend/src/components/AIChat/hooks/usePtyWebSocket.ts",
+      "frontend/src/App.parts/InteractiveModals.parts/panelModuleLoader.ts",
+      "frontend/src/components/DataPreview.parts/dynamicPreviewer.ts",
+      "frontend/src/components/AIChat/SetupScreen.tsx",
+      "frontend/src/components/CodeEditor.parts/useLintMarkers.ts",
+      "frontend/src/components/LearningCenter.parts/ProviderIntro.tsx",
+      "frontend/src/lib/logger.ts",
+      "tests/api/test_root_path.py",
+      "frontend/src/lib/api/base-path.test.ts",
+      ".workflow/records"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-06T07:46:53.195340Z",
+      "owner_directive": "Plan: T-001 backend root_path plumbing + SPA injection + guard middleware (unprefixed requests 404 while a prefix is configured); T-002 base-path.ts + apiFetch/WS/same-origin migration; T-003 raw fetch/EventSource call-site migration incl. sweep amendments; T-004 worker callback URL from configured base + prefix; T-005 CLI serve/gui --host/--root-path + env vars; T-006 regression pass (empty prefix no-op) + FR-009 prefixed response scan.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-06T07:46:53.195368Z",
+      "class": "user-cli-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "no user-facing docs surface documents serve/gui flags (docs/user/reference is generated API reference; docs/cli-integration.md covers MCP install, not serve/gui flags; docs/architecture/ARCHITECTURE.md is owner-controlled). The new --root-path/--host flags are self-documenting via typer --help.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-06T07:46:53.195378Z",
+      "class": "ai-workflow-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs/ai-developer/** is a governance surface and is not affected by prefix plumbing (explicitly out of scope per dispatch).",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-06T07:46:53.195381Z",
+      "class": "spec-adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR-055 and docs/specs/adr-055-prefix-independence.md are inputs to this task (authored under #2263), not deliverables of it; dispatch forbids editing docs/specs and docs/adr.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2270,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-055 Spec 0 (prefix independence) per docs/specs/adr-055-prefix-independence.md: backend root_path plumbing (SCISTUDIO_ROOT_PATH/--root-path), SPA bootstrap injection, frontend base-path.ts single source of truth, WS + same-origin + fetch call-site migration, prefix-aware worker callback URL, CLI serve/gui flags. Default empty prefix is a strict no-op. No deferrals.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2270-feat-2270-prefix-independence",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "agents:kimi-k2",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-06T07:46:38.222020Z",
+      "pattern": "frontend/src/hooks/useSSE.ts",
+      "reason": "FR-004 sweep found additional root-relative call sites beyond the dispatch list: useSSE EventSource, lineage getRunMethods raw fetch, PreviewHost assetUrl/buildPreviewResourceUrl, learningCenter tutorialPageUrl raw fetch, data buildPreviewAssetUrl. Dispatch instructs amend-before-edit for these."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-06T07:46:38.222042Z",
+      "pattern": "frontend/src/lib/api/lineage.ts",
+      "reason": "FR-004 sweep found additional root-relative call sites beyond the dispatch list: useSSE EventSource, lineage getRunMethods raw fetch, PreviewHost assetUrl/buildPreviewResourceUrl, learningCenter tutorialPageUrl raw fetch, data buildPreviewAssetUrl. Dispatch instructs amend-before-edit for these."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-06T07:46:38.222045Z",
+      "pattern": "frontend/src/lib/api/data.ts",
+      "reason": "FR-004 sweep found additional root-relative call sites beyond the dispatch list: useSSE EventSource, lineage getRunMethods raw fetch, PreviewHost assetUrl/buildPreviewResourceUrl, learningCenter tutorialPageUrl raw fetch, data buildPreviewAssetUrl. Dispatch instructs amend-before-edit for these."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-06T07:46:38.222047Z",
+      "pattern": "frontend/src/lib/api/learningCenter.ts",
+      "reason": "FR-004 sweep found additional root-relative call sites beyond the dispatch list: useSSE EventSource, lineage getRunMethods raw fetch, PreviewHost assetUrl/buildPreviewResourceUrl, learningCenter tutorialPageUrl raw fetch, data buildPreviewAssetUrl. Dispatch instructs amend-before-edit for these."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-06T07:46:38.222048Z",
+      "pattern": "frontend/src/components/DataPreview.parts/PreviewHost.tsx",
+      "reason": "FR-004 sweep found additional root-relative call sites beyond the dispatch list: useSSE EventSource, lineage getRunMethods raw fetch, PreviewHost assetUrl/buildPreviewResourceUrl, learningCenter tutorialPageUrl raw fetch, data buildPreviewAssetUrl. Dispatch instructs amend-before-edit for these."
+    }
+  ],
+  "session_id": "b21c971d-13db-406a-95a4-35f737f2522a",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-06T07:46:53.195386Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_root_path.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-06T07:46:53.195390Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/api/base-path.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

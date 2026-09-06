@@ -10,7 +10,8 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from scistudio.api.mcp_lifecycle import stop_project_mcp_server
 from scistudio.api.routes import (
@@ -227,6 +228,55 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             pass
 
 
+def normalize_root_path(raw: str | None) -> str:
+    """Normalize a configured mount prefix (ADR-055 Spec 0, FR-008).
+
+    This is the single backend normalization point for the mount prefix:
+    ``""`` and ``"/"`` both mean "mounted at the root" (the default no-op);
+    anything else becomes ``"/prefix"`` — exactly one leading slash, no
+    trailing slash, no doubled separators — so ``/prefix``, ``/prefix/`` and
+    ``//prefix`` cannot diverge. Call sites MUST NOT concatenate prefixes by
+    hand; they read the normalized value from ``app.state.root_path``.
+    """
+    segments = [segment for segment in (raw or "").strip().split("/") if segment]
+    return f"/{'/'.join(segments)}" if segments else ""
+
+
+class _RootPathGuardMiddleware:
+    """Reject requests arriving OUTSIDE the configured mount prefix.
+
+    ADR-055 Spec 0 edge-case contract: while a prefix is configured, the
+    unprefixed root MUST NOT silently keep serving — the chosen behavior is
+    404 (HTTP) / close-1008 (WebSocket). Serving both forms is forbidden by
+    the spec, and redirecting API or WebSocket callers would hide proxy
+    misconfiguration behind a success-shaped response.
+
+    Pure ASGI (not BaseHTTPMiddleware) so WebSocket scopes are covered and
+    no response-body buffering is added to the hot path. Installed only when
+    the prefix is non-empty, so the default mount carries zero overhead.
+    """
+
+    def __init__(self, app: ASGIApp, root_path: str) -> None:
+        self.app = app
+        self.root_path = root_path
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+        path = scope.get("path", "")
+        if path == self.root_path or path.startswith(f"{self.root_path}/"):
+            await self.app(scope, receive, send)
+            return
+        if scope["type"] == "websocket":
+            # Deny the upgrade before any accept: the prefixed deployment does
+            # not exist at the unprefixed path.
+            await send({"type": "websocket.close", "code": 1008})
+            return
+        response = JSONResponse({"detail": "Not Found"}, status_code=404)
+        await response(scope, receive, send)
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     # #1741: install console + persistent JSON-line file logging. Idempotent, so
@@ -240,7 +290,19 @@ def create_app() -> FastAPI:
     # #1742: the FastAPI app version derives from the single source of truth.
     from scistudio.version import get_version
 
-    app = FastAPI(title="SciStudio API", version=get_version().pep440, lifespan=lifespan)
+    # ADR-055 Spec 0 (FR-001): the configured mount prefix comes from
+    # ``SCISTUDIO_ROOT_PATH`` (the CLI mirrors ``--root-path`` into it) and is
+    # applied as the FastAPI app-level ``root_path`` — the verbatim-proxy
+    # mechanism. uvicorn's own root_path is deliberately unused: modern
+    # uvicorn prepends it onto every incoming path, which assumes a
+    # prefix-stripping proxy and double-prefixes under ADR-055's verbatim
+    # forwarding contract. Empty means "mounted at the root" and is a strict
+    # no-op (FR-002).
+    root_path = normalize_root_path(os.environ.get("SCISTUDIO_ROOT_PATH", ""))
+    app = FastAPI(title="SciStudio API", version=get_version().pep440, lifespan=lifespan, root_path=root_path)
+    # Single source the rest of the backend (SPA injection, worker callback
+    # URL) reads the normalized prefix from. Never re-parse the env var.
+    app.state.root_path = root_path
     cors_origins_raw = os.getenv("SCISTUDIO_CORS_ORIGINS", "").strip()
     if cors_origins_raw == "*":
         origins: list[str] = ["*"]
@@ -267,6 +329,13 @@ def create_app() -> FastAPI:
     from scistudio.api._logging_middleware import RequestLoggingMiddleware
 
     app.add_middleware(RequestLoggingMiddleware)
+
+    # ADR-055 Spec 0: while a prefix is configured, requests outside it get a
+    # hard 404 (see _RootPathGuardMiddleware) instead of silently serving both
+    # forms. Added last so it sits outermost and rejects before any logging
+    # or CORS work happens for out-of-prefix traffic.
+    if root_path:
+        app.add_middleware(_RootPathGuardMiddleware, root_path=root_path)
 
     app.include_router(workflows.router)
     app.include_router(blocks.router)
@@ -338,12 +407,15 @@ def create_app() -> FastAPI:
     # still land on something useful.
     static_dir = _resolve_spa_static_dir()
     if static_dir is not None:
-        app.mount("/", SPAStaticFiles(directory=str(static_dir), html=True), name="spa")
+        # base_path drives the runtime bootstrap injection into index.html
+        # (ADR-055 Spec 0 FR-003); hashed asset files stay byte-identical.
+        app.mount("/", SPAStaticFiles(directory=str(static_dir), html=True, base_path=root_path), name="spa")
     else:
 
         @app.get("/", include_in_schema=False)
         async def root() -> RedirectResponse:
-            return RedirectResponse(url="/docs")
+            # root_path-aware: under a prefix the docs live below it.
+            return RedirectResponse(url=f"{root_path}/docs")
 
     return app
 
