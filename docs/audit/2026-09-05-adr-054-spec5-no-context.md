@@ -568,6 +568,18 @@ equal by `test_the_two_layers_agree_on_the_focus_record`.
 `tests/ai/test_workspace_focus.py` collects 31 tests covering each of US1's five
 acceptance scenarios including the restart.
 
+**The frontend/backend join.** FR-001 is split across two specs — spec 4 owns
+the caller, spec 5 owns the channel — which is the shape that has shipped a
+quiet break in this repository before (#2237). It is guarded:
+`tests/contracts/test_workspace_focus_wire_contract.py` reads
+`frontend/src/lib/api/ai.ts` and `frontend/src/explore/workspaceFocus.ts` as
+text and compares the payload's fields and modes against
+`WorkspaceFocusModel` in `src/scistudio/api/routes/ai.py`, and asserts that
+`focus` stayed optional and `workflow_id` did not disappear. Crude by design,
+and it passes (`4 passed in 0.54s`). This is the right answer to the failure
+class, and it is worth saying so because it is the kind of test nobody is
+required to write.
+
 **FR-024, thinness.** Covered under F-6 above. Clean apart from the guard gap.
 
 **FR-006 to FR-008, skills.** `scistudio-write-panel/SKILL.md` is 99 lines with
