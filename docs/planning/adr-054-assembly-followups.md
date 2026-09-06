@@ -2749,7 +2749,77 @@ passing test in the three files above.
 
 ### S4-E1 / S5-E1 / INT-E1 (audits)
 
-_No entries yet._
+The three no-context auditors wrote **reports**, not register entries — that
+is what their dispatch asked for, so their findings live in full under
+`docs/audit/`. This section indexes them and lifts out what is still open, so
+the register stays the one place to read.
+
+Each ran with no access to any issue, PR, commit message, checklist, dispatch
+prompt, this register, or `.workflow/records/**`. They read the repository and
+formed their own view. Where that view disagreed with the work is where the
+value was, and it disagreed three times in ways nothing else caught.
+
+#### A-1 — `docs/audit/2026-09-05-adr-054-assembly-no-context.md` (INT-E1, the seams)
+
+Verdict **`block`**, on two CI gates and one dead seam. Both gates are now
+fixed; the seam is `S-1` above and is yours to decide.
+
+- **Fixed since**: `I-1` the `ExploreRegions.tsx` lint error, `I-2` the
+  `ruff format` failure on the wire-contract file, and the Prettier failure a
+  later CI run surfaced in the same shape.
+- **Still open**: `S-2` — `PanelSpecModel.descriptor` (`schemas.py:643`) is
+  absent from `PanelSpecSummary` (`api.ts:787`), and the consumer widened the
+  type locally at `PanelSlots.tsx:103` instead of fixing the shared one.
+  `S-5` — ADR-048 Addendum 1's shim-removal condition says "the four alias
+  modules"; the tree has thirteen, so the one clause §9.4 required to be
+  settleable by inspection is unsatisfiable as written. `S-6`, `S-7` — the
+  frontend re-derives `_version_edges` (already diverged on dedup);
+  `mkdocs.yml:32` publishes the retired alias package as the canonical author
+  API with no notice.
+- **Worth reading even though nothing is open**: §1.1 and §1.2. It wrote a
+  differ that imports the Pydantic models and parses the TypeScript as text,
+  and found **0 mismatches across 36 model/interface pairs** on the Explore
+  session wire, and the 15 panel message names agreeing across four
+  independent consumers. On the failure mode this repository has shipped four
+  times, the assembly is clean, and that is a fact worth having on the record.
+
+#### A-2 — `docs/audit/2026-09-05-adr-054-spec4-no-context.md` (S4-E1, the frontend)
+
+Verdict `pass-with-fixes`.
+
+- **Fixed since**: `F-1` the lint error; `F-3` the packaged-notebook marker
+  that had no writer, which had left FR-004 and FR-030 silently dead.
+- **Still open**: `F-2` — `frontend/e2e/specs/adr054-explore.spec.ts` does not
+  exist, though FR-036, SC-014 and T-016 all require it and §4.4 says it exists
+  *because* "the failure this spec can introduce is between" the parts. The
+  manager drove that scenario by hand (see the e2e file) and it found four
+  defects, which rather makes the spec's point. `F-4` — FR-002's "has outputs"
+  is answered from `blockOutputs`, an event log that is not persisted, while
+  the server answers it from the lineage DB: open yesterday's project and every
+  node's explore action is disabled with "has not produced any outputs yet".
+  Plus six more P2s, listed in §Findings of the report.
+
+#### A-3 — `docs/audit/2026-09-05-adr-054-spec5-no-context.md` (S5-E1, the agent surface)
+
+Verdict `pass-with-fixes`.
+
+- **Fixed since**: the context tool reporting a workflow the runtime no longer
+  holds active, and the AGENTS.md skill guard that named five of seven skills.
+- **Still open**: `public-api.md` declares public roots
+  (`scistudio`, `scistudio.explore`, `scistudio.explore.fingerprint`) that
+  `scripts/docs/build_reference.py:CANONICAL_ROOTS` does not cover, so the
+  reference the agent is pointed at dead-ends. The harness is generated from a
+  Python **mirror** of the contract rather than the contract module itself, and
+  the spec text says otherwise. `resolve_session_service` computes a
+  runtime-vs-detached origin that no tool surfaces. FR-024's attribute guard
+  omits `write` and `notebook_path`.
+- **Its cross-spec observation**, which belongs with the focus family above:
+  `resetWorkspaceFocusReporter()` is documented "for tests, **and for a project
+  switch**" and is never called on a project switch. With FR-002 restoration, a
+  project switch whose derived focus key is unchanged lets a restored `explore`
+  focus be reported while the person is on the canvas — and nothing reads as
+  stale, because the notebook exists. It is the only path found by which the
+  agent is told a mode the person is not in *without* a stale focus.
 
 ### fix-codeql
 
