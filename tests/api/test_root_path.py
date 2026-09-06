@@ -310,7 +310,10 @@ def _fake_uvicorn_run(calls: dict[str, Any]):
 
 class TestServeRootPath:
     def test_serve_help_documents_host_and_root_path(self) -> None:
-        result = runner.invoke(cli_app, ["serve", "--help"])
+        # Pin a wide terminal: Rich wraps/truncates option names (e.g.
+        # "--ho…") when the CI runner's console is narrow, which made a bare
+        # "--host" substring assertion width-dependent (#2274 CI failure).
+        result = runner.invoke(cli_app, ["serve", "--help"], env={"COLUMNS": "200"})
         assert result.exit_code == 0
         assert "--host" in result.output
         assert "--root-path" in result.output
@@ -362,7 +365,9 @@ class TestServeRootPath:
 
 class TestGuiRootPath:
     def test_gui_help_documents_host_and_root_path(self) -> None:
-        result = runner.invoke(cli_app, ["gui", "--help"])
+        # See the serve help test: pin COLUMNS so Rich never truncates the
+        # option column at the CI runner's console width.
+        result = runner.invoke(cli_app, ["gui", "--help"], env={"COLUMNS": "200"})
         assert result.exit_code == 0
         assert "--host" in result.output
         assert "--root-path" in result.output
